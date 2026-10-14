@@ -31,7 +31,7 @@ var knownBrands = map[string]BrandDefault{
 	`VOLVO-TR`:          {"Volvo", CategoryPassenger},
 	`OTOYOL\IVECO\FIAT`: {"Iveco", CategoryLightCommercial},
 	`MERCEDES`:          {"Mercedes-Benz", CategoryPassenger},
-	`KGMOBILITY`:        {"KG Mobility", CategoryPassenger},
+	`KGMOBILITY`:        {"KG Mobility (SsangYong)", CategoryPassenger},
 	`LYNK-CO`:           {"Lynk & Co", CategoryPassenger},
 	`TRUMPCHI/GAC`:      {"GAC", CategoryPassenger},
 	`OTOKAR/MAGIRUS`:    {"Otokar", CategoryOther},
@@ -119,7 +119,7 @@ var knownBrands = map[string]BrandDefault{
 	`EMT`:            {"EMT", CategoryOther},
 	`ULTRAND`:        {"Ultrand", CategoryOther},
 	`HISCAR`:         {"Hiscar", CategoryOther},
-	`SSANGYONG`:      {"SsangYong", CategoryPassenger},
+	`SSANGYONG`:      {"KG Mobility (SsangYong)", CategoryPassenger},
 }
 
 // DefaultsForBrand returns the display name and category for a TSB brand.
