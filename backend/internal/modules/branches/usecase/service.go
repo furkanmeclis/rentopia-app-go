@@ -525,7 +525,7 @@ func validateHolidays(ve *ValidationError, in []model.HolidayException) []model.
 	seen := map[string]bool{}
 	out := make([]model.HolidayException, 0, len(in))
 	for i, h := range in {
-		prefix := "holiday_exceptions[" + strconv.Itoa(i) + "]"
+		prefix := "holiday_exceptions." + strconv.Itoa(i)
 		h.Date = strings.TrimSpace(h.Date)
 		if _, err := time.Parse("2006-01-02", h.Date); err != nil {
 			ve.add(prefix+".date", "invalid", "date must be yyyy-MM-dd")

@@ -55,7 +55,7 @@ func (f *fakeRepo) ListBranches(_ context.Context, orgID int64, filter model.Lis
 		if filter.Q != "" && !strings.Contains(strings.ToLower(b.Name+b.Code), strings.ToLower(filter.Q)) {
 			continue
 		}
-		if filter.City != "" && b.City != filter.City {
+		if len(filter.Cities) > 0 && !containsString(filter.Cities, b.City) {
 			continue
 		}
 		if filter.IsActive != nil && b.IsActive != *filter.IsActive {
@@ -390,7 +390,7 @@ func TestValidation(t *testing.T) {
 	}
 	for _, want := range []string{
 		"code", "name", "email", "latitude", "working_hours.mon.close", "working_hours.tue.open",
-		"holiday_exceptions[0].date", "holiday_exceptions[2].date",
+		"holiday_exceptions.0.date", "holiday_exceptions.2.date",
 	} {
 		if !fields[want] {
 			t.Errorf("missing validation detail for %s (got %v)", want, fields)
@@ -452,4 +452,13 @@ func TestFormatMoney(t *testing.T) {
 			t.Errorf("FormatMoney(%s) = %s, want %s", in, got, want)
 		}
 	}
+}
+
+func containsString(list []string, v string) bool {
+	for _, item := range list {
+		if item == v {
+			return true
+		}
+	}
+	return false
 }

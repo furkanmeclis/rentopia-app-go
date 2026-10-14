@@ -2436,7 +2436,21 @@ export interface components {
             prep_minutes?: number;
             is_active?: boolean;
         };
-        BranchCreateRequest: components["schemas"]["BranchPatchRequest"] & Record<string, never>;
+        BranchCreateRequest: {
+            code: string;
+            name: string;
+            address?: string;
+            city?: string;
+            district?: string;
+            latitude?: number | null;
+            longitude?: number | null;
+            phone?: string;
+            email?: string;
+            working_hours?: components["schemas"]["WeeklyHours"];
+            holiday_exceptions?: components["schemas"]["HolidayException"][];
+            prep_minutes?: number;
+            is_active?: boolean;
+        };
         BranchPage: {
             items: components["schemas"]["Branch"][];
             /** Format: int64 */
@@ -2487,7 +2501,17 @@ export interface components {
             online_selectable?: boolean;
             is_active?: boolean;
         };
-        ServicePointCreateRequest: components["schemas"]["ServicePointPatchRequest"] & Record<string, never>;
+        ServicePointCreateRequest: {
+            /** @enum {string} */
+            type: "office" | "airport" | "address_zone" | "hotel";
+            name: string;
+            description?: string;
+            /** @description Non-negative amount, at most 2 decimals (number or decimal string) */
+            extra_fee?: number | string;
+            working_hours?: components["schemas"]["WeeklyHours"] | null;
+            online_selectable?: boolean;
+            is_active?: boolean;
+        };
         ServicePointList: {
             items: components["schemas"]["ServicePoint"][];
         };
@@ -7226,7 +7250,7 @@ export interface operations {
                 /** @description One of `code`, `name`, `city`, `prep_minutes`, `is_active`, `created_at`, `updated_at`; prefix `-` for descending. Default `-created_at`. */
                 sort?: string;
                 is_active?: boolean;
-                /** @description Exact city (see `/v1/tenant/branches/facets`) */
+                /** @description Exact city; comma-separate or repeat for several (see `/v1/tenant/branches/facets`) */
                 city?: string;
             };
             header: {

@@ -42,12 +42,24 @@ func organizationID(ctx context.Context) (int64, error) {
 }
 
 // FilterFromQuery maps list query params (q, city, is_active) to a filter.
+// city may list several comma-separated cities.
 func FilterFromQuery(query map[string]string) model.ListFilter {
-	f := model.ListFilter{Q: strings.TrimSpace(query["q"]), City: strings.TrimSpace(query["city"])}
+	f := model.ListFilter{Q: strings.TrimSpace(query["q"]), Cities: SplitCities(query["city"])}
 	if v, err := strconv.ParseBool(strings.TrimSpace(query["is_active"])); err == nil {
 		f.IsActive = &v
 	}
 	return f
+}
+
+// SplitCities parses a comma-separated city filter.
+func SplitCities(raw string) []string {
+	out := []string{}
+	for _, part := range strings.Split(raw, ",") {
+		if v := strings.TrimSpace(part); v != "" {
+			out = append(out, v)
+		}
+	}
+	return out
 }
 
 // ---------------------------------------------------------------- io engine

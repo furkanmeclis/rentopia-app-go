@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/branches/adapters"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/branches/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/branches/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/activity"
@@ -63,8 +64,11 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	f := model.ListFilter{
-		Limit: q.Limit, Offset: q.Offset, Q: q.Q, City: strings.TrimSpace(values.Get("city")),
-		SortField: "created_at", SortDesc: true,
+		Limit: q.Limit, Offset: q.Offset, Q: q.Q, SortField: "created_at", SortDesc: true,
+	}
+	// city repeats or lists comma-separated values (faceted filter).
+	for _, raw := range values["city"] {
+		f.Cities = append(f.Cities, adapters.SplitCities(raw)...)
 	}
 	if raw := strings.TrimSpace(values.Get("is_active")); raw != "" {
 		v, err := strconv.ParseBool(raw)

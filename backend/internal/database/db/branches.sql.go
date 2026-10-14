@@ -41,7 +41,7 @@ FROM branches b
 WHERE b.organization_id = $1
   AND b.deleted_at IS NULL
   AND ($2::boolean IS NULL OR b.is_active = $2)
-  AND ($3::text IS NULL OR b.city = $3)
+  AND ($3::text[] IS NULL OR b.city = ANY($3::text[]))
   AND (
     $4::text IS NULL
     OR b.code ILIKE '%' || $4 || '%'
@@ -56,7 +56,7 @@ WHERE b.organization_id = $1
 type CountBranchesParams struct {
 	OrganizationID int64       `json:"organization_id"`
 	IsActive       pgtype.Bool `json:"is_active"`
-	City           pgtype.Text `json:"city"`
+	Cities         []string    `json:"cities"`
 	Q              pgtype.Text `json:"q"`
 }
 
@@ -64,7 +64,7 @@ func (q *Queries) CountBranches(ctx context.Context, arg CountBranchesParams) (i
 	row := q.db.QueryRow(ctx, countBranches,
 		arg.OrganizationID,
 		arg.IsActive,
-		arg.City,
+		arg.Cities,
 		arg.Q,
 	)
 	var column_1 int64
@@ -466,7 +466,7 @@ FROM branches b
 WHERE b.organization_id = $1
   AND b.deleted_at IS NULL
   AND ($2::boolean IS NULL OR b.is_active = $2)
-  AND ($3::text IS NULL OR b.city = $3)
+  AND ($3::text[] IS NULL OR b.city = ANY($3::text[]))
   AND (
     $4::text IS NULL
     OR b.code ILIKE '%' || $4 || '%'
@@ -483,7 +483,7 @@ LIMIT $5
 type ListBranchUUIDsParams struct {
 	OrganizationID int64       `json:"organization_id"`
 	IsActive       pgtype.Bool `json:"is_active"`
-	City           pgtype.Text `json:"city"`
+	Cities         []string    `json:"cities"`
 	Q              pgtype.Text `json:"q"`
 	LimitCount     int32       `json:"limit_count"`
 }
@@ -492,7 +492,7 @@ func (q *Queries) ListBranchUUIDs(ctx context.Context, arg ListBranchUUIDsParams
 	rows, err := q.db.Query(ctx, listBranchUUIDs,
 		arg.OrganizationID,
 		arg.IsActive,
-		arg.City,
+		arg.Cities,
 		arg.Q,
 		arg.LimitCount,
 	)
@@ -525,7 +525,7 @@ FROM branches b
 WHERE b.organization_id = $1
   AND b.deleted_at IS NULL
   AND ($2::boolean IS NULL OR b.is_active = $2)
-  AND ($3::text IS NULL OR b.city = $3)
+  AND ($3::text[] IS NULL OR b.city = ANY($3::text[]))
   AND (
     $4::text IS NULL
     OR b.code ILIKE '%' || $4 || '%'
@@ -557,7 +557,7 @@ LIMIT $8 OFFSET $7
 type ListBranchesParams struct {
 	OrganizationID int64       `json:"organization_id"`
 	IsActive       pgtype.Bool `json:"is_active"`
-	City           pgtype.Text `json:"city"`
+	Cities         []string    `json:"cities"`
 	Q              pgtype.Text `json:"q"`
 	SortField      string      `json:"sort_field"`
 	SortDesc       bool        `json:"sort_desc"`
@@ -592,7 +592,7 @@ func (q *Queries) ListBranches(ctx context.Context, arg ListBranchesParams) ([]L
 	rows, err := q.db.Query(ctx, listBranches,
 		arg.OrganizationID,
 		arg.IsActive,
-		arg.City,
+		arg.Cities,
 		arg.Q,
 		arg.SortField,
 		arg.SortDesc,
@@ -644,7 +644,7 @@ FROM branches b
 WHERE b.organization_id = $1
   AND b.deleted_at IS NULL
   AND ($2::boolean IS NULL OR b.is_active = $2)
-  AND ($3::text IS NULL OR b.city = $3)
+  AND ($3::text[] IS NULL OR b.city = ANY($3::text[]))
   AND (
     $4::text IS NULL
     OR b.code ILIKE '%' || $4 || '%'
@@ -660,7 +660,7 @@ ORDER BY b.code ASC, b.id ASC
 type ListBranchesForExportParams struct {
 	OrganizationID int64       `json:"organization_id"`
 	IsActive       pgtype.Bool `json:"is_active"`
-	City           pgtype.Text `json:"city"`
+	Cities         []string    `json:"cities"`
 	Q              pgtype.Text `json:"q"`
 }
 
@@ -668,7 +668,7 @@ func (q *Queries) ListBranchesForExport(ctx context.Context, arg ListBranchesFor
 	rows, err := q.db.Query(ctx, listBranchesForExport,
 		arg.OrganizationID,
 		arg.IsActive,
-		arg.City,
+		arg.Cities,
 		arg.Q,
 	)
 	if err != nil {

@@ -73,14 +73,14 @@ func (r *Postgres) WithQueries(q *db.Queries) *Postgres {
 
 func (r *Postgres) ListBranches(ctx context.Context, orgID int64, f model.ListFilter) ([]BranchRow, int64, error) {
 	rows, err := r.q.ListBranches(ctx, db.ListBranchesParams{
-		OrganizationID: orgID, IsActive: boolArg(f.IsActive), City: textArg(f.City), Q: textArg(f.Q),
+		OrganizationID: orgID, IsActive: boolArg(f.IsActive), Cities: citiesArg(f.Cities), Q: textArg(f.Q),
 		SortField: f.SortField, SortDesc: f.SortDesc, LimitCount: f.Limit, OffsetCount: f.Offset,
 	})
 	if err != nil {
 		return nil, 0, err
 	}
 	total, err := r.q.CountBranches(ctx, db.CountBranchesParams{
-		OrganizationID: orgID, IsActive: boolArg(f.IsActive), City: textArg(f.City), Q: textArg(f.Q),
+		OrganizationID: orgID, IsActive: boolArg(f.IsActive), Cities: citiesArg(f.Cities), Q: textArg(f.Q),
 	})
 	if err != nil {
 		return nil, 0, err
@@ -115,14 +115,14 @@ func (r *Postgres) CityFacets(ctx context.Context, orgID int64) ([]model.Facet, 
 
 func (r *Postgres) ListBranchUUIDs(ctx context.Context, orgID int64, f model.ListFilter, limit int32) ([]uuid.UUID, error) {
 	return r.q.ListBranchUUIDs(ctx, db.ListBranchUUIDsParams{
-		OrganizationID: orgID, IsActive: boolArg(f.IsActive), City: textArg(f.City), Q: textArg(f.Q),
+		OrganizationID: orgID, IsActive: boolArg(f.IsActive), Cities: citiesArg(f.Cities), Q: textArg(f.Q),
 		LimitCount: limit,
 	})
 }
 
 func (r *Postgres) ListBranchesForExport(ctx context.Context, orgID int64, f model.ListFilter) ([]db.Branch, error) {
 	return r.q.ListBranchesForExport(ctx, db.ListBranchesForExportParams{
-		OrganizationID: orgID, IsActive: boolArg(f.IsActive), City: textArg(f.City), Q: textArg(f.Q),
+		OrganizationID: orgID, IsActive: boolArg(f.IsActive), Cities: citiesArg(f.Cities), Q: textArg(f.Q),
 	})
 }
 
@@ -272,4 +272,11 @@ func feeOrZero(n pgtype.Numeric) pgtype.Numeric {
 	var zero pgtype.Numeric
 	_ = zero.Scan("0")
 	return zero
+}
+
+func citiesArg(v []string) []string {
+	if len(v) == 0 {
+		return nil
+	}
+	return v
 }

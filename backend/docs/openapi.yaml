@@ -3200,7 +3200,7 @@ paths:
           schema: { type: boolean }
         - name: city
           in: query
-          description: Exact city (see `/v1/tenant/branches/facets`)
+          description: "Exact city; comma-separate or repeat for several (see `/v1/tenant/branches/facets`)"
           schema: { type: string }
       responses:
         "200":
@@ -4021,7 +4021,7 @@ components:
     BranchPatchRequest:
       type: object
       additionalProperties: false
-      properties:
+      properties: &branchWriteProperties
         code: { type: string, maxLength: 32, pattern: "^[A-Za-z0-9][A-Za-z0-9_-]*$" }
         name: { type: string, maxLength: 255 }
         address: { type: string, maxLength: 1000 }
@@ -4040,10 +4040,10 @@ components:
         is_active: { type: boolean }
 
     BranchCreateRequest:
-      allOf:
-        - $ref: "#/components/schemas/BranchPatchRequest"
-        - type: object
-          required: [code, name]
+      type: object
+      additionalProperties: false
+      required: [code, name]
+      properties: *branchWriteProperties
 
     BranchPage:
       type: object
@@ -4094,7 +4094,7 @@ components:
     ServicePointPatchRequest:
       type: object
       additionalProperties: false
-      properties:
+      properties: &servicePointWriteProperties
         type: { type: string, enum: [office, airport, address_zone, hotel] }
         name: { type: string, maxLength: 255 }
         description: { type: string, maxLength: 2000 }
@@ -4113,10 +4113,10 @@ components:
         is_active: { type: boolean }
 
     ServicePointCreateRequest:
-      allOf:
-        - $ref: "#/components/schemas/ServicePointPatchRequest"
-        - type: object
-          required: [type, name]
+      type: object
+      additionalProperties: false
+      required: [type, name]
+      properties: *servicePointWriteProperties
 
     ServicePointList:
       type: object

@@ -45,7 +45,7 @@ FROM branches b
 WHERE b.organization_id = sqlc.arg(organization_id)
   AND b.deleted_at IS NULL
   AND (sqlc.narg(is_active)::boolean IS NULL OR b.is_active = sqlc.narg(is_active))
-  AND (sqlc.narg(city)::text IS NULL OR b.city = sqlc.narg(city))
+  AND (sqlc.narg(cities)::text[] IS NULL OR b.city = ANY(sqlc.narg(cities)::text[]))
   AND (
     sqlc.narg(q)::text IS NULL
     OR b.code ILIKE '%' || sqlc.narg(q) || '%'
@@ -79,7 +79,7 @@ FROM branches b
 WHERE b.organization_id = sqlc.arg(organization_id)
   AND b.deleted_at IS NULL
   AND (sqlc.narg(is_active)::boolean IS NULL OR b.is_active = sqlc.narg(is_active))
-  AND (sqlc.narg(city)::text IS NULL OR b.city = sqlc.narg(city))
+  AND (sqlc.narg(cities)::text[] IS NULL OR b.city = ANY(sqlc.narg(cities)::text[]))
   AND (
     sqlc.narg(q)::text IS NULL
     OR b.code ILIKE '%' || sqlc.narg(q) || '%'
@@ -105,7 +105,7 @@ FROM branches b
 WHERE b.organization_id = sqlc.arg(organization_id)
   AND b.deleted_at IS NULL
   AND (sqlc.narg(is_active)::boolean IS NULL OR b.is_active = sqlc.narg(is_active))
-  AND (sqlc.narg(city)::text IS NULL OR b.city = sqlc.narg(city))
+  AND (sqlc.narg(cities)::text[] IS NULL OR b.city = ANY(sqlc.narg(cities)::text[]))
   AND (
     sqlc.narg(q)::text IS NULL
     OR b.code ILIKE '%' || sqlc.narg(q) || '%'
@@ -124,7 +124,7 @@ FROM branches b
 WHERE b.organization_id = sqlc.arg(organization_id)
   AND b.deleted_at IS NULL
   AND (sqlc.narg(is_active)::boolean IS NULL OR b.is_active = sqlc.narg(is_active))
-  AND (sqlc.narg(city)::text IS NULL OR b.city = sqlc.narg(city))
+  AND (sqlc.narg(cities)::text[] IS NULL OR b.city = ANY(sqlc.narg(cities)::text[]))
   AND (
     sqlc.narg(q)::text IS NULL
     OR b.code ILIKE '%' || sqlc.narg(q) || '%'

@@ -186,10 +186,11 @@ type ServicePointInput struct {
 
 // ListFilter selects branches of one organization.
 type ListFilter struct {
-	Limit     int32
-	Offset    int32
-	Q         string
-	City      string
+	Limit  int32
+	Offset int32
+	Q      string
+	// Cities matches any of the given cities (exact match).
+	Cities    []string
 	IsActive  *bool
 	SortField string
 	SortDesc  bool
