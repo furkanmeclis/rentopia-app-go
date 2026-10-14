@@ -62,5 +62,13 @@
   "actions.catalog.model_created": "Katalog modeli oluşturuldu",
   "actions.catalog.model_updated": "Katalog modeli güncellendi",
   "actions.catalog.model_merged": "Katalog modelleri birleştirildi",
-  "actions.catalog.type_updated": "Katalog tipi güncellendi"
+  "actions.catalog.type_updated": "Katalog tipi güncellendi",
+  "resources.tenant.members": "Firma üyeleri",
+  "resources.tenant.roles": "Firma rolleri",
+  "resources.tenant.settings": "Firma ayarları",
+  "actions.members.updated": "Üye erişimi güncellendi",
+  "actions.members.removed": "Üye firmadan çıkarıldı",
+  "actions.roles.created": "Rol oluşturuldu",
+  "actions.roles.updated": "Rol güncellendi",
+  "actions.roles.deleted": "Rol silindi"
 }

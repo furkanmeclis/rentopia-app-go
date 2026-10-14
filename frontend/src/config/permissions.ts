@@ -61,6 +61,14 @@ export const Permission = {
   TenantBranchesImport: "tenant.branches.import",
   TenantBranchesBulkActivate: "tenant.branches.bulk.activate",
   TenantBranchesBulkDeactivate: "tenant.branches.bulk.deactivate",
+  TenantPriceOverride: "tenant.price.override",
+  TenantDiscountApply: "tenant.discount.apply",
+  TenantPaymentCollect: "tenant.payment.collect",
+  TenantPaymentRefund: "tenant.payment.refund",
+  TenantDamageApprove: "tenant.damage.approve",
+  TenantSignatureWaive: "tenant.signature.waive",
+  TenantDocumentDownload: "tenant.document.download",
+  TenantReportExport: "tenant.report.export",
 } as const;
 
 export type PermissionSlug = (typeof Permission)[keyof typeof Permission];
@@ -180,6 +188,28 @@ export const permissions = {
       import: Permission.TenantBranchesImport,
       bulkActivate: Permission.TenantBranchesBulkActivate,
       bulkDeactivate: Permission.TenantBranchesBulkDeactivate,
+    },
+    price: {
+      override: Permission.TenantPriceOverride,
+    },
+    discount: {
+      apply: Permission.TenantDiscountApply,
+    },
+    payment: {
+      collect: Permission.TenantPaymentCollect,
+      refund: Permission.TenantPaymentRefund,
+    },
+    damage: {
+      approve: Permission.TenantDamageApprove,
+    },
+    signature: {
+      waive: Permission.TenantSignatureWaive,
+    },
+    document: {
+      download: Permission.TenantDocumentDownload,
+    },
+    report: {
+      export: Permission.TenantReportExport,
     },
   },
 } as const;

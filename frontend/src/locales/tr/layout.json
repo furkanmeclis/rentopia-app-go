@@ -35,5 +35,9 @@
   "nav_item_info": "Detaylar",
   "section_operations": "Operasyon",
   "nav_branches": "Şubeler",
-  "nav_catalog": "Araç kataloğu"
+  "nav_catalog": "Araç kataloğu",
+  "section_tenant_settings": "Ayarlar",
+  "nav_tenant_settings_general": "Genel",
+  "nav_tenant_settings_members": "Üyeler",
+  "nav_tenant_settings_roles": "Roller"
 }

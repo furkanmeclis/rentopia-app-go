@@ -30,6 +30,9 @@ import enStepup from "@/locales/en/stepup.json";
 import enStorage from "@/locales/en/storage.json";
 import enTable from "@/locales/en/table.json";
 import enTenant from "@/locales/en/tenant.json";
+import enTenantMembers from "@/locales/en/tenant_members.json";
+import enTenantRoles from "@/locales/en/tenant_roles.json";
+import enTenantSettings from "@/locales/en/tenant_settings.json";
 import enUsers from "@/locales/en/users.json";
 import trAccess from "@/locales/tr/access.json";
 import trActivity from "@/locales/tr/activity.json";
@@ -61,6 +64,9 @@ import trStepup from "@/locales/tr/stepup.json";
 import trStorage from "@/locales/tr/storage.json";
 import trTable from "@/locales/tr/table.json";
 import trTenant from "@/locales/tr/tenant.json";
+import trTenantMembers from "@/locales/tr/tenant_members.json";
+import trTenantRoles from "@/locales/tr/tenant_roles.json";
+import trTenantSettings from "@/locales/tr/tenant_settings.json";
 import trUsers from "@/locales/tr/users.json";
 
 export type MessageDictionary = Record<string, string>;
@@ -98,6 +104,9 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     organizations: trOrganizations,
     tenant: trTenant,
     branches: trBranches,
+    tenant_members: trTenantMembers,
+    tenant_roles: trTenantRoles,
+    tenant_settings: trTenantSettings,
   },
   en: {
     common: enCommon,
@@ -131,6 +140,9 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     organizations: enOrganizations,
     tenant: enTenant,
     branches: enBranches,
+    tenant_members: enTenantMembers,
+    tenant_roles: enTenantRoles,
+    tenant_settings: enTenantSettings,
   },
 };
 export function loadMessages(locale: AppLocale) {

@@ -62,5 +62,13 @@
   "actions.catalog.model_created": "Catalog model created",
   "actions.catalog.model_updated": "Catalog model updated",
   "actions.catalog.model_merged": "Catalog models merged",
-  "actions.catalog.type_updated": "Catalog type updated"
+  "actions.catalog.type_updated": "Catalog type updated",
+  "resources.tenant.members": "Organization members",
+  "resources.tenant.roles": "Organization roles",
+  "resources.tenant.settings": "Organization settings",
+  "actions.members.updated": "Member access updated",
+  "actions.members.removed": "Member removed from the organization",
+  "actions.roles.created": "Role created",
+  "actions.roles.updated": "Role updated",
+  "actions.roles.deleted": "Role deleted"
 }
