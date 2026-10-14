@@ -26,6 +26,7 @@ import {
 import {
   CATALOG_CATEGORIES,
   firstFilterValue,
+  CATALOG_LIVE,
 } from "@/features/catalog/constants";
 import {
   useCatalogBrands,
@@ -45,6 +46,7 @@ export function CatalogBrandsPage() {
   const listState = useServerListState({
     initialSort: "display_name",
     initialPageSize: 50,
+    realtime: { resource: CATALOG_LIVE.brands },
   });
 
   const params = useMemo<ListBrandsParams>(
@@ -220,6 +222,7 @@ export function CatalogBrandsPage() {
         isLoading={listQuery.isLoading}
         isError={listQuery.isError}
         onRetry={() => void listQuery.refetch()}
+        realtime={listState.realtimeFor(listQuery.refetch)}
         emptyTitle={t("catalog.brands.empty_title")}
         emptyDescription={t("catalog.empty_description")}
         pageCount={pageCount}

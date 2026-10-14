@@ -15,6 +15,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/repository"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/activity"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/resourceevents"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/storage"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/tsbcatalog"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/queue"
@@ -53,6 +54,7 @@ type Service struct {
 	queue    Enqueuer
 	activity *activity.Recorder
 	log      *slog.Logger
+	events   resourceevents.Publisher
 }
 
 // New builds the service. A nil queue runs import jobs inline.
@@ -184,6 +186,7 @@ func (s *Service) PatchBrand(ctx context.Context, id uuid.UUID, in model.PatchBr
 	}); err != nil {
 		return model.Brand{}, mapErr(repository.MapErr(err))
 	}
+	s.publish(ctx, LiveBrands, resourceevents.ActionUpdated, id)
 	return s.GetBrand(ctx, id)
 }
 
@@ -275,6 +278,7 @@ func (s *Service) CreateModel(ctx context.Context, brandUUID uuid.UUID, name str
 	if err != nil {
 		return model.Model{}, mapErr(repository.MapErr(err))
 	}
+	s.publish(ctx, LiveModels, resourceevents.ActionCreated, m.Uuid)
 	return s.GetModel(ctx, m.Uuid)
 }
 
@@ -297,6 +301,7 @@ func (s *Service) PatchModel(ctx context.Context, id uuid.UUID, in model.PatchMo
 	if _, err := s.q.UpdateCatalogModel(ctx, params); err != nil {
 		return model.Model{}, mapErr(repository.MapErr(err))
 	}
+	s.publish(ctx, LiveModels, resourceevents.ActionUpdated, id)
 	return s.GetModel(ctx, id)
 }
 
@@ -332,6 +337,10 @@ func (s *Service) MergeModel(ctx context.Context, src, dst uuid.UUID) (model.Mod
 	if err != nil {
 		return model.Model{}, mapErr(repository.MapErr(err))
 	}
+	s.publish(ctx, LiveModels, resourceevents.ActionDeleted, src)
+	s.publish(ctx, LiveModels, resourceevents.ActionUpdated, dst)
+	// The types of src now point at dst.
+	s.publish(ctx, LiveTypes, resourceevents.ActionBulk)
 	return s.GetModel(ctx, dst)
 }
 
@@ -516,6 +525,12 @@ func (s *Service) PatchType(ctx context.Context, id uuid.UUID, in model.PatchTyp
 	})
 	if err != nil {
 		return model.TypeDetail{}, mapErr(repository.MapErr(err))
+	}
+	if in.SaveRule {
+		// The rule may have reassigned other types of the brand too.
+		s.publish(ctx, LiveTypes, resourceevents.ActionBulk)
+	} else {
+		s.publish(ctx, LiveTypes, resourceevents.ActionUpdated, id)
 	}
 	return s.GetType(ctx, id)
 }

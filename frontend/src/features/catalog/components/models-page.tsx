@@ -30,6 +30,7 @@ import {
 import {
   CATALOG_MODEL_SOURCES,
   firstFilterValue,
+  CATALOG_LIVE,
 } from "@/features/catalog/constants";
 import {
   useCatalogBrandOptions,
@@ -55,6 +56,7 @@ export function CatalogModelsPage({ initialBrand }: { initialBrand?: string }) {
     initialColumnFilters: initialBrand
       ? [{ id: "brand", value: [initialBrand] }]
       : undefined,
+    realtime: { resource: CATALOG_LIVE.models },
   });
   const brands = useCatalogBrandOptions();
   useCatalogMeta("models");
@@ -209,6 +211,7 @@ export function CatalogModelsPage({ initialBrand }: { initialBrand?: string }) {
         isLoading={listQuery.isLoading}
         isError={listQuery.isError}
         onRetry={() => void listQuery.refetch()}
+        realtime={listState.realtimeFor(listQuery.refetch)}
         emptyTitle={t("catalog.models.empty_title")}
         emptyDescription={t("catalog.empty_description")}
         pageCount={pageCount}

@@ -22,6 +22,7 @@ import (
 	notifmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications/providers"
 	notifusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications/usecase"
+	tenantmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tenant"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/observability"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/activity"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/bulkengine"
@@ -150,6 +151,9 @@ func main() {
 	// Bulk / import jobs finish here: tell open lists what changed.
 	resourceEvents := resourceevents.New(publisher, log)
 	defer resourceEvents.Wait()
+	// Tenant jobs carry only the organization id: scope their events.
+	resourceEvents.AddResolver(tenantmodule.ChannelResolver(tenantmodule.QueriesLookup(queries)))
+	catalogSvc.SetResourceEvents(resourceEvents)
 	importSvc.SetResourceEvents(resourceEvents)
 	bulkSvc.SetResourceEvents(resourceEvents)
 

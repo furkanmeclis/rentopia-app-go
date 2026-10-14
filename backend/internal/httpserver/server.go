@@ -289,6 +289,14 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	}
 	tenantmodule.RegisterRoutes(mux, tokens, loader, tenantResolver)
 
+	// Live lists of tenant resources: org:{org_uuid}:resource:{name}, open to
+	// members whose tenant role grants the resource's read permission.
+	tenantLive := resourceevents.NewRegistry()
+	branchesmodule.RegisterLiveResources(tenantLive)
+	resourceEvents.AddResolver(tenantmodule.ChannelResolver(tenantmodule.QueriesLookup(deps.Queries)))
+	uc.AddChannelRules(tenantmodule.ChannelRule(tenantLive, tenantResolver))
+	catalogmodule.RegisterLiveResources(liveResources)
+
 	// Vehicle catalog (TSB kasko list): platform curation + imports, and
 	// read-only lookups for organization members when tenancy is on.
 	var catalogQueue catalogusecase.Enqueuer
@@ -296,6 +304,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		catalogQueue = deps.Queue
 	}
 	catalogSvc := catalogusecase.New(catalogrepository.NewPostgres(deps.DB, deps.Queries), deps.Storage, catalogQueue, activityRec, log)
+	catalogSvc.SetResourceEvents(resourceEvents)
 	catalogmodule.RegisterRoutes(mux, cataloghandler.New(catalogSvc, activityRec), tokens, loader, tenantResolver)
 	realtime.RegisterRoutes(mux, realtime.NewHandler(rtIssuer, uc), tokens, loader)
 
@@ -360,7 +369,9 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	exportmodule.RegisterTenantRoutes(mux, exportH, tokens, loader, tenantResolver)
 	importmodule.RegisterTenantRoutes(mux, importH, tokens, loader, tenantResolver)
 	bulkmodule.RegisterTenantRoutes(mux, bulkH, tokens, loader, tenantResolver)
-	branchesmodule.RegisterRoutes(mux, branchhandler.New(branchSvc, activityRec), branchesmodule.EngineHandlers{
+	branchH := branchhandler.New(branchSvc, activityRec)
+	branchH.SetResourceEvents(resourceEvents)
+	branchesmodule.RegisterRoutes(mux, branchH, branchesmodule.EngineHandlers{
 		Export: exportH.TenantExport(branchesmodule.Resource, branchesmodule.ExportQueryKeys...),
 		Import: importH.TenantUpload(branchesmodule.Resource),
 		Sample: importH.TenantSample(branchesmodule.Resource),

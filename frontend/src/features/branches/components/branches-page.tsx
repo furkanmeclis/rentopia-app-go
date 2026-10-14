@@ -35,6 +35,7 @@ import {
 import type { Branch, ListBranchesParams } from "@/features/branches/types";
 import { ResourceIOToolbar } from "@/features/io";
 import { useTenant } from "@/features/tenant/components/tenant-provider";
+import { tenantLiveList } from "@/features/tenant/lib/live";
 import { useLocale } from "@/providers/locale-provider";
 
 function filterValues(value: unknown): string[] {
@@ -50,12 +51,13 @@ function filterValues(value: unknown): string[] {
  */
 export function BranchesPage() {
   const { t } = useLocale();
-  const { slug } = useTenant();
+  const { slug, organization } = useTenant();
   const router = useRouter();
 
   const listState = useServerListState({
     initialSort: "-created_at",
     initialPageSize: 20,
+    realtime: tenantLiveList(organization, BRANCHES_RESOURCE),
   });
 
   const [quickEdit, setQuickEdit] = useState<Branch | null>(null);
@@ -194,6 +196,9 @@ export function BranchesPage() {
         isError={listQuery.isError}
         errorDescription={t("branches.load_failed")}
         onRetry={() => void listQuery.refetch()}
+        realtime={listState.realtimeFor(() =>
+          Promise.all([listQuery.refetch(), facetsQuery.refetch()]),
+        )}
         emptyTitle={
           hasFilters
             ? t("branches.empty_filtered_title")
