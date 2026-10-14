@@ -29,7 +29,6 @@ import { GroupForm } from "@/features/fleet/components/groups/group-form";
 import { FleetActivityCard } from "@/features/fleet/components/shared/fleet-activity-card";
 import { CodeBadge } from "@/features/fleet/components/shared/list-utils";
 import { ProductsSubTable } from "@/features/fleet/components/shared/sub-tables";
-import { VehiclesPlaceholder } from "@/features/fleet/components/shared/vehicles-placeholder";
 import {
   BODY_TYPE_LABEL_KEYS,
   FUEL_LABEL_KEYS,
@@ -47,6 +46,7 @@ import {
 } from "@/features/fleet/schemas/group-form";
 import type { RentalGroup } from "@/features/fleet/types";
 import { useTenant } from "@/features/tenant/components/tenant-provider";
+import { GroupVehiclesTable } from "@/features/vehicles/components/vehicle-sub-tables";
 import { datetime } from "@/lib/utils/format";
 import { useLocale } from "@/providers/locale-provider";
 
@@ -366,74 +366,69 @@ export function GroupDetailPage({ uuid }: { uuid: string }) {
             description={group.description || undefined}
           />
 
-          <div className="grid gap-6 lg:grid-cols-3">
-            <EntitySectionCard
-              title={t("fleet.groups.detail.attributes")}
-              className="lg:col-span-2"
-            >
-              <EntityDetail
-                sections={[
-                  {
-                    id: "attributes",
-                    fields: [
-                      {
-                        key: "transmission",
-                        label: t("fleet.groups.fields.transmission"),
-                        value: group.transmission
-                          ? t(TRANSMISSION_LABEL_KEYS[group.transmission])
-                          : notGuaranteed,
-                      },
-                      {
-                        key: "fuel",
-                        label: t("fleet.groups.fields.fuel"),
-                        value: group.fuel
-                          ? t(FUEL_LABEL_KEYS[group.fuel])
-                          : notGuaranteed,
-                      },
-                      {
-                        key: "body_type",
-                        label: t("fleet.groups.fields.body_type"),
-                        value: group.body_type
-                          ? t(BODY_TYPE_LABEL_KEYS[group.body_type])
-                          : notGuaranteed,
-                      },
-                      {
-                        key: "min_seats",
-                        label: t("fleet.groups.fields.min_seats"),
-                        value: group.min_seats ?? notGuaranteed,
-                      },
-                      {
-                        key: "min_luggage",
-                        label: t("fleet.groups.fields.min_luggage"),
-                        value: group.min_luggage ?? notGuaranteed,
-                      },
-                      {
-                        key: "air_conditioning",
-                        label: t("fleet.groups.fields.air_conditioning"),
-                        value: group.air_conditioning
-                          ? t("fleet.yes")
-                          : notGuaranteed,
-                      },
-                      {
-                        key: "acriss_code",
-                        label: t("fleet.groups.fields.acriss_code"),
-                        value: group.acriss_code ?? "—",
-                      },
-                      {
-                        key: "updated_at",
-                        label: t("fleet.fields.updated_at"),
-                        value: datetime(group.updated_at, undefined, locale),
-                      },
-                    ],
-                  },
-                ]}
-              />
-            </EntitySectionCard>
+          <EntitySectionCard title={t("fleet.groups.detail.attributes")}>
+            <EntityDetail
+              sections={[
+                {
+                  id: "attributes",
+                  fields: [
+                    {
+                      key: "transmission",
+                      label: t("fleet.groups.fields.transmission"),
+                      value: group.transmission
+                        ? t(TRANSMISSION_LABEL_KEYS[group.transmission])
+                        : notGuaranteed,
+                    },
+                    {
+                      key: "fuel",
+                      label: t("fleet.groups.fields.fuel"),
+                      value: group.fuel
+                        ? t(FUEL_LABEL_KEYS[group.fuel])
+                        : notGuaranteed,
+                    },
+                    {
+                      key: "body_type",
+                      label: t("fleet.groups.fields.body_type"),
+                      value: group.body_type
+                        ? t(BODY_TYPE_LABEL_KEYS[group.body_type])
+                        : notGuaranteed,
+                    },
+                    {
+                      key: "min_seats",
+                      label: t("fleet.groups.fields.min_seats"),
+                      value: group.min_seats ?? notGuaranteed,
+                    },
+                    {
+                      key: "min_luggage",
+                      label: t("fleet.groups.fields.min_luggage"),
+                      value: group.min_luggage ?? notGuaranteed,
+                    },
+                    {
+                      key: "air_conditioning",
+                      label: t("fleet.groups.fields.air_conditioning"),
+                      value: group.air_conditioning
+                        ? t("fleet.yes")
+                        : notGuaranteed,
+                    },
+                    {
+                      key: "acriss_code",
+                      label: t("fleet.groups.fields.acriss_code"),
+                      value: group.acriss_code ?? "—",
+                    },
+                    {
+                      key: "updated_at",
+                      label: t("fleet.fields.updated_at"),
+                      value: datetime(group.updated_at, undefined, locale),
+                    },
+                  ],
+                },
+              ]}
+            />
+          </EntitySectionCard>
 
-            <EntitySectionCard title={t("fleet.groups.detail.vehicles")}>
-              <VehiclesPlaceholder />
-            </EntitySectionCard>
-          </div>
+          <EntitySectionCard title={t("fleet.groups.detail.vehicles")}>
+            <GroupVehiclesTable groupUuid={uuid} />
+          </EntitySectionCard>
 
           <EntitySectionCard
             title={t("fleet.groups.detail.criteria")}

@@ -100,8 +100,6 @@
   "catalog.pick_model": "Pick model",
   "catalog.pick_type": "Pick type",
   "catalog.remove": "Remove {{label}}",
-  "vehicles_placeholder.title": "Eligible vehicles",
-  "vehicles_placeholder.description": "Once vehicle records exist, the vehicles that keep this promise are listed here. Capacity is never stored as stock; it is computed from eligible vehicles.",
   "images.cover": "Cover",
   "images.move_left": "Move earlier",
   "images.move_right": "Move later",
@@ -214,7 +212,7 @@
   "groups.criteria.empty_title": "No catalog criteria",
   "groups.criteria.empty_description": "Every vehicle with the protected attributes joins this group.",
   "groups.detail.attributes": "Protected attributes",
-  "groups.detail.vehicles": "Eligible vehicles",
+  "groups.detail.vehicles": "Vehicles in the group",
   "groups.detail.criteria": "Catalog criteria",
   "groups.detail.products": "Products guaranteeing this group",
   "groups.toast.created": "Rental group created.",
@@ -325,5 +323,6 @@
   "versions.columns.driver": "Driver requirement",
   "versions.columns.change_note": "Change note",
   "versions.columns.created_by": "Created by",
-  "versions.columns.created_at": "Date"
+  "versions.columns.created_at": "Date",
+  "products.detail.vehicles_help": "Active vehicles that keep the promise of the current product version. Capacity is never stored as stock; it is computed from these vehicles."
 }

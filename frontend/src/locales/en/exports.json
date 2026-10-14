@@ -58,5 +58,6 @@
   "toast.ready": "File ready, downloading.",
   "resources.tenant.segments": "Segments",
   "resources.tenant.rental_groups": "Rental groups",
-  "resources.tenant.rental_products": "Products"
+  "resources.tenant.rental_products": "Products",
+  "resources.tenant.vehicles": "Vehicles"
 }

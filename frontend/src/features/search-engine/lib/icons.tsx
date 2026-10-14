@@ -1,6 +1,7 @@
 import {
   Activity,
   Bell,
+  CarFront,
   Download,
   HardDrive,
   KeyRound,
@@ -33,6 +34,7 @@ const ICONS: Record<string, LucideIcon> = {
   github: githubNavIcon,
   branches: Store,
   products: Tags,
+  vehicles: CarFront,
 };
 
 export function resolveSearchIcon(name?: string): LucideIcon {

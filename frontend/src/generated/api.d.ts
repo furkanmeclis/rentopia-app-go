@@ -3628,6 +3628,360 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenant/vehicles/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Vehicles list metadata
+         * @description Table contract of `GET /v1/tenant/vehicles` (`tenant.vehicles.read`).
+         */
+        get: operations["getTenantVehiclesMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/vehicles/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Vehicles faceted filter options
+         * @description Values with row counts for the faceted filters, in the caller's branch
+         *     scope. Reference facets (`home_branch`, `current_branch`,
+         *     `rental_group`, `segment`) use the uuid as `value` and carry a `label`.
+         */
+        get: operations["getTenantVehiclesFacets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/vehicles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List vehicles of the organization
+         * @description Vehicles of the `X-Organization` organization (`tenant.vehicles.read`).
+         *     `q` searches the plate (spaces / dashes ignored), VIN, colour and the
+         *     brand / model / type names. A member with `branch_scope` = `selected`
+         *     only sees (and exports, bulk-edits and finds in search) the vehicles
+         *     whose home branch or current branch is one of its branches; any other
+         *     vehicle answers `404`. `kasko_value` is the latest TSB valuation
+         *     period of the catalog type and model year.
+         */
+        get: operations["getTenantVehicles"];
+        put?: never;
+        /**
+         * Create a vehicle
+         * @description `tenant.vehicles.write`. Either `catalog_type_uuid` (then `model_year`
+         *     must be one of the type's valid years, `400` `invalid_year`) or
+         *     `manual_entry` = true with `manual_brand` / `manual_model`. Catalog
+         *     transmission / fuel suggestions fill omitted attributes. The plate is
+         *     upper-cased and must be unique among active vehicles of the
+         *     organization (`409 CONFLICT` with a `plate` detail). The home branch
+         *     must be in the caller's branch scope; `current_branch_uuid` defaults
+         *     to it. The initial status is recorded as the first status event.
+         */
+        post: operations["postTenantVehicle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/vehicles/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export vehicles
+         * @description Queues an export of the organization's vehicles in the caller's branch
+         *     scope (`tenant.vehicles.export`). `query` honours `q` and the list
+         *     filters. Poll `GET /v1/tenant/exports/{uuid}`.
+         */
+        post: operations["postTenantVehiclesExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/vehicles/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload a vehicles import file
+         * @description Creates an import job (`tenant.vehicles.import`) for an İdes fleet
+         *     XLSX or the export format: plaka, şasi, marka, model, tip / kasko kodu,
+         *     model yılı, renk, vites, yakıt, şube, mülkiyet, km. Rows create
+         *     vehicles or update the vehicle with the same plate. The catalog is
+         *     matched by TSB type code, else by display brand + model (+ type),
+         *     else the row becomes a manual entry. `/preview` returns a dry-run diff
+         *     (`op` and `changes` per row). Continue with
+         *     `/v1/tenant/imports/{uuid}/mapping`, `/preview` and `/confirm`.
+         */
+        post: operations["postTenantVehiclesImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/vehicles/import/sample": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download a vehicles import sample */
+        get: operations["getTenantVehiclesImportSample"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/vehicles/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a bulk action on vehicles
+         * @description `tenant.vehicles.bulk`; every action is reversible. `target.params`:
+         *     `set_status` {`status`, `note`?}, `move_branch` {`branch_uuid`},
+         *     `add_rental_group` / `replace_rental_group` {`rental_group_uuid`}
+         *     (vehicles that are not eligible fail one by one), `activate`,
+         *     `deactivate`. Targets are resolved inside the organization and the
+         *     caller's branch scope; `scope=query` honours the list filters.
+         */
+        post: operations["postTenantVehiclesBulk"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/vehicles/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a vehicle
+         * @description A uuid of another organization, or a vehicle outside the caller's branch scope, answers `404`.
+         */
+        get: operations["getTenantVehicle"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a vehicle (soft)
+         * @description `tenant.vehicles.write`. The status history stays; the plate becomes free.
+         */
+        delete: operations["deleteTenantVehicle"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a vehicle
+         * @description `tenant.vehicles.write`. Omitted fields are unchanged; nullable
+         *     attributes accept `null`. A different `status` is recorded as a status
+         *     event. Rental group memberships are kept; the groups tab flags those
+         *     the vehicle no longer qualifies for.
+         */
+        patch: operations["patchTenantVehicle"];
+        trace?: never;
+    };
+    "/v1/tenant/vehicles/{uuid}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change the operational status of a vehicle
+         * @description `tenant.vehicles.write`. Any status may follow any other; every
+         *     change is recorded (who, when, from, to, km, fuel, note). The same
+         *     status records nothing (a new km / fuel reading is still saved).
+         */
+        post: operations["postTenantVehicleStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/vehicles/{uuid}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Status history of a vehicle
+         * @description Newest first.
+         */
+        get: operations["getTenantVehicleEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/vehicles/{uuid}/rental-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rental group memberships of a vehicle
+         * @description Memberships with their current eligibility (`eligible`, `reasons`) and
+         *     the active rental groups the vehicle is eligible for but not in
+         *     (`suggestions`).
+         */
+        get: operations["getTenantVehicleRentalGroups"];
+        put?: never;
+        /**
+         * Add a vehicle to a rental group
+         * @description `tenant.vehicles.write`. The vehicle must have the group's protected
+         *     attributes and match its catalog criteria (fleet eligibility); else
+         *     `422 NOT_ELIGIBLE` whose details list every failed criterion
+         *     (`transmission_mismatch`, `fuel_mismatch`, `body_type_mismatch`,
+         *     `seats_below_minimum`, `luggage_below_minimum`,
+         *     `air_conditioning_required`, `catalog_not_allowed`).
+         */
+        post: operations["postTenantVehicleRentalGroup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/vehicles/{uuid}/rental-groups/{groupUuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a vehicle from a rental group
+         * @description `tenant.vehicles.write`.
+         */
+        delete: operations["deleteTenantVehicleRentalGroup"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/vehicles/{uuid}/kasko": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Kasko value history of a vehicle
+         * @description TSB valuations of the vehicle's catalog type and model year, newest period first (empty for manual entries).
+         */
+        get: operations["getTenantVehicleKasko"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/vehicles/{uuid}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Activity of a vehicle */
+        get: operations["getTenantVehicleActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/products/{uuid}/eligible-vehicles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Vehicles that keep a product's promise
+         * @description `tenant.vehicles.read`. Active vehicles in the caller's branch scope
+         *     that satisfy the guarantee of the product's current version
+         *     (`EXACT_VEHICLE`, `EXACT_VARIANT` model / type, or the rental group's
+         *     protected attributes and catalog criteria), plate order.
+         */
+        get: operations["getTenantProductEligibleVehicles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenant/catalog/brands": {
         parameters: {
             query?: never;
@@ -4419,11 +4773,26 @@ export interface components {
             total: number;
             valid: number;
             invalid: number;
+            /** @description Rows that would create a record (dry-run diff adapters only) */
+            creates?: number;
+            /** @description Rows that would update a record (dry-run diff adapters only) */
+            updates?: number;
             rows?: {
                 index: number;
                 data: {
                     [key: string]: unknown;
                 };
+                /**
+                 * @description Dry-run diff adapters only
+                 * @enum {string}
+                 */
+                op?: "create" | "update";
+                /** @description Fields the row would change (dry-run diff adapters only) */
+                changes?: {
+                    field: string;
+                    from: string;
+                    to: string;
+                }[];
             }[] | null;
             errors?: {
                 index: number;
@@ -4454,6 +4823,328 @@ export interface components {
             applied_at?: string | null;
             /** Format: date-time */
             created_at: string;
+        };
+        VehicleBranchRef: {
+            /** Format: uuid */
+            uuid: string;
+            /** @example MRK */
+            code: string;
+            /** @example Merkez */
+            name: string;
+        };
+        VehicleGroupRef: {
+            /** Format: uuid */
+            uuid: string;
+            /** @example ECO-M */
+            code: string;
+            /** @example Ekonomi manuel */
+            name: string;
+            is_active: boolean;
+            segment: components["schemas"]["FleetSegmentRef"];
+        };
+        /** @description Platform catalog type of the vehicle. `model_uuid` / `brand_uuid` are the ids the tenant catalog pickers use. */
+        VehicleCatalogRef: {
+            /** Format: uuid */
+            type_uuid: string;
+            /** @example EGEA 1.4 FIRE EASY */
+            type_name: string;
+            /** @description TSB type (kasko) code */
+            type_code: string;
+            /** Format: uuid */
+            model_uuid: string | null;
+            /** @example Egea */
+            model_name: string;
+            /** Format: uuid */
+            brand_uuid: string | null;
+            /** @example Fiat */
+            brand_name: string;
+            /** @description Valid model years of the type */
+            years: number[];
+        };
+        Vehicle: {
+            /** Format: uuid */
+            uuid: string;
+            /** @example 34 ABC 123 */
+            plate: string;
+            /** @description 17 characters or empty */
+            vin: string;
+            /** @description Not in the catalog; brand / model / type_name come from the manual fields */
+            manual_entry: boolean;
+            catalog: components["schemas"]["VehicleCatalogRef"] | null;
+            brand: string;
+            model: string;
+            type_name: string;
+            /** @example Fiat Egea EGEA 1.4 FIRE EASY */
+            label: string;
+            /** @example 2024 */
+            model_year: number;
+            /** @enum {string|null} */
+            transmission: "manual" | "automatic" | null;
+            /** @enum {string|null} */
+            fuel: "petrol" | "diesel" | "hybrid" | "electric" | "lpg" | null;
+            /** @enum {string|null} */
+            body_type: "hatchback" | "sedan" | "suv" | "crossover" | "station_wagon" | "mpv" | "van" | "pickup" | "coupe" | "cabrio" | null;
+            seats: number | null;
+            luggage: number | null;
+            air_conditioning: boolean;
+            /** @description A user confirmed the physical attributes */
+            attributes_verified: boolean;
+            color: string;
+            home_branch: components["schemas"]["VehicleBranchRef"];
+            current_branch: components["schemas"]["VehicleBranchRef"];
+            /**
+             * @description Pool code; pools never share capacity
+             * @example MAIN
+             */
+            fleet_pool: string;
+            /** @enum {string} */
+            ownership: "owned" | "supplied";
+            supplier_name: string;
+            /** Format: date */
+            in_service_date: string | null;
+            /** Format: date */
+            out_of_service_date: string | null;
+            /** @description Active and today within the service dates */
+            in_service: boolean;
+            odometer_km: number;
+            /** @description Percent */
+            fuel_level: number | null;
+            /** @enum {string} */
+            status: "available" | "preparing" | "rented" | "return_check" | "cleaning" | "maintenance" | "damaged" | "in_transfer" | "out_of_service";
+            /** Format: date-time */
+            status_changed_at: string;
+            /**
+             * @description Latest TSB kasko value (decimal string)
+             * @example 1250000.00
+             */
+            kasko_value: string | null;
+            /**
+             * @description Period of kasko_value (yyyy-MM)
+             * @example 2026-09
+             */
+            kasko_period: string | null;
+            rental_groups: components["schemas"]["VehicleGroupRef"][];
+            is_active: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        VehiclePatchRequest: {
+            plate?: string;
+            /** @description 17 characters (no I, O, Q) or empty */
+            vin?: string;
+            manual_entry?: boolean;
+            /** Format: uuid */
+            catalog_type_uuid?: string | null;
+            manual_brand?: string;
+            manual_model?: string;
+            manual_type?: string;
+            model_year?: number;
+            /** @enum {string|null} */
+            transmission?: "manual" | "automatic" | null;
+            /** @enum {string|null} */
+            fuel?: "petrol" | "diesel" | "hybrid" | "electric" | "lpg" | null;
+            /** @enum {string|null} */
+            body_type?: "hatchback" | "sedan" | "suv" | "crossover" | "station_wagon" | "mpv" | "van" | "pickup" | "coupe" | "cabrio" | null;
+            seats?: number | null;
+            luggage?: number | null;
+            air_conditioning?: boolean;
+            attributes_verified?: boolean;
+            color?: string;
+            /** Format: uuid */
+            home_branch_uuid?: string;
+            /** Format: uuid */
+            current_branch_uuid?: string;
+            fleet_pool?: string;
+            /** @enum {string} */
+            ownership?: "owned" | "supplied";
+            /** @description Required when ownership is supplied */
+            supplier_name?: string;
+            /** Format: date */
+            in_service_date?: string | null;
+            /** Format: date */
+            out_of_service_date?: string | null;
+            odometer_km?: number;
+            fuel_level?: number | null;
+            /** @enum {string} */
+            status?: "available" | "preparing" | "rented" | "return_check" | "cleaning" | "maintenance" | "damaged" | "in_transfer" | "out_of_service";
+            is_active?: boolean;
+        };
+        VehicleCreateRequest: {
+            plate: string;
+            /** @description 17 characters (no I, O, Q) or empty */
+            vin?: string;
+            manual_entry?: boolean;
+            /** Format: uuid */
+            catalog_type_uuid?: string | null;
+            manual_brand?: string;
+            manual_model?: string;
+            manual_type?: string;
+            model_year: number;
+            /** @enum {string|null} */
+            transmission?: "manual" | "automatic" | null;
+            /** @enum {string|null} */
+            fuel?: "petrol" | "diesel" | "hybrid" | "electric" | "lpg" | null;
+            /** @enum {string|null} */
+            body_type?: "hatchback" | "sedan" | "suv" | "crossover" | "station_wagon" | "mpv" | "van" | "pickup" | "coupe" | "cabrio" | null;
+            seats?: number | null;
+            luggage?: number | null;
+            air_conditioning?: boolean;
+            attributes_verified?: boolean;
+            color?: string;
+            /** Format: uuid */
+            home_branch_uuid: string;
+            /** Format: uuid */
+            current_branch_uuid?: string;
+            fleet_pool?: string;
+            /** @enum {string} */
+            ownership?: "owned" | "supplied";
+            /** @description Required when ownership is supplied */
+            supplier_name?: string;
+            /** Format: date */
+            in_service_date?: string | null;
+            /** Format: date */
+            out_of_service_date?: string | null;
+            odometer_km?: number;
+            fuel_level?: number | null;
+            /** @enum {string} */
+            status?: "available" | "preparing" | "rented" | "return_check" | "cleaning" | "maintenance" | "damaged" | "in_transfer" | "out_of_service";
+            is_active?: boolean;
+        };
+        VehicleStatusRequest: {
+            /** @enum {string} */
+            status: "available" | "preparing" | "rented" | "return_check" | "cleaning" | "maintenance" | "damaged" | "in_transfer" | "out_of_service";
+            odometer_km?: number;
+            fuel_level?: number | null;
+            note?: string;
+        };
+        VehicleGroupRequest: {
+            /** Format: uuid */
+            rental_group_uuid: string;
+        };
+        VehiclePage: {
+            items: components["schemas"]["Vehicle"][];
+            /** Format: int64 */
+            total: number;
+            limit: number;
+            offset: number;
+        };
+        VehicleFacets: {
+            status: components["schemas"]["FleetFacet"][];
+            ownership: components["schemas"]["FleetFacet"][];
+            pool: components["schemas"]["FleetFacet"][];
+            is_active: components["schemas"]["FleetFacet"][];
+            home_branch: components["schemas"]["FleetFacet"][];
+            current_branch: components["schemas"]["FleetFacet"][];
+            rental_group: components["schemas"]["FleetFacet"][];
+            segment: components["schemas"]["FleetFacet"][];
+        };
+        VehicleEvent: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            event_type: "created" | "status";
+            from_status: string | null;
+            to_status: string;
+            odometer_km: number | null;
+            fuel_level: number | null;
+            note: string;
+            actor: components["schemas"]["BranchActivityActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        VehicleEventPage: {
+            items: components["schemas"]["VehicleEvent"][];
+            /** Format: int64 */
+            total: number;
+            limit: number;
+            offset: number;
+        };
+        VehicleMembership: {
+            group: components["schemas"]["VehicleGroupRef"];
+            /** @description The vehicle still meets the group criteria */
+            eligible: boolean;
+            reasons: string[];
+            /** Format: date-time */
+            added_at: string;
+        };
+        VehicleGroupSuggestion: {
+            group: components["schemas"]["VehicleGroupRef"];
+            eligible: boolean;
+            reasons: string[];
+        };
+        VehicleGroups: {
+            items: components["schemas"]["VehicleMembership"][];
+            suggestions: components["schemas"]["VehicleGroupSuggestion"][];
+        };
+        VehicleValuation: {
+            /** @example 2026-09 */
+            period: string;
+            /** @example 1250000.00 */
+            value: string;
+        };
+        VehicleKasko: {
+            model_year: number;
+            catalog: components["schemas"]["VehicleCatalogRef"] | null;
+            items: components["schemas"]["VehicleValuation"][];
+        };
+        ProductVehicles: {
+            /** @enum {string} */
+            guarantee_type: "EXACT_VEHICLE" | "EXACT_VARIANT" | "GROUP";
+            items: components["schemas"]["Vehicle"][];
+            /** Format: int64 */
+            total: number;
+            limit: number;
+            offset: number;
+        };
+        EnvelopeVehicle: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["Vehicle"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeVehiclePage: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["VehiclePage"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeVehicleFacets: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["VehicleFacets"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeVehicleEventPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["VehicleEventPage"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeVehicleGroups: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["VehicleGroups"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeVehicleMembership: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["VehicleMembership"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeVehicleKasko: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["VehicleKasko"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeProductVehicles: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["ProductVehicles"];
+            meta: components["schemas"]["ResponseMeta"];
         };
         EnvelopeBranch: {
             /** @enum {boolean} */
@@ -6006,6 +6697,10 @@ export interface components {
             scope: "ids" | "query";
             ids?: string[];
             query?: {
+                [key: string]: string;
+            };
+            /** @description Arguments of parameterised actions (for example `status` of the vehicles `set_status` action) */
+            params?: {
                 [key: string]: string;
             };
         };
@@ -13343,6 +14038,686 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             500: components["responses"]["InternalError"];
+        };
+    };
+    getTenantVehiclesMeta: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource meta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            400: components["responses"]["OrganizationRequired"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantVehiclesFacets: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Facets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeVehicleFacets"];
+                };
+            };
+            400: components["responses"]["OrganizationRequired"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getTenantVehicles: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description One of `plate`, `model_year`, `odometer_km`, `status`, `kasko_value`, `is_active`, `created_at`, `updated_at`; prefix `-` for descending. Default `-created_at`. */
+                sort?: string;
+                /** @description Operational statuses; comma-separate or repeat for several */
+                status?: string;
+                /** @description Rental group uuids (memberships); comma-separated */
+                rental_group?: string;
+                /** @description Segment uuids (through rental group memberships); comma-separated */
+                segment?: string;
+                /** @description Home branch uuids; comma-separated */
+                home_branch?: string;
+                /** @description Current branch uuids; comma-separated */
+                current_branch?: string;
+                /** @description `owned`, `supplied`; comma-separated */
+                ownership?: string;
+                /** @description Fleet pool codes; comma-separated */
+                pool?: string;
+                is_active?: boolean;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Vehicle page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeVehiclePage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    postTenantVehicle: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VehicleCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Created vehicle */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeVehicle"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    postTenantVehiclesExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Export job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantVehiclesImport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ImportUploadForm"];
+            };
+        };
+        responses: {
+            /** @description Import job */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeImportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantVehiclesImportSample: {
+        parameters: {
+            query?: {
+                format?: "json" | "xlsx" | "csv" | "tsv";
+                locale?: "tr" | "en";
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sample file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantVehiclesBulk: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkExecuteRequest"];
+            };
+        };
+        responses: {
+            /** @description Sync bulk result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeBulkSyncResult"];
+                };
+            };
+            /** @description Async bulk job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeBulkJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantVehicle: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Vehicle */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeVehicle"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteTenantVehicle: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeStatus"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchTenantVehicle: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VehiclePatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated vehicle */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeVehicle"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantVehicleStatus: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VehicleStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description Vehicle */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeVehicle"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantVehicleEvents: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Event page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeVehicleEventPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantVehicleRentalGroups: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Memberships and suggestions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeVehicleGroups"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantVehicleRentalGroup: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VehicleGroupRequest"];
+            };
+        };
+        responses: {
+            /** @description Membership */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeVehicleMembership"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description `NOT_ELIGIBLE`: details carry the failed criteria (`code`) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteTenantVehicleRentalGroup: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                groupUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeStatus"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantVehicleKasko: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Valuations */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeVehicleKasko"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantVehicleActivity: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Activity page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFleetActivityPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantProductEligibleVehicles: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Eligible vehicles */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeProductVehicles"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     getTenantCatalogBrands: {

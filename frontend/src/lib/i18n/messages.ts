@@ -35,6 +35,7 @@ import enTenantMembers from "@/locales/en/tenant_members.json";
 import enTenantRoles from "@/locales/en/tenant_roles.json";
 import enTenantSettings from "@/locales/en/tenant_settings.json";
 import enUsers from "@/locales/en/users.json";
+import enVehicles from "@/locales/en/vehicles.json";
 import trAccess from "@/locales/tr/access.json";
 import trActivity from "@/locales/tr/activity.json";
 import trAuth from "@/locales/tr/auth.json";
@@ -70,6 +71,7 @@ import trTenantMembers from "@/locales/tr/tenant_members.json";
 import trTenantRoles from "@/locales/tr/tenant_roles.json";
 import trTenantSettings from "@/locales/tr/tenant_settings.json";
 import trUsers from "@/locales/tr/users.json";
+import trVehicles from "@/locales/tr/vehicles.json";
 
 export type MessageDictionary = Record<string, string>;
 
@@ -92,6 +94,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     search: trSearch,
     errors: trErrors,
     users: trUsers,
+    vehicles: trVehicles,
     notifications: trNotifications,
     dashboard: trDashboard,
     activity: trActivity,
@@ -129,6 +132,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     search: enSearch,
     errors: enErrors,
     users: enUsers,
+    vehicles: enVehicles,
     notifications: enNotifications,
     dashboard: enDashboard,
     activity: enActivity,

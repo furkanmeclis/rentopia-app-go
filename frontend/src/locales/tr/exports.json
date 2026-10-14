@@ -58,5 +58,6 @@
   "toast.ready": "Dosya hazır, indiriliyor.",
   "resources.tenant.segments": "Segmentler",
   "resources.tenant.rental_groups": "Kiralama grupları",
-  "resources.tenant.rental_products": "Ürünler"
+  "resources.tenant.rental_products": "Ürünler",
+  "resources.tenant.vehicles": "Araçlar"
 }

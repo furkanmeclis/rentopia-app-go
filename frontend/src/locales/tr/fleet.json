@@ -100,8 +100,6 @@
   "catalog.pick_model": "Modeli seç",
   "catalog.pick_type": "Tipi seç",
   "catalog.remove": "{{label}} kaldır",
-  "vehicles_placeholder.title": "Uygun araç",
-  "vehicles_placeholder.description": "Araç kayıtları geldiğinde bu taahhüde uyan araçlar burada listelenecek. Kapasite stok olarak tutulmaz, uygun araçlardan hesaplanır.",
   "images.cover": "Kapak",
   "images.move_left": "Öne al",
   "images.move_right": "Arkaya al",
@@ -214,7 +212,7 @@
   "groups.criteria.empty_title": "Katalog kriteri yok",
   "groups.criteria.empty_description": "Korunan özelliklere uyan her araç bu gruba girer.",
   "groups.detail.attributes": "Korunan özellikler",
-  "groups.detail.vehicles": "Uygun araçlar",
+  "groups.detail.vehicles": "Gruptaki araçlar",
   "groups.detail.criteria": "Katalog kriterleri",
   "groups.detail.products": "Bu grubu taahhüt eden ürünler",
   "groups.toast.created": "Kiralama grubu oluşturuldu.",
@@ -325,5 +323,6 @@
   "versions.columns.driver": "Sürücü şartı",
   "versions.columns.change_note": "Değişiklik notu",
   "versions.columns.created_by": "Oluşturan",
-  "versions.columns.created_at": "Tarih"
+  "versions.columns.created_at": "Tarih",
+  "products.detail.vehicles_help": "Ürünün güncel sürümündeki taahhüdü karşılayan aktif araçlar. Kapasite stok olarak tutulmaz, bu araçlardan hesaplanır."
 }
