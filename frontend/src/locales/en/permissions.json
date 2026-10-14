@@ -56,6 +56,8 @@
   "labels.auth.session": "Auth session",
   "labels.platform.organizations.read": "Read organizations",
   "labels.platform.organizations.write": "Manage organizations",
+  "labels.platform.catalog.read": "Read vehicle catalog",
+  "labels.platform.catalog.write": "Manage vehicle catalog and imports",
   "labels.tenant.settings.read": "Read organization settings",
   "labels.tenant.settings.write": "Write organization settings",
   "labels.tenant.members.read": "Read organization members",
