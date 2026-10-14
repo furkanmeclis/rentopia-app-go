@@ -131,7 +131,7 @@ func (s *Service) PreviewImport(ctx context.Context, orgID int64, in ImportInput
 		if plan.existing != nil {
 			from = MapVehicle(*plan.existing, s.now()).Label
 		}
-		add("vehicle", from, plan.catalogLabel)
+		add("catalog", from, plan.catalogLabel)
 	}
 	add("model_year", yearString(before.ModelYear), yearString(after.ModelYear))
 	add("color", before.Color, after.Color)
@@ -142,7 +142,7 @@ func (s *Service) PreviewImport(ctx context.Context, orgID int64, in ImportInput
 		if plan.existing != nil {
 			from = plan.existing.HomeBranchCode
 		}
-		add("home_branch", from, plan.branchCode)
+		add("branch", from, plan.branchCode)
 	}
 	add("ownership", before.Ownership, after.Ownership)
 	add("supplier_name", before.SupplierName, after.SupplierName)

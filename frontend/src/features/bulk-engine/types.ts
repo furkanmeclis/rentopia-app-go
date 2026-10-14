@@ -19,6 +19,8 @@ export type BulkTarget = {
   scope: "ids" | "query";
   ids?: string[];
   query?: Record<string, string>;
+  /** Arguments of parameterised actions (e.g. the new vehicle status). */
+  params?: Record<string, string>;
 };
 
 export type BulkSummary = {
@@ -50,7 +52,8 @@ export type BulkResource =
   | "platform.roles"
   | "tenant.branches"
   | "tenant.rental_groups"
-  | "tenant.rental_products";
+  | "tenant.rental_products"
+  | "tenant.vehicles";
 
 /**
  * Execute route per resource. `tenant.*` resources are organization-scoped:
@@ -62,6 +65,7 @@ export const BULK_PATHS: Record<BulkResource, string> = {
   "tenant.branches": "/v1/tenant/branches/bulk",
   "tenant.rental_groups": "/v1/tenant/rental-groups/bulk",
   "tenant.rental_products": "/v1/tenant/products/bulk",
+  "tenant.vehicles": "/v1/tenant/vehicles/bulk",
 };
 
 export type SelectionScope =
