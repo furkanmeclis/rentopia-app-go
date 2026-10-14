@@ -6212,7 +6212,7 @@ components:
             - type: number
               minimum: 0
             - type: string
-              pattern: "^[0-9]{1,12}([.,][0-9]{1,2})?$"
+              pattern: "^[0-9]{1,12}(\\.[0-9]{1,2})?$"
         min_driver_age: { type: integer, minimum: 18, maximum: 99 }
         min_license_years: { type: integer, minimum: 0, maximum: 60 }
         included_km_per_day: { type: [integer, "null"], minimum: 0, maximum: 100000 }
@@ -6221,7 +6221,7 @@ components:
             - type: number
               minimum: 0
             - type: string
-              pattern: "^[0-9]{1,8}([.,][0-9]{1,2})?$"
+              pattern: "^[0-9]{1,8}(\\.[0-9]{1,2})?$"
         fuel_policy: { $ref: "#/components/schemas/FuelPolicy" }
         notes: { type: string, maxLength: 4000 }
 
