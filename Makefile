@@ -19,7 +19,7 @@ endef
 FRONTEND_PORT ?= 3000
 
 .PHONY: infra infra-down infra-logs infra-ps migrate-up backend-dev frontend-dev local-dev \
-	free-dev-ports prod-env prod-env-upgrade prod-env-check prod-config prod-up prod-down tools create-super-admin search-reindex check-i18n
+	free-dev-ports prod-env prod-env-upgrade prod-env-check prod-sync prod-super-admin prod-config prod-up prod-down tools create-super-admin search-reindex check-i18n
 
 infra:
 	@if [ -n "$(ENV_FILE)" ]; then \
@@ -117,6 +117,13 @@ prod-env-upgrade:
 
 prod-env-check:
 	scripts/prod-env.sh check $(PROD_ENV_FILE)
+
+prod-sync:
+	scripts/server-sync.sh
+
+prod-super-admin:
+	docker compose --env-file $(PROD_ENV_FILE) -f compose.prod.yml exec backend /app/create-super-admin \
+		-email "$(SA_EMAIL)" -password "$(SA_PASSWORD)" -name "$(or $(SA_NAME),Platform)" -surname "$(or $(SA_SURNAME),Admin)"
 
 prod-config:
 	docker compose --env-file $(PROD_ENV_FILE) -f compose.prod.yml config

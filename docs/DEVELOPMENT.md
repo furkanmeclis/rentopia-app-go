@@ -86,6 +86,16 @@ Optional frontend public vars (root `.env`): `NEXT_PUBLIC_BFF_BASE_URL`, `NEXT_P
 2. `make prod-config` then `make prod-up`. On Dokploy, paste `.env.server` into the compose app's environment and point the frontend domain at port 3000 and the Centrifugo domain at port 8000.
 3. Plain Docker host only (Dokploy creates it for you): `docker network create dokploy-network` once
 
+### Plain Docker host with automatic updates
+
+`scripts/server-sync.sh` (or `make prod-sync`) follows `main` (only CI-green commits reach it): when `origin/main` moved it fast-forwards, upgrades `.env.server` if the env schema changed, runs `docker compose up -d --build`, waits for the backend to be healthy and prunes old images. One run at a time (flock). Cron example:
+
+```
+*/5 * * * * /opt/rentopia/scripts/server-sync.sh >> /var/log/rentopia-sync.log 2>&1
+```
+
+Rollback: `touch .sync-paused`, `git checkout <previous sha>`, `scripts/server-sync.sh --force` (rebuilds the checked-out commit without pulling; migrations are not reverted). Remove `.sync-paused` to resume. First admin: `make prod-super-admin SA_EMAIL=… SA_PASSWORD=…` (runs inside the backend container). TSB list import from the host: `docker compose --env-file .env.server -f compose.prod.yml exec backend /app/catalog-import -file /path/in/container.xlsx -apply` (or use Platform → Katalog → İçe aktarma).
+
 ### Upgrading the env for a new release
 
 `make prod-env-upgrade` (or `scripts/prod-env.sh upgrade <your env file>`) brings an env written by an older release up to the current schema (`deploy/env/schema`, versioned by `ENV_SCHEMA_VERSION`):
