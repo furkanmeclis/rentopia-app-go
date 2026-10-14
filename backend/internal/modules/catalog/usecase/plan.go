@@ -16,7 +16,9 @@ const sampleLimit = 25
 //
 // Rules:
 //   - brands are matched by TSB code; a new brand gets the default display
-//     name / category, an existing one keeps its admin-edited fields.
+//     name / category, an existing one keeps its admin-edited fields. A new
+//     brand maps to the display brand of its display name, which is created
+//     when missing; existing mappings (admin merges) are never touched.
 //   - types are matched by (brand code, type code). Existing model
 //     assignments are kept; new types and types without a model are resolved
 //     with the brand's prefix rules, known models and, for passenger / light
@@ -36,6 +38,7 @@ func BuildPlan(sheet *tsbcatalog.Sheet, period string, st model.State) model.Pla
 	brandCategory := map[string]string{}
 	brandLabel := map[string]string{}
 	namesByBrand := map[string][]string{}
+	newDisplay := map[string]struct{}{}
 	for _, r := range sheet.Rows {
 		namesByBrand[r.BrandCode] = append(namesByBrand[r.BrandCode], r.TypeName)
 		if _, done := brandCategory[r.BrandCode]; done {
@@ -58,6 +61,15 @@ func BuildPlan(sheet *tsbcatalog.Sheet, period string, st model.State) model.Pla
 			pb.DisplayName = def.DisplayName
 			pb.Category = def.Category
 			plan.Counts.BrandsNew++
+			// A new TSB brand joins the display brand of the same name
+			// (FORD /USA -> Ford) or gets a new one.
+			key := model.DisplayKey(def.DisplayName)
+			if _, exists := st.DisplayBrands[key]; !exists {
+				if _, planned := newDisplay[key]; !planned {
+					newDisplay[key] = struct{}{}
+					plan.Counts.DisplayBrandsNew++
+				}
+			}
 			appendSample(&plan.Diff.NewBrands, model.SampleBrand{
 				Code: r.BrandCode, Name: r.BrandName, DisplayName: def.DisplayName, Category: def.Category,
 			})
@@ -79,7 +91,8 @@ func BuildPlan(sheet *tsbcatalog.Sheet, period string, st model.State) model.Pla
 			rules = st.Rules[b.ID]
 			models = st.Models[b.ID]
 		}
-		r := tsbcatalog.NewResolver(rules, models, brandCategory[code] != tsbcatalog.CategoryOther)
+		r := tsbcatalog.NewResolver(rules, models, brandCategory[code] != tsbcatalog.CategoryOther).
+			WithBrand(brandLabel[code])
 		r.Prime(namesByBrand[code])
 		resolvers[code] = r
 		return r

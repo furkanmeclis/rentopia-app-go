@@ -94,3 +94,14 @@ export function firstFilterValue(
   if (typeof value === "string" && value.trim()) return value.trim();
   return undefined;
 }
+
+/**
+ * Live list resources (`resource:{name}` channels, platform.catalog.read).
+ * The API publishes after curation edits and after an import is applied.
+ */
+export const CATALOG_LIVE = {
+  brands: "platform.catalog.brands",
+  models: "platform.catalog.models",
+  types: "platform.catalog.types",
+  imports: "platform.catalog.imports",
+} as const;

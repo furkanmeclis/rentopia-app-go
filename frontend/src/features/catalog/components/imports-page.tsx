@@ -28,6 +28,7 @@ import {
   CATALOG_IMPORT_STATUSES,
   CATALOG_IMPORT_TONE,
   firstFilterValue,
+  CATALOG_LIVE,
 } from "@/features/catalog/constants";
 import {
   useCatalogImports,
@@ -48,6 +49,7 @@ export function CatalogImportsPage() {
   const listState = useServerListState({
     initialSort: "-created_at",
     initialPageSize: 20,
+    realtime: { resource: CATALOG_LIVE.imports },
   });
   useCatalogMeta("imports");
 
@@ -193,6 +195,7 @@ export function CatalogImportsPage() {
         isLoading={listQuery.isLoading}
         isError={listQuery.isError}
         onRetry={() => void listQuery.refetch()}
+        realtime={listState.realtimeFor(listQuery.refetch)}
         emptyTitle={t("catalog.imports.empty_title")}
         emptyDescription={t("catalog.imports.empty_description")}
         pageCount={pageCount}

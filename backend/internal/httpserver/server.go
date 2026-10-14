@@ -88,6 +88,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx/orgcache"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/outbox"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/ratelimit"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/resourceevents"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/searchengine"
 	searchadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/searchengine/adapters"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/stepup"
@@ -196,6 +197,14 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	s.searchIndexer = searchIndexer
 	uc.SetSearchIndexer(searchIndexer)
 
+	// Live DataTables: resource-change events on "resource:{name}" channels;
+	// subscriptions need the read permission each module registers.
+	resourceEvents := resourceevents.New(deps.Realtime, log)
+	liveResources := resourceevents.NewRegistry()
+	authmodule.RegisterLiveResources(liveResources)
+	uc.SetResourceEvents(resourceEvents)
+	uc.AddChannelRules(liveResources.ChannelRule())
+
 	rtIssuer, err := realtime.NewTokenIssuer(cfg.Centrifugo)
 	if err != nil {
 		return nil, fmt.Errorf("httpserver: realtime tokens: %w", err)
@@ -280,6 +289,14 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	}
 	tenantmodule.RegisterRoutes(mux, tokens, loader, tenantResolver)
 
+	// Live lists of tenant resources: org:{org_uuid}:resource:{name}, open to
+	// members whose tenant role grants the resource's read permission.
+	tenantLive := resourceevents.NewRegistry()
+	branchesmodule.RegisterLiveResources(tenantLive)
+	resourceEvents.AddResolver(tenantmodule.ChannelResolver(tenantmodule.QueriesLookup(deps.Queries)))
+	uc.AddChannelRules(tenantmodule.ChannelRule(tenantLive, tenantResolver))
+	catalogmodule.RegisterLiveResources(liveResources)
+
 	// Vehicle catalog (TSB kasko list): platform curation + imports, and
 	// read-only lookups for organization members when tenancy is on.
 	var catalogQueue catalogusecase.Enqueuer
@@ -287,6 +304,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		catalogQueue = deps.Queue
 	}
 	catalogSvc := catalogusecase.New(catalogrepository.NewPostgres(deps.DB, deps.Queries), deps.Storage, catalogQueue, activityRec, log)
+	catalogSvc.SetResourceEvents(resourceEvents)
 	catalogmodule.RegisterRoutes(mux, cataloghandler.New(catalogSvc, activityRec), tokens, loader, tenantResolver)
 	realtime.RegisterRoutes(mux, realtime.NewHandler(rtIssuer, uc), tokens, loader)
 
@@ -323,6 +341,8 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	)
 	bulkSvc := bulkusecase.New(deps.Queries, bulkReg, deps.Queue, notifSvc, activityRec, cfg.Bulk, log)
 	logsSvc := logsusecase.New(deps.Queries)
+	importSvc.SetResourceEvents(resourceEvents)
+	bulkSvc.SetResourceEvents(resourceEvents)
 	if s.worker != nil {
 		s.worker.WithExport(exportSvc.ProcessExport).
 			WithImport(importSvc.ProcessImport).
@@ -349,7 +369,9 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	exportmodule.RegisterTenantRoutes(mux, exportH, tokens, loader, tenantResolver)
 	importmodule.RegisterTenantRoutes(mux, importH, tokens, loader, tenantResolver)
 	bulkmodule.RegisterTenantRoutes(mux, bulkH, tokens, loader, tenantResolver)
-	branchesmodule.RegisterRoutes(mux, branchhandler.New(branchSvc, activityRec), branchesmodule.EngineHandlers{
+	branchH := branchhandler.New(branchSvc, activityRec)
+	branchH.SetResourceEvents(resourceEvents)
+	branchesmodule.RegisterRoutes(mux, branchH, branchesmodule.EngineHandlers{
 		Export: exportH.TenantExport(branchesmodule.Resource, branchesmodule.ExportQueryKeys...),
 		Import: importH.TenantUpload(branchesmodule.Resource),
 		Sample: importH.TenantSample(branchesmodule.Resource),

@@ -6,7 +6,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { routes } from "@/config/routes";
 import { useLocale } from "@/providers/locale-provider";
 
-export type CatalogTab = "brands" | "models" | "types" | "imports";
+export type CatalogTab =
+  "brands" | "models" | "types" | "unresolved" | "imports";
 
 const TABS: { id: CatalogTab; href: string; labelKey: string }[] = [
   {
@@ -23,6 +24,11 @@ const TABS: { id: CatalogTab; href: string; labelKey: string }[] = [
     id: "types",
     href: routes.platform.catalog.types,
     labelKey: "catalog.tabs.types",
+  },
+  {
+    id: "unresolved",
+    href: routes.platform.catalog.unresolved,
+    labelKey: "catalog.tabs.unresolved",
   },
   {
     id: "imports",

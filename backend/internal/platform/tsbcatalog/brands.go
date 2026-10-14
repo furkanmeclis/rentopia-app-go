@@ -152,3 +152,33 @@ func TitleCase(s string) string {
 	}
 	return b.String()
 }
+
+var slugTurkish = strings.NewReplacer(
+	"ı", "i", "İ", "i", "ş", "s", "Ş", "s", "ğ", "g", "Ğ", "g",
+	"ü", "u", "Ü", "u", "ö", "o", "Ö", "o", "ç", "c", "Ç", "c",
+)
+
+// Slug turns a display brand name into a URL slug ("Lynk & Co" ->
+// "lynk-co", "Güleryüz" -> "guleryuz"); "brand" when nothing is left.
+// Migration 000040 backfills slugs with the same rules.
+func Slug(name string) string {
+	s := strings.ToLower(slugTurkish.Replace(name))
+	var b strings.Builder
+	dash := false
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+			dash = false
+			continue
+		}
+		if !dash && b.Len() > 0 {
+			b.WriteByte('-')
+			dash = true
+		}
+	}
+	out := strings.TrimRight(b.String(), "-")
+	if out == "" {
+		return "brand"
+	}
+	return out
+}

@@ -72,6 +72,15 @@ Use cases call `Indexer.EnqueueUpsert/EnqueueDelete(spec, TenantDocumentID(...))
 
 Backend i18n catalog (`internal/platform/i18n/catalog.go`, tr + en): every ioengine `LabelKey`, `export.title.tenant.<plural>`, `resources.tenant.<plural>`.
 
+### 4a. Live list (realtime)
+
+Open lists refresh themselves from `resource.changed` events (docs/EXTENDING.md "Live lists").
+
+- Channel: `org:{org_uuid}:resource:tenant.<plural>` — `tenantmodule.ChannelResolver` scopes every `tenant.*` resource event by the organization on the context (request scope, or the job's organization id in the worker). Never publish a tenant resource on `resource:{name}`.
+- Publish after each HTTP mutation with `resourceevents.Publisher` (`created` / `updated` / `deleted`, uuid = main record; child changes are `updated` of the parent). Branches does it in `handler.record`, so engine adapters that reuse the use case do not publish per row. Bulk and import jobs already publish one `bulk` event.
+- Register the read permission: `<name>.RegisterLiveResources(tenantLive)` in `server.go` (`reg.Register("tenant.<plural>", rbac.PermTenant<Plural>Read)`). `tenantmodule.ChannelRule` grants the subscription token only to members of that organization whose tenant role has the permission.
+- Test: publication channel + action per mutation and the subscription rule for member / non-member (`branches/live_integration_test.go`).
+
 ## 5. OpenAPI
 
 Every new route in `backend/docs/openapi.yaml` (tag `Tenant`, `XOrganization` header parameter, `OrganizationRequired` / `TenantForbidden` responses). Create bodies are full objects (YAML anchor on the patch `properties`), not `allOf` + `required` — that generates an unusable TS type.
@@ -96,6 +105,7 @@ List page checklist (`branches-page.tsx`):
 - [ ] `useBulkSelection` + `SelectionBanner` + `BulkActionMenu` (`resolveBulkActionsWithIcons`; register icons in `bulk-action-icons.ts`)
 - [ ] `EntityToolbar` refresh; empty state that differs with / without filters; loading and error (`EntityTable` handles them)
 - [ ] `persistKey` for column visibility / density
+- [ ] Live updates: `useServerListState({ realtime: tenantLiveList(organization, "tenant.<plural>") })` (`useTenant().organization`) and `realtime={listState.realtimeFor(refetch)}` on `EntityTable` (refetch list + facets). Backend side: step 4a
 
 Shared engines pick the tenant API automatically: `useApiScope()` returns the organization inside `/t/{slug}`, and the io, bulk and search services take that `ApiScope`. Add the resource to `IoResource`, `EXPORT_PATHS`, `IMPORT_PATHS`, `IMPORT_SCHEMA` (`features/io/types.ts`), the permission maps in `resource-io-toolbar.tsx`, `RESOURCE_LABEL_KEYS` (`features/io/lib/display.ts`), and `BulkResource` / `BULK_PATHS`.
 

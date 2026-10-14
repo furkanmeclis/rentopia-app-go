@@ -34,7 +34,19 @@ func RegisterRoutes(
 	route("GET /v1/platform/catalog/brands/{uuid}", h.GetBrand, read)
 	route("PATCH /v1/platform/catalog/brands/{uuid}", h.PatchBrand, write)
 
+	route("GET /v1/platform/catalog/display-brands/meta", h.DisplayBrandsMeta, read)
+	route("GET /v1/platform/catalog/display-brands", h.ListDisplayBrands, read)
+	route("GET /v1/platform/catalog/display-brands/{uuid}", h.GetDisplayBrand, read)
+	route("PATCH /v1/platform/catalog/display-brands/{uuid}", h.PatchDisplayBrand, write)
+	route("POST /v1/platform/catalog/display-brands/{uuid}/merge", h.MergeDisplayBrand, write)
+	route("POST /v1/platform/catalog/display-brands/{uuid}/unmerge", h.UnmergeDisplayBrand, write)
+	route("PUT /v1/platform/catalog/display-brands/{uuid}/logo", h.UploadDisplayBrandLogo, write)
+	route("DELETE /v1/platform/catalog/display-brands/{uuid}/logo", h.DeleteDisplayBrandLogo, write)
+	// Any signed-in user: tenant vehicle forms show the logo too.
+	route("GET /v1/platform/catalog/display-brands/{uuid}/logo", h.StreamDisplayBrandLogo)
+
 	route("GET /v1/platform/catalog/models/meta", h.ModelsMeta, read)
+	route("POST /v1/platform/catalog/models/bulk-rules", h.BulkModelRules, write)
 	route("GET /v1/platform/catalog/models", h.ListModels, read)
 	route("POST /v1/platform/catalog/models", h.CreateModel, write)
 	route("GET /v1/platform/catalog/models/{uuid}", h.GetModel, read)

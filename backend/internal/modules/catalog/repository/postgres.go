@@ -82,11 +82,19 @@ func NumericToFloat(n pgtype.Numeric) (float64, bool) {
 // LoadState reads the stored catalog needed to plan an import of period.
 func (r *Postgres) LoadState(ctx context.Context, period string) (model.State, error) {
 	st := model.State{
-		Brands:     map[string]model.StateBrand{},
-		Models:     map[int64][]tsbcatalog.ModelRef{},
-		Rules:      map[int64][]tsbcatalog.RuleRef{},
-		Types:      map[model.TypeKey]model.StateType{},
-		Valuations: map[model.ValuationKey]int64{},
+		Brands:        map[string]model.StateBrand{},
+		DisplayBrands: map[string]int64{},
+		Models:        map[int64][]tsbcatalog.ModelRef{},
+		Rules:         map[int64][]tsbcatalog.RuleRef{},
+		Types:         map[model.TypeKey]model.StateType{},
+		Valuations:    map[model.ValuationKey]int64{},
+	}
+	displays, err := r.q.ListCatalogDisplayBrandsAll(ctx)
+	if err != nil {
+		return st, err
+	}
+	for _, d := range displays {
+		st.DisplayBrands[model.DisplayKey(d.Name)] = d.ID
 	}
 	brands, err := r.q.ListCatalogBrandsAll(ctx)
 	if err != nil {
@@ -147,11 +155,19 @@ func (r *Postgres) Apply(ctx context.Context, plan model.Plan) (model.ApplyResul
 		return res, fmt.Errorf("catalog apply: lock: %w", err)
 	}
 
-	// 1. Brands: insert new, follow TSB renames. Admin fields stay.
+	// 1. Brands: insert new, follow TSB renames. Admin fields (display
+	// brand, category, active) stay. New brands join the display brand of
+	// their default display name, created here when missing.
+	qtx := r.q.WithTx(tx)
+	displayIDs, err := r.displayBrandIDs(ctx, qtx)
+	if err != nil {
+		return res, err
+	}
 	codes := make([]string, 0, len(plan.Brands))
 	names := make([]string, 0, len(plan.Brands))
 	displays := make([]string, 0, len(plan.Brands))
 	categories := make([]string, 0, len(plan.Brands))
+	displayCol := make([]*int64, 0, len(plan.Brands))
 	for _, b := range plan.Brands {
 		display := b.DisplayName
 		if display == "" {
@@ -161,17 +177,35 @@ func (r *Postgres) Apply(ctx context.Context, plan model.Plan) (model.ApplyResul
 		if category == "" {
 			category = tsbcatalog.CategoryPassenger
 		}
+		var displayID *int64
+		if b.Op == "new" {
+			id, created, err := ensureDisplayBrand(ctx, qtx, displayIDs, display)
+			if err != nil {
+				return res, fmt.Errorf("catalog apply: display brand %q: %w", display, err)
+			}
+			if created {
+				res.DisplayBrandsInserted++
+			}
+			displayID = &id
+		}
 		codes = append(codes, b.Code)
 		names = append(names, b.Name)
 		displays = append(displays, display)
 		categories = append(categories, category)
+		displayCol = append(displayCol, displayID)
 	}
+	// Existing brands never change display brand: the NULL ids of the
+	// "same" / "renamed" rows fall back to the stored one, and the conflict
+	// branch only follows TSB renames.
 	brows, err := tx.Query(ctx, `
-		INSERT INTO catalog_brands AS b (tsb_code, tsb_name, display_name, category)
-		SELECT * FROM unnest($1::text[], $2::text[], $3::text[], $4::text[])
+		INSERT INTO catalog_brands AS b (tsb_code, tsb_name, display_name, category, display_brand_id)
+		SELECT x.code, x.name, x.display, x.category,
+			COALESCE(x.display_id, (SELECT c.display_brand_id FROM catalog_brands c WHERE c.tsb_code = x.code))
+		FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::bigint[])
+			AS x(code, name, display, category, display_id)
 		ON CONFLICT (tsb_code) DO UPDATE SET tsb_name = EXCLUDED.tsb_name
 		WHERE b.tsb_name IS DISTINCT FROM EXCLUDED.tsb_name
-		RETURNING (xmax = 0)`, codes, names, displays, categories)
+		RETURNING (xmax = 0)`, codes, names, displays, categories, displayCol)
 	if err != nil {
 		return res, fmt.Errorf("catalog apply: brands: %w", err)
 	}
@@ -388,6 +422,76 @@ func (r *Postgres) Apply(ctx context.Context, plan model.Plan) (model.ApplyResul
 		return res, fmt.Errorf("catalog apply: commit: %w", err)
 	}
 	return res, nil
+}
+
+// displayBrandIDs maps DisplayKey(name) to display brand ids.
+func (r *Postgres) displayBrandIDs(ctx context.Context, q *db.Queries) (map[string]int64, error) {
+	rows, err := q.ListCatalogDisplayBrandsAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]int64, len(rows))
+	for _, d := range rows {
+		out[model.DisplayKey(d.Name)] = d.ID
+	}
+	return out, nil
+}
+
+// ensureDisplayBrand returns the display brand named name, creating it
+// (with a unique slug) when missing. known is updated in place.
+func ensureDisplayBrand(ctx context.Context, q *db.Queries, known map[string]int64, name string) (int64, bool, error) {
+	name = strings.Join(strings.Fields(name), " ")
+	key := model.DisplayKey(name)
+	if id, ok := known[key]; ok {
+		return id, false, nil
+	}
+	slug, err := UniqueDisplaySlug(ctx, q, name, 0)
+	if err != nil {
+		return 0, false, err
+	}
+	d, err := q.CreateCatalogDisplayBrand(ctx, db.CreateCatalogDisplayBrandParams{Name: name, Slug: slug})
+	if err != nil {
+		return 0, false, err
+	}
+	known[key] = d.ID
+	return d.ID, true, nil
+}
+
+// EnsureDisplayBrand is ensureDisplayBrand for use cases (one lookup).
+func EnsureDisplayBrand(ctx context.Context, q *db.Queries, name string) (db.CatalogDisplayBrand, error) {
+	name = strings.Join(strings.Fields(name), " ")
+	d, err := q.GetCatalogDisplayBrandByName(ctx, name)
+	if err == nil {
+		return d, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return d, err
+	}
+	slug, err := UniqueDisplaySlug(ctx, q, name, 0)
+	if err != nil {
+		return d, err
+	}
+	return q.CreateCatalogDisplayBrand(ctx, db.CreateCatalogDisplayBrandParams{Name: name, Slug: slug})
+}
+
+// UniqueDisplaySlug returns tsbcatalog.Slug(name), suffixed -2, -3, … when
+// another display brand (not exceptID) already uses it.
+func UniqueDisplaySlug(ctx context.Context, q *db.Queries, name string, exceptID int64) (string, error) {
+	base := tsbcatalog.Slug(name)
+	for i := 1; i < 1000; i++ {
+		slug := base
+		if i > 1 {
+			slug = fmt.Sprintf("%s-%d", base, i)
+		}
+		taken, err := q.CatalogDisplayBrandSlugTaken(ctx, db.CatalogDisplayBrandSlugTakenParams{Slug: slug, ExceptID: exceptID})
+		if err != nil {
+			return "", err
+		}
+		if !taken {
+			return slug, nil
+		}
+	}
+	return "", fmt.Errorf("no free slug for %q", name)
 }
 
 func nullable(s string) any {

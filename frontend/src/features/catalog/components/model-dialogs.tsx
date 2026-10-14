@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { z } from "zod";
 
 import { AppDialog } from "@/components/dialogs/app-dialog";
+import { ConfirmDialog } from "@/components/dialogs/confirm-dialog";
 import {
   AppCombobox,
   AppForm,
@@ -13,6 +14,7 @@ import {
 } from "@/components/forms";
 import { Button } from "@/components/ui/button";
 import {
+  useBulkModelRules,
   useCatalogBrandOptions,
   useCreateModel,
   useMergeModel,
@@ -24,14 +26,22 @@ import {
 } from "@/features/catalog/services/catalog.service";
 import { useLocale } from "@/providers/locale-provider";
 
-/** Loads the models of one brand for combobox search. */
-export function useBrandModelOptions(brandUuid: string | undefined) {
+/**
+ * Loads models for combobox search: of one display brand (every TSB brand
+ * under it, e.g. FIAT and TOFAS-FIAT) or of one TSB brand.
+ */
+export function useBrandModelOptions(
+  scope: { displayBrand?: string; brand?: string } | undefined,
+) {
+  const { t } = useLocale();
   const [cache, setCache] = useState<ComboboxOption[]>([]);
+  const displayBrand = scope?.displayBrand;
+  const brand = scope?.brand;
   const loadOptions = useCallback(
     async (query: string) => {
-      if (!brandUuid) return [];
+      if (!displayBrand && !brand) return [];
       const page = await catalogService.listModels({
-        brand: brandUuid,
+        ...(displayBrand ? { display_brand: displayBrand } : { brand }),
         q: query.trim() || undefined,
         limit: 50,
         offset: 0,
@@ -40,7 +50,11 @@ export function useBrandModelOptions(brandUuid: string | undefined) {
       const options = page.items.map((m) => ({
         value: m.uuid,
         label: m.name,
-        description: `${m.source} · ${m.types_count}`,
+        description: t("catalog.picker.model_description", {
+          brand: m.brand.tsb_name ?? m.brand.display_name,
+          source: t(`catalog.source.${m.source}`),
+          count: m.types_count,
+        }),
       }));
       setCache((prev) => {
         const byValue = new Map(prev.map((o) => [o.value, o]));
@@ -49,7 +63,7 @@ export function useBrandModelOptions(brandUuid: string | undefined) {
       });
       return options;
     },
-    [brandUuid],
+    [brand, displayBrand, t],
   );
   return { loadOptions, options: cache };
 }
@@ -57,11 +71,18 @@ export function useBrandModelOptions(brandUuid: string | undefined) {
 export function ModelCreateDialog({
   open,
   defaultBrand,
+  defaultName,
+  description,
   onOpenChange,
+  onCreated,
 }: {
   open: boolean;
   defaultBrand?: string;
+  defaultName?: string;
+  description?: string;
   onOpenChange: (open: boolean) => void;
+  /** Called with the new model before the dialog closes. */
+  onCreated?: (model: CatalogModel) => Promise<void> | void;
 }) {
   const { t } = useLocale();
   const create = useCreateModel();
@@ -91,14 +112,18 @@ export function ModelCreateDialog({
         if (!create.isPending) onOpenChange(next);
       }}
       title={t("catalog.models.create_title")}
-      description={t("catalog.models.create_description")}
+      description={description ?? t("catalog.models.create_description")}
     >
       {open ? (
         <AppForm
           schema={schema}
-          defaultValues={{ brand_uuid: defaultBrand ?? "", name: "" }}
+          defaultValues={{
+            brand_uuid: defaultBrand ?? "",
+            name: defaultName ?? "",
+          }}
           onSubmit={async (values) => {
-            await create.mutateAsync(values);
+            const created = await create.mutateAsync(values);
+            await onCreated?.(created);
             onOpenChange(false);
           }}
           className="space-y-4"
@@ -216,7 +241,10 @@ export function ModelMergeDialog({
 }) {
   const { t } = useLocale();
   const merge = useMergeModel();
-  const { loadOptions, options } = useBrandModelOptions(model?.brand.uuid);
+  const { loadOptions, options } = useBrandModelOptions(
+    model ? { displayBrand: model.display_brand.uuid } : undefined,
+  );
+  const [into, setInto] = useState<ComboboxOption | null>(null);
   const schema = useMemo(
     () =>
       z.object({
@@ -224,68 +252,120 @@ export function ModelMergeDialog({
       }),
     [t],
   );
+  const close = () => {
+    setInto(null);
+    onOpenChange(false);
+  };
   return (
-    <AppDialog
-      open={Boolean(model)}
-      onOpenChange={(next) => {
-        if (!merge.isPending) onOpenChange(next);
-      }}
-      title={t("catalog.models.merge_title")}
+    <>
+      <AppDialog
+        open={Boolean(model) && !into}
+        onOpenChange={(next) => {
+          if (!next) close();
+        }}
+        title={t("catalog.models.merge_title")}
+        description={
+          model
+            ? t("catalog.models.merge_description", {
+                name: model.name,
+                count: model.types_count,
+              })
+            : undefined
+        }
+      >
+        {model ? (
+          <AppForm
+            key={model.uuid}
+            schema={schema}
+            defaultValues={{ into_uuid: "" }}
+            onSubmit={(values) => {
+              setInto(
+                options.find((o) => o.value === values.into_uuid) ?? {
+                  value: values.into_uuid,
+                  label: values.into_uuid,
+                },
+              );
+            }}
+            className="space-y-4"
+          >
+            <AppCombobox
+              name="into_uuid"
+              label={t("catalog.models.merge_into")}
+              description={t("catalog.models.merge_hint")}
+              loadOptions={loadOptions}
+              options={options.filter((o) => o.value !== model.uuid)}
+              placeholder={t("catalog.picker.model_placeholder")}
+              searchPlaceholder={t("catalog.picker.search")}
+              emptyText={t("catalog.picker.empty")}
+            />
+            <FormActions>
+              <Button type="button" variant="outline" onClick={close}>
+                {t("form.cancel")}
+              </Button>
+              <Button type="submit">{t("catalog.actions.continue")}</Button>
+            </FormActions>
+          </AppForm>
+        ) : null}
+      </AppDialog>
+      <ConfirmDialog
+        open={Boolean(model && into)}
+        title={t("catalog.models.merge_confirm_title")}
+        description={
+          model && into
+            ? t("catalog.models.merge_confirm_description", {
+                name: model.name,
+                into: into.label,
+                count: model.types_count,
+              })
+            : undefined
+        }
+        confirmLabel={t("catalog.actions.merge")}
+        variant="destructive"
+        isPending={merge.isPending}
+        onCancel={() => setInto(null)}
+        onConfirm={async () => {
+          if (!model || !into) return;
+          await merge.mutateAsync({ uuid: model.uuid, intoUuid: into.value });
+          close();
+        }}
+      />
+    </>
+  );
+}
+
+/** Bulk "prefix rule = model name" for the selected models. */
+export function ModelRulesConfirmDialog({
+  models,
+  onDone,
+}: {
+  models: CatalogModel[] | null;
+  onDone: (applied: boolean) => void;
+}) {
+  const { t } = useLocale();
+  const bulk = useBulkModelRules();
+  return (
+    <ConfirmDialog
+      open={Boolean(models?.length)}
+      title={t("catalog.models.rules_title")}
       description={
-        model
-          ? t("catalog.models.merge_description", {
-              name: model.name,
-              count: model.types_count,
+        models
+          ? t("catalog.models.rules_description", {
+              count: models.length,
+              names: models
+                .slice(0, 5)
+                .map((m) => m.name)
+                .join(", "),
             })
           : undefined
       }
-    >
-      {model ? (
-        <AppForm
-          key={model.uuid}
-          schema={schema}
-          defaultValues={{ into_uuid: "" }}
-          onSubmit={async (values) => {
-            await merge.mutateAsync({
-              uuid: model.uuid,
-              intoUuid: values.into_uuid,
-            });
-            onOpenChange(false);
-          }}
-          className="space-y-4"
-        >
-          {(form) => (
-            <>
-              <AppCombobox
-                name="into_uuid"
-                label={t("catalog.models.merge_into")}
-                loadOptions={loadOptions}
-                options={options.filter((o) => o.value !== model.uuid)}
-                placeholder={t("catalog.picker.model_placeholder")}
-                searchPlaceholder={t("catalog.picker.search")}
-                emptyText={t("catalog.picker.empty")}
-              />
-              <FormActions>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={merge.isPending || form.formState.isSubmitting}
-                  onClick={() => onOpenChange(false)}
-                >
-                  {t("form.cancel")}
-                </Button>
-                <Button
-                  type="submit"
-                  variant="destructive"
-                  disabled={merge.isPending || form.formState.isSubmitting}
-                >
-                  {t("catalog.actions.merge")}
-                </Button>
-              </FormActions>
-            </>
-          )}
-        </AppForm>
-      ) : null}
-    </AppDialog>
+      confirmLabel={t("catalog.models.rules_action")}
+      isPending={bulk.isPending}
+      onCancel={() => onDone(false)}
+      onConfirm={async () => {
+        if (!models?.length) return;
+        await bulk.mutateAsync(models.map((m) => m.uuid));
+        onDone(true);
+      }}
+    />
   );
 }

@@ -15,6 +15,7 @@ type Querier interface {
 	AddOrganizationMember(ctx context.Context, arg AddOrganizationMemberParams) (OrganizationMember, error)
 	AssignUserRoleBySlug(ctx context.Context, arg AssignUserRoleBySlugParams) error
 	BranchCodeTaken(ctx context.Context, arg BranchCodeTakenParams) (bool, error)
+	CatalogDisplayBrandSlugTaken(ctx context.Context, arg CatalogDisplayBrandSlugTakenParams) (bool, error)
 	// Moves an import into a working state only from an allowed state, so two
 	// apply requests cannot run at once.
 	ClaimCatalogImport(ctx context.Context, arg ClaimCatalogImportParams) (CatalogImport, error)
@@ -31,6 +32,7 @@ type Querier interface {
 	CountBranches(ctx context.Context, arg CountBranchesParams) (int64, error)
 	CountBulkJobsForActor(ctx context.Context, actorID int64) (int64, error)
 	CountCatalogBrands(ctx context.Context, arg CountCatalogBrandsParams) (int64, error)
+	CountCatalogDisplayBrands(ctx context.Context, arg CountCatalogDisplayBrandsParams) (int64, error)
 	CountCatalogImports(ctx context.Context, arg CountCatalogImportsParams) (int64, error)
 	CountCatalogModels(ctx context.Context, arg CountCatalogModelsParams) (int64, error)
 	CountCatalogTypes(ctx context.Context, arg CountCatalogTypesParams) (int64, error)
@@ -55,6 +57,7 @@ type Querier interface {
 	// Every query filters by organization_id (see docs/design/tenant-core.md §8).
 	CreateBranch(ctx context.Context, arg CreateBranchParams) (Branch, error)
 	CreateBulkJob(ctx context.Context, arg CreateBulkJobParams) (BulkJob, error)
+	CreateCatalogDisplayBrand(ctx context.Context, arg CreateCatalogDisplayBrandParams) (CatalogDisplayBrand, error)
 	CreateCatalogImport(ctx context.Context, arg CreateCatalogImportParams) (CatalogImport, error)
 	CreateCatalogModel(ctx context.Context, arg CreateCatalogModelParams) (CatalogModel, error)
 	CreateExportJob(ctx context.Context, arg CreateExportJobParams) (ExportJob, error)
@@ -75,6 +78,7 @@ type Querier interface {
 	DeleteAppLogByUUID(ctx context.Context, argUuid uuid.UUID) (int64, error)
 	DeleteAppLogsByUUIDs(ctx context.Context, uuids []uuid.UUID) (int64, error)
 	DeleteAppLogsMatching(ctx context.Context, arg DeleteAppLogsMatchingParams) (int64, error)
+	DeleteCatalogDisplayBrand(ctx context.Context, id int64) (int64, error)
 	DeleteCatalogModel(ctx context.Context, id int64) (int64, error)
 	DeleteLogPurgeRule(ctx context.Context, argUuid uuid.UUID) (int64, error)
 	DeleteOAuthAccountByProviderAccount(ctx context.Context, arg DeleteOAuthAccountByProviderAccountParams) error
@@ -96,6 +100,9 @@ type Querier interface {
 	// prompt is the consent). An existing preference row is left untouched.
 	EnsureNotificationPreferencesPushDefault(ctx context.Context, userID int64) error
 	ExtensionExists(ctx context.Context, extname string) (bool, error)
+	// Resolves a tenant brand reference: a display brand uuid, or (older
+	// clients) a TSB brand uuid mapped to its display brand.
+	GetActiveCatalogDisplayBrandForTenant(ctx context.Context, ref uuid.UUID) (GetActiveCatalogDisplayBrandForTenantRow, error)
 	GetActiveOTPByEmailType(ctx context.Context, arg GetActiveOTPByEmailTypeParams) (OtpCode, error)
 	GetAppLogByUUID(ctx context.Context, argUuid uuid.UUID) (AppLog, error)
 	GetAppSettings(ctx context.Context) (AppSetting, error)
@@ -106,10 +113,16 @@ type Querier interface {
 	GetBulkJobByID(ctx context.Context, id int64) (BulkJob, error)
 	GetBulkJobByUUID(ctx context.Context, argUuid uuid.UUID) (BulkJob, error)
 	GetCatalogBrandByUUID(ctx context.Context, argUuid uuid.UUID) (GetCatalogBrandByUUIDRow, error)
+	GetCatalogDisplayBrandByName(ctx context.Context, name string) (CatalogDisplayBrand, error)
+	GetCatalogDisplayBrandByUUID(ctx context.Context, argUuid uuid.UUID) (GetCatalogDisplayBrandByUUIDRow, error)
 	GetCatalogImportByID(ctx context.Context, id int64) (CatalogImport, error)
 	GetCatalogImportByUUID(ctx context.Context, argUuid uuid.UUID) (CatalogImport, error)
 	GetCatalogLatestPeriod(ctx context.Context) (string, error)
+	GetCatalogModelByBrandName(ctx context.Context, arg GetCatalogModelByBrandNameParams) (CatalogModel, error)
 	GetCatalogModelByUUID(ctx context.Context, argUuid uuid.UUID) (GetCatalogModelByUUIDRow, error)
+	// The grouped model a tenant picked: every model with the same group key
+	// under the TSB brands of the model's display brand.
+	GetCatalogModelGroup(ctx context.Context, argUuid uuid.UUID) (GetCatalogModelGroupRow, error)
 	GetCatalogTypeByUUID(ctx context.Context, argUuid uuid.UUID) (GetCatalogTypeByUUIDRow, error)
 	GetExportJobByID(ctx context.Context, id int64) (ExportJob, error)
 	GetExportJobByUUID(ctx context.Context, argUuid uuid.UUID) (ExportJob, error)
@@ -187,11 +200,16 @@ type Querier interface {
 	// Platform vehicle catalog (TSB kasko list).
 	ListCatalogBrands(ctx context.Context, arg ListCatalogBrandsParams) ([]ListCatalogBrandsRow, error)
 	ListCatalogBrandsAll(ctx context.Context) ([]CatalogBrand, error)
+	ListCatalogBrandsByDisplayBrand(ctx context.Context, displayBrandID int64) ([]ListCatalogBrandsByDisplayBrandRow, error)
+	// ---------- display brands ----------
+	ListCatalogDisplayBrands(ctx context.Context, arg ListCatalogDisplayBrandsParams) ([]ListCatalogDisplayBrandsRow, error)
+	ListCatalogDisplayBrandsAll(ctx context.Context) ([]CatalogDisplayBrand, error)
 	ListCatalogImports(ctx context.Context, arg ListCatalogImportsParams) ([]ListCatalogImportsRow, error)
 	ListCatalogModelRulesAll(ctx context.Context) ([]CatalogModelRule, error)
 	ListCatalogModelRulesByModel(ctx context.Context, modelID int64) ([]CatalogModelRule, error)
 	ListCatalogModels(ctx context.Context, arg ListCatalogModelsParams) ([]ListCatalogModelsRow, error)
 	ListCatalogModelsAll(ctx context.Context) ([]CatalogModel, error)
+	ListCatalogModelsByUUIDs(ctx context.Context, uuids []uuid.UUID) ([]CatalogModel, error)
 	ListCatalogTypeValuations(ctx context.Context, typeID int64) ([]ListCatalogTypeValuationsRow, error)
 	ListCatalogTypes(ctx context.Context, arg ListCatalogTypesParams) ([]ListCatalogTypesRow, error)
 	// Types of a brand that a new prefix rule may (re)assign: no model yet, or
@@ -271,6 +289,7 @@ type Querier interface {
 	MarkOutboxRetry(ctx context.Context, arg MarkOutboxRetryParams) error
 	// OAuth sign-up stores a random hash; the user never chose a password.
 	MarkUserPasswordUnset(ctx context.Context, id int64) error
+	MoveCatalogBrandsDisplayBrand(ctx context.Context, arg MoveCatalogBrandsDisplayBrandParams) (int64, error)
 	PingDB(ctx context.Context) (int32, error)
 	QueueImportJob(ctx context.Context, argUuid uuid.UUID) (ImportJob, error)
 	ReassignCatalogModelRules(ctx context.Context, arg ReassignCatalogModelRulesParams) (int64, error)
@@ -286,6 +305,9 @@ type Querier interface {
 	RevokeStorageLink(ctx context.Context, argUuid uuid.UUID) (StorageLink, error)
 	SetAppSettingsLogo(ctx context.Context, logoObjectKey pgtype.Text) (AppSetting, error)
 	SetBranchActive(ctx context.Context, arg SetBranchActiveParams) (Branch, error)
+	// Points one TSB brand at a display brand; display_name mirrors its name.
+	SetCatalogBrandDisplayBrand(ctx context.Context, arg SetCatalogBrandDisplayBrandParams) (int64, error)
+	SetCatalogDisplayBrandLogo(ctx context.Context, arg SetCatalogDisplayBrandLogoParams) (CatalogDisplayBrand, error)
 	SetCatalogImportFileKey(ctx context.Context, arg SetCatalogImportFileKeyParams) (CatalogImport, error)
 	SetCatalogTypesModel(ctx context.Context, arg SetCatalogTypesModelParams) (int64, error)
 	SetOrganizationAccessWindow(ctx context.Context, arg SetOrganizationAccessWindowParams) (Organization, error)
@@ -295,17 +317,22 @@ type Querier interface {
 	SlugExists(ctx context.Context, slug string) (bool, error)
 	SoftDeleteBranch(ctx context.Context, arg SoftDeleteBranchParams) (int64, error)
 	SoftDeleteOrganization(ctx context.Context, argUuid uuid.UUID) (Organization, error)
+	SyncCatalogBrandsDisplayName(ctx context.Context, displayBrandID int64) (int64, error)
 	TenantCountCatalogBrands(ctx context.Context, arg TenantCountCatalogBrandsParams) (int64, error)
 	TenantCountCatalogModels(ctx context.Context, arg TenantCountCatalogModelsParams) (int64, error)
 	TenantCountCatalogTypes(ctx context.Context, arg TenantCountCatalogTypesParams) (int64, error)
-	// Tenant read-only search (vehicle forms).
+	// Tenant read-only search (vehicle forms). Brands are display brands;
+	// models are grouped by (display brand, group key).
 	TenantListCatalogBrands(ctx context.Context, arg TenantListCatalogBrandsParams) ([]TenantListCatalogBrandsRow, error)
+	// uuid / name come from the whole group (not only the filtered rows) so a
+	// grouped model keeps one id whatever the year filter is.
 	TenantListCatalogModels(ctx context.Context, arg TenantListCatalogModelsParams) ([]TenantListCatalogModelsRow, error)
 	TenantListCatalogTypes(ctx context.Context, arg TenantListCatalogTypesParams) ([]TenantListCatalogTypesRow, error)
 	UpdateAppSettings(ctx context.Context, arg UpdateAppSettingsParams) (AppSetting, error)
 	UpdateAuthSettings(ctx context.Context, arg UpdateAuthSettingsParams) (AuthSetting, error)
 	UpdateBranch(ctx context.Context, arg UpdateBranchParams) (Branch, error)
 	UpdateCatalogBrand(ctx context.Context, arg UpdateCatalogBrandParams) (CatalogBrand, error)
+	UpdateCatalogDisplayBrand(ctx context.Context, arg UpdateCatalogDisplayBrandParams) (CatalogDisplayBrand, error)
 	UpdateCatalogImportState(ctx context.Context, arg UpdateCatalogImportStateParams) (CatalogImport, error)
 	UpdateCatalogModel(ctx context.Context, arg UpdateCatalogModelParams) (CatalogModel, error)
 	UpdateCatalogType(ctx context.Context, arg UpdateCatalogTypeParams) (int64, error)

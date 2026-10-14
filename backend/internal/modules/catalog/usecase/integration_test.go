@@ -3,15 +3,42 @@ package usecase_test
 import (
 	"context"
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/repository"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/usecase"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/resourceevents"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/tsbcatalog"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+type liveEvent struct{ resource, action, uuid string }
+
+type liveRecorder struct {
+	mu     sync.Mutex
+	events []liveEvent
+}
+
+func (l *liveRecorder) Publish(_ context.Context, resource, action string, uuids ...string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	ev := liveEvent{resource: resource, action: action}
+	if len(uuids) > 0 {
+		ev.uuid = uuids[0]
+	}
+	l.events = append(l.events, ev)
+}
+
+func (l *liveRecorder) take() []liveEvent {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	out := l.events
+	l.events = nil
+	return out
+}
 
 // TestCatalogImportAgainstPostgres runs plan + apply against a real
 // database. It TRUNCATES the catalog tables, so it only runs when
@@ -27,11 +54,13 @@ func TestCatalogImportAgainstPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pool.Close()
-	if _, err := pool.Exec(ctx, `TRUNCATE catalog_brands, catalog_imports RESTART IDENTITY CASCADE`); err != nil {
+	if _, err := pool.Exec(ctx, `TRUNCATE catalog_brands, catalog_display_brands, catalog_imports RESTART IDENTITY CASCADE`); err != nil {
 		t.Fatal(err)
 	}
 	q := db.New(pool)
 	svc := usecase.New(repository.NewPostgres(pool, q), nil, nil, nil, nil)
+	live := &liveRecorder{}
+	svc.SetResourceEvents(live)
 
 	oct := &tsbcatalog.Sheet{Period: "2026-10", Rows: []tsbcatalog.Row{
 		{BrandCode: "100", BrandName: "TOFAS-FIAT", TypeCode: "1402", TypeName: "EGEA CROSS STREET 1.4 FIRE 95 E6D", Values: map[int]int64{2024: 1051836, 2023: 971010}},
@@ -77,6 +106,12 @@ func TestCatalogImportAgainstPostgres(t *testing.T) {
 		SetModel: true, ModelUUID: &ninja.UUID, SaveRule: true, RulePrefix: "KAWASAKI NINJA",
 	}); err != nil {
 		t.Fatal(err)
+	}
+	// Curation edits reach the live catalog lists.
+	if got := live.take(); len(got) != 2 ||
+		got[0] != (liveEvent{usecase.LiveModels, resourceevents.ActionCreated, ninja.UUID.String()}) ||
+		got[1] != (liveEvent{usecase.LiveTypes, resourceevents.ActionBulk, ""}) {
+		t.Fatalf("live events = %+v", got)
 	}
 
 	// Next month: 1403 drops out, 1402 changes value, a new Ninja appears.

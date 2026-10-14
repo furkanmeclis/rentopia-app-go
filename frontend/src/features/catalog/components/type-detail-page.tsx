@@ -1,5 +1,6 @@
 "use client";
 
+import type { ColumnDef } from "@tanstack/react-table";
 import { CarFront } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
@@ -14,6 +15,7 @@ import {
   EntityPage,
   EntitySectionCard,
 } from "@/components/entity";
+import { createColumn } from "@/components/tables";
 import {
   Select,
   SelectContent,
@@ -23,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { permissions } from "@/config/permissions";
 import { routes } from "@/config/routes";
+import { CatalogLocalTable } from "@/features/catalog/components/catalog-local-table";
 import { useCatalogBreadcrumbs } from "@/features/catalog/components/catalog-tabs";
 import { TypeModelAssign } from "@/features/catalog/components/type-model-assign";
 import {
@@ -36,6 +39,8 @@ import {
   usePatchType,
 } from "@/features/catalog/hooks/use-catalog";
 import type { CatalogTypeDetail } from "@/features/catalog/services/catalog.service";
+
+type Valuation = CatalogTypeDetail["valuations"][number];
 import { useLocale } from "@/providers/locale-provider";
 
 const NONE = "__none__";
@@ -92,15 +97,49 @@ export function CatalogTypeDetailPage({ uuid }: { uuid: string }) {
     type?.raw_name ?? t("catalog.tabs.types"),
   );
 
-  const history = useMemo(() => {
-    const byPeriod = new Map<string, { year: number; value: number }[]>();
-    for (const v of type?.history ?? []) {
-      const rows = byPeriod.get(v.period) ?? [];
-      rows.push({ year: v.model_year, value: v.value });
-      byPeriod.set(v.period, rows);
-    }
-    return [...byPeriod.entries()];
-  }, [type?.history]);
+  const valuationColumns = useMemo(
+    () =>
+      [
+        createColumn<Valuation>({
+          accessorKey: "model_year",
+          labelKey: "catalog.columns.year",
+          enableSorting: true,
+          gridPrimary: true,
+          cell: ({ row }) => (
+            <span className="tabular-nums">{row.original.model_year}</span>
+          ),
+        }),
+        createColumn<Valuation>({
+          accessorKey: "value",
+          labelKey: "catalog.columns.kasko_value",
+          enableSorting: true,
+          gridSecondary: true,
+          cell: ({ row }) => (
+            <span className="tabular-nums">
+              {formatTRY(row.original.value, locale)}
+            </span>
+          ),
+        }),
+      ] as ColumnDef<Valuation, unknown>[],
+    [locale],
+  );
+  const historyColumns = useMemo(
+    () =>
+      [
+        createColumn<Valuation>({
+          accessorKey: "period",
+          labelKey: "catalog.columns.period",
+          enableSorting: true,
+          gridPrimary: true,
+        }),
+        ...valuationColumns,
+      ] as ColumnDef<Valuation, unknown>[],
+    [valuationColumns],
+  );
+  const periods = useMemo(
+    () => new Set((type?.history ?? []).map((v) => v.period)).size,
+    [type?.history],
+  );
 
   return (
     <EntityPage
@@ -221,54 +260,29 @@ export function CatalogTypeDetailPage({ uuid }: { uuid: string }) {
             })}
             badge={type.valuations.length}
           >
-            {type.valuations.length === 0 ? (
-              <p className="text-muted-foreground text-sm">
-                {t("catalog.types.no_values")}
-              </p>
-            ) : (
-              <table className="w-full max-w-md text-sm">
-                <thead>
-                  <tr className="text-muted-foreground text-left text-xs">
-                    <th className="py-1 font-medium">
-                      {t("catalog.columns.year")}
-                    </th>
-                    <th className="py-1 text-right font-medium">
-                      {t("catalog.columns.kasko_value")}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-border divide-y">
-                  {type.valuations.map((v) => (
-                    <tr key={v.model_year}>
-                      <td className="py-1.5 tabular-nums">{v.model_year}</td>
-                      <td className="py-1.5 text-right tabular-nums">
-                        {formatTRY(v.value, locale)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+            <CatalogLocalTable
+              columns={valuationColumns}
+              data={type.valuations}
+              getRowId={(v) => String(v.model_year)}
+              emptyTitle={t("catalog.types.no_values")}
+              emptyDescription={t("catalog.types.no_values_hint")}
+              pageSize={20}
+            />
           </EntitySectionCard>
 
-          {history.length > 1 ? (
+          {periods > 1 ? (
             <EntitySectionCard
               title={t("catalog.types.section_history")}
+              badge={periods}
               collapsible
               defaultOpen={false}
             >
-              <div className="space-y-4">
-                {history.map(([period, rows]) => (
-                  <div key={period}>
-                    <p className="mb-1 text-sm font-medium">{period}</p>
-                    <p className="text-muted-foreground text-sm tabular-nums">
-                      {rows
-                        .map((r) => `${r.year}: ${formatTRY(r.value, locale)}`)
-                        .join(" · ")}
-                    </p>
-                  </div>
-                ))}
-              </div>
+              <CatalogLocalTable
+                columns={historyColumns}
+                data={type.history}
+                getRowId={(v) => `${v.period}-${v.model_year}`}
+                pageSize={20}
+              />
             </EntitySectionCard>
           ) : null}
         </div>

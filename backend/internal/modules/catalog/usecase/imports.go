@@ -12,6 +12,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/repository"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/resourceevents"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/storage"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/tsbcatalog"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/queue"
@@ -132,6 +133,7 @@ func (s *Service) Upload(ctx context.Context, actorID int64, filename string, r 
 			ID: row.ID, Status: model.ImportFailed, Error: text("could not queue the import"),
 		})
 	}
+	s.publish(ctx, LiveImports, resourceevents.ActionCreated, row.Uuid)
 	return s.GetImport(ctx, row.Uuid)
 }
 
@@ -164,6 +166,7 @@ func (s *Service) RequestApply(ctx context.Context, actorID int64, id uuid.UUID)
 			ID: claimed.ID, Status: model.ImportFailed, Error: text("could not queue the apply"),
 		})
 	}
+	s.publish(ctx, LiveImports, resourceevents.ActionUpdated, id)
 	return s.GetImport(ctx, id)
 }
 
@@ -187,6 +190,9 @@ func (s *Service) ProcessImport(ctx context.Context, importID int64, action stri
 			ID: row.ID, Status: model.ImportReady, Period: text(plan.Period),
 			Counts: mustJSON(plan.Counts), Diff: mustJSON(plan.Diff),
 		})
+		if err == nil {
+			s.publish(ctx, LiveImports, resourceevents.ActionUpdated, row.Uuid)
+		}
 		return err
 	case queue.CatalogImportApply:
 		row, err := s.q.GetCatalogImportByID(ctx, importID)
@@ -219,6 +225,8 @@ func (s *Service) ProcessImport(ctx context.Context, importID int64, action stri
 				"period": plan.Period, "types_new": counts.TypesNew, "valuations_upserted": counts.ValuationsUpserted,
 			}, nil)
 		}
+		s.publish(ctx, LiveImports, resourceevents.ActionUpdated, row.Uuid)
+		s.publishCatalogApplied(ctx)
 		return nil
 	}
 	return fmt.Errorf("catalog: unknown import action %q", action)
@@ -229,12 +237,13 @@ func (s *Service) fail(ctx context.Context, id int64, cause error) error {
 	if len(msg) > 1000 {
 		msg = msg[:1000]
 	}
-	_, err := s.q.UpdateCatalogImportState(ctx, db.UpdateCatalogImportStateParams{
+	row, err := s.q.UpdateCatalogImportState(ctx, db.UpdateCatalogImportStateParams{
 		ID: id, Status: model.ImportFailed, Error: text(msg),
 	})
 	if err != nil {
 		return err
 	}
+	s.publish(ctx, LiveImports, resourceevents.ActionUpdated, row.Uuid)
 	s.log.Warn("catalog_import_failed", "id", id, "error", cause)
 	// The failure is recorded on the row; do not make Asynq retry it.
 	return nil
@@ -318,6 +327,7 @@ func appliedCounts(plan model.Plan, res model.ApplyResult) model.Counts {
 		Rows:                 plan.Counts.Rows,
 		BrandsNew:            res.BrandsInserted,
 		BrandsRenamed:        res.BrandsUpdated,
+		DisplayBrandsNew:     res.DisplayBrandsInserted,
 		ModelsNew:            res.ModelsInserted,
 		TypesNew:             res.TypesInserted,
 		TypesUpdated:         res.TypesUpdated,

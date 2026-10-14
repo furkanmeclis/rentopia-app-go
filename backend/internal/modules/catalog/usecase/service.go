@@ -15,6 +15,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/repository"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/activity"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/resourceevents"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/storage"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/tsbcatalog"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/queue"
@@ -38,6 +39,7 @@ type Repository interface {
 	WithTx(ctx context.Context, fn func(q *db.Queries) error) error
 	LoadState(ctx context.Context, period string) (model.State, error)
 	Apply(ctx context.Context, plan model.Plan) (model.ApplyResult, error)
+	RebuildAutoModels(ctx context.Context) (model.RebuildResult, error)
 }
 
 // Enqueuer schedules background jobs.
@@ -53,6 +55,7 @@ type Service struct {
 	queue    Enqueuer
 	activity *activity.Recorder
 	log      *slog.Logger
+	events   resourceevents.Publisher
 }
 
 // New builds the service. A nil queue runs import jobs inline.
@@ -136,7 +139,8 @@ func mapBrand(b db.ListCatalogBrandsRow) model.Brand {
 		UUID: b.Uuid, TSBCode: b.TsbCode, TSBName: b.TsbName, DisplayName: b.DisplayName,
 		Category: b.Category, IsActive: b.IsActive, TypesCount: b.TypesCount,
 		ModelsCount: b.ModelsCount, UnresolvedCount: b.UnresolvedCount,
-		CreatedAt: b.CreatedAt.Time, UpdatedAt: b.UpdatedAt.Time,
+		DisplayBrand: model.DisplayBrandRef{UUID: b.DisplayBrandUuid, Name: b.DisplayBrandName},
+		CreatedAt:    b.CreatedAt.Time, UpdatedAt: b.UpdatedAt.Time,
 	}
 }
 
@@ -144,15 +148,19 @@ func (s *Service) ListBrands(ctx context.Context, f model.BrandFilter) ([]model.
 	if f.Category != "" && !validCategory(f.Category) {
 		return nil, 0, fmt.Errorf("%w: unknown category", ErrInvalidRequest)
 	}
+	did, err := s.displayBrandID(ctx, f.DisplayBrandUUID)
+	if err != nil {
+		return nil, 0, err
+	}
 	rows, err := s.q.ListCatalogBrands(ctx, db.ListCatalogBrandsParams{
-		Category: text(f.Category), IsActive: boolPtr(f.IsActive), Q: text(f.Q),
+		Category: text(f.Category), IsActive: boolPtr(f.IsActive), Q: text(f.Q), DisplayBrandID: did,
 		SortField: f.SortField, SortDesc: f.SortDesc, LimitCount: f.Limit, OffsetCount: f.Offset,
 	})
 	if err != nil {
 		return nil, 0, err
 	}
 	total, err := s.q.CountCatalogBrands(ctx, db.CountCatalogBrandsParams{
-		Category: text(f.Category), IsActive: boolPtr(f.IsActive), Q: text(f.Q),
+		Category: text(f.Category), IsActive: boolPtr(f.IsActive), Q: text(f.Q), DisplayBrandID: did,
 	})
 	if err != nil {
 		return nil, 0, err
@@ -176,14 +184,54 @@ func (s *Service) PatchBrand(ctx context.Context, id uuid.UUID, in model.PatchBr
 	if in.DisplayName != nil && strings.TrimSpace(*in.DisplayName) == "" {
 		return model.Brand{}, fmt.Errorf("%w: display_name cannot be empty", ErrInvalidRequest)
 	}
+	if in.DisplayName != nil && in.DisplayBrandUUID != nil {
+		return model.Brand{}, fmt.Errorf("%w: send display_name or display_brand_uuid, not both", ErrInvalidRequest)
+	}
 	if in.Category != nil && !validCategory(*in.Category) {
 		return model.Brand{}, fmt.Errorf("%w: unknown category", ErrInvalidRequest)
 	}
-	if _, err := s.q.UpdateCatalogBrand(ctx, db.UpdateCatalogBrandParams{
-		DisplayName: textPtr(in.DisplayName), Category: textPtr(in.Category), IsActive: boolPtr(in.IsActive), Uuid: id,
-	}); err != nil {
+	var orphan *string
+	err := s.repo.WithTx(ctx, func(q *db.Queries) error {
+		b, err := q.UpdateCatalogBrand(ctx, db.UpdateCatalogBrandParams{
+			Category: textPtr(in.Category), IsActive: boolPtr(in.IsActive), Uuid: id,
+		})
+		if err != nil {
+			return err
+		}
+		// Re-map to another display brand: by name (created when missing)
+		// or by uuid. A display brand left without TSB brands is removed.
+		var targetID int64
+		switch {
+		case in.DisplayName != nil:
+			d, err := repository.EnsureDisplayBrand(ctx, q, *in.DisplayName)
+			if err != nil {
+				return err
+			}
+			targetID = d.ID
+		case in.DisplayBrandUUID != nil:
+			d, err := q.GetCatalogDisplayBrandByUUID(ctx, *in.DisplayBrandUUID)
+			if err != nil {
+				return err
+			}
+			targetID = d.ID
+		default:
+			return nil
+		}
+		if _, err := q.SetCatalogBrandDisplayBrand(ctx, db.SetCatalogBrandDisplayBrandParams{
+			BrandID: b.ID, DisplayBrandID: targetID,
+		}); err != nil {
+			return err
+		}
+		if b.DisplayBrandID != targetID {
+			orphan, err = deleteIfEmpty(ctx, q, b.DisplayBrandID)
+		}
+		return err
+	})
+	if err != nil {
 		return model.Brand{}, mapErr(repository.MapErr(err))
 	}
+	s.dropLogo(ctx, orphan)
+	s.publish(ctx, LiveBrands, resourceevents.ActionUpdated, id)
 	return s.GetBrand(ctx, id)
 }
 
@@ -214,8 +262,12 @@ func (s *Service) modelID(ctx context.Context, id *uuid.UUID) (pgtype.Int8, erro
 func mapModel(m db.ListCatalogModelsRow) model.Model {
 	return model.Model{
 		UUID: m.Uuid, Name: m.Name, Source: m.Source,
-		Brand:      model.BrandRef{UUID: m.BrandUuid, DisplayName: m.BrandDisplayName},
-		TypesCount: m.TypesCount, CreatedAt: m.CreatedAt.Time, UpdatedAt: m.UpdatedAt.Time,
+		Brand: model.BrandRef{
+			UUID: m.BrandUuid, DisplayName: m.BrandDisplayName, TSBCode: m.BrandTsbCode, TSBName: m.BrandTsbName,
+		},
+		DisplayBrand: model.DisplayBrandRef{UUID: m.DisplayBrandUuid, Name: m.DisplayBrandName},
+		TypesCount:   m.TypesCount, GroupSize: m.GroupSize,
+		CreatedAt: m.CreatedAt.Time, UpdatedAt: m.UpdatedAt.Time,
 	}
 }
 
@@ -227,14 +279,20 @@ func (s *Service) ListModels(ctx context.Context, f model.ModelFilter) ([]model.
 	if err != nil {
 		return nil, 0, err
 	}
+	did, err := s.displayBrandID(ctx, f.DisplayBrandUUID)
+	if err != nil {
+		return nil, 0, err
+	}
 	rows, err := s.q.ListCatalogModels(ctx, db.ListCatalogModelsParams{
-		BrandID: bid, Source: text(f.Source), Q: text(f.Q),
+		BrandID: bid, DisplayBrandID: did, Source: text(f.Source), Q: text(f.Q),
 		SortField: f.SortField, SortDesc: f.SortDesc, LimitCount: f.Limit, OffsetCount: f.Offset,
 	})
 	if err != nil {
 		return nil, 0, err
 	}
-	total, err := s.q.CountCatalogModels(ctx, db.CountCatalogModelsParams{BrandID: bid, Source: text(f.Source), Q: text(f.Q)})
+	total, err := s.q.CountCatalogModels(ctx, db.CountCatalogModelsParams{
+		BrandID: bid, DisplayBrandID: did, Source: text(f.Source), Q: text(f.Q),
+	})
 	if err != nil {
 		return nil, 0, err
 	}
@@ -275,6 +333,7 @@ func (s *Service) CreateModel(ctx context.Context, brandUUID uuid.UUID, name str
 	if err != nil {
 		return model.Model{}, mapErr(repository.MapErr(err))
 	}
+	s.publish(ctx, LiveModels, resourceevents.ActionCreated, m.Uuid)
 	return s.GetModel(ctx, m.Uuid)
 }
 
@@ -297,10 +356,15 @@ func (s *Service) PatchModel(ctx context.Context, id uuid.UUID, in model.PatchMo
 	if _, err := s.q.UpdateCatalogModel(ctx, params); err != nil {
 		return model.Model{}, mapErr(repository.MapErr(err))
 	}
+	s.publish(ctx, LiveModels, resourceevents.ActionUpdated, id)
 	return s.GetModel(ctx, id)
 }
 
 // MergeModel moves the types and rules of src into dst and deletes src.
+// Models of two TSB brands under one display brand cannot share rows (a
+// type keeps its TSB brand), so there src is renamed to dst's name: both
+// then form one grouped model for tenants. When src's brand already has a
+// model of that name, src is merged into it instead.
 func (s *Service) MergeModel(ctx context.Context, src, dst uuid.UUID) (model.Model, error) {
 	if src == dst {
 		return model.Model{}, fmt.Errorf("%w: cannot merge a model into itself", ErrInvalidRequest)
@@ -314,7 +378,23 @@ func (s *Service) MergeModel(ctx context.Context, src, dst uuid.UUID) (model.Mod
 		return model.Model{}, mapErr(repository.MapErr(err))
 	}
 	if from.BrandID != to.BrandID {
-		return model.Model{}, fmt.Errorf("%w: models belong to different brands", ErrInvalidRequest)
+		if from.DisplayBrandUuid != to.DisplayBrandUuid {
+			return model.Model{}, fmt.Errorf("%w: models belong to different display brands", ErrInvalidRequest)
+		}
+		same, err := s.q.GetCatalogModelByBrandName(ctx, db.GetCatalogModelByBrandNameParams{BrandID: from.BrandID, Name: to.Name})
+		switch {
+		case err == nil && same.ID != from.ID:
+			return s.MergeModel(ctx, src, same.Uuid)
+		case err == nil || errors.Is(repository.MapErr(err), repository.ErrNotFound):
+			if _, err := s.q.UpdateCatalogModel(ctx, db.UpdateCatalogModelParams{
+				Uuid: from.Uuid, Name: text(to.Name), Source: text(model.SourceManual),
+			}); err != nil {
+				return model.Model{}, mapErr(repository.MapErr(err))
+			}
+			return s.GetModel(ctx, dst)
+		default:
+			return model.Model{}, err
+		}
 	}
 	err = s.repo.WithTx(ctx, func(q *db.Queries) error {
 		if _, err := q.ReassignCatalogTypesModel(ctx, db.ReassignCatalogTypesModelParams{
@@ -332,6 +412,10 @@ func (s *Service) MergeModel(ctx context.Context, src, dst uuid.UUID) (model.Mod
 	if err != nil {
 		return model.Model{}, mapErr(repository.MapErr(err))
 	}
+	s.publish(ctx, LiveModels, resourceevents.ActionDeleted, src)
+	s.publish(ctx, LiveModels, resourceevents.ActionUpdated, dst)
+	// The types of src now point at dst.
+	s.publish(ctx, LiveTypes, resourceevents.ActionBulk)
 	return s.GetModel(ctx, dst)
 }
 
@@ -342,8 +426,9 @@ func mapTypeRow(t db.ListCatalogTypesRow) model.Type {
 		UUID: t.Uuid, TSBTypeCode: t.TsbTypeCode, RawName: t.RawName, Years: t.Years,
 		SuggestedTransmission: optString(t.SuggestedTransmission), SuggestedFuel: optString(t.SuggestedFuel),
 		FirstSeenPeriod: t.FirstSeenPeriod, LastSeenPeriod: t.LastSeenPeriod, IsActive: t.IsActive,
-		Brand:     model.BrandRef{UUID: t.BrandUuid, DisplayName: t.BrandDisplayName, TSBCode: t.BrandTsbCode},
-		CreatedAt: t.CreatedAt.Time, UpdatedAt: t.UpdatedAt.Time,
+		Brand:        model.BrandRef{UUID: t.BrandUuid, DisplayName: t.BrandDisplayName, TSBCode: t.BrandTsbCode},
+		DisplayBrand: model.DisplayBrandRef{UUID: t.DisplayBrandUuid, Name: t.DisplayBrandName},
+		CreatedAt:    t.CreatedAt.Time, UpdatedAt: t.UpdatedAt.Time,
 	}
 	if out.Years == nil {
 		out.Years = []int32{}
@@ -372,8 +457,12 @@ func (s *Service) ListTypes(ctx context.Context, f model.TypeFilter) ([]model.Ty
 	if err != nil {
 		return nil, 0, err
 	}
+	did, err := s.displayBrandID(ctx, f.DisplayBrandUUID)
+	if err != nil {
+		return nil, 0, err
+	}
 	rows, err := s.q.ListCatalogTypes(ctx, db.ListCatalogTypesParams{
-		BrandID: bid, Category: text(f.Category), ModelID: mid, Year: int4Ptr(f.Year), Unresolved: f.Unresolved,
+		BrandID: bid, DisplayBrandID: did, Category: text(f.Category), ModelID: mid, Year: int4Ptr(f.Year), Unresolved: f.Unresolved,
 		IsActive: boolPtr(f.IsActive), Fuel: text(f.Fuel), Transmission: text(f.Transmission), Q: text(f.Q),
 		SortField: f.SortField, SortDesc: f.SortDesc, LimitCount: f.Limit, OffsetCount: f.Offset,
 	})
@@ -381,7 +470,7 @@ func (s *Service) ListTypes(ctx context.Context, f model.TypeFilter) ([]model.Ty
 		return nil, 0, err
 	}
 	total, err := s.q.CountCatalogTypes(ctx, db.CountCatalogTypesParams{
-		BrandID: bid, Category: text(f.Category), ModelID: mid, Year: int4Ptr(f.Year), Unresolved: f.Unresolved,
+		BrandID: bid, DisplayBrandID: did, Category: text(f.Category), ModelID: mid, Year: int4Ptr(f.Year), Unresolved: f.Unresolved,
 		IsActive: boolPtr(f.IsActive), Fuel: text(f.Fuel), Transmission: text(f.Transmission), Q: text(f.Q),
 	})
 	if err != nil {
@@ -406,6 +495,7 @@ func (s *Service) GetType(ctx context.Context, id uuid.UUID) (model.TypeDetail, 
 			FirstSeenPeriod: t.FirstSeenPeriod, LastSeenPeriod: t.LastSeenPeriod, IsActive: t.IsActive,
 			CreatedAt: t.CreatedAt, UpdatedAt: t.UpdatedAt, BrandUuid: t.BrandUuid,
 			BrandDisplayName: t.BrandDisplayName, BrandTsbCode: t.BrandTsbCode,
+			DisplayBrandUuid: t.DisplayBrandUuid, DisplayBrandName: t.DisplayBrandName,
 			ModelUuid: t.ModelUuid, ModelName: t.ModelName, ModelSource: t.ModelSource,
 		}),
 		BrandTSBName: t.BrandTsbName,
@@ -447,7 +537,17 @@ func (s *Service) PatchType(ctx context.Context, id uuid.UUID, in model.PatchTyp
 				return model.TypeDetail{}, mapErr(repository.MapErr(err))
 			}
 			if target.BrandID != t.BrandID {
-				return model.TypeDetail{}, fmt.Errorf("%w: model belongs to another brand", ErrInvalidRequest)
+				// A model of a sibling TSB brand (same display brand): use
+				// the same-name model of the type's own brand, created when
+				// missing, so both group into one model.
+				if target.DisplayBrandUuid != t.DisplayBrandUuid {
+					return model.TypeDetail{}, fmt.Errorf("%w: model belongs to another brand", ErrInvalidRequest)
+				}
+				own, err := s.sameNameModel(ctx, t.BrandID, target.Name)
+				if err != nil {
+					return model.TypeDetail{}, err
+				}
+				target.ID, target.Name, target.BrandID = own.ID, own.Name, own.BrandID
 			}
 			params.ModelID = pgtype.Int8{Int64: target.ID, Valid: true}
 		}
@@ -517,88 +617,13 @@ func (s *Service) PatchType(ctx context.Context, id uuid.UUID, in model.PatchTyp
 	if err != nil {
 		return model.TypeDetail{}, mapErr(repository.MapErr(err))
 	}
+	if in.SaveRule {
+		// The rule may have reassigned other types of the brand too.
+		s.publish(ctx, LiveTypes, resourceevents.ActionBulk)
+	} else {
+		s.publish(ctx, LiveTypes, resourceevents.ActionUpdated, id)
+	}
 	return s.GetType(ctx, id)
-}
-
-// ---------- tenant read-only search ----------
-
-func (s *Service) TenantBrands(ctx context.Context, f model.TenantFilter) ([]model.TenantBrand, int64, error) {
-	if f.Category != "" && !validCategory(f.Category) {
-		return nil, 0, fmt.Errorf("%w: unknown category", ErrInvalidRequest)
-	}
-	rows, err := s.q.TenantListCatalogBrands(ctx, db.TenantListCatalogBrandsParams{
-		Category: text(f.Category), Q: text(f.Q), Year: int4Ptr(f.Year), LimitCount: f.Limit, OffsetCount: f.Offset,
-	})
-	if err != nil {
-		return nil, 0, err
-	}
-	total, err := s.q.TenantCountCatalogBrands(ctx, db.TenantCountCatalogBrandsParams{
-		Category: text(f.Category), Q: text(f.Q), Year: int4Ptr(f.Year),
-	})
-	if err != nil {
-		return nil, 0, err
-	}
-	out := make([]model.TenantBrand, 0, len(rows))
-	for _, r := range rows {
-		out = append(out, model.TenantBrand{UUID: r.Uuid, DisplayName: r.DisplayName, Category: r.Category})
-	}
-	return out, total, nil
-}
-
-func (s *Service) TenantModels(ctx context.Context, f model.TenantFilter) ([]model.TenantModel, int64, error) {
-	rows, err := s.q.TenantListCatalogModels(ctx, db.TenantListCatalogModelsParams{
-		BrandUuid: f.BrandUUID, Q: text(f.Q), Year: int4Ptr(f.Year), LimitCount: f.Limit, OffsetCount: f.Offset,
-	})
-	if err != nil {
-		return nil, 0, err
-	}
-	total, err := s.q.TenantCountCatalogModels(ctx, db.TenantCountCatalogModelsParams{
-		BrandUuid: f.BrandUUID, Q: text(f.Q), Year: int4Ptr(f.Year),
-	})
-	if err != nil {
-		return nil, 0, err
-	}
-	out := make([]model.TenantModel, 0, len(rows))
-	for _, r := range rows {
-		out = append(out, model.TenantModel{
-			UUID: r.Uuid, Name: r.Name, Brand: model.BrandRef{UUID: r.BrandUuid, DisplayName: r.BrandDisplayName},
-		})
-	}
-	return out, total, nil
-}
-
-func (s *Service) TenantTypes(ctx context.Context, f model.TenantFilter) ([]model.TenantType, int64, error) {
-	rows, err := s.q.TenantListCatalogTypes(ctx, db.TenantListCatalogTypesParams{
-		ModelUuid: f.ModelUUID, Q: text(f.Q), Year: int4Ptr(f.Year), LimitCount: f.Limit, OffsetCount: f.Offset,
-	})
-	if err != nil {
-		return nil, 0, err
-	}
-	total, err := s.q.TenantCountCatalogTypes(ctx, db.TenantCountCatalogTypesParams{
-		ModelUuid: f.ModelUUID, Q: text(f.Q), Year: int4Ptr(f.Year),
-	})
-	if err != nil {
-		return nil, 0, err
-	}
-	out := make([]model.TenantType, 0, len(rows))
-	for _, r := range rows {
-		tt := model.TenantType{
-			UUID: r.Uuid, TSBTypeCode: r.TsbTypeCode, Name: r.RawName, Years: r.Years,
-			SuggestedTransmission: optString(r.SuggestedTransmission), SuggestedFuel: optString(r.SuggestedFuel),
-			Brand: model.BrandRef{UUID: r.BrandUuid, DisplayName: r.BrandDisplayName},
-			Model: model.NamedRef{UUID: r.ModelUuid, Name: r.ModelName},
-		}
-		if tt.Years == nil {
-			tt.Years = []int32{}
-		}
-		if v, ok := repository.NumericToFloat(r.KaskoValue); ok {
-			tt.KaskoValue = &v
-			p := r.KaskoPeriod
-			tt.KaskoPeriod = &p
-		}
-		out = append(out, tt)
-	}
-	return out, total, nil
 }
 
 // ---------- shared helpers ----------

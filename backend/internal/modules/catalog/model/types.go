@@ -2,6 +2,7 @@
 package model
 
 import (
+	"strings"
 	"time"
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/tsbcatalog"
@@ -26,17 +27,18 @@ const (
 
 // Brand is a catalog brand as returned by the platform API.
 type Brand struct {
-	UUID            uuid.UUID `json:"uuid"`
-	TSBCode         string    `json:"tsb_code"`
-	TSBName         string    `json:"tsb_name"`
-	DisplayName     string    `json:"display_name"`
-	Category        string    `json:"category"`
-	IsActive        bool      `json:"is_active"`
-	TypesCount      int64     `json:"types_count"`
-	ModelsCount     int64     `json:"models_count"`
-	UnresolvedCount int64     `json:"unresolved_count"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	UUID            uuid.UUID       `json:"uuid"`
+	TSBCode         string          `json:"tsb_code"`
+	TSBName         string          `json:"tsb_name"`
+	DisplayName     string          `json:"display_name"`
+	Category        string          `json:"category"`
+	IsActive        bool            `json:"is_active"`
+	TypesCount      int64           `json:"types_count"`
+	ModelsCount     int64           `json:"models_count"`
+	UnresolvedCount int64           `json:"unresolved_count"`
+	DisplayBrand    DisplayBrandRef `json:"display_brand"`
+	CreatedAt       time.Time       `json:"created_at"`
+	UpdatedAt       time.Time       `json:"updated_at"`
 }
 
 // BrandRef is the short brand embedded in models and types.
@@ -44,6 +46,40 @@ type BrandRef struct {
 	UUID        uuid.UUID `json:"uuid"`
 	DisplayName string    `json:"display_name"`
 	TSBCode     string    `json:"tsb_code,omitempty"`
+	TSBName     string    `json:"tsb_name,omitempty"`
+}
+
+// DisplayBrandRef is the short display brand embedded in brands, models
+// and types.
+type DisplayBrandRef struct {
+	UUID uuid.UUID `json:"uuid"`
+	Name string    `json:"name"`
+}
+
+// DisplayBrand is the brand users see; one or more TSB brands map to it.
+type DisplayBrand struct {
+	UUID        uuid.UUID            `json:"uuid"`
+	Name        string               `json:"name"`
+	Slug        string               `json:"slug"`
+	LogoURL     *string              `json:"logo_url"`
+	IsActive    bool                 `json:"is_active"`
+	BrandsCount int64                `json:"brands_count"`
+	TypesCount  int64                `json:"types_count"`
+	ModelsCount int64                `json:"models_count"`
+	TSBNames    []string             `json:"tsb_names"`
+	Brands      []DisplayBrandMember `json:"brands,omitempty"`
+	CreatedAt   time.Time            `json:"created_at"`
+	UpdatedAt   time.Time            `json:"updated_at"`
+}
+
+// DisplayBrandMember is a TSB brand under a display brand.
+type DisplayBrandMember struct {
+	UUID       uuid.UUID `json:"uuid"`
+	TSBCode    string    `json:"tsb_code"`
+	TSBName    string    `json:"tsb_name"`
+	Category   string    `json:"category"`
+	IsActive   bool      `json:"is_active"`
+	TypesCount int64     `json:"types_count"`
 }
 
 // NamedRef is a uuid + name pair.
@@ -61,14 +97,35 @@ type ModelRef struct {
 
 // Model is a catalog model.
 type Model struct {
-	UUID       uuid.UUID   `json:"uuid"`
-	Name       string      `json:"name"`
-	Source     string      `json:"source"`
-	Brand      BrandRef    `json:"brand"`
-	TypesCount int64       `json:"types_count"`
-	Rules      []ModelRule `json:"rules,omitempty"`
-	CreatedAt  time.Time   `json:"created_at"`
-	UpdatedAt  time.Time   `json:"updated_at"`
+	UUID         uuid.UUID       `json:"uuid"`
+	Name         string          `json:"name"`
+	Source       string          `json:"source"`
+	Brand        BrandRef        `json:"brand"`
+	DisplayBrand DisplayBrandRef `json:"display_brand"`
+	TypesCount   int64           `json:"types_count"`
+	// GroupSize is how many models (one per TSB brand) share this model's
+	// name under its display brand; tenants see them as one model.
+	GroupSize int64       `json:"group_size"`
+	Rules     []ModelRule `json:"rules,omitempty"`
+	CreatedAt time.Time   `json:"created_at"`
+	UpdatedAt time.Time   `json:"updated_at"`
+}
+
+// BulkRulesResult reports a bulk "prefix rule = model name" action.
+type BulkRulesResult struct {
+	RulesSaved    int `json:"rules_saved"`
+	TypesAssigned int `json:"types_assigned"`
+}
+
+// RebuildResult reports a re-derivation of auto models.
+type RebuildResult struct {
+	TypesChanged     int `json:"types_changed"`
+	ModelsCreated    int `json:"models_created"`
+	ModelsDeleted    int `json:"models_deleted"`
+	UnresolvedBefore int `json:"unresolved_before"`
+	UnresolvedAfter  int `json:"unresolved_after"`
+	AutoModelsBefore int `json:"auto_models_before"`
+	AutoModelsAfter  int `json:"auto_models_after"`
 }
 
 // ModelRule maps a type-name prefix to a model.
@@ -79,19 +136,20 @@ type ModelRule struct {
 
 // Type is a catalog type (TSB type line).
 type Type struct {
-	UUID                  uuid.UUID `json:"uuid"`
-	TSBTypeCode           string    `json:"tsb_type_code"`
-	RawName               string    `json:"raw_name"`
-	Years                 []int32   `json:"years"`
-	SuggestedTransmission *string   `json:"suggested_transmission"`
-	SuggestedFuel         *string   `json:"suggested_fuel"`
-	FirstSeenPeriod       string    `json:"first_seen_period"`
-	LastSeenPeriod        string    `json:"last_seen_period"`
-	IsActive              bool      `json:"is_active"`
-	Brand                 BrandRef  `json:"brand"`
-	Model                 *ModelRef `json:"model"`
-	CreatedAt             time.Time `json:"created_at"`
-	UpdatedAt             time.Time `json:"updated_at"`
+	UUID                  uuid.UUID       `json:"uuid"`
+	TSBTypeCode           string          `json:"tsb_type_code"`
+	RawName               string          `json:"raw_name"`
+	Years                 []int32         `json:"years"`
+	SuggestedTransmission *string         `json:"suggested_transmission"`
+	SuggestedFuel         *string         `json:"suggested_fuel"`
+	FirstSeenPeriod       string          `json:"first_seen_period"`
+	LastSeenPeriod        string          `json:"last_seen_period"`
+	IsActive              bool            `json:"is_active"`
+	Brand                 BrandRef        `json:"brand"`
+	DisplayBrand          DisplayBrandRef `json:"display_brand"`
+	Model                 *ModelRef       `json:"model"`
+	CreatedAt             time.Time       `json:"created_at"`
+	UpdatedAt             time.Time       `json:"updated_at"`
 }
 
 // Valuation is one kasko value.
@@ -130,7 +188,9 @@ type Import struct {
 type TenantBrand struct {
 	UUID        uuid.UUID `json:"uuid"`
 	DisplayName string    `json:"display_name"`
+	Slug        string    `json:"slug"`
 	Category    string    `json:"category"`
+	LogoURL     *string   `json:"logo_url"`
 }
 
 type TenantModel struct {
@@ -155,25 +215,37 @@ type TenantType struct {
 // Filters.
 
 type BrandFilter struct {
+	Limit, Offset    int32
+	Q, Category      string
+	IsActive         *bool
+	DisplayBrandUUID *uuid.UUID
+	SortField        string
+	SortDesc         bool
+}
+
+type DisplayBrandFilter struct {
 	Limit, Offset int32
-	Q, Category   string
+	Q             string
 	IsActive      *bool
+	MergedOnly    bool
 	SortField     string
 	SortDesc      bool
 }
 
 type ModelFilter struct {
-	Limit, Offset int32
-	Q, Source     string
-	BrandUUID     *uuid.UUID
-	SortField     string
-	SortDesc      bool
+	Limit, Offset    int32
+	Q, Source        string
+	BrandUUID        *uuid.UUID
+	DisplayBrandUUID *uuid.UUID
+	SortField        string
+	SortDesc         bool
 }
 
 type TypeFilter struct {
 	Limit, Offset        int32
 	Q, Category          string
 	BrandUUID, ModelUUID *uuid.UUID
+	DisplayBrandUUID     *uuid.UUID
 	Year                 *int32
 	Unresolved           bool
 	IsActive             *bool
@@ -200,9 +272,17 @@ type TenantFilter struct {
 // Inputs.
 
 type PatchBrandInput struct {
-	DisplayName *string
-	Category    *string
-	IsActive    *bool
+	// DisplayName maps the TSB brand to the display brand of that name
+	// (created when missing); DisplayBrandUUID to an existing one.
+	DisplayName      *string
+	DisplayBrandUUID *uuid.UUID
+	Category         *string
+	IsActive         *bool
+}
+
+type PatchDisplayBrandInput struct {
+	Name     *string
+	IsActive *bool
 }
 
 type PatchModelInput struct {
@@ -233,6 +313,11 @@ type StateBrand struct {
 	Category string
 }
 
+// DisplayKey is the lookup key of a display brand name.
+func DisplayKey(name string) string {
+	return strings.ToLower(strings.Join(strings.Fields(name), " "))
+}
+
 // TypeKey identifies a type by brand and TSB type code.
 type TypeKey struct {
 	BrandCode string
@@ -258,11 +343,13 @@ type ValuationKey struct {
 
 // State is the catalog as stored, loaded before planning.
 type State struct {
-	Brands     map[string]StateBrand // by TSB code
-	Models     map[int64][]tsbcatalog.ModelRef
-	Rules      map[int64][]tsbcatalog.RuleRef
-	Types      map[TypeKey]StateType
-	Valuations map[ValuationKey]int64 // values of the plan period
+	Brands map[string]StateBrand // by TSB code
+	// DisplayBrands holds existing display brand ids by DisplayKey(name).
+	DisplayBrands map[string]int64
+	Models        map[int64][]tsbcatalog.ModelRef
+	Rules         map[int64][]tsbcatalog.RuleRef
+	Types         map[TypeKey]StateType
+	Valuations    map[ValuationKey]int64 // values of the plan period
 }
 
 // PlanBrand is a brand line of the file.
@@ -309,6 +396,7 @@ type Counts struct {
 	Rows                 int            `json:"rows"`
 	BrandsNew            int            `json:"brands_new"`
 	BrandsRenamed        int            `json:"brands_renamed"`
+	DisplayBrandsNew     int            `json:"display_brands_new"`
 	ModelsNew            int            `json:"models_new"`
 	TypesNew             int            `json:"types_new"`
 	TypesRenamed         int            `json:"types_renamed"`
@@ -383,12 +471,13 @@ type Plan struct {
 
 // ApplyResult reports what an apply actually changed in the database.
 type ApplyResult struct {
-	BrandsInserted       int
-	BrandsUpdated        int
-	ModelsInserted       int
-	TypesInserted        int
-	TypesUpdated         int
-	TypesDeactivated     int
-	ValuationsUpserted   int
-	UnresolvedByCategory map[string]int
+	DisplayBrandsInserted int
+	BrandsInserted        int
+	BrandsUpdated         int
+	ModelsInserted        int
+	TypesInserted         int
+	TypesUpdated          int
+	TypesDeactivated      int
+	ValuationsUpserted    int
+	UnresolvedByCategory  map[string]int
 }

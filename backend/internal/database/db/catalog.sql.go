@@ -12,6 +12,24 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const catalogDisplayBrandSlugTaken = `-- name: CatalogDisplayBrandSlugTaken :one
+SELECT EXISTS (
+    SELECT 1 FROM catalog_display_brands WHERE slug = $1 AND id <> $2
+)::boolean
+`
+
+type CatalogDisplayBrandSlugTakenParams struct {
+	Slug     string `json:"slug"`
+	ExceptID int64  `json:"except_id"`
+}
+
+func (q *Queries) CatalogDisplayBrandSlugTaken(ctx context.Context, arg CatalogDisplayBrandSlugTakenParams) (bool, error) {
+	row := q.db.QueryRow(ctx, catalogDisplayBrandSlugTaken, arg.Slug, arg.ExceptID)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const claimCatalogImport = `-- name: ClaimCatalogImport :one
 UPDATE catalog_imports
 SET status = $1, error = NULL
@@ -52,23 +70,56 @@ const countCatalogBrands = `-- name: CountCatalogBrands :one
 SELECT COUNT(*)::bigint
 FROM catalog_brands b
 WHERE ($1::text IS NULL OR b.category = $1)
-  AND ($2::boolean IS NULL OR b.is_active = $2)
+  AND ($2::bigint IS NULL OR b.display_brand_id = $2)
+  AND ($3::boolean IS NULL OR b.is_active = $3)
   AND (
-    $3::text IS NULL
-    OR b.display_name ILIKE '%' || $3 || '%'
-    OR b.tsb_name ILIKE '%' || $3 || '%'
-    OR b.tsb_code = $3
+    $4::text IS NULL
+    OR b.display_name ILIKE '%' || $4 || '%'
+    OR b.tsb_name ILIKE '%' || $4 || '%'
+    OR b.tsb_code = $4
   )
 `
 
 type CountCatalogBrandsParams struct {
-	Category pgtype.Text `json:"category"`
-	IsActive pgtype.Bool `json:"is_active"`
-	Q        pgtype.Text `json:"q"`
+	Category       pgtype.Text `json:"category"`
+	DisplayBrandID pgtype.Int8 `json:"display_brand_id"`
+	IsActive       pgtype.Bool `json:"is_active"`
+	Q              pgtype.Text `json:"q"`
 }
 
 func (q *Queries) CountCatalogBrands(ctx context.Context, arg CountCatalogBrandsParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countCatalogBrands, arg.Category, arg.IsActive, arg.Q)
+	row := q.db.QueryRow(ctx, countCatalogBrands,
+		arg.Category,
+		arg.DisplayBrandID,
+		arg.IsActive,
+		arg.Q,
+	)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const countCatalogDisplayBrands = `-- name: CountCatalogDisplayBrands :one
+SELECT COUNT(*)::bigint
+FROM catalog_display_brands d
+WHERE ($1::boolean IS NULL OR d.is_active = $1)
+  AND (NOT $2::boolean OR (SELECT COUNT(*) FROM catalog_brands b WHERE b.display_brand_id = d.id) > 1)
+  AND (
+    $3::text IS NULL
+    OR d.name ILIKE '%' || $3 || '%'
+    OR EXISTS (SELECT 1 FROM catalog_brands b WHERE b.display_brand_id = d.id
+        AND (b.tsb_name ILIKE '%' || $3 || '%' OR b.tsb_code = $3))
+  )
+`
+
+type CountCatalogDisplayBrandsParams struct {
+	IsActive   pgtype.Bool `json:"is_active"`
+	MergedOnly bool        `json:"merged_only"`
+	Q          pgtype.Text `json:"q"`
+}
+
+func (q *Queries) CountCatalogDisplayBrands(ctx context.Context, arg CountCatalogDisplayBrandsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countCatalogDisplayBrands, arg.IsActive, arg.MergedOnly, arg.Q)
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
@@ -96,19 +147,27 @@ func (q *Queries) CountCatalogImports(ctx context.Context, arg CountCatalogImpor
 const countCatalogModels = `-- name: CountCatalogModels :one
 SELECT COUNT(*)::bigint
 FROM catalog_models m
+JOIN catalog_brands b ON b.id = m.brand_id
 WHERE ($1::bigint IS NULL OR m.brand_id = $1)
-  AND ($2::text IS NULL OR m.source = $2)
-  AND ($3::text IS NULL OR m.name ILIKE '%' || $3 || '%')
+  AND ($2::bigint IS NULL OR b.display_brand_id = $2)
+  AND ($3::text IS NULL OR m.source = $3)
+  AND ($4::text IS NULL OR m.name ILIKE '%' || $4 || '%')
 `
 
 type CountCatalogModelsParams struct {
-	BrandID pgtype.Int8 `json:"brand_id"`
-	Source  pgtype.Text `json:"source"`
-	Q       pgtype.Text `json:"q"`
+	BrandID        pgtype.Int8 `json:"brand_id"`
+	DisplayBrandID pgtype.Int8 `json:"display_brand_id"`
+	Source         pgtype.Text `json:"source"`
+	Q              pgtype.Text `json:"q"`
 }
 
 func (q *Queries) CountCatalogModels(ctx context.Context, arg CountCatalogModelsParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countCatalogModels, arg.BrandID, arg.Source, arg.Q)
+	row := q.db.QueryRow(ctx, countCatalogModels,
+		arg.BrandID,
+		arg.DisplayBrandID,
+		arg.Source,
+		arg.Q,
+	)
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
@@ -119,35 +178,38 @@ SELECT COUNT(*)::bigint
 FROM catalog_types t
 JOIN catalog_brands b ON b.id = t.brand_id
 WHERE ($1::bigint IS NULL OR t.brand_id = $1)
-  AND ($2::text IS NULL OR b.category = $2)
-  AND ($3::bigint IS NULL OR t.model_id = $3)
-  AND ($4::int IS NULL OR t.years @> ARRAY[$4::int])
-  AND (NOT $5::boolean OR t.model_id IS NULL)
-  AND ($6::boolean IS NULL OR t.is_active = $6)
-  AND ($7::text IS NULL OR t.suggested_fuel = $7)
-  AND ($8::text IS NULL OR t.suggested_transmission = $8)
+  AND ($2::bigint IS NULL OR b.display_brand_id = $2)
+  AND ($3::text IS NULL OR b.category = $3)
+  AND ($4::bigint IS NULL OR t.model_id = $4)
+  AND ($5::int IS NULL OR t.years @> ARRAY[$5::int])
+  AND (NOT $6::boolean OR t.model_id IS NULL)
+  AND ($7::boolean IS NULL OR t.is_active = $7)
+  AND ($8::text IS NULL OR t.suggested_fuel = $8)
+  AND ($9::text IS NULL OR t.suggested_transmission = $9)
   AND (
-    $9::text IS NULL
-    OR t.raw_name ILIKE '%' || $9 || '%'
-    OR t.tsb_type_code = $9
+    $10::text IS NULL
+    OR t.raw_name ILIKE '%' || $10 || '%'
+    OR t.tsb_type_code = $10
   )
 `
 
 type CountCatalogTypesParams struct {
-	BrandID      pgtype.Int8 `json:"brand_id"`
-	Category     pgtype.Text `json:"category"`
-	ModelID      pgtype.Int8 `json:"model_id"`
-	Year         pgtype.Int4 `json:"year"`
-	Unresolved   bool        `json:"unresolved"`
-	IsActive     pgtype.Bool `json:"is_active"`
-	Fuel         pgtype.Text `json:"fuel"`
-	Transmission pgtype.Text `json:"transmission"`
-	Q            pgtype.Text `json:"q"`
+	BrandID        pgtype.Int8 `json:"brand_id"`
+	DisplayBrandID pgtype.Int8 `json:"display_brand_id"`
+	Category       pgtype.Text `json:"category"`
+	ModelID        pgtype.Int8 `json:"model_id"`
+	Year           pgtype.Int4 `json:"year"`
+	Unresolved     bool        `json:"unresolved"`
+	IsActive       pgtype.Bool `json:"is_active"`
+	Fuel           pgtype.Text `json:"fuel"`
+	Transmission   pgtype.Text `json:"transmission"`
+	Q              pgtype.Text `json:"q"`
 }
 
 func (q *Queries) CountCatalogTypes(ctx context.Context, arg CountCatalogTypesParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countCatalogTypes,
 		arg.BrandID,
+		arg.DisplayBrandID,
 		arg.Category,
 		arg.ModelID,
 		arg.Year,
@@ -195,6 +257,33 @@ func (q *Queries) CountUnresolvedCatalogTypesByCategory(ctx context.Context) ([]
 	return items, nil
 }
 
+const createCatalogDisplayBrand = `-- name: CreateCatalogDisplayBrand :one
+INSERT INTO catalog_display_brands (name, slug)
+VALUES ($1, $2)
+RETURNING id, uuid, name, slug, logo_object_key, is_active, created_at, updated_at
+`
+
+type CreateCatalogDisplayBrandParams struct {
+	Name string `json:"name"`
+	Slug string `json:"slug"`
+}
+
+func (q *Queries) CreateCatalogDisplayBrand(ctx context.Context, arg CreateCatalogDisplayBrandParams) (CatalogDisplayBrand, error) {
+	row := q.db.QueryRow(ctx, createCatalogDisplayBrand, arg.Name, arg.Slug)
+	var i CatalogDisplayBrand
+	err := row.Scan(
+		&i.ID,
+		&i.Uuid,
+		&i.Name,
+		&i.Slug,
+		&i.LogoObjectKey,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createCatalogImport = `-- name: CreateCatalogImport :one
 INSERT INTO catalog_imports (filename, created_by, period)
 VALUES ($1, $2, $3)
@@ -231,7 +320,7 @@ func (q *Queries) CreateCatalogImport(ctx context.Context, arg CreateCatalogImpo
 const createCatalogModel = `-- name: CreateCatalogModel :one
 INSERT INTO catalog_models (brand_id, name, source)
 VALUES ($1, $2, $3)
-RETURNING id, uuid, brand_id, name, source, created_at, updated_at
+RETURNING id, uuid, brand_id, name, source, created_at, updated_at, group_key
 `
 
 type CreateCatalogModelParams struct {
@@ -251,8 +340,21 @@ func (q *Queries) CreateCatalogModel(ctx context.Context, arg CreateCatalogModel
 		&i.Source,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.GroupKey,
 	)
 	return i, err
+}
+
+const deleteCatalogDisplayBrand = `-- name: DeleteCatalogDisplayBrand :execrows
+DELETE FROM catalog_display_brands WHERE id = $1
+`
+
+func (q *Queries) DeleteCatalogDisplayBrand(ctx context.Context, id int64) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteCatalogDisplayBrand, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const deleteCatalogModel = `-- name: DeleteCatalogModel :execrows
@@ -267,28 +369,57 @@ func (q *Queries) DeleteCatalogModel(ctx context.Context, id int64) (int64, erro
 	return result.RowsAffected(), nil
 }
 
+const getActiveCatalogDisplayBrandForTenant = `-- name: GetActiveCatalogDisplayBrandForTenant :one
+SELECT d.id, d.uuid, d.name
+FROM catalog_display_brands d
+WHERE d.is_active AND (
+    d.uuid = $1
+    OR d.id = (SELECT b.display_brand_id FROM catalog_brands b WHERE b.uuid = $1)
+)
+LIMIT 1
+`
+
+type GetActiveCatalogDisplayBrandForTenantRow struct {
+	ID   int64     `json:"id"`
+	Uuid uuid.UUID `json:"uuid"`
+	Name string    `json:"name"`
+}
+
+// Resolves a tenant brand reference: a display brand uuid, or (older
+// clients) a TSB brand uuid mapped to its display brand.
+func (q *Queries) GetActiveCatalogDisplayBrandForTenant(ctx context.Context, ref uuid.UUID) (GetActiveCatalogDisplayBrandForTenantRow, error) {
+	row := q.db.QueryRow(ctx, getActiveCatalogDisplayBrandForTenant, ref)
+	var i GetActiveCatalogDisplayBrandForTenantRow
+	err := row.Scan(&i.ID, &i.Uuid, &i.Name)
+	return i, err
+}
+
 const getCatalogBrandByUUID = `-- name: GetCatalogBrandByUUID :one
-SELECT b.id, b.uuid, b.tsb_code, b.tsb_name, b.display_name, b.category, b.is_active, b.created_at, b.updated_at,
+SELECT b.id, b.uuid, b.tsb_code, b.tsb_name, b.display_name, b.category, b.is_active, b.created_at, b.updated_at, b.display_brand_id, d.uuid AS display_brand_uuid, d.name AS display_brand_name,
     (SELECT COUNT(*) FROM catalog_types t WHERE t.brand_id = b.id AND t.is_active)::bigint AS types_count,
     (SELECT COUNT(*) FROM catalog_models m WHERE m.brand_id = b.id)::bigint AS models_count,
     (SELECT COUNT(*) FROM catalog_types t WHERE t.brand_id = b.id AND t.is_active AND t.model_id IS NULL)::bigint AS unresolved_count
 FROM catalog_brands b
+JOIN catalog_display_brands d ON d.id = b.display_brand_id
 WHERE b.uuid = $1
 `
 
 type GetCatalogBrandByUUIDRow struct {
-	ID              int64              `json:"id"`
-	Uuid            uuid.UUID          `json:"uuid"`
-	TsbCode         string             `json:"tsb_code"`
-	TsbName         string             `json:"tsb_name"`
-	DisplayName     string             `json:"display_name"`
-	Category        string             `json:"category"`
-	IsActive        bool               `json:"is_active"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
-	TypesCount      int64              `json:"types_count"`
-	ModelsCount     int64              `json:"models_count"`
-	UnresolvedCount int64              `json:"unresolved_count"`
+	ID               int64              `json:"id"`
+	Uuid             uuid.UUID          `json:"uuid"`
+	TsbCode          string             `json:"tsb_code"`
+	TsbName          string             `json:"tsb_name"`
+	DisplayName      string             `json:"display_name"`
+	Category         string             `json:"category"`
+	IsActive         bool               `json:"is_active"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	DisplayBrandID   int64              `json:"display_brand_id"`
+	DisplayBrandUuid uuid.UUID          `json:"display_brand_uuid"`
+	DisplayBrandName string             `json:"display_brand_name"`
+	TypesCount       int64              `json:"types_count"`
+	ModelsCount      int64              `json:"models_count"`
+	UnresolvedCount  int64              `json:"unresolved_count"`
 }
 
 func (q *Queries) GetCatalogBrandByUUID(ctx context.Context, argUuid uuid.UUID) (GetCatalogBrandByUUIDRow, error) {
@@ -304,9 +435,80 @@ func (q *Queries) GetCatalogBrandByUUID(ctx context.Context, argUuid uuid.UUID) 
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DisplayBrandID,
+		&i.DisplayBrandUuid,
+		&i.DisplayBrandName,
 		&i.TypesCount,
 		&i.ModelsCount,
 		&i.UnresolvedCount,
+	)
+	return i, err
+}
+
+const getCatalogDisplayBrandByName = `-- name: GetCatalogDisplayBrandByName :one
+SELECT id, uuid, name, slug, logo_object_key, is_active, created_at, updated_at FROM catalog_display_brands WHERE lower(name) = lower($1::text)
+`
+
+func (q *Queries) GetCatalogDisplayBrandByName(ctx context.Context, name string) (CatalogDisplayBrand, error) {
+	row := q.db.QueryRow(ctx, getCatalogDisplayBrandByName, name)
+	var i CatalogDisplayBrand
+	err := row.Scan(
+		&i.ID,
+		&i.Uuid,
+		&i.Name,
+		&i.Slug,
+		&i.LogoObjectKey,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getCatalogDisplayBrandByUUID = `-- name: GetCatalogDisplayBrandByUUID :one
+SELECT d.id, d.uuid, d.name, d.slug, d.logo_object_key, d.is_active, d.created_at, d.updated_at,
+    (SELECT COUNT(*) FROM catalog_brands b WHERE b.display_brand_id = d.id)::bigint AS brands_count,
+    (SELECT COUNT(*) FROM catalog_types t JOIN catalog_brands b ON b.id = t.brand_id
+        WHERE b.display_brand_id = d.id AND t.is_active)::bigint AS types_count,
+    (SELECT COUNT(DISTINCT m.group_key) FROM catalog_models m JOIN catalog_brands b ON b.id = m.brand_id
+        WHERE b.display_brand_id = d.id)::bigint AS models_count,
+    COALESCE((SELECT array_agg(b.tsb_name ORDER BY b.tsb_name) FROM catalog_brands b
+        WHERE b.display_brand_id = d.id), '{}')::text[] AS tsb_names
+FROM catalog_display_brands d
+WHERE d.uuid = $1
+`
+
+type GetCatalogDisplayBrandByUUIDRow struct {
+	ID            int64              `json:"id"`
+	Uuid          uuid.UUID          `json:"uuid"`
+	Name          string             `json:"name"`
+	Slug          string             `json:"slug"`
+	LogoObjectKey pgtype.Text        `json:"logo_object_key"`
+	IsActive      bool               `json:"is_active"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	BrandsCount   int64              `json:"brands_count"`
+	TypesCount    int64              `json:"types_count"`
+	ModelsCount   int64              `json:"models_count"`
+	TsbNames      []string           `json:"tsb_names"`
+}
+
+func (q *Queries) GetCatalogDisplayBrandByUUID(ctx context.Context, argUuid uuid.UUID) (GetCatalogDisplayBrandByUUIDRow, error) {
+	row := q.db.QueryRow(ctx, getCatalogDisplayBrandByUUID, argUuid)
+	var i GetCatalogDisplayBrandByUUIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.Uuid,
+		&i.Name,
+		&i.Slug,
+		&i.LogoObjectKey,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.BrandsCount,
+		&i.TypesCount,
+		&i.ModelsCount,
+		&i.TsbNames,
 	)
 	return i, err
 }
@@ -372,11 +574,41 @@ func (q *Queries) GetCatalogLatestPeriod(ctx context.Context) (string, error) {
 	return column_1, err
 }
 
+const getCatalogModelByBrandName = `-- name: GetCatalogModelByBrandName :one
+SELECT id, uuid, brand_id, name, source, created_at, updated_at, group_key FROM catalog_models
+WHERE brand_id = $1 AND lower(name) = lower($2::text)
+`
+
+type GetCatalogModelByBrandNameParams struct {
+	BrandID int64  `json:"brand_id"`
+	Name    string `json:"name"`
+}
+
+func (q *Queries) GetCatalogModelByBrandName(ctx context.Context, arg GetCatalogModelByBrandNameParams) (CatalogModel, error) {
+	row := q.db.QueryRow(ctx, getCatalogModelByBrandName, arg.BrandID, arg.Name)
+	var i CatalogModel
+	err := row.Scan(
+		&i.ID,
+		&i.Uuid,
+		&i.BrandID,
+		&i.Name,
+		&i.Source,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.GroupKey,
+	)
+	return i, err
+}
+
 const getCatalogModelByUUID = `-- name: GetCatalogModelByUUID :one
-SELECT m.id, m.uuid, m.brand_id, m.name, m.source, m.created_at, m.updated_at, b.uuid AS brand_uuid, b.display_name AS brand_display_name,
-    (SELECT COUNT(*) FROM catalog_types t WHERE t.model_id = m.id AND t.is_active)::bigint AS types_count
+SELECT m.id, m.uuid, m.brand_id, m.name, m.source, m.created_at, m.updated_at, m.group_key, b.uuid AS brand_uuid, b.display_name AS brand_display_name, b.tsb_code AS brand_tsb_code,
+    b.tsb_name AS brand_tsb_name, d.uuid AS display_brand_uuid, d.name AS display_brand_name,
+    (SELECT COUNT(*) FROM catalog_types t WHERE t.model_id = m.id AND t.is_active)::bigint AS types_count,
+    (SELECT COUNT(*) FROM catalog_models g JOIN catalog_brands gb ON gb.id = g.brand_id
+        WHERE g.group_key = m.group_key AND gb.display_brand_id = b.display_brand_id)::bigint AS group_size
 FROM catalog_models m
 JOIN catalog_brands b ON b.id = m.brand_id
+JOIN catalog_display_brands d ON d.id = b.display_brand_id
 WHERE m.uuid = $1
 `
 
@@ -388,9 +620,15 @@ type GetCatalogModelByUUIDRow struct {
 	Source           string             `json:"source"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	GroupKey         pgtype.Text        `json:"group_key"`
 	BrandUuid        uuid.UUID          `json:"brand_uuid"`
 	BrandDisplayName string             `json:"brand_display_name"`
+	BrandTsbCode     string             `json:"brand_tsb_code"`
+	BrandTsbName     string             `json:"brand_tsb_name"`
+	DisplayBrandUuid uuid.UUID          `json:"display_brand_uuid"`
+	DisplayBrandName string             `json:"display_brand_name"`
 	TypesCount       int64              `json:"types_count"`
+	GroupSize        int64              `json:"group_size"`
 }
 
 func (q *Queries) GetCatalogModelByUUID(ctx context.Context, argUuid uuid.UUID) (GetCatalogModelByUUIDRow, error) {
@@ -404,9 +642,52 @@ func (q *Queries) GetCatalogModelByUUID(ctx context.Context, argUuid uuid.UUID) 
 		&i.Source,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.GroupKey,
 		&i.BrandUuid,
 		&i.BrandDisplayName,
+		&i.BrandTsbCode,
+		&i.BrandTsbName,
+		&i.DisplayBrandUuid,
+		&i.DisplayBrandName,
 		&i.TypesCount,
+		&i.GroupSize,
+	)
+	return i, err
+}
+
+const getCatalogModelGroup = `-- name: GetCatalogModelGroup :one
+SELECT b.display_brand_id, m.group_key::text AS group_key,
+    (SELECT g.name FROM catalog_models g JOIN catalog_brands gb ON gb.id = g.brand_id
+        WHERE g.group_key = m.group_key AND gb.display_brand_id = b.display_brand_id
+        ORDER BY (g.source = 'manual') DESC, g.id LIMIT 1)::text AS group_name,
+    d.uuid AS display_brand_uuid, d.name AS display_brand_name, d.is_active AS display_brand_active
+FROM catalog_models m
+JOIN catalog_brands b ON b.id = m.brand_id
+JOIN catalog_display_brands d ON d.id = b.display_brand_id
+WHERE m.uuid = $1
+`
+
+type GetCatalogModelGroupRow struct {
+	DisplayBrandID     int64     `json:"display_brand_id"`
+	GroupKey           string    `json:"group_key"`
+	GroupName          string    `json:"group_name"`
+	DisplayBrandUuid   uuid.UUID `json:"display_brand_uuid"`
+	DisplayBrandName   string    `json:"display_brand_name"`
+	DisplayBrandActive bool      `json:"display_brand_active"`
+}
+
+// The grouped model a tenant picked: every model with the same group key
+// under the TSB brands of the model's display brand.
+func (q *Queries) GetCatalogModelGroup(ctx context.Context, argUuid uuid.UUID) (GetCatalogModelGroupRow, error) {
+	row := q.db.QueryRow(ctx, getCatalogModelGroup, argUuid)
+	var i GetCatalogModelGroupRow
+	err := row.Scan(
+		&i.DisplayBrandID,
+		&i.GroupKey,
+		&i.GroupName,
+		&i.DisplayBrandUuid,
+		&i.DisplayBrandName,
+		&i.DisplayBrandActive,
 	)
 	return i, err
 }
@@ -415,10 +696,12 @@ const getCatalogTypeByUUID = `-- name: GetCatalogTypeByUUID :one
 SELECT t.id, t.uuid, t.brand_id, t.model_id, t.tsb_type_code, t.raw_name, t.years, t.suggested_transmission,
     t.suggested_fuel, t.first_seen_period, t.last_seen_period, t.is_active, t.created_at, t.updated_at,
     b.uuid AS brand_uuid, b.display_name AS brand_display_name, b.tsb_code AS brand_tsb_code,
-    b.tsb_name AS brand_tsb_name,
+    b.tsb_name AS brand_tsb_name, b.display_brand_id,
+    d.uuid AS display_brand_uuid, d.name AS display_brand_name,
     m.uuid AS model_uuid, m.name AS model_name, m.source AS model_source
 FROM catalog_types t
 JOIN catalog_brands b ON b.id = t.brand_id
+JOIN catalog_display_brands d ON d.id = b.display_brand_id
 LEFT JOIN catalog_models m ON m.id = t.model_id
 WHERE t.uuid = $1
 `
@@ -442,6 +725,9 @@ type GetCatalogTypeByUUIDRow struct {
 	BrandDisplayName      string             `json:"brand_display_name"`
 	BrandTsbCode          string             `json:"brand_tsb_code"`
 	BrandTsbName          string             `json:"brand_tsb_name"`
+	DisplayBrandID        int64              `json:"display_brand_id"`
+	DisplayBrandUuid      uuid.UUID          `json:"display_brand_uuid"`
+	DisplayBrandName      string             `json:"display_brand_name"`
 	ModelUuid             pgtype.UUID        `json:"model_uuid"`
 	ModelName             pgtype.Text        `json:"model_name"`
 	ModelSource           pgtype.Text        `json:"model_source"`
@@ -469,6 +755,9 @@ func (q *Queries) GetCatalogTypeByUUID(ctx context.Context, argUuid uuid.UUID) (
 		&i.BrandDisplayName,
 		&i.BrandTsbCode,
 		&i.BrandTsbName,
+		&i.DisplayBrandID,
+		&i.DisplayBrandUuid,
+		&i.DisplayBrandName,
 		&i.ModelUuid,
 		&i.ModelName,
 		&i.ModelSource,
@@ -478,65 +767,72 @@ func (q *Queries) GetCatalogTypeByUUID(ctx context.Context, argUuid uuid.UUID) (
 
 const listCatalogBrands = `-- name: ListCatalogBrands :many
 
-SELECT b.id, b.uuid, b.tsb_code, b.tsb_name, b.display_name, b.category, b.is_active, b.created_at, b.updated_at,
+SELECT b.id, b.uuid, b.tsb_code, b.tsb_name, b.display_name, b.category, b.is_active, b.created_at, b.updated_at, b.display_brand_id, d.uuid AS display_brand_uuid, d.name AS display_brand_name,
     (SELECT COUNT(*) FROM catalog_types t WHERE t.brand_id = b.id AND t.is_active)::bigint AS types_count,
     (SELECT COUNT(*) FROM catalog_models m WHERE m.brand_id = b.id)::bigint AS models_count,
     (SELECT COUNT(*) FROM catalog_types t WHERE t.brand_id = b.id AND t.is_active AND t.model_id IS NULL)::bigint AS unresolved_count
 FROM catalog_brands b
+JOIN catalog_display_brands d ON d.id = b.display_brand_id
 WHERE ($1::text IS NULL OR b.category = $1)
-  AND ($2::boolean IS NULL OR b.is_active = $2)
+  AND ($2::bigint IS NULL OR b.display_brand_id = $2)
+  AND ($3::boolean IS NULL OR b.is_active = $3)
   AND (
-    $3::text IS NULL
-    OR b.display_name ILIKE '%' || $3 || '%'
-    OR b.tsb_name ILIKE '%' || $3 || '%'
-    OR b.tsb_code = $3
+    $4::text IS NULL
+    OR b.display_name ILIKE '%' || $4 || '%'
+    OR b.tsb_name ILIKE '%' || $4 || '%'
+    OR b.tsb_code = $4
   )
 ORDER BY
-  CASE WHEN $4::text = 'display_name' AND NOT $5::boolean THEN b.display_name END ASC,
-  CASE WHEN $4::text = 'display_name' AND $5::boolean THEN b.display_name END DESC,
-  CASE WHEN $4::text = 'tsb_name' AND NOT $5::boolean THEN b.tsb_name END ASC,
-  CASE WHEN $4::text = 'tsb_name' AND $5::boolean THEN b.tsb_name END DESC,
-  CASE WHEN $4::text = 'tsb_code' AND NOT $5::boolean THEN lpad(b.tsb_code, 12, '0') END ASC,
-  CASE WHEN $4::text = 'tsb_code' AND $5::boolean THEN lpad(b.tsb_code, 12, '0') END DESC,
-  CASE WHEN $4::text = 'category' AND NOT $5::boolean THEN b.category END ASC,
-  CASE WHEN $4::text = 'category' AND $5::boolean THEN b.category END DESC,
-  CASE WHEN $4::text = 'types_count' AND NOT $5::boolean THEN (SELECT COUNT(*) FROM catalog_types t WHERE t.brand_id = b.id AND t.is_active) END ASC,
-  CASE WHEN $4::text = 'types_count' AND $5::boolean THEN (SELECT COUNT(*) FROM catalog_types t WHERE t.brand_id = b.id AND t.is_active) END DESC,
-  CASE WHEN $4::text = 'created_at' AND NOT $5::boolean THEN b.created_at END ASC,
-  CASE WHEN $4::text = 'created_at' AND $5::boolean THEN b.created_at END DESC,
+  CASE WHEN $5::text = 'display_name' AND NOT $6::boolean THEN b.display_name END ASC,
+  CASE WHEN $5::text = 'display_name' AND $6::boolean THEN b.display_name END DESC,
+  CASE WHEN $5::text = 'tsb_name' AND NOT $6::boolean THEN b.tsb_name END ASC,
+  CASE WHEN $5::text = 'tsb_name' AND $6::boolean THEN b.tsb_name END DESC,
+  CASE WHEN $5::text = 'tsb_code' AND NOT $6::boolean THEN lpad(b.tsb_code, 12, '0') END ASC,
+  CASE WHEN $5::text = 'tsb_code' AND $6::boolean THEN lpad(b.tsb_code, 12, '0') END DESC,
+  CASE WHEN $5::text = 'category' AND NOT $6::boolean THEN b.category END ASC,
+  CASE WHEN $5::text = 'category' AND $6::boolean THEN b.category END DESC,
+  CASE WHEN $5::text = 'types_count' AND NOT $6::boolean THEN (SELECT COUNT(*) FROM catalog_types t WHERE t.brand_id = b.id AND t.is_active) END ASC,
+  CASE WHEN $5::text = 'types_count' AND $6::boolean THEN (SELECT COUNT(*) FROM catalog_types t WHERE t.brand_id = b.id AND t.is_active) END DESC,
+  CASE WHEN $5::text = 'created_at' AND NOT $6::boolean THEN b.created_at END ASC,
+  CASE WHEN $5::text = 'created_at' AND $6::boolean THEN b.created_at END DESC,
   b.display_name ASC, b.id ASC
-LIMIT $7 OFFSET $6
+LIMIT $8 OFFSET $7
 `
 
 type ListCatalogBrandsParams struct {
-	Category    pgtype.Text `json:"category"`
-	IsActive    pgtype.Bool `json:"is_active"`
-	Q           pgtype.Text `json:"q"`
-	SortField   string      `json:"sort_field"`
-	SortDesc    bool        `json:"sort_desc"`
-	OffsetCount int32       `json:"offset_count"`
-	LimitCount  int32       `json:"limit_count"`
+	Category       pgtype.Text `json:"category"`
+	DisplayBrandID pgtype.Int8 `json:"display_brand_id"`
+	IsActive       pgtype.Bool `json:"is_active"`
+	Q              pgtype.Text `json:"q"`
+	SortField      string      `json:"sort_field"`
+	SortDesc       bool        `json:"sort_desc"`
+	OffsetCount    int32       `json:"offset_count"`
+	LimitCount     int32       `json:"limit_count"`
 }
 
 type ListCatalogBrandsRow struct {
-	ID              int64              `json:"id"`
-	Uuid            uuid.UUID          `json:"uuid"`
-	TsbCode         string             `json:"tsb_code"`
-	TsbName         string             `json:"tsb_name"`
-	DisplayName     string             `json:"display_name"`
-	Category        string             `json:"category"`
-	IsActive        bool               `json:"is_active"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
-	TypesCount      int64              `json:"types_count"`
-	ModelsCount     int64              `json:"models_count"`
-	UnresolvedCount int64              `json:"unresolved_count"`
+	ID               int64              `json:"id"`
+	Uuid             uuid.UUID          `json:"uuid"`
+	TsbCode          string             `json:"tsb_code"`
+	TsbName          string             `json:"tsb_name"`
+	DisplayName      string             `json:"display_name"`
+	Category         string             `json:"category"`
+	IsActive         bool               `json:"is_active"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	DisplayBrandID   int64              `json:"display_brand_id"`
+	DisplayBrandUuid uuid.UUID          `json:"display_brand_uuid"`
+	DisplayBrandName string             `json:"display_brand_name"`
+	TypesCount       int64              `json:"types_count"`
+	ModelsCount      int64              `json:"models_count"`
+	UnresolvedCount  int64              `json:"unresolved_count"`
 }
 
 // Platform vehicle catalog (TSB kasko list).
 func (q *Queries) ListCatalogBrands(ctx context.Context, arg ListCatalogBrandsParams) ([]ListCatalogBrandsRow, error) {
 	rows, err := q.db.Query(ctx, listCatalogBrands,
 		arg.Category,
+		arg.DisplayBrandID,
 		arg.IsActive,
 		arg.Q,
 		arg.SortField,
@@ -561,6 +857,9 @@ func (q *Queries) ListCatalogBrands(ctx context.Context, arg ListCatalogBrandsPa
 			&i.IsActive,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.DisplayBrandID,
+			&i.DisplayBrandUuid,
+			&i.DisplayBrandName,
 			&i.TypesCount,
 			&i.ModelsCount,
 			&i.UnresolvedCount,
@@ -576,7 +875,7 @@ func (q *Queries) ListCatalogBrands(ctx context.Context, arg ListCatalogBrandsPa
 }
 
 const listCatalogBrandsAll = `-- name: ListCatalogBrandsAll :many
-SELECT id, uuid, tsb_code, tsb_name, display_name, category, is_active, created_at, updated_at FROM catalog_brands ORDER BY id
+SELECT id, uuid, tsb_code, tsb_name, display_name, category, is_active, created_at, updated_at, display_brand_id FROM catalog_brands ORDER BY id
 `
 
 func (q *Queries) ListCatalogBrandsAll(ctx context.Context) ([]CatalogBrand, error) {
@@ -595,6 +894,193 @@ func (q *Queries) ListCatalogBrandsAll(ctx context.Context) ([]CatalogBrand, err
 			&i.TsbName,
 			&i.DisplayName,
 			&i.Category,
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DisplayBrandID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCatalogBrandsByDisplayBrand = `-- name: ListCatalogBrandsByDisplayBrand :many
+SELECT b.id, b.uuid, b.tsb_code, b.tsb_name, b.display_name, b.category, b.is_active, b.created_at, b.updated_at, b.display_brand_id,
+    (SELECT COUNT(*) FROM catalog_types t WHERE t.brand_id = b.id AND t.is_active)::bigint AS types_count
+FROM catalog_brands b
+WHERE b.display_brand_id = $1
+ORDER BY b.tsb_name, b.id
+`
+
+type ListCatalogBrandsByDisplayBrandRow struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	TsbCode        string             `json:"tsb_code"`
+	TsbName        string             `json:"tsb_name"`
+	DisplayName    string             `json:"display_name"`
+	Category       string             `json:"category"`
+	IsActive       bool               `json:"is_active"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	DisplayBrandID int64              `json:"display_brand_id"`
+	TypesCount     int64              `json:"types_count"`
+}
+
+func (q *Queries) ListCatalogBrandsByDisplayBrand(ctx context.Context, displayBrandID int64) ([]ListCatalogBrandsByDisplayBrandRow, error) {
+	rows, err := q.db.Query(ctx, listCatalogBrandsByDisplayBrand, displayBrandID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListCatalogBrandsByDisplayBrandRow{}
+	for rows.Next() {
+		var i ListCatalogBrandsByDisplayBrandRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Uuid,
+			&i.TsbCode,
+			&i.TsbName,
+			&i.DisplayName,
+			&i.Category,
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DisplayBrandID,
+			&i.TypesCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCatalogDisplayBrands = `-- name: ListCatalogDisplayBrands :many
+
+SELECT d.id, d.uuid, d.name, d.slug, d.logo_object_key, d.is_active, d.created_at, d.updated_at,
+    (SELECT COUNT(*) FROM catalog_brands b WHERE b.display_brand_id = d.id)::bigint AS brands_count,
+    (SELECT COUNT(*) FROM catalog_types t JOIN catalog_brands b ON b.id = t.brand_id
+        WHERE b.display_brand_id = d.id AND t.is_active)::bigint AS types_count,
+    (SELECT COUNT(DISTINCT m.group_key) FROM catalog_models m JOIN catalog_brands b ON b.id = m.brand_id
+        WHERE b.display_brand_id = d.id)::bigint AS models_count,
+    COALESCE((SELECT array_agg(b.tsb_name ORDER BY b.tsb_name) FROM catalog_brands b
+        WHERE b.display_brand_id = d.id), '{}')::text[] AS tsb_names
+FROM catalog_display_brands d
+WHERE ($1::boolean IS NULL OR d.is_active = $1)
+  AND (NOT $2::boolean OR (SELECT COUNT(*) FROM catalog_brands b WHERE b.display_brand_id = d.id) > 1)
+  AND (
+    $3::text IS NULL
+    OR d.name ILIKE '%' || $3 || '%'
+    OR EXISTS (SELECT 1 FROM catalog_brands b WHERE b.display_brand_id = d.id
+        AND (b.tsb_name ILIKE '%' || $3 || '%' OR b.tsb_code = $3))
+  )
+ORDER BY
+  CASE WHEN $4::text = 'name' AND NOT $5::boolean THEN d.name END ASC,
+  CASE WHEN $4::text = 'name' AND $5::boolean THEN d.name END DESC,
+  CASE WHEN $4::text = 'brands_count' AND NOT $5::boolean THEN (SELECT COUNT(*) FROM catalog_brands b WHERE b.display_brand_id = d.id) END ASC,
+  CASE WHEN $4::text = 'brands_count' AND $5::boolean THEN (SELECT COUNT(*) FROM catalog_brands b WHERE b.display_brand_id = d.id) END DESC,
+  CASE WHEN $4::text = 'types_count' AND NOT $5::boolean THEN (SELECT COUNT(*) FROM catalog_types t JOIN catalog_brands b ON b.id = t.brand_id WHERE b.display_brand_id = d.id AND t.is_active) END ASC,
+  CASE WHEN $4::text = 'types_count' AND $5::boolean THEN (SELECT COUNT(*) FROM catalog_types t JOIN catalog_brands b ON b.id = t.brand_id WHERE b.display_brand_id = d.id AND t.is_active) END DESC,
+  CASE WHEN $4::text = 'created_at' AND NOT $5::boolean THEN d.created_at END ASC,
+  CASE WHEN $4::text = 'created_at' AND $5::boolean THEN d.created_at END DESC,
+  d.name ASC, d.id ASC
+LIMIT $7 OFFSET $6
+`
+
+type ListCatalogDisplayBrandsParams struct {
+	IsActive    pgtype.Bool `json:"is_active"`
+	MergedOnly  bool        `json:"merged_only"`
+	Q           pgtype.Text `json:"q"`
+	SortField   string      `json:"sort_field"`
+	SortDesc    bool        `json:"sort_desc"`
+	OffsetCount int32       `json:"offset_count"`
+	LimitCount  int32       `json:"limit_count"`
+}
+
+type ListCatalogDisplayBrandsRow struct {
+	ID            int64              `json:"id"`
+	Uuid          uuid.UUID          `json:"uuid"`
+	Name          string             `json:"name"`
+	Slug          string             `json:"slug"`
+	LogoObjectKey pgtype.Text        `json:"logo_object_key"`
+	IsActive      bool               `json:"is_active"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	BrandsCount   int64              `json:"brands_count"`
+	TypesCount    int64              `json:"types_count"`
+	ModelsCount   int64              `json:"models_count"`
+	TsbNames      []string           `json:"tsb_names"`
+}
+
+// ---------- display brands ----------
+func (q *Queries) ListCatalogDisplayBrands(ctx context.Context, arg ListCatalogDisplayBrandsParams) ([]ListCatalogDisplayBrandsRow, error) {
+	rows, err := q.db.Query(ctx, listCatalogDisplayBrands,
+		arg.IsActive,
+		arg.MergedOnly,
+		arg.Q,
+		arg.SortField,
+		arg.SortDesc,
+		arg.OffsetCount,
+		arg.LimitCount,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListCatalogDisplayBrandsRow{}
+	for rows.Next() {
+		var i ListCatalogDisplayBrandsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Uuid,
+			&i.Name,
+			&i.Slug,
+			&i.LogoObjectKey,
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.BrandsCount,
+			&i.TypesCount,
+			&i.ModelsCount,
+			&i.TsbNames,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCatalogDisplayBrandsAll = `-- name: ListCatalogDisplayBrandsAll :many
+SELECT id, uuid, name, slug, logo_object_key, is_active, created_at, updated_at FROM catalog_display_brands ORDER BY id
+`
+
+func (q *Queries) ListCatalogDisplayBrandsAll(ctx context.Context) ([]CatalogDisplayBrand, error) {
+	rows, err := q.db.Query(ctx, listCatalogDisplayBrandsAll)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CatalogDisplayBrand{}
+	for rows.Next() {
+		var i CatalogDisplayBrand
+		if err := rows.Scan(
+			&i.ID,
+			&i.Uuid,
+			&i.Name,
+			&i.Slug,
+			&i.LogoObjectKey,
 			&i.IsActive,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -757,36 +1243,42 @@ func (q *Queries) ListCatalogModelRulesByModel(ctx context.Context, modelID int6
 }
 
 const listCatalogModels = `-- name: ListCatalogModels :many
-SELECT m.id, m.uuid, m.brand_id, m.name, m.source, m.created_at, m.updated_at, b.uuid AS brand_uuid, b.display_name AS brand_display_name,
-    (SELECT COUNT(*) FROM catalog_types t WHERE t.model_id = m.id AND t.is_active)::bigint AS types_count
+SELECT m.id, m.uuid, m.brand_id, m.name, m.source, m.created_at, m.updated_at, m.group_key, b.uuid AS brand_uuid, b.display_name AS brand_display_name, b.tsb_code AS brand_tsb_code,
+    b.tsb_name AS brand_tsb_name, d.uuid AS display_brand_uuid, d.name AS display_brand_name,
+    (SELECT COUNT(*) FROM catalog_types t WHERE t.model_id = m.id AND t.is_active)::bigint AS types_count,
+    (SELECT COUNT(*) FROM catalog_models g JOIN catalog_brands gb ON gb.id = g.brand_id
+        WHERE g.group_key = m.group_key AND gb.display_brand_id = b.display_brand_id)::bigint AS group_size
 FROM catalog_models m
 JOIN catalog_brands b ON b.id = m.brand_id
+JOIN catalog_display_brands d ON d.id = b.display_brand_id
 WHERE ($1::bigint IS NULL OR m.brand_id = $1)
-  AND ($2::text IS NULL OR m.source = $2)
-  AND ($3::text IS NULL OR m.name ILIKE '%' || $3 || '%')
+  AND ($2::bigint IS NULL OR b.display_brand_id = $2)
+  AND ($3::text IS NULL OR m.source = $3)
+  AND ($4::text IS NULL OR m.name ILIKE '%' || $4 || '%')
 ORDER BY
-  CASE WHEN $4::text = 'name' AND NOT $5::boolean THEN m.name END ASC,
-  CASE WHEN $4::text = 'name' AND $5::boolean THEN m.name END DESC,
-  CASE WHEN $4::text = 'brand' AND NOT $5::boolean THEN b.display_name END ASC,
-  CASE WHEN $4::text = 'brand' AND $5::boolean THEN b.display_name END DESC,
-  CASE WHEN $4::text = 'source' AND NOT $5::boolean THEN m.source END ASC,
-  CASE WHEN $4::text = 'source' AND $5::boolean THEN m.source END DESC,
-  CASE WHEN $4::text = 'types_count' AND NOT $5::boolean THEN (SELECT COUNT(*) FROM catalog_types t WHERE t.model_id = m.id AND t.is_active) END ASC,
-  CASE WHEN $4::text = 'types_count' AND $5::boolean THEN (SELECT COUNT(*) FROM catalog_types t WHERE t.model_id = m.id AND t.is_active) END DESC,
-  CASE WHEN $4::text = 'created_at' AND NOT $5::boolean THEN m.created_at END ASC,
-  CASE WHEN $4::text = 'created_at' AND $5::boolean THEN m.created_at END DESC,
+  CASE WHEN $5::text = 'name' AND NOT $6::boolean THEN m.name END ASC,
+  CASE WHEN $5::text = 'name' AND $6::boolean THEN m.name END DESC,
+  CASE WHEN $5::text = 'brand' AND NOT $6::boolean THEN b.display_name END ASC,
+  CASE WHEN $5::text = 'brand' AND $6::boolean THEN b.display_name END DESC,
+  CASE WHEN $5::text = 'source' AND NOT $6::boolean THEN m.source END ASC,
+  CASE WHEN $5::text = 'source' AND $6::boolean THEN m.source END DESC,
+  CASE WHEN $5::text = 'types_count' AND NOT $6::boolean THEN (SELECT COUNT(*) FROM catalog_types t WHERE t.model_id = m.id AND t.is_active) END ASC,
+  CASE WHEN $5::text = 'types_count' AND $6::boolean THEN (SELECT COUNT(*) FROM catalog_types t WHERE t.model_id = m.id AND t.is_active) END DESC,
+  CASE WHEN $5::text = 'created_at' AND NOT $6::boolean THEN m.created_at END ASC,
+  CASE WHEN $5::text = 'created_at' AND $6::boolean THEN m.created_at END DESC,
   b.display_name ASC, m.name ASC, m.id ASC
-LIMIT $7 OFFSET $6
+LIMIT $8 OFFSET $7
 `
 
 type ListCatalogModelsParams struct {
-	BrandID     pgtype.Int8 `json:"brand_id"`
-	Source      pgtype.Text `json:"source"`
-	Q           pgtype.Text `json:"q"`
-	SortField   string      `json:"sort_field"`
-	SortDesc    bool        `json:"sort_desc"`
-	OffsetCount int32       `json:"offset_count"`
-	LimitCount  int32       `json:"limit_count"`
+	BrandID        pgtype.Int8 `json:"brand_id"`
+	DisplayBrandID pgtype.Int8 `json:"display_brand_id"`
+	Source         pgtype.Text `json:"source"`
+	Q              pgtype.Text `json:"q"`
+	SortField      string      `json:"sort_field"`
+	SortDesc       bool        `json:"sort_desc"`
+	OffsetCount    int32       `json:"offset_count"`
+	LimitCount     int32       `json:"limit_count"`
 }
 
 type ListCatalogModelsRow struct {
@@ -797,14 +1289,21 @@ type ListCatalogModelsRow struct {
 	Source           string             `json:"source"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	GroupKey         pgtype.Text        `json:"group_key"`
 	BrandUuid        uuid.UUID          `json:"brand_uuid"`
 	BrandDisplayName string             `json:"brand_display_name"`
+	BrandTsbCode     string             `json:"brand_tsb_code"`
+	BrandTsbName     string             `json:"brand_tsb_name"`
+	DisplayBrandUuid uuid.UUID          `json:"display_brand_uuid"`
+	DisplayBrandName string             `json:"display_brand_name"`
 	TypesCount       int64              `json:"types_count"`
+	GroupSize        int64              `json:"group_size"`
 }
 
 func (q *Queries) ListCatalogModels(ctx context.Context, arg ListCatalogModelsParams) ([]ListCatalogModelsRow, error) {
 	rows, err := q.db.Query(ctx, listCatalogModels,
 		arg.BrandID,
+		arg.DisplayBrandID,
 		arg.Source,
 		arg.Q,
 		arg.SortField,
@@ -827,9 +1326,15 @@ func (q *Queries) ListCatalogModels(ctx context.Context, arg ListCatalogModelsPa
 			&i.Source,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.GroupKey,
 			&i.BrandUuid,
 			&i.BrandDisplayName,
+			&i.BrandTsbCode,
+			&i.BrandTsbName,
+			&i.DisplayBrandUuid,
+			&i.DisplayBrandName,
 			&i.TypesCount,
+			&i.GroupSize,
 		); err != nil {
 			return nil, err
 		}
@@ -842,7 +1347,7 @@ func (q *Queries) ListCatalogModels(ctx context.Context, arg ListCatalogModelsPa
 }
 
 const listCatalogModelsAll = `-- name: ListCatalogModelsAll :many
-SELECT id, uuid, brand_id, name, source, created_at, updated_at FROM catalog_models ORDER BY id
+SELECT id, uuid, brand_id, name, source, created_at, updated_at, group_key FROM catalog_models ORDER BY id
 `
 
 func (q *Queries) ListCatalogModelsAll(ctx context.Context) ([]CatalogModel, error) {
@@ -862,6 +1367,40 @@ func (q *Queries) ListCatalogModelsAll(ctx context.Context) ([]CatalogModel, err
 			&i.Source,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.GroupKey,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCatalogModelsByUUIDs = `-- name: ListCatalogModelsByUUIDs :many
+SELECT id, uuid, brand_id, name, source, created_at, updated_at, group_key FROM catalog_models WHERE uuid = ANY($1::uuid[]) ORDER BY id
+`
+
+func (q *Queries) ListCatalogModelsByUUIDs(ctx context.Context, uuids []uuid.UUID) ([]CatalogModel, error) {
+	rows, err := q.db.Query(ctx, listCatalogModelsByUUIDs, uuids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CatalogModel{}
+	for rows.Next() {
+		var i CatalogModel
+		if err := rows.Scan(
+			&i.ID,
+			&i.Uuid,
+			&i.BrandID,
+			&i.Name,
+			&i.Source,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.GroupKey,
 		); err != nil {
 			return nil, err
 		}
@@ -909,54 +1448,58 @@ const listCatalogTypes = `-- name: ListCatalogTypes :many
 SELECT t.id, t.uuid, t.tsb_type_code, t.raw_name, t.years, t.suggested_transmission,
     t.suggested_fuel, t.first_seen_period, t.last_seen_period, t.is_active, t.created_at, t.updated_at,
     b.uuid AS brand_uuid, b.display_name AS brand_display_name, b.tsb_code AS brand_tsb_code,
+    d.uuid AS display_brand_uuid, d.name AS display_brand_name,
     m.uuid AS model_uuid, m.name AS model_name, m.source AS model_source
 FROM catalog_types t
 JOIN catalog_brands b ON b.id = t.brand_id
+JOIN catalog_display_brands d ON d.id = b.display_brand_id
 LEFT JOIN catalog_models m ON m.id = t.model_id
 WHERE ($1::bigint IS NULL OR t.brand_id = $1)
-  AND ($2::text IS NULL OR b.category = $2)
-  AND ($3::bigint IS NULL OR t.model_id = $3)
-  AND ($4::int IS NULL OR t.years @> ARRAY[$4::int])
-  AND (NOT $5::boolean OR t.model_id IS NULL)
-  AND ($6::boolean IS NULL OR t.is_active = $6)
-  AND ($7::text IS NULL OR t.suggested_fuel = $7)
-  AND ($8::text IS NULL OR t.suggested_transmission = $8)
+  AND ($2::bigint IS NULL OR b.display_brand_id = $2)
+  AND ($3::text IS NULL OR b.category = $3)
+  AND ($4::bigint IS NULL OR t.model_id = $4)
+  AND ($5::int IS NULL OR t.years @> ARRAY[$5::int])
+  AND (NOT $6::boolean OR t.model_id IS NULL)
+  AND ($7::boolean IS NULL OR t.is_active = $7)
+  AND ($8::text IS NULL OR t.suggested_fuel = $8)
+  AND ($9::text IS NULL OR t.suggested_transmission = $9)
   AND (
-    $9::text IS NULL
-    OR t.raw_name ILIKE '%' || $9 || '%'
-    OR t.tsb_type_code = $9
+    $10::text IS NULL
+    OR t.raw_name ILIKE '%' || $10 || '%'
+    OR t.tsb_type_code = $10
   )
 ORDER BY
-  CASE WHEN $10::text = 'raw_name' AND NOT $11::boolean THEN t.raw_name END ASC,
-  CASE WHEN $10::text = 'raw_name' AND $11::boolean THEN t.raw_name END DESC,
-  CASE WHEN $10::text = 'tsb_type_code' AND NOT $11::boolean THEN lpad(t.tsb_type_code, 12, '0') END ASC,
-  CASE WHEN $10::text = 'tsb_type_code' AND $11::boolean THEN lpad(t.tsb_type_code, 12, '0') END DESC,
-  CASE WHEN $10::text = 'brand' AND NOT $11::boolean THEN b.display_name END ASC,
-  CASE WHEN $10::text = 'brand' AND $11::boolean THEN b.display_name END DESC,
-  CASE WHEN $10::text = 'model' AND NOT $11::boolean THEN m.name END ASC,
-  CASE WHEN $10::text = 'model' AND $11::boolean THEN m.name END DESC,
-  CASE WHEN $10::text = 'last_seen_period' AND NOT $11::boolean THEN t.last_seen_period END ASC,
-  CASE WHEN $10::text = 'last_seen_period' AND $11::boolean THEN t.last_seen_period END DESC,
-  CASE WHEN $10::text = 'created_at' AND NOT $11::boolean THEN t.created_at END ASC,
-  CASE WHEN $10::text = 'created_at' AND $11::boolean THEN t.created_at END DESC,
+  CASE WHEN $11::text = 'raw_name' AND NOT $12::boolean THEN t.raw_name END ASC,
+  CASE WHEN $11::text = 'raw_name' AND $12::boolean THEN t.raw_name END DESC,
+  CASE WHEN $11::text = 'tsb_type_code' AND NOT $12::boolean THEN lpad(t.tsb_type_code, 12, '0') END ASC,
+  CASE WHEN $11::text = 'tsb_type_code' AND $12::boolean THEN lpad(t.tsb_type_code, 12, '0') END DESC,
+  CASE WHEN $11::text = 'brand' AND NOT $12::boolean THEN b.display_name END ASC,
+  CASE WHEN $11::text = 'brand' AND $12::boolean THEN b.display_name END DESC,
+  CASE WHEN $11::text = 'model' AND NOT $12::boolean THEN m.name END ASC,
+  CASE WHEN $11::text = 'model' AND $12::boolean THEN m.name END DESC,
+  CASE WHEN $11::text = 'last_seen_period' AND NOT $12::boolean THEN t.last_seen_period END ASC,
+  CASE WHEN $11::text = 'last_seen_period' AND $12::boolean THEN t.last_seen_period END DESC,
+  CASE WHEN $11::text = 'created_at' AND NOT $12::boolean THEN t.created_at END ASC,
+  CASE WHEN $11::text = 'created_at' AND $12::boolean THEN t.created_at END DESC,
   b.display_name ASC, t.raw_name ASC, t.id ASC
-LIMIT $13 OFFSET $12
+LIMIT $14 OFFSET $13
 `
 
 type ListCatalogTypesParams struct {
-	BrandID      pgtype.Int8 `json:"brand_id"`
-	Category     pgtype.Text `json:"category"`
-	ModelID      pgtype.Int8 `json:"model_id"`
-	Year         pgtype.Int4 `json:"year"`
-	Unresolved   bool        `json:"unresolved"`
-	IsActive     pgtype.Bool `json:"is_active"`
-	Fuel         pgtype.Text `json:"fuel"`
-	Transmission pgtype.Text `json:"transmission"`
-	Q            pgtype.Text `json:"q"`
-	SortField    string      `json:"sort_field"`
-	SortDesc     bool        `json:"sort_desc"`
-	OffsetCount  int32       `json:"offset_count"`
-	LimitCount   int32       `json:"limit_count"`
+	BrandID        pgtype.Int8 `json:"brand_id"`
+	DisplayBrandID pgtype.Int8 `json:"display_brand_id"`
+	Category       pgtype.Text `json:"category"`
+	ModelID        pgtype.Int8 `json:"model_id"`
+	Year           pgtype.Int4 `json:"year"`
+	Unresolved     bool        `json:"unresolved"`
+	IsActive       pgtype.Bool `json:"is_active"`
+	Fuel           pgtype.Text `json:"fuel"`
+	Transmission   pgtype.Text `json:"transmission"`
+	Q              pgtype.Text `json:"q"`
+	SortField      string      `json:"sort_field"`
+	SortDesc       bool        `json:"sort_desc"`
+	OffsetCount    int32       `json:"offset_count"`
+	LimitCount     int32       `json:"limit_count"`
 }
 
 type ListCatalogTypesRow struct {
@@ -975,6 +1518,8 @@ type ListCatalogTypesRow struct {
 	BrandUuid             uuid.UUID          `json:"brand_uuid"`
 	BrandDisplayName      string             `json:"brand_display_name"`
 	BrandTsbCode          string             `json:"brand_tsb_code"`
+	DisplayBrandUuid      uuid.UUID          `json:"display_brand_uuid"`
+	DisplayBrandName      string             `json:"display_brand_name"`
 	ModelUuid             pgtype.UUID        `json:"model_uuid"`
 	ModelName             pgtype.Text        `json:"model_name"`
 	ModelSource           pgtype.Text        `json:"model_source"`
@@ -983,6 +1528,7 @@ type ListCatalogTypesRow struct {
 func (q *Queries) ListCatalogTypes(ctx context.Context, arg ListCatalogTypesParams) ([]ListCatalogTypesRow, error) {
 	rows, err := q.db.Query(ctx, listCatalogTypes,
 		arg.BrandID,
+		arg.DisplayBrandID,
 		arg.Category,
 		arg.ModelID,
 		arg.Year,
@@ -1019,6 +1565,8 @@ func (q *Queries) ListCatalogTypes(ctx context.Context, arg ListCatalogTypesPara
 			&i.BrandUuid,
 			&i.BrandDisplayName,
 			&i.BrandTsbCode,
+			&i.DisplayBrandUuid,
+			&i.DisplayBrandName,
 			&i.ModelUuid,
 			&i.ModelName,
 			&i.ModelSource,
@@ -1147,6 +1695,26 @@ func (q *Queries) ListCatalogValuationsByPeriod(ctx context.Context, period stri
 	return items, nil
 }
 
+const moveCatalogBrandsDisplayBrand = `-- name: MoveCatalogBrandsDisplayBrand :execrows
+UPDATE catalog_brands b
+SET display_brand_id = d.id, display_name = d.name
+FROM catalog_display_brands d
+WHERE b.display_brand_id = $1 AND d.id = $2
+`
+
+type MoveCatalogBrandsDisplayBrandParams struct {
+	FromID int64 `json:"from_id"`
+	ToID   int64 `json:"to_id"`
+}
+
+func (q *Queries) MoveCatalogBrandsDisplayBrand(ctx context.Context, arg MoveCatalogBrandsDisplayBrandParams) (int64, error) {
+	result, err := q.db.Exec(ctx, moveCatalogBrandsDisplayBrand, arg.FromID, arg.ToID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const reassignCatalogModelRules = `-- name: ReassignCatalogModelRules :execrows
 UPDATE catalog_model_rules SET model_id = $1
 WHERE model_id = $2
@@ -1181,6 +1749,55 @@ func (q *Queries) ReassignCatalogTypesModel(ctx context.Context, arg ReassignCat
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const setCatalogBrandDisplayBrand = `-- name: SetCatalogBrandDisplayBrand :execrows
+UPDATE catalog_brands b
+SET display_brand_id = d.id, display_name = d.name
+FROM catalog_display_brands d
+WHERE b.id = $1 AND d.id = $2
+  AND (b.display_brand_id <> d.id OR b.display_name <> d.name)
+`
+
+type SetCatalogBrandDisplayBrandParams struct {
+	BrandID        int64 `json:"brand_id"`
+	DisplayBrandID int64 `json:"display_brand_id"`
+}
+
+// Points one TSB brand at a display brand; display_name mirrors its name.
+func (q *Queries) SetCatalogBrandDisplayBrand(ctx context.Context, arg SetCatalogBrandDisplayBrandParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setCatalogBrandDisplayBrand, arg.BrandID, arg.DisplayBrandID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const setCatalogDisplayBrandLogo = `-- name: SetCatalogDisplayBrandLogo :one
+UPDATE catalog_display_brands SET logo_object_key = $1
+WHERE id = $2
+RETURNING id, uuid, name, slug, logo_object_key, is_active, created_at, updated_at
+`
+
+type SetCatalogDisplayBrandLogoParams struct {
+	LogoObjectKey pgtype.Text `json:"logo_object_key"`
+	ID            int64       `json:"id"`
+}
+
+func (q *Queries) SetCatalogDisplayBrandLogo(ctx context.Context, arg SetCatalogDisplayBrandLogoParams) (CatalogDisplayBrand, error) {
+	row := q.db.QueryRow(ctx, setCatalogDisplayBrandLogo, arg.LogoObjectKey, arg.ID)
+	var i CatalogDisplayBrand
+	err := row.Scan(
+		&i.ID,
+		&i.Uuid,
+		&i.Name,
+		&i.Slug,
+		&i.LogoObjectKey,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const setCatalogImportFileKey = `-- name: SetCatalogImportFileKey :one
@@ -1231,37 +1848,53 @@ func (q *Queries) SetCatalogTypesModel(ctx context.Context, arg SetCatalogTypesM
 	return result.RowsAffected(), nil
 }
 
+const syncCatalogBrandsDisplayName = `-- name: SyncCatalogBrandsDisplayName :execrows
+UPDATE catalog_brands b
+SET display_name = d.name
+FROM catalog_display_brands d
+WHERE d.id = $1 AND b.display_brand_id = d.id AND b.display_name <> d.name
+`
+
+func (q *Queries) SyncCatalogBrandsDisplayName(ctx context.Context, displayBrandID int64) (int64, error) {
+	result, err := q.db.Exec(ctx, syncCatalogBrandsDisplayName, displayBrandID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const tenantCountCatalogBrands = `-- name: TenantCountCatalogBrands :one
 SELECT COUNT(*)::bigint
-FROM catalog_brands b
-WHERE b.is_active
-  AND ($1::text IS NULL OR b.category = $1)
-  AND ($2::text IS NULL OR b.display_name ILIKE '%' || $2 || '%')
+FROM catalog_display_brands d
+WHERE d.is_active
+  AND ($1::text IS NULL OR d.name ILIKE '%' || $1 || '%')
   AND EXISTS (
-    SELECT 1 FROM catalog_types t
-    WHERE t.brand_id = b.id AND t.is_active
+    SELECT 1 FROM catalog_brands b
+    JOIN catalog_types t ON t.brand_id = b.id
+    WHERE b.display_brand_id = d.id AND b.is_active AND t.is_active
+      AND ($2::text IS NULL OR b.category = $2)
       AND ($3::int IS NULL OR t.years @> ARRAY[$3::int])
   )
 `
 
 type TenantCountCatalogBrandsParams struct {
-	Category pgtype.Text `json:"category"`
 	Q        pgtype.Text `json:"q"`
+	Category pgtype.Text `json:"category"`
 	Year     pgtype.Int4 `json:"year"`
 }
 
 func (q *Queries) TenantCountCatalogBrands(ctx context.Context, arg TenantCountCatalogBrandsParams) (int64, error) {
-	row := q.db.QueryRow(ctx, tenantCountCatalogBrands, arg.Category, arg.Q, arg.Year)
+	row := q.db.QueryRow(ctx, tenantCountCatalogBrands, arg.Q, arg.Category, arg.Year)
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
 }
 
 const tenantCountCatalogModels = `-- name: TenantCountCatalogModels :one
-SELECT COUNT(*)::bigint
+SELECT COUNT(DISTINCT m.group_key)::bigint
 FROM catalog_models m
 JOIN catalog_brands b ON b.id = m.brand_id
-WHERE b.is_active AND b.uuid = $1
+WHERE b.is_active AND b.display_brand_id = $1
   AND ($2::text IS NULL OR m.name ILIKE '%' || $2 || '%')
   AND EXISTS (
     SELECT 1 FROM catalog_types t
@@ -1271,13 +1904,13 @@ WHERE b.is_active AND b.uuid = $1
 `
 
 type TenantCountCatalogModelsParams struct {
-	BrandUuid uuid.UUID   `json:"brand_uuid"`
-	Q         pgtype.Text `json:"q"`
-	Year      pgtype.Int4 `json:"year"`
+	DisplayBrandID int64       `json:"display_brand_id"`
+	Q              pgtype.Text `json:"q"`
+	Year           pgtype.Int4 `json:"year"`
 }
 
 func (q *Queries) TenantCountCatalogModels(ctx context.Context, arg TenantCountCatalogModelsParams) (int64, error) {
-	row := q.db.QueryRow(ctx, tenantCountCatalogModels, arg.BrandUuid, arg.Q, arg.Year)
+	row := q.db.QueryRow(ctx, tenantCountCatalogModels, arg.DisplayBrandID, arg.Q, arg.Year)
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
@@ -1288,19 +1921,26 @@ SELECT COUNT(*)::bigint
 FROM catalog_types t
 JOIN catalog_brands b ON b.id = t.brand_id
 JOIN catalog_models m ON m.id = t.model_id
-WHERE t.is_active AND b.is_active AND m.uuid = $1
-  AND ($2::int IS NULL OR t.years @> ARRAY[$2::int])
-  AND ($3::text IS NULL OR t.raw_name ILIKE '%' || $3 || '%')
+WHERE t.is_active AND b.is_active
+  AND b.display_brand_id = $1 AND m.group_key = $2::text
+  AND ($3::int IS NULL OR t.years @> ARRAY[$3::int])
+  AND ($4::text IS NULL OR t.raw_name ILIKE '%' || $4 || '%')
 `
 
 type TenantCountCatalogTypesParams struct {
-	ModelUuid uuid.UUID   `json:"model_uuid"`
-	Year      pgtype.Int4 `json:"year"`
-	Q         pgtype.Text `json:"q"`
+	DisplayBrandID int64       `json:"display_brand_id"`
+	GroupKey       string      `json:"group_key"`
+	Year           pgtype.Int4 `json:"year"`
+	Q              pgtype.Text `json:"q"`
 }
 
 func (q *Queries) TenantCountCatalogTypes(ctx context.Context, arg TenantCountCatalogTypesParams) (int64, error) {
-	row := q.db.QueryRow(ctx, tenantCountCatalogTypes, arg.ModelUuid, arg.Year, arg.Q)
+	row := q.db.QueryRow(ctx, tenantCountCatalogTypes,
+		arg.DisplayBrandID,
+		arg.GroupKey,
+		arg.Year,
+		arg.Q,
+	)
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
@@ -1308,39 +1948,46 @@ func (q *Queries) TenantCountCatalogTypes(ctx context.Context, arg TenantCountCa
 
 const tenantListCatalogBrands = `-- name: TenantListCatalogBrands :many
 
-SELECT b.uuid, b.display_name, b.category
-FROM catalog_brands b
-WHERE b.is_active
-  AND ($1::text IS NULL OR b.category = $1)
-  AND ($2::text IS NULL OR b.display_name ILIKE '%' || $2 || '%')
+SELECT d.uuid, d.name, d.slug, d.logo_object_key, d.updated_at,
+    (SELECT b.category FROM catalog_brands b WHERE b.display_brand_id = d.id
+        ORDER BY (SELECT COUNT(*) FROM catalog_types t WHERE t.brand_id = b.id) DESC, b.id LIMIT 1)::text AS category
+FROM catalog_display_brands d
+WHERE d.is_active
+  AND ($1::text IS NULL OR d.name ILIKE '%' || $1 || '%')
   AND EXISTS (
-    SELECT 1 FROM catalog_types t
-    WHERE t.brand_id = b.id AND t.is_active
+    SELECT 1 FROM catalog_brands b
+    JOIN catalog_types t ON t.brand_id = b.id
+    WHERE b.display_brand_id = d.id AND b.is_active AND t.is_active
+      AND ($2::text IS NULL OR b.category = $2)
       AND ($3::int IS NULL OR t.years @> ARRAY[$3::int])
   )
-ORDER BY b.display_name, b.id
+ORDER BY d.name, d.id
 LIMIT $5 OFFSET $4
 `
 
 type TenantListCatalogBrandsParams struct {
-	Category    pgtype.Text `json:"category"`
 	Q           pgtype.Text `json:"q"`
+	Category    pgtype.Text `json:"category"`
 	Year        pgtype.Int4 `json:"year"`
 	OffsetCount int32       `json:"offset_count"`
 	LimitCount  int32       `json:"limit_count"`
 }
 
 type TenantListCatalogBrandsRow struct {
-	Uuid        uuid.UUID `json:"uuid"`
-	DisplayName string    `json:"display_name"`
-	Category    string    `json:"category"`
+	Uuid          uuid.UUID          `json:"uuid"`
+	Name          string             `json:"name"`
+	Slug          string             `json:"slug"`
+	LogoObjectKey pgtype.Text        `json:"logo_object_key"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	Category      string             `json:"category"`
 }
 
-// Tenant read-only search (vehicle forms).
+// Tenant read-only search (vehicle forms). Brands are display brands;
+// models are grouped by (display brand, group key).
 func (q *Queries) TenantListCatalogBrands(ctx context.Context, arg TenantListCatalogBrandsParams) ([]TenantListCatalogBrandsRow, error) {
 	rows, err := q.db.Query(ctx, tenantListCatalogBrands,
-		arg.Category,
 		arg.Q,
+		arg.Category,
 		arg.Year,
 		arg.OffsetCount,
 		arg.LimitCount,
@@ -1352,7 +1999,14 @@ func (q *Queries) TenantListCatalogBrands(ctx context.Context, arg TenantListCat
 	items := []TenantListCatalogBrandsRow{}
 	for rows.Next() {
 		var i TenantListCatalogBrandsRow
-		if err := rows.Scan(&i.Uuid, &i.DisplayName, &i.Category); err != nil {
+		if err := rows.Scan(
+			&i.Uuid,
+			&i.Name,
+			&i.Slug,
+			&i.LogoObjectKey,
+			&i.UpdatedAt,
+			&i.Category,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1364,38 +2018,48 @@ func (q *Queries) TenantListCatalogBrands(ctx context.Context, arg TenantListCat
 }
 
 const tenantListCatalogModels = `-- name: TenantListCatalogModels :many
-SELECT m.uuid, m.name, b.uuid AS brand_uuid, b.display_name AS brand_display_name
+SELECT (SELECT g.uuid FROM catalog_models g JOIN catalog_brands gb ON gb.id = g.brand_id
+        WHERE g.group_key = m.group_key AND gb.display_brand_id = $1
+        ORDER BY g.id LIMIT 1)::uuid AS uuid,
+    (SELECT g.name FROM catalog_models g JOIN catalog_brands gb ON gb.id = g.brand_id
+        WHERE g.group_key = m.group_key AND gb.display_brand_id = $1
+        ORDER BY (g.source = 'manual') DESC, g.id LIMIT 1)::text AS name,
+    m.group_key::text AS group_key,
+    COUNT(DISTINCT m.brand_id)::bigint AS tsb_brands
 FROM catalog_models m
 JOIN catalog_brands b ON b.id = m.brand_id
-WHERE b.is_active AND b.uuid = $1
+WHERE b.is_active AND b.display_brand_id = $1
   AND ($2::text IS NULL OR m.name ILIKE '%' || $2 || '%')
   AND EXISTS (
     SELECT 1 FROM catalog_types t
     WHERE t.model_id = m.id AND t.is_active
       AND ($3::int IS NULL OR t.years @> ARRAY[$3::int])
   )
-ORDER BY m.name, m.id
+GROUP BY m.group_key
+ORDER BY m.group_key
 LIMIT $5 OFFSET $4
 `
 
 type TenantListCatalogModelsParams struct {
-	BrandUuid   uuid.UUID   `json:"brand_uuid"`
-	Q           pgtype.Text `json:"q"`
-	Year        pgtype.Int4 `json:"year"`
-	OffsetCount int32       `json:"offset_count"`
-	LimitCount  int32       `json:"limit_count"`
+	DisplayBrandID int64       `json:"display_brand_id"`
+	Q              pgtype.Text `json:"q"`
+	Year           pgtype.Int4 `json:"year"`
+	OffsetCount    int32       `json:"offset_count"`
+	LimitCount     int32       `json:"limit_count"`
 }
 
 type TenantListCatalogModelsRow struct {
-	Uuid             uuid.UUID `json:"uuid"`
-	Name             string    `json:"name"`
-	BrandUuid        uuid.UUID `json:"brand_uuid"`
-	BrandDisplayName string    `json:"brand_display_name"`
+	Uuid      uuid.UUID `json:"uuid"`
+	Name      string    `json:"name"`
+	GroupKey  string    `json:"group_key"`
+	TsbBrands int64     `json:"tsb_brands"`
 }
 
+// uuid / name come from the whole group (not only the filtered rows) so a
+// grouped model keeps one id whatever the year filter is.
 func (q *Queries) TenantListCatalogModels(ctx context.Context, arg TenantListCatalogModelsParams) ([]TenantListCatalogModelsRow, error) {
 	rows, err := q.db.Query(ctx, tenantListCatalogModels,
-		arg.BrandUuid,
+		arg.DisplayBrandID,
 		arg.Q,
 		arg.Year,
 		arg.OffsetCount,
@@ -1411,8 +2075,8 @@ func (q *Queries) TenantListCatalogModels(ctx context.Context, arg TenantListCat
 		if err := rows.Scan(
 			&i.Uuid,
 			&i.Name,
-			&i.BrandUuid,
-			&i.BrandDisplayName,
+			&i.GroupKey,
+			&i.TsbBrands,
 		); err != nil {
 			return nil, err
 		}
@@ -1426,8 +2090,7 @@ func (q *Queries) TenantListCatalogModels(ctx context.Context, arg TenantListCat
 
 const tenantListCatalogTypes = `-- name: TenantListCatalogTypes :many
 SELECT t.uuid, t.tsb_type_code, t.raw_name, t.years, t.suggested_transmission, t.suggested_fuel,
-    m.uuid AS model_uuid, m.name AS model_name,
-    b.uuid AS brand_uuid, b.display_name AS brand_display_name,
+    b.tsb_code AS brand_tsb_code,
     v.value AS kasko_value, COALESCE(v.period, '')::text AS kasko_period
 FROM catalog_types t
 JOIN catalog_brands b ON b.id = t.brand_id
@@ -1438,19 +2101,21 @@ LEFT JOIN LATERAL (
     ORDER BY cv.period DESC
     LIMIT 1
 ) v ON TRUE
-WHERE t.is_active AND b.is_active AND m.uuid = $2
+WHERE t.is_active AND b.is_active
+  AND b.display_brand_id = $2 AND m.group_key = $3::text
   AND ($1::int IS NULL OR t.years @> ARRAY[$1::int])
-  AND ($3::text IS NULL OR t.raw_name ILIKE '%' || $3 || '%')
+  AND ($4::text IS NULL OR t.raw_name ILIKE '%' || $4 || '%')
 ORDER BY t.raw_name, t.id
-LIMIT $5 OFFSET $4
+LIMIT $6 OFFSET $5
 `
 
 type TenantListCatalogTypesParams struct {
-	Year        pgtype.Int4 `json:"year"`
-	ModelUuid   uuid.UUID   `json:"model_uuid"`
-	Q           pgtype.Text `json:"q"`
-	OffsetCount int32       `json:"offset_count"`
-	LimitCount  int32       `json:"limit_count"`
+	Year           pgtype.Int4 `json:"year"`
+	DisplayBrandID int64       `json:"display_brand_id"`
+	GroupKey       string      `json:"group_key"`
+	Q              pgtype.Text `json:"q"`
+	OffsetCount    int32       `json:"offset_count"`
+	LimitCount     int32       `json:"limit_count"`
 }
 
 type TenantListCatalogTypesRow struct {
@@ -1460,10 +2125,7 @@ type TenantListCatalogTypesRow struct {
 	Years                 []int32        `json:"years"`
 	SuggestedTransmission pgtype.Text    `json:"suggested_transmission"`
 	SuggestedFuel         pgtype.Text    `json:"suggested_fuel"`
-	ModelUuid             uuid.UUID      `json:"model_uuid"`
-	ModelName             string         `json:"model_name"`
-	BrandUuid             uuid.UUID      `json:"brand_uuid"`
-	BrandDisplayName      string         `json:"brand_display_name"`
+	BrandTsbCode          string         `json:"brand_tsb_code"`
 	KaskoValue            pgtype.Numeric `json:"kasko_value"`
 	KaskoPeriod           string         `json:"kasko_period"`
 }
@@ -1471,7 +2133,8 @@ type TenantListCatalogTypesRow struct {
 func (q *Queries) TenantListCatalogTypes(ctx context.Context, arg TenantListCatalogTypesParams) ([]TenantListCatalogTypesRow, error) {
 	rows, err := q.db.Query(ctx, tenantListCatalogTypes,
 		arg.Year,
-		arg.ModelUuid,
+		arg.DisplayBrandID,
+		arg.GroupKey,
 		arg.Q,
 		arg.OffsetCount,
 		arg.LimitCount,
@@ -1490,10 +2153,7 @@ func (q *Queries) TenantListCatalogTypes(ctx context.Context, arg TenantListCata
 			&i.Years,
 			&i.SuggestedTransmission,
 			&i.SuggestedFuel,
-			&i.ModelUuid,
-			&i.ModelName,
-			&i.BrandUuid,
-			&i.BrandDisplayName,
+			&i.BrandTsbCode,
 			&i.KaskoValue,
 			&i.KaskoPeriod,
 		); err != nil {
@@ -1509,27 +2169,20 @@ func (q *Queries) TenantListCatalogTypes(ctx context.Context, arg TenantListCata
 
 const updateCatalogBrand = `-- name: UpdateCatalogBrand :one
 UPDATE catalog_brands
-SET display_name = COALESCE($1, display_name),
-    category = COALESCE($2, category),
-    is_active = COALESCE($3, is_active)
-WHERE uuid = $4
-RETURNING id, uuid, tsb_code, tsb_name, display_name, category, is_active, created_at, updated_at
+SET category = COALESCE($1, category),
+    is_active = COALESCE($2, is_active)
+WHERE uuid = $3
+RETURNING id, uuid, tsb_code, tsb_name, display_name, category, is_active, created_at, updated_at, display_brand_id
 `
 
 type UpdateCatalogBrandParams struct {
-	DisplayName pgtype.Text `json:"display_name"`
-	Category    pgtype.Text `json:"category"`
-	IsActive    pgtype.Bool `json:"is_active"`
-	Uuid        uuid.UUID   `json:"uuid"`
+	Category pgtype.Text `json:"category"`
+	IsActive pgtype.Bool `json:"is_active"`
+	Uuid     uuid.UUID   `json:"uuid"`
 }
 
 func (q *Queries) UpdateCatalogBrand(ctx context.Context, arg UpdateCatalogBrandParams) (CatalogBrand, error) {
-	row := q.db.QueryRow(ctx, updateCatalogBrand,
-		arg.DisplayName,
-		arg.Category,
-		arg.IsActive,
-		arg.Uuid,
-	)
+	row := q.db.QueryRow(ctx, updateCatalogBrand, arg.Category, arg.IsActive, arg.Uuid)
 	var i CatalogBrand
 	err := row.Scan(
 		&i.ID,
@@ -1538,6 +2191,44 @@ func (q *Queries) UpdateCatalogBrand(ctx context.Context, arg UpdateCatalogBrand
 		&i.TsbName,
 		&i.DisplayName,
 		&i.Category,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DisplayBrandID,
+	)
+	return i, err
+}
+
+const updateCatalogDisplayBrand = `-- name: UpdateCatalogDisplayBrand :one
+UPDATE catalog_display_brands
+SET name = COALESCE($1, name),
+    slug = COALESCE($2, slug),
+    is_active = COALESCE($3, is_active)
+WHERE id = $4
+RETURNING id, uuid, name, slug, logo_object_key, is_active, created_at, updated_at
+`
+
+type UpdateCatalogDisplayBrandParams struct {
+	Name     pgtype.Text `json:"name"`
+	Slug     pgtype.Text `json:"slug"`
+	IsActive pgtype.Bool `json:"is_active"`
+	ID       int64       `json:"id"`
+}
+
+func (q *Queries) UpdateCatalogDisplayBrand(ctx context.Context, arg UpdateCatalogDisplayBrandParams) (CatalogDisplayBrand, error) {
+	row := q.db.QueryRow(ctx, updateCatalogDisplayBrand,
+		arg.Name,
+		arg.Slug,
+		arg.IsActive,
+		arg.ID,
+	)
+	var i CatalogDisplayBrand
+	err := row.Scan(
+		&i.ID,
+		&i.Uuid,
+		&i.Name,
+		&i.Slug,
+		&i.LogoObjectKey,
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -1599,7 +2290,7 @@ UPDATE catalog_models
 SET name = COALESCE($1, name),
     source = COALESCE($2, source)
 WHERE uuid = $3
-RETURNING id, uuid, brand_id, name, source, created_at, updated_at
+RETURNING id, uuid, brand_id, name, source, created_at, updated_at, group_key
 `
 
 type UpdateCatalogModelParams struct {
@@ -1619,6 +2310,7 @@ func (q *Queries) UpdateCatalogModel(ctx context.Context, arg UpdateCatalogModel
 		&i.Source,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.GroupKey,
 	)
 	return i, err
 }

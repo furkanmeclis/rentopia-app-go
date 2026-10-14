@@ -17,11 +17,12 @@ func sheetOf(period string, rows ...tsbcatalog.Row) *tsbcatalog.Sheet {
 
 func emptyState() model.State {
 	return model.State{
-		Brands:     map[string]model.StateBrand{},
-		Models:     map[int64][]tsbcatalog.ModelRef{},
-		Rules:      map[int64][]tsbcatalog.RuleRef{},
-		Types:      map[model.TypeKey]model.StateType{},
-		Valuations: map[model.ValuationKey]int64{},
+		Brands:        map[string]model.StateBrand{},
+		DisplayBrands: map[string]int64{},
+		Models:        map[int64][]tsbcatalog.ModelRef{},
+		Rules:         map[int64][]tsbcatalog.RuleRef{},
+		Types:         map[model.TypeKey]model.StateType{},
+		Valuations:    map[model.ValuationKey]int64{},
 	}
 }
 
@@ -33,6 +34,11 @@ func stateAfter(plan model.Plan) model.State {
 	modelIDs := map[string]int64{}
 	for _, b := range plan.Brands {
 		st.Brands[b.Code] = model.StateBrand{ID: nextID, Name: b.Name, Category: b.Category}
+		if b.DisplayName != "" {
+			if _, ok := st.DisplayBrands[model.DisplayKey(b.DisplayName)]; !ok {
+				st.DisplayBrands[model.DisplayKey(b.DisplayName)] = nextID + 1000
+			}
+		}
 		nextID++
 	}
 	for _, m := range plan.NewModels {
@@ -173,5 +179,38 @@ func TestBuildPlanRulesAndChangedValues(t *testing.T) {
 	}
 	if len(p.Diff.ChangedValuations) != 1 || p.Diff.ChangedValuations[0].Old != 100 {
 		t.Fatalf("diff: %+v", p.Diff.ChangedValuations)
+	}
+}
+
+func TestBuildPlanMapsNewBrandsToDisplayBrands(t *testing.T) {
+	t.Parallel()
+	st := emptyState()
+	st.Brands["52"] = model.StateBrand{ID: 1, Name: "FIAT", Category: tsbcatalog.CategoryPassenger}
+	st.DisplayBrands[model.DisplayKey("Fiat")] = 7
+	sheet := sheetOf("2026-10",
+		row("52", "FIAT", "1", "DOBLO COMBI 1.3", map[int]int64{2026: 100}),
+		// New TSB brand whose default display name already exists.
+		row("100", "TOFAS-FIAT", "1", "EGEA SEDAN 1.4", map[int]int64{2026: 100}),
+		// Two new TSB brands sharing a new display name: one display brand.
+		row("53", "FORD", "1", "FOCUS 1.5", map[int]int64{2026: 100}),
+		row("175", "FORD /USA", "1", "MUSTANG 5.0", map[int]int64{2026: 100}),
+	)
+	p := BuildPlan(sheet, "2026-10", st)
+	if p.Counts.BrandsNew != 3 || p.Counts.DisplayBrandsNew != 1 {
+		t.Fatalf("counts: %+v", p.Counts)
+	}
+	want := map[string]string{"100": "Fiat", "53": "Ford", "175": "Ford"}
+	for _, b := range p.Brands {
+		if w, ok := want[b.Code]; ok && b.DisplayName != w {
+			t.Errorf("brand %s display = %q, want %q", b.Code, b.DisplayName, w)
+		}
+		if b.Code == "52" && (b.Op != "same" || b.DisplayName != "") {
+			t.Errorf("existing brand must keep its mapping: %+v", b)
+		}
+	}
+	// Re-planning after the apply creates nothing.
+	again := BuildPlan(sheet, "2026-10", stateAfter(p))
+	if again.Counts.BrandsNew != 0 || again.Counts.DisplayBrandsNew != 0 {
+		t.Fatalf("re-plan: %+v", again.Counts)
 	}
 }

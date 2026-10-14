@@ -36,6 +36,8 @@ var stopWords = set(
 	"PERFORMANCE", "LONG", "UZUN", "KISA", "MENZIL", "LEGACY", "V1", "V2", "V3", "SAFELINE",
 	"COMFORTLINE", "INSPIRE", "EXCELLENCE", "INDIVIDUAL", "SIGNATURE", "INITIALE", "PARIS",
 	"PROGRESSIVE", "CALLIGRAPHY", "MAXX", "OPTIMUM", "NAVI", "SPECIAL", "LUX", "DELUX", "DELUXE", "HIGH", "LOW", "MID",
+	"SELECTION", "SELECTIVE", "VIGNALE", "GHIA", "COLLECTION", "LONGITUDE", "SUMMIT", "TRAILHAWK", "OVERLAND",
+	"WILDTRAK", "STORMTRAK", "WOLFTRAK", "XL", "XLT", "LCI",
 	// body styles
 	"SEDAN", "HB", "HATCHBACK", "STATION", "SW", "WAGON", "ESTATE", "COUPE", "CABRIO",
 	"CABRIOLET", "ROADSTER", "CONVERTIBLE", "KOMBI", "COMBI", "VAN", "PANORAMA", "CARGO",
@@ -179,6 +181,10 @@ type Resolver struct {
 	// candidates are heuristic model names derived for the batch, so that
 	// "EGEA CROSS ..." matches "EGEA CROSS" even if "EGEA" was seen first.
 	candidates []normName
+	// patterns are the brand's fixed model patterns (see patterns.go).
+	patterns []modelPattern
+	// glue splits glued first tokens on known / derived model names.
+	glue *glueIndex
 }
 
 type normName struct {
@@ -220,6 +226,13 @@ func NewResolver(rules []RuleRef, models []ModelRef, derive bool) *Resolver {
 	return r
 }
 
+// WithBrand enables the fixed model patterns of a TSB brand (BMW series,
+// Ford / Mercedes van spellings, …). Call it before Prime.
+func (r *Resolver) WithBrand(tsbBrandName string) *Resolver {
+	r.patterns = brandPatterns[brandKey(tsbBrandName)]
+	return r
+}
+
 // Prime derives candidate model names from a brand's type names. Pass every
 // type name of the brand in the file (not only unresolved ones): the more
 // names, the better trims are told apart from model words. Call it before
@@ -228,9 +241,32 @@ func (r *Resolver) Prime(typeNames []string) {
 	if !r.derive {
 		return
 	}
+	// Pass 1: model names as written, to learn which names glued first
+	// tokens ("TRANSITCUSTOMKOMBIVAN") start with.
+	bases := make([]string, 0, len(typeNames)+len(r.models))
+	for _, m := range r.models {
+		bases = append(bases, m.name)
+	}
+	for _, n := range typeNames {
+		if matchPatterns(r.patterns, normalize(n)) != "" {
+			continue
+		}
+		if d := DeriveModel(n); d != "" {
+			bases = append(bases, d)
+		}
+	}
+	r.glue = newGlueIndex(bases)
+
 	derived := make([][]string, 0, len(typeNames))
 	followers := map[string]map[string]struct{}{}
 	for _, n := range typeNames {
+		// Keep the original spelling unless the name had to be split.
+		if u := r.glue.unglue(normalize(n)); u != normalize(n) {
+			n = u
+		}
+		if matchPatterns(r.patterns, normalize(n)) != "" {
+			continue
+		}
 		toks := tokenize(DeriveModel(n))
 		if len(toks) == 0 {
 			continue
@@ -293,11 +329,22 @@ func hasNormPrefix(n, p string) bool {
 // longest known model or batch candidate that prefixes the name.
 func (r *Resolver) Resolve(typeName string) Match {
 	n := normalize(typeName)
+	u := r.glue.unglue(n)
 	for _, rule := range r.rules {
-		if hasNormPrefix(n, rule.norm) {
+		if hasNormPrefix(n, rule.norm) || hasNormPrefix(u, rule.norm) {
 			return Match{ModelID: rule.modelID, Source: "rule"}
 		}
 	}
+	if name := matchPatterns(r.patterns, u); name != "" {
+		pn := normalize(name)
+		for _, m := range r.models {
+			if m.norm == pn {
+				return Match{ModelID: m.id, Name: m.name, Source: "model"}
+			}
+		}
+		return Match{Name: name, Source: "derived"}
+	}
+	n = u
 	var best Match
 	bestLen := 0
 	for _, m := range r.models {

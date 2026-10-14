@@ -62,5 +62,11 @@
   "actions.catalog.model_created": "Catalog model created",
   "actions.catalog.model_updated": "Catalog model updated",
   "actions.catalog.model_merged": "Catalog models merged",
-  "actions.catalog.type_updated": "Catalog type updated"
+  "actions.catalog.type_updated": "Catalog type updated",
+  "actions.catalog.display_brand_updated": "Display brand updated",
+  "actions.catalog.display_brand_merged": "Display brands merged",
+  "actions.catalog.display_brand_unmerged": "TSB brand unmerged from a display brand",
+  "actions.catalog.display_brand_logo_updated": "Display brand logo uploaded",
+  "actions.catalog.display_brand_logo_removed": "Display brand logo removed",
+  "actions.catalog.model_rules_saved": "Catalog model rules saved"
 }
