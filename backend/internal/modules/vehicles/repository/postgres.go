@@ -464,3 +464,8 @@ func uuidsArg(v []uuid.UUID) []uuid.UUID {
 	}
 	return v
 }
+
+// ListMovements returns the non-cancelled transfers of a vehicle (LocationAt).
+func (r *Postgres) ListMovements(ctx context.Context, orgID, vehicleID int64) ([]db.ListVehicleMovementsRow, error) {
+	return r.q.ListVehicleMovements(ctx, db.ListVehicleMovementsParams{OrganizationID: orgID, VehicleID: vehicleID})
+}

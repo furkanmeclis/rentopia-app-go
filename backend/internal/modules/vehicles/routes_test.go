@@ -107,7 +107,8 @@ func TestVehiclePermissionGates(t *testing.T) {
 		}
 	}
 
-	// Meta advertises the bulk actions behind tenant.vehicles.bulk.
+	// Meta advertises the bulk actions behind tenant.vehicles.bulk; "Bakıma
+	// al" (start_maintenance) is behind tenant.blocks.write.
 	rr := do(http.MethodGet, "/v1/tenant/vehicles/meta", "sales-org", "")
 	var env struct {
 		Data struct {
@@ -121,11 +122,15 @@ func TestVehiclePermissionGates(t *testing.T) {
 	if err := json.Unmarshal(rr.Body.Bytes(), &env); err != nil {
 		t.Fatal(err)
 	}
-	if env.Data.Resource != Resource || len(env.Data.BulkActions) != 6 {
+	if env.Data.Resource != Resource || len(env.Data.BulkActions) != 7 {
 		t.Fatalf("meta = %+v", env.Data)
 	}
 	for _, a := range env.Data.BulkActions {
-		if a.Permission != rbac.PermTenantVehiclesBulk {
+		want := rbac.PermTenantVehiclesBulk
+		if a.ID == "start_maintenance" {
+			want = rbac.PermTenantBlocksWrite
+		}
+		if a.Permission != want {
 			t.Errorf("bulk action %s permission = %s", a.ID, a.Permission)
 		}
 	}

@@ -47,6 +47,11 @@ import (
 	fleethandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleet/handler"
 	fleetrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleet/repository"
 	fleetusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleet/usecase"
+	fleetopsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleetops"
+	fleetopsadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleetops/adapters"
+	fleetopshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleetops/handler"
+	fleetopsrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleetops/repository"
+	fleetopsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleetops/usecase"
 	importmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/imports"
 	importhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/imports/handler"
 	importusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/imports/usecase"
@@ -295,6 +300,8 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	fleetSvc := fleetusecase.New(fleetrepository.NewPostgres(deps.DB, deps.Queries), deps.Storage, searchIndexer)
 	// Fleet vehicles (physical reality, status history, group memberships).
 	vehicleSvc := vehicleusecase.New(vehiclerepository.NewPostgres(deps.DB, deps.Queries), searchIndexer)
+	// Fleet operations: vehicle blocks, transfers, one-way rules.
+	fleetOpsSvc := fleetopsusecase.New(fleetopsrepository.NewPostgres(deps.DB, deps.Queries), vehicleSvc)
 	orgSvc := orgusecase.New(
 		orgrepository.NewPostgres(deps.DB, deps.Queries),
 		branchusecase.NewOrganizationHooks(searchIndexer),
@@ -322,6 +329,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	fleetmodule.RegisterLiveResources(tenantLive)
 	organizationsmodule.RegisterLiveResources(tenantLive)
 	vehiclesmodule.RegisterLiveResources(tenantLive)
+	fleetopsmodule.RegisterLiveResources(tenantLive)
 	resourceEvents.AddResolver(tenantmodule.ChannelResolver(tenantmodule.QueriesLookup(deps.Queries)))
 	uc.AddChannelRules(tenantmodule.ChannelRule(tenantLive, tenantResolver))
 	catalogmodule.RegisterLiveResources(liveResources)
@@ -365,16 +373,22 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		fleetadapters.NewGroupsIO(fleetSvc),
 		fleetadapters.NewProductsIO(fleetSvc),
 		vehicleadapters.NewIO(vehicleSvc),
+		fleetopsadapters.NewTransfersIO(fleetOpsSvc),
+		fleetopsadapters.NewOneWayIO(fleetOpsSvc),
 	)
 	exportSvc := exportusecase.New(deps.Queries, deps.Storage, ioReg, deps.Queue, notifSvc, activityRec, log)
 	importSvc := importusecase.New(deps.Queries, deps.Storage, ioReg, deps.Queue, notifSvc, activityRec, log)
+	// "Bakıma al" on the vehicles list opens maintenance blocks.
+	vehicleBulk := vehicleadapters.NewBulk(vehicleSvc)
+	vehicleBulk.SetMaintenance(fleetopsadapters.NewMaintenance(fleetOpsSvc))
 	bulkReg := bulkengine.NewRegistry(
 		bulkadapters.NewUsers(deps.Queries),
 		bulkadapters.NewRoles(deps.Queries),
 		branchadapters.NewBulk(branchSvc),
 		fleetadapters.NewGroupsBulk(fleetSvc),
 		fleetadapters.NewProductsBulk(fleetSvc),
-		vehicleadapters.NewBulk(vehicleSvc),
+		vehicleBulk,
+		fleetopsadapters.NewOneWayBulk(fleetOpsSvc),
 	)
 	bulkSvc := bulkusecase.New(deps.Queries, bulkReg, deps.Queue, notifSvc, activityRec, cfg.Bulk, log)
 	// Tenant jobs run with the requester's current membership (permissions
@@ -435,6 +449,13 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		Import: importH.TenantUpload(vehiclesmodule.Resource),
 		Sample: importH.TenantSample(vehiclesmodule.Resource),
 		Bulk:   bulkH.TenantExecute(vehiclesmodule.Resource),
+	}, tokens, loader, tenantResolver)
+	fleetOpsH := fleetopshandler.New(fleetOpsSvc, activityRec)
+	fleetOpsH.SetResourceEvents(resourceEvents)
+	fleetopsmodule.RegisterRoutes(mux, fleetOpsH, fleetopsmodule.EngineHandlers{
+		ExportTransfers: exportH.TenantExport(fleetopsmodule.ResourceTransfers, fleetopsmodule.TransferExportKeys...),
+		ExportOneWay:    exportH.TenantExport(fleetopsmodule.ResourceOneWayRules, fleetopsmodule.OneWayExportKeys...),
+		BulkOneWay:      bulkH.TenantExecute(fleetopsmodule.ResourceOneWayRules),
 	}, tokens, loader, tenantResolver)
 	settingsmodule.RegisterRoutes(mux, settingshandler.New(
 		settingsusecase.New(deps.Queries),
