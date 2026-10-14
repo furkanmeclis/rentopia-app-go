@@ -838,6 +838,11 @@ func (m *Management) LogoObjectKey(ctx context.Context, orgUUID uuid.UUID) (stri
 	if !row.LogoObjectKey.Valid || row.LogoObjectKey.String == "" {
 		return "", ErrNotFound
 	}
+	// Only stream objects under the organization's own prefix (a legacy or
+	// tampered key never leaks another object).
+	if !strings.HasPrefix(row.LogoObjectKey.String, "organizations/"+row.Uuid.String()+"/") {
+		return "", ErrNotFound
+	}
 	return row.LogoObjectKey.String, nil
 }
 
