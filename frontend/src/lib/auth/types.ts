@@ -1,9 +1,11 @@
+import { routes } from "@/config/routes";
 import type { components } from "@/generated/api";
 
 export type PublicUser = components["schemas"]["PublicUser"];
 export type LoginRequest = components["schemas"]["LoginRequest"];
 export type Me = components["schemas"]["Me"];
 export type Tokens = components["schemas"]["Tokens"];
+export type MeOrganization = components["schemas"]["MeOrganization"];
 
 export type RoleSummary = {
   uuid: string;
@@ -11,6 +13,19 @@ export type RoleSummary = {
   slug: string;
   description?: string | null;
   is_system?: boolean;
+};
+
+/** Membership of the signed-in user (from `/v1/auth/me` `organizations[]`). */
+export type AuthOrganization = {
+  uuid: string;
+  slug: string;
+  name: string;
+  logoUrl?: string;
+  status: "active" | "suspended";
+  accessEndsAt: string | null;
+  role: { key: string; name: string };
+  /** `tenant.*` permissions granted in this organization only. */
+  permissions: string[];
 };
 
 /** Client session identity — profile + RBAC. */
@@ -26,6 +41,8 @@ export type AuthUser = {
   emailVerified: boolean;
   permissions: string[];
   roles: string[];
+  /** Organizations the user belongs to; empty when tenancy is off. */
+  organizations: AuthOrganization[];
   realtimeUserChannel?: string;
   realtimeEnabled?: boolean;
   impersonation?: {
@@ -37,8 +54,22 @@ export type AuthUser = {
   };
 };
 
+export function mapMeOrganization(org: MeOrganization): AuthOrganization {
+  return {
+    uuid: org.uuid,
+    slug: org.slug,
+    name: org.name,
+    logoUrl: org.logo_url || undefined,
+    status: org.status,
+    accessEndsAt: org.access_ends_at ?? null,
+    role: { key: org.role.key, name: org.role.name },
+    permissions: org.permissions ?? [],
+  };
+}
+
 export function mapMeToAuthUser(me: Me): AuthUser {
-  const { user, roles, permissions, realtime, impersonation } = me;
+  const { user, roles, permissions, organizations, realtime, impersonation } =
+    me;
   const locale =
     typeof user.locale === "string" && user.locale ? user.locale : "tr";
   const mapped: AuthUser = {
@@ -53,6 +84,7 @@ export function mapMeToAuthUser(me: Me): AuthUser {
     emailVerified: Boolean(user.email_verified),
     permissions: permissions ?? [],
     roles: roles ?? [],
+    organizations: (organizations ?? []).map(mapMeOrganization),
     realtimeUserChannel: realtime?.user_channel,
     realtimeEnabled: realtime?.enabled,
   };
@@ -81,12 +113,34 @@ export function isPlatformUser(user: AuthUser | null | undefined): boolean {
   return hasPlatformPermission(user);
 }
 
-export function isCmsUser(user: AuthUser | null | undefined): boolean {
-  if (!user) return false;
-  return !isPlatformUser(user);
+/**
+ * Where a signed-in user lands when no `next` is given: platform users go to
+ * `/platform`; otherwise one organization → its shell, several → the
+ * organization picker, none → the "no access yet" page.
+ */
+export function defaultHomeForUser(user: AuthUser): string {
+  if (isPlatformUser(user)) return routes.platform.home;
+  const organizations = userOrganizations(user);
+  if (organizations.length === 1) {
+    return routes.tenant.home(organizations[0]!.slug);
+  }
+  if (organizations.length > 1) return routes.account.organizations;
+  return routes.account.noAccess;
 }
 
-export function defaultHomeForUser(user: AuthUser): string {
-  if (isPlatformUser(user)) return "/platform";
-  return "/";
+/** Memberships of a (possibly older, cached) user object. */
+export function userOrganizations(
+  user: AuthUser | null | undefined,
+): AuthOrganization[] {
+  return user?.organizations ?? [];
+}
+
+/** Whether the organization's access window has ended at `now`. */
+export function isOrganizationAccessExpired(
+  org: Pick<AuthOrganization, "accessEndsAt">,
+  now: number = Date.now(),
+): boolean {
+  if (!org.accessEndsAt) return false;
+  const ends = Date.parse(org.accessEndsAt);
+  return Number.isFinite(ends) && ends <= now;
 }

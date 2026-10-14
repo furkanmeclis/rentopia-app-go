@@ -21,7 +21,7 @@ Set these **before** sharing a Docker host with another stack:
 | `COMPOSE_PROJECT_NAME` | Compose project name |
 | `LOCAL_NETWORK_NAME` | Local bridge |
 | `APP_NETWORK_NAME` | Prod private bridge (default `${NAME_PREFIX}-app`) |
-| `*_VOLUME_NAME` | Named volumes so MinIO/Postgres do not collide |
+| `*_VOLUME_NAME` | Named volumes so SeaweedFS/Postgres do not collide |
 
 In `compose.prod.yml` every internal host is qualified as `<service>.${APP_NETWORK_NAME}` (`postgres.myapp-app`, `backend.myapp-app`, …). Never use a bare service name: on the shared `dokploy-network` it can resolve to another stack's container.
 
@@ -57,7 +57,7 @@ Helpers:
 | Scalar docs | http://127.0.0.1:8080/docs/ |
 | Health / ready | http://127.0.0.1:8080/healthz · `/readyz` |
 | Adminer | http://127.0.0.1:8081 |
-| MinIO console | http://127.0.0.1:9001 |
+| SeaweedFS filer UI | http://127.0.0.1:8888 |
 | MailHog | http://127.0.0.1:8025 |
 | Meilisearch | http://127.0.0.1:7700 |
 | Centrifugo WS | ws://127.0.0.1:8000/connection/websocket |
@@ -86,7 +86,7 @@ Optional frontend public vars (root `.env`): `NEXT_PUBLIC_BFF_BASE_URL`, `NEXT_P
 2. `make prod-config` then `make prod-up`
 3. Plain Docker host only (Dokploy creates it for you): `docker network create dokploy-network` once
 
-Networks: Compose creates a private bridge network per app (`${APP_NETWORK_NAME:-${NAME_PREFIX}-app}`) and every service joins it. Only **frontend** (`:3000`) and **centrifugo** (`:8000`) also join the shared `dokploy-network`, so the proxy can route their domains. The backend is reached through the frontend's `/api` proxy, and MinIO, Postgres, Redis, Meilisearch and the worker stay private (files reach browsers through API endpoints, never a bucket URL). No service publishes host ports.
+Networks: Compose creates a private bridge network per app (`${APP_NETWORK_NAME:-${NAME_PREFIX}-app}`) and every service joins it. Only **frontend** (`:3000`) and **centrifugo** (`:8000`) also join the shared `dokploy-network`, so the proxy can route their domains. The backend is reached through the frontend's `/api` proxy, and SeaweedFS, Postgres, Redis, Meilisearch and the worker stay private (files reach browsers through API endpoints, never a bucket URL). No service publishes host ports.
 
 `APP_ENCRYPTION_KEY` (32-byte, raw or base64) encrypts GitHub App secrets at rest. Generate: `openssl rand -base64 32`. Replace the example key in production.
 

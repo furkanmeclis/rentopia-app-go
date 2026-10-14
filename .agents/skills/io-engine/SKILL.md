@@ -37,9 +37,9 @@ Frontend toolbar: `ResourceIOToolbar` from `@/features/io`.
 | Export | `pdf`, `xlsx`, `csv`, `json` |
 | Import | `json`, `xlsx`, `csv`, `tsv` |
 
-Letterhead for PDF/XLSX comes from `app_settings` (`/v1/platform/settings`). Logo bytes come from storage; never from a browser-assembled MinIO URL.
+Letterhead for PDF/XLSX comes from `app_settings` (`/v1/platform/settings`). Logo bytes come from storage; never from a browser-assembled S3 URL.
 
-Import source files: MinIO key `imports/{job_uuid}/source.{ext}` (`internal/platform/storage/keys.go`). Rollback rows: `import_changes`.
+Import source files: S3 key `imports/{job_uuid}/source.{ext}` (`internal/platform/storage/keys.go`). Rollback rows: `import_changes`.
 
 ## API (existing resources)
 

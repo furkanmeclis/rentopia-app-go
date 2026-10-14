@@ -16,7 +16,8 @@ Next.js BFF for the boilerplate. The browser talks to same-origin `/api/v1/*`; t
 | Who                                          | Panel                                                                                                                    |
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `super_admin` or any `platform.*` permission | `/platform` — overview, users, roles, notifications, activity, logs, storage, imports, exports, settings, access, GitHub |
-| Other authenticated users                    | `/` — CMS placeholder + profile                                                                                          |
+| Organization members                         | `/t/{slug}` — organization panel (one org lands there, several → `/organizations` picker)                                |
+| Anyone else signed in                        | `/no-access` — waiting for an invitation; `/profile` works for every signed-in user                                      |
 
 Guest login: `/platform/login` (aliases at `/login`, `/forgot-password`, …).
 
@@ -84,7 +85,7 @@ Shared infra: `components/ui`, `tables`, `entity`, `forms`, `layout`, `dialogs`,
 
 Brand tokens: `src/config/brand.ts`.
 
-Media: never assemble MinIO/S3 URLs in the browser. Use `assertServiceMediaURL` in `src/lib/media/urls.ts`.
+Media: never assemble S3 URLs in the browser. Use `assertServiceMediaURL` in `src/lib/media/urls.ts`.
 
 ## Scripts
 

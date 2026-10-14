@@ -5,7 +5,7 @@
 export const brand = {
   name: "App",
   productName: "Boilerplate",
-  tagline: "Platform & CMS console",
+  tagline: "Platform & organization console",
   /** Custom URL scheme of the companion mobile app (QR sign-in fallback). */
   mobileScheme: "app",
   colors: {

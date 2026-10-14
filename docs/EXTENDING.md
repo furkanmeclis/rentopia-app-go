@@ -19,7 +19,7 @@ For a full agent checklist, use `.agents/skills/add-platform-resource`. Narrativ
 ## Frontend feature
 
 1. Add `frontend/src/features/<name>/` (`components`, `hooks`, `services`, `schemas`).
-2. Add App Router pages under `(platform)` and/or `(cms)`.
+2. Add App Router pages under `(platform)` and/or `(tenant)/t/[slug]` (organization pages call `tenantRequest()`).
 3. Register routes in `frontend/src/config/routes.ts`, sidebar items in `frontend/src/config/nav.ts`, and gate with permissions from `frontend/src/config/permissions.ts`.
 4. Call the BFF (`/api/v1/...`), not the Go host, from the browser.
 5. Dates: shared `DatePicker` / `AppDatePicker` — see `.agents/skills/admin-date-picker`.
@@ -42,7 +42,7 @@ Package: `internal/platform/ioengine`. HTTP: `internal/modules/{exports,imports}
 5. Mount `POST /v1/platform/<resource>/export` (and import + sample if create-capable).
 6. Frontend: `ResourceIOToolbar` from `@/features/io` on the list page.
 
-Formats: export PDF / XLSX / CSV / JSON. Import JSON / XLSX / CSV / TSV. Letterhead comes from `app_settings`. Source files land in MinIO under `imports/{job_uuid}/`.
+Formats: export PDF / XLSX / CSV / JSON. Import JSON / XLSX / CSV / TSV. Letterhead comes from `app_settings`. Source files land in SeaweedFS under `imports/{job_uuid}/`.
 
 ## Bulk actions (bulkengine)
 
@@ -84,7 +84,7 @@ Skill: `.agents/skills/github-integration`. Super-admin settings at `/platform/i
 
 Skill: `.agents/skills/storage-media`.
 
-- Object bytes in MinIO/S3; rows in Postgres. Browser never builds object URLs from keys.
+- Object bytes in S3; rows in Postgres. Browser never builds object URLs from keys.
 - Use only API-returned `public_url` / `logo_url` / stream paths. Helper: `frontend/src/lib/media/urls.ts`.
 - Key helpers: `internal/platform/storage/keys.go` (`app/branding/`, `exports/{job}/`, `imports/{job}/`).
 - Explorer API lives under `/v1/platform/storage/*` (`platform.storage.read` / `.write`).
