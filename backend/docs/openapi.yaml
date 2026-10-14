@@ -6371,7 +6371,9 @@ paths:
         `set_status` {`status`, `note`?}, `move_branch` {`branch_uuid`},
         `add_rental_group` / `replace_rental_group` {`rental_group_uuid`}
         (vehicles that are not eligible fail one by one), `activate`,
-        `deactivate`. Targets are resolved inside the organization and the
+        `deactivate`. `start_maintenance` {`reason`?, `sync_status`?
+        (`"true"` / `"false"`)} ("Bakıma al", `tenant.blocks.write`): an open-ended
+        maintenance block from now; rollback deletes it and restores the status. Targets are resolved inside the organization and the
         caller's branch scope; `scope=query` honours the list filters.
       security:
         - bearerAuth: []
@@ -7226,6 +7228,844 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/TenantForbidden" }
         "500": { $ref: "#/components/responses/InternalError" }
+
+  /v1/tenant/vehicles/{uuid}/blocks:
+    get:
+      tags: [Tenant]
+      operationId: getTenantVehicleBlocks
+      summary: Usage blocks of a vehicle
+      description: |
+        `tenant.blocks.read`. Newest start first. The vehicle follows the vehicles
+        branch scope (home OR current branch), otherwise `404`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - name: state
+          in: query
+          description: "`scheduled`, `active`, `ended`; comma-separated"
+          schema: { type: string }
+        - name: kind
+          in: query
+          description: "Block kinds; comma-separated"
+          schema: { type: string }
+      responses:
+        "200":
+          description: Block page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeVehicleBlockPage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantVehicleBlock
+      summary: Block a vehicle
+      description: |
+        `tenant.blocks.write`. `[starts_at, ends_at)`; `starts_at` defaults to now, a
+        missing / null `ends_at` is open-ended ("Bakıma al": `{kind: maintenance}`).
+        Blocks of a vehicle never overlap: `409 CONFLICT` with details
+        (`field` = `block`, `code` = `block_overlap`, `message` = `<uuid> <start>/<end|open>`).
+        `sync_status` also sets the vehicle status (maintenance / damaged /
+        cleaning / out_of_service) when the block covers now (`400` otherwise).
+        `affected` lists the open transfers the block overlaps (M2 adds reservations).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VehicleBlockRequest"
+      responses:
+        "201":
+          description: Block result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeVehicleBlockResult"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/vehicles/{uuid}/blocks/{blockUuid}:
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantVehicleBlock
+      summary: Change a block
+      description: |
+        `tenant.blocks.write`. Kind, range (extend with a new `ends_at`; null =
+        open-ended) or reason. Same overlap rule as create. The vehicle status is
+        not touched.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - name: blockUuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VehicleBlockPatchRequest"
+      responses:
+        "200":
+          description: Block result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeVehicleBlockResult"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantVehicleBlock
+      summary: Delete a block (soft)
+      description: |
+        `tenant.blocks.write`. For blocks entered by mistake; the vehicle status is not touched.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - name: blockUuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeStatus"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/vehicles/{uuid}/blocks/{blockUuid}/release:
+    post:
+      tags: [Tenant]
+      operationId: postTenantVehicleBlockRelease
+      summary: Close a block ("Engeli kapat")
+      description: |
+        `tenant.blocks.write`. An active block ends now (`400` `not_started` /
+        `already_ended` otherwise). `sync_status` sets the vehicle back to
+        `available` when its status is still the one of the block kind.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - name: blockUuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VehicleBlockReleaseRequest"
+      responses:
+        "200":
+          description: Block result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeVehicleBlockResult"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/transfers/meta:
+    get:
+      tags: [Tenant]
+      operationId: getTenantTransfersMeta
+      summary: Transfers table contract
+      description: |
+        `tenant.transfers.read`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Resource meta
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeResourceMeta"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/transfers/facets:
+    get:
+      tags: [Tenant]
+      operationId: getTenantTransferFacets
+      summary: Transfer filter options
+      description: |
+        `tenant.transfers.read`. Counts in the caller's branch scope.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Facets
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeTransferFacets"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/transfers/assignees:
+    get:
+      tags: [Tenant]
+      operationId: getTenantTransferAssignees
+      summary: Members who can be responsible for a transfer
+      description: |
+        `tenant.transfers.write` (no members permission needed). At most 100.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Q"
+      responses:
+        "200":
+          description: Assignees
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeTransferAssignees"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/transfers:
+    get:
+      tags: [Tenant]
+      operationId: getTenantTransfers
+      summary: List vehicle transfers
+      description: |
+        `tenant.transfers.read`. A member with `branch_scope` = `selected` sees the
+        transfers whose from OR to branch is one of its branches. `q` searches the
+        plate, note and branch names.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - name: sort
+          in: query
+          description: "One of `planned_departure`, `planned_arrival`, `status`, `cost`, `plate`, `created_at`, `updated_at`; prefix `-` for descending. Default `-planned_departure`."
+          schema: { type: string }
+        - name: status
+          in: query
+          description: "`planned`, `in_transit`, `completed`, `cancelled`; comma-separated"
+          schema: { type: string }
+        - name: from_branch
+          in: query
+          description: "From branch uuids; comma-separated"
+          schema: { type: string }
+        - name: to_branch
+          in: query
+          description: "To branch uuids; comma-separated"
+          schema: { type: string }
+        - name: vehicle
+          in: query
+          description: "Vehicle uuid"
+          schema: { type: string }
+      responses:
+        "200":
+          description: Transfer page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeTransferPage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantTransfer
+      summary: Plan a transfer
+      description: |
+        `tenant.transfers.write`. `from_branch_uuid` defaults to where the vehicle is
+        at the planned departure (current branch adjusted by its other
+        transfers) and must be that branch (`400` `not_at_branch`); from or to must
+        be in the caller's branch scope. `409 CONFLICT` when the planned window
+        overlaps a block (`block_overlap`) or another open transfer of the vehicle
+        (`transfer_overlap`); details list them.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransferCreateRequest"
+      responses:
+        "201":
+          description: Transfer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeTransfer"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/transfers/export:
+    post:
+      tags: [Tenant]
+      operationId: postTenantTransfersExport
+      summary: Export transfers
+      description: |
+        `tenant.transfers.read`. `query` honours `q` and the list filters. Poll
+        `GET /v1/tenant/exports/{uuid}`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportRequest"
+      responses:
+        "202":
+          description: Export job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeExportJob"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/transfers/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantTransfer
+      summary: Get a transfer
+      description: |
+        `tenant.transfers.read`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Transfer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeTransfer"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantTransfer
+      summary: Change a transfer
+      description: |
+        `tenant.transfers.write`. A planned transfer can be re-planned (same rules
+        as create); once started only `cost` and `note` change (`409`
+        `invalid_state` otherwise).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransferPatchRequest"
+      responses:
+        "200":
+          description: Transfer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeTransfer"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/transfers/{uuid}/start:
+    post:
+      tags: [Tenant]
+      operationId: postTenantTransferStart
+      summary: Start a transfer (departure)
+      description: |
+        `tenant.transfers.write`. planned -> in_transit; `at` defaults to now. The
+        vehicle must be at the from branch (`409` `vehicle_not_at_origin`), not
+        rented / in transfer and not blocked until the planned arrival; its status
+        becomes `in_transfer` (vehicle event).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransferActionRequest"
+      responses:
+        "200":
+          description: Transfer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeTransfer"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/transfers/{uuid}/complete:
+    post:
+      tags: [Tenant]
+      operationId: postTenantTransferComplete
+      summary: Complete a transfer (arrival)
+      description: |
+        `tenant.transfers.write`. in_transit -> completed; the vehicle's current
+        branch becomes the to branch and its status `arrival_status` (`available`
+        by default, or `preparing`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransferActionRequest"
+      responses:
+        "200":
+          description: Transfer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeTransfer"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/transfers/{uuid}/cancel:
+    post:
+      tags: [Tenant]
+      operationId: postTenantTransferCancel
+      summary: Cancel a transfer
+      description: |
+        `tenant.transfers.write`. planned / in_transit -> cancelled. A vehicle on the
+        road stays at the from branch and becomes `available`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransferActionRequest"
+      responses:
+        "200":
+          description: Transfer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeTransfer"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/transfers/{uuid}/activity:
+    get:
+      tags: [Tenant]
+      operationId: getTenantTransferActivity
+      summary: Audit events of a transfer
+      description: |
+        `tenant.transfers.read`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Activity page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeFleetActivityPage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/one-way-rules/meta:
+    get:
+      tags: [Tenant]
+      operationId: getTenantOneWayRulesMeta
+      summary: One-way rules table contract
+      description: |
+        `tenant.one_way.read`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Resource meta
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeResourceMeta"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/one-way-rules/facets:
+    get:
+      tags: [Tenant]
+      operationId: getTenantOneWayRuleFacets
+      summary: One-way rule filter options
+      description: |
+        `tenant.one_way.read`. Counts in the caller's branch scope.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Facets
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeOneWayRuleFacets"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/one-way-rules/resolve:
+    get:
+      tags: [Tenant]
+      operationId: getTenantOneWayResolve
+      summary: Effective one-way rule of a route
+      description: |
+        `tenant.one_way.read`. The active rule of the rental product overrides the
+        generic rule of the route; no active rule = not allowed. The same branch
+        is allowed for free.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - name: from_branch
+          in: query
+          description: "Pick-up branch uuid"
+          schema: { type: string }
+        - name: to_branch
+          in: query
+          description: "Return branch uuid"
+          schema: { type: string }
+        - name: rental_product
+          in: query
+          description: "Rental product uuid (optional)"
+          schema: { type: string }
+      responses:
+        "200":
+          description: Quote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeOneWayQuote"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/one-way-rules:
+    get:
+      tags: [Tenant]
+      operationId: getTenantOneWayRules
+      summary: List one-way rules
+      description: |
+        `tenant.one_way.read`. A member with `branch_scope` = `selected` sees the rules
+        whose from OR to branch is one of its branches.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - name: sort
+          in: query
+          description: "One of `from_branch`, `to_branch`, `fee`, `is_active`, `created_at`, `updated_at`; prefix `-` for descending. Default `-created_at`."
+          schema: { type: string }
+        - name: from_branch
+          in: query
+          description: "From branch uuids; comma-separated"
+          schema: { type: string }
+        - name: to_branch
+          in: query
+          description: "To branch uuids; comma-separated"
+          schema: { type: string }
+        - name: allowed
+          in: query
+          description: "Allowed rules only (true) or denied only (false)"
+          schema: { type: boolean }
+        - name: is_active
+          in: query
+          description: "Active filter"
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Rule page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeOneWayRulePage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantOneWayRule
+      summary: Create a one-way rule
+      description: |
+        `tenant.one_way.write`. The from branch must be in the caller's branch scope
+        (`400` `not_found` otherwise). One live rule per route and product (null =
+        generic): `409 CONFLICT` with a `to_branch_uuid` / `taken` detail.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OneWayRuleCreateRequest"
+      responses:
+        "201":
+          description: Rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeOneWayRule"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/one-way-rules/export:
+    post:
+      tags: [Tenant]
+      operationId: postTenantOneWayRulesExport
+      summary: Export one-way rules
+      description: |
+        `tenant.one_way.read`. `query` honours `q` and the list filters.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportRequest"
+      responses:
+        "202":
+          description: Export job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeExportJob"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/one-way-rules/bulk:
+    post:
+      tags: [Tenant]
+      operationId: postTenantOneWayRulesBulk
+      summary: Run a bulk action on one-way rules
+      description: |
+        `activate` / `deactivate` (`tenant.one_way.write`), reversible. Targets are
+        resolved inside the organization and the caller's branch scope.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkExecuteRequest"
+      responses:
+        "200":
+          description: Sync bulk result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeBulkSyncResult"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/one-way-rules/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantOneWayRule
+      summary: Get a one-way rule
+      description: |
+        `tenant.one_way.read`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeOneWayRule"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantOneWayRule
+      summary: Change a one-way rule
+      description: |
+        `tenant.one_way.write`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OneWayRulePatchRequest"
+      responses:
+        "200":
+          description: Rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeOneWayRule"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantOneWayRule
+      summary: Delete a one-way rule (soft)
+      description: |
+        `tenant.one_way.write`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeStatus"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/one-way-rules/{uuid}/activity:
+    get:
+      tags: [Tenant]
+      operationId: getTenantOneWayRuleActivity
+      summary: Audit events of a one-way rule
+      description: |
+        `tenant.one_way.read`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Activity page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeFleetActivityPage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
 components:
   securitySchemes:
@@ -10273,6 +11113,352 @@ components:
         vars:
           type: object
           additionalProperties: { type: string }
+
+    VehicleBlock:
+      type: object
+      required: [uuid, vehicle_uuid, kind, starts_at, ends_at, state, reason, created_by, released_at, released_by, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        vehicle_uuid: { type: string, format: uuid }
+        kind: { type: string, enum: [maintenance, damage, cleaning, out_of_service, other] }
+        starts_at: { type: string, format: date-time }
+        ends_at:
+          type: [string, "null"]
+          format: date-time
+          description: Exclusive end; null = open-ended
+        state: { type: string, enum: [scheduled, active, ended] }
+        reason: { type: string }
+        created_by:
+          oneOf:
+            - $ref: "#/components/schemas/FleetActor"
+            - type: "null"
+        released_at: { type: [string, "null"], format: date-time }
+        released_by:
+          oneOf:
+            - $ref: "#/components/schemas/FleetActor"
+            - type: "null"
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    VehicleBlockAffected:
+      type: object
+      required: [kind, uuid, label, status, starts_at, ends_at]
+      properties:
+        kind: { type: string, enum: [transfer], description: "M2 adds `reservation`" }
+        uuid: { type: string, format: uuid }
+        label: { type: string, example: "Merkez → İstanbul" }
+        status: { type: string }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: [string, "null"], format: date-time }
+
+    VehicleBlockResult:
+      type: object
+      required: [block, affected, vehicle_status, status_changed]
+      properties:
+        block: { $ref: "#/components/schemas/VehicleBlock" }
+        affected:
+          type: array
+          items: { $ref: "#/components/schemas/VehicleBlockAffected" }
+        vehicle_status: { type: string }
+        status_changed: { type: boolean }
+
+    VehicleBlockPatchRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        kind: { type: string, enum: [maintenance, damage, cleaning, out_of_service, other] }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: [string, "null"], format: date-time }
+        reason: { type: string, maxLength: 2000 }
+
+    VehicleBlockRequest:
+      type: object
+      additionalProperties: false
+      required: [kind]
+      properties:
+        kind: { type: string, enum: [maintenance, damage, cleaning, out_of_service, other] }
+        starts_at: { type: string, format: date-time, description: Defaults to now }
+        ends_at: { type: [string, "null"], format: date-time, description: null / missing = open-ended }
+        reason: { type: string, maxLength: 2000 }
+        sync_status: { type: boolean, description: Also set the vehicle status when the block covers now }
+
+    VehicleBlockReleaseRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        sync_status: { type: boolean, description: Set the vehicle back to available }
+
+    TransferVehicleRef:
+      type: object
+      required: [uuid, plate, label]
+      properties:
+        uuid: { type: string, format: uuid }
+        plate: { type: string }
+        label: { type: string }
+
+    Transfer:
+      type: object
+      required: [uuid, vehicle, from_branch, to_branch, responsible, planned_departure, planned_arrival, actual_departure, actual_arrival, cost, status, note, cancelled_at, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        vehicle: { $ref: "#/components/schemas/TransferVehicleRef" }
+        from_branch: { $ref: "#/components/schemas/VehicleBranchRef" }
+        to_branch: { $ref: "#/components/schemas/VehicleBranchRef" }
+        responsible:
+          oneOf:
+            - $ref: "#/components/schemas/FleetActor"
+            - type: "null"
+        planned_departure: { type: string, format: date-time }
+        planned_arrival: { type: string, format: date-time }
+        actual_departure: { type: [string, "null"], format: date-time }
+        actual_arrival: { type: [string, "null"], format: date-time }
+        cost: { type: [string, "null"], description: TRY decimal string, example: "1250.00" }
+        status: { type: string, enum: [planned, in_transit, completed, cancelled] }
+        note: { type: string }
+        cancelled_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    TransferPatchRequest:
+      type: object
+      additionalProperties: false
+      properties: &transferWriteProperties
+        vehicle_uuid: { type: string, format: uuid }
+        from_branch_uuid: { type: string, format: uuid }
+        to_branch_uuid: { type: string, format: uuid }
+        responsible_user_uuid: { type: [string, "null"], format: uuid }
+        planned_departure: { type: string, format: date-time }
+        planned_arrival: { type: string, format: date-time }
+        cost: { type: [string, number, "null"], description: "TRY, at most 2 decimals" }
+        note: { type: string, maxLength: 2000 }
+
+    TransferCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [vehicle_uuid, to_branch_uuid, planned_departure, planned_arrival]
+      properties: *transferWriteProperties
+
+    TransferActionRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        at: { type: string, format: date-time, description: Defaults to now (start / complete) }
+        arrival_status: { type: string, enum: [available, preparing], description: Complete only }
+        note: { type: string, maxLength: 2000 }
+
+    TransferAssignee:
+      type: object
+      required: [uuid, name, surname, email]
+      properties:
+        uuid: { type: string, format: uuid }
+        name: { type: string }
+        surname: { type: string }
+        email: { type: string }
+
+    TransferAssignees:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/TransferAssignee" }
+
+    OneWayRuleProductRef:
+      type: object
+      required: [uuid, code, title]
+      properties:
+        uuid: { type: string, format: uuid }
+        code: { type: string }
+        title: { type: string }
+
+    OneWayRule:
+      type: object
+      required: [uuid, from_branch, to_branch, rental_product, allowed, fee, note, is_active, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        from_branch: { $ref: "#/components/schemas/VehicleBranchRef" }
+        to_branch: { $ref: "#/components/schemas/VehicleBranchRef" }
+        rental_product:
+          oneOf:
+            - $ref: "#/components/schemas/OneWayRuleProductRef"
+            - type: "null"
+        allowed: { type: boolean }
+        fee: { type: string, description: TRY decimal string, example: "750.00" }
+        note: { type: string }
+        is_active: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    OneWayRulePatchRequest:
+      type: object
+      additionalProperties: false
+      properties: &oneWayWriteProperties
+        from_branch_uuid: { type: string, format: uuid }
+        to_branch_uuid: { type: string, format: uuid }
+        rental_product_uuid: { type: [string, "null"], format: uuid, description: null = generic rule of the route }
+        allowed: { type: boolean }
+        fee: { type: [string, number], description: "TRY, at most 2 decimals" }
+        note: { type: string, maxLength: 2000 }
+        is_active: { type: boolean }
+
+    OneWayRuleCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [from_branch_uuid, to_branch_uuid]
+      properties: *oneWayWriteProperties
+
+    OneWayQuote:
+      type: object
+      required: [allowed, fee, rule_uuid, product_specific]
+      properties:
+        allowed: { type: boolean }
+        fee: { type: string, example: "500.00" }
+        rule_uuid: { type: [string, "null"], format: uuid }
+        product_specific: { type: boolean }
+
+    VehicleBlockPage:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/VehicleBlock" }
+        total: { type: integer, format: int64 }
+        limit: { type: integer }
+        offset: { type: integer }
+
+    TransferPage:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Transfer" }
+        total: { type: integer, format: int64 }
+        limit: { type: integer }
+        offset: { type: integer }
+
+    OneWayRulePage:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/OneWayRule" }
+        total: { type: integer, format: int64 }
+        limit: { type: integer }
+        offset: { type: integer }
+
+    TransferFacets:
+      type: object
+      required: [status, from_branch, to_branch]
+      properties:
+        status:
+          type: array
+          items: { $ref: "#/components/schemas/FleetFacet" }
+        from_branch:
+          type: array
+          items: { $ref: "#/components/schemas/FleetFacet" }
+        to_branch:
+          type: array
+          items: { $ref: "#/components/schemas/FleetFacet" }
+
+    OneWayRuleFacets:
+      type: object
+      required: [from_branch, to_branch, is_active, allowed]
+      properties:
+        from_branch:
+          type: array
+          items: { $ref: "#/components/schemas/FleetFacet" }
+        to_branch:
+          type: array
+          items: { $ref: "#/components/schemas/FleetFacet" }
+        is_active:
+          type: array
+          items: { $ref: "#/components/schemas/FleetFacet" }
+        allowed:
+          type: array
+          items: { $ref: "#/components/schemas/FleetFacet" }
+
+    EnvelopeVehicleBlockPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/VehicleBlockPage" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeVehicleBlockResult:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/VehicleBlockResult" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeTransfer:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/Transfer" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeTransferPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/TransferPage" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeTransferFacets:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/TransferFacets" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeTransferAssignees:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/TransferAssignees" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeOneWayRule:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/OneWayRule" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeOneWayRulePage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/OneWayRulePage" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeOneWayRuleFacets:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/OneWayRuleFacets" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeOneWayQuote:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/OneWayQuote" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
 
     StatusPayload:
       type: object

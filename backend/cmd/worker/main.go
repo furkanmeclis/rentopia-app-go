@@ -20,6 +20,9 @@ import (
 	fleetadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleet/adapters"
 	fleetrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleet/repository"
 	fleetusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleet/usecase"
+	fleetopsadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleetops/adapters"
+	fleetopsrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleetops/repository"
+	fleetopsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleetops/usecase"
 	importusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/imports/usecase"
 	logsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/logs/usecase"
 	notifmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications"
@@ -133,6 +136,9 @@ func main() {
 	vehicleRecordsSvc := vehiclerecordsusecase.New(
 		vehiclerecordsrepository.NewPostgres(queries), vehicleSvc, store, notifSvc, log,
 	)
+	fleetOpsSvc := fleetopsusecase.New(fleetopsrepository.NewPostgres(pool, queries), vehicleSvc)
+	vehicleBulk := vehicleadapters.NewBulk(vehicleSvc)
+	vehicleBulk.SetMaintenance(fleetopsadapters.NewMaintenance(fleetOpsSvc))
 	ioReg := ioengine.NewRegistry(
 		ioadapters.NewUsers(queries),
 		ioadapters.NewRoles(queries),
@@ -145,6 +151,8 @@ func main() {
 		vehicleadapters.NewIO(vehicleSvc),
 		vehiclerecordsadapters.NewDocumentsIO(vehicleRecordsSvc),
 		vehiclerecordsadapters.NewMaintenanceIO(vehicleRecordsSvc),
+		fleetopsadapters.NewTransfersIO(fleetOpsSvc),
+		fleetopsadapters.NewOneWayIO(fleetOpsSvc),
 	)
 	exportSvc := exportusecase.New(queries, store, ioReg, nil, notifSvc, activityRec, log)
 	importSvc := importusecase.New(queries, store, ioReg, nil, notifSvc, activityRec, log)
@@ -154,7 +162,8 @@ func main() {
 		branchadapters.NewBulk(branchSvc),
 		fleetadapters.NewGroupsBulk(fleetSvc),
 		fleetadapters.NewProductsBulk(fleetSvc),
-		vehicleadapters.NewBulk(vehicleSvc),
+		vehicleBulk,
+		fleetopsadapters.NewOneWayBulk(fleetOpsSvc),
 	)
 	bulkSvc := bulkusecase.New(queries, bulkReg, nil, notifSvc, activityRec, cfg.Bulk, log)
 	// Tenant jobs run with the requester's current membership (permissions

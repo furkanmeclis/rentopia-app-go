@@ -312,7 +312,8 @@ func int32Str(v *int32) string {
 
 // Bulk action ids. Params (BulkTarget.params): set_status {status, note?},
 // move_branch {branch_uuid}, add_rental_group / replace_rental_group
-// {rental_group_uuid}.
+// {rental_group_uuid}, start_maintenance {reason?, sync_status?
+// ("true" / "false")}.
 const (
 	ActionSetStatus          = "set_status"
 	ActionMoveBranch         = "move_branch"
@@ -320,11 +321,35 @@ const (
 	ActionReplaceRentalGroup = "replace_rental_group"
 	ActionActivate           = "activate"
 	ActionDeactivate         = "deactivate"
+	// ActionStartMaintenance is "Bakıma al" (TEC-694): an open-ended
+	// maintenance block starting now, optionally with the status change.
+	ActionStartMaintenance = "start_maintenance"
 )
+
+// Maintenance starts and undoes maintenance blocks for the
+// start_maintenance action. The blocks live in the fleetops module, which
+// depends on this one; it is injected with SetMaintenance.
+type Maintenance interface {
+	// StartMaintenance opens a maintenance block starting now and returns
+	// it with the vehicle status before the change ("" = not changed).
+	StartMaintenance(ctx context.Context, orgID int64, vehicleUUID uuid.UUID, reason string, syncStatus bool) (blockUUID uuid.UUID, previousStatus string, err error)
+	// UndoMaintenance removes the block and restores previousStatus when
+	// it is not empty (bulk rollback).
+	UndoMaintenance(ctx context.Context, orgID int64, vehicleUUID, blockUUID uuid.UUID, previousStatus string) error
+	// ItemError reports whether err refuses one vehicle (the item fails,
+	// the job goes on) rather than a system failure.
+	ItemError(err error) bool
+}
 
 // Bulk changes vehicles in bulk; every action is reversible.
 type Bulk struct {
-	svc *usecase.Service
+	svc         *usecase.Service
+	maintenance Maintenance
+}
+
+// SetMaintenance enables the start_maintenance action.
+func (a *Bulk) SetMaintenance(m Maintenance) {
+	a.maintenance = m
 }
 
 // NewBulk builds the bulk adapter. svc may be nil for metadata only.
@@ -351,6 +376,10 @@ func (a *Bulk) BulkActions() []bulkengine.BulkActionDef {
 		def(ActionReplaceRentalGroup, true),
 		def(ActionActivate, false),
 		def(ActionDeactivate, true),
+		{
+			ID: ActionStartMaintenance, LabelKey: "bulk.actions.vehicles." + ActionStartMaintenance,
+			Permission: rbac.PermTenantBlocksWrite, Reversible: true,
+		},
 	}
 }
 
@@ -396,6 +425,16 @@ func (a *Bulk) ResolveTargets(ctx context.Context, action string, target bulkeng
 
 func (a *Bulk) validateParams(ctx context.Context, orgID int64, action string, params map[string]string) error {
 	switch action {
+	case ActionStartMaintenance:
+		if a.maintenance == nil {
+			return fmt.Errorf("start_maintenance is not available")
+		}
+		if len([]rune(params["reason"])) > 2000 {
+			return fmt.Errorf("params.reason must be at most 2000 characters")
+		}
+		if v := params["sync_status"]; v != "" && v != "true" && v != "false" {
+			return fmt.Errorf("params.sync_status must be true or false")
+		}
 	case ActionSetStatus:
 		if !model.Contains(model.Statuses, params["status"]) {
 			return fmt.Errorf("params.status must be one of %s", strings.Join(model.Statuses, ", "))
@@ -449,6 +488,18 @@ func (a *Bulk) ApplyItem(ctx context.Context, action, entityUUID string) (bulken
 		}, nil
 	}
 	switch action {
+	case ActionStartMaintenance:
+		if a.maintenance == nil {
+			return bulkengine.BulkItemResult{EntityUUID: entityUUID, OK: false, Error: "maintenance is not available"}, nil
+		}
+		block, prev, err := a.maintenance.StartMaintenance(ctx, orgID, id, strings.TrimSpace(params["reason"]), params["sync_status"] == "true")
+		if err != nil {
+			if a.maintenance.ItemError(err) {
+				return bulkengine.BulkItemResult{EntityUUID: entityUUID, OK: false, Error: err.Error()}, nil
+			}
+			return fail(err)
+		}
+		return ok(map[string]any{"block_uuid": block.String(), "status": prev})
 	case ActionSetStatus:
 		prev, err := a.svc.SetStatus(ctx, orgID, id, params["status"], params["note"])
 		if err != nil {
@@ -499,6 +550,16 @@ func (a *Bulk) RevertItem(ctx context.Context, action string, entityUUID string,
 		return err
 	}
 	switch action {
+	case ActionStartMaintenance:
+		if a.maintenance == nil {
+			return fmt.Errorf("maintenance is not available")
+		}
+		block, err := uuid.Parse(fmt.Sprint(previous["block_uuid"]))
+		if err != nil {
+			return fmt.Errorf("missing maintenance block")
+		}
+		prev, _ := previous["status"].(string)
+		return a.maintenance.UndoMaintenance(ctx, orgID, id, block, prev)
 	case ActionSetStatus:
 		prev, ok := previous["status"].(string)
 		if !ok {

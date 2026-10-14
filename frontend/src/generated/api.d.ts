@@ -3854,7 +3854,9 @@ export interface paths {
          *     `set_status` {`status`, `note`?}, `move_branch` {`branch_uuid`},
          *     `add_rental_group` / `replace_rental_group` {`rental_group_uuid`}
          *     (vehicles that are not eligible fail one by one), `activate`,
-         *     `deactivate`. Targets are resolved inside the organization and the
+         *     `deactivate`. `start_maintenance` {`reason`?, `sync_status`?
+         *     (`"true"` / `"false"`)} ("Bakıma al", `tenant.blocks.write`): an open-ended
+         *     maintenance block from now; rollback deletes it and restores the status. Targets are resolved inside the organization and the
          *     caller's branch scope; `scope=query` honours the list filters.
          */
         post: operations["postTenantVehiclesBulk"];
@@ -4327,6 +4329,487 @@ export interface paths {
          *     sold that model year and `kasko_value` is that year's value from the latest period.
          */
         get: operations["getTenantCatalogTypes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/vehicles/{uuid}/blocks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Usage blocks of a vehicle
+         * @description `tenant.blocks.read`. Newest start first. The vehicle follows the vehicles
+         *     branch scope (home OR current branch), otherwise `404`.
+         */
+        get: operations["getTenantVehicleBlocks"];
+        put?: never;
+        /**
+         * Block a vehicle
+         * @description `tenant.blocks.write`. `[starts_at, ends_at)`; `starts_at` defaults to now, a
+         *     missing / null `ends_at` is open-ended ("Bakıma al": `{kind: maintenance}`).
+         *     Blocks of a vehicle never overlap: `409 CONFLICT` with details
+         *     (`field` = `block`, `code` = `block_overlap`, `message` = `<uuid> <start>/<end|open>`).
+         *     `sync_status` also sets the vehicle status (maintenance / damaged /
+         *     cleaning / out_of_service) when the block covers now (`400` otherwise).
+         *     `affected` lists the open transfers the block overlaps (M2 adds reservations).
+         */
+        post: operations["postTenantVehicleBlock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/vehicles/{uuid}/blocks/{blockUuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a block (soft)
+         * @description `tenant.blocks.write`. For blocks entered by mistake; the vehicle status is not touched.
+         */
+        delete: operations["deleteTenantVehicleBlock"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a block
+         * @description `tenant.blocks.write`. Kind, range (extend with a new `ends_at`; null =
+         *     open-ended) or reason. Same overlap rule as create. The vehicle status is
+         *     not touched.
+         */
+        patch: operations["patchTenantVehicleBlock"];
+        trace?: never;
+    };
+    "/v1/tenant/vehicles/{uuid}/blocks/{blockUuid}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close a block ("Engeli kapat")
+         * @description `tenant.blocks.write`. An active block ends now (`400` `not_started` /
+         *     `already_ended` otherwise). `sync_status` sets the vehicle back to
+         *     `available` when its status is still the one of the block kind.
+         */
+        post: operations["postTenantVehicleBlockRelease"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/transfers/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Transfers table contract
+         * @description `tenant.transfers.read`.
+         */
+        get: operations["getTenantTransfersMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/transfers/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Transfer filter options
+         * @description `tenant.transfers.read`. Counts in the caller's branch scope.
+         */
+        get: operations["getTenantTransferFacets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/transfers/assignees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Members who can be responsible for a transfer
+         * @description `tenant.transfers.write` (no members permission needed). At most 100.
+         */
+        get: operations["getTenantTransferAssignees"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/transfers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List vehicle transfers
+         * @description `tenant.transfers.read`. A member with `branch_scope` = `selected` sees the
+         *     transfers whose from OR to branch is one of its branches. `q` searches the
+         *     plate, note and branch names.
+         */
+        get: operations["getTenantTransfers"];
+        put?: never;
+        /**
+         * Plan a transfer
+         * @description `tenant.transfers.write`. `from_branch_uuid` defaults to where the vehicle is
+         *     at the planned departure (current branch adjusted by its other
+         *     transfers) and must be that branch (`400` `not_at_branch`); from or to must
+         *     be in the caller's branch scope. `409 CONFLICT` when the planned window
+         *     overlaps a block (`block_overlap`) or another open transfer of the vehicle
+         *     (`transfer_overlap`); details list them.
+         */
+        post: operations["postTenantTransfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/transfers/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export transfers
+         * @description `tenant.transfers.read`. `query` honours `q` and the list filters. Poll
+         *     `GET /v1/tenant/exports/{uuid}`.
+         */
+        post: operations["postTenantTransfersExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/transfers/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a transfer
+         * @description `tenant.transfers.read`.
+         */
+        get: operations["getTenantTransfer"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a transfer
+         * @description `tenant.transfers.write`. A planned transfer can be re-planned (same rules
+         *     as create); once started only `cost` and `note` change (`409`
+         *     `invalid_state` otherwise).
+         */
+        patch: operations["patchTenantTransfer"];
+        trace?: never;
+    };
+    "/v1/tenant/transfers/{uuid}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a transfer (departure)
+         * @description `tenant.transfers.write`. planned -> in_transit; `at` defaults to now. The
+         *     vehicle must be at the from branch (`409` `vehicle_not_at_origin`), not
+         *     rented / in transfer and not blocked until the planned arrival; its status
+         *     becomes `in_transfer` (vehicle event).
+         */
+        post: operations["postTenantTransferStart"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/transfers/{uuid}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete a transfer (arrival)
+         * @description `tenant.transfers.write`. in_transit -> completed; the vehicle's current
+         *     branch becomes the to branch and its status `arrival_status` (`available`
+         *     by default, or `preparing`).
+         */
+        post: operations["postTenantTransferComplete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/transfers/{uuid}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a transfer
+         * @description `tenant.transfers.write`. planned / in_transit -> cancelled. A vehicle on the
+         *     road stays at the from branch and becomes `available`.
+         */
+        post: operations["postTenantTransferCancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/transfers/{uuid}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Audit events of a transfer
+         * @description `tenant.transfers.read`.
+         */
+        get: operations["getTenantTransferActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/one-way-rules/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One-way rules table contract
+         * @description `tenant.one_way.read`.
+         */
+        get: operations["getTenantOneWayRulesMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/one-way-rules/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One-way rule filter options
+         * @description `tenant.one_way.read`. Counts in the caller's branch scope.
+         */
+        get: operations["getTenantOneWayRuleFacets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/one-way-rules/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Effective one-way rule of a route
+         * @description `tenant.one_way.read`. The active rule of the rental product overrides the
+         *     generic rule of the route; no active rule = not allowed. The same branch
+         *     is allowed for free.
+         */
+        get: operations["getTenantOneWayResolve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/one-way-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List one-way rules
+         * @description `tenant.one_way.read`. A member with `branch_scope` = `selected` sees the rules
+         *     whose from OR to branch is one of its branches.
+         */
+        get: operations["getTenantOneWayRules"];
+        put?: never;
+        /**
+         * Create a one-way rule
+         * @description `tenant.one_way.write`. The from branch must be in the caller's branch scope
+         *     (`400` `not_found` otherwise). One live rule per route and product (null =
+         *     generic): `409 CONFLICT` with a `to_branch_uuid` / `taken` detail.
+         */
+        post: operations["postTenantOneWayRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/one-way-rules/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export one-way rules
+         * @description `tenant.one_way.read`. `query` honours `q` and the list filters.
+         */
+        post: operations["postTenantOneWayRulesExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/one-way-rules/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a bulk action on one-way rules
+         * @description `activate` / `deactivate` (`tenant.one_way.write`), reversible. Targets are
+         *     resolved inside the organization and the caller's branch scope.
+         */
+        post: operations["postTenantOneWayRulesBulk"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/one-way-rules/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a one-way rule
+         * @description `tenant.one_way.read`.
+         */
+        get: operations["getTenantOneWayRule"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a one-way rule (soft)
+         * @description `tenant.one_way.write`.
+         */
+        delete: operations["deleteTenantOneWayRule"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a one-way rule
+         * @description `tenant.one_way.write`.
+         */
+        patch: operations["patchTenantOneWayRule"];
+        trace?: never;
+    };
+    "/v1/tenant/one-way-rules/{uuid}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Audit events of a one-way rule
+         * @description `tenant.one_way.read`.
+         */
+        get: operations["getTenantOneWayRuleActivity"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6670,6 +7153,334 @@ export interface components {
             vars?: {
                 [key: string]: string;
             };
+        };
+        VehicleBlock: {
+            /** Format: uuid */
+            uuid: string;
+            /** Format: uuid */
+            vehicle_uuid: string;
+            /** @enum {string} */
+            kind: "maintenance" | "damage" | "cleaning" | "out_of_service" | "other";
+            /** Format: date-time */
+            starts_at: string;
+            /**
+             * Format: date-time
+             * @description Exclusive end; null = open-ended
+             */
+            ends_at: string | null;
+            /** @enum {string} */
+            state: "scheduled" | "active" | "ended";
+            reason: string;
+            created_by: components["schemas"]["FleetActor"] | null;
+            /** Format: date-time */
+            released_at: string | null;
+            released_by: components["schemas"]["FleetActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        VehicleBlockAffected: {
+            /**
+             * @description M2 adds `reservation`
+             * @enum {string}
+             */
+            kind: "transfer";
+            /** Format: uuid */
+            uuid: string;
+            /** @example Merkez → İstanbul */
+            label: string;
+            status: string;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string | null;
+        };
+        VehicleBlockResult: {
+            block: components["schemas"]["VehicleBlock"];
+            affected: components["schemas"]["VehicleBlockAffected"][];
+            vehicle_status: string;
+            status_changed: boolean;
+        };
+        VehicleBlockPatchRequest: {
+            /** @enum {string} */
+            kind?: "maintenance" | "damage" | "cleaning" | "out_of_service" | "other";
+            /** Format: date-time */
+            starts_at?: string;
+            /** Format: date-time */
+            ends_at?: string | null;
+            reason?: string;
+        };
+        VehicleBlockRequest: {
+            /** @enum {string} */
+            kind: "maintenance" | "damage" | "cleaning" | "out_of_service" | "other";
+            /**
+             * Format: date-time
+             * @description Defaults to now
+             */
+            starts_at?: string;
+            /**
+             * Format: date-time
+             * @description null / missing = open-ended
+             */
+            ends_at?: string | null;
+            reason?: string;
+            /** @description Also set the vehicle status when the block covers now */
+            sync_status?: boolean;
+        };
+        VehicleBlockReleaseRequest: {
+            /** @description Set the vehicle back to available */
+            sync_status?: boolean;
+        };
+        TransferVehicleRef: {
+            /** Format: uuid */
+            uuid: string;
+            plate: string;
+            label: string;
+        };
+        Transfer: {
+            /** Format: uuid */
+            uuid: string;
+            vehicle: components["schemas"]["TransferVehicleRef"];
+            from_branch: components["schemas"]["VehicleBranchRef"];
+            to_branch: components["schemas"]["VehicleBranchRef"];
+            responsible: components["schemas"]["FleetActor"] | null;
+            /** Format: date-time */
+            planned_departure: string;
+            /** Format: date-time */
+            planned_arrival: string;
+            /** Format: date-time */
+            actual_departure: string | null;
+            /** Format: date-time */
+            actual_arrival: string | null;
+            /**
+             * @description TRY decimal string
+             * @example 1250.00
+             */
+            cost: string | null;
+            /** @enum {string} */
+            status: "planned" | "in_transit" | "completed" | "cancelled";
+            note: string;
+            /** Format: date-time */
+            cancelled_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        TransferPatchRequest: {
+            /** Format: uuid */
+            vehicle_uuid?: string;
+            /** Format: uuid */
+            from_branch_uuid?: string;
+            /** Format: uuid */
+            to_branch_uuid?: string;
+            /** Format: uuid */
+            responsible_user_uuid?: string | null;
+            /** Format: date-time */
+            planned_departure?: string;
+            /** Format: date-time */
+            planned_arrival?: string;
+            /** @description TRY, at most 2 decimals */
+            cost?: string | number | null;
+            note?: string;
+        };
+        TransferCreateRequest: {
+            /** Format: uuid */
+            vehicle_uuid: string;
+            /** Format: uuid */
+            from_branch_uuid?: string;
+            /** Format: uuid */
+            to_branch_uuid: string;
+            /** Format: uuid */
+            responsible_user_uuid?: string | null;
+            /** Format: date-time */
+            planned_departure: string;
+            /** Format: date-time */
+            planned_arrival: string;
+            /** @description TRY, at most 2 decimals */
+            cost?: string | number | null;
+            note?: string;
+        };
+        TransferActionRequest: {
+            /**
+             * Format: date-time
+             * @description Defaults to now (start / complete)
+             */
+            at?: string;
+            /**
+             * @description Complete only
+             * @enum {string}
+             */
+            arrival_status?: "available" | "preparing";
+            note?: string;
+        };
+        TransferAssignee: {
+            /** Format: uuid */
+            uuid: string;
+            name: string;
+            surname: string;
+            email: string;
+        };
+        TransferAssignees: {
+            items: components["schemas"]["TransferAssignee"][];
+        };
+        OneWayRuleProductRef: {
+            /** Format: uuid */
+            uuid: string;
+            code: string;
+            title: string;
+        };
+        OneWayRule: {
+            /** Format: uuid */
+            uuid: string;
+            from_branch: components["schemas"]["VehicleBranchRef"];
+            to_branch: components["schemas"]["VehicleBranchRef"];
+            rental_product: components["schemas"]["OneWayRuleProductRef"] | null;
+            allowed: boolean;
+            /**
+             * @description TRY decimal string
+             * @example 750.00
+             */
+            fee: string;
+            note: string;
+            is_active: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        OneWayRulePatchRequest: {
+            /** Format: uuid */
+            from_branch_uuid?: string;
+            /** Format: uuid */
+            to_branch_uuid?: string;
+            /**
+             * Format: uuid
+             * @description null = generic rule of the route
+             */
+            rental_product_uuid?: string | null;
+            allowed?: boolean;
+            /** @description TRY, at most 2 decimals */
+            fee?: string | number;
+            note?: string;
+            is_active?: boolean;
+        };
+        OneWayRuleCreateRequest: {
+            /** Format: uuid */
+            from_branch_uuid: string;
+            /** Format: uuid */
+            to_branch_uuid: string;
+            /**
+             * Format: uuid
+             * @description null = generic rule of the route
+             */
+            rental_product_uuid?: string | null;
+            allowed?: boolean;
+            /** @description TRY, at most 2 decimals */
+            fee?: string | number;
+            note?: string;
+            is_active?: boolean;
+        };
+        OneWayQuote: {
+            allowed: boolean;
+            /** @example 500.00 */
+            fee: string;
+            /** Format: uuid */
+            rule_uuid: string | null;
+            product_specific: boolean;
+        };
+        VehicleBlockPage: {
+            items: components["schemas"]["VehicleBlock"][];
+            /** Format: int64 */
+            total: number;
+            limit: number;
+            offset: number;
+        };
+        TransferPage: {
+            items: components["schemas"]["Transfer"][];
+            /** Format: int64 */
+            total: number;
+            limit: number;
+            offset: number;
+        };
+        OneWayRulePage: {
+            items: components["schemas"]["OneWayRule"][];
+            /** Format: int64 */
+            total: number;
+            limit: number;
+            offset: number;
+        };
+        TransferFacets: {
+            status: components["schemas"]["FleetFacet"][];
+            from_branch: components["schemas"]["FleetFacet"][];
+            to_branch: components["schemas"]["FleetFacet"][];
+        };
+        OneWayRuleFacets: {
+            from_branch: components["schemas"]["FleetFacet"][];
+            to_branch: components["schemas"]["FleetFacet"][];
+            is_active: components["schemas"]["FleetFacet"][];
+            allowed: components["schemas"]["FleetFacet"][];
+        };
+        EnvelopeVehicleBlockPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["VehicleBlockPage"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeVehicleBlockResult: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["VehicleBlockResult"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeTransfer: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["Transfer"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeTransferPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["TransferPage"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeTransferFacets: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["TransferFacets"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeTransferAssignees: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["TransferAssignees"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeOneWayRule: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["OneWayRule"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeOneWayRulePage: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["OneWayRulePage"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeOneWayRuleFacets: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["OneWayRuleFacets"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeOneWayQuote: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["OneWayQuote"];
+            meta: components["schemas"]["ResponseMeta"];
         };
         StatusPayload: {
             status: string;
@@ -15995,6 +16806,993 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["TenantForbidden"];
             500: components["responses"]["InternalError"];
+        };
+    };
+    getTenantVehicleBlocks: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                /** @description `scheduled`, `active`, `ended`; comma-separated */
+                state?: string;
+                /** @description Block kinds; comma-separated */
+                kind?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Block page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeVehicleBlockPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantVehicleBlock: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VehicleBlockRequest"];
+            };
+        };
+        responses: {
+            /** @description Block result */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeVehicleBlockResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteTenantVehicleBlock: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                blockUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeStatus"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchTenantVehicleBlock: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                blockUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VehicleBlockPatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Block result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeVehicleBlockResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantVehicleBlockRelease: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                blockUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["VehicleBlockReleaseRequest"];
+            };
+        };
+        responses: {
+            /** @description Block result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeVehicleBlockResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantTransfersMeta: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource meta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantTransferFacets: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Facets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeTransferFacets"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantTransferAssignees: {
+        parameters: {
+            query?: {
+                q?: components["parameters"]["Q"];
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Assignees */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeTransferAssignees"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantTransfers: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description One of `planned_departure`, `planned_arrival`, `status`, `cost`, `plate`, `created_at`, `updated_at`; prefix `-` for descending. Default `-planned_departure`. */
+                sort?: string;
+                /** @description `planned`, `in_transit`, `completed`, `cancelled`; comma-separated */
+                status?: string;
+                /** @description From branch uuids; comma-separated */
+                from_branch?: string;
+                /** @description To branch uuids; comma-separated */
+                to_branch?: string;
+                /** @description Vehicle uuid */
+                vehicle?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Transfer page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeTransferPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantTransfer: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Transfer */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeTransfer"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantTransfersExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Export job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantTransfer: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Transfer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeTransfer"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchTenantTransfer: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferPatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Transfer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeTransfer"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantTransferStart: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TransferActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Transfer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeTransfer"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantTransferComplete: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TransferActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Transfer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeTransfer"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantTransferCancel: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TransferActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Transfer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeTransfer"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantTransferActivity: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Activity page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFleetActivityPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantOneWayRulesMeta: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource meta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantOneWayRuleFacets: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Facets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeOneWayRuleFacets"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantOneWayResolve: {
+        parameters: {
+            query?: {
+                /** @description Pick-up branch uuid */
+                from_branch?: string;
+                /** @description Return branch uuid */
+                to_branch?: string;
+                /** @description Rental product uuid (optional) */
+                rental_product?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Quote */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeOneWayQuote"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantOneWayRules: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description One of `from_branch`, `to_branch`, `fee`, `is_active`, `created_at`, `updated_at`; prefix `-` for descending. Default `-created_at`. */
+                sort?: string;
+                /** @description From branch uuids; comma-separated */
+                from_branch?: string;
+                /** @description To branch uuids; comma-separated */
+                to_branch?: string;
+                /** @description Allowed rules only (true) or denied only (false) */
+                allowed?: boolean;
+                /** @description Active filter */
+                is_active?: boolean;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rule page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeOneWayRulePage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantOneWayRule: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OneWayRuleCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Rule */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeOneWayRule"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantOneWayRulesExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Export job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantOneWayRulesBulk: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkExecuteRequest"];
+            };
+        };
+        responses: {
+            /** @description Sync bulk result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeBulkSyncResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantOneWayRule: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rule */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeOneWayRule"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteTenantOneWayRule: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeStatus"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchTenantOneWayRule: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OneWayRulePatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Rule */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeOneWayRule"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantOneWayRuleActivity: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Activity page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFleetActivityPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
 }

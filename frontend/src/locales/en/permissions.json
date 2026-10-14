@@ -108,5 +108,14 @@
   "groups.tenant_damage": "Damage",
   "groups.tenant_signature": "Signatures",
   "groups.tenant_document": "Documents",
-  "groups.tenant_report": "Reports"
+  "groups.tenant_report": "Reports",
+  "labels.tenant.blocks.read": "View vehicle blocks",
+  "labels.tenant.blocks.write": "Manage vehicle blocks (maintenance, close block)",
+  "labels.tenant.transfers.read": "View transfers",
+  "labels.tenant.transfers.write": "Manage transfers (plan, start, complete)",
+  "labels.tenant.one_way.read": "View one-way rules",
+  "labels.tenant.one_way.write": "Manage one-way rules",
+  "groups.tenant_blocks": "Vehicle blocks",
+  "groups.tenant_transfers": "Transfers",
+  "groups.tenant_one_way": "One-way rules"
 }

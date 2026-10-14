@@ -69,5 +69,7 @@
   "tenant_download.again": "Tekrar indir",
   "resources.tenant.vehicles": "Araçlar",
   "resources.tenant.vehicle_documents": "Araç belgeleri",
-  "resources.tenant.vehicle_maintenance": "Araç bakımları"
+  "resources.tenant.vehicle_maintenance": "Araç bakımları",
+  "resources.tenant.transfers": "Transferler",
+  "resources.tenant.one_way_rules": "Tek yön kuralları"
 }

@@ -373,6 +373,22 @@ type OauthProviderSetting struct {
 	ApplePrivateKeyEnc pgtype.Text        `json:"apple_private_key_enc"`
 }
 
+type OneWayRule struct {
+	ID              int64              `json:"id"`
+	Uuid            uuid.UUID          `json:"uuid"`
+	OrganizationID  int64              `json:"organization_id"`
+	FromBranchID    int64              `json:"from_branch_id"`
+	ToBranchID      int64              `json:"to_branch_id"`
+	RentalProductID pgtype.Int8        `json:"rental_product_id"`
+	Allowed         bool               `json:"allowed"`
+	Fee             pgtype.Numeric     `json:"fee"`
+	Note            string             `json:"note"`
+	IsActive        bool               `json:"is_active"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+}
+
 type Organization struct {
 	ID             int64              `json:"id"`
 	Uuid           uuid.UUID          `json:"uuid"`
@@ -787,6 +803,31 @@ type Vehicle struct {
 	DeletedAt          pgtype.Timestamptz `json:"deleted_at"`
 }
 
+type VehicleBlock struct {
+	ID             int64                            `json:"id"`
+	Uuid           uuid.UUID                        `json:"uuid"`
+	OrganizationID int64                            `json:"organization_id"`
+	VehicleID      int64                            `json:"vehicle_id"`
+	Kind           string                           `json:"kind"`
+	During         pgtype.Range[pgtype.Timestamptz] `json:"during"`
+	Reason         string                           `json:"reason"`
+	CreatedBy      pgtype.Int8                      `json:"created_by"`
+	ReleasedAt     pgtype.Timestamptz               `json:"released_at"`
+	ReleasedBy     pgtype.Int8                      `json:"released_by"`
+	CreatedAt      pgtype.Timestamptz               `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz               `json:"updated_at"`
+	DeletedAt      pgtype.Timestamptz               `json:"deleted_at"`
+}
+
+type VehicleBusyInterval struct {
+	OrganizationID int64                            `json:"organization_id"`
+	VehicleID      int64                            `json:"vehicle_id"`
+	Kind           string                           `json:"kind"`
+	RefUuid        uuid.UUID                        `json:"ref_uuid"`
+	During         pgtype.Range[pgtype.Timestamptz] `json:"during"`
+	BranchAfterID  pgtype.Int8                      `json:"branch_after_id"`
+}
+
 type VehicleDocument struct {
 	ID              int64              `json:"id"`
 	Uuid            uuid.UUID          `json:"uuid"`
@@ -875,6 +916,26 @@ type VehicleSegment struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt      pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type VehicleTransfer struct {
+	ID                int64                            `json:"id"`
+	Uuid              uuid.UUID                        `json:"uuid"`
+	OrganizationID    int64                            `json:"organization_id"`
+	VehicleID         int64                            `json:"vehicle_id"`
+	FromBranchID      int64                            `json:"from_branch_id"`
+	ToBranchID        int64                            `json:"to_branch_id"`
+	ResponsibleUserID pgtype.Int8                      `json:"responsible_user_id"`
+	Planned           pgtype.Range[pgtype.Timestamptz] `json:"planned"`
+	ActualDeparture   pgtype.Timestamptz               `json:"actual_departure"`
+	ActualArrival     pgtype.Timestamptz               `json:"actual_arrival"`
+	Cost              pgtype.Numeric                   `json:"cost"`
+	Status            string                           `json:"status"`
+	Note              string                           `json:"note"`
+	CreatedBy         pgtype.Int8                      `json:"created_by"`
+	CancelledAt       pgtype.Timestamptz               `json:"cancelled_at"`
+	CreatedAt         pgtype.Timestamptz               `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz               `json:"updated_at"`
 }
 
 type WebauthnCredential struct {

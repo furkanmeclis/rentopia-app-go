@@ -219,5 +219,10 @@
   "toast.deleted": "Vehicle deleted.",
   "toast.status_changed": "Status saved.",
   "toast.group_added": "Vehicle added to the group.",
-  "toast.group_removed": "Vehicle removed from the group."
+  "toast.group_removed": "Vehicle removed from the group.",
+  "tabs.blocks": "Blocks",
+  "tabs.transfers": "Transfers",
+  "bulk_params.start_maintenance_hint": "Opens an open-ended maintenance block from now for the selected vehicles; the action can be rolled back.",
+  "bulk_params.maintenance_reason": "Maintenance reason",
+  "bulk_params.maintenance_sync_status": "Set the vehicle status to maintenance"
 }

@@ -108,5 +108,14 @@
   "groups.tenant_damage": "Hasar",
   "groups.tenant_signature": "İmza",
   "groups.tenant_document": "Belgeler",
-  "groups.tenant_report": "Raporlar"
+  "groups.tenant_report": "Raporlar",
+  "labels.tenant.blocks.read": "Araç engellerini görüntüle",
+  "labels.tenant.blocks.write": "Araç engellerini yönet (bakıma al, engeli kapat)",
+  "labels.tenant.transfers.read": "Transferleri görüntüle",
+  "labels.tenant.transfers.write": "Transferleri yönet (planla, başlat, tamamla)",
+  "labels.tenant.one_way.read": "Tek yön kurallarını görüntüle",
+  "labels.tenant.one_way.write": "Tek yön kurallarını yönet",
+  "groups.tenant_blocks": "Araç engelleri",
+  "groups.tenant_transfers": "Transferler",
+  "groups.tenant_one_way": "Tek yön kuralları"
 }
