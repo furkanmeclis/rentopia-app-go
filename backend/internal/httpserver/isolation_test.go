@@ -707,7 +707,6 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		t.Log("search: TEST_MEILI_HOST not set, Meilisearch part skipped")
 	}
 
-
 	// Coverage: every tenant route has an isolation case or a reason.
 	for _, rt := range routes {
 		if covered[rt] != "" {
