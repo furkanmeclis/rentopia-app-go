@@ -48,6 +48,7 @@ type Service struct {
 	activity *activity.Recorder
 	log      *slog.Logger
 	syncMode bool
+	events   resourceEvents
 }
 
 func New(
@@ -237,6 +238,7 @@ func (s *Service) ProcessImport(ctx context.Context, jobID int64) error {
 	}
 	created, updated, failed := 0, 0, 0
 	var applyErrs []ioengine.RowError
+	var affected []string
 	for i, row := range rows {
 		res, err := adapter.ApplyRow(ctx, row, defaults)
 		if err != nil {
@@ -253,6 +255,9 @@ func (s *Service) ProcessImport(ctx context.Context, jobID int64) error {
 			created++
 		} else {
 			updated++
+		}
+		if len(affected) <= maxEventUUIDs {
+			affected = append(affected, res.EntityUUID)
 		}
 		prev, _ := json.Marshal(res.Previous)
 		_, _ = s.q.InsertImportChange(ctx, db.InsertImportChangeParams{
@@ -288,6 +293,7 @@ func (s *Service) ProcessImport(ctx context.Context, jobID int64) error {
 			"created": created, "updated": updated, "failed": failed,
 		}, nil)
 	}
+	s.publishBulk(ctx, job.Resource, affected)
 	_ = applied
 	_ = mapping
 	return nil
@@ -313,11 +319,13 @@ func (s *Service) Rollback(ctx context.Context, jobUUID uuid.UUID, actorID int64
 	if err != nil {
 		return ImportJobView{}, err
 	}
+	reverted := make([]string, 0, len(changes))
 	for i := len(changes) - 1; i >= 0; i-- {
 		ch := changes[i]
 		var prev map[string]any
 		_ = json.Unmarshal(ch.PreviousJson, &prev)
 		_ = adapter.RevertRow(ctx, ch.EntityType, ch.EntityUuid.String(), prev)
+		reverted = append(reverted, ch.EntityUuid.String())
 	}
 	row, err := s.q.MarkImportJobRolledBack(ctx, job.ID)
 	if err != nil {
@@ -327,6 +335,7 @@ func (s *Service) Rollback(ctx context.Context, jobUUID uuid.UUID, actorID int64
 		uid := actorID
 		s.activity.Record(ctx, &uid, "import.rolled_back", job.Resource, &job.Uuid, map[string]any{}, nil)
 	}
+	s.publishBulk(ctx, job.Resource, reverted)
 	return mapImportJob(row), nil
 }
 

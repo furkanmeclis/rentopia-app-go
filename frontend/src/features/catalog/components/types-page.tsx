@@ -30,6 +30,7 @@ import {
   CATALOG_TRANSMISSIONS,
   firstFilterValue,
   formatYears,
+  CATALOG_LIVE,
 } from "@/features/catalog/constants";
 import {
   catalogKeys,
@@ -66,6 +67,7 @@ export function CatalogTypesPage({
       ...(initialBrand ? [{ id: "brand", value: [initialBrand] }] : []),
       ...(initialModel ? [{ id: "model", value: [initialModel] }] : []),
     ],
+    realtime: { resource: CATALOG_LIVE.types },
   });
   const brands = useCatalogBrandOptions();
   useCatalogMeta("types");
@@ -317,6 +319,7 @@ export function CatalogTypesPage({
         isLoading={listQuery.isLoading}
         isError={listQuery.isError}
         onRetry={() => void listQuery.refetch()}
+        realtime={listState.realtimeFor(listQuery.refetch)}
         emptyTitle={t("catalog.types.empty_title")}
         emptyDescription={t("catalog.empty_description")}
         pageCount={pageCount}

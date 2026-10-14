@@ -16,6 +16,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/activity"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/authctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/resourceevents"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/pkg/apiquery"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/pkg/response"
 	"github.com/google/uuid"
@@ -25,6 +26,13 @@ import (
 type Handler struct {
 	svc      *usecase.Service
 	activity *activity.Recorder
+	events   resourceevents.Publisher
+}
+
+// SetResourceEvents publishes live list changes of the organization's
+// branches (optional).
+func (h *Handler) SetResourceEvents(pub resourceevents.Publisher) {
+	h.events = pub
 }
 
 // New builds the handler. rec may be nil.
@@ -256,11 +264,29 @@ func (h *Handler) DeleteServicePoint(w http.ResponseWriter, r *http.Request) {
 // record writes a fail-soft activity event; the recorder stamps the
 // organization from the request scope.
 func (h *Handler) record(r *http.Request, action string, branchUUID uuid.UUID, payload map[string]any) {
+	h.publish(r, action, branchUUID)
 	if h.activity == nil {
 		return
 	}
 	p := authctx.MustPrincipal(r.Context())
 	h.activity.Record(r.Context(), &p.UserInternal, action, model.Resource, &branchUUID, payload, r)
+}
+
+// publish tells open branch lists of the organization what changed. Service
+// point changes count as an update of their branch (points count column).
+// Engine jobs (import / bulk) publish their own single event.
+func (h *Handler) publish(r *http.Request, action string, branchUUID uuid.UUID) {
+	if h.events == nil {
+		return
+	}
+	ev := resourceevents.ActionUpdated
+	switch action {
+	case "branches.created":
+		ev = resourceevents.ActionCreated
+	case "branches.deleted":
+		ev = resourceevents.ActionDeleted
+	}
+	h.events.Publish(r.Context(), model.Resource, ev, branchUUID.String())
 }
 
 func changedFields(in model.BranchInput) []string {

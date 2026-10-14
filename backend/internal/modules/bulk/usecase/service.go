@@ -72,6 +72,7 @@ type Service struct {
 	cfg      config.BulkConfig
 	log      *slog.Logger
 	syncMode bool
+	events   resourceEvents
 }
 
 func New(
@@ -120,10 +121,11 @@ func (s *Service) Execute(ctx context.Context, actorID int64, in ExecuteInput) (
 	locale := string(i18n.Normalize(in.Locale))
 	targetJSON, _ := json.Marshal(in.Target)
 	if len(targets) <= s.cfg.SyncMax {
-		summary, err := s.applyTargets(ctx, 0, adapter, def, in.Action, targets)
+		summary, affected, err := s.applyTargets(ctx, 0, adapter, def, in.Action, targets)
 		if err != nil {
 			return ExecuteResult{}, err
 		}
+		s.publishBulk(ctx, in.Resource, affected)
 		if s.activity != nil {
 			uid := actorID
 			s.activity.Record(ctx, &uid, "bulk.completed", in.Resource, nil, map[string]any{
@@ -188,7 +190,7 @@ func (s *Service) ProcessBulk(ctx context.Context, jobID int64) error {
 	if err != nil {
 		return s.failBulk(ctx, jobID, err.Error())
 	}
-	summary, err := s.applyTargets(ctx, jobID, adapter, def, job.Action, targets)
+	summary, affected, err := s.applyTargets(ctx, jobID, adapter, def, job.Action, targets)
 	if err != nil {
 		return s.failBulk(ctx, jobID, err.Error())
 	}
@@ -235,6 +237,7 @@ func (s *Service) ProcessBulk(ctx context.Context, jobID int64) error {
 			"succeeded": summary.Succeeded, "failed": summary.Failed,
 		}, nil)
 	}
+	s.publishBulk(ctx, job.Resource, affected)
 	return nil
 }
 
@@ -258,13 +261,16 @@ func (s *Service) Rollback(ctx context.Context, jobUUID uuid.UUID, actorID int64
 		return BulkJobView{}, err
 	}
 	failed := 0
+	reverted := make([]string, 0, len(changes))
 	for i := len(changes) - 1; i >= 0; i-- {
 		ch := changes[i]
 		var prev map[string]any
 		_ = json.Unmarshal(ch.PreviousJson, &prev)
 		if err := adapter.RevertItem(ctx, job.Action, ch.EntityUuid.String(), prev); err != nil {
 			failed++
+			continue
 		}
+		reverted = append(reverted, ch.EntityUuid.String())
 	}
 	status := "rolled_back"
 	if failed > 0 {
@@ -282,6 +288,7 @@ func (s *Service) Rollback(ctx context.Context, jobUUID uuid.UUID, actorID int64
 			"failed_rollback": failed,
 		}, nil)
 	}
+	s.publishBulk(ctx, job.Resource, reverted)
 	return mapBulkJob(row), nil
 }
 
@@ -326,8 +333,10 @@ func (s *Service) applyTargets(
 	def bulkengine.BulkActionDef,
 	action string,
 	targets []string,
-) (bulkengine.BulkSummary, error) {
+) (bulkengine.BulkSummary, []string, error) {
 	summary := bulkengine.BulkSummary{Total: len(targets)}
+	// Affected uuids feed the resource event (capped like the event).
+	affected := make([]string, 0, min(len(targets), maxEventUUIDs+1))
 	for _, entityUUID := range targets {
 		res, err := adapter.ApplyItem(ctx, action, entityUUID)
 		if err != nil {
@@ -339,6 +348,9 @@ func (s *Service) applyTargets(
 			continue
 		}
 		summary.Succeeded++
+		if len(affected) <= maxEventUUIDs {
+			affected = append(affected, entityUUID)
+		}
 		if jobID > 0 && def.Reversible {
 			prev, _ := json.Marshal(res.Previous)
 			_, _ = s.q.InsertBulkChange(ctx, db.InsertBulkChangeParams{
@@ -348,7 +360,7 @@ func (s *Service) applyTargets(
 			})
 		}
 	}
-	return summary, nil
+	return summary, affected, nil
 }
 
 func (s *Service) failBulk(ctx context.Context, jobID int64, msg string) error {
