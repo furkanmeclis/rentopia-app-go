@@ -52,5 +52,8 @@
   "status.failed": "Başarısız",
   "toast.queued": "Dışa aktarma kuyruğa alındı. Hazır olunca bildirim alacaksınız.",
   "toast.failed": "Dışa aktarma başlatılamadı. Yetkinizi ve filtreleri kontrol edin.",
-  "toast.download_failed": "Dosya indirilemedi."
+  "toast.download_failed": "Dosya indirilemedi.",
+  "resources.tenant.branches": "Şubeler",
+  "toast.preparing": "Dosya hazırlanıyor…",
+  "toast.ready": "Dosya hazır, indiriliyor."
 }

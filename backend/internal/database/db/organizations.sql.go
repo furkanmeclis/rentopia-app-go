@@ -435,6 +435,32 @@ func (q *Queries) GetTenantRoleByKey(ctx context.Context, arg GetTenantRoleByKey
 	return i, err
 }
 
+const listLiveOrganizationIDs = `-- name: ListLiveOrganizationIDs :many
+SELECT id FROM organizations
+WHERE deleted_at IS NULL
+ORDER BY id ASC
+`
+
+func (q *Queries) ListLiveOrganizationIDs(ctx context.Context) ([]int64, error) {
+	rows, err := q.db.Query(ctx, listLiveOrganizationIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOrganizationInvitations = `-- name: ListOrganizationInvitations :many
 SELECT oi.id, oi.uuid, oi.organization_id, oi.email, oi.role_id, oi.token_hash, oi.expires_at, oi.accepted_at, oi.revoked_at, oi.invited_by, oi.created_at, r.slug AS role_key, r.name AS role_name
 FROM organization_invitations oi

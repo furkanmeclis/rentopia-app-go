@@ -71,5 +71,11 @@
   "groups.roles": "Roles",
   "groups.permissions": "Permissions",
   "groups.system": "System",
-  "groups.other": "Other"
+  "groups.other": "Other",
+  "labels.tenant.branches.read": "Read branches",
+  "labels.tenant.branches.write": "Manage branches",
+  "labels.tenant.branches.export": "Export branches",
+  "labels.tenant.branches.import": "Import branches",
+  "labels.tenant.branches.bulk.activate": "Bulk activate branches",
+  "labels.tenant.branches.bulk.deactivate": "Bulk deactivate branches"
 }

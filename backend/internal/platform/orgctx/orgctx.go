@@ -107,6 +107,28 @@ func From(ctx context.Context) (Scope, bool) {
 	return s, ok
 }
 
+// OrganizationID returns the organization a context is scoped to: the
+// request scope set by RequireOrganization, or the organization a background
+// job carries (WithOrganizationID). Engines (io, bulk, search, activity) use
+// it to stamp and filter organization_id; platform contexts return false.
+func OrganizationID(ctx context.Context) (int64, bool) {
+	s, ok := From(ctx)
+	if !ok || s.ID <= 0 {
+		return 0, false
+	}
+	return s.ID, true
+}
+
+// WithOrganizationID scopes a background context (worker job) to an
+// organization. A request scope already on the context is kept when it names
+// the same organization; otherwise a minimal scope carrying only the id is set.
+func WithOrganizationID(ctx context.Context, organizationID int64) context.Context {
+	if s, ok := From(ctx); ok && s.ID == organizationID {
+		return ctx
+	}
+	return WithScope(ctx, Scope{ID: organizationID})
+}
+
 // Must returns the scope or panics (handlers behind RequireOrganization).
 func Must(ctx context.Context) Scope {
 	s, ok := From(ctx)

@@ -14,6 +14,7 @@ import {
   Share2,
   Shield,
   Sparkles,
+  Store,
   Upload,
 } from "lucide-react";
 
@@ -250,6 +251,21 @@ export function tenantNav(slug: string): NavCatalog {
             titleKey: "layout.home",
             href: routes.tenant.home(slug),
             icon: LayoutDashboard,
+          },
+        ],
+      },
+      {
+        id: "operations",
+        labelKey: "layout.section_operations",
+        icon: Store,
+        defaultOpen: true,
+        items: [
+          {
+            id: "branches",
+            titleKey: "layout.nav_branches",
+            href: routes.tenant.branches.root(slug),
+            icon: Store,
+            permission: permissions.tenant.branches.read,
           },
         ],
       },

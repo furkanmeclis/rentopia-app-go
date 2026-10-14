@@ -46,5 +46,12 @@
   "actions.organizations.access_updated": "Firma erişim süresi güncellendi",
   "actions.organizations.member_added": "Firma üyesi eklendi",
   "actions.organizations.member_role_updated": "Firma üyesinin rolü güncellendi",
-  "actions.organizations.member_removed": "Firma üyesi çıkarıldı"
+  "actions.organizations.member_removed": "Firma üyesi çıkarıldı",
+  "resources.tenant.branches": "Şubeler",
+  "actions.branches.created": "Şube oluşturuldu",
+  "actions.branches.updated": "Şube güncellendi",
+  "actions.branches.deleted": "Şube silindi",
+  "actions.branches.service_point_created": "Hizmet noktası eklendi",
+  "actions.branches.service_point_updated": "Hizmet noktası güncellendi",
+  "actions.branches.service_point_deleted": "Hizmet noktası silindi"
 }

@@ -1,0 +1,5 @@
+# Organization-owned tables. Every query in this directory that reads or
+# writes one of them must reference organization_id
+# (enforced by internal/database/queries_test.go).
+branches
+service_points

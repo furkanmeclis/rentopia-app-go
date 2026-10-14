@@ -46,5 +46,12 @@
   "actions.organizations.access_updated": "Organization access window updated",
   "actions.organizations.member_added": "Organization member added",
   "actions.organizations.member_role_updated": "Organization member role updated",
-  "actions.organizations.member_removed": "Organization member removed"
+  "actions.organizations.member_removed": "Organization member removed",
+  "resources.tenant.branches": "Branches",
+  "actions.branches.created": "Branch created",
+  "actions.branches.updated": "Branch updated",
+  "actions.branches.deleted": "Branch deleted",
+  "actions.branches.service_point_created": "Service point added",
+  "actions.branches.service_point_updated": "Service point updated",
+  "actions.branches.service_point_deleted": "Service point deleted"
 }

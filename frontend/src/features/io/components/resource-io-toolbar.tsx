@@ -20,11 +20,13 @@ const EXPORT_PERM: Partial<Record<IoResource, string>> = {
   "platform.roles": permissions.roles.export,
   "platform.notifications": permissions.notifications.export,
   "platform.activity": permissions.activity.read,
+  "tenant.branches": permissions.tenant.branches.export,
 };
 
 const IMPORT_PERM: Partial<Record<IoResource, string>> = {
   "platform.users": permissions.users.import,
   "platform.roles": permissions.roles.import,
+  "tenant.branches": permissions.tenant.branches.import,
 };
 
 export function ResourceIOToolbar({

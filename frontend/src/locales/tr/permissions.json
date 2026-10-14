@@ -71,5 +71,11 @@
   "groups.roles": "Roller",
   "groups.permissions": "İzinler",
   "groups.system": "Sistem",
-  "groups.other": "Diğer"
+  "groups.other": "Diğer",
+  "labels.tenant.branches.read": "Şubeleri görüntüle",
+  "labels.tenant.branches.write": "Şubeleri yönet",
+  "labels.tenant.branches.export": "Şubeleri dışa aktar",
+  "labels.tenant.branches.import": "Şubeleri içe aktar",
+  "labels.tenant.branches.bulk.activate": "Şubeleri toplu aktifleştir",
+  "labels.tenant.branches.bulk.deactivate": "Şubeleri toplu pasifleştir"
 }

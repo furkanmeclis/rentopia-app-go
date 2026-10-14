@@ -56,6 +56,12 @@ const (
 	PermTenantMembersWrite                = "tenant.members.write"
 	PermTenantRolesRead                   = "tenant.roles.read"
 	PermTenantRolesWrite                  = "tenant.roles.write"
+	PermTenantBranchesRead                = "tenant.branches.read"
+	PermTenantBranchesWrite               = "tenant.branches.write"
+	PermTenantBranchesExport              = "tenant.branches.export"
+	PermTenantBranchesImport              = "tenant.branches.import"
+	PermTenantBranchesBulkActivate        = "tenant.branches.bulk.activate"
+	PermTenantBranchesBulkDeactivate      = "tenant.branches.bulk.deactivate"
 )
 
 // IsSystemRole reports whether slug is a protected system role.

@@ -63,6 +63,28 @@ type AuthSetting struct {
 	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
 }
 
+type Branch struct {
+	ID                int64              `json:"id"`
+	Uuid              uuid.UUID          `json:"uuid"`
+	OrganizationID    int64              `json:"organization_id"`
+	Code              string             `json:"code"`
+	Name              string             `json:"name"`
+	Address           string             `json:"address"`
+	City              string             `json:"city"`
+	District          string             `json:"district"`
+	Latitude          pgtype.Numeric     `json:"latitude"`
+	Longitude         pgtype.Numeric     `json:"longitude"`
+	Phone             string             `json:"phone"`
+	Email             string             `json:"email"`
+	WorkingHours      []byte             `json:"working_hours"`
+	HolidayExceptions []byte             `json:"holiday_exceptions"`
+	PrepMinutes       int32              `json:"prep_minutes"`
+	IsActive          bool               `json:"is_active"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
+}
+
 type BulkChange struct {
 	ID           int64              `json:"id"`
 	Uuid         uuid.UUID          `json:"uuid"`
@@ -408,6 +430,22 @@ type Role struct {
 type RolePermission struct {
 	RoleID       int64 `json:"role_id"`
 	PermissionID int64 `json:"permission_id"`
+}
+
+type ServicePoint struct {
+	ID               int64              `json:"id"`
+	Uuid             uuid.UUID          `json:"uuid"`
+	OrganizationID   int64              `json:"organization_id"`
+	BranchID         int64              `json:"branch_id"`
+	Type             string             `json:"type"`
+	Name             string             `json:"name"`
+	Description      string             `json:"description"`
+	ExtraFee         pgtype.Numeric     `json:"extra_fee"`
+	WorkingHours     []byte             `json:"working_hours"`
+	OnlineSelectable bool               `json:"online_selectable"`
+	IsActive         bool               `json:"is_active"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
 type StepupSetting struct {

@@ -32,5 +32,7 @@
   "page_ready_description": "Platform ve firma kabukları hazır.",
   "collapse_sidebar": "Kenar çubuğunu daralt",
   "expand_sidebar": "Kenar çubuğunu genişlet",
-  "nav_item_info": "Detaylar"
+  "nav_item_info": "Detaylar",
+  "section_operations": "Operasyon",
+  "nav_branches": "Şubeler"
 }
