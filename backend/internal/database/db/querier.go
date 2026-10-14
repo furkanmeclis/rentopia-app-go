@@ -14,6 +14,7 @@ import (
 type Querier interface {
 	AddOrganizationMember(ctx context.Context, arg AddOrganizationMemberParams) (OrganizationMember, error)
 	AssignUserRoleBySlug(ctx context.Context, arg AssignUserRoleBySlugParams) error
+	BranchCodeTaken(ctx context.Context, arg BranchCodeTakenParams) (bool, error)
 	ClaimOutboxEvents(ctx context.Context, arg ClaimOutboxEventsParams) ([]OutboxEvent, error)
 	ClearAppSettingsLogo(ctx context.Context) (AppSetting, error)
 	ConfirmUserTOTP(ctx context.Context, arg ConfirmUserTOTPParams) (UserTotp, error)
@@ -24,12 +25,14 @@ type Querier interface {
 	CountAllImportJobs(ctx context.Context) (int64, error)
 	CountAppLogs(ctx context.Context, arg CountAppLogsParams) (int64, error)
 	CountAppLogsByLevel(ctx context.Context) ([]CountAppLogsByLevelRow, error)
+	CountBranches(ctx context.Context, arg CountBranchesParams) (int64, error)
 	CountBulkJobsForActor(ctx context.Context, actorID int64) (int64, error)
 	CountExportJobsForActor(ctx context.Context, actorID int64) (int64, error)
 	CountImportJobsForActor(ctx context.Context, actorID int64) (int64, error)
 	CountNotificationsForUser(ctx context.Context, arg CountNotificationsForUserParams) (int64, error)
 	CountOrganizationMembersByOrg(ctx context.Context, arg CountOrganizationMembersByOrgParams) (int64, error)
 	CountOrganizationOwners(ctx context.Context, organizationID int64) (int64, error)
+	CountOrganizationResourceActivity(ctx context.Context, arg CountOrganizationResourceActivityParams) (int64, error)
 	CountOrganizations(ctx context.Context, arg CountOrganizationsParams) (int64, error)
 	CountOutboxByStatus(ctx context.Context, status string) (int64, error)
 	CountPermissions(ctx context.Context, q_ pgtype.Text) (int64, error)
@@ -40,6 +43,9 @@ type Querier interface {
 	CountUnreadInappForUser(ctx context.Context, userID pgtype.Int8) (int64, error)
 	CountUsers(ctx context.Context, arg CountUsersParams) (int64, error)
 	CountUsersWithRole(ctx context.Context, roleSlug string) (int64, error)
+	// Tenant resource: branches and service points.
+	// Every query filters by organization_id (see docs/design/tenant-core.md §8).
+	CreateBranch(ctx context.Context, arg CreateBranchParams) (Branch, error)
 	CreateBulkJob(ctx context.Context, arg CreateBulkJobParams) (BulkJob, error)
 	CreateExportJob(ctx context.Context, arg CreateExportJobParams) (ExportJob, error)
 	CreateImportJob(ctx context.Context, arg CreateImportJobParams) (ImportJob, error)
@@ -51,6 +57,7 @@ type Querier interface {
 	CreateOrganizationInvitation(ctx context.Context, arg CreateOrganizationInvitationParams) (OrganizationInvitation, error)
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
 	CreateRole(ctx context.Context, arg CreateRoleParams) (Role, error)
+	CreateServicePoint(ctx context.Context, arg CreateServicePointParams) (ServicePoint, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	CreateWebAuthnCredential(ctx context.Context, arg CreateWebAuthnCredentialParams) (WebauthnCredential, error)
 	// Self-service account deletion: keep every row, mark the user disabled.
@@ -66,6 +73,7 @@ type Querier interface {
 	DeletePushSubscription(ctx context.Context, arg DeletePushSubscriptionParams) error
 	DeletePushTickets(ctx context.Context, ids []int64) error
 	DeleteRole(ctx context.Context, argUuid uuid.UUID) error
+	DeleteServicePoint(ctx context.Context, arg DeleteServicePointParams) (int64, error)
 	DeleteStorageShare(ctx context.Context, argUuid uuid.UUID) error
 	DeleteStorageStar(ctx context.Context, arg DeleteStorageStarParams) error
 	DeleteStorageTrashByUUID(ctx context.Context, argUuid uuid.UUID) error
@@ -81,6 +89,9 @@ type Querier interface {
 	GetAppLogByUUID(ctx context.Context, argUuid uuid.UUID) (AppLog, error)
 	GetAppSettings(ctx context.Context) (AppSetting, error)
 	GetAuthSettings(ctx context.Context) (GetAuthSettingsRow, error)
+	GetBranchByCode(ctx context.Context, arg GetBranchByCodeParams) (Branch, error)
+	GetBranchByUUID(ctx context.Context, arg GetBranchByUUIDParams) (Branch, error)
+	GetBranchSearchDocument(ctx context.Context, arg GetBranchSearchDocumentParams) (GetBranchSearchDocumentRow, error)
 	GetBulkJobByID(ctx context.Context, id int64) (BulkJob, error)
 	GetBulkJobByUUID(ctx context.Context, argUuid uuid.UUID) (BulkJob, error)
 	GetExportJobByID(ctx context.Context, id int64) (ExportJob, error)
@@ -105,6 +116,7 @@ type Querier interface {
 	GetRoleByID(ctx context.Context, id int64) (Role, error)
 	GetRoleBySlug(ctx context.Context, slug string) (Role, error)
 	GetRoleByUUID(ctx context.Context, argUuid uuid.UUID) (Role, error)
+	GetServicePoint(ctx context.Context, arg GetServicePointParams) (ServicePoint, error)
 	GetStepupSettings(ctx context.Context) (StepupSetting, error)
 	GetStorageLinkBySlug(ctx context.Context, slug pgtype.Text) (StorageLink, error)
 	GetStorageLinkByTokenHash(ctx context.Context, tokenHash pgtype.Text) (StorageLink, error)
@@ -148,6 +160,11 @@ type Querier interface {
 	ListAllPermissionSlugs(ctx context.Context) ([]string, error)
 	ListAppLogSources(ctx context.Context) ([]string, error)
 	ListAppLogs(ctx context.Context, arg ListAppLogsParams) ([]AppLog, error)
+	ListBranchCityFacets(ctx context.Context, organizationID int64) ([]ListBranchCityFacetsRow, error)
+	ListBranchSearchDocuments(ctx context.Context, organizationID int64) ([]ListBranchSearchDocumentsRow, error)
+	ListBranchUUIDs(ctx context.Context, arg ListBranchUUIDsParams) ([]uuid.UUID, error)
+	ListBranches(ctx context.Context, arg ListBranchesParams) ([]ListBranchesRow, error)
+	ListBranchesForExport(ctx context.Context, arg ListBranchesForExportParams) ([]Branch, error)
 	ListBulkChangesForJob(ctx context.Context, jobID int64) ([]BulkChange, error)
 	ListBulkJobsForActor(ctx context.Context, arg ListBulkJobsForActorParams) ([]BulkJob, error)
 	ListDuePushTickets(ctx context.Context, arg ListDuePushTicketsParams) ([]ListDuePushTicketsRow, error)
@@ -155,6 +172,7 @@ type Querier interface {
 	ListExportJobsForActor(ctx context.Context, arg ListExportJobsForActorParams) ([]ExportJob, error)
 	ListImportChangesForJob(ctx context.Context, jobID int64) ([]ImportChange, error)
 	ListImportJobsForActor(ctx context.Context, arg ListImportJobsForActorParams) ([]ImportJob, error)
+	ListLiveOrganizationIDs(ctx context.Context) ([]int64, error)
 	ListLogPurgeRules(ctx context.Context) ([]LogPurgeRule, error)
 	ListNotificationsForUser(ctx context.Context, arg ListNotificationsForUserParams) ([]Notification, error)
 	ListOAuthAccountsByUserID(ctx context.Context, userID int64) ([]ListOAuthAccountsByUserIDRow, error)
@@ -163,6 +181,7 @@ type Querier interface {
 	ListOrganizationInvitations(ctx context.Context, arg ListOrganizationInvitationsParams) ([]ListOrganizationInvitationsRow, error)
 	ListOrganizationMembersByOrg(ctx context.Context, arg ListOrganizationMembersByOrgParams) ([]ListOrganizationMembersByOrgRow, error)
 	ListOrganizationMembershipsByUser(ctx context.Context, userID int64) ([]ListOrganizationMembershipsByUserRow, error)
+	ListOrganizationResourceActivity(ctx context.Context, arg ListOrganizationResourceActivityParams) ([]ListOrganizationResourceActivityRow, error)
 	ListOrganizationsFiltered(ctx context.Context, arg ListOrganizationsFilteredParams) ([]Organization, error)
 	ListPermissionSlugsByRoleID(ctx context.Context, roleID int64) ([]string, error)
 	ListPermissionSlugsByRoleSlug(ctx context.Context, slug string) ([]string, error)
@@ -175,6 +194,7 @@ type Querier interface {
 	ListRolesFiltered(ctx context.Context, arg ListRolesFilteredParams) ([]Role, error)
 	ListRolesForExport(ctx context.Context, q_ pgtype.Text) ([]Role, error)
 	ListRolesForUserIDs(ctx context.Context, userIds []int64) ([]ListRolesForUserIDsRow, error)
+	ListServicePointsByBranch(ctx context.Context, arg ListServicePointsByBranchParams) ([]ServicePoint, error)
 	ListSharedKeys(ctx context.Context, keys []string) ([]string, error)
 	ListStorageActivity(ctx context.Context, arg ListStorageActivityParams) ([]ListStorageActivityRow, error)
 	ListStorageLinksByKey(ctx context.Context, objectKey string) ([]StorageLink, error)
@@ -231,14 +251,17 @@ type Querier interface {
 	RevokeRefreshTokenByUUIDForUser(ctx context.Context, arg RevokeRefreshTokenByUUIDForUserParams) (int64, error)
 	RevokeStorageLink(ctx context.Context, argUuid uuid.UUID) (StorageLink, error)
 	SetAppSettingsLogo(ctx context.Context, logoObjectKey pgtype.Text) (AppSetting, error)
+	SetBranchActive(ctx context.Context, arg SetBranchActiveParams) (Branch, error)
 	SetOrganizationAccessWindow(ctx context.Context, arg SetOrganizationAccessWindowParams) (Organization, error)
 	SetOrganizationStatus(ctx context.Context, arg SetOrganizationStatusParams) (Organization, error)
 	SetRolePermissions(ctx context.Context, roleID int64) error
 	SetUserEmailVerified(ctx context.Context, id int64) (User, error)
 	SlugExists(ctx context.Context, slug string) (bool, error)
+	SoftDeleteBranch(ctx context.Context, arg SoftDeleteBranchParams) (int64, error)
 	SoftDeleteOrganization(ctx context.Context, argUuid uuid.UUID) (Organization, error)
 	UpdateAppSettings(ctx context.Context, arg UpdateAppSettingsParams) (AppSetting, error)
 	UpdateAuthSettings(ctx context.Context, arg UpdateAuthSettingsParams) (AuthSetting, error)
+	UpdateBranch(ctx context.Context, arg UpdateBranchParams) (Branch, error)
 	UpdateGitHubAppSettings(ctx context.Context, arg UpdateGitHubAppSettingsParams) (GithubAppSetting, error)
 	UpdateImportJobFileKey(ctx context.Context, arg UpdateImportJobFileKeyParams) (ImportJob, error)
 	UpdateImportJobMapping(ctx context.Context, arg UpdateImportJobMappingParams) (ImportJob, error)
@@ -249,6 +272,7 @@ type Querier interface {
 	UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) (Organization, error)
 	UpdateOrganizationMemberRole(ctx context.Context, arg UpdateOrganizationMemberRoleParams) (OrganizationMember, error)
 	UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, error)
+	UpdateServicePoint(ctx context.Context, arg UpdateServicePointParams) (ServicePoint, error)
 	UpdateStepupSettings(ctx context.Context, arg UpdateStepupSettingsParams) (StepupSetting, error)
 	UpdateUserLastLogin(ctx context.Context, id int64) error
 	UpdateUserLocale(ctx context.Context, arg UpdateUserLocaleParams) error

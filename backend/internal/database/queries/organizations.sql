@@ -233,3 +233,8 @@ INNER JOIN roles r ON r.id = oi.role_id AND r.scope = 'tenant'
 WHERE oi.organization_id = $1
 ORDER BY oi.created_at DESC
 LIMIT sqlc.arg(limit_count) OFFSET sqlc.arg(offset_count);
+
+-- name: ListLiveOrganizationIDs :many
+SELECT id FROM organizations
+WHERE deleted_at IS NULL
+ORDER BY id ASC;

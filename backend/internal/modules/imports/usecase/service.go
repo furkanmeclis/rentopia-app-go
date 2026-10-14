@@ -16,6 +16,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/i18n"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/ioengine"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/ioengine/adapters"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/storage"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/queue"
 	"github.com/google/uuid"
@@ -86,13 +87,17 @@ func (s *Service) Upload(ctx context.Context, actorID int64, resource string, fo
 	if _, err := s.registry.Get(resource); err != nil {
 		return ImportJobView{}, fmt.Errorf("%w: %v", ErrInvalidRequest, err)
 	}
+	orgID, err := orgctx.EngineScope(ctx, resource)
+	if err != nil {
+		return ImportJobView{}, fmt.Errorf("%w: %v", ErrInvalidRequest, err)
+	}
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return ImportJobView{}, err
 	}
 	row, err := s.q.CreateImportJob(ctx, db.CreateImportJobParams{
 		Resource: resource, ActorID: actorID, Format: string(format), Locale: locale,
-		FileKey: pgtype.Text{},
+		FileKey: pgtype.Text{}, OrganizationID: orgID,
 	})
 	if err != nil {
 		return ImportJobView{}, err
@@ -145,7 +150,11 @@ func (s *Service) Sample(ctx context.Context, resource string, format ioengine.I
 	if len(fields) == 0 {
 		return nil, "", ErrInvalidRequest
 	}
-	return ioengine.EncodeSample(format, locale, fields, adapters.SampleRows(resource))
+	rows := adapters.SampleRows(resource)
+	if sampler, ok := adapter.(ioengine.SampleProvider); ok {
+		rows = sampler.SampleRows()
+	}
+	return ioengine.EncodeSample(format, locale, fields, rows)
 }
 
 // UpdateMapping saves column mapping and defaults.
@@ -213,6 +222,10 @@ func (s *Service) ProcessImport(ctx context.Context, jobID int64) error {
 	job, err := s.q.MarkImportJobApplying(ctx, jobID)
 	if err != nil {
 		return err
+	}
+	if job.OrganizationID.Valid {
+		// Tenant job: adapters read the organization from the context.
+		ctx = orgctx.WithOrganizationID(ctx, job.OrganizationID.Int64)
 	}
 	adapter, err := s.registry.Get(job.Resource)
 	if err != nil {
@@ -342,7 +355,7 @@ func (s *Service) ListJobs(ctx context.Context, actorID int64, admin bool, limit
 
 func (s *Service) GetJob(ctx context.Context, jobUUID uuid.UUID, actorID int64, admin bool) (ImportJobView, error) {
 	row, err := s.q.GetImportJobByUUID(ctx, jobUUID)
-	if err != nil {
+	if err != nil || !orgctx.SameEngineScope(ctx, row.OrganizationID) {
 		return ImportJobView{}, ErrNotFound
 	}
 	if !admin && row.ActorID != actorID {
@@ -415,7 +428,7 @@ func (s *Service) loadMappedRows(ctx context.Context, job db.ImportJob) ([]map[s
 
 func (s *Service) getOwned(ctx context.Context, jobUUID uuid.UUID, actorID int64) (db.ImportJob, error) {
 	row, err := s.q.GetImportJobByUUID(ctx, jobUUID)
-	if err != nil {
+	if err != nil || !orgctx.SameEngineScope(ctx, row.OrganizationID) {
 		return db.ImportJob{}, ErrNotFound
 	}
 	if row.ActorID != actorID {

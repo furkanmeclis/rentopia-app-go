@@ -110,7 +110,15 @@ type Letterhead struct {
 	LogoMIME     string
 }
 
-// ResourceAdapter connects ioengine to a list resource.
+// SampleProvider is implemented by adapters that ship their own import
+// sample rows (tenant resources living outside the adapters package).
+type SampleProvider interface {
+	SampleRows() []map[string]any
+}
+
+// ResourceAdapter connects ioengine to a list resource. Adapters of tenant
+// resources ("tenant.*") read the organization with orgctx.OrganizationID:
+// the export / import use cases set it from the request scope or the job row.
 type ResourceAdapter interface {
 	Resource() string
 	ExportColumns() []Column

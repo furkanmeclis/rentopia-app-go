@@ -15,6 +15,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/activity"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/i18n"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/ioengine"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/storage"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/queue"
 	"github.com/google/uuid"
@@ -95,6 +96,10 @@ func (s *Service) RequestExport(
 		return ExportJobView{}, fmt.Errorf("%w: %v", ErrInvalidRequest, err)
 	}
 	_ = adapter
+	orgID, err := orgctx.EngineScope(ctx, resource)
+	if err != nil {
+		return ExportJobView{}, fmt.Errorf("%w: %v", ErrInvalidRequest, err)
+	}
 	if format != ioengine.ExportPDF && format != ioengine.ExportXLSX && format != ioengine.ExportCSV && format != ioengine.ExportJSON {
 		return ExportJobView{}, fmt.Errorf("%w: invalid format", ErrInvalidRequest)
 	}
@@ -103,6 +108,7 @@ func (s *Service) RequestExport(
 	row, err := s.q.CreateExportJob(ctx, db.CreateExportJobParams{
 		Resource: resource, ActorID: actorID, Format: string(format),
 		QueryJson: qb, Locale: locale, ExpiresAt: pgtype.Timestamptz{Time: expires, Valid: true},
+		OrganizationID: orgID,
 	})
 	if err != nil {
 		return ExportJobView{}, err
@@ -135,6 +141,10 @@ func (s *Service) ProcessExport(ctx context.Context, jobID int64) error {
 	job, err := s.q.MarkExportJobProcessing(ctx, jobID)
 	if err != nil {
 		return err
+	}
+	if job.OrganizationID.Valid {
+		// Tenant job: adapters read the organization from the context.
+		ctx = orgctx.WithOrganizationID(ctx, job.OrganizationID.Int64)
 	}
 	adapter, err := s.registry.Get(job.Resource)
 	if err != nil {
@@ -177,13 +187,19 @@ func (s *Service) ProcessExport(ctx context.Context, jobID int64) error {
 		return err
 	}
 	if s.notifier != nil {
-		dl := fmt.Sprintf("/v1/platform/exports/%s/download", job.Uuid.String())
+		// Tenant downloads need the X-Organization header, so the in-app
+		// notification carries no direct link for them.
+		var dl *string
+		if !job.OrganizationID.Valid {
+			u := fmt.Sprintf("/v1/platform/exports/%s/download", job.Uuid.String())
+			dl = &u
+		}
 		uid := job.ActorID
 		loc := i18n.Normalize(job.Locale)
 		_, _ = s.notifier.Enqueue(ctx, notifmodel.EnqueueInput{
 			UserID: &uid, Channels: []string{notifmodel.ChannelInapp},
 			TemplateCode: "exports.ready", Language: job.Locale,
-			ActionURL: &dl,
+			ActionURL: dl,
 			TemplateVars: map[string]string{
 				"resource": i18n.ResourceLabel(loc, job.Resource),
 				"format":   i18n.ExportFormatLabel(loc, job.Format),
@@ -203,7 +219,7 @@ func (s *Service) fail(ctx context.Context, jobID int64, msg string) error {
 // GetJob returns a job if actor may access it.
 func (s *Service) GetJob(ctx context.Context, jobUUID uuid.UUID, actorID int64, admin bool) (ExportJobView, error) {
 	row, err := s.q.GetExportJobByUUID(ctx, jobUUID)
-	if err != nil {
+	if err != nil || !orgctx.SameEngineScope(ctx, row.OrganizationID) {
 		return ExportJobView{}, ErrNotFound
 	}
 	if !admin && row.ActorID != actorID {
@@ -239,7 +255,7 @@ func (s *Service) ListJobs(ctx context.Context, actorID int64, admin bool, limit
 // Download opens export file stream.
 func (s *Service) Download(ctx context.Context, jobUUID uuid.UUID, actorID int64, admin bool) (io.ReadCloser, string, string, error) {
 	row, err := s.q.GetExportJobByUUID(ctx, jobUUID)
-	if err != nil {
+	if err != nil || !orgctx.SameEngineScope(ctx, row.OrganizationID) {
 		return nil, "", "", ErrNotFound
 	}
 	if !admin && row.ActorID != actorID {
@@ -264,7 +280,11 @@ func mapExportJob(row db.ExportJob) ExportJobView {
 	}
 	var dl *string
 	if row.Status == "completed" {
-		u := fmt.Sprintf("/v1/platform/exports/%s/download", row.Uuid.String())
+		prefix := "/v1/platform/exports/"
+		if row.OrganizationID.Valid {
+			prefix = "/v1/tenant/exports/"
+		}
+		u := prefix + row.Uuid.String() + "/download"
 		dl = &u
 	}
 	return ExportJobView{
