@@ -59,8 +59,12 @@ func (h *Handler) ListBrands(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	display, ok := parseQueryUUID(w, r, "display_brand")
+	if !ok {
+		return
+	}
 	items, total, err := h.svc.ListBrands(r.Context(), model.BrandFilter{
-		Limit: q.Limit, Offset: q.Offset, Q: q.Q,
+		Limit: q.Limit, Offset: q.Offset, Q: q.Q, DisplayBrandUUID: display,
 		Category: strings.TrimSpace(r.URL.Query().Get("category")), IsActive: isActive,
 		SortField: firstSortField(q, "display_name"), SortDesc: firstSortDesc(q, false),
 	})
@@ -90,22 +94,23 @@ func (h *Handler) PatchBrand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		DisplayName *string `json:"display_name"`
-		Category    *string `json:"category"`
-		IsActive    *bool   `json:"is_active"`
+		DisplayName      *string    `json:"display_name"`
+		DisplayBrandUUID *uuid.UUID `json:"display_brand_uuid"`
+		Category         *string    `json:"category"`
+		IsActive         *bool      `json:"is_active"`
 	}
 	if err := decodeJSON(w, r, &in); err != nil {
 		return
 	}
 	b, err := h.svc.PatchBrand(r.Context(), id, model.PatchBrandInput{
-		DisplayName: in.DisplayName, Category: in.Category, IsActive: in.IsActive,
+		DisplayName: in.DisplayName, DisplayBrandUUID: in.DisplayBrandUUID, Category: in.Category, IsActive: in.IsActive,
 	})
 	if err != nil {
 		writeError(w, r, err)
 		return
 	}
 	if h.activity != nil {
-		h.activity.Record(r.Context(), actor(r), "catalog.brand_updated", "platform.catalog", &b.UUID, map[string]any{"display_name": b.DisplayName, "category": b.Category, "is_active": b.IsActive}, r)
+		h.activity.Record(r.Context(), actor(r), "catalog.brand_updated", "platform.catalog", &b.UUID, map[string]any{"display_name": b.DisplayName, "display_brand": b.DisplayBrand.Name, "category": b.Category, "is_active": b.IsActive}, r)
 	}
 	response.JSON(w, r, http.StatusOK, b)
 }
@@ -121,8 +126,12 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	display, ok := parseQueryUUID(w, r, "display_brand")
+	if !ok {
+		return
+	}
 	items, total, err := h.svc.ListModels(r.Context(), model.ModelFilter{
-		Limit: q.Limit, Offset: q.Offset, Q: q.Q, BrandUUID: brand,
+		Limit: q.Limit, Offset: q.Offset, Q: q.Q, BrandUUID: brand, DisplayBrandUUID: display,
 		Source:    strings.TrimSpace(r.URL.Query().Get("source")),
 		SortField: firstSortField(q, "brand"), SortDesc: firstSortDesc(q, false),
 	})
@@ -233,6 +242,10 @@ func (h *Handler) ListTypes(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	display, ok := parseQueryUUID(w, r, "display_brand")
+	if !ok {
+		return
+	}
 	year, ok := parseYearParam(w, r)
 	if !ok {
 		return
@@ -248,7 +261,8 @@ func (h *Handler) ListTypes(w http.ResponseWriter, r *http.Request) {
 	values := r.URL.Query()
 	items, total, err := h.svc.ListTypes(r.Context(), model.TypeFilter{
 		Limit: q.Limit, Offset: q.Offset, Q: q.Q, BrandUUID: brand, ModelUUID: mdl, Year: year,
-		Unresolved: unresolved != nil && *unresolved, IsActive: isActive,
+		DisplayBrandUUID: display,
+		Unresolved:       unresolved != nil && *unresolved, IsActive: isActive,
 		Category:     strings.TrimSpace(values.Get("category")),
 		Fuel:         strings.TrimSpace(values.Get("fuel")),
 		Transmission: strings.TrimSpace(values.Get("transmission")),

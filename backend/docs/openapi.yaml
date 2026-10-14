@@ -3852,6 +3852,7 @@ paths:
         - $ref: "#/components/parameters/Q"
         - $ref: "#/components/parameters/Sort"
         - $ref: "#/components/parameters/CatalogCategory"
+        - $ref: "#/components/parameters/CatalogDisplayBrandFilter"
         - name: is_active
           in: query
           schema: { type: boolean }
@@ -3890,8 +3891,12 @@ paths:
     patch:
       tags: [Catalog]
       operationId: patchPlatformCatalogBrand
-      summary: Update brand display name, category or active flag
-      description: Requires `platform.catalog.write`. TSB code and name are owned by the import.
+      summary: Update brand display brand, category or active flag
+      description: |
+        Requires `platform.catalog.write`. TSB code and name are owned by the import.
+        `display_name` maps the TSB brand to the display brand of that name (created when missing);
+        `display_brand_uuid` maps it to an existing display brand. A display brand left without
+        TSB brands is deleted.
       security:
         - bearerAuth: []
       parameters:
@@ -3909,6 +3914,268 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EnvelopeCatalogBrand"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /v1/platform/catalog/display-brands/meta:
+    get:
+      tags: [Catalog]
+      operationId: getPlatformCatalogDisplayBrandsMeta
+      summary: Catalog display brands list metadata
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Resource meta
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeResourceMeta"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/platform/catalog/display-brands:
+    get:
+      tags: [Catalog]
+      operationId: getPlatformCatalogDisplayBrands
+      summary: List display brands
+      description: |
+        Requires `platform.catalog.read`. A display brand is what users see; one or more TSB brands
+        (FIAT + TOFAS-FIAT) map to it. `q` matches the name, TSB names and TSB codes.
+        Sort fields `name`, `brands_count`, `types_count`, `created_at`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - $ref: "#/components/parameters/Sort"
+        - name: is_active
+          in: query
+          schema: { type: boolean }
+        - name: merged
+          in: query
+          description: Only display brands with more than one TSB brand
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Display brand page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCatalogDisplayBrandPage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /v1/platform/catalog/display-brands/{uuid}:
+    get:
+      tags: [Catalog]
+      operationId: getPlatformCatalogDisplayBrand
+      summary: Get a display brand with its TSB brands
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Display brand
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCatalogDisplayBrand"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    patch:
+      tags: [Catalog]
+      operationId: patchPlatformCatalogDisplayBrand
+      summary: Rename or (de)activate a display brand
+      description: Requires `platform.catalog.write`. A rename also changes the slug and the display name of its TSB brands.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchCatalogDisplayBrandRequest"
+      responses:
+        "200":
+          description: Display brand
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCatalogDisplayBrand"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /v1/platform/catalog/display-brands/{uuid}/merge:
+    post:
+      tags: [Catalog]
+      operationId: postPlatformCatalogDisplayBrandMerge
+      summary: Merge a display brand into another
+      description: Requires `platform.catalog.write`. Moves every TSB brand of `{uuid}` to `into_uuid` and deletes `{uuid}` (and its logo). Returns the target.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MergeCatalogModelRequest"
+      responses:
+        "200":
+          description: Target display brand
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCatalogDisplayBrand"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /v1/platform/catalog/display-brands/{uuid}/unmerge:
+    post:
+      tags: [Catalog]
+      operationId: postPlatformCatalogDisplayBrandUnmerge
+      summary: Detach a TSB brand into a new display brand
+      description: |
+        Requires `platform.catalog.write`. Only for display brands with more than one TSB brand.
+        `name` defaults to the title-cased TSB name ("Tofas-Fiat"); 409 when that name exists.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UnmergeCatalogDisplayBrandRequest"
+      responses:
+        "201":
+          description: The new display brand
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCatalogDisplayBrand"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /v1/platform/catalog/display-brands/{uuid}/logo:
+    get:
+      tags: [Catalog]
+      operationId: getPlatformCatalogDisplayBrandLogo
+      summary: Stream a display brand logo
+      description: Any signed-in user (tenant vehicle forms show it too). Use the `logo_url` returned by the API.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Logo image
+          content:
+            image/png: { schema: { type: string, format: binary } }
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+            image/svg+xml: { schema: { type: string, format: binary } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [Catalog]
+      operationId: putPlatformCatalogDisplayBrandLogo
+      summary: Upload a display brand logo
+      description: Requires `platform.catalog.write`. Multipart field `logo` (PNG, JPEG, WebP or SVG).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [logo]
+              properties:
+                logo: { type: string, format: binary }
+      responses:
+        "200":
+          description: Display brand
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCatalogDisplayBrand"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    delete:
+      tags: [Catalog]
+      operationId: deletePlatformCatalogDisplayBrandLogo
+      summary: Remove a display brand logo
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Display brand
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCatalogDisplayBrand"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /v1/platform/catalog/models/bulk-rules:
+    post:
+      tags: [Catalog]
+      operationId: postPlatformCatalogModelsBulkRules
+      summary: Save "type name starts with the model name" rules for many models
+      description: |
+        Requires `platform.catalog.write`. For each model (max 500) stores a prefix rule equal to its
+        name and assigns it to the brand's types without a model or with an auto-derived one.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkCatalogModelRulesRequest"
+      responses:
+        "200":
+          description: Result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCatalogBulkRulesResult"
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -3946,6 +4213,7 @@ paths:
         - $ref: "#/components/parameters/Q"
         - $ref: "#/components/parameters/Sort"
         - $ref: "#/components/parameters/CatalogBrandFilter"
+        - $ref: "#/components/parameters/CatalogDisplayBrandFilter"
         - name: source
           in: query
           schema: { type: string, enum: [auto, manual] }
@@ -4040,8 +4308,11 @@ paths:
     post:
       tags: [Catalog]
       operationId: postPlatformCatalogModelMerge
-      summary: Merge a model into another model of the same brand
-      description: Moves the types and prefix rules of `{uuid}` to `into_uuid`, then deletes `{uuid}`.
+      summary: Merge a model into another model
+      description: |
+        Same TSB brand: moves the types and prefix rules of `{uuid}` to `into_uuid`, then deletes `{uuid}`.
+        Another TSB brand of the same display brand: `{uuid}` is renamed to the target's name (or merged
+        into its brand's model of that name) so both form one grouped model. Returns the target model.
       security:
         - bearerAuth: []
       parameters:
@@ -4096,6 +4367,7 @@ paths:
         - $ref: "#/components/parameters/Q"
         - $ref: "#/components/parameters/Sort"
         - $ref: "#/components/parameters/CatalogBrandFilter"
+        - $ref: "#/components/parameters/CatalogDisplayBrandFilter"
         - $ref: "#/components/parameters/CatalogCategory"
         - name: model
           in: query
@@ -4316,7 +4588,9 @@ paths:
       tags: [Tenant]
       operationId: getTenantCatalogBrands
       summary: Vehicle brands for forms
-      description: Active brands with active types (optionally for a model `year`). Any organization member.
+      description: |
+        Active display brands with active types (optionally for a model `year`). TSB brands that are
+        one make (FIAT + TOFAS-FIAT) are listed once. Any organization member.
       security:
         - bearerAuth: []
       parameters:
@@ -4350,7 +4624,7 @@ paths:
         - name: brand
           in: query
           required: true
-          description: Brand UUID
+          description: Display brand UUID (a TSB brand UUID is accepted and mapped to its display brand)
           schema: { type: string, format: uuid }
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
@@ -4373,7 +4647,9 @@ paths:
       tags: [Tenant]
       operationId: getTenantCatalogTypes
       summary: Vehicle types of a model with the latest kasko value
-      description: With `year`, only types sold that model year and `kasko_value` is that year's value from the latest period.
+      description: |
+        Types of a grouped model across every TSB brand of its display brand. With `year`, only types
+        sold that model year and `kasko_value` is that year's value from the latest period.
       security:
         - bearerAuth: []
       parameters:
@@ -4381,7 +4657,7 @@ paths:
         - name: model
           in: query
           required: true
-          description: Model UUID
+          description: Grouped model UUID (any model uuid of the group)
           schema: { type: string, format: uuid }
         - $ref: "#/components/parameters/CatalogYear"
         - $ref: "#/components/parameters/Limit"
@@ -4472,6 +4748,12 @@ components:
       name: brand
       in: query
       description: Brand UUID
+      schema: { type: string, format: uuid }
+
+    CatalogDisplayBrandFilter:
+      name: display_brand
+      in: query
+      description: Display brand UUID (every TSB brand mapped to it)
       schema: { type: string, format: uuid }
 
     CatalogYear:
@@ -6725,6 +7007,115 @@ components:
         uuid: { type: string, format: uuid }
         display_name: { type: string }
         tsb_code: { type: string }
+        tsb_name: { type: string }
+
+    CatalogDisplayBrandRef:
+      type: object
+      required: [uuid, name]
+      properties:
+        uuid: { type: string, format: uuid }
+        name: { type: string, example: Fiat }
+
+    CatalogDisplayBrandMember:
+      type: object
+      required: [uuid, tsb_code, tsb_name, category, is_active, types_count]
+      properties:
+        uuid: { type: string, format: uuid }
+        tsb_code: { type: string, example: "100" }
+        tsb_name: { type: string, example: TOFAS-FIAT }
+        category: { $ref: "#/components/schemas/CatalogBrandCategory" }
+        is_active: { type: boolean }
+        types_count: { type: integer, format: int64 }
+
+    CatalogDisplayBrand:
+      type: object
+      required: [uuid, name, slug, logo_url, is_active, brands_count, types_count, models_count, tsb_names, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        name: { type: string, example: Fiat }
+        slug: { type: string, example: fiat }
+        logo_url:
+          type: [string, "null"]
+          description: API-owned logo stream (`/v1/...`); never build storage URLs in the browser
+        is_active: { type: boolean }
+        brands_count: { type: integer, format: int64, description: TSB brands mapped to it }
+        types_count: { type: integer, format: int64, description: Active types }
+        models_count: { type: integer, format: int64, description: Grouped models }
+        tsb_names:
+          type: array
+          items: { type: string }
+        brands:
+          type: array
+          description: Detail only
+          items: { $ref: "#/components/schemas/CatalogDisplayBrandMember" }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    PatchCatalogDisplayBrandRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1 }
+        is_active: { type: boolean }
+
+    UnmergeCatalogDisplayBrandRequest:
+      type: object
+      additionalProperties: false
+      required: [brand_uuid]
+      properties:
+        brand_uuid: { type: string, format: uuid, description: TSB brand to detach }
+        name: { type: string, description: Name of the new display brand }
+
+    BulkCatalogModelRulesRequest:
+      type: object
+      additionalProperties: false
+      required: [model_uuids]
+      properties:
+        model_uuids:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items: { type: string, format: uuid }
+
+    CatalogBulkRulesResult:
+      type: object
+      required: [rules_saved, types_assigned]
+      properties:
+        rules_saved: { type: integer }
+        types_assigned: { type: integer }
+
+    EnvelopeCatalogBulkRulesResult:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/CatalogBulkRulesResult" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeCatalogDisplayBrand:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/CatalogDisplayBrand" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeCatalogDisplayBrandPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/CatalogDisplayBrand" }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
 
     CatalogNamedRef:
       type: object
@@ -6743,12 +7134,14 @@ components:
 
     CatalogBrand:
       type: object
-      required: [uuid, tsb_code, tsb_name, display_name, category, is_active, types_count, models_count, unresolved_count, created_at, updated_at]
+      description: A TSB brand (keyed by TSB code). `display_name` mirrors its display brand's name.
+      required: [uuid, tsb_code, tsb_name, display_name, display_brand, category, is_active, types_count, models_count, unresolved_count, created_at, updated_at]
       properties:
         uuid: { type: string, format: uuid }
         tsb_code: { type: string, example: "100" }
         tsb_name: { type: string, example: TOFAS-FIAT }
         display_name: { type: string, example: Fiat }
+        display_brand: { $ref: "#/components/schemas/CatalogDisplayBrandRef" }
         category: { $ref: "#/components/schemas/CatalogBrandCategory" }
         is_active: { type: boolean }
         types_count: { type: integer, format: int64, description: Active types }
@@ -6766,13 +7159,18 @@ components:
 
     CatalogModel:
       type: object
-      required: [uuid, name, source, brand, types_count, created_at, updated_at]
+      required: [uuid, name, source, brand, display_brand, types_count, group_size, created_at, updated_at]
       properties:
         uuid: { type: string, format: uuid }
         name: { type: string, example: EGEA CROSS }
         source: { $ref: "#/components/schemas/CatalogModelSource" }
         brand: { $ref: "#/components/schemas/CatalogRef" }
+        display_brand: { $ref: "#/components/schemas/CatalogDisplayBrandRef" }
         types_count: { type: integer, format: int64 }
+        group_size:
+          type: integer
+          format: int64
+          description: Models with the same name under the display brand (one per TSB brand); tenants see them as one model
         rules:
           type: array
           items: { $ref: "#/components/schemas/CatalogModelRule" }
@@ -6781,7 +7179,7 @@ components:
 
     CatalogType:
       type: object
-      required: [uuid, tsb_type_code, raw_name, years, suggested_transmission, suggested_fuel, first_seen_period, last_seen_period, is_active, brand, model, created_at, updated_at]
+      required: [uuid, tsb_type_code, raw_name, years, suggested_transmission, suggested_fuel, first_seen_period, last_seen_period, is_active, brand, display_brand, model, created_at, updated_at]
       properties:
         uuid: { type: string, format: uuid }
         tsb_type_code: { type: string, example: "1402" }
@@ -6802,6 +7200,7 @@ components:
         last_seen_period: { type: string, example: 2026-10 }
         is_active: { type: boolean }
         brand: { $ref: "#/components/schemas/CatalogRef" }
+        display_brand: { $ref: "#/components/schemas/CatalogDisplayBrandRef" }
         model:
           oneOf:
             - $ref: "#/components/schemas/CatalogModelRef"
@@ -6841,6 +7240,7 @@ components:
         rows: { type: integer }
         brands_new: { type: integer }
         brands_renamed: { type: integer }
+        display_brands_new: { type: integer, description: Display brands created for new TSB brands }
         models_new: { type: integer }
         types_new: { type: integer }
         types_renamed: { type: integer }
@@ -6949,7 +7349,14 @@ components:
       type: object
       additionalProperties: false
       properties:
-        display_name: { type: string, minLength: 1 }
+        display_name:
+          type: string
+          minLength: 1
+          description: Map to the display brand of this name (created when missing)
+        display_brand_uuid:
+          type: string
+          format: uuid
+          description: Map to an existing display brand
         category: { $ref: "#/components/schemas/CatalogBrandCategory" }
         is_active: { type: boolean }
 
@@ -6982,7 +7389,9 @@ components:
         model_uuid:
           type: [string, "null"]
           format: uuid
-          description: Model of the same brand; null clears the assignment
+          description: |
+            Model of the same TSB brand; a model of another TSB brand of the same display brand
+            assigns (creating when missing) the same-name model of the type's brand. null clears it.
         save_rule:
           type: boolean
           description: Also store a prefix rule (needs model_uuid)
@@ -7000,14 +7409,21 @@ components:
 
     TenantCatalogBrand:
       type: object
-      required: [uuid, display_name, category]
+      description: A display brand (FIAT and TOFAS-FIAT are one "Fiat").
+      required: [uuid, display_name, slug, category, logo_url]
       properties:
         uuid: { type: string, format: uuid }
         display_name: { type: string, example: Fiat }
+        slug: { type: string, example: fiat }
         category: { $ref: "#/components/schemas/CatalogBrandCategory" }
+        logo_url: { type: [string, "null"], description: API-owned logo stream }
 
     TenantCatalogModel:
       type: object
+      description: |
+        A grouped model: models with the same name under the TSB brands of one display brand are
+        listed once. `uuid` is stable (its first model) and any model uuid of the group is accepted
+        by `/v1/tenant/catalog/types`.
       required: [uuid, name, brand]
       properties:
         uuid: { type: string, format: uuid }

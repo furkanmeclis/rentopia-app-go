@@ -1,12 +1,14 @@
 -- Platform vehicle catalog (TSB kasko list).
 
 -- name: ListCatalogBrands :many
-SELECT b.*,
+SELECT b.*, d.uuid AS display_brand_uuid, d.name AS display_brand_name,
     (SELECT COUNT(*) FROM catalog_types t WHERE t.brand_id = b.id AND t.is_active)::bigint AS types_count,
     (SELECT COUNT(*) FROM catalog_models m WHERE m.brand_id = b.id)::bigint AS models_count,
     (SELECT COUNT(*) FROM catalog_types t WHERE t.brand_id = b.id AND t.is_active AND t.model_id IS NULL)::bigint AS unresolved_count
 FROM catalog_brands b
+JOIN catalog_display_brands d ON d.id = b.display_brand_id
 WHERE (sqlc.narg(category)::text IS NULL OR b.category = sqlc.narg(category))
+  AND (sqlc.narg(display_brand_id)::bigint IS NULL OR b.display_brand_id = sqlc.narg(display_brand_id))
   AND (sqlc.narg(is_active)::boolean IS NULL OR b.is_active = sqlc.narg(is_active))
   AND (
     sqlc.narg(q)::text IS NULL
@@ -34,6 +36,7 @@ LIMIT sqlc.arg(limit_count) OFFSET sqlc.arg(offset_count);
 SELECT COUNT(*)::bigint
 FROM catalog_brands b
 WHERE (sqlc.narg(category)::text IS NULL OR b.category = sqlc.narg(category))
+  AND (sqlc.narg(display_brand_id)::bigint IS NULL OR b.display_brand_id = sqlc.narg(display_brand_id))
   AND (sqlc.narg(is_active)::boolean IS NULL OR b.is_active = sqlc.narg(is_active))
   AND (
     sqlc.narg(q)::text IS NULL
@@ -43,30 +46,150 @@ WHERE (sqlc.narg(category)::text IS NULL OR b.category = sqlc.narg(category))
   );
 
 -- name: GetCatalogBrandByUUID :one
-SELECT b.*,
+SELECT b.*, d.uuid AS display_brand_uuid, d.name AS display_brand_name,
     (SELECT COUNT(*) FROM catalog_types t WHERE t.brand_id = b.id AND t.is_active)::bigint AS types_count,
     (SELECT COUNT(*) FROM catalog_models m WHERE m.brand_id = b.id)::bigint AS models_count,
     (SELECT COUNT(*) FROM catalog_types t WHERE t.brand_id = b.id AND t.is_active AND t.model_id IS NULL)::bigint AS unresolved_count
 FROM catalog_brands b
+JOIN catalog_display_brands d ON d.id = b.display_brand_id
 WHERE b.uuid = $1;
 
 -- name: UpdateCatalogBrand :one
 UPDATE catalog_brands
-SET display_name = COALESCE(sqlc.narg(display_name), display_name),
-    category = COALESCE(sqlc.narg(category), category),
+SET category = COALESCE(sqlc.narg(category), category),
     is_active = COALESCE(sqlc.narg(is_active), is_active)
 WHERE uuid = sqlc.arg(uuid)
 RETURNING *;
+
+-- name: SetCatalogBrandDisplayBrand :execrows
+-- Points one TSB brand at a display brand; display_name mirrors its name.
+UPDATE catalog_brands b
+SET display_brand_id = d.id, display_name = d.name
+FROM catalog_display_brands d
+WHERE b.id = sqlc.arg(brand_id) AND d.id = sqlc.arg(display_brand_id)
+  AND (b.display_brand_id <> d.id OR b.display_name <> d.name);
+
+-- name: MoveCatalogBrandsDisplayBrand :execrows
+UPDATE catalog_brands b
+SET display_brand_id = d.id, display_name = d.name
+FROM catalog_display_brands d
+WHERE b.display_brand_id = sqlc.arg(from_id) AND d.id = sqlc.arg(to_id);
+
+-- name: SyncCatalogBrandsDisplayName :execrows
+UPDATE catalog_brands b
+SET display_name = d.name
+FROM catalog_display_brands d
+WHERE d.id = sqlc.arg(display_brand_id) AND b.display_brand_id = d.id AND b.display_name <> d.name;
+
+-- name: ListCatalogBrandsByDisplayBrand :many
+SELECT b.*,
+    (SELECT COUNT(*) FROM catalog_types t WHERE t.brand_id = b.id AND t.is_active)::bigint AS types_count
+FROM catalog_brands b
+WHERE b.display_brand_id = $1
+ORDER BY b.tsb_name, b.id;
+
+-- ---------- display brands ----------
+
+-- name: ListCatalogDisplayBrands :many
+SELECT d.*,
+    (SELECT COUNT(*) FROM catalog_brands b WHERE b.display_brand_id = d.id)::bigint AS brands_count,
+    (SELECT COUNT(*) FROM catalog_types t JOIN catalog_brands b ON b.id = t.brand_id
+        WHERE b.display_brand_id = d.id AND t.is_active)::bigint AS types_count,
+    (SELECT COUNT(DISTINCT m.group_key) FROM catalog_models m JOIN catalog_brands b ON b.id = m.brand_id
+        WHERE b.display_brand_id = d.id)::bigint AS models_count,
+    COALESCE((SELECT array_agg(b.tsb_name ORDER BY b.tsb_name) FROM catalog_brands b
+        WHERE b.display_brand_id = d.id), '{}')::text[] AS tsb_names
+FROM catalog_display_brands d
+WHERE (sqlc.narg(is_active)::boolean IS NULL OR d.is_active = sqlc.narg(is_active))
+  AND (NOT sqlc.arg(merged_only)::boolean OR (SELECT COUNT(*) FROM catalog_brands b WHERE b.display_brand_id = d.id) > 1)
+  AND (
+    sqlc.narg(q)::text IS NULL
+    OR d.name ILIKE '%' || sqlc.narg(q) || '%'
+    OR EXISTS (SELECT 1 FROM catalog_brands b WHERE b.display_brand_id = d.id
+        AND (b.tsb_name ILIKE '%' || sqlc.narg(q) || '%' OR b.tsb_code = sqlc.narg(q)))
+  )
+ORDER BY
+  CASE WHEN sqlc.arg(sort_field)::text = 'name' AND NOT sqlc.arg(sort_desc)::boolean THEN d.name END ASC,
+  CASE WHEN sqlc.arg(sort_field)::text = 'name' AND sqlc.arg(sort_desc)::boolean THEN d.name END DESC,
+  CASE WHEN sqlc.arg(sort_field)::text = 'brands_count' AND NOT sqlc.arg(sort_desc)::boolean THEN (SELECT COUNT(*) FROM catalog_brands b WHERE b.display_brand_id = d.id) END ASC,
+  CASE WHEN sqlc.arg(sort_field)::text = 'brands_count' AND sqlc.arg(sort_desc)::boolean THEN (SELECT COUNT(*) FROM catalog_brands b WHERE b.display_brand_id = d.id) END DESC,
+  CASE WHEN sqlc.arg(sort_field)::text = 'types_count' AND NOT sqlc.arg(sort_desc)::boolean THEN (SELECT COUNT(*) FROM catalog_types t JOIN catalog_brands b ON b.id = t.brand_id WHERE b.display_brand_id = d.id AND t.is_active) END ASC,
+  CASE WHEN sqlc.arg(sort_field)::text = 'types_count' AND sqlc.arg(sort_desc)::boolean THEN (SELECT COUNT(*) FROM catalog_types t JOIN catalog_brands b ON b.id = t.brand_id WHERE b.display_brand_id = d.id AND t.is_active) END DESC,
+  CASE WHEN sqlc.arg(sort_field)::text = 'created_at' AND NOT sqlc.arg(sort_desc)::boolean THEN d.created_at END ASC,
+  CASE WHEN sqlc.arg(sort_field)::text = 'created_at' AND sqlc.arg(sort_desc)::boolean THEN d.created_at END DESC,
+  d.name ASC, d.id ASC
+LIMIT sqlc.arg(limit_count) OFFSET sqlc.arg(offset_count);
+
+-- name: CountCatalogDisplayBrands :one
+SELECT COUNT(*)::bigint
+FROM catalog_display_brands d
+WHERE (sqlc.narg(is_active)::boolean IS NULL OR d.is_active = sqlc.narg(is_active))
+  AND (NOT sqlc.arg(merged_only)::boolean OR (SELECT COUNT(*) FROM catalog_brands b WHERE b.display_brand_id = d.id) > 1)
+  AND (
+    sqlc.narg(q)::text IS NULL
+    OR d.name ILIKE '%' || sqlc.narg(q) || '%'
+    OR EXISTS (SELECT 1 FROM catalog_brands b WHERE b.display_brand_id = d.id
+        AND (b.tsb_name ILIKE '%' || sqlc.narg(q) || '%' OR b.tsb_code = sqlc.narg(q)))
+  );
+
+-- name: GetCatalogDisplayBrandByUUID :one
+SELECT d.*,
+    (SELECT COUNT(*) FROM catalog_brands b WHERE b.display_brand_id = d.id)::bigint AS brands_count,
+    (SELECT COUNT(*) FROM catalog_types t JOIN catalog_brands b ON b.id = t.brand_id
+        WHERE b.display_brand_id = d.id AND t.is_active)::bigint AS types_count,
+    (SELECT COUNT(DISTINCT m.group_key) FROM catalog_models m JOIN catalog_brands b ON b.id = m.brand_id
+        WHERE b.display_brand_id = d.id)::bigint AS models_count,
+    COALESCE((SELECT array_agg(b.tsb_name ORDER BY b.tsb_name) FROM catalog_brands b
+        WHERE b.display_brand_id = d.id), '{}')::text[] AS tsb_names
+FROM catalog_display_brands d
+WHERE d.uuid = $1;
+
+-- name: GetCatalogDisplayBrandByName :one
+SELECT * FROM catalog_display_brands WHERE lower(name) = lower(sqlc.arg(name)::text);
+
+-- name: ListCatalogDisplayBrandsAll :many
+SELECT * FROM catalog_display_brands ORDER BY id;
+
+-- name: CatalogDisplayBrandSlugTaken :one
+SELECT EXISTS (
+    SELECT 1 FROM catalog_display_brands WHERE slug = sqlc.arg(slug) AND id <> sqlc.arg(except_id)
+)::boolean;
+
+-- name: CreateCatalogDisplayBrand :one
+INSERT INTO catalog_display_brands (name, slug)
+VALUES ($1, $2)
+RETURNING *;
+
+-- name: UpdateCatalogDisplayBrand :one
+UPDATE catalog_display_brands
+SET name = COALESCE(sqlc.narg(name), name),
+    slug = COALESCE(sqlc.narg(slug), slug),
+    is_active = COALESCE(sqlc.narg(is_active), is_active)
+WHERE id = sqlc.arg(id)
+RETURNING *;
+
+-- name: SetCatalogDisplayBrandLogo :one
+UPDATE catalog_display_brands SET logo_object_key = sqlc.narg(logo_object_key)
+WHERE id = sqlc.arg(id)
+RETURNING *;
+
+-- name: DeleteCatalogDisplayBrand :execrows
+DELETE FROM catalog_display_brands WHERE id = $1;
 
 -- name: ListCatalogBrandsAll :many
 SELECT * FROM catalog_brands ORDER BY id;
 
 -- name: ListCatalogModels :many
-SELECT m.*, b.uuid AS brand_uuid, b.display_name AS brand_display_name,
-    (SELECT COUNT(*) FROM catalog_types t WHERE t.model_id = m.id AND t.is_active)::bigint AS types_count
+SELECT m.*, b.uuid AS brand_uuid, b.display_name AS brand_display_name, b.tsb_code AS brand_tsb_code,
+    b.tsb_name AS brand_tsb_name, d.uuid AS display_brand_uuid, d.name AS display_brand_name,
+    (SELECT COUNT(*) FROM catalog_types t WHERE t.model_id = m.id AND t.is_active)::bigint AS types_count,
+    (SELECT COUNT(*) FROM catalog_models g JOIN catalog_brands gb ON gb.id = g.brand_id
+        WHERE g.group_key = m.group_key AND gb.display_brand_id = b.display_brand_id)::bigint AS group_size
 FROM catalog_models m
 JOIN catalog_brands b ON b.id = m.brand_id
+JOIN catalog_display_brands d ON d.id = b.display_brand_id
 WHERE (sqlc.narg(brand_id)::bigint IS NULL OR m.brand_id = sqlc.narg(brand_id))
+  AND (sqlc.narg(display_brand_id)::bigint IS NULL OR b.display_brand_id = sqlc.narg(display_brand_id))
   AND (sqlc.narg(source)::text IS NULL OR m.source = sqlc.narg(source))
   AND (sqlc.narg(q)::text IS NULL OR m.name ILIKE '%' || sqlc.narg(q) || '%')
 ORDER BY
@@ -86,16 +209,42 @@ LIMIT sqlc.arg(limit_count) OFFSET sqlc.arg(offset_count);
 -- name: CountCatalogModels :one
 SELECT COUNT(*)::bigint
 FROM catalog_models m
+JOIN catalog_brands b ON b.id = m.brand_id
 WHERE (sqlc.narg(brand_id)::bigint IS NULL OR m.brand_id = sqlc.narg(brand_id))
+  AND (sqlc.narg(display_brand_id)::bigint IS NULL OR b.display_brand_id = sqlc.narg(display_brand_id))
   AND (sqlc.narg(source)::text IS NULL OR m.source = sqlc.narg(source))
   AND (sqlc.narg(q)::text IS NULL OR m.name ILIKE '%' || sqlc.narg(q) || '%');
 
 -- name: GetCatalogModelByUUID :one
-SELECT m.*, b.uuid AS brand_uuid, b.display_name AS brand_display_name,
-    (SELECT COUNT(*) FROM catalog_types t WHERE t.model_id = m.id AND t.is_active)::bigint AS types_count
+SELECT m.*, b.uuid AS brand_uuid, b.display_name AS brand_display_name, b.tsb_code AS brand_tsb_code,
+    b.tsb_name AS brand_tsb_name, d.uuid AS display_brand_uuid, d.name AS display_brand_name,
+    (SELECT COUNT(*) FROM catalog_types t WHERE t.model_id = m.id AND t.is_active)::bigint AS types_count,
+    (SELECT COUNT(*) FROM catalog_models g JOIN catalog_brands gb ON gb.id = g.brand_id
+        WHERE g.group_key = m.group_key AND gb.display_brand_id = b.display_brand_id)::bigint AS group_size
 FROM catalog_models m
 JOIN catalog_brands b ON b.id = m.brand_id
+JOIN catalog_display_brands d ON d.id = b.display_brand_id
 WHERE m.uuid = $1;
+
+-- name: GetCatalogModelByBrandName :one
+SELECT * FROM catalog_models
+WHERE brand_id = sqlc.arg(brand_id) AND lower(name) = lower(sqlc.arg(name)::text);
+
+-- name: GetCatalogModelGroup :one
+-- The grouped model a tenant picked: every model with the same group key
+-- under the TSB brands of the model's display brand.
+SELECT b.display_brand_id, m.group_key::text AS group_key,
+    (SELECT g.name FROM catalog_models g JOIN catalog_brands gb ON gb.id = g.brand_id
+        WHERE g.group_key = m.group_key AND gb.display_brand_id = b.display_brand_id
+        ORDER BY (g.source = 'manual') DESC, g.id LIMIT 1)::text AS group_name,
+    d.uuid AS display_brand_uuid, d.name AS display_brand_name, d.is_active AS display_brand_active
+FROM catalog_models m
+JOIN catalog_brands b ON b.id = m.brand_id
+JOIN catalog_display_brands d ON d.id = b.display_brand_id
+WHERE m.uuid = $1;
+
+-- name: ListCatalogModelsByUUIDs :many
+SELECT * FROM catalog_models WHERE uuid = ANY(sqlc.arg(uuids)::uuid[]) ORDER BY id;
 
 -- name: CreateCatalogModel :one
 INSERT INTO catalog_models (brand_id, name, source)
@@ -139,11 +288,14 @@ RETURNING *;
 SELECT t.id, t.uuid, t.tsb_type_code, t.raw_name, t.years, t.suggested_transmission,
     t.suggested_fuel, t.first_seen_period, t.last_seen_period, t.is_active, t.created_at, t.updated_at,
     b.uuid AS brand_uuid, b.display_name AS brand_display_name, b.tsb_code AS brand_tsb_code,
+    d.uuid AS display_brand_uuid, d.name AS display_brand_name,
     m.uuid AS model_uuid, m.name AS model_name, m.source AS model_source
 FROM catalog_types t
 JOIN catalog_brands b ON b.id = t.brand_id
+JOIN catalog_display_brands d ON d.id = b.display_brand_id
 LEFT JOIN catalog_models m ON m.id = t.model_id
 WHERE (sqlc.narg(brand_id)::bigint IS NULL OR t.brand_id = sqlc.narg(brand_id))
+  AND (sqlc.narg(display_brand_id)::bigint IS NULL OR b.display_brand_id = sqlc.narg(display_brand_id))
   AND (sqlc.narg(category)::text IS NULL OR b.category = sqlc.narg(category))
   AND (sqlc.narg(model_id)::bigint IS NULL OR t.model_id = sqlc.narg(model_id))
   AND (sqlc.narg(year)::int IS NULL OR t.years @> ARRAY[sqlc.narg(year)::int])
@@ -177,6 +329,7 @@ SELECT COUNT(*)::bigint
 FROM catalog_types t
 JOIN catalog_brands b ON b.id = t.brand_id
 WHERE (sqlc.narg(brand_id)::bigint IS NULL OR t.brand_id = sqlc.narg(brand_id))
+  AND (sqlc.narg(display_brand_id)::bigint IS NULL OR b.display_brand_id = sqlc.narg(display_brand_id))
   AND (sqlc.narg(category)::text IS NULL OR b.category = sqlc.narg(category))
   AND (sqlc.narg(model_id)::bigint IS NULL OR t.model_id = sqlc.narg(model_id))
   AND (sqlc.narg(year)::int IS NULL OR t.years @> ARRAY[sqlc.narg(year)::int])
@@ -194,10 +347,12 @@ WHERE (sqlc.narg(brand_id)::bigint IS NULL OR t.brand_id = sqlc.narg(brand_id))
 SELECT t.id, t.uuid, t.brand_id, t.model_id, t.tsb_type_code, t.raw_name, t.years, t.suggested_transmission,
     t.suggested_fuel, t.first_seen_period, t.last_seen_period, t.is_active, t.created_at, t.updated_at,
     b.uuid AS brand_uuid, b.display_name AS brand_display_name, b.tsb_code AS brand_tsb_code,
-    b.tsb_name AS brand_tsb_name,
+    b.tsb_name AS brand_tsb_name, b.display_brand_id,
+    d.uuid AS display_brand_uuid, d.name AS display_brand_name,
     m.uuid AS model_uuid, m.name AS model_name, m.source AS model_source
 FROM catalog_types t
 JOIN catalog_brands b ON b.id = t.brand_id
+JOIN catalog_display_brands d ON d.id = b.display_brand_id
 LEFT JOIN catalog_models m ON m.id = t.model_id
 WHERE t.uuid = $1;
 
@@ -299,53 +454,79 @@ WHERE (sqlc.narg(status)::text IS NULL OR i.status = sqlc.narg(status))
 -- name: GetCatalogLatestPeriod :one
 SELECT COALESCE(MAX(period), '')::text FROM catalog_valuations;
 
--- Tenant read-only search (vehicle forms).
+-- Tenant read-only search (vehicle forms). Brands are display brands;
+-- models are grouped by (display brand, group key).
 
 -- name: TenantListCatalogBrands :many
-SELECT b.uuid, b.display_name, b.category
-FROM catalog_brands b
-WHERE b.is_active
-  AND (sqlc.narg(category)::text IS NULL OR b.category = sqlc.narg(category))
-  AND (sqlc.narg(q)::text IS NULL OR b.display_name ILIKE '%' || sqlc.narg(q) || '%')
+SELECT d.uuid, d.name, d.slug, d.logo_object_key, d.updated_at,
+    (SELECT b.category FROM catalog_brands b WHERE b.display_brand_id = d.id
+        ORDER BY (SELECT COUNT(*) FROM catalog_types t WHERE t.brand_id = b.id) DESC, b.id LIMIT 1)::text AS category
+FROM catalog_display_brands d
+WHERE d.is_active
+  AND (sqlc.narg(q)::text IS NULL OR d.name ILIKE '%' || sqlc.narg(q) || '%')
   AND EXISTS (
-    SELECT 1 FROM catalog_types t
-    WHERE t.brand_id = b.id AND t.is_active
+    SELECT 1 FROM catalog_brands b
+    JOIN catalog_types t ON t.brand_id = b.id
+    WHERE b.display_brand_id = d.id AND b.is_active AND t.is_active
+      AND (sqlc.narg(category)::text IS NULL OR b.category = sqlc.narg(category))
       AND (sqlc.narg(year)::int IS NULL OR t.years @> ARRAY[sqlc.narg(year)::int])
   )
-ORDER BY b.display_name, b.id
+ORDER BY d.name, d.id
 LIMIT sqlc.arg(limit_count) OFFSET sqlc.arg(offset_count);
 
 -- name: TenantCountCatalogBrands :one
 SELECT COUNT(*)::bigint
-FROM catalog_brands b
-WHERE b.is_active
-  AND (sqlc.narg(category)::text IS NULL OR b.category = sqlc.narg(category))
-  AND (sqlc.narg(q)::text IS NULL OR b.display_name ILIKE '%' || sqlc.narg(q) || '%')
+FROM catalog_display_brands d
+WHERE d.is_active
+  AND (sqlc.narg(q)::text IS NULL OR d.name ILIKE '%' || sqlc.narg(q) || '%')
   AND EXISTS (
-    SELECT 1 FROM catalog_types t
-    WHERE t.brand_id = b.id AND t.is_active
+    SELECT 1 FROM catalog_brands b
+    JOIN catalog_types t ON t.brand_id = b.id
+    WHERE b.display_brand_id = d.id AND b.is_active AND t.is_active
+      AND (sqlc.narg(category)::text IS NULL OR b.category = sqlc.narg(category))
       AND (sqlc.narg(year)::int IS NULL OR t.years @> ARRAY[sqlc.narg(year)::int])
   );
 
+-- name: GetActiveCatalogDisplayBrandForTenant :one
+-- Resolves a tenant brand reference: a display brand uuid, or (older
+-- clients) a TSB brand uuid mapped to its display brand.
+SELECT d.id, d.uuid, d.name
+FROM catalog_display_brands d
+WHERE d.is_active AND (
+    d.uuid = sqlc.arg(ref)
+    OR d.id = (SELECT b.display_brand_id FROM catalog_brands b WHERE b.uuid = sqlc.arg(ref))
+)
+LIMIT 1;
+
 -- name: TenantListCatalogModels :many
-SELECT m.uuid, m.name, b.uuid AS brand_uuid, b.display_name AS brand_display_name
+-- uuid / name come from the whole group (not only the filtered rows) so a
+-- grouped model keeps one id whatever the year filter is.
+SELECT (SELECT g.uuid FROM catalog_models g JOIN catalog_brands gb ON gb.id = g.brand_id
+        WHERE g.group_key = m.group_key AND gb.display_brand_id = sqlc.arg(display_brand_id)
+        ORDER BY g.id LIMIT 1)::uuid AS uuid,
+    (SELECT g.name FROM catalog_models g JOIN catalog_brands gb ON gb.id = g.brand_id
+        WHERE g.group_key = m.group_key AND gb.display_brand_id = sqlc.arg(display_brand_id)
+        ORDER BY (g.source = 'manual') DESC, g.id LIMIT 1)::text AS name,
+    m.group_key::text AS group_key,
+    COUNT(DISTINCT m.brand_id)::bigint AS tsb_brands
 FROM catalog_models m
 JOIN catalog_brands b ON b.id = m.brand_id
-WHERE b.is_active AND b.uuid = sqlc.arg(brand_uuid)
+WHERE b.is_active AND b.display_brand_id = sqlc.arg(display_brand_id)
   AND (sqlc.narg(q)::text IS NULL OR m.name ILIKE '%' || sqlc.narg(q) || '%')
   AND EXISTS (
     SELECT 1 FROM catalog_types t
     WHERE t.model_id = m.id AND t.is_active
       AND (sqlc.narg(year)::int IS NULL OR t.years @> ARRAY[sqlc.narg(year)::int])
   )
-ORDER BY m.name, m.id
+GROUP BY m.group_key
+ORDER BY m.group_key
 LIMIT sqlc.arg(limit_count) OFFSET sqlc.arg(offset_count);
 
 -- name: TenantCountCatalogModels :one
-SELECT COUNT(*)::bigint
+SELECT COUNT(DISTINCT m.group_key)::bigint
 FROM catalog_models m
 JOIN catalog_brands b ON b.id = m.brand_id
-WHERE b.is_active AND b.uuid = sqlc.arg(brand_uuid)
+WHERE b.is_active AND b.display_brand_id = sqlc.arg(display_brand_id)
   AND (sqlc.narg(q)::text IS NULL OR m.name ILIKE '%' || sqlc.narg(q) || '%')
   AND EXISTS (
     SELECT 1 FROM catalog_types t
@@ -355,8 +536,7 @@ WHERE b.is_active AND b.uuid = sqlc.arg(brand_uuid)
 
 -- name: TenantListCatalogTypes :many
 SELECT t.uuid, t.tsb_type_code, t.raw_name, t.years, t.suggested_transmission, t.suggested_fuel,
-    m.uuid AS model_uuid, m.name AS model_name,
-    b.uuid AS brand_uuid, b.display_name AS brand_display_name,
+    b.tsb_code AS brand_tsb_code,
     v.value AS kasko_value, COALESCE(v.period, '')::text AS kasko_period
 FROM catalog_types t
 JOIN catalog_brands b ON b.id = t.brand_id
@@ -367,7 +547,8 @@ LEFT JOIN LATERAL (
     ORDER BY cv.period DESC
     LIMIT 1
 ) v ON TRUE
-WHERE t.is_active AND b.is_active AND m.uuid = sqlc.arg(model_uuid)
+WHERE t.is_active AND b.is_active
+  AND b.display_brand_id = sqlc.arg(display_brand_id) AND m.group_key = sqlc.arg(group_key)::text
   AND (sqlc.narg(year)::int IS NULL OR t.years @> ARRAY[sqlc.narg(year)::int])
   AND (sqlc.narg(q)::text IS NULL OR t.raw_name ILIKE '%' || sqlc.narg(q) || '%')
 ORDER BY t.raw_name, t.id
@@ -378,6 +559,7 @@ SELECT COUNT(*)::bigint
 FROM catalog_types t
 JOIN catalog_brands b ON b.id = t.brand_id
 JOIN catalog_models m ON m.id = t.model_id
-WHERE t.is_active AND b.is_active AND m.uuid = sqlc.arg(model_uuid)
+WHERE t.is_active AND b.is_active
+  AND b.display_brand_id = sqlc.arg(display_brand_id) AND m.group_key = sqlc.arg(group_key)::text
   AND (sqlc.narg(year)::int IS NULL OR t.years @> ARRAY[sqlc.narg(year)::int])
   AND (sqlc.narg(q)::text IS NULL OR t.raw_name ILIKE '%' || sqlc.narg(q) || '%');

@@ -4,6 +4,7 @@
 //
 //	go run ./cmd/catalog-import -file 202610R1.xlsx            # dry run
 //	go run ./cmd/catalog-import -file 202610R1.xlsx -apply     # apply
+//	go run ./cmd/catalog-import -rebuild-auto                  # re-derive auto models
 package main
 
 import (
@@ -30,9 +31,10 @@ func main() {
 	period := flag.String("period", "", "override the period (YYYY-MM); default: read from cell A1")
 	apply := flag.Bool("apply", false, "apply the import (default: dry run only)")
 	showDiff := flag.Bool("diff", false, "print the diff samples as JSON")
+	rebuild := flag.Bool("rebuild-auto", false, "re-derive auto models of the stored catalog with the current rules (manual models and prefix rules are kept)")
 	flag.Parse()
-	if *file == "" {
-		fmt.Fprintln(os.Stderr, "usage: catalog-import -file <list.xlsx> [-period YYYY-MM] [-apply] [-diff]")
+	if *file == "" && !*rebuild {
+		fmt.Fprintln(os.Stderr, "usage: catalog-import -file <list.xlsx> [-period YYYY-MM] [-apply] [-diff] | -rebuild-auto")
 		os.Exit(2)
 	}
 
@@ -53,6 +55,18 @@ func main() {
 	}
 	defer pool.Close()
 	svc := usecase.New(repository.NewPostgres(pool, database.NewQueries(pool)), nil, nil, nil, log)
+
+	if *rebuild {
+		res, err := svc.RebuildAutoModels(ctx)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "rebuild:", err)
+			os.Exit(1)
+		}
+		printJSON("rebuild_auto", res)
+		if *file == "" {
+			return
+		}
+	}
 
 	started := time.Now()
 	f, err := os.Open(*file)

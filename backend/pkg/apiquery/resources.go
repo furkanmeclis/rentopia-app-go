@@ -73,6 +73,15 @@ var (
 	}
 	CatalogBrandsSearchable = []string{"display_name", "tsb_name", "tsb_code"}
 
+	// CatalogDisplayBrandsSort columns.
+	CatalogDisplayBrandsSort = SortColumns{
+		"name":         "name",
+		"brands_count": "brands_count",
+		"types_count":  "types_count",
+		"created_at":   "created_at",
+	}
+	CatalogDisplayBrandsSearchable = []string{"name", "tsb_name", "tsb_code"}
+
 	// CatalogModelsSort columns.
 	CatalogModelsSort = SortColumns{
 		"name":        "name",
