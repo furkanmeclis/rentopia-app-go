@@ -124,6 +124,9 @@ func (s *Service) SetSearchIndexer(indexer SearchIndexer) {
 var SortColumns = map[string]string{
 	"plate": "plate", "model_year": "model_year", "odometer_km": "odometer_km", "status": "status",
 	"kasko_value": "kasko_value", "is_active": "is_active", "created_at": "created_at", "updated_at": "updated_at",
+	"inspection_until": "inspection_until", "insurance_until": "insurance_until", "kasko_until": "kasko_until",
+	"document_expires_at": "document_expires_at", "next_maintenance_date": "next_maintenance_date",
+	"next_maintenance_km": "next_maintenance_km",
 }
 
 // List returns one page of the organization's vehicles in the caller's
@@ -133,6 +136,7 @@ func (s *Service) List(ctx context.Context, orgID int64, f model.ListFilter) ([]
 		f.SortField, f.SortDesc = "created_at", true
 	}
 	f.BranchIDs = orgctx.BranchScope(ctx)
+	f.Today = model.Today(s.now())
 	rows, total, err := s.repo.ListVehicles(ctx, orgID, f)
 	if err != nil {
 		return nil, 0, err
@@ -143,13 +147,13 @@ func (s *Service) List(ctx context.Context, orgID int64, f model.ListFilter) ([]
 
 // Facets returns the dynamic filter options in the caller's branch scope.
 func (s *Service) Facets(ctx context.Context, orgID int64) (model.Facets, error) {
-	rows, err := s.repo.Facets(ctx, orgID, orgctx.BranchScope(ctx))
+	rows, err := s.repo.Facets(ctx, orgID, orgctx.BranchScope(ctx), model.Today(s.now()))
 	if err != nil {
 		return model.Facets{}, err
 	}
 	out := model.Facets{
 		Status: []model.Facet{}, Ownership: []model.Facet{}, Pool: []model.Facet{}, IsActive: []model.Facet{},
-		HomeBranch: []model.Facet{}, CurrentBranch: []model.Facet{}, RentalGroup: []model.Facet{}, Segment: []model.Facet{},
+		DocumentStatus: []model.Facet{}, HomeBranch: []model.Facet{}, CurrentBranch: []model.Facet{}, RentalGroup: []model.Facet{}, Segment: []model.Facet{},
 	}
 	for _, row := range rows {
 		f := model.Facet{Value: row.Value, Label: row.Label, Count: row.Count}
@@ -162,6 +166,8 @@ func (s *Service) Facets(ctx context.Context, orgID int64) (model.Facets, error)
 			out.Pool = append(out.Pool, f)
 		case "is_active":
 			out.IsActive = append(out.IsActive, f)
+		case "document_status":
+			out.DocumentStatus = append(out.DocumentStatus, f)
 		case "home_branch":
 			out.HomeBranch = append(out.HomeBranch, f)
 		case "current_branch":
@@ -408,6 +414,7 @@ func (s *Service) Delete(ctx context.Context, orgID int64, id uuid.UUID) error {
 // matching" scope) in the caller's branch scope, capped at limit.
 func (s *Service) TargetUUIDs(ctx context.Context, orgID int64, f model.ListFilter, limit int32) ([]uuid.UUID, error) {
 	f.BranchIDs = orgctx.BranchScope(ctx)
+	f.Today = model.Today(s.now())
 	return s.repo.ListVehicleUUIDs(ctx, orgID, f, limit)
 }
 
@@ -416,6 +423,7 @@ func (s *Service) TargetUUIDs(ctx context.Context, orgID int64, f model.ListFilt
 func (s *Service) ExportRows(ctx context.Context, orgID int64, f model.ListFilter) ([]model.Vehicle, error) {
 	f.Limit, f.Offset, f.SortField, f.SortDesc = MaxListTargets, 0, "plate", false
 	f.BranchIDs = orgctx.BranchScope(ctx)
+	f.Today = model.Today(s.now())
 	rows, _, err := s.repo.ListVehicles(ctx, orgID, f)
 	if err != nil {
 		return nil, err
@@ -519,6 +527,18 @@ func (s *Service) GroupExists(ctx context.Context, orgID int64, id uuid.UUID) (b
 		return false, nil
 	}
 	return err == nil, err
+}
+
+// Lookup loads a live vehicle of the organization in the caller's branch
+// scope (home or current branch). Vehicle sub-resources (documents,
+// maintenance) use it so they answer exactly like the vehicle: another
+// organization's uuid or a vehicle outside the scope is ErrNotFound (404).
+func (s *Service) Lookup(ctx context.Context, orgID int64, id uuid.UUID) (db.Vehicle, error) {
+	row, err := s.getVehicle(ctx, orgID, id)
+	if err != nil {
+		return db.Vehicle{}, err
+	}
+	return row.Vehicle, nil
 }
 
 // getVehicle loads a vehicle of the organization and applies the caller's

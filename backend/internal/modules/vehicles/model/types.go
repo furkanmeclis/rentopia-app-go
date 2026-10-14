@@ -134,9 +134,19 @@ type Vehicle struct {
 	KaskoValue         *string    `json:"kasko_value"`
 	KaskoPeriod        *string    `json:"kasko_period"`
 	RentalGroups       []GroupRef `json:"rental_groups"`
-	IsActive           bool       `json:"is_active"`
-	CreatedAt          time.Time  `json:"created_at"`
-	UpdatedAt          time.Time  `json:"updated_at"`
+	// Expiry tracking (TEC-693), computed from the current document of each
+	// type (latest valid_until) and the open maintenance plans.
+	InspectionUntil     *string   `json:"inspection_until"`
+	InsuranceUntil      *string   `json:"insurance_until"`
+	KaskoUntil          *string   `json:"kasko_until"`
+	DocumentExpiresAt   *string   `json:"document_expires_at"`
+	DocumentStatus      string    `json:"document_status"`
+	NextMaintenanceDate *string   `json:"next_maintenance_date"`
+	NextMaintenanceKm   *int32    `json:"next_maintenance_km"`
+	MaintenanceStatus   string    `json:"maintenance_status"`
+	IsActive            bool      `json:"is_active"`
+	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
 }
 
 // VehicleInput is the create / patch body. Nil fields are left unchanged on
@@ -264,8 +274,13 @@ type ListFilter struct {
 	CurrentBranchUUIDs []uuid.UUID
 	GroupUUIDs         []uuid.UUID
 	SegmentUUIDs       []uuid.UUID
-	SortField          string
-	SortDesc           bool
+	// DocumentStatuses filters by the expiry state of the vehicle's next
+	// document (expired / expiring / valid / none).
+	DocumentStatuses []string
+	// Today is the reference day of DocumentStatuses (set by the usecase).
+	Today     time.Time
+	SortField string
+	SortDesc  bool
 	// BranchIDs is the caller's branch scope (orgctx.BranchScope): nil means
 	// every branch. Set by the usecase, never from the request.
 	BranchIDs []int64
@@ -274,6 +289,7 @@ type ListFilter struct {
 // QueryKeys are the list filters (HTTP list, export and bulk "all matching").
 var QueryKeys = []string{
 	"is_active", "status", "ownership", "pool", "home_branch", "current_branch", "rental_group", "segment",
+	"document_status",
 }
 
 // FilterFromQuery maps list query params to a filter; multi-value params
@@ -288,6 +304,7 @@ func FilterFromQuery(query map[string]string) ListFilter {
 		CurrentBranchUUIDs: splitUUIDs(query["current_branch"]),
 		GroupUUIDs:         splitUUIDs(query["rental_group"]),
 		SegmentUUIDs:       splitUUIDs(query["segment"]),
+		DocumentStatuses:   SplitList(query["document_status"]),
 	}
 	if v, err := strconv.ParseBool(strings.TrimSpace(query["is_active"])); err == nil {
 		f.IsActive = &v
@@ -333,14 +350,15 @@ type Facet struct {
 
 // Facets are the dynamic filter options of the vehicles list.
 type Facets struct {
-	Status        []Facet `json:"status"`
-	Ownership     []Facet `json:"ownership"`
-	Pool          []Facet `json:"pool"`
-	IsActive      []Facet `json:"is_active"`
-	HomeBranch    []Facet `json:"home_branch"`
-	CurrentBranch []Facet `json:"current_branch"`
-	RentalGroup   []Facet `json:"rental_group"`
-	Segment       []Facet `json:"segment"`
+	Status         []Facet `json:"status"`
+	Ownership      []Facet `json:"ownership"`
+	Pool           []Facet `json:"pool"`
+	IsActive       []Facet `json:"is_active"`
+	DocumentStatus []Facet `json:"document_status"`
+	HomeBranch     []Facet `json:"home_branch"`
+	CurrentBranch  []Facet `json:"current_branch"`
+	RentalGroup    []Facet `json:"rental_group"`
+	Segment        []Facet `json:"segment"`
 }
 
 // ActivityEntry is one audit event of a vehicle.

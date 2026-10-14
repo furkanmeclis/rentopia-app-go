@@ -64,7 +64,29 @@ func MapVehicle(row repository.VehicleRow, today time.Time) model.Vehicle {
 		out.KaskoValue, out.KaskoPeriod = &value, &period
 	}
 	out.InService = inService(v, today)
+	day := model.Today(today)
+	out.InspectionUntil = datePtr(row.InspectionUntil)
+	out.InsuranceUntil = datePtr(row.InsuranceUntil)
+	out.KaskoUntil = datePtr(row.KaskoUntil)
+	out.DocumentExpiresAt = datePtr(row.DocumentExpiresAt)
+	out.DocumentStatus = model.DocumentState(timePtr(row.DocumentExpiresAt), day)
+	out.NextMaintenanceDate = datePtr(row.NextMaintenanceDate)
+	var nextKm *int32
+	if row.NextMaintenanceKm >= 0 {
+		km := row.NextMaintenanceKm
+		nextKm = &km
+	}
+	out.NextMaintenanceKm = nextKm
+	out.MaintenanceStatus = model.MaintenanceState(timePtr(row.NextMaintenanceDate), nextKm, v.OdometerKm, day)
 	return out
+}
+
+func timePtr(d pgtype.Date) *time.Time {
+	if !d.Valid {
+		return nil
+	}
+	t := d.Time
+	return &t
 }
 
 // inService: active and today within [in_service_date, out_of_service_date].
