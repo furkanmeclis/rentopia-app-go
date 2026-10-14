@@ -222,7 +222,7 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		return do(o.owner, o.org.Slug, method, path, mw.FormDataContentType(), &form)
 	}
 	str := func(r resp, keys ...string) string {
-		var cur any = r.data
+		cur := r.data
 		for _, k := range keys {
 			m, _ := cur.(map[string]any)
 			cur = m[k]
@@ -507,7 +507,7 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			}
 			// A probe must reach the filter: 200, or the record named by the
 			// query is unknown in A ("not_found").
-			if query != "" && r.code != http.StatusOK && !(r.code < 500 && bytes.Contains(r.raw, []byte(`"not_found"`))) {
+			if query != "" && r.code != http.StatusOK && (r.code >= 500 || !bytes.Contains(r.raw, []byte(`"not_found"`))) {
 				t.Errorf("probe %s%s = %d (the probe must reach the query): %s", rt, query, r.code, r.raw)
 			}
 		}
