@@ -53,6 +53,12 @@ export const Permission = {
   TenantMembersWrite: "tenant.members.write",
   TenantRolesRead: "tenant.roles.read",
   TenantRolesWrite: "tenant.roles.write",
+  TenantBranchesRead: "tenant.branches.read",
+  TenantBranchesWrite: "tenant.branches.write",
+  TenantBranchesExport: "tenant.branches.export",
+  TenantBranchesImport: "tenant.branches.import",
+  TenantBranchesBulkActivate: "tenant.branches.bulk.activate",
+  TenantBranchesBulkDeactivate: "tenant.branches.bulk.deactivate",
 } as const;
 
 export type PermissionSlug = (typeof Permission)[keyof typeof Permission];
@@ -160,6 +166,14 @@ export const permissions = {
     roles: {
       read: Permission.TenantRolesRead,
       write: Permission.TenantRolesWrite,
+    },
+    branches: {
+      read: Permission.TenantBranchesRead,
+      write: Permission.TenantBranchesWrite,
+      export: Permission.TenantBranchesExport,
+      import: Permission.TenantBranchesImport,
+      bulkActivate: Permission.TenantBranchesBulkActivate,
+      bulkDeactivate: Permission.TenantBranchesBulkDeactivate,
     },
   },
 } as const;

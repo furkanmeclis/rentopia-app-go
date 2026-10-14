@@ -3,6 +3,7 @@ import type { AppLocale } from "@/config/i18n";
 import enAccess from "@/locales/en/access.json";
 import enActivity from "@/locales/en/activity.json";
 import enAuth from "@/locales/en/auth.json";
+import enBranches from "@/locales/en/branches.json";
 import enBranding from "@/locales/en/branding.json";
 import enBulk from "@/locales/en/bulk.json";
 import enChart from "@/locales/en/chart.json";
@@ -32,6 +33,7 @@ import enUsers from "@/locales/en/users.json";
 import trAccess from "@/locales/tr/access.json";
 import trActivity from "@/locales/tr/activity.json";
 import trAuth from "@/locales/tr/auth.json";
+import trBranches from "@/locales/tr/branches.json";
 import trBranding from "@/locales/tr/branding.json";
 import trBulk from "@/locales/tr/bulk.json";
 import trChart from "@/locales/tr/chart.json";
@@ -92,6 +94,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     stepup: trStepup,
     organizations: trOrganizations,
     tenant: trTenant,
+    branches: trBranches,
   },
   en: {
     common: enCommon,
@@ -123,6 +126,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     stepup: enStepup,
     organizations: enOrganizations,
     tenant: enTenant,
+    branches: enBranches,
   },
 };
 export function loadMessages(locale: AppLocale) {

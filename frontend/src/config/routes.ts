@@ -36,6 +36,15 @@ export const routes = {
   tenant: {
     root: (slug: string) => `/t/${encodeURIComponent(slug)}`,
     home: (slug: string) => `/t/${encodeURIComponent(slug)}`,
+    branches: {
+      root: (slug: string) => `/t/${encodeURIComponent(slug)}/branches`,
+      create: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/branches/create`,
+      detail: (slug: string, uuid: string) =>
+        `/t/${encodeURIComponent(slug)}/branches/${uuid}`,
+      edit: (slug: string, uuid: string) =>
+        `/t/${encodeURIComponent(slug)}/branches/${uuid}/edit`,
+    },
   },
   platform: {
     root: "/platform",

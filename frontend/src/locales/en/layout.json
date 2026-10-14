@@ -32,5 +32,7 @@
   "page_ready_description": "Platform and organization shells are ready.",
   "collapse_sidebar": "Collapse sidebar",
   "expand_sidebar": "Expand sidebar",
-  "nav_item_info": "Details"
+  "nav_item_info": "Details",
+  "section_operations": "Operations",
+  "nav_branches": "Branches"
 }

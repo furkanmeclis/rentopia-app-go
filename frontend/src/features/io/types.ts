@@ -80,17 +80,23 @@ export type ActivityEvent = {
   created_at: string;
 };
 
+/**
+ * Export / import resources. `tenant.*` resources are organization-scoped and
+ * go through `/v1/tenant/*` with the tenant `ApiScope` (see `useApiScope`).
+ */
 export type IoResource =
   | "platform.users"
   | "platform.roles"
   | "platform.notifications"
-  | "platform.activity";
+  | "platform.activity"
+  | "tenant.branches";
 
 export const EXPORT_PATHS: Record<IoResource, string> = {
   "platform.users": "/v1/platform/users/export",
   "platform.roles": "/v1/platform/roles/export",
   "platform.notifications": "/v1/platform/notifications/export",
   "platform.activity": "/v1/platform/activity/export",
+  "tenant.branches": "/v1/tenant/branches/export",
 };
 
 export const IMPORT_PATHS: Partial<
@@ -103,6 +109,10 @@ export const IMPORT_PATHS: Partial<
   "platform.roles": {
     upload: "/v1/platform/roles/import",
     sample: "/v1/platform/roles/import/sample",
+  },
+  "tenant.branches": {
+    upload: "/v1/tenant/branches/import",
+    sample: "/v1/tenant/branches/import/sample",
   },
 };
 
@@ -122,5 +132,18 @@ export const IMPORT_SCHEMA: Partial<
     { key: "slug", labelKey: "roles.fields.slug", required: true },
     { key: "description", labelKey: "roles.fields.description" },
     { key: "permission_slugs", labelKey: "roles.fields.permissions" },
+  ],
+  "tenant.branches": [
+    { key: "code", labelKey: "branches.fields.code", required: true },
+    { key: "name", labelKey: "branches.fields.name", required: true },
+    { key: "city", labelKey: "branches.fields.city" },
+    { key: "district", labelKey: "branches.fields.district" },
+    { key: "address", labelKey: "branches.fields.address" },
+    { key: "phone", labelKey: "branches.fields.phone" },
+    { key: "email", labelKey: "branches.fields.email" },
+    { key: "latitude", labelKey: "branches.fields.latitude" },
+    { key: "longitude", labelKey: "branches.fields.longitude" },
+    { key: "prep_minutes", labelKey: "branches.fields.prep_minutes" },
+    { key: "is_active", labelKey: "branches.fields.is_active" },
   ],
 };
