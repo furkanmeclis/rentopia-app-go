@@ -151,7 +151,15 @@ export function VehicleExpiryCards({
                 ? date(doc.value, undefined, locale)
                 : t("vehicles.summary.none")
             }
-            chip={<DocumentStatusChip status={status} />}
+            chip={
+              status === "none" ? (
+                <span className="text-muted-foreground text-sm">
+                  {t("vehicles.summary.no_document")}
+                </span>
+              ) : (
+                <DocumentStatusChip status={status} />
+              )
+            }
             hint={<DaysLeft days={days} />}
             actionLabel={t("vehicles.summary.open_documents")}
             onAction={() => onOpenTab("documents")}

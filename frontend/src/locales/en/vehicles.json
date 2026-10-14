@@ -241,6 +241,7 @@
   "summary.maintenance": "Next maintenance",
   "summary.none": "No record",
   "summary.no_plan": "No plan",
+  "summary.no_document": "No document added",
   "summary.open_documents": "Go to documents",
   "summary.open_maintenance": "Go to maintenance",
   "summary.open_kasko": "Kasko history",

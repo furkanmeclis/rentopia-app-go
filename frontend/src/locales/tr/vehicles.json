@@ -241,6 +241,7 @@
   "summary.maintenance": "Sonraki bakım",
   "summary.none": "Kayıt yok",
   "summary.no_plan": "Plan yok",
+  "summary.no_document": "Belge eklenmemiş",
   "summary.open_documents": "Belgelere git",
   "summary.open_maintenance": "Bakıma git",
   "summary.open_kasko": "Kasko geçmişi",

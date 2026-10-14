@@ -73,15 +73,19 @@ export function VehicleOdometerTab({ uuid }: { uuid: string }) {
     return out.sort((a, b) => b.at.localeCompare(a.at));
   }, [events.data, maintenance.data, t]);
 
-  const chartData = useMemo(
-    () =>
-      readings
-        .filter((r) => r.km != null)
-        .slice()
-        .reverse()
-        .map((r) => ({ label: date(r.at, "dd.MM.yy", locale), km: r.km })),
-    [locale, readings],
-  );
+  // One point per day (the highest reading of that day), oldest first: the
+  // category axis needs unique labels.
+  const chartData = useMemo(() => {
+    const byDay = new Map<string, number>();
+    for (const r of readings) {
+      if (r.km == null) continue;
+      const day = date(r.at, "yyyy-MM-dd", locale);
+      byDay.set(day, Math.max(byDay.get(day) ?? 0, r.km));
+    }
+    return [...byDay.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([day, km]) => ({ label: date(day, "dd.MM.yy", locale), km }));
+  }, [locale, readings]);
 
   const columns = useMemo(
     () =>
