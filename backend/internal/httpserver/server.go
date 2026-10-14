@@ -27,6 +27,11 @@ import (
 	authsettingsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/authsettings"
 	authsettingshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/authsettings/handler"
 	authsettingsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/authsettings/usecase"
+	branchesmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/branches"
+	branchadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/branches/adapters"
+	branchhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/branches/handler"
+	branchrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/branches/repository"
+	branchusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/branches/usecase"
 	bulkmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/bulk"
 	bulkhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/bulk/handler"
 	bulkusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/bulk/usecase"
@@ -179,6 +184,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	searchReg := searchengine.NewRegistry(
 		searchadapters.NewUsers(deps.Queries),
 		searchadapters.NewRoles(deps.Queries),
+		branchadapters.NewSearch(deps.Queries),
 	)
 	searchClient := searchengine.NewClient(cfg.Search, log)
 	searchIndexer := searchengine.NewIndexer(searchClient, searchReg, deps.Queue, log)
@@ -253,7 +259,13 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 
 	// Organizations (tenant core). Platform management is always mounted;
 	// the /v1/tenant/* shell only with TENANCY_ENABLED.
-	orgSvc := orgusecase.New(orgrepository.NewPostgres(deps.DB, deps.Queries), nil)
+	// Tenant resources (organization-scoped). OrganizationHooks seed the
+	// default branch of every new organization.
+	branchSvc := branchusecase.New(branchrepository.NewPostgres(deps.Queries), searchIndexer)
+	orgSvc := orgusecase.New(
+		orgrepository.NewPostgres(deps.DB, deps.Queries),
+		branchusecase.NewOrganizationHooks(searchIndexer),
+	)
 	uc.SetOrganizationsLister(orgSvc)
 	organizationsmodule.RegisterRoutes(mux, orghandler.New(orgSvc, activityRec), tokens, loader)
 	var tenantResolver orgctx.Resolver
@@ -287,12 +299,14 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		ioadapters.NewRoles(deps.Queries),
 		ioadapters.NewNotifications(deps.Queries),
 		ioadapters.NewActivity(deps.Queries),
+		branchadapters.NewIO(branchSvc),
 	)
 	exportSvc := exportusecase.New(deps.Queries, deps.Storage, ioReg, deps.Queue, notifSvc, activityRec, log)
 	importSvc := importusecase.New(deps.Queries, deps.Storage, ioReg, deps.Queue, notifSvc, activityRec, log)
 	bulkReg := bulkengine.NewRegistry(
 		bulkadapters.NewUsers(deps.Queries),
 		bulkadapters.NewRoles(deps.Queries),
+		branchadapters.NewBulk(branchSvc),
 	)
 	bulkSvc := bulkusecase.New(deps.Queries, bulkReg, deps.Queue, notifSvc, activityRec, cfg.Bulk, log)
 	logsSvc := logsusecase.New(deps.Queries)
@@ -310,9 +324,23 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 			)
 		}
 	}
-	exportmodule.RegisterRoutes(mux, exporthandler.New(exportSvc), tokens, loader, stepUpSvc)
-	importmodule.RegisterRoutes(mux, importhandler.New(importSvc), tokens, loader)
-	bulkmodule.RegisterRoutes(mux, bulkhandler.New(bulkSvc), tokens, loader)
+	exportH := exporthandler.New(exportSvc)
+	importH := importhandler.New(importSvc)
+	bulkH := bulkhandler.New(bulkSvc)
+	exportmodule.RegisterRoutes(mux, exportH, tokens, loader, stepUpSvc)
+	importmodule.RegisterRoutes(mux, importH, tokens, loader)
+	bulkmodule.RegisterRoutes(mux, bulkH, tokens, loader)
+	// Organization-scoped engine job routes and tenant resources (mounted
+	// only with TENANCY_ENABLED: a nil resolver mounts nothing).
+	exportmodule.RegisterTenantRoutes(mux, exportH, tokens, loader, tenantResolver)
+	importmodule.RegisterTenantRoutes(mux, importH, tokens, loader, tenantResolver)
+	bulkmodule.RegisterTenantRoutes(mux, bulkH, tokens, loader, tenantResolver)
+	branchesmodule.RegisterRoutes(mux, branchhandler.New(branchSvc, activityRec), branchesmodule.EngineHandlers{
+		Export: exportH.TenantExport(branchesmodule.Resource, branchesmodule.ExportQueryKeys...),
+		Import: importH.TenantUpload(branchesmodule.Resource),
+		Sample: importH.TenantSample(branchesmodule.Resource),
+		Bulk:   bulkH.TenantExecute(branchesmodule.Resource),
+	}, tokens, loader, tenantResolver)
 	settingsmodule.RegisterRoutes(mux, settingshandler.New(
 		settingsusecase.New(deps.Queries),
 		deps.Storage,
@@ -325,7 +353,9 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	activitymodule.RegisterRoutes(mux, activityhandler.New(activityusecase.New(deps.Queries)), tokens, loader)
 	logsmodule.RegisterRoutes(mux, logshandler.New(logsSvc), tokens, loader)
 	searchSvc := searchusecase.New(searchClient, searchReg, log)
-	searchmodule.RegisterRoutes(mux, searchhandler.New(searchSvc), tokens, loader)
+	searchH := searchhandler.New(searchSvc)
+	searchmodule.RegisterRoutes(mux, searchH, tokens, loader)
+	searchmodule.RegisterTenantRoutes(mux, searchH, tokens, loader, tenantResolver)
 	storagemodule.RegisterRoutes(
 		mux,
 		storagehandler.New(storageusecase.New(deps.Storage, deps.Queries, log)),
