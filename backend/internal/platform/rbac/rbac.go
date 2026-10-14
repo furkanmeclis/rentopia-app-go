@@ -76,7 +76,7 @@ const (
 	PermTenantReportExport     = "tenant.report.export"
 )
 
-// Tenant template role keys seeded by migrations 000030 and 000034.
+// Tenant template role keys seeded by migrations 000030 and 000041.
 const (
 	TenantRoleOwner            = "owner"
 	TenantRoleAdmin            = "admin"

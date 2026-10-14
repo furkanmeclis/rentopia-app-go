@@ -58,7 +58,7 @@ Seed data for new organizations through `OrganizationHooks.OnCreated(ctx, tx, or
 
 ### Branch scope (branch-bound resources)
 
-A member's `branch_scope` is `all` or `selected` (TEC-689, migration 000034); `orgctx.Scope.BranchIDs` is nil for `all` and the allowed branch ids otherwise. A resource that belongs to a branch (reservations, vehicles, contracts, …; branches themselves) must apply it everywhere it reads:
+A member's `branch_scope` is `all` or `selected` (TEC-689, migration 000041); `orgctx.Scope.BranchIDs` is nil for `all` and the allowed branch ids otherwise. A resource that belongs to a branch (reservations, vehicles, contracts, …; branches themselves) must apply it everywhere it reads:
 
 - Table: `branch_id BIGINT NOT NULL` + composite FK `(organization_id, branch_id) REFERENCES branches (organization_id, id)` and an index starting with `(organization_id, branch_id)`.
 - Queries: every list / count / facets / export / bulk-uuid query gets

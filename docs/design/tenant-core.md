@@ -77,7 +77,7 @@ Existing leftovers get wired or deleted in the same work: `EnqueueInput.TenantID
 
 - Platform permissions stay global (`user_roles` → `platform.*`). Nothing changes for `/platform`.
 - Tenant permissions come only from the membership in the **current** organization. A user who is owner in A and member in B has owner rights in A and member rights in B.
-- A member may hold several roles (`organization_member_roles`, migration 000034): permissions are the union. `organization_members.role_id` is kept as the primary (display) role, always one of the member's roles. Organizations add their own roles (`/v1/tenant/roles`); template roles are read-only.
+- A member may hold several roles (`organization_member_roles`, migration 000041): permissions are the union. `organization_members.role_id` is kept as the primary (display) role, always one of the member's roles. Organizations add their own roles (`/v1/tenant/roles`); template roles are read-only.
 - Branch scope: `organization_members.branch_scope` = `all` | `selected` (`organization_member_branches`). `orgctx.Scope.BranchIDs` (nil = all) is enforced by branch-bound usecases through `orgctx.BranchScope` / `CheckBranch` (404) / `RequireAllBranches` (403), by tenant search (`branch_ids` filter) and by worker jobs (`orgctx.WithJobScope` re-resolves the requester). See `.agents/skills/add-tenant-resource` §3.
 - `super_admin` gets no tenant bypass: tenant access needs a membership (or impersonating a member). Platform admins manage organizations through `/v1/platform/organizations`.
 - Slug convention: `tenant.<resource>.<action>`. Same triad rule as today (migration + `internal/platform/rbac` + `frontend/src/config/permissions.ts`).
