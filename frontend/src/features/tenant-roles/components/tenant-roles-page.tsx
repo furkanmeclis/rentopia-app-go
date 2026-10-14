@@ -20,12 +20,14 @@ import {
   useDeleteTenantRole,
   useTenantRolesList,
 } from "@/features/tenant-roles/hooks/use-tenant-roles";
-import type {
-  ListTenantRolesParams,
-  TenantRole,
+import {
+  TENANT_ROLES_RESOURCE,
+  type ListTenantRolesParams,
+  type TenantRole,
 } from "@/features/tenant-roles/types";
 import { tenantRoleLabel } from "@/features/tenant/lib/role-label";
 import { useTenant } from "@/features/tenant/components/tenant-provider";
+import { tenantLiveList } from "@/features/tenant/lib/live";
 import { useLocale } from "@/providers/locale-provider";
 
 function filterValues(value: unknown): string[] {
@@ -40,11 +42,12 @@ function filterValues(value: unknown): string[] {
  */
 export function TenantRolesPage() {
   const { t } = useLocale();
-  const { slug } = useTenant();
+  const { slug, organization } = useTenant();
   const router = useRouter();
   const listState = useServerListState({
     initialSort: "",
     initialPageSize: 20,
+    realtime: tenantLiveList(organization, TENANT_ROLES_RESOURCE),
   });
   const [deleteTarget, setDeleteTarget] = useState<TenantRole | null>(null);
 
@@ -120,6 +123,7 @@ export function TenantRolesPage() {
         isError={listQuery.isError}
         errorDescription={t("tenant_roles.load_failed")}
         onRetry={() => void listQuery.refetch()}
+        realtime={listState.realtimeFor(() => listQuery.refetch())}
         emptyTitle={
           hasFilters
             ? t("tenant_roles.empty_filtered_title")

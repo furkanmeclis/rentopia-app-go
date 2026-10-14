@@ -17,3 +17,6 @@ export type ListTenantMembersParams = {
   role?: string;
   branch_scope?: BranchScope;
 };
+
+/** Engine slug (live list channel `org:{uuid}:resource:tenant.members`). */
+export const TENANT_MEMBERS_RESOURCE = "tenant.members" as const;

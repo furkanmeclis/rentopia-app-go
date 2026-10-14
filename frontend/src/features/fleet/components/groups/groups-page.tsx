@@ -57,6 +57,7 @@ import type {
 } from "@/features/fleet/types";
 import { ResourceIOToolbar } from "@/features/io";
 import { useTenant } from "@/features/tenant/components/tenant-provider";
+import { tenantLiveList } from "@/features/tenant/lib/live";
 import { useLocale } from "@/providers/locale-provider";
 
 function countOf(facets: FleetFacet[] | undefined, value: string) {
@@ -69,11 +70,12 @@ function countOf(facets: FleetFacet[] | undefined, value: string) {
  */
 export function GroupsPage() {
   const { t, locale } = useLocale();
-  const { slug } = useTenant();
+  const { slug, organization } = useTenant();
   const router = useRouter();
   const listState = useServerListState({
     initialSort: "-created_at",
     initialPageSize: 20,
+    realtime: tenantLiveList(organization, RENTAL_GROUPS_RESOURCE),
   });
   const [quickEdit, setQuickEdit] = useState<RentalGroup | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<RentalGroup | null>(null);
@@ -388,6 +390,9 @@ export function GroupsPage() {
         isError={listQuery.isError}
         errorDescription={t("fleet.groups.load_failed")}
         onRetry={() => void listQuery.refetch()}
+        realtime={listState.realtimeFor(() =>
+          Promise.all([listQuery.refetch(), facetsQuery.refetch()]),
+        )}
         emptyTitle={
           hasFilters
             ? t("fleet.empty_filtered_title")

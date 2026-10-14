@@ -37,6 +37,7 @@ import {
 import type { ListSegmentsParams, Segment } from "@/features/fleet/types";
 import { ResourceIOToolbar } from "@/features/io";
 import { useTenant } from "@/features/tenant/components/tenant-provider";
+import { tenantLiveList } from "@/features/tenant/lib/live";
 import { useLocale } from "@/providers/locale-provider";
 
 /**
@@ -46,11 +47,12 @@ import { useLocale } from "@/providers/locale-provider";
  */
 export function SegmentsPage() {
   const { t, locale } = useLocale();
-  const { slug } = useTenant();
+  const { slug, organization } = useTenant();
   const router = useRouter();
   const listState = useServerListState({
     initialSort: "sort_order",
     initialPageSize: 20,
+    realtime: tenantLiveList(organization, SEGMENTS_RESOURCE),
   });
   const [quickEdit, setQuickEdit] = useState<Segment | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Segment | null>(null);
@@ -245,6 +247,7 @@ export function SegmentsPage() {
         isError={listQuery.isError}
         errorDescription={t("fleet.segments.load_failed")}
         onRetry={() => void listQuery.refetch()}
+        realtime={listState.realtimeFor(() => listQuery.refetch())}
         emptyTitle={
           hasFilters
             ? t("fleet.empty_filtered_title")
