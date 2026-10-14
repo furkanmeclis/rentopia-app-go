@@ -14,6 +14,10 @@ import type {
   SortingState,
 } from "@tanstack/react-table";
 
+import type {
+  DataTableRealtime,
+  ListRealtimeOptions,
+} from "@/components/tables/use-live-rows";
 import { useDebounce } from "@/hooks/use-debounce";
 
 export type ServerListParams = {
@@ -29,6 +33,12 @@ export type UseServerListStateOptions = {
   /** Column filters to start with (e.g. from URL search params). */
   initialColumnFilters?: ColumnFiltersState;
   searchDebounceMs?: number;
+  /**
+   * Opt-in live updates: the list follows `resource.changed` events on
+   * `resource:{resource}` (or `channel`). Pass `listState.realtimeFor(refetch)`
+   * to the DataTable / EntityTable `realtime` prop.
+   */
+  realtime?: ListRealtimeOptions;
 };
 
 function sortingToSortParam(sorting: SortingState): string | undefined {
@@ -59,7 +69,10 @@ export function useServerListState(options: UseServerListStateOptions = {}) {
     initialSort = "-created_at",
     initialColumnFilters,
     searchDebounceMs = 300,
+    realtime,
   } = options;
+  const realtimeResource = realtime?.resource;
+  const realtimeChannel = realtime?.channel;
 
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -119,6 +132,21 @@ export function useServerListState(options: UseServerListStateOptions = {}) {
     };
   }, [debouncedSearch, initialSort, pagination, sorting]);
 
+  const liveOptions = useMemo<ListRealtimeOptions | undefined>(
+    () =>
+      realtimeResource
+        ? { resource: realtimeResource, channel: realtimeChannel }
+        : undefined,
+    [realtimeChannel, realtimeResource],
+  );
+
+  /** DataTable `realtime` prop bound to the list query's refetch. */
+  const realtimeFor = useCallback(
+    (refetch: () => unknown): DataTableRealtime | undefined =>
+      liveOptions ? { ...liveOptions, refetch } : undefined,
+    [liveOptions],
+  );
+
   const resetListState = useCallback(() => {
     setPagination({ pageIndex: 0, pageSize: initialPageSize });
     setSorting(sortParamToSorting(initialSort));
@@ -138,6 +166,8 @@ export function useServerListState(options: UseServerListStateOptions = {}) {
     onColumnFiltersChange,
     onGlobalFilterChange,
     resetListState,
+    realtime: liveOptions,
+    realtimeFor,
     tableState: {
       pagination,
       onPaginationChange,

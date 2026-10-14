@@ -1010,8 +1010,12 @@ export interface paths {
         put?: never;
         /**
          * Issue Centrifugo subscription JWT
-         * @description Body `{ channel }`. Allowlist `user:{own_uuid}`, member `workspace:{uuid}`,
-         *     and `conversation:{uuid}` (authenticated session; HTTP inbox ACL is the hard boundary).
+         * @description Body `{ channel }`. Allowlist `user:{own_uuid}`, `system.notifications`
+         *     (super admin) and `resource:{name}` for live lists: the caller needs the
+         *     read permission the resource registered (e.g. `platform.users.read`);
+         *     unregistered resources are refused. Resource channels carry
+         *     `{ type: "resource.changed", resource, action: created|updated|deleted|bulk,
+         *     uuids, truncated?, at }` after mutations and bulk / import jobs.
          */
         post: operations["postRealtimeSubscriptionToken"];
         delete?: never;

@@ -88,6 +88,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx/orgcache"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/outbox"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/ratelimit"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/resourceevents"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/searchengine"
 	searchadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/searchengine/adapters"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/stepup"
@@ -195,6 +196,14 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	s.searchClient = searchClient
 	s.searchIndexer = searchIndexer
 	uc.SetSearchIndexer(searchIndexer)
+
+	// Live DataTables: resource-change events on "resource:{name}" channels;
+	// subscriptions need the read permission each module registers.
+	resourceEvents := resourceevents.New(deps.Realtime, log)
+	liveResources := resourceevents.NewRegistry()
+	authmodule.RegisterLiveResources(liveResources)
+	uc.SetResourceEvents(resourceEvents)
+	uc.AddChannelRules(liveResources.ChannelRule())
 
 	rtIssuer, err := realtime.NewTokenIssuer(cfg.Centrifugo)
 	if err != nil {
@@ -323,6 +332,8 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	)
 	bulkSvc := bulkusecase.New(deps.Queries, bulkReg, deps.Queue, notifSvc, activityRec, cfg.Bulk, log)
 	logsSvc := logsusecase.New(deps.Queries)
+	importSvc.SetResourceEvents(resourceEvents)
+	bulkSvc.SetResourceEvents(resourceEvents)
 	if s.worker != nil {
 		s.worker.WithExport(exportSvc.ProcessExport).
 			WithImport(importSvc.ProcessImport).
