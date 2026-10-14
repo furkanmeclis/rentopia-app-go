@@ -5274,7 +5274,7 @@ export interface components {
             type: components["schemas"]["GuaranteeType"];
             /**
              * Format: uuid
-             * @description EXACT_VEHICLE target (placeholder without a foreign key until the vehicles module exists)
+             * @description EXACT_VEHICLE target: a live vehicle of the organization (may be null on a draft)
              */
             vehicle_id: string | null;
             /** @enum {string|null} */

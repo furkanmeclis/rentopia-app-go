@@ -239,8 +239,8 @@ type ProductImage struct {
 // Guarantee is the promise of a product version.
 type Guarantee struct {
 	Type string `json:"type"`
-	// VehicleID is the guaranteed vehicle of EXACT_VEHICLE (no foreign key
-	// until the vehicles module exists; may be null).
+	// VehicleID is the guaranteed vehicle of EXACT_VEHICLE: a live vehicle
+	// of the organization, checked on save (no foreign key; may be null).
 	VehicleID    *uuid.UUID       `json:"vehicle_id"`
 	VariantLevel *string          `json:"variant_level"`
 	CatalogModel *CatalogModelRef `json:"catalog_model"`

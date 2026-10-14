@@ -620,3 +620,12 @@ JOIN rental_products p ON p.organization_id = i.organization_id AND p.id = i.pro
 WHERE i.organization_id = (SELECT o.id FROM organizations o WHERE o.uuid = sqlc.arg(organization_uuid))
   AND i.uuid = sqlc.arg(uuid)
   AND p.deleted_at IS NULL;
+
+-- name: FleetVehicleRef :one
+-- EXACT_VEHICLE guarantees: the vehicle must be a live vehicle of the
+-- organization; its plate becomes the guarantee label.
+SELECT plate
+FROM vehicles
+WHERE organization_id = sqlc.arg(organization_id)
+  AND uuid = sqlc.arg(uuid)
+  AND deleted_at IS NULL;

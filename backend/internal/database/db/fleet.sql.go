@@ -817,6 +817,28 @@ func (q *Queries) FleetCatalogTypeRefsByUUIDs(ctx context.Context, uuids []uuid.
 	return items, nil
 }
 
+const fleetVehicleRef = `-- name: FleetVehicleRef :one
+SELECT plate
+FROM vehicles
+WHERE organization_id = $1
+  AND uuid = $2
+  AND deleted_at IS NULL
+`
+
+type FleetVehicleRefParams struct {
+	OrganizationID int64     `json:"organization_id"`
+	Uuid           uuid.UUID `json:"uuid"`
+}
+
+// EXACT_VEHICLE guarantees: the vehicle must be a live vehicle of the
+// organization; its plate becomes the guarantee label.
+func (q *Queries) FleetVehicleRef(ctx context.Context, arg FleetVehicleRefParams) (string, error) {
+	row := q.db.QueryRow(ctx, fleetVehicleRef, arg.OrganizationID, arg.Uuid)
+	var plate string
+	err := row.Scan(&plate)
+	return plate, err
+}
+
 const getPublicRentalProductImage = `-- name: GetPublicRentalProductImage :one
 SELECT i.object_key, i.content_type, i.size_bytes
 FROM rental_product_images i

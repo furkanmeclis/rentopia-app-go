@@ -193,6 +193,9 @@ type Querier interface {
 	FleetCatalogModelRefsByUUIDs(ctx context.Context, uuids []uuid.UUID) ([]FleetCatalogModelRefsByUUIDsRow, error)
 	FleetCatalogTypeRefsByIDs(ctx context.Context, ids []int64) ([]FleetCatalogTypeRefsByIDsRow, error)
 	FleetCatalogTypeRefsByUUIDs(ctx context.Context, uuids []uuid.UUID) ([]FleetCatalogTypeRefsByUUIDsRow, error)
+	// EXACT_VEHICLE guarantees: the vehicle must be a live vehicle of the
+	// organization; its plate becomes the guarantee label.
+	FleetVehicleRef(ctx context.Context, arg FleetVehicleRefParams) (string, error)
 	// Resolves a tenant brand reference: a display brand uuid, or (older
 	// clients) a TSB brand uuid mapped to its display brand.
 	GetActiveCatalogDisplayBrandForTenant(ctx context.Context, ref uuid.UUID) (GetActiveCatalogDisplayBrandForTenantRow, error)

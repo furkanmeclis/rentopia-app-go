@@ -397,12 +397,34 @@ func TestProductVersioning(t *testing.T) {
 	if !errors.As(err, &ve) || ve.Details[0].Field != "guarantee.variant_level" {
 		t.Fatalf("variant guarantee validation: %v", err)
 	}
-	// EXACT_VEHICLE: the vehicle id is a placeholder until vehicles exist.
-	car := uuid.New()
-	ev, err := f.svc.CreateProduct(f.ctx, f.orgA, f.actor, model.RentalProductInput{
-		Code: ptr("X3"), Title: ptr("34 ABC 123"), SegmentUUID: &seg.UUID,
-		Guarantee: &model.GuaranteeInput{Type: model.GuaranteeExactVehicle, VehicleID: &car},
-	})
+	// EXACT_VEHICLE: the vehicle must be a live vehicle of the organization;
+	// its plate is the guarantee label.
+	vehicleOf := func(orgID int64, plate string) uuid.UUID {
+		t.Helper()
+		var id uuid.UUID
+		if err := f.pool.QueryRow(f.ctx, `WITH b AS (
+				INSERT INTO branches (organization_id, code, name) VALUES ($1, $2, 'Merkez') RETURNING id
+			)
+			INSERT INTO vehicles (organization_id, plate, manual_entry, manual_brand, manual_model, model_year, home_branch_id, current_branch_id)
+			SELECT $1, $3, TRUE, 'Fiat', 'Egea', 2024, b.id, b.id FROM b RETURNING uuid`,
+			orgID, "V"+uuid.NewString()[:6], plate).Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	exact := func(code string, car uuid.UUID) (model.RentalProduct, error) {
+		return f.svc.CreateProduct(f.ctx, f.orgA, f.actor, model.RentalProductInput{
+			Code: ptr(code), Title: ptr("Egea"), SegmentUUID: &seg.UUID,
+			Guarantee: &model.GuaranteeInput{Type: model.GuaranteeExactVehicle, VehicleID: &car},
+		})
+	}
+	for name, car := range map[string]uuid.UUID{"unknown": uuid.New(), "other_org": vehicleOf(f.orgB, "06 XYZ 06")} {
+		if _, err := exact("X3-"+name, car); !errors.As(err, &ve) || ve.Details[0].Field != "guarantee.vehicle_id" {
+			t.Fatalf("exact vehicle (%s) = %v", name, err)
+		}
+	}
+	car := vehicleOf(f.orgA, "34 ABC 123")
+	ev, err := exact("X3", car)
 	if err != nil || ev.Version.Guarantee.VehicleID == nil || *ev.Version.Guarantee.VehicleID != car ||
 		ev.DisplayText != "34 ABC 123 (araç garantili)" {
 		t.Fatalf("exact vehicle = %+v %v", ev, err)

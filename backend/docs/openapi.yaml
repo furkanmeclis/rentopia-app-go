@@ -8822,7 +8822,7 @@ components:
         vehicle_id:
           type: [string, "null"]
           format: uuid
-          description: EXACT_VEHICLE target (placeholder without a foreign key until the vehicles module exists)
+          description: "EXACT_VEHICLE target: a live vehicle of the organization (may be null on a draft)"
         variant_level:
           type: [string, "null"]
           enum: [model, type, null]
