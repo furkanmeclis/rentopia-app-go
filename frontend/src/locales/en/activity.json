@@ -26,6 +26,7 @@
   "actions.users.impersonated": "User impersonation started",
   "actions.users.impersonation_stopped": "User impersonation ended",
   "resources.platform.users": "Users",
+  "resources.platform.organizations": "Organizations",
   "resources.platform.roles": "Roles",
   "resources.platform.notifications": "Notifications",
   "resources.platform.activity": "Activity",
