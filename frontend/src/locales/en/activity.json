@@ -62,5 +62,21 @@
   "actions.catalog.model_created": "Catalog model created",
   "actions.catalog.model_updated": "Catalog model updated",
   "actions.catalog.model_merged": "Catalog models merged",
-  "actions.catalog.type_updated": "Catalog type updated"
+  "actions.catalog.type_updated": "Catalog type updated",
+  "resources.tenant.segments": "Segments",
+  "resources.tenant.rental_groups": "Rental groups",
+  "resources.tenant.rental_products": "Products",
+  "actions.segments.created": "Segment created",
+  "actions.segments.updated": "Segment updated",
+  "actions.segments.deleted": "Segment deleted",
+  "actions.rental_groups.created": "Rental group created",
+  "actions.rental_groups.updated": "Rental group updated",
+  "actions.rental_groups.deleted": "Rental group deleted",
+  "actions.rental_products.created": "Product created",
+  "actions.rental_products.updated": "Product updated",
+  "actions.rental_products.deleted": "Product deleted",
+  "actions.rental_products.version_created": "New product version created",
+  "actions.rental_products.image_uploaded": "Product image uploaded",
+  "actions.rental_products.image_deleted": "Product image deleted",
+  "actions.rental_products.images_reordered": "Product images reordered"
 }

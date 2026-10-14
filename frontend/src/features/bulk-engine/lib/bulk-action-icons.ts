@@ -28,6 +28,14 @@ const bulkActionIconCatalog: Record<
     activate: CircleCheck,
     deactivate: CircleOff,
   },
+  "tenant.rental_groups": {
+    activate: CircleCheck,
+    deactivate: CircleOff,
+  },
+  "tenant.rental_products": {
+    activate: CircleCheck,
+    deactivate: CircleOff,
+  },
 };
 
 export function resolveBulkActionIcon(

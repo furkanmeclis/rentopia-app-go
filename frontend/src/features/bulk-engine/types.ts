@@ -46,7 +46,11 @@ export type BulkExecuteSyncResult = {
 };
 
 export type BulkResource =
-  "platform.users" | "platform.roles" | "tenant.branches";
+  | "platform.users"
+  | "platform.roles"
+  | "tenant.branches"
+  | "tenant.rental_groups"
+  | "tenant.rental_products";
 
 /**
  * Execute route per resource. `tenant.*` resources are organization-scoped:
@@ -56,6 +60,8 @@ export const BULK_PATHS: Record<BulkResource, string> = {
   "platform.users": "/v1/platform/users/bulk",
   "platform.roles": "/v1/platform/roles/bulk",
   "tenant.branches": "/v1/tenant/branches/bulk",
+  "tenant.rental_groups": "/v1/tenant/rental-groups/bulk",
+  "tenant.rental_products": "/v1/tenant/products/bulk",
 };
 
 export type SelectionScope =

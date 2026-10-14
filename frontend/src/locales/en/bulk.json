@@ -18,5 +18,11 @@
   "confirm.roles.delete": "Delete {{count}} selected roles?",
   "actions.branches.activate": "Activate branches",
   "actions.branches.deactivate": "Deactivate branches",
-  "confirm.branches.deactivate": "Deactivate {{count}} selected branches? They cannot be picked for new bookings."
+  "confirm.branches.deactivate": "Deactivate {{count}} selected branches? They cannot be picked for new bookings.",
+  "actions.rental_groups.activate": "Activate groups",
+  "actions.rental_groups.deactivate": "Deactivate groups",
+  "confirm.rental_groups.deactivate": "Deactivate {{count}} selected rental groups? They cannot be picked for new products.",
+  "actions.rental_products.activate": "Activate products",
+  "actions.rental_products.deactivate": "Deactivate products",
+  "confirm.rental_products.deactivate": "Deactivate {{count}} selected products? They are taken off sale."
 }

@@ -55,5 +55,8 @@
   "toast.download_failed": "Dosya indirilemedi.",
   "resources.tenant.branches": "Şubeler",
   "toast.preparing": "Dosya hazırlanıyor…",
-  "toast.ready": "Dosya hazır, indiriliyor."
+  "toast.ready": "Dosya hazır, indiriliyor.",
+  "resources.tenant.segments": "Segmentler",
+  "resources.tenant.rental_groups": "Kiralama grupları",
+  "resources.tenant.rental_products": "Ürünler"
 }

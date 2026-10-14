@@ -35,5 +35,9 @@
   "nav_item_info": "Detaylar",
   "section_operations": "Operasyon",
   "nav_branches": "Şubeler",
-  "nav_catalog": "Araç kataloğu"
+  "nav_catalog": "Araç kataloğu",
+  "section_fleet": "Filo",
+  "nav_fleet_segments": "Segmentler",
+  "nav_fleet_groups": "Kiralama grupları",
+  "nav_fleet_products": "Ürünler"
 }

@@ -9,6 +9,7 @@ import {
   Settings2,
   Shield,
   Store,
+  Tags,
   Upload,
   Users,
   type LucideIcon,
@@ -31,6 +32,7 @@ const ICONS: Record<string, LucideIcon> = {
   home: LayoutDashboard,
   github: githubNavIcon,
   branches: Store,
+  products: Tags,
 };
 
 export function resolveSearchIcon(name?: string): LucideIcon {

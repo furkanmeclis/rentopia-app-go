@@ -62,5 +62,21 @@
   "actions.catalog.model_created": "Katalog modeli oluşturuldu",
   "actions.catalog.model_updated": "Katalog modeli güncellendi",
   "actions.catalog.model_merged": "Katalog modelleri birleştirildi",
-  "actions.catalog.type_updated": "Katalog tipi güncellendi"
+  "actions.catalog.type_updated": "Katalog tipi güncellendi",
+  "resources.tenant.segments": "Segmentler",
+  "resources.tenant.rental_groups": "Kiralama grupları",
+  "resources.tenant.rental_products": "Ürünler",
+  "actions.segments.created": "Segment oluşturuldu",
+  "actions.segments.updated": "Segment güncellendi",
+  "actions.segments.deleted": "Segment silindi",
+  "actions.rental_groups.created": "Kiralama grubu oluşturuldu",
+  "actions.rental_groups.updated": "Kiralama grubu güncellendi",
+  "actions.rental_groups.deleted": "Kiralama grubu silindi",
+  "actions.rental_products.created": "Ürün oluşturuldu",
+  "actions.rental_products.updated": "Ürün güncellendi",
+  "actions.rental_products.deleted": "Ürün silindi",
+  "actions.rental_products.version_created": "Yeni ürün sürümü oluşturuldu",
+  "actions.rental_products.image_uploaded": "Ürün görseli yüklendi",
+  "actions.rental_products.image_deleted": "Ürün görseli silindi",
+  "actions.rental_products.images_reordered": "Ürün görsellerinin sırası değişti"
 }
