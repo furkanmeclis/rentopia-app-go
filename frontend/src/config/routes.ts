@@ -86,6 +86,16 @@ export const routes = {
       root: "/platform/notifications",
       detail: (uuid: string) => `/platform/notifications/${uuid}`,
     },
+    /** Vehicle catalog (TSB kasko list): tabs brands / models / types / imports. */
+    catalog: {
+      root: "/platform/catalog",
+      brands: "/platform/catalog/brands",
+      models: "/platform/catalog/models",
+      types: "/platform/catalog/types",
+      typeDetail: (uuid: string) => `/platform/catalog/types/${uuid}`,
+      imports: "/platform/catalog/imports",
+      importDetail: (uuid: string) => `/platform/catalog/imports/${uuid}`,
+    },
     imports: {
       root: "/platform/settings/imports",
       detail: (uuid: string) => `/platform/settings/imports/${uuid}`,

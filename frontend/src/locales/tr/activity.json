@@ -53,5 +53,14 @@
   "actions.branches.deleted": "Şube silindi",
   "actions.branches.service_point_created": "Hizmet noktası eklendi",
   "actions.branches.service_point_updated": "Hizmet noktası güncellendi",
-  "actions.branches.service_point_deleted": "Hizmet noktası silindi"
+  "actions.branches.service_point_deleted": "Hizmet noktası silindi",
+  "resources.platform.catalog": "Araç kataloğu",
+  "actions.catalog.import_uploaded": "Kasko listesi yüklendi",
+  "actions.catalog.import_apply_requested": "Kasko listesinin uygulanması istendi",
+  "actions.catalog.import_applied": "Kasko listesi uygulandı",
+  "actions.catalog.brand_updated": "Katalog markası güncellendi",
+  "actions.catalog.model_created": "Katalog modeli oluşturuldu",
+  "actions.catalog.model_updated": "Katalog modeli güncellendi",
+  "actions.catalog.model_merged": "Katalog modelleri birleştirildi",
+  "actions.catalog.type_updated": "Katalog tipi güncellendi"
 }

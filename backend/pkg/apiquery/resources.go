@@ -61,4 +61,44 @@ var (
 		"type":       "type",
 	}
 	StorageSearchable = []string{"name", "key", "mime_type"}
+
+	// CatalogBrandsSort columns (platform vehicle catalog).
+	CatalogBrandsSort = SortColumns{
+		"display_name": "display_name",
+		"tsb_name":     "tsb_name",
+		"tsb_code":     "tsb_code",
+		"category":     "category",
+		"types_count":  "types_count",
+		"created_at":   "created_at",
+	}
+	CatalogBrandsSearchable = []string{"display_name", "tsb_name", "tsb_code"}
+
+	// CatalogModelsSort columns.
+	CatalogModelsSort = SortColumns{
+		"name":        "name",
+		"brand":       "brand",
+		"source":      "source",
+		"types_count": "types_count",
+		"created_at":  "created_at",
+	}
+	CatalogModelsSearchable = []string{"name"}
+
+	// CatalogTypesSort columns.
+	CatalogTypesSort = SortColumns{
+		"raw_name":         "raw_name",
+		"tsb_type_code":    "tsb_type_code",
+		"brand":            "brand",
+		"model":            "model",
+		"last_seen_period": "last_seen_period",
+		"created_at":       "created_at",
+	}
+	CatalogTypesSearchable = []string{"raw_name", "tsb_type_code"}
+
+	// CatalogImportsSort columns.
+	CatalogImportsSort = SortColumns{
+		"period":     "period",
+		"status":     "status",
+		"created_at": "created_at",
+	}
+	CatalogImportsSearchable = []string{"filename", "period"}
 )

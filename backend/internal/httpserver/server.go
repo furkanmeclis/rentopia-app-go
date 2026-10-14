@@ -35,6 +35,10 @@ import (
 	bulkmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/bulk"
 	bulkhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/bulk/handler"
 	bulkusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/bulk/usecase"
+	catalogmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog"
+	cataloghandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/handler"
+	catalogrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/repository"
+	catalogusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/usecase"
 	exportmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/exports"
 	exporthandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/exports/handler"
 	exportusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/exports/usecase"
@@ -275,6 +279,15 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		tenantResolver = orgCache
 	}
 	tenantmodule.RegisterRoutes(mux, tokens, loader, tenantResolver)
+
+	// Vehicle catalog (TSB kasko list): platform curation + imports, and
+	// read-only lookups for organization members when tenancy is on.
+	var catalogQueue catalogusecase.Enqueuer
+	if deps.Queue != nil {
+		catalogQueue = deps.Queue
+	}
+	catalogSvc := catalogusecase.New(catalogrepository.NewPostgres(deps.DB, deps.Queries), deps.Storage, catalogQueue, activityRec, log)
+	catalogmodule.RegisterRoutes(mux, cataloghandler.New(catalogSvc, activityRec), tokens, loader, tenantResolver)
 	realtime.RegisterRoutes(mux, realtime.NewHandler(rtIssuer, uc), tokens, loader)
 
 	qrGeo, err := qrlogin.NewLocator(cfg.Auth.QRGeoIPDB, cfg.Auth.QRTrustGeoHeaders)
@@ -315,7 +328,8 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 			WithImport(importSvc.ProcessImport).
 			WithBulk(bulkSvc.ProcessBulk).
 			WithLogPurge(logsSvc.ApplyDueRules).
-			WithMobilePush(notifSvc.SendMobilePush, notifSvc.ProcessPushReceipts)
+			WithMobilePush(notifSvc.SendMobilePush, notifSvc.ProcessPushReceipts).
+			WithCatalogImport(catalogSvc.ProcessImport)
 		if searchIndexer != nil {
 			s.worker.WithSearch(
 				searchIndexer.ProcessUpsert,

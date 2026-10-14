@@ -114,6 +114,77 @@ type BulkJob struct {
 	OrganizationID pgtype.Int8        `json:"organization_id"`
 }
 
+type CatalogBrand struct {
+	ID          int64              `json:"id"`
+	Uuid        uuid.UUID          `json:"uuid"`
+	TsbCode     string             `json:"tsb_code"`
+	TsbName     string             `json:"tsb_name"`
+	DisplayName string             `json:"display_name"`
+	Category    string             `json:"category"`
+	IsActive    bool               `json:"is_active"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CatalogImport struct {
+	ID        int64              `json:"id"`
+	Uuid      uuid.UUID          `json:"uuid"`
+	Period    pgtype.Text        `json:"period"`
+	Filename  string             `json:"filename"`
+	FileKey   pgtype.Text        `json:"file_key"`
+	Status    string             `json:"status"`
+	Counts    []byte             `json:"counts"`
+	Diff      []byte             `json:"diff"`
+	Error     pgtype.Text        `json:"error"`
+	CreatedBy pgtype.Int8        `json:"created_by"`
+	AppliedAt pgtype.Timestamptz `json:"applied_at"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CatalogModel struct {
+	ID        int64              `json:"id"`
+	Uuid      uuid.UUID          `json:"uuid"`
+	BrandID   int64              `json:"brand_id"`
+	Name      string             `json:"name"`
+	Source    string             `json:"source"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CatalogModelRule struct {
+	ID        int64              `json:"id"`
+	BrandID   int64              `json:"brand_id"`
+	Prefix    string             `json:"prefix"`
+	ModelID   int64              `json:"model_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CatalogType struct {
+	ID                    int64              `json:"id"`
+	Uuid                  uuid.UUID          `json:"uuid"`
+	BrandID               int64              `json:"brand_id"`
+	ModelID               pgtype.Int8        `json:"model_id"`
+	TsbTypeCode           string             `json:"tsb_type_code"`
+	RawName               string             `json:"raw_name"`
+	Years                 []int32            `json:"years"`
+	SuggestedTransmission pgtype.Text        `json:"suggested_transmission"`
+	SuggestedFuel         pgtype.Text        `json:"suggested_fuel"`
+	FirstSeenPeriod       string             `json:"first_seen_period"`
+	LastSeenPeriod        string             `json:"last_seen_period"`
+	IsActive              bool               `json:"is_active"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CatalogValuation struct {
+	TypeID    int64          `json:"type_id"`
+	ModelYear int32          `json:"model_year"`
+	Period    string         `json:"period"`
+	Value     pgtype.Numeric `json:"value"`
+}
+
 type ExportJob struct {
 	ID             int64              `json:"id"`
 	Uuid           uuid.UUID          `json:"uuid"`

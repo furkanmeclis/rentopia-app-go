@@ -15,6 +15,9 @@ type Querier interface {
 	AddOrganizationMember(ctx context.Context, arg AddOrganizationMemberParams) (OrganizationMember, error)
 	AssignUserRoleBySlug(ctx context.Context, arg AssignUserRoleBySlugParams) error
 	BranchCodeTaken(ctx context.Context, arg BranchCodeTakenParams) (bool, error)
+	// Moves an import into a working state only from an allowed state, so two
+	// apply requests cannot run at once.
+	ClaimCatalogImport(ctx context.Context, arg ClaimCatalogImportParams) (CatalogImport, error)
 	ClaimOutboxEvents(ctx context.Context, arg ClaimOutboxEventsParams) ([]OutboxEvent, error)
 	ClearAppSettingsLogo(ctx context.Context) (AppSetting, error)
 	ConfirmUserTOTP(ctx context.Context, arg ConfirmUserTOTPParams) (UserTotp, error)
@@ -27,6 +30,10 @@ type Querier interface {
 	CountAppLogsByLevel(ctx context.Context) ([]CountAppLogsByLevelRow, error)
 	CountBranches(ctx context.Context, arg CountBranchesParams) (int64, error)
 	CountBulkJobsForActor(ctx context.Context, actorID int64) (int64, error)
+	CountCatalogBrands(ctx context.Context, arg CountCatalogBrandsParams) (int64, error)
+	CountCatalogImports(ctx context.Context, arg CountCatalogImportsParams) (int64, error)
+	CountCatalogModels(ctx context.Context, arg CountCatalogModelsParams) (int64, error)
+	CountCatalogTypes(ctx context.Context, arg CountCatalogTypesParams) (int64, error)
 	CountExportJobsForActor(ctx context.Context, actorID int64) (int64, error)
 	CountImportJobsForActor(ctx context.Context, actorID int64) (int64, error)
 	CountNotificationsForUser(ctx context.Context, arg CountNotificationsForUserParams) (int64, error)
@@ -41,12 +48,15 @@ type Querier interface {
 	CountStorageActivity(ctx context.Context, objectKey string) (int64, error)
 	CountStorageTrash(ctx context.Context) (int64, error)
 	CountUnreadInappForUser(ctx context.Context, userID pgtype.Int8) (int64, error)
+	CountUnresolvedCatalogTypesByCategory(ctx context.Context) ([]CountUnresolvedCatalogTypesByCategoryRow, error)
 	CountUsers(ctx context.Context, arg CountUsersParams) (int64, error)
 	CountUsersWithRole(ctx context.Context, roleSlug string) (int64, error)
 	// Tenant resource: branches and service points.
 	// Every query filters by organization_id (see docs/design/tenant-core.md §8).
 	CreateBranch(ctx context.Context, arg CreateBranchParams) (Branch, error)
 	CreateBulkJob(ctx context.Context, arg CreateBulkJobParams) (BulkJob, error)
+	CreateCatalogImport(ctx context.Context, arg CreateCatalogImportParams) (CatalogImport, error)
+	CreateCatalogModel(ctx context.Context, arg CreateCatalogModelParams) (CatalogModel, error)
 	CreateExportJob(ctx context.Context, arg CreateExportJobParams) (ExportJob, error)
 	CreateImportJob(ctx context.Context, arg CreateImportJobParams) (ImportJob, error)
 	CreateLogPurgeRule(ctx context.Context, arg CreateLogPurgeRuleParams) (LogPurgeRule, error)
@@ -65,6 +75,7 @@ type Querier interface {
 	DeleteAppLogByUUID(ctx context.Context, argUuid uuid.UUID) (int64, error)
 	DeleteAppLogsByUUIDs(ctx context.Context, uuids []uuid.UUID) (int64, error)
 	DeleteAppLogsMatching(ctx context.Context, arg DeleteAppLogsMatchingParams) (int64, error)
+	DeleteCatalogModel(ctx context.Context, id int64) (int64, error)
 	DeleteLogPurgeRule(ctx context.Context, argUuid uuid.UUID) (int64, error)
 	DeleteOAuthAccountByProviderAccount(ctx context.Context, arg DeleteOAuthAccountByProviderAccountParams) error
 	DeleteOAuthAccountByUserProvider(ctx context.Context, arg DeleteOAuthAccountByUserProviderParams) error
@@ -94,6 +105,12 @@ type Querier interface {
 	GetBranchSearchDocument(ctx context.Context, arg GetBranchSearchDocumentParams) (GetBranchSearchDocumentRow, error)
 	GetBulkJobByID(ctx context.Context, id int64) (BulkJob, error)
 	GetBulkJobByUUID(ctx context.Context, argUuid uuid.UUID) (BulkJob, error)
+	GetCatalogBrandByUUID(ctx context.Context, argUuid uuid.UUID) (GetCatalogBrandByUUIDRow, error)
+	GetCatalogImportByID(ctx context.Context, id int64) (CatalogImport, error)
+	GetCatalogImportByUUID(ctx context.Context, argUuid uuid.UUID) (CatalogImport, error)
+	GetCatalogLatestPeriod(ctx context.Context) (string, error)
+	GetCatalogModelByUUID(ctx context.Context, argUuid uuid.UUID) (GetCatalogModelByUUIDRow, error)
+	GetCatalogTypeByUUID(ctx context.Context, argUuid uuid.UUID) (GetCatalogTypeByUUIDRow, error)
 	GetExportJobByID(ctx context.Context, id int64) (ExportJob, error)
 	GetExportJobByUUID(ctx context.Context, argUuid uuid.UUID) (ExportJob, error)
 	GetGitHubAppSettings(ctx context.Context) (GithubAppSetting, error)
@@ -167,6 +184,21 @@ type Querier interface {
 	ListBranchesForExport(ctx context.Context, arg ListBranchesForExportParams) ([]Branch, error)
 	ListBulkChangesForJob(ctx context.Context, jobID int64) ([]BulkChange, error)
 	ListBulkJobsForActor(ctx context.Context, arg ListBulkJobsForActorParams) ([]BulkJob, error)
+	// Platform vehicle catalog (TSB kasko list).
+	ListCatalogBrands(ctx context.Context, arg ListCatalogBrandsParams) ([]ListCatalogBrandsRow, error)
+	ListCatalogBrandsAll(ctx context.Context) ([]CatalogBrand, error)
+	ListCatalogImports(ctx context.Context, arg ListCatalogImportsParams) ([]ListCatalogImportsRow, error)
+	ListCatalogModelRulesAll(ctx context.Context) ([]CatalogModelRule, error)
+	ListCatalogModelRulesByModel(ctx context.Context, modelID int64) ([]CatalogModelRule, error)
+	ListCatalogModels(ctx context.Context, arg ListCatalogModelsParams) ([]ListCatalogModelsRow, error)
+	ListCatalogModelsAll(ctx context.Context) ([]CatalogModel, error)
+	ListCatalogTypeValuations(ctx context.Context, typeID int64) ([]ListCatalogTypeValuationsRow, error)
+	ListCatalogTypes(ctx context.Context, arg ListCatalogTypesParams) ([]ListCatalogTypesRow, error)
+	// Types of a brand that a new prefix rule may (re)assign: no model yet, or
+	// an auto-derived one.
+	ListCatalogTypesForRule(ctx context.Context, brandID int64) ([]ListCatalogTypesForRuleRow, error)
+	ListCatalogTypesState(ctx context.Context) ([]ListCatalogTypesStateRow, error)
+	ListCatalogValuationsByPeriod(ctx context.Context, period string) ([]ListCatalogValuationsByPeriodRow, error)
 	ListDuePushTickets(ctx context.Context, arg ListDuePushTicketsParams) ([]ListDuePushTicketsRow, error)
 	ListEnabledLogPurgeRules(ctx context.Context) ([]LogPurgeRule, error)
 	ListExportJobsForActor(ctx context.Context, arg ListExportJobsForActorParams) ([]ExportJob, error)
@@ -241,6 +273,8 @@ type Querier interface {
 	MarkUserPasswordUnset(ctx context.Context, id int64) error
 	PingDB(ctx context.Context) (int32, error)
 	QueueImportJob(ctx context.Context, argUuid uuid.UUID) (ImportJob, error)
+	ReassignCatalogModelRules(ctx context.Context, arg ReassignCatalogModelRulesParams) (int64, error)
+	ReassignCatalogTypesModel(ctx context.Context, arg ReassignCatalogTypesModelParams) (int64, error)
 	RemoveUserRoleBySlug(ctx context.Context, arg RemoveUserRoleBySlugParams) error
 	ReplaceUserRoles(ctx context.Context, userID int64) error
 	ResolveOrganizationScopeBySlug(ctx context.Context, arg ResolveOrganizationScopeBySlugParams) (ResolveOrganizationScopeBySlugRow, error)
@@ -252,6 +286,8 @@ type Querier interface {
 	RevokeStorageLink(ctx context.Context, argUuid uuid.UUID) (StorageLink, error)
 	SetAppSettingsLogo(ctx context.Context, logoObjectKey pgtype.Text) (AppSetting, error)
 	SetBranchActive(ctx context.Context, arg SetBranchActiveParams) (Branch, error)
+	SetCatalogImportFileKey(ctx context.Context, arg SetCatalogImportFileKeyParams) (CatalogImport, error)
+	SetCatalogTypesModel(ctx context.Context, arg SetCatalogTypesModelParams) (int64, error)
 	SetOrganizationAccessWindow(ctx context.Context, arg SetOrganizationAccessWindowParams) (Organization, error)
 	SetOrganizationStatus(ctx context.Context, arg SetOrganizationStatusParams) (Organization, error)
 	SetRolePermissions(ctx context.Context, roleID int64) error
@@ -259,9 +295,20 @@ type Querier interface {
 	SlugExists(ctx context.Context, slug string) (bool, error)
 	SoftDeleteBranch(ctx context.Context, arg SoftDeleteBranchParams) (int64, error)
 	SoftDeleteOrganization(ctx context.Context, argUuid uuid.UUID) (Organization, error)
+	TenantCountCatalogBrands(ctx context.Context, arg TenantCountCatalogBrandsParams) (int64, error)
+	TenantCountCatalogModels(ctx context.Context, arg TenantCountCatalogModelsParams) (int64, error)
+	TenantCountCatalogTypes(ctx context.Context, arg TenantCountCatalogTypesParams) (int64, error)
+	// Tenant read-only search (vehicle forms).
+	TenantListCatalogBrands(ctx context.Context, arg TenantListCatalogBrandsParams) ([]TenantListCatalogBrandsRow, error)
+	TenantListCatalogModels(ctx context.Context, arg TenantListCatalogModelsParams) ([]TenantListCatalogModelsRow, error)
+	TenantListCatalogTypes(ctx context.Context, arg TenantListCatalogTypesParams) ([]TenantListCatalogTypesRow, error)
 	UpdateAppSettings(ctx context.Context, arg UpdateAppSettingsParams) (AppSetting, error)
 	UpdateAuthSettings(ctx context.Context, arg UpdateAuthSettingsParams) (AuthSetting, error)
 	UpdateBranch(ctx context.Context, arg UpdateBranchParams) (Branch, error)
+	UpdateCatalogBrand(ctx context.Context, arg UpdateCatalogBrandParams) (CatalogBrand, error)
+	UpdateCatalogImportState(ctx context.Context, arg UpdateCatalogImportStateParams) (CatalogImport, error)
+	UpdateCatalogModel(ctx context.Context, arg UpdateCatalogModelParams) (CatalogModel, error)
+	UpdateCatalogType(ctx context.Context, arg UpdateCatalogTypeParams) (int64, error)
 	UpdateGitHubAppSettings(ctx context.Context, arg UpdateGitHubAppSettingsParams) (GithubAppSetting, error)
 	UpdateImportJobFileKey(ctx context.Context, arg UpdateImportJobFileKeyParams) (ImportJob, error)
 	UpdateImportJobMapping(ctx context.Context, arg UpdateImportJobMappingParams) (ImportJob, error)
@@ -285,6 +332,7 @@ type Querier interface {
 	UpdateUserTOTPRecoveryHashes(ctx context.Context, arg UpdateUserTOTPRecoveryHashesParams) error
 	UpdateWebAuthnCredentialCounter(ctx context.Context, arg UpdateWebAuthnCredentialCounterParams) error
 	UpdateWebAuthnCredentialName(ctx context.Context, arg UpdateWebAuthnCredentialNameParams) (WebauthnCredential, error)
+	UpsertCatalogModelRule(ctx context.Context, arg UpsertCatalogModelRuleParams) (CatalogModelRule, error)
 	UpsertNotificationPreferences(ctx context.Context, arg UpsertNotificationPreferencesParams) (NotificationPreference, error)
 	// Mobile push devices (Expo) and their pending push tickets.
 	// A token moves to the calling user when the device switches accounts and is

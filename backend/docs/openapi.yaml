@@ -48,6 +48,8 @@ tags:
     description: Super-admin platform tenant/user catalog
   - name: Tenant
     description: Organization-scoped routes (`X-Organization` header; `TENANCY_ENABLED`)
+  - name: Catalog
+    description: Platform vehicle catalog from the monthly TSB kasko list (`platform.catalog.*`)
   - name: Realtime
     description: Centrifugo connection and subscription tokens
   - name: Notifications
@@ -3819,6 +3821,584 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/TenantForbidden" }
 
+  /v1/platform/catalog/brands/meta:
+    get:
+      tags: [Catalog]
+      operationId: getPlatformCatalogBrandsMeta
+      summary: Catalog brands list metadata
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Resource meta
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeResourceMeta"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/platform/catalog/brands:
+    get:
+      tags: [Catalog]
+      operationId: getPlatformCatalogBrands
+      summary: List catalog brands
+      description: Requires `platform.catalog.read`. Sort fields `display_name`, `tsb_name`, `tsb_code`, `category`, `types_count`, `created_at`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - $ref: "#/components/parameters/Sort"
+        - $ref: "#/components/parameters/CatalogCategory"
+        - name: is_active
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Brand page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCatalogBrandPage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /v1/platform/catalog/brands/{uuid}:
+    get:
+      tags: [Catalog]
+      operationId: getPlatformCatalogBrand
+      summary: Get catalog brand
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Brand
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCatalogBrand"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    patch:
+      tags: [Catalog]
+      operationId: patchPlatformCatalogBrand
+      summary: Update brand display name, category or active flag
+      description: Requires `platform.catalog.write`. TSB code and name are owned by the import.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchCatalogBrandRequest"
+      responses:
+        "200":
+          description: Brand
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCatalogBrand"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /v1/platform/catalog/models/meta:
+    get:
+      tags: [Catalog]
+      operationId: getPlatformCatalogModelsMeta
+      summary: Catalog models list metadata
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Resource meta
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeResourceMeta"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/platform/catalog/models:
+    get:
+      tags: [Catalog]
+      operationId: getPlatformCatalogModels
+      summary: List catalog models
+      description: Sort fields `name`, `brand`, `source`, `types_count`, `created_at`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - $ref: "#/components/parameters/Sort"
+        - $ref: "#/components/parameters/CatalogBrandFilter"
+        - name: source
+          in: query
+          schema: { type: string, enum: [auto, manual] }
+      responses:
+        "200":
+          description: Model page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCatalogModelPage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    post:
+      tags: [Catalog]
+      operationId: postPlatformCatalogModel
+      summary: Create a manual model
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCatalogModelRequest"
+      responses:
+        "201":
+          description: Model
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCatalogModel"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /v1/platform/catalog/models/{uuid}:
+    get:
+      tags: [Catalog]
+      operationId: getPlatformCatalogModel
+      summary: Get catalog model with its prefix rules
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Model
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCatalogModel"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    patch:
+      tags: [Catalog]
+      operationId: patchPlatformCatalogModel
+      summary: Rename a model
+      description: Any edit marks the model `manual` unless `source` is sent.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchCatalogModelRequest"
+      responses:
+        "200":
+          description: Model
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCatalogModel"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /v1/platform/catalog/models/{uuid}/merge:
+    post:
+      tags: [Catalog]
+      operationId: postPlatformCatalogModelMerge
+      summary: Merge a model into another model of the same brand
+      description: Moves the types and prefix rules of `{uuid}` to `into_uuid`, then deletes `{uuid}`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MergeCatalogModelRequest"
+      responses:
+        "200":
+          description: Target model
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCatalogModel"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /v1/platform/catalog/types/meta:
+    get:
+      tags: [Catalog]
+      operationId: getPlatformCatalogTypesMeta
+      summary: Catalog types list metadata
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Resource meta
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeResourceMeta"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/platform/catalog/types:
+    get:
+      tags: [Catalog]
+      operationId: getPlatformCatalogTypes
+      summary: List catalog types (TSB type lines)
+      description: Sort fields `raw_name`, `tsb_type_code`, `brand`, `model`, `last_seen_period`, `created_at`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - $ref: "#/components/parameters/Sort"
+        - $ref: "#/components/parameters/CatalogBrandFilter"
+        - $ref: "#/components/parameters/CatalogCategory"
+        - name: model
+          in: query
+          description: Model UUID
+          schema: { type: string, format: uuid }
+        - $ref: "#/components/parameters/CatalogYear"
+        - name: unresolved
+          in: query
+          description: "`true` = only types without a model"
+          schema: { type: boolean }
+        - name: is_active
+          in: query
+          schema: { type: boolean }
+        - name: fuel
+          in: query
+          schema: { $ref: "#/components/schemas/CatalogFuel" }
+        - name: transmission
+          in: query
+          schema: { $ref: "#/components/schemas/CatalogTransmission" }
+      responses:
+        "200":
+          description: Type page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCatalogTypePage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /v1/platform/catalog/types/{uuid}:
+    get:
+      tags: [Catalog]
+      operationId: getPlatformCatalogType
+      summary: Get catalog type with kasko values
+      description: "`valuations` holds the latest period's value per model year; `history` every stored period."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Type detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCatalogTypeDetail"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    patch:
+      tags: [Catalog]
+      operationId: patchPlatformCatalogType
+      summary: Assign a model / override suggestions
+      description: |
+        `model_uuid` (null clears) assigns the model. With `save_rule: true` the
+        `rule_prefix` (default: the model name; must prefix the type name) is
+        stored as a prefix rule for the brand and applied to its types that
+        have no model or an auto-derived one; later imports use it too.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchCatalogTypeRequest"
+      responses:
+        "200":
+          description: Type detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCatalogTypeDetail"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /v1/platform/catalog/imports/meta:
+    get:
+      tags: [Catalog]
+      operationId: getPlatformCatalogImportsMeta
+      summary: Catalog imports list metadata
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Resource meta
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeResourceMeta"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/platform/catalog/imports:
+    get:
+      tags: [Catalog]
+      operationId: getPlatformCatalogImports
+      summary: List TSB list imports
+      description: Sort fields `period`, `status`, `created_at`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - $ref: "#/components/parameters/Sort"
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/CatalogImportStatus" }
+      responses:
+        "200":
+          description: Import page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCatalogImportPage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    post:
+      tags: [Catalog]
+      operationId: postPlatformCatalogImport
+      summary: Upload a TSB kasko list (.xlsx) for a dry run
+      description: |
+        Stores the file privately in object storage and queues a dry run that
+        parses it and computes the diff without changing the catalog. Poll
+        `GET /v1/platform/catalog/imports/{uuid}` until `status` is `ready`
+        (or `failed`), then `POST .../apply`. The period is read from cell A1
+        ("Ekim 2026" → `2026-10`) unless `period` is sent.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+                period:
+                  type: string
+                  pattern: "^[0-9]{4}-(0[1-9]|1[0-2])$"
+                  description: Override the period (YYYY-MM)
+      responses:
+        "202":
+          description: Import queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCatalogImport"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /v1/platform/catalog/imports/{uuid}:
+    get:
+      tags: [Catalog]
+      operationId: getPlatformCatalogImport
+      summary: Get import status, counts and diff samples
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Import
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCatalogImport"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /v1/platform/catalog/imports/{uuid}/apply:
+    post:
+      tags: [Catalog]
+      operationId: postPlatformCatalogImportApply
+      summary: Apply a dry-run import
+      description: |
+        Queues the apply: one transaction upserts brands and types, creates
+        auto models, deactivates types missing from the period and writes the
+        period's valuations (older periods are kept). Idempotent: applying
+        the same period again changes nothing. Allowed from `ready`,
+        `applied` and `failed` (with a period); otherwise `409 CONFLICT`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "202":
+          description: Apply queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCatalogImport"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /v1/tenant/catalog/brands:
+    get:
+      tags: [Tenant]
+      operationId: getTenantCatalogBrands
+      summary: Vehicle brands for forms
+      description: Active brands with active types (optionally for a model `year`). Any organization member.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - $ref: "#/components/parameters/CatalogCategory"
+        - $ref: "#/components/parameters/CatalogYear"
+      responses:
+        "200":
+          description: Brand page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeTenantCatalogBrandPage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /v1/tenant/catalog/models:
+    get:
+      tags: [Tenant]
+      operationId: getTenantCatalogModels
+      summary: Vehicle models of a brand for forms
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - name: brand
+          in: query
+          required: true
+          description: Brand UUID
+          schema: { type: string, format: uuid }
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - $ref: "#/components/parameters/CatalogYear"
+      responses:
+        "200":
+          description: Model page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeTenantCatalogModelPage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /v1/tenant/catalog/types:
+    get:
+      tags: [Tenant]
+      operationId: getTenantCatalogTypes
+      summary: Vehicle types of a model with the latest kasko value
+      description: With `year`, only types sold that model year and `kasko_value` is that year's value from the latest period.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - name: model
+          in: query
+          required: true
+          description: Model UUID
+          schema: { type: string, format: uuid }
+        - $ref: "#/components/parameters/CatalogYear"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+      responses:
+        "200":
+          description: Type page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeTenantCatalogTypePage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -3882,6 +4462,23 @@ components:
       in: query
       description: Comma-separated fields; prefix `-` for descending
       schema: { type: string }
+
+    CatalogCategory:
+      name: category
+      in: query
+      schema: { $ref: "#/components/schemas/CatalogBrandCategory" }
+
+    CatalogBrandFilter:
+      name: brand
+      in: query
+      description: Brand UUID
+      schema: { type: string, format: uuid }
+
+    CatalogYear:
+      name: year
+      in: query
+      description: Model year
+      schema: { type: integer, minimum: 1950, maximum: 2100 }
 
   responses:
     BadRequest:
@@ -6100,3 +6697,495 @@ components:
             redis:
               type: string
               examples: [ok, down]
+
+    CatalogBrandCategory:
+      type: string
+      enum: [passenger, light_commercial, other]
+
+    CatalogFuel:
+      type: string
+      enum: [petrol, diesel, hybrid, electric, lpg]
+
+    CatalogTransmission:
+      type: string
+      enum: [manual, automatic]
+
+    CatalogModelSource:
+      type: string
+      enum: [auto, manual]
+
+    CatalogImportStatus:
+      type: string
+      enum: [queued, processing, ready, applying, applied, failed]
+
+    CatalogRef:
+      type: object
+      required: [uuid, display_name]
+      properties:
+        uuid: { type: string, format: uuid }
+        display_name: { type: string }
+        tsb_code: { type: string }
+
+    CatalogNamedRef:
+      type: object
+      required: [uuid, name]
+      properties:
+        uuid: { type: string, format: uuid }
+        name: { type: string }
+
+    CatalogModelRef:
+      type: object
+      required: [uuid, name, source]
+      properties:
+        uuid: { type: string, format: uuid }
+        name: { type: string, example: EGEA CROSS }
+        source: { $ref: "#/components/schemas/CatalogModelSource" }
+
+    CatalogBrand:
+      type: object
+      required: [uuid, tsb_code, tsb_name, display_name, category, is_active, types_count, models_count, unresolved_count, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        tsb_code: { type: string, example: "100" }
+        tsb_name: { type: string, example: TOFAS-FIAT }
+        display_name: { type: string, example: Fiat }
+        category: { $ref: "#/components/schemas/CatalogBrandCategory" }
+        is_active: { type: boolean }
+        types_count: { type: integer, format: int64, description: Active types }
+        models_count: { type: integer, format: int64 }
+        unresolved_count: { type: integer, format: int64, description: Active types without a model }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    CatalogModelRule:
+      type: object
+      required: [prefix, created_at]
+      properties:
+        prefix: { type: string, example: EGEA CROSS }
+        created_at: { type: string, format: date-time }
+
+    CatalogModel:
+      type: object
+      required: [uuid, name, source, brand, types_count, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        name: { type: string, example: EGEA CROSS }
+        source: { $ref: "#/components/schemas/CatalogModelSource" }
+        brand: { $ref: "#/components/schemas/CatalogRef" }
+        types_count: { type: integer, format: int64 }
+        rules:
+          type: array
+          items: { $ref: "#/components/schemas/CatalogModelRule" }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    CatalogType:
+      type: object
+      required: [uuid, tsb_type_code, raw_name, years, suggested_transmission, suggested_fuel, first_seen_period, last_seen_period, is_active, brand, model, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        tsb_type_code: { type: string, example: "1402" }
+        raw_name: { type: string, example: EGEA CROSS STREET 1.4 FIRE 95 E6D }
+        years:
+          type: array
+          description: Model years with a kasko value (newest first)
+          items: { type: integer }
+        suggested_transmission:
+          oneOf:
+            - $ref: "#/components/schemas/CatalogTransmission"
+            - type: "null"
+        suggested_fuel:
+          oneOf:
+            - $ref: "#/components/schemas/CatalogFuel"
+            - type: "null"
+        first_seen_period: { type: string, example: 2026-10 }
+        last_seen_period: { type: string, example: 2026-10 }
+        is_active: { type: boolean }
+        brand: { $ref: "#/components/schemas/CatalogRef" }
+        model:
+          oneOf:
+            - $ref: "#/components/schemas/CatalogModelRef"
+            - type: "null"
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    CatalogValuation:
+      type: object
+      required: [model_year, period, value]
+      properties:
+        model_year: { type: integer, example: 2024 }
+        period: { type: string, example: 2026-10 }
+        value: { type: number, description: Kasko value in TRY, example: 1051836 }
+
+    CatalogTypeDetail:
+      allOf:
+        - $ref: "#/components/schemas/CatalogType"
+        - type: object
+          required: [brand_tsb_name, latest_period, valuations, history]
+          properties:
+            brand_tsb_name: { type: string }
+            latest_period: { type: string, description: Empty when no value is stored }
+            valuations:
+              type: array
+              description: Latest period, one entry per model year
+              items: { $ref: "#/components/schemas/CatalogValuation" }
+            history:
+              type: array
+              description: All stored periods, newest first
+              items: { $ref: "#/components/schemas/CatalogValuation" }
+
+    CatalogImportCounts:
+      type: object
+      description: Dry-run counts while `ready`; what the apply changed once `applied`.
+      properties:
+        rows: { type: integer }
+        brands_new: { type: integer }
+        brands_renamed: { type: integer }
+        models_new: { type: integer }
+        types_new: { type: integer }
+        types_renamed: { type: integer }
+        types_reactivated: { type: integer }
+        types_updated: { type: integer }
+        types_deactivated: { type: integer }
+        valuations_new: { type: integer }
+        valuations_changed: { type: integer }
+        valuations_upserted: { type: integer }
+        unresolved_models: { type: integer }
+        unresolved_by_category:
+          type: object
+          additionalProperties: { type: integer }
+
+    CatalogImportSampleType:
+      type: object
+      required: [brand, code, name]
+      properties:
+        brand: { type: string }
+        code: { type: string }
+        name: { type: string }
+        old_name: { type: string }
+        model: { type: string }
+
+    CatalogImportDiff:
+      type: object
+      description: Up to 25 samples per change kind.
+      properties:
+        period_label: { type: string, example: Ekim 2026 }
+        years:
+          type: array
+          items: { type: integer }
+        new_brands:
+          type: array
+          items:
+            type: object
+            properties:
+              code: { type: string }
+              name: { type: string }
+              old_name: { type: string }
+              display_name: { type: string }
+              category: { type: string }
+        renamed_brands:
+          type: array
+          items:
+            type: object
+            properties:
+              code: { type: string }
+              name: { type: string }
+              old_name: { type: string }
+              display_name: { type: string }
+              category: { type: string }
+        new_models:
+          type: array
+          items:
+            type: object
+            properties:
+              brand: { type: string }
+              name: { type: string }
+              types: { type: integer }
+        new_types:
+          type: array
+          items: { $ref: "#/components/schemas/CatalogImportSampleType" }
+        renamed_types:
+          type: array
+          items: { $ref: "#/components/schemas/CatalogImportSampleType" }
+        deactivated_types:
+          type: array
+          items: { $ref: "#/components/schemas/CatalogImportSampleType" }
+        reactivated_types:
+          type: array
+          items: { $ref: "#/components/schemas/CatalogImportSampleType" }
+        unresolved_types:
+          type: array
+          items: { $ref: "#/components/schemas/CatalogImportSampleType" }
+        changed_valuations:
+          type: array
+          items:
+            type: object
+            properties:
+              brand: { type: string }
+              code: { type: string }
+              name: { type: string }
+              year: { type: integer }
+              old: { type: integer }
+              new: { type: integer }
+        dry_run_counts: { $ref: "#/components/schemas/CatalogImportCounts" }
+
+    CatalogImport:
+      type: object
+      required: [uuid, period, filename, status, counts, error, applied_at, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        period: { type: [string, "null"], example: 2026-10 }
+        filename: { type: string }
+        status: { $ref: "#/components/schemas/CatalogImportStatus" }
+        counts: { $ref: "#/components/schemas/CatalogImportCounts" }
+        diff: { $ref: "#/components/schemas/CatalogImportDiff" }
+        error: { type: [string, "null"] }
+        created_by_email: { type: [string, "null"] }
+        applied_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    PatchCatalogBrandRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        display_name: { type: string, minLength: 1 }
+        category: { $ref: "#/components/schemas/CatalogBrandCategory" }
+        is_active: { type: boolean }
+
+    CreateCatalogModelRequest:
+      type: object
+      additionalProperties: false
+      required: [brand_uuid, name]
+      properties:
+        brand_uuid: { type: string, format: uuid }
+        name: { type: string, minLength: 1 }
+
+    PatchCatalogModelRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1 }
+        source: { $ref: "#/components/schemas/CatalogModelSource" }
+
+    MergeCatalogModelRequest:
+      type: object
+      additionalProperties: false
+      required: [into_uuid]
+      properties:
+        into_uuid: { type: string, format: uuid }
+
+    PatchCatalogTypeRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        model_uuid:
+          type: [string, "null"]
+          format: uuid
+          description: Model of the same brand; null clears the assignment
+        save_rule:
+          type: boolean
+          description: Also store a prefix rule (needs model_uuid)
+        rule_prefix:
+          type: string
+          description: Prefix of the type name; defaults to the model name
+        suggested_transmission:
+          oneOf:
+            - $ref: "#/components/schemas/CatalogTransmission"
+            - type: "null"
+        suggested_fuel:
+          oneOf:
+            - $ref: "#/components/schemas/CatalogFuel"
+            - type: "null"
+
+    TenantCatalogBrand:
+      type: object
+      required: [uuid, display_name, category]
+      properties:
+        uuid: { type: string, format: uuid }
+        display_name: { type: string, example: Fiat }
+        category: { $ref: "#/components/schemas/CatalogBrandCategory" }
+
+    TenantCatalogModel:
+      type: object
+      required: [uuid, name, brand]
+      properties:
+        uuid: { type: string, format: uuid }
+        name: { type: string, example: EGEA CROSS }
+        brand: { $ref: "#/components/schemas/CatalogRef" }
+
+    TenantCatalogType:
+      type: object
+      required: [uuid, tsb_type_code, name, years, suggested_transmission, suggested_fuel, brand, model, kasko_value, kasko_period]
+      properties:
+        uuid: { type: string, format: uuid }
+        tsb_type_code: { type: string }
+        name: { type: string, example: EGEA CROSS STREET 1.4 FIRE 95 E6D }
+        years:
+          type: array
+          items: { type: integer }
+        suggested_transmission:
+          oneOf:
+            - $ref: "#/components/schemas/CatalogTransmission"
+            - type: "null"
+        suggested_fuel:
+          oneOf:
+            - $ref: "#/components/schemas/CatalogFuel"
+            - type: "null"
+        brand: { $ref: "#/components/schemas/CatalogRef" }
+        model: { $ref: "#/components/schemas/CatalogNamedRef" }
+        kasko_value:
+          type: [number, "null"]
+          description: Kasko value (TRY) for the requested `year` from the latest period; null without `year`
+        kasko_period: { type: [string, "null"], example: 2026-10 }
+
+    EnvelopeCatalogBrand:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/CatalogBrand" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeCatalogBrandPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/CatalogBrand" }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeCatalogModel:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/CatalogModel" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeCatalogModelPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/CatalogModel" }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeCatalogTypePage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/CatalogType" }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeCatalogTypeDetail:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/CatalogTypeDetail" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeCatalogImport:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/CatalogImport" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeCatalogImportPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/CatalogImport" }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeTenantCatalogBrandPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/TenantCatalogBrand" }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeTenantCatalogModelPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/TenantCatalogModel" }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeTenantCatalogTypePage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/TenantCatalogType" }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
