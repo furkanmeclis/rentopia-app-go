@@ -6,12 +6,16 @@ import { CATALOG_IMPORT_RUNNING } from "@/features/catalog/constants";
 import {
   catalogService,
   type CatalogBrand,
+  type CatalogDisplayBrand,
   type CreateCatalogModelRequest,
   type ListBrandsParams,
+  type ListDisplayBrandsParams,
   type ListImportsParams,
   type ListModelsParams,
   type ListTypesParams,
   type PatchCatalogBrandRequest,
+  type PatchCatalogDisplayBrandRequest,
+  type UnmergeCatalogDisplayBrandRequest,
   type PatchCatalogModelRequest,
   type PatchCatalogTypeRequest,
 } from "@/features/catalog/services/catalog.service";
@@ -26,6 +30,12 @@ export const catalogKeys = {
   brandList: (params: Record<string, unknown>) =>
     ["catalog", "brands", "list", params] as const,
   brandOptions: () => ["catalog", "brands", "options"] as const,
+  displayBrands: () => ["catalog", "display-brands"] as const,
+  displayBrandList: (params: Record<string, unknown>) =>
+    ["catalog", "display-brands", "list", params] as const,
+  displayBrandOptions: () => ["catalog", "display-brands", "options"] as const,
+  displayBrand: (uuid: string) =>
+    ["catalog", "display-brands", "detail", uuid] as const,
   models: () => ["catalog", "models"] as const,
   modelList: (params: Record<string, unknown>) =>
     ["catalog", "models", "list", params] as const,
@@ -40,7 +50,7 @@ export const catalogKeys = {
 };
 
 export function useCatalogMeta(
-  resource: "brands" | "models" | "types" | "imports",
+  resource: "brands" | "display-brands" | "models" | "types" | "imports",
 ) {
   return useQuery({
     queryKey: catalogKeys.meta(resource),
@@ -48,6 +58,8 @@ export function useCatalogMeta(
       switch (resource) {
         case "brands":
           return catalogService.brandsMeta();
+        case "display-brands":
+          return catalogService.displayBrandsMeta();
         case "models":
           return catalogService.modelsMeta();
         case "types":
@@ -86,6 +98,137 @@ export function useCatalogBrandOptions() {
       return all;
     },
     staleTime: 5 * 60_000,
+  });
+}
+
+export function useCatalogDisplayBrands(params: ListDisplayBrandsParams) {
+  return useQuery({
+    queryKey: catalogKeys.displayBrandList(params),
+    queryFn: () => catalogService.listDisplayBrands(params),
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useCatalogDisplayBrand(uuid: string | undefined) {
+  return useQuery({
+    queryKey: catalogKeys.displayBrand(uuid ?? ""),
+    queryFn: () => catalogService.getDisplayBrand(uuid!),
+    enabled: Boolean(uuid),
+  });
+}
+
+/** Every display brand (two or so pages of 100) for facets and pickers. */
+export function useCatalogDisplayBrandOptions() {
+  return useQuery({
+    queryKey: catalogKeys.displayBrandOptions(),
+    queryFn: async () => {
+      const all: CatalogDisplayBrand[] = [];
+      for (let offset = 0; offset < 5000; offset += 100) {
+        const page = await catalogService.listDisplayBrands({
+          limit: 100,
+          offset,
+          sort: "name",
+        });
+        all.push(...page.items);
+        if (all.length >= page.total || page.items.length === 0) break;
+      }
+      return all;
+    },
+    staleTime: 5 * 60_000,
+  });
+}
+
+function useInvalidateBrands() {
+  const queryClient = useQueryClient();
+  return () => {
+    void queryClient.invalidateQueries({ queryKey: catalogKeys.brands() });
+    void queryClient.invalidateQueries({
+      queryKey: catalogKeys.displayBrands(),
+    });
+    void queryClient.invalidateQueries({ queryKey: catalogKeys.models() });
+    void queryClient.invalidateQueries({ queryKey: catalogKeys.types() });
+  };
+}
+
+export function usePatchDisplayBrand() {
+  const invalidate = useInvalidateBrands();
+  const { t } = useLocale();
+  return useAppMutation({
+    mutationFn: (v: { uuid: string; body: PatchCatalogDisplayBrandRequest }) =>
+      catalogService.patchDisplayBrand(v.uuid, v.body),
+    onSuccess: () => {
+      invalidate();
+      appToast.success(t("catalog.toast.display_brand_saved"));
+    },
+  });
+}
+
+export function useMergeDisplayBrand() {
+  const invalidate = useInvalidateBrands();
+  const { t } = useLocale();
+  return useAppMutation({
+    mutationFn: (v: { uuid: string; intoUuid: string }) =>
+      catalogService.mergeDisplayBrand(v.uuid, v.intoUuid),
+    onSuccess: () => {
+      invalidate();
+      appToast.success(t("catalog.toast.display_brand_merged"));
+    },
+  });
+}
+
+export function useUnmergeDisplayBrand() {
+  const invalidate = useInvalidateBrands();
+  const { t } = useLocale();
+  return useAppMutation({
+    mutationFn: (v: {
+      uuid: string;
+      body: UnmergeCatalogDisplayBrandRequest;
+    }) => catalogService.unmergeDisplayBrand(v.uuid, v.body),
+    onSuccess: () => {
+      invalidate();
+      appToast.success(t("catalog.toast.display_brand_unmerged"));
+    },
+  });
+}
+
+export function useDisplayBrandLogo() {
+  const invalidate = useInvalidateBrands();
+  const { t } = useLocale();
+  const upload = useAppMutation({
+    mutationFn: (v: { uuid: string; file: File }) =>
+      catalogService.uploadDisplayBrandLogo(v.uuid, v.file),
+    onSuccess: () => {
+      invalidate();
+      appToast.success(t("catalog.toast.logo_saved"));
+    },
+  });
+  const clear = useAppMutation({
+    mutationFn: (uuid: string) => catalogService.clearDisplayBrandLogo(uuid),
+    onSuccess: () => {
+      invalidate();
+      appToast.success(t("catalog.toast.logo_removed"));
+    },
+  });
+  return { upload, clear };
+}
+
+export function useBulkModelRules() {
+  const queryClient = useQueryClient();
+  const { t } = useLocale();
+  return useAppMutation({
+    mutationFn: (modelUuids: string[]) =>
+      catalogService.bulkModelRules(modelUuids),
+    onSuccess: (res) => {
+      void queryClient.invalidateQueries({ queryKey: catalogKeys.models() });
+      void queryClient.invalidateQueries({ queryKey: catalogKeys.types() });
+      void queryClient.invalidateQueries({ queryKey: catalogKeys.brands() });
+      appToast.success(
+        t("catalog.toast.rules_saved", {
+          rules: res.rules_saved,
+          types: res.types_assigned,
+        }),
+      );
+    },
   });
 }
 
@@ -146,6 +289,9 @@ export function usePatchBrand() {
       catalogService.patchBrand(v.uuid, v.body),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: catalogKeys.brands() });
+      void queryClient.invalidateQueries({
+        queryKey: catalogKeys.displayBrands(),
+      });
       appToast.success(t("catalog.toast.brand_saved"));
     },
   });
@@ -238,6 +384,9 @@ export function useInvalidateCatalog() {
   const queryClient = useQueryClient();
   return () => {
     void queryClient.invalidateQueries({ queryKey: catalogKeys.brands() });
+    void queryClient.invalidateQueries({
+      queryKey: catalogKeys.displayBrands(),
+    });
     void queryClient.invalidateQueries({ queryKey: catalogKeys.models() });
     void queryClient.invalidateQueries({ queryKey: catalogKeys.types() });
   };

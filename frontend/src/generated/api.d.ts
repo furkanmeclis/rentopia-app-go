@@ -2398,10 +2398,160 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Update brand display name, category or active flag
+         * Update brand display brand, category or active flag
          * @description Requires `platform.catalog.write`. TSB code and name are owned by the import.
+         *     `display_name` maps the TSB brand to the display brand of that name (created when missing);
+         *     `display_brand_uuid` maps it to an existing display brand. A display brand left without
+         *     TSB brands is deleted.
          */
         patch: operations["patchPlatformCatalogBrand"];
+        trace?: never;
+    };
+    "/v1/platform/catalog/display-brands/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Catalog display brands list metadata */
+        get: operations["getPlatformCatalogDisplayBrandsMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/catalog/display-brands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List display brands
+         * @description Requires `platform.catalog.read`. A display brand is what users see; one or more TSB brands
+         *     (FIAT + TOFAS-FIAT) map to it. `q` matches the name, TSB names and TSB codes.
+         *     Sort fields `name`, `brands_count`, `types_count`, `created_at`.
+         */
+        get: operations["getPlatformCatalogDisplayBrands"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/catalog/display-brands/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a display brand with its TSB brands */
+        get: operations["getPlatformCatalogDisplayBrand"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Rename or (de)activate a display brand
+         * @description Requires `platform.catalog.write`. A rename also changes the slug and the display name of its TSB brands.
+         */
+        patch: operations["patchPlatformCatalogDisplayBrand"];
+        trace?: never;
+    };
+    "/v1/platform/catalog/display-brands/{uuid}/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Merge a display brand into another
+         * @description Requires `platform.catalog.write`. Moves every TSB brand of `{uuid}` to `into_uuid` and deletes `{uuid}` (and its logo). Returns the target.
+         */
+        post: operations["postPlatformCatalogDisplayBrandMerge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/catalog/display-brands/{uuid}/unmerge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Detach a TSB brand into a new display brand
+         * @description Requires `platform.catalog.write`. Only for display brands with more than one TSB brand.
+         *     `name` defaults to the title-cased TSB name ("Tofas-Fiat"); 409 when that name exists.
+         */
+        post: operations["postPlatformCatalogDisplayBrandUnmerge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/catalog/display-brands/{uuid}/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream a display brand logo
+         * @description Any signed-in user (tenant vehicle forms show it too). Use the `logo_url` returned by the API.
+         */
+        get: operations["getPlatformCatalogDisplayBrandLogo"];
+        /**
+         * Upload a display brand logo
+         * @description Requires `platform.catalog.write`. Multipart field `logo` (PNG, JPEG, WebP or SVG).
+         */
+        put: operations["putPlatformCatalogDisplayBrandLogo"];
+        post?: never;
+        /** Remove a display brand logo */
+        delete: operations["deletePlatformCatalogDisplayBrandLogo"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/catalog/models/bulk-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save "type name starts with the model name" rules for many models
+         * @description Requires `platform.catalog.write`. For each model (max 500) stores a prefix rule equal to its
+         *     name and assigns it to the brand's types without a model or with an auto-derived one.
+         */
+        post: operations["postPlatformCatalogModelsBulkRules"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/platform/catalog/models/meta": {
@@ -2473,8 +2623,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Merge a model into another model of the same brand
-         * @description Moves the types and prefix rules of `{uuid}` to `into_uuid`, then deletes `{uuid}`.
+         * Merge a model into another model
+         * @description Same TSB brand: moves the types and prefix rules of `{uuid}` to `into_uuid`, then deletes `{uuid}`.
+         *     Another TSB brand of the same display brand: `{uuid}` is renamed to the target's name (or merged
+         *     into its brand's model of that name) so both form one grouped model. Returns the target model.
          */
         post: operations["postPlatformCatalogModelMerge"];
         delete?: never;
@@ -2642,7 +2794,8 @@ export interface paths {
         };
         /**
          * Vehicle brands for forms
-         * @description Active brands with active types (optionally for a model `year`). Any organization member.
+         * @description Active display brands with active types (optionally for a model `year`). TSB brands that are
+         *     one make (FIAT + TOFAS-FIAT) are listed once. Any organization member.
          */
         get: operations["getTenantCatalogBrands"];
         put?: never;
@@ -2679,7 +2832,8 @@ export interface paths {
         };
         /**
          * Vehicle types of a model with the latest kasko value
-         * @description With `year`, only types sold that model year and `kasko_value` is that year's value from the latest period.
+         * @description Types of a grouped model across every TSB brand of its display brand. With `year`, only types
+         *     sold that model year and `kasko_value` is that year's value from the latest period.
          */
         get: operations["getTenantCatalogTypes"];
         put?: never;
@@ -4364,6 +4518,102 @@ export interface components {
             uuid: string;
             display_name: string;
             tsb_code?: string;
+            tsb_name?: string;
+        };
+        CatalogDisplayBrandRef: {
+            /** Format: uuid */
+            uuid: string;
+            /** @example Fiat */
+            name: string;
+        };
+        CatalogDisplayBrandMember: {
+            /** Format: uuid */
+            uuid: string;
+            /** @example 100 */
+            tsb_code: string;
+            /** @example TOFAS-FIAT */
+            tsb_name: string;
+            category: components["schemas"]["CatalogBrandCategory"];
+            is_active: boolean;
+            /** Format: int64 */
+            types_count: number;
+        };
+        CatalogDisplayBrand: {
+            /** Format: uuid */
+            uuid: string;
+            /** @example Fiat */
+            name: string;
+            /** @example fiat */
+            slug: string;
+            /** @description API-owned logo stream (`/v1/...`); never build storage URLs in the browser */
+            logo_url: string | null;
+            is_active: boolean;
+            /**
+             * Format: int64
+             * @description TSB brands mapped to it
+             */
+            brands_count: number;
+            /**
+             * Format: int64
+             * @description Active types
+             */
+            types_count: number;
+            /**
+             * Format: int64
+             * @description Grouped models
+             */
+            models_count: number;
+            tsb_names: string[];
+            /** @description Detail only */
+            brands?: components["schemas"]["CatalogDisplayBrandMember"][];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        PatchCatalogDisplayBrandRequest: {
+            name?: string;
+            is_active?: boolean;
+        };
+        UnmergeCatalogDisplayBrandRequest: {
+            /**
+             * Format: uuid
+             * @description TSB brand to detach
+             */
+            brand_uuid: string;
+            /** @description Name of the new display brand */
+            name?: string;
+        };
+        BulkCatalogModelRulesRequest: {
+            model_uuids: string[];
+        };
+        CatalogBulkRulesResult: {
+            rules_saved: number;
+            types_assigned: number;
+        };
+        EnvelopeCatalogBulkRulesResult: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["CatalogBulkRulesResult"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCatalogDisplayBrand: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["CatalogDisplayBrand"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCatalogDisplayBrandPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["CatalogDisplayBrand"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
         };
         CatalogNamedRef: {
             /** Format: uuid */
@@ -4377,6 +4627,7 @@ export interface components {
             name: string;
             source: components["schemas"]["CatalogModelSource"];
         };
+        /** @description A TSB brand (keyed by TSB code). `display_name` mirrors its display brand's name. */
         CatalogBrand: {
             /** Format: uuid */
             uuid: string;
@@ -4386,6 +4637,7 @@ export interface components {
             tsb_name: string;
             /** @example Fiat */
             display_name: string;
+            display_brand: components["schemas"]["CatalogDisplayBrandRef"];
             category: components["schemas"]["CatalogBrandCategory"];
             is_active: boolean;
             /**
@@ -4418,8 +4670,14 @@ export interface components {
             name: string;
             source: components["schemas"]["CatalogModelSource"];
             brand: components["schemas"]["CatalogRef"];
+            display_brand: components["schemas"]["CatalogDisplayBrandRef"];
             /** Format: int64 */
             types_count: number;
+            /**
+             * Format: int64
+             * @description Models with the same name under the display brand (one per TSB brand); tenants see them as one model
+             */
+            group_size: number;
             rules?: components["schemas"]["CatalogModelRule"][];
             /** Format: date-time */
             created_at: string;
@@ -4443,6 +4701,7 @@ export interface components {
             last_seen_period: string;
             is_active: boolean;
             brand: components["schemas"]["CatalogRef"];
+            display_brand: components["schemas"]["CatalogDisplayBrandRef"];
             model: components["schemas"]["CatalogModelRef"] | null;
             /** Format: date-time */
             created_at: string;
@@ -4474,6 +4733,8 @@ export interface components {
             rows?: number;
             brands_new?: number;
             brands_renamed?: number;
+            /** @description Display brands created for new TSB brands */
+            display_brands_new?: number;
             models_new?: number;
             types_new?: number;
             types_renamed?: number;
@@ -4553,7 +4814,13 @@ export interface components {
             updated_at: string;
         };
         PatchCatalogBrandRequest: {
+            /** @description Map to the display brand of this name (created when missing) */
             display_name?: string;
+            /**
+             * Format: uuid
+             * @description Map to an existing display brand
+             */
+            display_brand_uuid?: string;
             category?: components["schemas"]["CatalogBrandCategory"];
             is_active?: boolean;
         };
@@ -4573,7 +4840,8 @@ export interface components {
         PatchCatalogTypeRequest: {
             /**
              * Format: uuid
-             * @description Model of the same brand; null clears the assignment
+             * @description Model of the same TSB brand; a model of another TSB brand of the same display brand
+             *     assigns (creating when missing) the same-name model of the type's brand. null clears it.
              */
             model_uuid?: string | null;
             /** @description Also store a prefix rule (needs model_uuid) */
@@ -4583,13 +4851,23 @@ export interface components {
             suggested_transmission?: components["schemas"]["CatalogTransmission"] | null;
             suggested_fuel?: components["schemas"]["CatalogFuel"] | null;
         };
+        /** @description A display brand (FIAT and TOFAS-FIAT are one "Fiat"). */
         TenantCatalogBrand: {
             /** Format: uuid */
             uuid: string;
             /** @example Fiat */
             display_name: string;
+            /** @example fiat */
+            slug: string;
             category: components["schemas"]["CatalogBrandCategory"];
+            /** @description API-owned logo stream */
+            logo_url: string | null;
         };
+        /**
+         * @description A grouped model: models with the same name under the TSB brands of one display brand are
+         *     listed once. `uuid` is stable (its first model) and any model uuid of the group is accepted
+         *     by `/v1/tenant/catalog/types`.
+         */
         TenantCatalogModel: {
             /** Format: uuid */
             uuid: string;
@@ -4831,6 +5109,8 @@ export interface components {
         CatalogCategory: components["schemas"]["CatalogBrandCategory"];
         /** @description Brand UUID */
         CatalogBrandFilter: string;
+        /** @description Display brand UUID (every TSB brand mapped to it) */
+        CatalogDisplayBrandFilter: string;
         /** @description Model year */
         CatalogYear: number;
     };
@@ -8854,6 +9134,8 @@ export interface operations {
                 /** @description Comma-separated fields; prefix `-` for descending */
                 sort?: components["parameters"]["Sort"];
                 category?: components["parameters"]["CatalogCategory"];
+                /** @description Display brand UUID (every TSB brand mapped to it) */
+                display_brand?: components["parameters"]["CatalogDisplayBrandFilter"];
                 is_active?: boolean;
             };
             header?: never;
@@ -8936,6 +9218,306 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    getPlatformCatalogDisplayBrandsMeta: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource meta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getPlatformCatalogDisplayBrands: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description Comma-separated fields; prefix `-` for descending */
+                sort?: components["parameters"]["Sort"];
+                is_active?: boolean;
+                /** @description Only display brands with more than one TSB brand */
+                merged?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Display brand page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCatalogDisplayBrandPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getPlatformCatalogDisplayBrand: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Display brand */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCatalogDisplayBrand"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    patchPlatformCatalogDisplayBrand: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchCatalogDisplayBrandRequest"];
+            };
+        };
+        responses: {
+            /** @description Display brand */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCatalogDisplayBrand"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    postPlatformCatalogDisplayBrandMerge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MergeCatalogModelRequest"];
+            };
+        };
+        responses: {
+            /** @description Target display brand */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCatalogDisplayBrand"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    postPlatformCatalogDisplayBrandUnmerge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnmergeCatalogDisplayBrandRequest"];
+            };
+        };
+        responses: {
+            /** @description The new display brand */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCatalogDisplayBrand"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getPlatformCatalogDisplayBrandLogo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Logo image */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": string;
+                    "image/jpeg": string;
+                    "image/webp": string;
+                    "image/svg+xml": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putPlatformCatalogDisplayBrandLogo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    logo: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Display brand */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCatalogDisplayBrand"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    deletePlatformCatalogDisplayBrandLogo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Display brand */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCatalogDisplayBrand"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    postPlatformCatalogModelsBulkRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkCatalogModelRulesRequest"];
+            };
+        };
+        responses: {
+            /** @description Result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCatalogBulkRulesResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     getPlatformCatalogModelsMeta: {
         parameters: {
             query?: never;
@@ -8968,6 +9550,8 @@ export interface operations {
                 sort?: components["parameters"]["Sort"];
                 /** @description Brand UUID */
                 brand?: components["parameters"]["CatalogBrandFilter"];
+                /** @description Display brand UUID (every TSB brand mapped to it) */
+                display_brand?: components["parameters"]["CatalogDisplayBrandFilter"];
                 source?: "auto" | "manual";
             };
             header?: never;
@@ -9146,6 +9730,8 @@ export interface operations {
                 sort?: components["parameters"]["Sort"];
                 /** @description Brand UUID */
                 brand?: components["parameters"]["CatalogBrandFilter"];
+                /** @description Display brand UUID (every TSB brand mapped to it) */
+                display_brand?: components["parameters"]["CatalogDisplayBrandFilter"];
                 category?: components["parameters"]["CatalogCategory"];
                 /** @description Model UUID */
                 model?: string;
@@ -9419,7 +10005,7 @@ export interface operations {
     getTenantCatalogModels: {
         parameters: {
             query: {
-                /** @description Brand UUID */
+                /** @description Display brand UUID (a TSB brand UUID is accepted and mapped to its display brand) */
                 brand: string;
                 limit?: components["parameters"]["Limit"];
                 offset?: components["parameters"]["Offset"];
@@ -9457,7 +10043,7 @@ export interface operations {
     getTenantCatalogTypes: {
         parameters: {
             query: {
-                /** @description Model UUID */
+                /** @description Grouped model UUID (any model uuid of the group) */
                 model: string;
                 /** @description Model year */
                 year?: components["parameters"]["CatalogYear"];
