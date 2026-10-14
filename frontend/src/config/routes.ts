@@ -60,6 +60,9 @@ export const routes = {
       vehicles: fleetRoutes("vehicles"),
       /** Upcoming / overdue documents and maintenance ("Operasyon özeti"). */
       alerts: (slug: string) => `/t/${encodeURIComponent(slug)}/fleet/alerts`,
+      /** Fleet calendar: vehicles × time with blocks, transfers, maintenance. */
+      calendar: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/fleet/calendar`,
       transfers: fleetRoutes("transfers"),
       oneWayRules: fleetRoutes("one-way-rules"),
     },

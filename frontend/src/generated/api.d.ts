@@ -4476,6 +4476,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenant/fleet/calendar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fleet calendar (vehicles with their busy intervals)
+         * @description `tenant.vehicles.read`. One page of vehicles (plate order, default 50, at
+         *     most 200) in the caller's branch scope (home OR current branch), each with
+         *     the bars inside the half-open window `[from, to)`: busy intervals of the
+         *     `vehicle_busy_intervals` view (blocks need `tenant.blocks.read`, transfers
+         *     `tenant.transfers.read`; `layers` lists what the caller sees) and
+         *     maintenance days (open plans by planned date, done items by done date, in
+         *     Türkiye calendar days). Every interval carries its real bounds and the
+         *     bounds clipped to the window. The window may span at most 93 days
+         *     (`400` `range_too_large`). Reservations, rentals and preparation join the
+         *     same view in M2 / M3.
+         */
+        get: operations["getTenantFleetCalendar"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenant/transfers": {
         parameters: {
             query?: never;
@@ -5245,7 +5274,7 @@ export interface components {
             type: components["schemas"]["GuaranteeType"];
             /**
              * Format: uuid
-             * @description EXACT_VEHICLE target (placeholder without a foreign key until the vehicles module exists)
+             * @description EXACT_VEHICLE target: a live vehicle of the organization (may be null on a draft)
              */
             vehicle_id: string | null;
             /** @enum {string|null} */
@@ -7444,6 +7473,115 @@ export interface components {
             /** @enum {boolean} */
             success: true;
             data: components["schemas"]["TransferPage"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        FleetCalendarVehicle: {
+            /** Format: uuid */
+            uuid: string;
+            /** @example 34 ABC 123 */
+            plate: string;
+            /** @example Fiat Egea */
+            label: string;
+            model_year: number;
+            /** @enum {string} */
+            status: "available" | "preparing" | "rented" | "return_check" | "cleaning" | "maintenance" | "damaged" | "in_transfer" | "out_of_service";
+            is_active: boolean;
+            home_branch: components["schemas"]["VehicleBranchRef"];
+            current_branch: components["schemas"]["VehicleBranchRef"];
+        };
+        FleetCalendarBlock: {
+            /** @enum {string} */
+            kind: "maintenance" | "damage" | "cleaning" | "out_of_service" | "other";
+            reason: string;
+            /** Format: date-time */
+            released_at: string | null;
+        };
+        FleetCalendarTransfer: {
+            /** @enum {string} */
+            status: "planned" | "in_transit" | "completed" | "cancelled";
+            /** Format: date-time */
+            planned_departure: string;
+            /** Format: date-time */
+            planned_arrival: string;
+            /** Format: date-time */
+            actual_departure: string | null;
+            /** Format: date-time */
+            actual_arrival: string | null;
+            from_branch: components["schemas"]["VehicleBranchRef"];
+            to_branch: components["schemas"]["VehicleBranchRef"];
+            /** @description The caller may open the transfer (from or to branch in its scope) */
+            in_scope: boolean;
+        };
+        FleetCalendarInterval: {
+            /**
+             * @description M2 adds reservation
+             * @enum {string}
+             */
+            kind: "block" | "transfer";
+            /**
+             * Format: uuid
+             * @description Block or transfer uuid
+             */
+            uuid: string;
+            /** Format: date-time */
+            starts_at: string;
+            /**
+             * Format: date-time
+             * @description null = open-ended block
+             */
+            ends_at: string | null;
+            /**
+             * Format: date-time
+             * @description starts_at clipped to the window
+             */
+            clip_start: string;
+            /**
+             * Format: date-time
+             * @description ends_at clipped to the window
+             */
+            clip_end: string;
+            continues_before: boolean;
+            continues_after: boolean;
+            block: components["schemas"]["FleetCalendarBlock"] | null;
+            transfer: components["schemas"]["FleetCalendarTransfer"] | null;
+        };
+        FleetCalendarMaintenance: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            kind: "planned" | "done";
+            /** @enum {string} */
+            maintenance_type: "periodic" | "tire" | "brake" | "oil" | "repair" | "other";
+            /** Format: date */
+            date: string;
+            /** @enum {string} */
+            state: "scheduled" | "due" | "overdue" | "done";
+            planned_km: number | null;
+            done_km: number | null;
+            service_provider: string;
+            note: string;
+        };
+        FleetCalendarRow: {
+            vehicle: components["schemas"]["FleetCalendarVehicle"];
+            intervals: components["schemas"]["FleetCalendarInterval"][];
+            maintenance: components["schemas"]["FleetCalendarMaintenance"][];
+        };
+        FleetCalendar: {
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            items: components["schemas"]["FleetCalendarRow"][];
+            /** Format: int64 */
+            total: number;
+            limit: number;
+            offset: number;
+            layers: ("block" | "transfer" | "maintenance")[];
+        };
+        EnvelopeFleetCalendar: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["FleetCalendar"];
             meta: components["schemas"]["ResponseMeta"];
         };
         EnvelopeTransferFacets: {
@@ -17079,6 +17217,58 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EnvelopeTransferAssignees"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantFleetCalendar: {
+        parameters: {
+            query: {
+                /** @description Window start (RFC 3339, inclusive) */
+                from: string;
+                /** @description Window end (RFC 3339, exclusive); at most 93 days after `from` */
+                to: string;
+                /** @description Vehicles per page (default 50, max 200) */
+                limit?: number;
+                offset?: number;
+                /** @description Plate search */
+                q?: string;
+                /** @description Vehicle statuses; comma-separated */
+                status?: string;
+                /** @description Home branch uuids; comma-separated */
+                home_branch?: string;
+                /** @description Current branch uuids; comma-separated */
+                current_branch?: string;
+                /** @description Rental group uuids; comma-separated */
+                rental_group?: string;
+                /** @description Segment uuids; comma-separated */
+                segment?: string;
+                /** @description Vehicle uuids; comma-separated (the vehicle page timeline) */
+                vehicle?: string;
+                is_active?: "true" | "false";
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Calendar page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFleetCalendar"];
                 };
             };
             400: components["responses"]["BadRequest"];

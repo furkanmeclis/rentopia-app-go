@@ -10,6 +10,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleet/repository"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/searchengine"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -386,11 +387,20 @@ func (s *Service) applyGuarantee(ctx context.Context, orgID int64, ve *Validatio
 	v.GuaranteeLabel = ""
 	switch gType {
 	case model.GuaranteeExactVehicle:
-		// The vehicles module comes later: the id is a placeholder without a
-		// foreign key and may stay empty until then. The label (plate) is
-		// filled by the vehicles module.
+		// The id has no foreign key (vehicles came later); it may stay empty
+		// for a draft, otherwise it must be a live vehicle of this
+		// organization and its plate is the label.
 		if in.VehicleID != nil && *in.VehicleID != uuid.Nil {
+			plate, err := s.repo.VehiclePlate(ctx, orgID, *in.VehicleID)
+			if errors.Is(err, pgx.ErrNoRows) {
+				ve.add("guarantee.vehicle_id", "not_found", "vehicle was not found")
+				break
+			}
+			if err != nil {
+				return err
+			}
 			v.VehicleID = pgtype.UUID{Bytes: *in.VehicleID, Valid: true}
+			v.GuaranteeLabel = plate
 		}
 	case model.GuaranteeExactVariant:
 		level := ""

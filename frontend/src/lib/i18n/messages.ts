@@ -38,6 +38,7 @@ import enUsers from "@/locales/en/users.json";
 import enVehicleRecords from "@/locales/en/vehicle_records.json";
 import enOneWayRules from "@/locales/en/one_way_rules.json";
 import enTransfers from "@/locales/en/transfers.json";
+import enFleetCalendar from "@/locales/en/fleet_calendar.json";
 import enVehicleBlocks from "@/locales/en/vehicle_blocks.json";
 import enVehicles from "@/locales/en/vehicles.json";
 import trAccess from "@/locales/tr/access.json";
@@ -78,6 +79,7 @@ import trUsers from "@/locales/tr/users.json";
 import trVehicleRecords from "@/locales/tr/vehicle_records.json";
 import trOneWayRules from "@/locales/tr/one_way_rules.json";
 import trTransfers from "@/locales/tr/transfers.json";
+import trFleetCalendar from "@/locales/tr/fleet_calendar.json";
 import trVehicleBlocks from "@/locales/tr/vehicle_blocks.json";
 import trVehicles from "@/locales/tr/vehicles.json";
 
@@ -106,6 +108,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     vehicle_records: trVehicleRecords,
     vehicle_blocks: trVehicleBlocks,
     transfers: trTransfers,
+    fleet_calendar: trFleetCalendar,
     one_way_rules: trOneWayRules,
     notifications: trNotifications,
     dashboard: trDashboard,
@@ -148,6 +151,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     vehicle_records: enVehicleRecords,
     vehicle_blocks: enVehicleBlocks,
     transfers: enTransfers,
+    fleet_calendar: enFleetCalendar,
     one_way_rules: enOneWayRules,
     notifications: enNotifications,
     dashboard: enDashboard,

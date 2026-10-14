@@ -1,9 +1,6 @@
 export { VehiclesPage } from "./components/vehicles-page";
-export {
-  VehicleCreatePage,
-  VehicleDetailPage,
-  VehicleEditPage,
-} from "./components/vehicle-pages";
+export { VehicleDetailPage } from "./components/vehicle-detail-page";
+export { VehicleCreatePage, VehicleEditPage } from "./components/vehicle-pages";
 export {
   GroupVehiclesTable,
   ProductVehiclesTable,

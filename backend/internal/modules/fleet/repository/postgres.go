@@ -810,3 +810,8 @@ func uuidsArg(v []uuid.UUID) []uuid.UUID {
 	}
 	return v
 }
+
+// VehiclePlate returns the plate of a live vehicle of the organization.
+func (r *Postgres) VehiclePlate(ctx context.Context, orgID int64, id uuid.UUID) (string, error) {
+	return r.q.FleetVehicleRef(ctx, db.FleetVehicleRefParams{OrganizationID: orgID, Uuid: id})
+}

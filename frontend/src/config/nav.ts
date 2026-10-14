@@ -5,6 +5,7 @@ import {
   Boxes,
   Building2,
   CalendarClock,
+  CalendarRange,
   CarFront,
   Cpu,
   Download,
@@ -296,6 +297,13 @@ export function tenantNav(slug: string): NavCatalog {
             titleKey: "layout.nav_fleet_vehicles",
             href: routes.tenant.fleet.vehicles.root(slug),
             icon: CarFront,
+            permission: permissions.tenant.vehicles.read,
+          },
+          {
+            id: "fleet-calendar",
+            titleKey: "layout.nav_fleet_calendar",
+            href: routes.tenant.fleet.calendar(slug),
+            icon: CalendarRange,
             permission: permissions.tenant.vehicles.read,
           },
           {

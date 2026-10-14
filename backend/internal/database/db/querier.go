@@ -193,6 +193,9 @@ type Querier interface {
 	FleetCatalogModelRefsByUUIDs(ctx context.Context, uuids []uuid.UUID) ([]FleetCatalogModelRefsByUUIDsRow, error)
 	FleetCatalogTypeRefsByIDs(ctx context.Context, ids []int64) ([]FleetCatalogTypeRefsByIDsRow, error)
 	FleetCatalogTypeRefsByUUIDs(ctx context.Context, uuids []uuid.UUID) ([]FleetCatalogTypeRefsByUUIDsRow, error)
+	// EXACT_VEHICLE guarantees: the vehicle must be a live vehicle of the
+	// organization; its plate becomes the guarantee label.
+	FleetVehicleRef(ctx context.Context, arg FleetVehicleRefParams) (string, error)
 	// Resolves a tenant brand reference: a display brand uuid, or (older
 	// clients) a TSB brand uuid mapped to its display brand.
 	GetActiveCatalogDisplayBrandForTenant(ctx context.Context, ref uuid.UUID) (GetActiveCatalogDisplayBrandForTenantRow, error)
@@ -355,6 +358,22 @@ type Querier interface {
 	ListDuePushTickets(ctx context.Context, arg ListDuePushTicketsParams) ([]ListDuePushTicketsRow, error)
 	ListEnabledLogPurgeRules(ctx context.Context) ([]LogPurgeRule, error)
 	ListExportJobsForActor(ctx context.Context, arg ListExportJobsForActorParams) ([]ExportJob, error)
+	// Busy intervals (vehicle_busy_intervals: blocks and non-cancelled
+	// transfers) of the given vehicles that overlap [from_at, to_at), with the
+	// block / transfer details the calendar bars show.
+	ListFleetCalendarIntervals(ctx context.Context, arg ListFleetCalendarIntervalsParams) ([]ListFleetCalendarIntervalsRow, error)
+	// Maintenance of the given vehicles on a day in [from_day, to_day): open
+	// plans by their planned date, done items by their done date. Plans with a
+	// km target only have no day and are not on the calendar.
+	ListFleetCalendarMaintenance(ctx context.Context, arg ListFleetCalendarMaintenanceParams) ([]ListFleetCalendarMaintenanceRow, error)
+	// Fleet calendar (TEC-696): one page of vehicles (rows) and what keeps them
+	// busy inside a time window (bars). Every query filters by organization_id
+	// first (docs/design/tenant-core.md §8); the vehicles page applies the
+	// caller's branch scope (home OR current branch), the interval queries only
+	// read vehicles of that page.
+	// One page of live vehicles, plate order. total is the number of matching
+	// vehicles (window count, one round trip).
+	ListFleetCalendarVehicles(ctx context.Context, arg ListFleetCalendarVehiclesParams) ([]ListFleetCalendarVehiclesRow, error)
 	ListImportChangesForJob(ctx context.Context, jobID int64) ([]ImportChange, error)
 	ListImportJobsForActor(ctx context.Context, arg ListImportJobsForActorParams) ([]ImportJob, error)
 	// Latest earlier reminder of each subject (since a cutoff day).
