@@ -14,3 +14,6 @@ export type ListTenantRolesParams = {
   q?: string;
   is_template?: "true" | "false";
 };
+
+/** Engine slug (live list channel `org:{uuid}:resource:tenant.roles`). */
+export const TENANT_ROLES_RESOURCE = "tenant.roles" as const;

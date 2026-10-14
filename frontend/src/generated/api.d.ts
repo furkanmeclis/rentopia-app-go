@@ -1539,7 +1539,7 @@ export interface paths {
         };
         /**
          * List own inbox
-         * @description Requires `notifications.read`. Supports `limit`,`offset`,`q`,`sort`,`status`,`channel`,`unread`.
+         * @description Requires `notifications.read`. Supports `limit`,`offset`,`q`,`sort`,`status`,`channel`,`unread`. Platform / account shell inbox: only notifications without an organization (organization notifications appear in `GET /v1/tenant/notifications`).
          */
         get: operations["getNotifications"];
         put?: never;
@@ -1574,7 +1574,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Unread in-app count */
+        /**
+         * Unread in-app count
+         * @description Counts notifications without an organization only (platform / account shell).
+         */
         get: operations["getNotificationsUnreadCount"];
         put?: never;
         post?: never;
@@ -1593,7 +1596,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Mark all in-app as read */
+        /**
+         * Mark all in-app as read
+         * @description Marks notifications without an organization only (platform / account shell).
+         */
         post: operations["postNotificationsReadAll"];
         delete?: never;
         options?: never;
@@ -2984,6 +2990,66 @@ export interface paths {
         get: operations["getPublicRentalProductImage"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List own inbox in the organization panel
+         * @description Requires `notifications.read` and membership of the `X-Organization` organization. Lists the caller's notifications of that organization (tenant export / import / bulk jobs) plus the ones without an organization; other organizations' notifications never appear. Same query parameters as `GET /v1/notifications`.
+         */
+        get: operations["getTenantNotifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/notifications/unread-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Unread in-app count in the organization panel
+         * @description Same scope as `GET /v1/tenant/notifications`.
+         */
+        get: operations["getTenantNotificationsUnreadCount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark all in-app as read in the organization panel
+         * @description Same scope as `GET /v1/tenant/notifications`: other organizations' notifications stay unread.
+         */
+        post: operations["postTenantNotificationsReadAll"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5290,6 +5356,11 @@ export interface components {
             /** Format: date-time */
             updated_at: string;
             user?: components["schemas"]["NotificationUser"];
+            /**
+             * Format: uuid
+             * @description Organization of the notification (tenant engine jobs). Absent for platform and personal notifications. A tenant export's `action_url` is the tenant page `/t/{slug}/exports/{uuid}/download`.
+             */
+            organization_uuid?: string;
         };
         NotificationUser: {
             /** Format: uuid */
@@ -12118,6 +12189,102 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantNotifications: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description Comma-separated fields; prefix `-` for descending */
+                sort?: components["parameters"]["Sort"];
+                status?: string;
+                channel?: string;
+                unread?: boolean;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page of notifications */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeNotificationPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantNotificationsUnreadCount: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Count */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeUnreadCount"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantNotificationsReadAll: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeStatus"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
         };
     };
     getTenantExportJob: {

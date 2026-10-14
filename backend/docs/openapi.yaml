@@ -2619,7 +2619,10 @@ paths:
       tags: [Notifications]
       operationId: getNotifications
       summary: List own inbox
-      description: Requires `notifications.read`. Supports `limit`,`offset`,`q`,`sort`,`status`,`channel`,`unread`.
+      description: >-
+        Requires `notifications.read`. Supports `limit`,`offset`,`q`,`sort`,`status`,`channel`,`unread`.
+        Platform / account shell inbox: only notifications without an organization
+        (organization notifications appear in `GET /v1/tenant/notifications`).
       security:
         - bearerAuth: []
       parameters:
@@ -2674,6 +2677,7 @@ paths:
       tags: [Notifications]
       operationId: getNotificationsUnreadCount
       summary: Unread in-app count
+      description: Counts notifications without an organization only (platform / account shell).
       security:
         - bearerAuth: []
       responses:
@@ -2693,6 +2697,7 @@ paths:
       tags: [Notifications]
       operationId: postNotificationsReadAll
       summary: Mark all in-app as read
+      description: Marks notifications without an organization only (platform / account shell).
       security:
         - bearerAuth: []
       responses:
@@ -5011,6 +5016,89 @@ paths:
             image/webp:
               schema: { type: string, format: binary }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/notifications:
+    get:
+      tags: [Tenant]
+      operationId: getTenantNotifications
+      summary: List own inbox in the organization panel
+      description: >-
+        Requires `notifications.read` and membership of the `X-Organization`
+        organization. Lists the caller's notifications of that organization
+        (tenant export / import / bulk jobs) plus the ones without an
+        organization; other organizations' notifications never appear. Same
+        query parameters as `GET /v1/notifications`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - $ref: "#/components/parameters/Sort"
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: channel
+          in: query
+          schema: { type: string }
+        - name: unread
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Page of notifications
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeNotificationPage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/notifications/unread-count:
+    get:
+      tags: [Tenant]
+      operationId: getTenantNotificationsUnreadCount
+      summary: Unread in-app count in the organization panel
+      description: Same scope as `GET /v1/tenant/notifications`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeUnreadCount"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/notifications/read-all:
+    post:
+      tags: [Tenant]
+      operationId: postTenantNotificationsReadAll
+      summary: Mark all in-app as read in the organization panel
+      description: >-
+        Same scope as `GET /v1/tenant/notifications`: other organizations'
+        notifications stay unread.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeStatus"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
 
   /v1/tenant/exports/{uuid}:
     get:
@@ -8347,6 +8435,13 @@ components:
         updated_at: { type: string, format: date-time }
         user:
           $ref: "#/components/schemas/NotificationUser"
+        organization_uuid:
+          type: string
+          format: uuid
+          description: >-
+            Organization of the notification (tenant engine jobs). Absent for
+            platform and personal notifications. A tenant export's
+            `action_url` is the tenant page `/t/{slug}/exports/{uuid}/download`.
 
     NotificationUser:
       type: object

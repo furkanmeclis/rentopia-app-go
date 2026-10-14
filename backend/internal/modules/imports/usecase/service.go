@@ -292,7 +292,8 @@ func (s *Service) ProcessImport(ctx context.Context, jobID int64) error {
 		loc := i18n.Normalize(job.Locale)
 		_, _ = s.notifier.Enqueue(ctx, notifmodel.EnqueueInput{
 			UserID: &uid, Channels: []string{notifmodel.ChannelInapp},
-			TemplateCode: "imports.applied", Language: job.Locale,
+			OrganizationID: jobOrganization(job.OrganizationID),
+			TemplateCode:   "imports.applied", Language: job.Locale,
 			TemplateVars: map[string]string{
 				"resource": i18n.ResourceLabel(loc, job.Resource),
 				"created":  fmt.Sprintf("%d", created),
@@ -459,6 +460,16 @@ func (s *Service) getOwned(ctx context.Context, jobUUID uuid.UUID, actorID int64
 		return db.ImportJob{}, ErrForbidden
 	}
 	return row, nil
+}
+
+// jobOrganization stamps job notifications with the job's organization, so
+// they show only in that organization's panel.
+func jobOrganization(id pgtype.Int8) *int64 {
+	if !id.Valid {
+		return nil
+	}
+	v := id.Int64
+	return &v
 }
 
 func (s *Service) failImport(ctx context.Context, jobID int64, msg string) error {
