@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/url"
 	"time"
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
@@ -202,18 +203,13 @@ func (s *Service) ProcessExport(ctx context.Context, jobID int64) error {
 		return err
 	}
 	if s.notifier != nil {
-		// Tenant downloads need the X-Organization header, so the in-app
-		// notification carries no direct link for them.
-		var dl *string
-		if !job.OrganizationID.Valid {
-			u := fmt.Sprintf("/v1/platform/exports/%s/download", job.Uuid.String())
-			dl = &u
-		}
+		dl := s.downloadLink(ctx, job)
 		uid := job.ActorID
 		loc := i18n.Normalize(job.Locale)
 		_, _ = s.notifier.Enqueue(ctx, notifmodel.EnqueueInput{
 			UserID: &uid, Channels: []string{notifmodel.ChannelInapp},
-			TemplateCode: "exports.ready", Language: job.Locale,
+			OrganizationID: jobOrganization(job.OrganizationID),
+			TemplateCode:   "exports.ready", Language: job.Locale,
 			ActionURL: dl,
 			TemplateVars: map[string]string{
 				"resource": i18n.ResourceLabel(loc, job.Resource),
@@ -224,6 +220,41 @@ func (s *Service) ProcessExport(ctx context.Context, jobID int64) error {
 	}
 	_ = completed
 	return nil
+}
+
+// downloadLink is the action link of the "export ready" notification.
+// Platform exports download straight from the API. Tenant downloads need the
+// X-Organization header, which a link cannot carry, so they point at the
+// tenant shell page /t/{slug}/exports/{uuid}/download: it downloads the file
+// through /v1/tenant/exports/{uuid}/download with the organization of the URL
+// and works the same from the inbox, a live card or a push notification.
+func (s *Service) downloadLink(ctx context.Context, job db.ExportJob) *string {
+	if !job.OrganizationID.Valid {
+		u := fmt.Sprintf("/v1/platform/exports/%s/download", job.Uuid.String())
+		return &u
+	}
+	org, err := s.q.GetOrganizationByID(ctx, job.OrganizationID.Int64)
+	if err != nil {
+		s.log.Warn("export_notification_organization_failed", "error", err)
+		return nil
+	}
+	u := TenantDownloadPath(org.Slug, job.Uuid)
+	return &u
+}
+
+// TenantDownloadPath is the tenant shell page that downloads a finished
+// export of an organization.
+func TenantDownloadPath(orgSlug string, jobUUID uuid.UUID) string {
+	return "/t/" + url.PathEscape(orgSlug) + "/exports/" + jobUUID.String() + "/download"
+}
+
+// jobOrganization stamps job notifications with the job's organization.
+func jobOrganization(id pgtype.Int8) *int64 {
+	if !id.Valid {
+		return nil
+	}
+	v := id.Int64
+	return &v
 }
 
 func (s *Service) fail(ctx context.Context, jobID int64, msg string) error {

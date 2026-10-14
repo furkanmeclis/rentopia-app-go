@@ -234,7 +234,8 @@ func (s *Service) ProcessBulk(ctx context.Context, jobID int64) error {
 		}
 		_, _ = s.notifier.Enqueue(ctx, notifmodel.EnqueueInput{
 			UserID: &uid, Channels: channels,
-			TemplateCode: "bulk.completed", Language: job.Locale,
+			OrganizationID: jobOrganization(job.OrganizationID),
+			TemplateCode:   "bulk.completed", Language: job.Locale,
 			TemplateVars: map[string]string{
 				"resource":  i18n.ResourceLabel(loc, job.Resource),
 				"action":    job.Action,
@@ -378,6 +379,16 @@ func (s *Service) applyTargets(
 	return summary, affected, nil
 }
 
+// jobOrganization stamps job notifications with the job's organization, so
+// they show only in that organization's panel.
+func jobOrganization(id pgtype.Int8) *int64 {
+	if !id.Valid {
+		return nil
+	}
+	v := id.Int64
+	return &v
+}
+
 func (s *Service) failBulk(ctx context.Context, jobID int64, msg string) error {
 	job, err := s.q.GetBulkJobByID(ctx, jobID)
 	if err != nil {
@@ -391,7 +402,8 @@ func (s *Service) failBulk(ctx context.Context, jobID int64, msg string) error {
 		loc := i18n.Normalize(job.Locale)
 		_, _ = s.notifier.Enqueue(ctx, notifmodel.EnqueueInput{
 			UserID: &uid, Channels: []string{notifmodel.ChannelInapp},
-			TemplateCode: "bulk.failed", Language: job.Locale,
+			OrganizationID: jobOrganization(job.OrganizationID),
+			TemplateCode:   "bulk.failed", Language: job.Locale,
 			TemplateVars: map[string]string{
 				"resource": i18n.ResourceLabel(loc, job.Resource),
 				"action":   job.Action,

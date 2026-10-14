@@ -45,6 +45,14 @@ export const routes = {
       edit: (slug: string, uuid: string) =>
         `/t/${encodeURIComponent(slug)}/branches/${uuid}/edit`,
     },
+    exports: {
+      /**
+       * Downloads a finished export of the organization (the action link of
+       * the "export ready" notification; the API needs `X-Organization`).
+       */
+      download: (slug: string, uuid: string) =>
+        `/t/${encodeURIComponent(slug)}/exports/${uuid}/download`,
+    },
     fleet: {
       segments: fleetRoutes("segments"),
       groups: fleetRoutes("groups"),

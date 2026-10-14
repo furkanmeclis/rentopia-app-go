@@ -19,12 +19,14 @@ import {
   useRemoveTenantMember,
   useTenantMembersList,
 } from "@/features/tenant-members/hooks/use-tenant-members";
-import type {
-  ListTenantMembersParams,
-  TenantMember,
+import {
+  TENANT_MEMBERS_RESOURCE,
+  type ListTenantMembersParams,
+  type TenantMember,
 } from "@/features/tenant-members/types";
 import { useAllTenantRoles } from "@/features/tenant-roles/hooks/use-tenant-roles";
 import { useTenant } from "@/features/tenant/components/tenant-provider";
+import { tenantLiveList } from "@/features/tenant/lib/live";
 import { usePermission } from "@/providers/permission-provider";
 import { useLocale } from "@/providers/locale-provider";
 
@@ -41,12 +43,13 @@ function filterValues(value: unknown): string[] {
  */
 export function MembersPage() {
   const { t } = useLocale();
-  const { slug } = useTenant();
+  const { slug, organization } = useTenant();
   const { can } = usePermission();
 
   const listState = useServerListState({
     initialSort: "created_at",
     initialPageSize: 20,
+    realtime: tenantLiveList(organization, TENANT_MEMBERS_RESOURCE),
   });
   const [editing, setEditing] = useState<TenantMember | null>(null);
   const [removing, setRemoving] = useState<TenantMember | null>(null);
@@ -130,6 +133,7 @@ export function MembersPage() {
         isError={listQuery.isError}
         errorDescription={t("tenant_members.load_failed")}
         onRetry={() => void listQuery.refetch()}
+        realtime={listState.realtimeFor(() => listQuery.refetch())}
         emptyTitle={
           hasFilters
             ? t("tenant_members.empty_filtered_title")

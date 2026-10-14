@@ -59,6 +59,7 @@ import type {
 } from "@/features/fleet/types";
 import { ResourceIOToolbar } from "@/features/io";
 import { useTenant } from "@/features/tenant/components/tenant-provider";
+import { tenantLiveList } from "@/features/tenant/lib/live";
 import { datetime } from "@/lib/utils/format";
 import { useLocale } from "@/providers/locale-provider";
 
@@ -72,11 +73,12 @@ function countOf(facets: FleetFacet[] | undefined, value: string) {
  */
 export function ProductsPage() {
   const { t, locale } = useLocale();
-  const { slug } = useTenant();
+  const { slug, organization } = useTenant();
   const router = useRouter();
   const listState = useServerListState({
     initialSort: "-created_at",
     initialPageSize: 20,
+    realtime: tenantLiveList(organization, RENTAL_PRODUCTS_RESOURCE),
   });
   const [quickEdit, setQuickEdit] = useState<RentalProduct | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<RentalProduct | null>(null);
@@ -376,6 +378,9 @@ export function ProductsPage() {
         isError={listQuery.isError}
         errorDescription={t("fleet.products.load_failed")}
         onRetry={() => void listQuery.refetch()}
+        realtime={listState.realtimeFor(() =>
+          Promise.all([listQuery.refetch(), facetsQuery.refetch()]),
+        )}
         emptyTitle={
           hasFilters
             ? t("fleet.empty_filtered_title")

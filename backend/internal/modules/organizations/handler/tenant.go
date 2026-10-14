@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/authctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/bulkengine"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/resourceevents"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/resourcemeta"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/pkg/apiquery"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/pkg/response"
@@ -22,6 +24,12 @@ import (
 const (
 	resourceTenantMembers = "tenant.members"
 	resourceTenantRoles   = "tenant.roles"
+)
+
+// Engine slugs of the tenant member and role lists (live list channels).
+const (
+	ResourceTenantMembers = resourceTenantMembers
+	ResourceTenantRoles   = resourceTenantRoles
 )
 
 // TenantMembersMeta is the table contract of GET /v1/tenant/members.
@@ -300,11 +308,65 @@ func (h *Handler) TenantDeleteRole(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) recordTenant(r *http.Request, action, resource string, id *uuid.UUID, payload map[string]any) {
+	h.publishTenant(r.Context(), action, id)
 	if h.activity == nil {
 		return
 	}
 	p := authctx.MustPrincipal(r.Context())
 	h.activity.Record(r.Context(), &p.UserInternal, action, resource, id, payload, r)
+}
+
+// publishTenant tells the open member / role lists of the organization on
+// ctx what changed: one event per mutation on its own list (uuid = the
+// member's user uuid or the role uuid). Member role changes also move the
+// member counts of the roles list, and a role update renames it in the
+// members list, so the other list gets a bulk event without uuids (refetch).
+func (h *Handler) publishTenant(ctx context.Context, action string, id *uuid.UUID) {
+	if h.events == nil || id == nil {
+		return
+	}
+	switch action {
+	case "members.added":
+		h.events.Publish(ctx, resourceTenantMembers, resourceevents.ActionCreated, id.String())
+		h.events.Publish(ctx, resourceTenantRoles, resourceevents.ActionBulk)
+	case "members.updated":
+		h.events.Publish(ctx, resourceTenantMembers, resourceevents.ActionUpdated, id.String())
+		h.events.Publish(ctx, resourceTenantRoles, resourceevents.ActionBulk)
+	case "members.removed":
+		h.events.Publish(ctx, resourceTenantMembers, resourceevents.ActionDeleted, id.String())
+		h.events.Publish(ctx, resourceTenantRoles, resourceevents.ActionBulk)
+	case "roles.created":
+		h.events.Publish(ctx, resourceTenantRoles, resourceevents.ActionCreated, id.String())
+	case "roles.updated":
+		h.events.Publish(ctx, resourceTenantRoles, resourceevents.ActionUpdated, id.String())
+		h.events.Publish(ctx, resourceTenantMembers, resourceevents.ActionBulk)
+	case "roles.deleted":
+		h.events.Publish(ctx, resourceTenantRoles, resourceevents.ActionDeleted, id.String())
+	}
+}
+
+// publishPlatformMember refreshes the tenant member list of an organization
+// after a platform operator changed its members (/v1/platform/organizations).
+// The tenant channel needs the organization on the context.
+func (h *Handler) publishPlatformMember(r *http.Request, orgUUID uuid.UUID, action string, userUUID uuid.UUID) {
+	if h.events == nil {
+		return
+	}
+	org, err := h.svc.GetOrganization(r.Context(), orgUUID)
+	if err != nil {
+		return
+	}
+	ctx := orgctx.WithScope(r.Context(), orgctx.Scope{ID: org.ID, UUID: org.UUID, Slug: org.Slug})
+	var tenantAction string
+	switch action {
+	case resourceevents.ActionCreated:
+		tenantAction = "members.added"
+	case resourceevents.ActionDeleted:
+		tenantAction = "members.removed"
+	default:
+		tenantAction = "members.updated"
+	}
+	h.publishTenant(ctx, tenantAction, &userUUID)
 }
 
 func writeTenantError(w http.ResponseWriter, r *http.Request, err error) {

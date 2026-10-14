@@ -58,5 +58,13 @@
   "toast.ready": "File ready, downloading.",
   "resources.tenant.segments": "Segments",
   "resources.tenant.rental_groups": "Rental groups",
-  "resources.tenant.rental_products": "Products"
+  "resources.tenant.rental_products": "Products",
+  "tenant_download.title": "Download export",
+  "tenant_download.description": "The notification link downloads the file through this organization.",
+  "tenant_download.not_ready": "The export is not ready or failed; there is no file to download.",
+  "tenant_download.state_idle": "The file is ready.",
+  "tenant_download.state_downloading": "Downloading the file…",
+  "tenant_download.state_done": "The download started. You can download the file again.",
+  "tenant_download.state_failed": "Could not download the file. Try again.",
+  "tenant_download.again": "Download again"
 }
