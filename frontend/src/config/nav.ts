@@ -2,6 +2,7 @@ import {
   Activity,
   Bell,
   Building2,
+  CarFront,
   Cpu,
   Download,
   HardDrive,
@@ -211,6 +212,13 @@ export const platformNav = defineNav({
       defaultOpen: true,
       items: [
         usersNavItem,
+        {
+          id: "catalog",
+          titleKey: "layout.nav_catalog",
+          href: routes.platform.catalog.root,
+          icon: CarFront,
+          permission: permissions.catalog.read,
+        },
         {
           id: "notifications",
           titleKey: "layout.nav_notifications",

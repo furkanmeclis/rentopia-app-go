@@ -46,5 +46,14 @@
   "actions.organizations.access_updated": "Firma erişim süresi güncellendi",
   "actions.organizations.member_added": "Firma üyesi eklendi",
   "actions.organizations.member_role_updated": "Firma üyesinin rolü güncellendi",
-  "actions.organizations.member_removed": "Firma üyesi çıkarıldı"
+  "actions.organizations.member_removed": "Firma üyesi çıkarıldı",
+  "resources.platform.catalog": "Araç kataloğu",
+  "actions.catalog.import_uploaded": "Kasko listesi yüklendi",
+  "actions.catalog.import_apply_requested": "Kasko listesinin uygulanması istendi",
+  "actions.catalog.import_applied": "Kasko listesi uygulandı",
+  "actions.catalog.brand_updated": "Katalog markası güncellendi",
+  "actions.catalog.model_created": "Katalog modeli oluşturuldu",
+  "actions.catalog.model_updated": "Katalog modeli güncellendi",
+  "actions.catalog.model_merged": "Katalog modelleri birleştirildi",
+  "actions.catalog.type_updated": "Katalog tipi güncellendi"
 }

@@ -68,6 +68,7 @@ Primary list resources expose `GET /v1/{resource}/meta` via `internal/platform/r
 - `GET /v1/platform/storage/meta`
 - `GET /v1/platform/logs/meta`
 - `GET /v1/platform/log-rules/meta`
+- `GET /v1/platform/catalog/{brands,models,types,imports}/meta`
 
 Register `/meta` **before** `/{uuid}` on `ServeMux`. Capabilities must match live routes (do not advertise unfinished bulk/export).
 

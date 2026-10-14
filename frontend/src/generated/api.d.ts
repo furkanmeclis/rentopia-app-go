@@ -1911,6 +1911,350 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/platform/catalog/brands/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Catalog brands list metadata */
+        get: operations["getPlatformCatalogBrandsMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/catalog/brands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List catalog brands
+         * @description Requires `platform.catalog.read`. Sort fields `display_name`, `tsb_name`, `tsb_code`, `category`, `types_count`, `created_at`.
+         */
+        get: operations["getPlatformCatalogBrands"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/catalog/brands/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get catalog brand */
+        get: operations["getPlatformCatalogBrand"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update brand display name, category or active flag
+         * @description Requires `platform.catalog.write`. TSB code and name are owned by the import.
+         */
+        patch: operations["patchPlatformCatalogBrand"];
+        trace?: never;
+    };
+    "/v1/platform/catalog/models/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Catalog models list metadata */
+        get: operations["getPlatformCatalogModelsMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/catalog/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List catalog models
+         * @description Sort fields `name`, `brand`, `source`, `types_count`, `created_at`.
+         */
+        get: operations["getPlatformCatalogModels"];
+        put?: never;
+        /** Create a manual model */
+        post: operations["postPlatformCatalogModel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/catalog/models/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get catalog model with its prefix rules */
+        get: operations["getPlatformCatalogModel"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Rename a model
+         * @description Any edit marks the model `manual` unless `source` is sent.
+         */
+        patch: operations["patchPlatformCatalogModel"];
+        trace?: never;
+    };
+    "/v1/platform/catalog/models/{uuid}/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Merge a model into another model of the same brand
+         * @description Moves the types and prefix rules of `{uuid}` to `into_uuid`, then deletes `{uuid}`.
+         */
+        post: operations["postPlatformCatalogModelMerge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/catalog/types/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Catalog types list metadata */
+        get: operations["getPlatformCatalogTypesMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/catalog/types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List catalog types (TSB type lines)
+         * @description Sort fields `raw_name`, `tsb_type_code`, `brand`, `model`, `last_seen_period`, `created_at`.
+         */
+        get: operations["getPlatformCatalogTypes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/catalog/types/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get catalog type with kasko values
+         * @description `valuations` holds the latest period's value per model year; `history` every stored period.
+         */
+        get: operations["getPlatformCatalogType"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Assign a model / override suggestions
+         * @description `model_uuid` (null clears) assigns the model. With `save_rule: true` the
+         *     `rule_prefix` (default: the model name; must prefix the type name) is
+         *     stored as a prefix rule for the brand and applied to its types that
+         *     have no model or an auto-derived one; later imports use it too.
+         */
+        patch: operations["patchPlatformCatalogType"];
+        trace?: never;
+    };
+    "/v1/platform/catalog/imports/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Catalog imports list metadata */
+        get: operations["getPlatformCatalogImportsMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/catalog/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List TSB list imports
+         * @description Sort fields `period`, `status`, `created_at`.
+         */
+        get: operations["getPlatformCatalogImports"];
+        put?: never;
+        /**
+         * Upload a TSB kasko list (.xlsx) for a dry run
+         * @description Stores the file privately in object storage and queues a dry run that
+         *     parses it and computes the diff without changing the catalog. Poll
+         *     `GET /v1/platform/catalog/imports/{uuid}` until `status` is `ready`
+         *     (or `failed`), then `POST .../apply`. The period is read from cell A1
+         *     ("Ekim 2026" → `2026-10`) unless `period` is sent.
+         */
+        post: operations["postPlatformCatalogImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/catalog/imports/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get import status, counts and diff samples */
+        get: operations["getPlatformCatalogImport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/catalog/imports/{uuid}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply a dry-run import
+         * @description Queues the apply: one transaction upserts brands and types, creates
+         *     auto models, deactivates types missing from the period and writes the
+         *     period's valuations (older periods are kept). Idempotent: applying
+         *     the same period again changes nothing. Allowed from `ready`,
+         *     `applied` and `failed` (with a period); otherwise `409 CONFLICT`.
+         */
+        post: operations["postPlatformCatalogImportApply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/catalog/brands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Vehicle brands for forms
+         * @description Active brands with active types (optionally for a model `year`). Any organization member.
+         */
+        get: operations["getTenantCatalogBrands"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/catalog/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Vehicle models of a brand for forms */
+        get: operations["getTenantCatalogModels"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/catalog/types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Vehicle types of a model with the latest kasko value
+         * @description With `year`, only types sold that model year and `kasko_value` is that year's value from the latest period.
+         */
+        get: operations["getTenantCatalogTypes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3234,6 +3578,378 @@ export interface components {
                 [key: string]: string;
             };
         };
+        /** @enum {string} */
+        CatalogBrandCategory: "passenger" | "light_commercial" | "other";
+        /** @enum {string} */
+        CatalogFuel: "petrol" | "diesel" | "hybrid" | "electric" | "lpg";
+        /** @enum {string} */
+        CatalogTransmission: "manual" | "automatic";
+        /** @enum {string} */
+        CatalogModelSource: "auto" | "manual";
+        /** @enum {string} */
+        CatalogImportStatus: "queued" | "processing" | "ready" | "applying" | "applied" | "failed";
+        CatalogRef: {
+            /** Format: uuid */
+            uuid: string;
+            display_name: string;
+            tsb_code?: string;
+        };
+        CatalogNamedRef: {
+            /** Format: uuid */
+            uuid: string;
+            name: string;
+        };
+        CatalogModelRef: {
+            /** Format: uuid */
+            uuid: string;
+            /** @example EGEA CROSS */
+            name: string;
+            source: components["schemas"]["CatalogModelSource"];
+        };
+        CatalogBrand: {
+            /** Format: uuid */
+            uuid: string;
+            /** @example 100 */
+            tsb_code: string;
+            /** @example TOFAS-FIAT */
+            tsb_name: string;
+            /** @example Fiat */
+            display_name: string;
+            category: components["schemas"]["CatalogBrandCategory"];
+            is_active: boolean;
+            /**
+             * Format: int64
+             * @description Active types
+             */
+            types_count: number;
+            /** Format: int64 */
+            models_count: number;
+            /**
+             * Format: int64
+             * @description Active types without a model
+             */
+            unresolved_count: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        CatalogModelRule: {
+            /** @example EGEA CROSS */
+            prefix: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        CatalogModel: {
+            /** Format: uuid */
+            uuid: string;
+            /** @example EGEA CROSS */
+            name: string;
+            source: components["schemas"]["CatalogModelSource"];
+            brand: components["schemas"]["CatalogRef"];
+            /** Format: int64 */
+            types_count: number;
+            rules?: components["schemas"]["CatalogModelRule"][];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        CatalogType: {
+            /** Format: uuid */
+            uuid: string;
+            /** @example 1402 */
+            tsb_type_code: string;
+            /** @example EGEA CROSS STREET 1.4 FIRE 95 E6D */
+            raw_name: string;
+            /** @description Model years with a kasko value (newest first) */
+            years: number[];
+            suggested_transmission: components["schemas"]["CatalogTransmission"] | null;
+            suggested_fuel: components["schemas"]["CatalogFuel"] | null;
+            /** @example 2026-10 */
+            first_seen_period: string;
+            /** @example 2026-10 */
+            last_seen_period: string;
+            is_active: boolean;
+            brand: components["schemas"]["CatalogRef"];
+            model: components["schemas"]["CatalogModelRef"] | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        CatalogValuation: {
+            /** @example 2024 */
+            model_year: number;
+            /** @example 2026-10 */
+            period: string;
+            /**
+             * @description Kasko value in TRY
+             * @example 1051836
+             */
+            value: number;
+        };
+        CatalogTypeDetail: components["schemas"]["CatalogType"] & {
+            brand_tsb_name: string;
+            /** @description Empty when no value is stored */
+            latest_period: string;
+            /** @description Latest period, one entry per model year */
+            valuations: components["schemas"]["CatalogValuation"][];
+            /** @description All stored periods, newest first */
+            history: components["schemas"]["CatalogValuation"][];
+        };
+        /** @description Dry-run counts while `ready`; what the apply changed once `applied`. */
+        CatalogImportCounts: {
+            rows?: number;
+            brands_new?: number;
+            brands_renamed?: number;
+            models_new?: number;
+            types_new?: number;
+            types_renamed?: number;
+            types_reactivated?: number;
+            types_updated?: number;
+            types_deactivated?: number;
+            valuations_new?: number;
+            valuations_changed?: number;
+            valuations_upserted?: number;
+            unresolved_models?: number;
+            unresolved_by_category?: {
+                [key: string]: number;
+            };
+        };
+        CatalogImportSampleType: {
+            brand: string;
+            code: string;
+            name: string;
+            old_name?: string;
+            model?: string;
+        };
+        /** @description Up to 25 samples per change kind. */
+        CatalogImportDiff: {
+            /** @example Ekim 2026 */
+            period_label?: string;
+            years?: number[];
+            new_brands?: {
+                code?: string;
+                name?: string;
+                old_name?: string;
+                display_name?: string;
+                category?: string;
+            }[];
+            renamed_brands?: {
+                code?: string;
+                name?: string;
+                old_name?: string;
+                display_name?: string;
+                category?: string;
+            }[];
+            new_models?: {
+                brand?: string;
+                name?: string;
+                types?: number;
+            }[];
+            new_types?: components["schemas"]["CatalogImportSampleType"][];
+            renamed_types?: components["schemas"]["CatalogImportSampleType"][];
+            deactivated_types?: components["schemas"]["CatalogImportSampleType"][];
+            reactivated_types?: components["schemas"]["CatalogImportSampleType"][];
+            unresolved_types?: components["schemas"]["CatalogImportSampleType"][];
+            changed_valuations?: {
+                brand?: string;
+                code?: string;
+                name?: string;
+                year?: number;
+                old?: number;
+                new?: number;
+            }[];
+            dry_run_counts?: components["schemas"]["CatalogImportCounts"];
+        };
+        CatalogImport: {
+            /** Format: uuid */
+            uuid: string;
+            /** @example 2026-10 */
+            period: string | null;
+            filename: string;
+            status: components["schemas"]["CatalogImportStatus"];
+            counts: components["schemas"]["CatalogImportCounts"];
+            diff?: components["schemas"]["CatalogImportDiff"];
+            error: string | null;
+            created_by_email?: string | null;
+            /** Format: date-time */
+            applied_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        PatchCatalogBrandRequest: {
+            display_name?: string;
+            category?: components["schemas"]["CatalogBrandCategory"];
+            is_active?: boolean;
+        };
+        CreateCatalogModelRequest: {
+            /** Format: uuid */
+            brand_uuid: string;
+            name: string;
+        };
+        PatchCatalogModelRequest: {
+            name?: string;
+            source?: components["schemas"]["CatalogModelSource"];
+        };
+        MergeCatalogModelRequest: {
+            /** Format: uuid */
+            into_uuid: string;
+        };
+        PatchCatalogTypeRequest: {
+            /**
+             * Format: uuid
+             * @description Model of the same brand; null clears the assignment
+             */
+            model_uuid?: string | null;
+            /** @description Also store a prefix rule (needs model_uuid) */
+            save_rule?: boolean;
+            /** @description Prefix of the type name; defaults to the model name */
+            rule_prefix?: string;
+            suggested_transmission?: components["schemas"]["CatalogTransmission"] | null;
+            suggested_fuel?: components["schemas"]["CatalogFuel"] | null;
+        };
+        TenantCatalogBrand: {
+            /** Format: uuid */
+            uuid: string;
+            /** @example Fiat */
+            display_name: string;
+            category: components["schemas"]["CatalogBrandCategory"];
+        };
+        TenantCatalogModel: {
+            /** Format: uuid */
+            uuid: string;
+            /** @example EGEA CROSS */
+            name: string;
+            brand: components["schemas"]["CatalogRef"];
+        };
+        TenantCatalogType: {
+            /** Format: uuid */
+            uuid: string;
+            tsb_type_code: string;
+            /** @example EGEA CROSS STREET 1.4 FIRE 95 E6D */
+            name: string;
+            years: number[];
+            suggested_transmission: components["schemas"]["CatalogTransmission"] | null;
+            suggested_fuel: components["schemas"]["CatalogFuel"] | null;
+            brand: components["schemas"]["CatalogRef"];
+            model: components["schemas"]["CatalogNamedRef"];
+            /** @description Kasko value (TRY) for the requested `year` from the latest period; null without `year` */
+            kasko_value: number | null;
+            /** @example 2026-10 */
+            kasko_period: string | null;
+        };
+        EnvelopeCatalogBrand: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["CatalogBrand"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCatalogBrandPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["CatalogBrand"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCatalogModel: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["CatalogModel"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCatalogModelPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["CatalogModel"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCatalogTypePage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["CatalogType"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCatalogTypeDetail: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["CatalogTypeDetail"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCatalogImport: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["CatalogImport"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCatalogImportPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["CatalogImport"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeTenantCatalogBrandPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["TenantCatalogBrand"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeTenantCatalogModelPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["TenantCatalogModel"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeTenantCatalogTypePage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["TenantCatalogType"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
     };
     responses: {
         /** @description Validation or malformed request */
@@ -3339,6 +4055,11 @@ export interface components {
         Q: string;
         /** @description Comma-separated fields; prefix `-` for descending */
         Sort: string;
+        CatalogCategory: components["schemas"]["CatalogBrandCategory"];
+        /** @description Brand UUID */
+        CatalogBrandFilter: string;
+        /** @description Model year */
+        CatalogYear: number;
     };
     requestBodies: never;
     headers: never;
@@ -6404,6 +7125,675 @@ export interface operations {
                 };
             };
             400: components["responses"]["OrganizationRequired"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getPlatformCatalogBrandsMeta: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource meta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getPlatformCatalogBrands: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description Comma-separated fields; prefix `-` for descending */
+                sort?: components["parameters"]["Sort"];
+                category?: components["parameters"]["CatalogCategory"];
+                is_active?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Brand page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCatalogBrandPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getPlatformCatalogBrand: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Brand */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCatalogBrand"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    patchPlatformCatalogBrand: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchCatalogBrandRequest"];
+            };
+        };
+        responses: {
+            /** @description Brand */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCatalogBrand"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getPlatformCatalogModelsMeta: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource meta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getPlatformCatalogModels: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description Comma-separated fields; prefix `-` for descending */
+                sort?: components["parameters"]["Sort"];
+                /** @description Brand UUID */
+                brand?: components["parameters"]["CatalogBrandFilter"];
+                source?: "auto" | "manual";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Model page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCatalogModelPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    postPlatformCatalogModel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCatalogModelRequest"];
+            };
+        };
+        responses: {
+            /** @description Model */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCatalogModel"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getPlatformCatalogModel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Model */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCatalogModel"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    patchPlatformCatalogModel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchCatalogModelRequest"];
+            };
+        };
+        responses: {
+            /** @description Model */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCatalogModel"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    postPlatformCatalogModelMerge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MergeCatalogModelRequest"];
+            };
+        };
+        responses: {
+            /** @description Target model */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCatalogModel"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getPlatformCatalogTypesMeta: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource meta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getPlatformCatalogTypes: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description Comma-separated fields; prefix `-` for descending */
+                sort?: components["parameters"]["Sort"];
+                /** @description Brand UUID */
+                brand?: components["parameters"]["CatalogBrandFilter"];
+                category?: components["parameters"]["CatalogCategory"];
+                /** @description Model UUID */
+                model?: string;
+                /** @description Model year */
+                year?: components["parameters"]["CatalogYear"];
+                /** @description `true` = only types without a model */
+                unresolved?: boolean;
+                is_active?: boolean;
+                fuel?: components["schemas"]["CatalogFuel"];
+                transmission?: components["schemas"]["CatalogTransmission"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Type page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCatalogTypePage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getPlatformCatalogType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Type detail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCatalogTypeDetail"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    patchPlatformCatalogType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchCatalogTypeRequest"];
+            };
+        };
+        responses: {
+            /** @description Type detail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCatalogTypeDetail"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getPlatformCatalogImportsMeta: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource meta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getPlatformCatalogImports: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description Comma-separated fields; prefix `-` for descending */
+                sort?: components["parameters"]["Sort"];
+                status?: components["schemas"]["CatalogImportStatus"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Import page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCatalogImportPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    postPlatformCatalogImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    /** @description Override the period (YYYY-MM) */
+                    period?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Import queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCatalogImport"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getPlatformCatalogImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Import */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCatalogImport"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    postPlatformCatalogImportApply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Apply queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCatalogImport"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getTenantCatalogBrands: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                category?: components["parameters"]["CatalogCategory"];
+                /** @description Model year */
+                year?: components["parameters"]["CatalogYear"];
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Brand page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeTenantCatalogBrandPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getTenantCatalogModels: {
+        parameters: {
+            query: {
+                /** @description Brand UUID */
+                brand: string;
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description Model year */
+                year?: components["parameters"]["CatalogYear"];
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Model page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeTenantCatalogModelPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getTenantCatalogTypes: {
+        parameters: {
+            query: {
+                /** @description Model UUID */
+                model: string;
+                /** @description Model year */
+                year?: components["parameters"]["CatalogYear"];
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Type page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeTenantCatalogTypePage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["TenantForbidden"];
             500: components["responses"]["InternalError"];
