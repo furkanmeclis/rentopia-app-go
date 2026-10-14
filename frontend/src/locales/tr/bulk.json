@@ -32,5 +32,9 @@
   "actions.vehicles.activate": "Araçları aktifleştir",
   "actions.vehicles.deactivate": "Araçları pasifleştir",
   "confirm.vehicles.replace_rental_group": "Seçili {{count}} aracın tüm kiralama grupları seçilen grupla değiştirilsin mi?",
-  "confirm.vehicles.deactivate": "Seçili {{count}} araç pasifleştirilsin mi? Kapasiteye sayılmazlar."
+  "confirm.vehicles.deactivate": "Seçili {{count}} araç pasifleştirilsin mi? Kapasiteye sayılmazlar.",
+  "actions.vehicles.start_maintenance": "Bakıma al",
+  "actions.one_way_rules.activate": "Kuralları aktifleştir",
+  "actions.one_way_rules.deactivate": "Kuralları pasifleştir",
+  "confirm.one_way_rules.deactivate": "Seçili {{count}} kural pasifleştirilsin mi? Bu güzergâhlarda tek yön iade kapanır."
 }

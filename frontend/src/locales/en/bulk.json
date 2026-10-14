@@ -32,5 +32,9 @@
   "actions.vehicles.activate": "Activate vehicles",
   "actions.vehicles.deactivate": "Deactivate vehicles",
   "confirm.vehicles.replace_rental_group": "Replace every rental group of the {{count}} selected vehicles with the chosen group?",
-  "confirm.vehicles.deactivate": "Deactivate {{count}} selected vehicles? They stop counting as capacity."
+  "confirm.vehicles.deactivate": "Deactivate {{count}} selected vehicles? They stop counting as capacity.",
+  "actions.vehicles.start_maintenance": "Send to maintenance",
+  "actions.one_way_rules.activate": "Activate rules",
+  "actions.one_way_rules.deactivate": "Deactivate rules",
+  "confirm.one_way_rules.deactivate": "Deactivate {{count}} selected rules? One-way returns on these routes close."
 }

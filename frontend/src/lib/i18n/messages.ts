@@ -35,6 +35,9 @@ import enTenantMembers from "@/locales/en/tenant_members.json";
 import enTenantRoles from "@/locales/en/tenant_roles.json";
 import enTenantSettings from "@/locales/en/tenant_settings.json";
 import enUsers from "@/locales/en/users.json";
+import enOneWayRules from "@/locales/en/one_way_rules.json";
+import enTransfers from "@/locales/en/transfers.json";
+import enVehicleBlocks from "@/locales/en/vehicle_blocks.json";
 import enVehicles from "@/locales/en/vehicles.json";
 import trAccess from "@/locales/tr/access.json";
 import trActivity from "@/locales/tr/activity.json";
@@ -71,6 +74,9 @@ import trTenantMembers from "@/locales/tr/tenant_members.json";
 import trTenantRoles from "@/locales/tr/tenant_roles.json";
 import trTenantSettings from "@/locales/tr/tenant_settings.json";
 import trUsers from "@/locales/tr/users.json";
+import trOneWayRules from "@/locales/tr/one_way_rules.json";
+import trTransfers from "@/locales/tr/transfers.json";
+import trVehicleBlocks from "@/locales/tr/vehicle_blocks.json";
 import trVehicles from "@/locales/tr/vehicles.json";
 
 export type MessageDictionary = Record<string, string>;
@@ -95,6 +101,9 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     errors: trErrors,
     users: trUsers,
     vehicles: trVehicles,
+    vehicle_blocks: trVehicleBlocks,
+    transfers: trTransfers,
+    one_way_rules: trOneWayRules,
     notifications: trNotifications,
     dashboard: trDashboard,
     activity: trActivity,
@@ -133,6 +142,9 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     errors: enErrors,
     users: enUsers,
     vehicles: enVehicles,
+    vehicle_blocks: enVehicleBlocks,
+    transfers: enTransfers,
+    one_way_rules: enOneWayRules,
     notifications: enNotifications,
     dashboard: enDashboard,
     activity: enActivity,

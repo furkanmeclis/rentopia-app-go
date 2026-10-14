@@ -36,6 +36,7 @@ import {
   PlateBadge,
   VehicleStatusChip,
 } from "@/features/vehicles/components/vehicle-cells";
+import { VehicleBlocksTab, VehicleTransfersTab } from "@/features/fleet-ops";
 import { VehicleForm } from "@/features/vehicles/components/vehicle-form";
 import { VehicleStatusDialog } from "@/features/vehicles/components/vehicle-status-dialog";
 import {
@@ -304,6 +305,12 @@ export function VehicleDetailPage({ uuid }: { uuid: string }) {
               <TabsTrigger value="groups">
                 {t("vehicles.tabs.groups")}
               </TabsTrigger>
+              <TabsTrigger value="blocks">
+                {t("vehicles.tabs.blocks")}
+              </TabsTrigger>
+              <TabsTrigger value="transfers">
+                {t("vehicles.tabs.transfers")}
+              </TabsTrigger>
               <TabsTrigger value="history">
                 {t("vehicles.tabs.history")}
               </TabsTrigger>
@@ -545,6 +552,14 @@ export function VehicleDetailPage({ uuid }: { uuid: string }) {
 
             <TabsContent value="groups">
               <VehicleGroupsTab uuid={uuid} />
+            </TabsContent>
+
+            <TabsContent value="blocks">
+              <VehicleBlocksTab vehicleUuid={uuid} />
+            </TabsContent>
+
+            <TabsContent value="transfers">
+              <VehicleTransfersTab vehicleUuid={uuid} />
             </TabsContent>
 
             <TabsContent value="history">

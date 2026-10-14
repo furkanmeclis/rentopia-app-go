@@ -26,6 +26,8 @@ const EXPORT_PERM: Partial<Record<IoResource, string>> = {
   "tenant.rental_groups": permissions.tenant.fleet.read,
   "tenant.rental_products": permissions.tenant.fleet.read,
   "tenant.vehicles": permissions.tenant.vehicles.export,
+  "tenant.transfers": permissions.tenant.transfers.read,
+  "tenant.one_way_rules": permissions.tenant.oneWay.read,
 };
 
 const IMPORT_PERM: Partial<Record<IoResource, string>> = {

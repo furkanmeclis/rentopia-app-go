@@ -213,5 +213,10 @@
   "toast.deleted": "Araç silindi.",
   "toast.status_changed": "Durum kaydedildi.",
   "toast.group_added": "Araç gruba eklendi.",
-  "toast.group_removed": "Araç gruptan çıkarıldı."
+  "toast.group_removed": "Araç gruptan çıkarıldı.",
+  "tabs.blocks": "Engeller",
+  "tabs.transfers": "Transferler",
+  "bulk_params.start_maintenance_hint": "Seçili araçlar için şimdiden başlayan süresiz bakım engeli açılır; işlem geri alınabilir.",
+  "bulk_params.maintenance_reason": "Bakım nedeni",
+  "bulk_params.maintenance_sync_status": "Araç durumunu \"bakımda\" yap"
 }
