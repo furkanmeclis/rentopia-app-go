@@ -389,12 +389,17 @@ func (s *Service) GetJob(ctx context.Context, jobUUID uuid.UUID, actorID int64, 
 }
 
 func (s *Service) buildPreview(ctx context.Context, job db.ImportJob) (ioengine.PreviewSummary, error) {
-	rows, _, _, err := s.loadMappedRows(ctx, job)
+	rows, _, defaults, err := s.loadMappedRows(ctx, job)
 	if err != nil {
 		return ioengine.PreviewSummary{}, err
 	}
 	summary := ioengine.PreviewSummary{Total: len(rows)}
 	previews := make([]ioengine.RowPreview, 0, min(len(rows), 50))
+	if adapter, err := s.registry.Get(job.Resource); err == nil {
+		if previewer, ok := adapter.(ioengine.RowPreviewer); ok {
+			return s.diffPreview(ctx, job, previewer, rows, defaults)
+		}
+	}
 	for i, row := range rows {
 		ok := true
 		for k, v := range row {
@@ -412,6 +417,42 @@ func (s *Service) buildPreview(ctx context.Context, job db.ImportJob) (ioengine.
 		}
 	}
 	summary.Rows = previews
+	return summary, nil
+}
+
+// diffPreview dry-runs every row through the adapter (validation + what it
+// would create or change). Tenant adapters read the organization and branch
+// scope from ctx, like ApplyRow.
+func (s *Service) diffPreview(ctx context.Context, job db.ImportJob, previewer ioengine.RowPreviewer, rows []map[string]any, defaults map[string]any) (ioengine.PreviewSummary, error) {
+	if job.OrganizationID.Valid {
+		scoped, err := orgctx.WithJobScope(ctx, s.scopes, job.OrganizationID.Int64, job.ActorID)
+		if err != nil {
+			return ioengine.PreviewSummary{}, err
+		}
+		ctx = scoped
+	}
+	summary := ioengine.PreviewSummary{Total: len(rows), Rows: []ioengine.RowPreview{}, Errors: []ioengine.RowError{}}
+	for i, row := range rows {
+		diff, err := previewer.PreviewRow(ctx, row, defaults)
+		if err != nil {
+			return ioengine.PreviewSummary{}, err
+		}
+		if diff.Error != "" {
+			summary.Invalid++
+			summary.Errors = append(summary.Errors, ioengine.RowError{Index: i + 1, Error: diff.Error})
+			continue
+		}
+		summary.Valid++
+		switch diff.Op {
+		case "create":
+			summary.Creates++
+		case "update":
+			summary.Updates++
+		}
+		if len(summary.Rows) < 200 {
+			summary.Rows = append(summary.Rows, ioengine.RowPreview{Index: i + 1, Data: row, Op: diff.Op, Changes: diff.Changes})
+		}
+	}
 	return summary, nil
 }
 
