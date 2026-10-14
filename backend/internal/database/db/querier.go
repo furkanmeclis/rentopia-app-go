@@ -317,6 +317,8 @@ type Querier interface {
 	ListActivePublicLinks(ctx context.Context) ([]StorageLink, error)
 	ListActivePushDevicesByUser(ctx context.Context, userID int64) ([]PushDevice, error)
 	ListActiveRefreshTokensByUserID(ctx context.Context, userID int64) ([]RefreshToken, error)
+	// Platform audit feed: platform events only. Organization events are read
+	// per resource through ListOrganizationResourceActivity.
 	ListActivityEvents(ctx context.Context, arg ListActivityEventsParams) ([]ActivityEvent, error)
 	ListAllBulkJobs(ctx context.Context, arg ListAllBulkJobsParams) ([]BulkJob, error)
 	ListAllExportJobs(ctx context.Context, arg ListAllExportJobsParams) ([]ExportJob, error)
@@ -418,6 +420,8 @@ type Querier interface {
 	ListPermissionSlugsByRoleID(ctx context.Context, roleID int64) ([]string, error)
 	ListPermissionSlugsByRoleSlug(ctx context.Context, slug string) ([]string, error)
 	ListPermissionsFiltered(ctx context.Context, arg ListPermissionsFilteredParams) ([]Permission, error)
+	// Platform rows only: organization-stamped notifications show in their
+	// organization's panel (/v1/tenant/notifications), never here.
 	ListPlatformNotifications(ctx context.Context, arg ListPlatformNotificationsParams) ([]Notification, error)
 	ListPlatformNotificationsForExport(ctx context.Context, arg ListPlatformNotificationsForExportParams) ([]Notification, error)
 	ListPushSubscriptionsByUser(ctx context.Context, userID int64) ([]PushSubscription, error)
