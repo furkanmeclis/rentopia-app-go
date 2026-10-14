@@ -106,7 +106,13 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		}
 	}
 	mem := &memStorage{m: storage.NewMemory()}
-	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	// Server errors are printed with -v (the defence-in-depth checks below
+	// log expected errors).
+	logOut := io.Discard
+	if testing.Verbose() {
+		logOut = os.Stderr
+	}
+	log := slog.New(slog.NewTextHandler(logOut, &slog.HandlerOptions{Level: slog.LevelError}))
 	srv, err := New(cfg, log, Deps{DB: pool, Queries: q, Storage: mem})
 	if err != nil {
 		t.Fatal(err)
@@ -621,6 +627,66 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		t.Errorf("B downloads A's export = %d, want 404", r.code)
 	}
 
+	// B is unchanged by everything A did.
+	after := snapshot()
+	for path, want := range before {
+		if after[path] != want {
+			t.Errorf("B's %s changed:\n before %s\n after  %s", path, want, after[path])
+		}
+	}
+
+	// Engine files live under the organization prefix.
+	keyOf := func(table, id string) string {
+		t.Helper()
+		var key string
+		if err := pool.QueryRow(ctx, "SELECT file_key FROM "+table+" WHERE uuid = $1", id).Scan(&key); err != nil {
+			t.Fatal(err)
+		}
+		return key
+	}
+	for _, c := range []struct{ table, id, kind string }{
+		{"export_jobs", orgB.ids["exportJob"], "exports"}, {"import_jobs", orgB.ids["importJob"], "imports"},
+	} {
+		if key := keyOf(c.table, c.id); !strings.HasPrefix(key, storage.OrganizationPrefix(orgB.org.UUID.String())+c.kind+"/") {
+			t.Errorf("%s file key %q is not under organizations/{B}/%s/", c.table, key, c.kind)
+		}
+	}
+	// Defence in depth: a row pointing at another organization's object is
+	// not streamed (export download, vehicle document file).
+	aExportKey := keyOf("export_jobs", orgA.ids["exportJob"])
+	bExportKey := keyOf("export_jobs", orgB.ids["exportJob"])
+	if _, err := pool.Exec(ctx, "UPDATE export_jobs SET file_key = $1 WHERE uuid = $2", aExportKey, orgB.ids["exportJob"]); err != nil {
+		t.Fatal(err)
+	}
+	if r := do(bob, orgB.org.Slug, http.MethodGet, "/v1/tenant/exports/"+orgB.ids["exportJob"]+"/download", "", nil); r.code != http.StatusNotFound {
+		t.Errorf("export row pointing at A's file = %d, want 404", r.code)
+	}
+	if _, err := pool.Exec(ctx, "UPDATE export_jobs SET file_key = $1 WHERE uuid = $2", bExportKey, orgB.ids["exportJob"]); err != nil {
+		t.Fatal(err)
+	}
+	var aDocKey, bDocKey string
+	for _, p := range []struct {
+		id  string
+		dst *string
+	}{{orgA.ids["document"], &aDocKey}, {orgB.ids["document"], &bDocKey}} {
+		if err := pool.QueryRow(ctx, "SELECT file_object_key FROM vehicle_documents WHERE uuid = $1", p.id).Scan(p.dst); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := pool.Exec(ctx, "UPDATE vehicle_documents SET file_object_key = $1 WHERE uuid = $2", aDocKey, orgB.ids["document"]); err != nil {
+		t.Fatal(err)
+	}
+	bDocFile := "/v1/tenant/vehicles/" + orgB.ids["vehicle"] + "/documents/" + orgB.ids["document"] + "/file"
+	if r := call(orgB, http.MethodGet, bDocFile, nil); r.code == http.StatusOK {
+		t.Errorf("document row pointing at A's file was streamed")
+	}
+	if _, err := pool.Exec(ctx, "UPDATE vehicle_documents SET file_object_key = $1 WHERE uuid = $2", bDocKey, orgB.ids["document"]); err != nil {
+		t.Fatal(err)
+	}
+	if r := call(orgB, http.MethodGet, bDocFile, nil); r.code != http.StatusOK {
+		t.Errorf("B's own document file = %d: %s", r.code, r.raw)
+	}
+
 	// 6. Search documents (Meilisearch only).
 	if cfg.Search.Enabled {
 		deadline := time.Now().Add(10 * time.Second)
@@ -641,13 +707,6 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		t.Log("search: TEST_MEILI_HOST not set, Meilisearch part skipped")
 	}
 
-	// B is unchanged.
-	after := snapshot()
-	for path, want := range before {
-		if after[path] != want {
-			t.Errorf("B's %s changed:\n before %s\n after  %s", path, want, after[path])
-		}
-	}
 
 	// Coverage: every tenant route has an isolation case or a reason.
 	for _, rt := range routes {

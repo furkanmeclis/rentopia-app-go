@@ -197,6 +197,15 @@ func (s *Service) OpenDocumentFile(ctx context.Context, orgID int64, vehicleUUID
 	if !row.FileObjectKey.Valid {
 		return DocumentFile{}, ErrNoFile
 	}
+	// Defence in depth: only stream keys under this organization's prefix.
+	orgUUID, err := s.repo.OrganizationUUID(ctx, orgID)
+	if err != nil {
+		return DocumentFile{}, err
+	}
+	if !storage.OrganizationOwnsKey(row.FileObjectKey.String, orgUUID.String()) {
+		s.log.Error("vehicle_document_file_outside_organization", "document", id.String(), "key", row.FileObjectKey.String)
+		return DocumentFile{}, ErrNoFile
+	}
 	rc, size, err := s.storage.Download(ctx, row.FileObjectKey.String)
 	if err != nil {
 		s.log.Warn("vehicle_document_file_missing", "document", id.String(), "error", err)
