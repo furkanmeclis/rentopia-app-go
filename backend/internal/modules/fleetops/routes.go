@@ -73,6 +73,11 @@ func RegisterRoutes(
 	route("DELETE /v1/tenant/vehicles/{uuid}/blocks/{blockUuid}", h.DeleteBlock, blocksWrite)
 	route("POST /v1/tenant/vehicles/{uuid}/blocks/{blockUuid}/release", h.ReleaseBlock, blocksWrite)
 
+	// Fleet calendar (TEC-696): vehicles with their blocks, transfers and
+	// maintenance days in a window. Block / transfer bars additionally need
+	// their own read permission (the use case drops the layer otherwise).
+	route("GET /v1/tenant/fleet/calendar", h.Calendar, perm(rbac.PermTenantVehiclesRead))
+
 	// Transfers. Static segments before /{uuid}.
 	trRead := perm(rbac.PermTenantTransfersRead)
 	trWrite := perm(rbac.PermTenantTransfersWrite)
