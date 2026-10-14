@@ -18,7 +18,7 @@ import type {
 
 type Translate = (key: string) => string;
 
-const UUID_RE =
+export const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function intInRange(t: Translate, min: number, max: number, key: string) {

@@ -1,10 +1,10 @@
 "use client";
 
 import { BadgeCheck, CarFront, Shuffle, X } from "lucide-react";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { Controller, get, useFormContext, useWatch } from "react-hook-form";
 
-import { AppCombobox, AppInput } from "@/components/forms";
+import { AppCombobox } from "@/components/forms";
 import { FormFieldShell } from "@/components/forms/form-field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -19,10 +19,15 @@ import {
   GUARANTEE_TYPES,
   VARIANT_LEVEL_LABEL_KEYS,
 } from "@/features/fleet/constants";
-import type { ProductFormValues } from "@/features/fleet/schemas/product-form";
+import {
+  type ProductFormValues,
+  UUID_RE,
+} from "@/features/fleet/schemas/product-form";
 import { fleetService } from "@/features/fleet/services/fleet.service";
 import type { GuaranteeType } from "@/features/fleet/types";
 import { useTenant } from "@/features/tenant/components/tenant-provider";
+import { useVehicle } from "@/features/vehicles/hooks/use-vehicles";
+import { vehiclesService } from "@/features/vehicles/services/vehicles.service";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/providers/locale-provider";
 
@@ -140,6 +145,48 @@ export function GuaranteeFields() {
       }));
     },
     [slug],
+  );
+
+  // EXACT_VEHICLE: async search over the organization's vehicles (plate),
+  // like the other pickers; the saved vehicle is loaded for its label.
+  const loadVehicles = useCallback(
+    async (q: string) => {
+      const page = await vehiclesService.list(slug, {
+        limit: 20,
+        offset: 0,
+        sort: "plate",
+        q: q || undefined,
+      });
+      return page.items.map((v) => ({
+        value: v.uuid,
+        label: v.plate,
+        description: [v.label, v.model_year].filter(Boolean).join(" · "),
+      }));
+    },
+    [slug],
+  );
+  const vehicleId =
+    guarantee.type === "EXACT_VEHICLE" && UUID_RE.test(guarantee.vehicle_id)
+      ? guarantee.vehicle_id
+      : null;
+  const pickedVehicle = useVehicle(vehicleId);
+  const pickedVehicleOptions = useMemo(
+    () =>
+      pickedVehicle.data
+        ? [
+            {
+              value: pickedVehicle.data.uuid,
+              label: pickedVehicle.data.plate,
+              description: [
+                pickedVehicle.data.label,
+                pickedVehicle.data.model_year,
+              ]
+                .filter(Boolean)
+                .join(" · "),
+            },
+          ]
+        : undefined,
+    [pickedVehicle.data],
   );
 
   const modelError = get(errors, "guarantee.catalog_model_uuid")?.message as
@@ -265,17 +312,24 @@ export function GuaranteeFields() {
 
       {guarantee.type === "EXACT_VEHICLE" ? (
         <div className="space-y-3">
-          <Alert>
-            <AlertDescription>
-              {t("fleet.products.fields.vehicle_pending")}
-            </AlertDescription>
-          </Alert>
-          <AppInput
+          <AppCombobox
             name="guarantee.vehicle_id"
             label={t("fleet.products.fields.vehicle_id")}
             description={t("fleet.products.fields.vehicle_id_hint")}
-            placeholder="00000000-0000-0000-0000-000000000000"
+            loadOptions={loadVehicles}
+            initialOptions={pickedVehicleOptions}
+            placeholder={t("fleet.products.fields.vehicle_placeholder")}
+            searchPlaceholder={t("fleet.products.fields.vehicle_search")}
+            emptyText={t("fleet.products.fields.vehicle_empty")}
+            clearable
           />
+          {pickedVehicle.isError && guarantee.vehicle_id ? (
+            <Alert>
+              <AlertDescription>
+                {t("fleet.products.fields.vehicle_missing")}
+              </AlertDescription>
+            </Alert>
+          ) : null}
         </div>
       ) : null}
     </div>
