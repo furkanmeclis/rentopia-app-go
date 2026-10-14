@@ -19,7 +19,7 @@ endef
 FRONTEND_PORT ?= 3000
 
 .PHONY: infra infra-down infra-logs infra-ps migrate-up backend-dev frontend-dev local-dev \
-	free-dev-ports prod-config prod-up prod-down tools create-super-admin search-reindex check-i18n
+	free-dev-ports prod-env prod-env-upgrade prod-env-check prod-config prod-up prod-down tools create-super-admin search-reindex check-i18n
 
 infra:
 	@if [ -n "$(ENV_FILE)" ]; then \
@@ -108,6 +108,15 @@ local-dev: infra
 	$(MAKE) backend-dev & \
 	$(MAKE) frontend-dev & \
 	wait
+
+prod-env:
+	scripts/prod-env.sh init -o $(PROD_ENV_FILE)
+
+prod-env-upgrade:
+	scripts/prod-env.sh upgrade $(PROD_ENV_FILE)
+
+prod-env-check:
+	scripts/prod-env.sh check $(PROD_ENV_FILE)
 
 prod-config:
 	docker compose --env-file $(PROD_ENV_FILE) -f compose.prod.yml config
