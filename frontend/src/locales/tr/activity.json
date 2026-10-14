@@ -37,5 +37,14 @@
   "resources.platform.integrations.facebook": "Facebook entegrasyonu",
   "resources.platform.integrations.apple": "Apple entegrasyonu",
   "resources.auth.step_up": "Step-up doğrulama",
-  "resources.auth.account": "Hesap"
+  "resources.auth.account": "Hesap",
+  "actions.organizations.created": "Firma oluşturuldu",
+  "actions.organizations.updated": "Firma güncellendi",
+  "actions.organizations.deleted": "Firma silindi",
+  "actions.organizations.status_updated": "Firma durumu güncellendi",
+  "actions.organizations.access_updated": "Firma erişim süresi güncellendi",
+  "actions.organizations.member_added": "Firma üyesi eklendi",
+  "actions.organizations.member_role_updated": "Firma üyesinin rolü güncellendi",
+  "actions.organizations.member_removed": "Firma üyesi çıkarıldı",
+  "resources.platform.organizations": "Firmalar"
 }

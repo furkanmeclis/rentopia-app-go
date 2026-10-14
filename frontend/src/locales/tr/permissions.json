@@ -63,5 +63,7 @@
   "groups.roles": "Roller",
   "groups.permissions": "İzinler",
   "groups.system": "Sistem",
-  "groups.other": "Diğer"
+  "groups.other": "Diğer",
+  "labels.platform.organizations.read": "Firmaları görüntüle",
+  "labels.platform.organizations.write": "Firmaları yönet"
 }

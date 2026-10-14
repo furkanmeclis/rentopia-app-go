@@ -63,5 +63,7 @@
   "groups.roles": "Roles",
   "groups.permissions": "Permissions",
   "groups.system": "System",
-  "groups.other": "Other"
+  "groups.other": "Other",
+  "labels.platform.organizations.read": "Read organizations",
+  "labels.platform.organizations.write": "Manage organizations"
 }
