@@ -4589,8 +4589,8 @@ export interface paths {
         /**
          * Complete a transfer (arrival)
          * @description `tenant.transfers.write`. in_transit -> completed; the vehicle's current
-         *     branch becomes the to branch and its status `arrival_status` (`available`
-         *     by default, or `preparing`).
+         *     branch becomes the to branch and its status `arrival_status` (`preparing`
+         *     by default, or `available`).
          */
         post: operations["postTenantTransferComplete"];
         delete?: never;

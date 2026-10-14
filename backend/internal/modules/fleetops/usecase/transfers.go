@@ -268,7 +268,8 @@ func (s *Service) StartTransfer(ctx context.Context, orgID int64, id uuid.UUID, 
 
 // CompleteTransfer records the arrival (at defaults to now): the vehicle
 // is at the to branch (current_branch_id) with status arrival_status
-// (available by default, or preparing when it needs a check first).
+// (preparing by default: an arriving vehicle is checked before it is
+// sold again; available skips that step).
 func (s *Service) CompleteTransfer(ctx context.Context, orgID int64, id uuid.UUID, in model.TransferActionInput) (model.Transfer, error) {
 	row, err := s.getTransfer(ctx, orgID, id)
 	if err != nil {
@@ -291,7 +292,7 @@ func (s *Service) CompleteTransfer(ctx context.Context, orgID int64, id uuid.UUI
 	}
 	status := strings.TrimSpace(in.ArrivalStatus)
 	if status == "" {
-		status = "available"
+		status = "preparing"
 	}
 	if !model.Contains(model.ArrivalStatuses, status) {
 		ve.add("arrival_status", "invalid", "arrival_status must be one of "+strings.Join(model.ArrivalStatuses, ", "))

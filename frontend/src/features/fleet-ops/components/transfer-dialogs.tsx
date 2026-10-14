@@ -387,7 +387,7 @@ export function TransferActionDialog({
           id={ACTION_FORM_ID}
           className="space-y-4"
           schema={schema}
-          defaultValues={{ at: "", arrival_status: "available", note: "" }}
+          defaultValues={{ at: "", arrival_status: "preparing", note: "" }}
           onSubmit={async (values) => {
             const at = localInputToISO(values.at);
             await run.mutateAsync({
