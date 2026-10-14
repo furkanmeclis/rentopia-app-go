@@ -7465,6 +7465,85 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/TenantForbidden" }
 
+  /v1/tenant/fleet/calendar:
+    get:
+      tags: [Tenant]
+      operationId: getTenantFleetCalendar
+      summary: Fleet calendar (vehicles with their busy intervals)
+      description: |
+        `tenant.vehicles.read`. One page of vehicles (plate order, default 50, at
+        most 200) in the caller's branch scope (home OR current branch), each with
+        the bars inside the half-open window `[from, to)`: busy intervals of the
+        `vehicle_busy_intervals` view (blocks need `tenant.blocks.read`, transfers
+        `tenant.transfers.read`; `layers` lists what the caller sees) and
+        maintenance days (open plans by planned date, done items by done date, in
+        Türkiye calendar days). Every interval carries its real bounds and the
+        bounds clipped to the window. The window may span at most 93 days
+        (`400` `range_too_large`). Reservations, rentals and preparation join the
+        same view in M2 / M3.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - name: from
+          in: query
+          required: true
+          description: Window start (RFC 3339, inclusive)
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: true
+          description: Window end (RFC 3339, exclusive); at most 93 days after `from`
+          schema: { type: string, format: date-time }
+        - name: limit
+          in: query
+          description: Vehicles per page (default 50, max 200)
+          schema: { type: integer, minimum: 0 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0 }
+        - name: q
+          in: query
+          description: Plate search
+          schema: { type: string }
+        - name: status
+          in: query
+          description: "Vehicle statuses; comma-separated"
+          schema: { type: string }
+        - name: home_branch
+          in: query
+          description: "Home branch uuids; comma-separated"
+          schema: { type: string }
+        - name: current_branch
+          in: query
+          description: "Current branch uuids; comma-separated"
+          schema: { type: string }
+        - name: rental_group
+          in: query
+          description: "Rental group uuids; comma-separated"
+          schema: { type: string }
+        - name: segment
+          in: query
+          description: "Segment uuids; comma-separated"
+          schema: { type: string }
+        - name: vehicle
+          in: query
+          description: "Vehicle uuids; comma-separated (the vehicle page timeline)"
+          schema: { type: string }
+        - name: is_active
+          in: query
+          schema: { type: string, enum: ["true", "false"] }
+      responses:
+        "200":
+          description: Calendar page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeFleetCalendar"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
   /v1/tenant/transfers:
     get:
       tags: [Tenant]
@@ -11410,6 +11489,113 @@ components:
       properties:
         success: { type: boolean, enum: [true] }
         data: { $ref: "#/components/schemas/TransferPage" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    FleetCalendarVehicle:
+      type: object
+      required: [uuid, plate, label, model_year, status, is_active, home_branch, current_branch]
+      properties:
+        uuid: { type: string, format: uuid }
+        plate: { type: string, example: "34 ABC 123" }
+        label: { type: string, example: Fiat Egea }
+        model_year: { type: integer }
+        status:
+          type: string
+          enum: [available, preparing, rented, return_check, cleaning, maintenance, damaged, in_transfer, out_of_service]
+        is_active: { type: boolean }
+        home_branch: { $ref: "#/components/schemas/VehicleBranchRef" }
+        current_branch: { $ref: "#/components/schemas/VehicleBranchRef" }
+
+    FleetCalendarBlock:
+      type: object
+      required: [kind, reason, released_at]
+      properties:
+        kind: { type: string, enum: [maintenance, damage, cleaning, out_of_service, other] }
+        reason: { type: string }
+        released_at: { type: [string, "null"], format: date-time }
+
+    FleetCalendarTransfer:
+      type: object
+      required: [status, planned_departure, planned_arrival, actual_departure, actual_arrival, from_branch, to_branch, in_scope]
+      properties:
+        status: { type: string, enum: [planned, in_transit, completed, cancelled] }
+        planned_departure: { type: string, format: date-time }
+        planned_arrival: { type: string, format: date-time }
+        actual_departure: { type: [string, "null"], format: date-time }
+        actual_arrival: { type: [string, "null"], format: date-time }
+        from_branch: { $ref: "#/components/schemas/VehicleBranchRef" }
+        to_branch: { $ref: "#/components/schemas/VehicleBranchRef" }
+        in_scope: { type: boolean, description: The caller may open the transfer (from or to branch in its scope) }
+
+    FleetCalendarInterval:
+      type: object
+      required: [kind, uuid, starts_at, ends_at, clip_start, clip_end, continues_before, continues_after, block, transfer]
+      properties:
+        kind: { type: string, enum: [block, transfer], description: "M2 adds reservation" }
+        uuid: { type: string, format: uuid, description: Block or transfer uuid }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: [string, "null"], format: date-time, description: "null = open-ended block" }
+        clip_start: { type: string, format: date-time, description: starts_at clipped to the window }
+        clip_end: { type: string, format: date-time, description: ends_at clipped to the window }
+        continues_before: { type: boolean }
+        continues_after: { type: boolean }
+        block:
+          oneOf:
+            - $ref: "#/components/schemas/FleetCalendarBlock"
+            - type: "null"
+        transfer:
+          oneOf:
+            - $ref: "#/components/schemas/FleetCalendarTransfer"
+            - type: "null"
+
+    FleetCalendarMaintenance:
+      type: object
+      required: [uuid, kind, maintenance_type, date, state, planned_km, done_km, service_provider, note]
+      properties:
+        uuid: { type: string, format: uuid }
+        kind: { type: string, enum: [planned, done] }
+        maintenance_type: { type: string, enum: [periodic, tire, brake, oil, repair, other] }
+        date: { type: string, format: date }
+        state: { type: string, enum: [scheduled, due, overdue, done] }
+        planned_km: { type: [integer, "null"] }
+        done_km: { type: [integer, "null"] }
+        service_provider: { type: string }
+        note: { type: string }
+
+    FleetCalendarRow:
+      type: object
+      required: [vehicle, intervals, maintenance]
+      properties:
+        vehicle: { $ref: "#/components/schemas/FleetCalendarVehicle" }
+        intervals:
+          type: array
+          items: { $ref: "#/components/schemas/FleetCalendarInterval" }
+        maintenance:
+          type: array
+          items: { $ref: "#/components/schemas/FleetCalendarMaintenance" }
+
+    FleetCalendar:
+      type: object
+      required: [from, to, items, total, limit, offset, layers]
+      properties:
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/FleetCalendarRow" }
+        total: { type: integer, format: int64 }
+        limit: { type: integer }
+        offset: { type: integer }
+        layers:
+          type: array
+          items: { type: string, enum: [block, transfer, maintenance] }
+
+    EnvelopeFleetCalendar:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/FleetCalendar" }
         meta: { $ref: "#/components/schemas/ResponseMeta" }
 
     EnvelopeTransferFacets:

@@ -128,6 +128,9 @@ export const fleetOpsService = {
       { body },
     );
   },
+  transfer(slug: string, uuid: string) {
+    return tenantRequest<Transfer>(slug, "GET", `${TRANSFERS}/${uuid}`);
+  },
   transferActivity(slug: string, uuid: string, params: PageParams) {
     return tenantRequest<FleetActivityPage>(
       slug,

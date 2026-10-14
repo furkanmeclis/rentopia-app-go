@@ -109,6 +109,11 @@ func TestFleetOpsPermissionGates(t *testing.T) {
 		{"unknown body fields are rejected", http.MethodPost, "/v1/tenant/one-way-rules", "owner-org", `{"stock":3}`, http.StatusBadRequest},
 		{"bad uuid", http.MethodGet, "/v1/tenant/transfers/not-a-uuid", "owner-org", "", http.StatusBadRequest},
 		{"bad resolve query", http.MethodGet, "/v1/tenant/one-way-rules/resolve?from_branch=x", "owner-org", "", http.StatusBadRequest},
+		// Fleet calendar: tenant.vehicles.read (blocks / transfers read alone is not enough).
+		{"calendar needs vehicles read", http.MethodGet, "/v1/tenant/fleet/calendar", "account-org", "", http.StatusForbidden},
+		{"calendar window is validated", http.MethodGet, "/v1/tenant/fleet/calendar", "vehicles-org", "", http.StatusBadRequest},
+		{"calendar window too wide", http.MethodGet, "/v1/tenant/fleet/calendar?from=2026-01-01T00:00:00Z&to=2026-06-01T00:00:00Z", "vehicles-org", "", http.StatusBadRequest},
+		{"calendar limit must be a number", http.MethodGet, "/v1/tenant/fleet/calendar?from=2026-01-01T00:00:00Z&to=2026-01-08T00:00:00Z&limit=x", "vehicles-org", "", http.StatusBadRequest},
 	}
 	for _, tc := range cases {
 		if got := do(tc.method, tc.path, tc.org, tc.body).Code; got != tc.want {

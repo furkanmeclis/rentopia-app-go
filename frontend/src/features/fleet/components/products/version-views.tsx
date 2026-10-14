@@ -34,8 +34,33 @@ import type {
   ProductVersion,
 } from "@/features/fleet/types";
 import { useTenant } from "@/features/tenant/components/tenant-provider";
+import { useVehicle } from "@/features/vehicles/hooks/use-vehicles";
 import { datetime, money } from "@/lib/utils/format";
 import { useLocale } from "@/providers/locale-provider";
+
+/** Plate + model of the EXACT_VEHICLE vehicle, linked to its page. */
+function GuaranteedVehicle({ uuid }: { uuid: string }) {
+  const { t } = useLocale();
+  const { slug } = useTenant();
+  const query = useVehicle(uuid);
+  if (query.isLoading) return <span className="text-muted-foreground">…</span>;
+  if (!query.data) {
+    return (
+      <span className="text-muted-foreground">
+        {t("fleet.products.fields.vehicle_missing")}
+      </span>
+    );
+  }
+  return (
+    <Link
+      className="underline"
+      href={routes.tenant.fleet.vehicles.detail(slug, uuid)}
+    >
+      {query.data.plate}
+      {query.data.label ? ` · ${query.data.label}` : ""}
+    </Link>
+  );
+}
 
 /** Read-only guarantee of a version. */
 export function GuaranteeView({ guarantee }: { guarantee: ProductGuarantee }) {
@@ -95,7 +120,11 @@ export function GuaranteeView({ guarantee }: { guarantee: ProductGuarantee }) {
     fields.push({
       key: "vehicle",
       label: t("fleet.products.fields.vehicle_id"),
-      value: guarantee.vehicle_id ?? t("fleet.products.fields.vehicle_unset"),
+      value: guarantee.vehicle_id ? (
+        <GuaranteedVehicle uuid={guarantee.vehicle_id} />
+      ) : (
+        t("fleet.products.fields.vehicle_unset")
+      ),
     });
   }
   return <EntityDetail sections={[{ id: "guarantee", fields }]} />;
