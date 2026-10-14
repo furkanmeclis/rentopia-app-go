@@ -107,7 +107,9 @@ export type IoResource =
   | "tenant.segments"
   | "tenant.rental_groups"
   | "tenant.rental_products"
-  | "tenant.vehicles";
+  | "tenant.vehicles"
+  | "tenant.vehicle_documents"
+  | "tenant.vehicle_maintenance";
 
 export const EXPORT_PATHS: Record<IoResource, string> = {
   "platform.users": "/v1/platform/users/export",
@@ -119,6 +121,8 @@ export const EXPORT_PATHS: Record<IoResource, string> = {
   "tenant.rental_groups": "/v1/tenant/rental-groups/export",
   "tenant.rental_products": "/v1/tenant/products/export",
   "tenant.vehicles": "/v1/tenant/vehicles/export",
+  "tenant.vehicle_documents": "/v1/tenant/vehicle-documents/export",
+  "tenant.vehicle_maintenance": "/v1/tenant/vehicle-maintenance/export",
 };
 
 export const IMPORT_PATHS: Partial<

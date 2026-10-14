@@ -4025,6 +4025,234 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenant/vehicles/{uuid}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Documents of a vehicle
+         * @description `tenant.vehicles.read`. Live documents with their history (at most
+         *     500), grouped by type, latest validity first. `is_current` marks the
+         *     document of each type with the latest `valid_until`; `status` is
+         *     `none` (no expiry), `valid`, `expiring` (within 30 days) or `expired`.
+         *     A vehicle of another organization or outside the caller's branch
+         *     scope answers `404`.
+         */
+        get: operations["getTenantVehicleDocuments"];
+        put?: never;
+        /**
+         * Record a vehicle document
+         * @description `tenant.vehicles.write`. Metadata only; upload the scanned file with
+         *     `PUT …/documents/{documentUuid}/file`. Publishes the vehicle as
+         *     updated on the live vehicles list (expiry columns).
+         */
+        post: operations["postTenantVehicleDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/vehicles/{uuid}/documents/{documentUuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a vehicle document (soft)
+         * @description `tenant.vehicles.write`. The stored file is kept (restorable by support).
+         */
+        delete: operations["deleteTenantVehicleDocument"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a vehicle document
+         * @description `tenant.vehicles.write`. Omitted fields are unchanged; dates accept `null`.
+         */
+        patch: operations["patchTenantVehicleDocument"];
+        trace?: never;
+    };
+    "/v1/tenant/vehicles/{uuid}/documents/{documentUuid}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download the file of a vehicle document
+         * @description `tenant.vehicles.read` and `tenant.document.download`. The API streams
+         *     the file (`Content-Disposition: attachment`); storage keys and URLs
+         *     never reach the browser. Every download is recorded in the vehicle's
+         *     activity. `404` when the document has no file.
+         */
+        get: operations["getTenantVehicleDocumentFile"];
+        /**
+         * Upload or replace the file of a vehicle document
+         * @description `tenant.vehicles.write`. Multipart field `file`: PDF, JPEG, PNG or
+         *     WebP (type sniffed from the bytes; the declared type and the name are
+         *     ignored), at most 10 MiB. Stored in private object storage; the
+         *     replaced file is removed.
+         */
+        put: operations["putTenantVehicleDocumentFile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/vehicles/{uuid}/maintenance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Maintenance of a vehicle
+         * @description `tenant.vehicles.read`. Open plans first (soonest first), then the
+         *     done history (at most 500). A plan's `status` is `scheduled`, `due`
+         *     (within 15 days or 1000 km) or `overdue`.
+         */
+        get: operations["getTenantVehicleMaintenance"];
+        put?: never;
+        /**
+         * Plan or record maintenance
+         * @description `tenant.vehicles.write`. `kind` = `planned` needs `planned_date`
+         *     and / or `planned_km`; `kind` = `done` needs `done_date` (not in the
+         *     future). `cost` is a TRY amount (expense linkage arrives in M4).
+         */
+        post: operations["postTenantVehicleMaintenance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/vehicles/{uuid}/maintenance/{itemUuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a maintenance item (soft)
+         * @description `tenant.vehicles.write`.
+         */
+        delete: operations["deleteTenantVehicleMaintenance"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a maintenance item
+         * @description `tenant.vehicles.write`. `kind` cannot change (complete a plan instead).
+         */
+        patch: operations["patchTenantVehicleMaintenance"];
+        trace?: never;
+    };
+    "/v1/tenant/vehicles/{uuid}/maintenance/{itemUuid}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete a maintenance plan
+         * @description `tenant.vehicles.write`. Turns the plan into a done record (same
+         *     row). `done_date` defaults to today; the plan's targets are kept.
+         *     A done item answers `400` (`already_done`).
+         */
+        post: operations["postTenantVehicleMaintenanceComplete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/fleet/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Upcoming and overdue documents and maintenance
+         * @description "Operasyon özeti" (`tenant.vehicles.read`): current documents (latest
+         *     validity per vehicle and type) expiring within 30 days or expired,
+         *     and open maintenance plans due within 15 days / 1000 km or overdue,
+         *     of active vehicles in the caller's branch scope. Overdue first, then
+         *     by due date. Horizons are application constants (no organization
+         *     setting yet).
+         */
+        get: operations["getTenantFleetAlerts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/vehicle-documents/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export vehicle documents
+         * @description Queues an export of the organization's vehicle documents in the caller's branch
+         *     scope (`tenant.vehicles.read` + `tenant.vehicles.export`). `query`
+         *     honours `vehicle` (uuids) and `doc_type` (comma-separated). Poll `GET /v1/tenant/exports/{uuid}`.
+         */
+        post: operations["postTenantVehicleDocumentsExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/vehicle-maintenance/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export vehicle maintenance
+         * @description Queues an export of the organization's vehicle maintenance in the caller's branch
+         *     scope (`tenant.vehicles.read` + `tenant.vehicles.export`). `query`
+         *     honours `vehicle` (uuids), `kind` and `maintenance_type` (comma-separated). Poll `GET /v1/tenant/exports/{uuid}`.
+         */
+        post: operations["postTenantVehicleMaintenanceExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenant/products/{uuid}/eligible-vehicles": {
         parameters: {
             query?: never;
@@ -4990,6 +5218,43 @@ export interface components {
              */
             kasko_period: string | null;
             rental_groups: components["schemas"]["VehicleGroupRef"][];
+            /**
+             * Format: date
+             * @description valid_until of the current inspection (muayene)
+             */
+            inspection_until: string | null;
+            /**
+             * Format: date
+             * @description valid_until of the current traffic insurance
+             */
+            insurance_until: string | null;
+            /**
+             * Format: date
+             * @description valid_until of the current kasko policy
+             */
+            kasko_until: string | null;
+            /**
+             * Format: date
+             * @description Earliest valid_until among the current documents
+             */
+            document_expires_at: string | null;
+            /**
+             * @description State of document_expires_at (expiring = within 30 days)
+             * @enum {string}
+             */
+            document_status: "none" | "valid" | "expiring" | "expired";
+            /**
+             * Format: date
+             * @description Earliest open plan date
+             */
+            next_maintenance_date: string | null;
+            /** @description Lowest open plan km */
+            next_maintenance_km: number | null;
+            /**
+             * @description due = within 15 days or 1000 km
+             * @enum {string}
+             */
+            maintenance_status: "none" | "scheduled" | "due" | "overdue";
             is_active: boolean;
             /** Format: date-time */
             created_at: string;
@@ -5098,6 +5363,7 @@ export interface components {
         };
         VehicleFacets: {
             status: components["schemas"]["FleetFacet"][];
+            document_status: components["schemas"]["FleetFacet"][];
             ownership: components["schemas"]["FleetFacet"][];
             pool: components["schemas"]["FleetFacet"][];
             is_active: components["schemas"]["FleetFacet"][];
@@ -5210,6 +5476,231 @@ export interface components {
             /** @enum {boolean} */
             success: true;
             data: components["schemas"]["ProductVehicles"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        VehicleRecordActor: {
+            /** Format: uuid */
+            uuid: string;
+            name: string;
+            surname: string;
+            email: string;
+        };
+        VehicleDocumentFile: {
+            name: string;
+            /** @enum {string} */
+            content_type: "application/pdf" | "image/jpeg" | "image/png" | "image/webp";
+            /** Format: int64 */
+            size_bytes: number;
+        };
+        VehicleDocument: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            doc_type: "ruhsat" | "trafik_sigortasi" | "kasko" | "muayene" | "egzoz" | "diger";
+            document_number: string;
+            issuer: string;
+            /** Format: date */
+            valid_from: string | null;
+            /** Format: date */
+            valid_until: string | null;
+            /** @enum {string} */
+            status: "none" | "valid" | "expiring" | "expired";
+            /** @description Days until valid_until (negative when expired) */
+            days_left: number | null;
+            /** @description Latest valid_until of its type */
+            is_current: boolean;
+            file: components["schemas"]["VehicleDocumentFile"] | null;
+            note: string;
+            created_by: components["schemas"]["VehicleRecordActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        VehicleDocumentList: {
+            items: components["schemas"]["VehicleDocument"][];
+        };
+        VehicleDocumentPatchRequest: {
+            /** @enum {string} */
+            doc_type?: "ruhsat" | "trafik_sigortasi" | "kasko" | "muayene" | "egzoz" | "diger";
+            document_number?: string;
+            issuer?: string;
+            /** Format: date */
+            valid_from?: string | null;
+            /** Format: date */
+            valid_until?: string | null;
+            note?: string;
+        };
+        VehicleDocumentCreateRequest: {
+            /** @enum {string} */
+            doc_type: "ruhsat" | "trafik_sigortasi" | "kasko" | "muayene" | "egzoz" | "diger";
+            document_number?: string;
+            issuer?: string;
+            /** Format: date */
+            valid_from?: string | null;
+            /** Format: date */
+            valid_until?: string | null;
+            note?: string;
+        };
+        VehicleMaintenance: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            kind: "planned" | "done";
+            /** @enum {string} */
+            maintenance_type: "periodic" | "tire" | "brake" | "oil" | "repair" | "other";
+            /** Format: date */
+            planned_date: string | null;
+            planned_km: number | null;
+            /** Format: date */
+            done_date: string | null;
+            done_km: number | null;
+            service_provider: string;
+            /**
+             * @description Decimal string
+             * @example 2450.50
+             */
+            cost: string | null;
+            /** @enum {string} */
+            currency: "TRY";
+            note: string;
+            /** @enum {string} */
+            status: "done" | "scheduled" | "due" | "overdue";
+            /** @description Days until the planned date (plans) */
+            days_left: number | null;
+            /** @description Km until the planned km (plans) */
+            km_left: number | null;
+            created_by: components["schemas"]["VehicleRecordActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        VehicleMaintenanceList: {
+            items: components["schemas"]["VehicleMaintenance"][];
+        };
+        VehicleMaintenancePatchRequest: {
+            /**
+             * @description Set on create only
+             * @enum {string}
+             */
+            kind?: "planned" | "done";
+            /** @enum {string} */
+            maintenance_type?: "periodic" | "tire" | "brake" | "oil" | "repair" | "other";
+            /** Format: date */
+            planned_date?: string | null;
+            planned_km?: number | null;
+            /** Format: date */
+            done_date?: string | null;
+            done_km?: number | null;
+            service_provider?: string;
+            /**
+             * @description TRY amount, at most 2 decimals
+             * @example 2450.50
+             */
+            cost?: string | null;
+            note?: string;
+        };
+        VehicleMaintenanceCreateRequest: {
+            /**
+             * @description Set on create only
+             * @enum {string}
+             */
+            kind: "planned" | "done";
+            /** @enum {string} */
+            maintenance_type: "periodic" | "tire" | "brake" | "oil" | "repair" | "other";
+            /** Format: date */
+            planned_date?: string | null;
+            planned_km?: number | null;
+            /** Format: date */
+            done_date?: string | null;
+            done_km?: number | null;
+            service_provider?: string;
+            /**
+             * @description TRY amount, at most 2 decimals
+             * @example 2450.50
+             */
+            cost?: string | null;
+            note?: string;
+        };
+        VehicleMaintenanceCompleteRequest: {
+            /**
+             * Format: date
+             * @description Defaults to today
+             */
+            done_date?: string;
+            done_km?: number | null;
+            service_provider?: string;
+            /** @example 2450.50 */
+            cost?: string | null;
+            note?: string;
+        };
+        FleetAlertVehicle: {
+            /** Format: uuid */
+            uuid: string;
+            plate: string;
+            label: string;
+            odometer_km: number;
+            current_branch: string;
+        };
+        FleetAlert: {
+            /** @enum {string} */
+            kind: "document" | "maintenance";
+            /** @enum {string} */
+            state: "expiring" | "overdue";
+            /**
+             * Format: uuid
+             * @description Document or maintenance item
+             */
+            subject_uuid: string;
+            /** @description Document type or maintenance type */
+            type: string;
+            document_number: string;
+            /** Format: date */
+            due_date: string | null;
+            due_km: number | null;
+            days_left: number | null;
+            km_left: number | null;
+            vehicle: components["schemas"]["FleetAlertVehicle"];
+        };
+        FleetAlerts: {
+            items: components["schemas"]["FleetAlert"][];
+            total: number;
+            /** @example 30 */
+            document_horizon_days: number;
+            /** @example 15 */
+            maintenance_horizon_days: number;
+            /** @example 1000 */
+            maintenance_horizon_km: number;
+        };
+        EnvelopeVehicleDocument: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["VehicleDocument"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeVehicleDocumentList: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["VehicleDocumentList"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeVehicleMaintenance: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["VehicleMaintenance"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeVehicleMaintenanceList: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["VehicleMaintenanceList"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeFleetAlerts: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["FleetAlerts"];
             meta: components["schemas"]["ResponseMeta"];
         };
         EnvelopeBranch: {
@@ -14272,7 +14763,7 @@ export interface operations {
                 limit?: components["parameters"]["Limit"];
                 offset?: components["parameters"]["Offset"];
                 q?: components["parameters"]["Q"];
-                /** @description One of `plate`, `model_year`, `odometer_km`, `status`, `kasko_value`, `is_active`, `created_at`, `updated_at`; prefix `-` for descending. Default `-created_at`. */
+                /** @description One of `plate`, `model_year`, `odometer_km`, `status`, `kasko_value`, `is_active`, `created_at`, `updated_at`, `inspection_until`, `insurance_until`, `kasko_until`, `document_expires_at`, `next_maintenance_date`, `next_maintenance_km` (empty values last); prefix `-` for descending. Default `-created_at`. */
                 sort?: string;
                 /** @description Operational statuses; comma-separate or repeat for several */
                 status?: string;
@@ -14289,6 +14780,8 @@ export interface operations {
                 /** @description Fleet pool codes; comma-separated */
                 pool?: string;
                 is_active?: boolean;
+                /** @description State of the next document to renew: `expired`, `expiring` (within 30 days), `valid`, `none`; comma-separated */
+                document_status?: string;
             };
             header: {
                 /**
@@ -14849,6 +15342,510 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["TenantForbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantVehicleDocuments: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Documents */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeVehicleDocumentList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantVehicleDocument: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VehicleDocumentCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Created document */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeVehicleDocument"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteTenantVehicleDocument: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                documentUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeStatus"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchTenantVehicleDocument: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                documentUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VehicleDocumentPatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated document */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeVehicleDocument"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantVehicleDocumentFile: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                documentUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description File bytes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                    "image/jpeg": string;
+                    "image/png": string;
+                    "image/webp": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putTenantVehicleDocumentFile: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                documentUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Document with its file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeVehicleDocument"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description Object storage is not configured (`STORAGE_UNAVAILABLE`) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getTenantVehicleMaintenance: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Maintenance items */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeVehicleMaintenanceList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantVehicleMaintenance: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VehicleMaintenanceCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Created item */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeVehicleMaintenance"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteTenantVehicleMaintenance: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                itemUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeStatus"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchTenantVehicleMaintenance: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                itemUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VehicleMaintenancePatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated item */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeVehicleMaintenance"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantVehicleMaintenanceComplete: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                itemUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VehicleMaintenanceCompleteRequest"];
+            };
+        };
+        responses: {
+            /** @description Completed item */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeVehicleMaintenance"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantFleetAlerts: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Alerts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFleetAlerts"];
+                };
+            };
+            400: components["responses"]["OrganizationRequired"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantVehicleDocumentsExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Export job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantVehicleMaintenanceExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Export job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
         };
     };
     getTenantProductEligibleVehicles: {

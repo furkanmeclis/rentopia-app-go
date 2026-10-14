@@ -130,7 +130,7 @@ export function FileUploader({
       >
         <Upload className="text-muted-foreground h-5 w-5" />
         <span className="text-muted-foreground text-sm">
-          Drag & drop or browse
+          {t("storage.drop_title")} {t("storage.drop_hint")}
         </span>
         <input
           type="file"

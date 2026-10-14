@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/model"
@@ -107,7 +108,9 @@ func (r *Postgres) ListVehicles(ctx context.Context, orgID int64, f model.ListFi
 	rows, err := r.q.ListVehicles(ctx, db.ListVehiclesParams{
 		OrganizationID: orgID, BranchIds: f.BranchIDs, IsActive: boolArg(f.IsActive),
 		Statuses: stringsArg(f.Statuses), Ownerships: stringsArg(f.Ownerships), Pools: stringsArg(f.Pools),
-		HomeBranchUuids: uuidsArg(f.HomeBranchUUIDs), CurrentBranchUuids: uuidsArg(f.CurrentBranchUUIDs),
+		DocumentStatuses: stringsArg(f.DocumentStatuses), Today: dateArg(f.Today),
+		DocumentHorizonDays: model.DocumentReminderDays,
+		HomeBranchUuids:     uuidsArg(f.HomeBranchUUIDs), CurrentBranchUuids: uuidsArg(f.CurrentBranchUUIDs),
 		GroupUuids: uuidsArg(f.GroupUUIDs), SegmentUuids: uuidsArg(f.SegmentUUIDs), Q: textArg(f.Q),
 		SortField: f.SortField, SortDesc: f.SortDesc, LimitCount: f.Limit, OffsetCount: f.Offset,
 	})
@@ -117,7 +120,9 @@ func (r *Postgres) ListVehicles(ctx context.Context, orgID int64, f model.ListFi
 	total, err := r.q.CountVehicles(ctx, db.CountVehiclesParams{
 		OrganizationID: orgID, BranchIds: f.BranchIDs, IsActive: boolArg(f.IsActive),
 		Statuses: stringsArg(f.Statuses), Ownerships: stringsArg(f.Ownerships), Pools: stringsArg(f.Pools),
-		HomeBranchUuids: uuidsArg(f.HomeBranchUUIDs), CurrentBranchUuids: uuidsArg(f.CurrentBranchUUIDs),
+		DocumentStatuses: stringsArg(f.DocumentStatuses), Today: dateArg(f.Today),
+		DocumentHorizonDays: model.DocumentReminderDays,
+		HomeBranchUuids:     uuidsArg(f.HomeBranchUUIDs), CurrentBranchUuids: uuidsArg(f.CurrentBranchUUIDs),
 		GroupUuids: uuidsArg(f.GroupUUIDs), SegmentUuids: uuidsArg(f.SegmentUUIDs), Q: textArg(f.Q),
 	})
 	if err != nil {
@@ -134,14 +139,19 @@ func (r *Postgres) ListVehicleUUIDs(ctx context.Context, orgID int64, f model.Li
 	return r.q.ListVehicleUUIDs(ctx, db.ListVehicleUUIDsParams{
 		OrganizationID: orgID, BranchIds: f.BranchIDs, IsActive: boolArg(f.IsActive),
 		Statuses: stringsArg(f.Statuses), Ownerships: stringsArg(f.Ownerships), Pools: stringsArg(f.Pools),
-		HomeBranchUuids: uuidsArg(f.HomeBranchUUIDs), CurrentBranchUuids: uuidsArg(f.CurrentBranchUUIDs),
+		DocumentStatuses: stringsArg(f.DocumentStatuses), Today: dateArg(f.Today),
+		DocumentHorizonDays: model.DocumentReminderDays,
+		HomeBranchUuids:     uuidsArg(f.HomeBranchUUIDs), CurrentBranchUuids: uuidsArg(f.CurrentBranchUUIDs),
 		GroupUuids: uuidsArg(f.GroupUUIDs), SegmentUuids: uuidsArg(f.SegmentUUIDs), Q: textArg(f.Q),
 		LimitCount: limit,
 	})
 }
 
-func (r *Postgres) Facets(ctx context.Context, orgID int64, branchIDs []int64) ([]db.ListVehicleFacetsRow, error) {
-	return r.q.ListVehicleFacets(ctx, db.ListVehicleFacetsParams{OrganizationID: orgID, BranchIds: branchIDs})
+func (r *Postgres) Facets(ctx context.Context, orgID int64, branchIDs []int64, today time.Time) ([]db.ListVehicleFacetsRow, error) {
+	return r.q.ListVehicleFacets(ctx, db.ListVehicleFacetsParams{
+		OrganizationID: orgID, BranchIds: branchIDs, Today: dateArg(today),
+		DocumentHorizonDays: model.DocumentReminderDays,
+	})
 }
 
 func (r *Postgres) GetVehicle(ctx context.Context, orgID int64, id uuid.UUID) (VehicleRow, error) {
@@ -442,6 +452,14 @@ func textArg(v string) pgtype.Text {
 		return pgtype.Text{}
 	}
 	return pgtype.Text{String: v, Valid: true}
+}
+
+// dateArg is the DATE of t (a zero t is sent as NULL).
+func dateArg(t time.Time) pgtype.Date {
+	if t.IsZero() {
+		return pgtype.Date{}
+	}
+	return pgtype.Date{Time: time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC), Valid: true}
 }
 
 func boolArg(v *bool) pgtype.Bool {

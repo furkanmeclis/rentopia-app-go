@@ -41,6 +41,15 @@ import {
 } from "@/features/fleet/components/shared/list-utils";
 import { ResourceIOToolbar } from "@/features/io";
 import { useTenant } from "@/features/tenant/components/tenant-provider";
+import {
+  DocumentStatusChip,
+  ExpiryDate,
+  VehicleMaintenanceChip,
+} from "@/features/vehicle-records";
+import {
+  DOCUMENT_STATUSES,
+  DOCUMENT_STATUS_LABEL_KEYS,
+} from "@/features/vehicle-records/constants";
 import { tenantLiveList } from "@/features/tenant/lib/live";
 import { useVehicleBulkParams } from "@/features/vehicles/components/vehicle-bulk-params-dialog";
 import {
@@ -144,6 +153,7 @@ export function VehiclesPage() {
       ownership: joinFilter(column("ownership")),
       pool: joinFilter(column("pool")),
       is_active: activeFilter(column("is_active")),
+      document_status: joinFilter(column("document_status")),
     };
   }, [listState.columnFilters, listState.params]);
 
@@ -245,6 +255,82 @@ export function VehiclesPage() {
               period={row.original.kasko_period}
             />
           ),
+        }),
+        createColumn<Vehicle>({
+          id: "document_status",
+          accessorFn: (row) => row.document_status,
+          labelKey: "vehicles.columns.document_status",
+          enableSorting: false,
+          filterVariant: "faceted",
+          filterOptions: DOCUMENT_STATUSES.map((value) => ({
+            value,
+            labelKey: DOCUMENT_STATUS_LABEL_KEYS[value],
+            label: `${t(DOCUMENT_STATUS_LABEL_KEYS[value])} (${countOf(facets?.document_status, value)})`,
+          })),
+          cell: ({ row }) =>
+            row.original.document_status === "none" ? (
+              <span className="text-muted-foreground">—</span>
+            ) : (
+              <DocumentStatusChip status={row.original.document_status} />
+            ),
+        }),
+        createColumn<Vehicle>({
+          id: "inspection_until",
+          accessorFn: (row) => row.inspection_until ?? "",
+          labelKey: "vehicles.columns.inspection_until",
+          enableSorting: true,
+          cell: ({ row }) => (
+            <ExpiryDate value={row.original.inspection_until} />
+          ),
+        }),
+        createColumn<Vehicle>({
+          id: "insurance_until",
+          accessorFn: (row) => row.insurance_until ?? "",
+          labelKey: "vehicles.columns.insurance_until",
+          enableSorting: true,
+          defaultHidden: true,
+          cell: ({ row }) => (
+            <ExpiryDate value={row.original.insurance_until} />
+          ),
+        }),
+        createColumn<Vehicle>({
+          id: "kasko_until",
+          accessorFn: (row) => row.kasko_until ?? "",
+          labelKey: "vehicles.columns.kasko_until",
+          enableSorting: true,
+          defaultHidden: true,
+          cell: ({ row }) => <ExpiryDate value={row.original.kasko_until} />,
+        }),
+        createColumn<Vehicle>({
+          id: "next_maintenance_date",
+          accessorFn: (row) => row.next_maintenance_date ?? "",
+          labelKey: "vehicles.columns.next_maintenance_date",
+          enableSorting: true,
+          defaultHidden: true,
+          cell: ({ row }) => (
+            <div className="flex flex-col gap-1">
+              <ExpiryDate
+                value={row.original.next_maintenance_date}
+                horizonDays={15}
+              />
+              <VehicleMaintenanceChip
+                status={row.original.maintenance_status}
+              />
+            </div>
+          ),
+        }),
+        createColumn<Vehicle>({
+          id: "next_maintenance_km",
+          accessorFn: (row) => row.next_maintenance_km ?? -1,
+          labelKey: "vehicles.columns.next_maintenance_km",
+          enableSorting: true,
+          defaultHidden: true,
+          cell: ({ row }) =>
+            row.original.next_maintenance_km != null ? (
+              <Km value={row.original.next_maintenance_km} />
+            ) : (
+              <span className="text-muted-foreground">—</span>
+            ),
         }),
         createColumn<Vehicle>({
           id: "rental_group",
@@ -413,9 +499,11 @@ export function VehiclesPage() {
       ownership: listParams.ownership,
       pool: listParams.pool,
       is_active: listParams.is_active,
+      document_status: listParams.document_status,
       sort: listParams.sort,
     }),
     [
+      listParams.document_status,
       listParams.current_branch,
       listParams.home_branch,
       listParams.is_active,

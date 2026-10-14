@@ -68,7 +68,9 @@ func (a *IO) ExportColumns() []ioengine.Column {
 		col("body_type", s), col("seats", s), col("luggage", s), col("home_branch", s), col("current_branch", s),
 		col("fleet_pool", s), col("ownership", s), col("supplier_name", s), col("odometer_km", s),
 		col("fuel_level", s), col("status", s), col("kasko_value", s), col("kasko_period", s),
-		col("rental_groups", s), col("in_service_date", s), col("out_of_service_date", s), col("is_active", b),
+		col("rental_groups", s), col("in_service_date", s), col("out_of_service_date", s),
+		col("inspection_until", s), col("insurance_until", s), col("kasko_until", s), col("document_status", s),
+		col("next_maintenance_date", s), col("next_maintenance_km", s), col("is_active", b),
 		col("uuid", ioengine.ColumnTypeUUID), col("created_at", ioengine.ColumnTypeDatetime),
 	}
 }
@@ -103,6 +105,9 @@ func (a *IO) Export(ctx context.Context, query ioengine.ExportQuery, _ i18n.Loca
 			"status": v.Status, "kasko_value": str(v.KaskoValue), "kasko_period": str(v.KaskoPeriod),
 			"rental_groups": strings.Join(groups, ", "), "in_service_date": str(v.InServiceDate),
 			"out_of_service_date": str(v.OutOfServiceDate), "is_active": v.IsActive, "created_at": v.CreatedAt,
+			"inspection_until": str(v.InspectionUntil), "insurance_until": str(v.InsuranceUntil),
+			"kasko_until": str(v.KaskoUntil), "document_status": v.DocumentStatus,
+			"next_maintenance_date": str(v.NextMaintenanceDate), "next_maintenance_km": int32Str(v.NextMaintenanceKm),
 		})
 	}
 	return ioengine.Dataset{Resource: Resource, Columns: a.ExportColumns(), Rows: out}, nil
@@ -290,6 +295,13 @@ func str(v *string) string {
 }
 
 func int16Str(v *int16) string {
+	if v == nil {
+		return ""
+	}
+	return strconv.Itoa(int(*v))
+}
+
+func int32Str(v *int32) string {
 	if v == nil {
 		return ""
 	}

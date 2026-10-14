@@ -82,6 +82,11 @@ import (
 	storagehandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/storage/handler"
 	storageusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/storage/usecase"
 	tenantmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tenant"
+	vehiclerecordsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehiclerecords"
+	vehiclerecordsadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehiclerecords/adapters"
+	vehiclerecordshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehiclerecords/handler"
+	vehiclerecordsrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehiclerecords/repository"
+	vehiclerecordsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehiclerecords/usecase"
 	vehiclesmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles"
 	vehicleadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/adapters"
 	vehiclehandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/handler"
@@ -295,6 +300,10 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	fleetSvc := fleetusecase.New(fleetrepository.NewPostgres(deps.DB, deps.Queries), deps.Storage, searchIndexer)
 	// Fleet vehicles (physical reality, status history, group memberships).
 	vehicleSvc := vehicleusecase.New(vehiclerepository.NewPostgres(deps.DB, deps.Queries), searchIndexer)
+	// Vehicle documents, maintenance, expiry alerts and reminders (TEC-693).
+	vehicleRecordsSvc := vehiclerecordsusecase.New(
+		vehiclerecordsrepository.NewPostgres(deps.Queries), vehicleSvc, deps.Storage, notifSvc, log,
+	)
 	orgSvc := orgusecase.New(
 		orgrepository.NewPostgres(deps.DB, deps.Queries),
 		branchusecase.NewOrganizationHooks(searchIndexer),
@@ -365,6 +374,8 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		fleetadapters.NewGroupsIO(fleetSvc),
 		fleetadapters.NewProductsIO(fleetSvc),
 		vehicleadapters.NewIO(vehicleSvc),
+		vehiclerecordsadapters.NewDocumentsIO(vehicleRecordsSvc),
+		vehiclerecordsadapters.NewMaintenanceIO(vehicleRecordsSvc),
 	)
 	exportSvc := exportusecase.New(deps.Queries, deps.Storage, ioReg, deps.Queue, notifSvc, activityRec, log)
 	importSvc := importusecase.New(deps.Queries, deps.Storage, ioReg, deps.Queue, notifSvc, activityRec, log)
@@ -391,7 +402,8 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 			WithBulk(bulkSvc.ProcessBulk).
 			WithLogPurge(logsSvc.ApplyDueRules).
 			WithMobilePush(notifSvc.SendMobilePush, notifSvc.ProcessPushReceipts).
-			WithCatalogImport(catalogSvc.ProcessImport)
+			WithCatalogImport(catalogSvc.ProcessImport).
+			WithVehicleReminders(vehicleRecordsSvc.RunReminders)
 		if searchIndexer != nil {
 			s.worker.WithSearch(
 				searchIndexer.ProcessUpsert,
@@ -435,6 +447,16 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		Import: importH.TenantUpload(vehiclesmodule.Resource),
 		Sample: importH.TenantSample(vehiclesmodule.Resource),
 		Bulk:   bulkH.TenantExecute(vehiclesmodule.Resource),
+	}, tokens, loader, tenantResolver)
+	vehicleRecordsH := vehiclerecordshandler.New(vehicleRecordsSvc, activityRec)
+	vehicleRecordsH.SetResourceEvents(resourceEvents)
+	vehiclerecordsmodule.RegisterRoutes(mux, vehicleRecordsH, vehiclerecordsmodule.EngineHandlers{
+		ExportDocuments: exportH.TenantExport(
+			vehiclerecordsmodule.ResourceDocuments, vehiclerecordsmodule.DocumentExportKeys...,
+		),
+		ExportMaintenance: exportH.TenantExport(
+			vehiclerecordsmodule.ResourceMaintenance, vehiclerecordsmodule.MaintenanceExportKeys...,
+		),
 	}, tokens, loader, tenantResolver)
 	settingsmodule.RegisterRoutes(mux, settingshandler.New(
 		settingsusecase.New(deps.Queries),

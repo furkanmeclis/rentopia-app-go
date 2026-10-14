@@ -122,7 +122,12 @@ SELECT sqlc.embed(v),
     COALESCE(mg.uuid, '00000000-0000-0000-0000-000000000000'::uuid)::uuid AS model_group_uuid,
     hb.uuid AS home_branch_uuid, hb.code AS home_branch_code, hb.name AS home_branch_name,
     cb.uuid AS current_branch_uuid, cb.code AS current_branch_code, cb.name AS current_branch_name,
-    k.value AS kasko_value, COALESCE(k.period, '')::text AS kasko_period
+    k.value AS kasko_value, COALESCE(k.period, '')::text AS kasko_period,
+    dx.inspection_until::date AS inspection_until, dx.insurance_until::date AS insurance_until,
+    dx.kasko_until::date AS kasko_until, dx.document_expires_at::date AS document_expires_at,
+    mx.next_maintenance_date::date AS next_maintenance_date,
+    -- -1 = no open plan with a km target.
+    COALESCE(mx.next_maintenance_km, -1)::int AS next_maintenance_km
 FROM vehicles v
 JOIN branches hb ON hb.organization_id = v.organization_id AND hb.id = v.home_branch_id
 JOIN branches cb ON cb.organization_id = v.organization_id AND cb.id = v.current_branch_id
@@ -143,6 +148,30 @@ LEFT JOIN LATERAL (
     ORDER BY cv.period DESC
     LIMIT 1
 ) k ON TRUE
+LEFT JOIN LATERAL (
+    -- Expiry tracking (TEC-693): the current document of a type is the live
+    -- one with the latest valid_until; document_expires_at is the earliest
+    -- of those (the next document to renew).
+    SELECT
+        MAX(c.until) FILTER (WHERE c.doc_type = 'muayene') AS inspection_until,
+        MAX(c.until) FILTER (WHERE c.doc_type = 'trafik_sigortasi') AS insurance_until,
+        MAX(c.until) FILTER (WHERE c.doc_type = 'kasko') AS kasko_until,
+        MIN(c.until) AS document_expires_at
+    FROM (
+        SELECT d.doc_type, MAX(d.valid_until) AS until
+        FROM vehicle_documents d
+        WHERE d.organization_id = v.organization_id AND d.vehicle_id = v.id
+          AND d.deleted_at IS NULL AND d.valid_until IS NOT NULL
+        GROUP BY d.doc_type
+    ) c
+) dx ON TRUE
+LEFT JOIN LATERAL (
+    -- Next open maintenance plan (by date and by km).
+    SELECT MIN(mp.planned_date) AS next_maintenance_date, MIN(mp.planned_km) AS next_maintenance_km
+    FROM vehicle_maintenance mp
+    WHERE mp.organization_id = v.organization_id AND mp.vehicle_id = v.id
+      AND mp.kind = 'planned' AND mp.deleted_at IS NULL
+) mx ON TRUE
 WHERE v.organization_id = sqlc.arg(organization_id)
   AND v.uuid = sqlc.arg(uuid)
   AND v.deleted_at IS NULL;
@@ -156,7 +185,12 @@ SELECT sqlc.embed(v),
     COALESCE(mg.uuid, '00000000-0000-0000-0000-000000000000'::uuid)::uuid AS model_group_uuid,
     hb.uuid AS home_branch_uuid, hb.code AS home_branch_code, hb.name AS home_branch_name,
     cb.uuid AS current_branch_uuid, cb.code AS current_branch_code, cb.name AS current_branch_name,
-    k.value AS kasko_value, COALESCE(k.period, '')::text AS kasko_period
+    k.value AS kasko_value, COALESCE(k.period, '')::text AS kasko_period,
+    dx.inspection_until::date AS inspection_until, dx.insurance_until::date AS insurance_until,
+    dx.kasko_until::date AS kasko_until, dx.document_expires_at::date AS document_expires_at,
+    mx.next_maintenance_date::date AS next_maintenance_date,
+    -- -1 = no open plan with a km target.
+    COALESCE(mx.next_maintenance_km, -1)::int AS next_maintenance_km
 FROM vehicles v
 JOIN branches hb ON hb.organization_id = v.organization_id AND hb.id = v.home_branch_id
 JOIN branches cb ON cb.organization_id = v.organization_id AND cb.id = v.current_branch_id
@@ -177,6 +211,30 @@ LEFT JOIN LATERAL (
     ORDER BY cv.period DESC
     LIMIT 1
 ) k ON TRUE
+LEFT JOIN LATERAL (
+    -- Expiry tracking (TEC-693): the current document of a type is the live
+    -- one with the latest valid_until; document_expires_at is the earliest
+    -- of those (the next document to renew).
+    SELECT
+        MAX(c.until) FILTER (WHERE c.doc_type = 'muayene') AS inspection_until,
+        MAX(c.until) FILTER (WHERE c.doc_type = 'trafik_sigortasi') AS insurance_until,
+        MAX(c.until) FILTER (WHERE c.doc_type = 'kasko') AS kasko_until,
+        MIN(c.until) AS document_expires_at
+    FROM (
+        SELECT d.doc_type, MAX(d.valid_until) AS until
+        FROM vehicle_documents d
+        WHERE d.organization_id = v.organization_id AND d.vehicle_id = v.id
+          AND d.deleted_at IS NULL AND d.valid_until IS NOT NULL
+        GROUP BY d.doc_type
+    ) c
+) dx ON TRUE
+LEFT JOIN LATERAL (
+    -- Next open maintenance plan (by date and by km).
+    SELECT MIN(mp.planned_date) AS next_maintenance_date, MIN(mp.planned_km) AS next_maintenance_km
+    FROM vehicle_maintenance mp
+    WHERE mp.organization_id = v.organization_id AND mp.vehicle_id = v.id
+      AND mp.kind = 'planned' AND mp.deleted_at IS NULL
+) mx ON TRUE
 WHERE v.organization_id = sqlc.arg(organization_id)
   AND v.deleted_at IS NULL
   -- Branch scope of the caller: home OR current branch; NULL = every branch.
@@ -189,6 +247,13 @@ WHERE v.organization_id = sqlc.arg(organization_id)
   AND (sqlc.narg(statuses)::text[] IS NULL OR v.status = ANY(sqlc.narg(statuses)::text[]))
   AND (sqlc.narg(ownerships)::text[] IS NULL OR v.ownership = ANY(sqlc.narg(ownerships)::text[]))
   AND (sqlc.narg(pools)::text[] IS NULL OR v.fleet_pool = ANY(sqlc.narg(pools)::text[]))
+  AND (sqlc.narg(document_statuses)::text[] IS NULL OR (
+    CASE
+      WHEN dx.document_expires_at IS NULL THEN 'none'
+      WHEN dx.document_expires_at < sqlc.arg(today)::date THEN 'expired'
+      WHEN dx.document_expires_at <= sqlc.arg(today)::date + sqlc.arg(document_horizon_days)::int THEN 'expiring'
+      ELSE 'valid'
+    END) = ANY(sqlc.narg(document_statuses)::text[]))
   AND (sqlc.narg(home_branch_uuids)::uuid[] IS NULL OR hb.uuid = ANY(sqlc.narg(home_branch_uuids)::uuid[]))
   AND (sqlc.narg(current_branch_uuids)::uuid[] IS NULL OR cb.uuid = ANY(sqlc.narg(current_branch_uuids)::uuid[]))
   AND (sqlc.narg(group_uuids)::uuid[] IS NULL OR EXISTS (
@@ -227,6 +292,18 @@ ORDER BY
   CASE WHEN sqlc.arg(sort_field)::text = 'status' AND sqlc.arg(sort_desc)::boolean THEN v.status END DESC,
   CASE WHEN sqlc.arg(sort_field)::text = 'kasko_value' AND NOT sqlc.arg(sort_desc)::boolean THEN k.value END ASC NULLS LAST,
   CASE WHEN sqlc.arg(sort_field)::text = 'kasko_value' AND sqlc.arg(sort_desc)::boolean THEN k.value END DESC NULLS LAST,
+  CASE WHEN sqlc.arg(sort_field)::text = 'inspection_until' AND NOT sqlc.arg(sort_desc)::boolean THEN dx.inspection_until END ASC NULLS LAST,
+  CASE WHEN sqlc.arg(sort_field)::text = 'inspection_until' AND sqlc.arg(sort_desc)::boolean THEN dx.inspection_until END DESC NULLS LAST,
+  CASE WHEN sqlc.arg(sort_field)::text = 'insurance_until' AND NOT sqlc.arg(sort_desc)::boolean THEN dx.insurance_until END ASC NULLS LAST,
+  CASE WHEN sqlc.arg(sort_field)::text = 'insurance_until' AND sqlc.arg(sort_desc)::boolean THEN dx.insurance_until END DESC NULLS LAST,
+  CASE WHEN sqlc.arg(sort_field)::text = 'kasko_until' AND NOT sqlc.arg(sort_desc)::boolean THEN dx.kasko_until END ASC NULLS LAST,
+  CASE WHEN sqlc.arg(sort_field)::text = 'kasko_until' AND sqlc.arg(sort_desc)::boolean THEN dx.kasko_until END DESC NULLS LAST,
+  CASE WHEN sqlc.arg(sort_field)::text = 'document_expires_at' AND NOT sqlc.arg(sort_desc)::boolean THEN dx.document_expires_at END ASC NULLS LAST,
+  CASE WHEN sqlc.arg(sort_field)::text = 'document_expires_at' AND sqlc.arg(sort_desc)::boolean THEN dx.document_expires_at END DESC NULLS LAST,
+  CASE WHEN sqlc.arg(sort_field)::text = 'next_maintenance_date' AND NOT sqlc.arg(sort_desc)::boolean THEN mx.next_maintenance_date END ASC NULLS LAST,
+  CASE WHEN sqlc.arg(sort_field)::text = 'next_maintenance_date' AND sqlc.arg(sort_desc)::boolean THEN mx.next_maintenance_date END DESC NULLS LAST,
+  CASE WHEN sqlc.arg(sort_field)::text = 'next_maintenance_km' AND NOT sqlc.arg(sort_desc)::boolean THEN mx.next_maintenance_km END ASC NULLS LAST,
+  CASE WHEN sqlc.arg(sort_field)::text = 'next_maintenance_km' AND sqlc.arg(sort_desc)::boolean THEN mx.next_maintenance_km END DESC NULLS LAST,
   CASE WHEN sqlc.arg(sort_field)::text = 'is_active' AND NOT sqlc.arg(sort_desc)::boolean THEN v.is_active END ASC,
   CASE WHEN sqlc.arg(sort_field)::text = 'is_active' AND sqlc.arg(sort_desc)::boolean THEN v.is_active END DESC,
   CASE WHEN sqlc.arg(sort_field)::text = 'updated_at' AND NOT sqlc.arg(sort_desc)::boolean THEN v.updated_at END ASC,
@@ -245,6 +322,23 @@ LEFT JOIN catalog_types t ON t.id = v.catalog_type_id
 LEFT JOIN catalog_models m ON m.id = t.model_id
 LEFT JOIN catalog_brands tb ON tb.id = t.brand_id
 LEFT JOIN catalog_display_brands d ON d.id = tb.display_brand_id
+LEFT JOIN LATERAL (
+    -- Expiry tracking (TEC-693): the current document of a type is the live
+    -- one with the latest valid_until; document_expires_at is the earliest
+    -- of those (the next document to renew).
+    SELECT
+        MAX(c.until) FILTER (WHERE c.doc_type = 'muayene') AS inspection_until,
+        MAX(c.until) FILTER (WHERE c.doc_type = 'trafik_sigortasi') AS insurance_until,
+        MAX(c.until) FILTER (WHERE c.doc_type = 'kasko') AS kasko_until,
+        MIN(c.until) AS document_expires_at
+    FROM (
+        SELECT d.doc_type, MAX(d.valid_until) AS until
+        FROM vehicle_documents d
+        WHERE d.organization_id = v.organization_id AND d.vehicle_id = v.id
+          AND d.deleted_at IS NULL AND d.valid_until IS NOT NULL
+        GROUP BY d.doc_type
+    ) c
+) dx ON TRUE
 WHERE v.organization_id = sqlc.arg(organization_id)
   AND v.deleted_at IS NULL
   AND (
@@ -256,6 +350,13 @@ WHERE v.organization_id = sqlc.arg(organization_id)
   AND (sqlc.narg(statuses)::text[] IS NULL OR v.status = ANY(sqlc.narg(statuses)::text[]))
   AND (sqlc.narg(ownerships)::text[] IS NULL OR v.ownership = ANY(sqlc.narg(ownerships)::text[]))
   AND (sqlc.narg(pools)::text[] IS NULL OR v.fleet_pool = ANY(sqlc.narg(pools)::text[]))
+  AND (sqlc.narg(document_statuses)::text[] IS NULL OR (
+    CASE
+      WHEN dx.document_expires_at IS NULL THEN 'none'
+      WHEN dx.document_expires_at < sqlc.arg(today)::date THEN 'expired'
+      WHEN dx.document_expires_at <= sqlc.arg(today)::date + sqlc.arg(document_horizon_days)::int THEN 'expiring'
+      ELSE 'valid'
+    END) = ANY(sqlc.narg(document_statuses)::text[]))
   AND (sqlc.narg(home_branch_uuids)::uuid[] IS NULL OR hb.uuid = ANY(sqlc.narg(home_branch_uuids)::uuid[]))
   AND (sqlc.narg(current_branch_uuids)::uuid[] IS NULL OR cb.uuid = ANY(sqlc.narg(current_branch_uuids)::uuid[]))
   AND (sqlc.narg(group_uuids)::uuid[] IS NULL OR EXISTS (
@@ -293,6 +394,23 @@ LEFT JOIN catalog_types t ON t.id = v.catalog_type_id
 LEFT JOIN catalog_models m ON m.id = t.model_id
 LEFT JOIN catalog_brands tb ON tb.id = t.brand_id
 LEFT JOIN catalog_display_brands d ON d.id = tb.display_brand_id
+LEFT JOIN LATERAL (
+    -- Expiry tracking (TEC-693): the current document of a type is the live
+    -- one with the latest valid_until; document_expires_at is the earliest
+    -- of those (the next document to renew).
+    SELECT
+        MAX(c.until) FILTER (WHERE c.doc_type = 'muayene') AS inspection_until,
+        MAX(c.until) FILTER (WHERE c.doc_type = 'trafik_sigortasi') AS insurance_until,
+        MAX(c.until) FILTER (WHERE c.doc_type = 'kasko') AS kasko_until,
+        MIN(c.until) AS document_expires_at
+    FROM (
+        SELECT d.doc_type, MAX(d.valid_until) AS until
+        FROM vehicle_documents d
+        WHERE d.organization_id = v.organization_id AND d.vehicle_id = v.id
+          AND d.deleted_at IS NULL AND d.valid_until IS NOT NULL
+        GROUP BY d.doc_type
+    ) c
+) dx ON TRUE
 WHERE v.organization_id = sqlc.arg(organization_id)
   AND v.deleted_at IS NULL
   AND (
@@ -304,6 +422,13 @@ WHERE v.organization_id = sqlc.arg(organization_id)
   AND (sqlc.narg(statuses)::text[] IS NULL OR v.status = ANY(sqlc.narg(statuses)::text[]))
   AND (sqlc.narg(ownerships)::text[] IS NULL OR v.ownership = ANY(sqlc.narg(ownerships)::text[]))
   AND (sqlc.narg(pools)::text[] IS NULL OR v.fleet_pool = ANY(sqlc.narg(pools)::text[]))
+  AND (sqlc.narg(document_statuses)::text[] IS NULL OR (
+    CASE
+      WHEN dx.document_expires_at IS NULL THEN 'none'
+      WHEN dx.document_expires_at < sqlc.arg(today)::date THEN 'expired'
+      WHEN dx.document_expires_at <= sqlc.arg(today)::date + sqlc.arg(document_horizon_days)::int THEN 'expiring'
+      ELSE 'valid'
+    END) = ANY(sqlc.narg(document_statuses)::text[]))
   AND (sqlc.narg(home_branch_uuids)::uuid[] IS NULL OR hb.uuid = ANY(sqlc.narg(home_branch_uuids)::uuid[]))
   AND (sqlc.narg(current_branch_uuids)::uuid[] IS NULL OR cb.uuid = ANY(sqlc.narg(current_branch_uuids)::uuid[]))
   AND (sqlc.narg(group_uuids)::uuid[] IS NULL OR EXISTS (
@@ -336,12 +461,35 @@ LIMIT sqlc.arg(limit_count);
 
 -- name: ListVehicleFacets :many
 -- Dynamic filter options of the vehicles list in the caller's branch scope.
--- facet: status | ownership | pool | is_active | home_branch | current_branch
--- | rental_group | segment; value is the filter value (uuid for references).
+-- facet: status | ownership | pool | is_active | document_status | home_branch
+-- | current_branch | rental_group | segment; value is the filter value (uuid for references).
 WITH scoped AS (
     SELECT v.id, v.organization_id, v.status, v.ownership, v.fleet_pool, v.is_active,
-        v.home_branch_id, v.current_branch_id
+        v.home_branch_id, v.current_branch_id,
+        (CASE
+          WHEN dx.document_expires_at IS NULL THEN 'none'
+          WHEN dx.document_expires_at < sqlc.arg(today)::date THEN 'expired'
+          WHEN dx.document_expires_at <= sqlc.arg(today)::date + sqlc.arg(document_horizon_days)::int THEN 'expiring'
+          ELSE 'valid'
+        END)::text AS document_status
     FROM vehicles v
+    LEFT JOIN LATERAL (
+        -- Expiry tracking (TEC-693): the current document of a type is the live
+        -- one with the latest valid_until; document_expires_at is the earliest
+        -- of those (the next document to renew).
+        SELECT
+            MAX(c.until) FILTER (WHERE c.doc_type = 'muayene') AS inspection_until,
+            MAX(c.until) FILTER (WHERE c.doc_type = 'trafik_sigortasi') AS insurance_until,
+            MAX(c.until) FILTER (WHERE c.doc_type = 'kasko') AS kasko_until,
+            MIN(c.until) AS document_expires_at
+        FROM (
+            SELECT d.doc_type, MAX(d.valid_until) AS until
+            FROM vehicle_documents d
+            WHERE d.organization_id = v.organization_id AND d.vehicle_id = v.id
+              AND d.deleted_at IS NULL AND d.valid_until IS NOT NULL
+            GROUP BY d.doc_type
+        ) c
+    ) dx ON TRUE
     WHERE v.organization_id = sqlc.arg(organization_id)
       AND v.deleted_at IS NULL
       AND (
@@ -361,6 +509,9 @@ FROM scoped s GROUP BY s.fleet_pool
 UNION ALL
 SELECT 'is_active'::text, s.is_active::text, ''::text, COUNT(*)::bigint
 FROM scoped s GROUP BY s.is_active
+UNION ALL
+SELECT 'document_status'::text, s.document_status, ''::text, COUNT(*)::bigint
+FROM scoped s GROUP BY s.document_status
 UNION ALL
 SELECT 'home_branch'::text, b.uuid::text, b.name::text, COUNT(*)::bigint
 FROM scoped s JOIN branches b ON b.organization_id = s.organization_id AND b.id = s.home_branch_id
