@@ -69,5 +69,7 @@
   "tenant_download.again": "Download again",
   "resources.tenant.vehicles": "Vehicles",
   "resources.tenant.vehicle_documents": "Vehicle documents",
-  "resources.tenant.vehicle_maintenance": "Vehicle maintenance"
+  "resources.tenant.vehicle_maintenance": "Vehicle maintenance",
+  "resources.tenant.transfers": "Transfers",
+  "resources.tenant.one_way_rules": "One-way rules"
 }

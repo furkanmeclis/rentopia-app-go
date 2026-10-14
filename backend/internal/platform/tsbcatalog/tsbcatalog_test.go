@@ -189,7 +189,7 @@ func TestDefaultsForBrand(t *testing.T) {
 		"MOTORSIKLET":       {"Motosiklet", CategoryOther},
 		"SCANIA":            {"Scania", CategoryOther},
 		"MERCEDES":          {"Mercedes-Benz", CategoryPassenger},
-		"KGMOBILITY":        {"KG Mobility", CategoryPassenger},
+		"KGMOBILITY":        {"KG Mobility (SsangYong)", CategoryPassenger},
 		"LYNK-CO":           {"Lynk & Co", CategoryPassenger},
 		"TRUMPCHI/GAC":      {"GAC", CategoryPassenger},
 		"ALFA ROMEO":        {"Alfa Romeo", CategoryPassenger},

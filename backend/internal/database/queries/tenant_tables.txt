@@ -19,3 +19,7 @@ vehicle_rental_groups
 vehicle_documents
 vehicle_maintenance
 vehicle_reminder_deliveries
+vehicle_blocks
+vehicle_transfers
+one_way_rules
+vehicle_busy_intervals

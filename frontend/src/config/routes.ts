@@ -60,6 +60,8 @@ export const routes = {
       vehicles: fleetRoutes("vehicles"),
       /** Upcoming / overdue documents and maintenance ("Operasyon özeti"). */
       alerts: (slug: string) => `/t/${encodeURIComponent(slug)}/fleet/alerts`,
+      transfers: fleetRoutes("transfers"),
+      oneWayRules: fleetRoutes("one-way-rules"),
     },
     settings: {
       root: (slug: string) => `/t/${encodeURIComponent(slug)}/settings`,
@@ -180,7 +182,15 @@ type NestedRoutes<T> = T extends string
 export type AppRoute = NestedRoutes<typeof routes>;
 
 /** `/t/{slug}/fleet/{section}` list / create / detail / edit routes. */
-function fleetRoutes(section: "segments" | "groups" | "products" | "vehicles") {
+function fleetRoutes(
+  section:
+    | "segments"
+    | "groups"
+    | "products"
+    | "vehicles"
+    | "transfers"
+    | "one-way-rules",
+) {
   const base = (slug: string) =>
     `/t/${encodeURIComponent(slug)}/fleet/${section}`;
   return {

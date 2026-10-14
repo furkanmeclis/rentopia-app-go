@@ -68,6 +68,12 @@ export const Permission = {
   TenantVehiclesExport: "tenant.vehicles.export",
   TenantVehiclesImport: "tenant.vehicles.import",
   TenantVehiclesBulk: "tenant.vehicles.bulk",
+  TenantBlocksRead: "tenant.blocks.read",
+  TenantBlocksWrite: "tenant.blocks.write",
+  TenantTransfersRead: "tenant.transfers.read",
+  TenantTransfersWrite: "tenant.transfers.write",
+  TenantOneWayRead: "tenant.one_way.read",
+  TenantOneWayWrite: "tenant.one_way.write",
   TenantPriceOverride: "tenant.price.override",
   TenantDiscountApply: "tenant.discount.apply",
   TenantPaymentCollect: "tenant.payment.collect",
@@ -208,6 +214,21 @@ export const permissions = {
       export: Permission.TenantVehiclesExport,
       import: Permission.TenantVehiclesImport,
       bulk: Permission.TenantVehiclesBulk,
+    },
+    /** Vehicle usage blocks (maintenance, damage, …); "Bakıma al" bulk = write. */
+    blocks: {
+      read: Permission.TenantBlocksRead,
+      write: Permission.TenantBlocksWrite,
+    },
+    /** Transfers between branches; export needs read. */
+    transfers: {
+      read: Permission.TenantTransfersRead,
+      write: Permission.TenantTransfersWrite,
+    },
+    /** One-way rules; export needs read, bulk activate / deactivate write. */
+    oneWay: {
+      read: Permission.TenantOneWayRead,
+      write: Permission.TenantOneWayWrite,
     },
     price: {
       override: Permission.TenantPriceOverride,

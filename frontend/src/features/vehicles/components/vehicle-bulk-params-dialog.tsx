@@ -4,7 +4,12 @@ import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { z } from "zod";
 
 import { AppDialog } from "@/components/dialogs/app-dialog";
-import { AppForm, AppSelect, AppTextarea } from "@/components/forms";
+import {
+  AppCheckbox,
+  AppForm,
+  AppSelect,
+  AppTextarea,
+} from "@/components/forms";
 import { Button } from "@/components/ui/button";
 import { useBranchesList } from "@/features/branches/hooks/use-branches";
 import type { BulkActionDef } from "@/features/bulk-engine";
@@ -28,6 +33,9 @@ const PARAM_ACTIONS: Record<
   replace_rental_group: "rental_group_uuid",
 };
 
+/** "Bakıma al" (TEC-694): reason + optional status change, no select. */
+const MAINTENANCE_ACTION = "start_maintenance";
+
 const HINT_KEYS: Record<string, string> = {
   set_status: "vehicles.bulk_params.set_status_hint",
   move_branch: "vehicles.bulk_params.move_branch_hint",
@@ -41,6 +49,48 @@ type Request = {
 };
 
 type Values = { value: string; note: string };
+
+type MaintenanceValues = { reason: string; sync_status: boolean };
+
+/** Params of "Bakıma al": an open-ended maintenance block from now. */
+function MaintenanceParamsForm({
+  onDone,
+}: {
+  onDone: (params: Record<string, string> | null) => void;
+}) {
+  const { t } = useLocale();
+  const schema = useMemo(
+    () => z.object({ reason: z.string().max(2000), sync_status: z.boolean() }),
+    [],
+  );
+  return (
+    <AppForm<MaintenanceValues>
+      id={FORM_ID}
+      className="space-y-4"
+      schema={schema}
+      defaultValues={{ reason: "", sync_status: true }}
+      onSubmit={async (values) => {
+        const params: Record<string, string> = {
+          sync_status: String(values.sync_status),
+        };
+        if (values.reason.trim()) params.reason = values.reason.trim();
+        onDone(params);
+      }}
+    >
+      <p className="text-muted-foreground text-sm">
+        {t("vehicles.bulk_params.start_maintenance_hint")}
+      </p>
+      <AppTextarea
+        name="reason"
+        label={t("vehicles.bulk_params.maintenance_reason")}
+      />
+      <AppCheckbox
+        name="sync_status"
+        label={t("vehicles.bulk_params.maintenance_sync_status")}
+      />
+    </AppForm>
+  );
+}
 
 function ParamsForm({
   request,
@@ -119,7 +169,7 @@ function ParamsForm({
 
 /**
  * Collects the params of the vehicles bulk actions (status, branch, rental
- * group). `resolveParams` plugs into `BulkActionMenu`.
+ * group, "Bakıma al"). `resolveParams` plugs into `BulkActionMenu`.
  */
 export function useVehicleBulkParams(): {
   resolveParams: (
@@ -131,7 +181,9 @@ export function useVehicleBulkParams(): {
   const [request, setRequest] = useState<Request | null>(null);
 
   const resolveParams = useCallback((action: BulkActionDef) => {
-    if (!PARAM_ACTIONS[action.id]) return Promise.resolve(undefined);
+    if (!PARAM_ACTIONS[action.id] && action.id !== MAINTENANCE_ACTION) {
+      return Promise.resolve(undefined);
+    }
     return new Promise<Record<string, string> | null>((resolve) =>
       setRequest({ action, resolve }),
     );
@@ -161,7 +213,9 @@ export function useVehicleBulkParams(): {
         </>
       }
     >
-      {request ? (
+      {request?.action.id === MAINTENANCE_ACTION ? (
+        <MaintenanceParamsForm onDone={finish} />
+      ) : request ? (
         <ParamsForm key={request.action.id} request={request} onDone={finish} />
       ) : null}
     </AppDialog>

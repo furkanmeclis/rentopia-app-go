@@ -1,5 +1,6 @@
 import {
   Activity,
+  ArrowLeftRight,
   Bell,
   Boxes,
   Building2,
@@ -13,6 +14,7 @@ import {
   LayoutDashboard,
   LogIn,
   Palette,
+  Route,
   ScrollText,
   Settings2,
   Share2,
@@ -302,6 +304,20 @@ export function tenantNav(slug: string): NavCatalog {
             href: routes.tenant.fleet.alerts(slug),
             icon: CalendarClock,
             permission: permissions.tenant.vehicles.read,
+          },
+          {
+            id: "fleet-transfers",
+            titleKey: "layout.nav_fleet_transfers",
+            href: routes.tenant.fleet.transfers.root(slug),
+            icon: ArrowLeftRight,
+            permission: permissions.tenant.transfers.read,
+          },
+          {
+            id: "fleet-one-way-rules",
+            titleKey: "layout.nav_fleet_one_way_rules",
+            href: routes.tenant.fleet.oneWayRules.root(slug),
+            icon: Route,
+            permission: permissions.tenant.oneWay.read,
           },
           {
             id: "fleet-segments",
