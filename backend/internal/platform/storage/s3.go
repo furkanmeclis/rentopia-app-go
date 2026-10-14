@@ -3,15 +3,19 @@ package storage
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/config"
 )
 
@@ -59,6 +63,31 @@ func (d *S3Driver) Ping(ctx context.Context) error {
 	})
 	if err != nil {
 		return fmt.Errorf("storage: s3 ping: %w", err)
+	}
+	return nil
+}
+
+// EnsureBucket creates the bucket when it does not exist yet, so a fresh
+// S3-compatible server (SeaweedFS in compose) needs no separate init job.
+func (d *S3Driver) EnsureBucket(ctx context.Context) error {
+	if d == nil || d.client == nil {
+		return fmt.Errorf("storage: s3 driver is nil")
+	}
+	_, err := d.client.HeadBucket(ctx, &s3.HeadBucketInput{Bucket: aws.String(d.bucket)})
+	if err == nil {
+		return nil
+	}
+	var notFound *types.NotFound
+	var respErr *awshttp.ResponseError
+	missing := errors.As(err, &notFound) ||
+		(errors.As(err, &respErr) && respErr.HTTPStatusCode() == http.StatusNotFound)
+	if !missing {
+		return fmt.Errorf("storage: s3 head bucket: %w", err)
+	}
+	_, err = d.client.CreateBucket(ctx, &s3.CreateBucketInput{Bucket: aws.String(d.bucket)})
+	var owned *types.BucketAlreadyOwnedByYou
+	if err != nil && !errors.As(err, &owned) {
+		return fmt.Errorf("storage: s3 create bucket: %w", err)
 	}
 	return nil
 }

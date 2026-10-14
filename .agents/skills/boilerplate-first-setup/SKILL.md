@@ -15,7 +15,7 @@ Human docs: `docs/DEVELOPMENT.md`. Canonical env is the **repo-root** `.env`.
 
 - `backend/` — Go API + worker (`:8080`, `/v1/...`)
 - `frontend/` — Next.js BFF (`/platform` + CMS `/`)
-- `compose.local.yml` — infra only (Postgres, Redis, MinIO, MailHog, Adminer, Centrifugo, Meilisearch)
+- `compose.local.yml` — infra only (Postgres, Redis, SeaweedFS, MailHog, Adminer, Centrifugo, Meilisearch)
 - `compose.prod.yml` — full stack on its own app network; frontend + centrifugo also join `dokploy-network`
 
 Do **not** keep a long-lived `frontend/.env.local` for API URLs. Do **not** treat `backend/.env` as canonical.
@@ -38,7 +38,7 @@ cp .env.example .env.server   # then replace every secret
 | `COMPOSE_PROJECT_NAME` | Compose project name |
 | `LOCAL_NETWORK_NAME` | Local bridge |
 | `APP_NETWORK_NAME` | Prod private bridge (default `${NAME_PREFIX}-app`) |
-| `POSTGRES_VOLUME_NAME` / `REDIS_VOLUME_NAME` / `MINIO_VOLUME_NAME` / `MEILI_VOLUME_NAME` | Named volumes so data does not collide |
+| `POSTGRES_VOLUME_NAME` / `REDIS_VOLUME_NAME` / `STORAGE_VOLUME_NAME` / `MEILI_VOLUME_NAME` | Named volumes so data does not collide |
 
 In `compose.prod.yml` every internal host is qualified as `<service>.${APP_NETWORK_NAME}` (`postgres.myapp-app`, `backend.myapp-app`, …). Never use a bare service name: on the shared `dokploy-network` it can resolve to another stack's container.
 
@@ -70,7 +70,7 @@ make create-super-admin
 | API / Scalar | http://127.0.0.1:8080 · `/docs/` |
 | Health | `/healthz` · `/readyz` |
 | Adminer | http://127.0.0.1:8081 |
-| MinIO console | http://127.0.0.1:9001 |
+| SeaweedFS filer UI | http://127.0.0.1:8888 |
 | MailHog | http://127.0.0.1:8025 |
 | Meilisearch | http://127.0.0.1:7700 |
 
@@ -102,7 +102,7 @@ Optional public vars (already in `.env.example`): `NEXT_PUBLIC_BFF_BASE_URL`, `N
 
 ## 6. Media URLs
 
-Browser must **never** assemble MinIO/S3 URLs from object keys. Use API-returned `public_url` / `logo_url`. Guard: `frontend/src/lib/media/urls.ts`. Skill: `.agents/skills/storage-media`.
+Browser must **never** assemble S3 URLs from object keys. Use API-returned `public_url` / `logo_url`. Guard: `frontend/src/lib/media/urls.ts`. Skill: `.agents/skills/storage-media`.
 
 ## 7. Production / Dokploy
 
@@ -110,7 +110,7 @@ Browser must **never** assemble MinIO/S3 URLs from object keys. Use API-returned
 2. `make prod-config` then `make prod-up`
 3. Plain Docker host only: `docker network create dokploy-network` (once; Dokploy creates it itself)
 
-Compose creates the app's own private network (`${NAME_PREFIX}-app`). Only **frontend** and **centrifugo** join `dokploy-network` (set their domains in Dokploy: service + container port). Backend, MinIO, Postgres, Redis, Meilisearch and the worker stay private.
+Compose creates the app's own private network (`${NAME_PREFIX}-app`). Only **frontend** and **centrifugo** join `dokploy-network` (set their domains in Dokploy: service + container port). Backend, SeaweedFS, Postgres, Redis, Meilisearch and the worker stay private.
 
 `SEARCH_*` / `MEILI_*` enable Cmd+K. `APP_ENCRYPTION_KEY` (32-byte raw or base64) encrypts GitHub App secrets. Generate: `openssl rand -base64 32`.
 

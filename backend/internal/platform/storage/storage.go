@@ -89,6 +89,11 @@ type Driver interface {
 	Bucket() string
 }
 
+// BucketEnsurer is implemented by drivers that can create their own bucket.
+type BucketEnsurer interface {
+	EnsureBucket(ctx context.Context) error
+}
+
 // NewFromConfig builds a storage driver from configuration.
 func NewFromConfig(ctx context.Context, cfg config.StorageConfig) (Driver, error) {
 	switch strings.ToLower(strings.TrimSpace(cfg.Driver)) {

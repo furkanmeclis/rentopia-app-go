@@ -1,14 +1,14 @@
 ---
 name: storage-media
 description: >-
-  Object storage and media URL rules for this boilerplate: MinIO/S3 keys,
+  Object storage and media URL rules for this boilerplate: S3 keys,
   API-owned public URLs, platform storage explorer, shares and versions.
   Use when adding uploads, logos, downloads, or the storage browser.
 ---
 
 # Storage & media
 
-**Hard rule:** the browser never builds MinIO/S3 URLs from object keys. Only API-returned `public_url` / `logo_url` / stream paths.
+**Hard rule:** the browser never builds S3 URLs from object keys. Only API-returned `public_url` / `logo_url` / stream paths.
 
 ## Packages
 
@@ -28,7 +28,7 @@ Use helpers; do not invent prefixes:
 - Export artifact: `exports/{job_uuid}/export.{ext}`
 - Import source: `imports/{job_uuid}/source.{ext}`
 
-Object **bytes** live in MinIO/S3. **Metadata** (name, size, versions, shares) stays in Postgres.
+Object **bytes** live in S3. **Metadata** (name, size, versions, shares) stays in Postgres.
 
 Env: `STORAGE_DRIVER`, `STORAGE_PUBLIC_BASE_URL`, `S3_*`. `STORAGE_PUBLIC_BASE_URL` is for the API, not the browser.
 

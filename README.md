@@ -21,7 +21,7 @@ Starter monorepo for an authenticated admin + CMS product: Go HTTP API, Next.js 
 - **Realtime** — Centrifugo connection/subscription JWTs
 - **Queue** — Asynq (in-process by default, or `make -C backend worker`)
 - **Search** — Cmd+K palette + Meilisearch (browser never talks to Meili)
-- **Storage** — MinIO / S3 browser; the API owns public URLs (never assemble keys in the browser)
+- **Storage** — SeaweedFS / S3 browser; the API owns public URLs (never assemble keys in the browser)
 - **I/O engine** — async CSV/XLSX/PDF/JSON export and import with rollback
 - **Bulk engine** — permission-gated batch mutations with optional undo
 - **Activity + logs** — audit trail and application log viewer with purge rules
@@ -45,7 +45,7 @@ make create-super-admin
 
 Then open http://localhost:3000/platform/login and sign in as `super_admin`.
 
-`make local-dev` starts Postgres, Redis, MinIO, MailHog, Adminer, Centrifugo, and Meilisearch in Docker, migrates the database, then runs **air** (API) and **pnpm dev** (frontend) on the host. It does **not** build app images.
+`make local-dev` starts Postgres, Redis, SeaweedFS, MailHog, Adminer, Centrifugo, and Meilisearch in Docker, migrates the database, then runs **air** (API) and **pnpm dev** (frontend) on the host. It does **not** build app images.
 
 | Who | Lands on |
 |-----|----------|

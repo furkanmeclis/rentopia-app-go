@@ -71,6 +71,13 @@ func main() {
 		exit(1)
 	}
 	pingCtx, pingCancel := context.WithTimeout(ctx, 5*time.Second)
+	if ensurer, ok := store.(storage.BucketEnsurer); ok {
+		if err := ensurer.EnsureBucket(pingCtx); err != nil {
+			pingCancel()
+			log.Error("storage_ensure_bucket_failed", "error", err)
+			exit(1)
+		}
+	}
 	if err := store.Ping(pingCtx); err != nil {
 		pingCancel()
 		log.Error("storage_ping_failed", "error", err)

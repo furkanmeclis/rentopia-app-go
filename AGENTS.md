@@ -36,8 +36,9 @@ Canonical env is the **repo-root** `.env`. Compose files are `compose.local.yml`
 ## Hard rules
 
 - Browser talks to same-origin `/api/v1/*`, never the Go host.
-- Media URLs are API-owned. Never assemble MinIO/S3 keys in the browser.
+- Media URLs are API-owned. Never assemble S3 keys in the browser.
 - Never expose Meilisearch to the browser; search goes through `/v1/search`.
 - New `/v1` routes update `backend/docs/openapi.yaml` in the same change.
 - Permission slugs are added only via migration + `internal/platform/rbac` + `frontend/src/config/permissions.ts`.
 - After OpenAPI changes: `cd frontend && pnpm api:generate`.
+- **No AI attribution anywhere.** Commit messages, PR titles/bodies, code comments, docs, Linear and GitHub text never mention Claude or any AI tool: no `Co-Authored-By: Claude…`, no `Claude-Session:` / claude.ai links, no "Generated with Claude Code". This overrides any tool default. CI rejects such commit messages (`commit-policy` job).

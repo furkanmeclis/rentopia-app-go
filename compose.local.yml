@@ -41,46 +41,40 @@ services:
     networks:
       - app
 
-  minio:
-    image: minio/minio:latest
-    container_name: ${NAME_PREFIX:-app}-minio
+  # S3-compatible object store (master + volume + filer + S3 gateway in one
+  # process). Identities come from S3_ACCESS_KEY / S3_SECRET_KEY; "anonymous"
+  # may only read the app bucket so STORAGE_PUBLIC_BASE_URL works locally.
+  # The API creates the bucket on startup (storage.BucketEnsurer).
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.47
+    container_name: ${NAME_PREFIX:-app}-seaweedfs
     restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin}
-    ports:
-      - "${MINIO_API_PORT:-9000}:9000"
-      - "${MINIO_CONSOLE_PORT:-9001}:9001"
-    volumes:
-      - minio_data:/data
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/live"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    networks:
-      - app
-
-  minio-init:
-    image: minio/mc:latest
-    container_name: ${NAME_PREFIX:-app}-minio-init
-    depends_on:
-      minio:
-        condition: service_healthy
     entrypoint:
       - /bin/sh
       - -c
       - |
         set -eu
-        mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"
-        mc mb --ignore-existing "local/$$S3_BUCKET"
-        mc anonymous set download "local/$$S3_BUCKET"
+        printf '{"identities":[{"name":"app","credentials":[{"accessKey":"%s","secretKey":"%s"}],"actions":["Admin","Read","List","Tagging","Write"]},{"name":"anonymous","actions":["Read:%s"]}]}' \
+          "$$S3_ACCESS_KEY" "$$S3_SECRET_KEY" "$$S3_BUCKET" > /tmp/s3.json
+        exec weed server -dir=/data -ip.bind=0.0.0.0 -volume.max=0 -master.volumeSizeLimitMB=1024 \
+          -s3 -s3.port=9000 -s3.config=/tmp/s3.json
     environment:
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-storageadmin}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-storageadmin}
       S3_BUCKET: ${S3_BUCKET:-app}
-    restart: "no"
+    ports:
+      - "${S3_PORT:-9000}:9000"
+      - "${SEAWEEDFS_UI_PORT:-8888}:8888"
+    volumes:
+      - storage_data:/data
+    healthcheck:
+      # /cluster/status answers 200 before raft elects a leader (a restart with
+      # existing data takes ~1 min), so wait for IsLeader before the API starts.
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:9333/cluster/status | grep -q '\"IsLeader\":true'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
     networks:
       - app
 
@@ -160,8 +154,8 @@ volumes:
     name: ${POSTGRES_VOLUME_NAME:-${NAME_PREFIX:-app}-postgres}
   redis_data:
     name: ${REDIS_VOLUME_NAME:-${NAME_PREFIX:-app}-redis}
-  minio_data:
-    name: ${MINIO_VOLUME_NAME:-${NAME_PREFIX:-app}-minio}
+  storage_data:
+    name: ${STORAGE_VOLUME_NAME:-${NAME_PREFIX:-app}-seaweedfs}
   meili_data:
     name: ${MEILI_VOLUME_NAME:-${NAME_PREFIX:-app}-meilisearch}
 

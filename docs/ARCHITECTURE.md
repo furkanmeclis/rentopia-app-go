@@ -69,7 +69,7 @@ Audit: `activity.Recorder.Record` (fail-soft). Application logs: `internal/modul
 | I/O | `internal/platform/ioengine` | Export / import adapters; jobs on Asynq `exports` / `imports` |
 | Bulk | `internal/platform/bulkengine` | Batch mutations; jobs on Asynq `bulk` |
 | Search | `internal/platform/searchengine` | Meilisearch indexing + `GET /v1/search` for Cmd+K |
-| Storage | `internal/platform/storage` + `modules/storage` | Object bytes in MinIO/S3; metadata in Postgres |
+| Storage | `internal/platform/storage` + `modules/storage` | Object bytes in S3; metadata in Postgres |
 | Activity | `internal/platform/activity` | Audit events for mutations and I/O |
 | Step-up | `internal/platform/stepup` | Re-auth grant (password/passkey) before sensitive routes |
 | Secrets | `internal/platform/crypto` | AES-256-GCM box for GitHub App credentials |
@@ -82,7 +82,7 @@ Adapters register in `internal/httpserver/server.go` and `cmd/worker/main.go`.
 |-------|------|
 | PostgreSQL 18 | Source of truth |
 | Redis | Cache, Asynq, ephemeral state |
-| MinIO / S3 | Object bytes; metadata stays in Postgres |
+| SeaweedFS / S3 | Object bytes; metadata stays in Postgres |
 | Meilisearch | Cmd+K record search; HMAC/master key stays on the API |
 | Centrifugo | Websocket fan-out; HMAC stays on the API |
 
