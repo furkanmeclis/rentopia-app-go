@@ -26,5 +26,11 @@
   "overview.membership_description": "Bu firmadaki rolünüz ve yetkileriniz.",
   "overview.role": "Rol",
   "overview.permissions": "Yetkiler",
-  "overview.no_end": "Bitiş tarihi yok"
+  "overview.no_end": "Bitiş tarihi yok",
+  "picker.title": "Firma seçin",
+  "picker.description": "Birden fazla firmanın üyesisiniz. Açmak istediğiniz firmayı seçin.",
+  "picker.no_access_link": "Ne yapabilirim?",
+  "no_access.title": "Henüz erişiminiz yok",
+  "no_access.body": "Hesabınız hazır ancak henüz hiçbir firmanın üyesi değilsiniz. Bir firma sahibi sizi davet ettiğinde burada görünecek.",
+  "no_access.check_again": "Tekrar kontrol et"
 }

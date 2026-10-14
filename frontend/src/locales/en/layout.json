@@ -6,7 +6,6 @@
   "nav_platform": "General",
   "section_manage": "Manage",
   "section_auth_methods": "Sign-in & registration",
-  "section_cms": "CMS",
   "section_organization": "Organization",
   "section_settings": "Settings",
   "section_io": "Import & export settings",
@@ -30,7 +29,7 @@
   "nav_profile": "Profile",
   "breadcrumb_home": "Home",
   "page_ready": "Platform ready",
-  "page_ready_description": "Platform and CMS shells are ready.",
+  "page_ready_description": "Platform and organization shells are ready.",
   "collapse_sidebar": "Collapse sidebar",
   "expand_sidebar": "Expand sidebar",
   "nav_item_info": "Details"
