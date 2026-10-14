@@ -34,6 +34,13 @@ Canonical env is the **repo-root** `.env`. Compose files are `compose.local.yml`
 | [backend/DATABASE_RULES.md](./backend/DATABASE_RULES.md) | Migrations + sqlc |
 | [backend/docs/auth.md](./backend/docs/auth.md) | JWT, roles, permissions |
 
+## UI rules (frontend)
+
+- **shadcn only.** Build every control from `frontend/src/components/ui/*` (shadcn). No native `<select>`, `<table>`, `<input type="date">`, `<textarea>` or hand-rolled widgets in features; if a primitive is missing, add it with the shadcn MCP/CLI (`components.json`) into `components/ui/` first.
+- **DataTable wherever a list exists.** Any collection (main lists, detail sub-lists, import diffs, valuation grids, pickers with many rows) uses the DataTable stack in `components/tables/*` + `components/entity/*`, not ad-hoc markup. Follow the `add-tenant-resource` checklist for list pages.
+- **One design language.** Reuse the entity page/detail/section-card/drawer/dialog patterns, the same spacing, typography, empty/loading/error states, toasts (`sonner`), confirmation dialogs and `AppDatePicker`. A new screen should look and behave like the existing ones; prefer extending a shared component over a one-off.
+- **Turkish first.** Every string through i18n (`tr` primary, `en` complete).
+
 ## Hard rules
 
 - Browser talks to same-origin `/api/v1/*`, never the Go host.
