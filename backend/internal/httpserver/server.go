@@ -62,6 +62,10 @@ import (
 	orghandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/handler"
 	orgrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/repository"
 	orgusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/usecase"
+	orgsettingsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings"
+	orgsettingshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/handler"
+	orgsettingsrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/repository"
+	orgsettingsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/qrlogin"
 	searchmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/search"
 	searchhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/search/handler"
@@ -280,6 +284,9 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	}
 	tenantmodule.RegisterRoutes(mux, tokens, loader, tenantResolver)
 	organizationsmodule.RegisterTenantRoutes(mux, orghandler.New(orgSvc, activityRec), tokens, loader, tenantResolver)
+	orgsettingsmodule.RegisterRoutes(mux, orgsettingshandler.New(
+		orgsettingsusecase.New(orgsettingsrepository.NewPostgres(deps.DB, deps.Queries)), activityRec,
+	), tokens, loader, tenantResolver)
 
 	// Vehicle catalog (TSB kasko list): platform curation + imports, and
 	// read-only lookups for organization members when tenancy is on.

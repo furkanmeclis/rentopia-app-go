@@ -5,3 +5,4 @@ branches
 service_points
 organization_member_roles
 organization_member_branches
+organization_settings_versions

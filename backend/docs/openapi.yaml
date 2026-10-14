@@ -3453,6 +3453,136 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
 
+  /v1/tenant/settings:
+    get:
+      tags: [Tenant]
+      operationId: getTenantSettings
+      summary: Current organization settings
+      description: |
+        The highest stored version (`tenant.settings.read`). Before the first
+        save the response is version `0` with defaults. `ready_for_online_sales`
+        is false while any of `missing` (reservation approval mode, staff
+        review window, payment hold and quote validity) is unset.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeOrganizationSettingsVersion"
+        "400": { $ref: "#/components/responses/OrganizationRequired" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    put:
+      tags: [Tenant]
+      operationId: putTenantSettings
+      summary: Save organization settings (new version)
+      description: |
+        `tenant.settings.write` (no step-up). Validates and stores the full
+        document as version `current + 1`; stored versions never change.
+        Validation errors use the document's dot paths
+        (`company.tax_number`, `reservation.payment_hold_minutes`, …): the tax
+        number must be a checksum-valid VKN (10 digits) or TCKN (11 digits).
+        With `base_version`, a save on top of a newer version answers
+        `409 CONFLICT` (detail `base_version`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrganizationSettingsSaveRequest"
+      responses:
+        "200":
+          description: Stored version
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeOrganizationSettingsVersion"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/settings/versions/meta:
+    get:
+      tags: [Tenant]
+      operationId: getTenantSettingsVersionsMeta
+      summary: Settings version history metadata
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Resource meta
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeResourceMeta"
+        "400": { $ref: "#/components/responses/OrganizationRequired" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/settings/versions:
+    get:
+      tags: [Tenant]
+      operationId: getTenantSettingsVersions
+      summary: Settings version history
+      description: Stored versions, newest first by default (`tenant.settings.read`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - name: sort
+          in: query
+          description: "`version` or `-version` (default)."
+          schema: { type: string, example: "-version" }
+      responses:
+        "200":
+          description: Version page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeOrganizationSettingsVersionPage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/settings/versions/{version}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantSettingsVersion
+      summary: Get one settings version
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - name: version
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Version
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeOrganizationSettingsVersion"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /v1/tenant/branches/meta:
     get:
       tags: [Tenant]
@@ -5369,6 +5499,157 @@ components:
           type: array
           items: { $ref: "#/components/schemas/TenantPermission" }
 
+    OrganizationCompanySettings:
+      type: object
+      required: [legal_name, tax_number, tax_office, address, phone, email]
+      properties:
+        legal_name: { type: string, maxLength: 255 }
+        tax_number:
+          type: string
+          description: Checksum-valid VKN (10 digits) or TCKN (11 digits); empty = not set
+          example: "4540536920"
+        tax_office: { type: string, maxLength: 128 }
+        address: { type: string, maxLength: 1000 }
+        phone: { type: string }
+        email: { type: string }
+
+    OrganizationReservationSettings:
+      type: object
+      required: [approval_mode, staff_review_window_minutes, payment_hold_minutes, quote_validity_minutes]
+      properties:
+        approval_mode:
+          type: string
+          enum: ["", auto, staff]
+          description: "`auto` confirms on payment, `staff` waits for an employee; empty = not configured"
+        staff_review_window_minutes: { type: [integer, "null"], minimum: 1, maximum: 10080 }
+        payment_hold_minutes: { type: [integer, "null"], minimum: 1, maximum: 10080 }
+        quote_validity_minutes: { type: [integer, "null"], minimum: 1, maximum: 43200 }
+
+    OrganizationPaymentSettings:
+      type: object
+      required: [prepayment_rule, prepayment_value, full_payment_allowed]
+      properties:
+        prepayment_rule: { type: string, enum: [none, fixed, percent] }
+        prepayment_value:
+          type: string
+          description: Decimal amount (`fixed`) or percentage (`percent`); empty for `none`
+          example: "500.00"
+        full_payment_allowed: { type: boolean }
+
+    OrganizationPolicySettings:
+      type: object
+      required: [cancellation, no_show, early_return, extension, late_return_grace_minutes, extra_hour_fee, fuel, mileage]
+      properties:
+        cancellation: { type: string }
+        no_show: { type: string }
+        early_return: { type: string }
+        extension: { type: string }
+        late_return_grace_minutes: { type: [integer, "null"], minimum: 0, maximum: 1440 }
+        extra_hour_fee: { type: string, description: "Decimal amount; empty = not charged", example: "150.00" }
+        fuel: { type: string }
+        mileage: { type: string }
+
+    OrganizationSalesChannel:
+      type: object
+      required: [code, is_active]
+      properties:
+        code: { type: string, enum: [web, widget, api, branch, yolcu360, obilet] }
+        is_active: { type: boolean }
+
+    OrganizationInvoiceItemMapping:
+      type: object
+      required: [item_type, account_code, vat_rate, description]
+      properties:
+        item_type:
+          type: string
+          enum: [rental, extra_service, insurance, delivery, fuel, mileage, late_return, damage, deposit]
+        account_code: { type: string }
+        vat_rate: { type: string, description: "Percentage; empty = use the default VAT rate" }
+        description: { type: string }
+
+    OrganizationTaxSettings:
+      type: object
+      required: [default_vat_rate, invoice_item_mappings]
+      properties:
+        default_vat_rate:
+          type: string
+          description: Percentage; no legal rate is built in, so it stays empty until set
+        invoice_item_mappings:
+          type: array
+          items: { $ref: "#/components/schemas/OrganizationInvoiceItemMapping" }
+
+    OrganizationSettings:
+      type: object
+      required: [company, reservation, payment, policies, sales_channels, tax]
+      properties:
+        company: { $ref: "#/components/schemas/OrganizationCompanySettings" }
+        reservation: { $ref: "#/components/schemas/OrganizationReservationSettings" }
+        payment: { $ref: "#/components/schemas/OrganizationPaymentSettings" }
+        policies: { $ref: "#/components/schemas/OrganizationPolicySettings" }
+        sales_channels:
+          type: array
+          items: { $ref: "#/components/schemas/OrganizationSalesChannel" }
+        tax: { $ref: "#/components/schemas/OrganizationTaxSettings" }
+
+    OrganizationSettingsActor:
+      type: object
+      required: [uuid, name, surname, email]
+      properties:
+        uuid: { type: string, format: uuid }
+        name: { type: string }
+        surname: { type: string }
+        email: { type: string }
+
+    OrganizationSettingsVersion:
+      type: object
+      required: [version, settings, ready_for_online_sales, missing, created_at, created_by]
+      properties:
+        version: { type: integer, description: "0 = nothing saved yet (defaults)" }
+        settings: { $ref: "#/components/schemas/OrganizationSettings" }
+        ready_for_online_sales: { type: boolean }
+        missing:
+          type: array
+          description: Dot paths of the settings still required before online sales
+          items: { type: string, example: reservation.payment_hold_minutes }
+        created_at: { type: [string, "null"], format: date-time }
+        created_by:
+          oneOf:
+            - $ref: "#/components/schemas/OrganizationSettingsActor"
+            - type: "null"
+
+    OrganizationSettingsVersionSummary:
+      type: object
+      required: [version, ready_for_online_sales, created_at, created_by]
+      properties:
+        version: { type: integer }
+        ready_for_online_sales: { type: boolean }
+        created_at: { type: string, format: date-time }
+        created_by:
+          oneOf:
+            - $ref: "#/components/schemas/OrganizationSettingsActor"
+            - type: "null"
+
+    OrganizationSettingsVersionPage:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/OrganizationSettingsVersionSummary" }
+        total: { type: integer, format: int64 }
+        limit: { type: integer }
+        offset: { type: integer }
+
+    OrganizationSettingsSaveRequest:
+      type: object
+      required: [settings]
+      additionalProperties: false
+      properties:
+        settings: { $ref: "#/components/schemas/OrganizationSettings" }
+        base_version:
+          type: [integer, "null"]
+          description: Current version the edit started from; a newer stored version answers `409`
+
     EnvelopeTenantMember:
       type: object
       required: [success, data, meta]
@@ -5407,6 +5688,22 @@ components:
       properties:
         success: { type: boolean, enum: [true] }
         data: { $ref: "#/components/schemas/TenantPermissionList" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeOrganizationSettingsVersion:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/OrganizationSettingsVersion" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeOrganizationSettingsVersionPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/OrganizationSettingsVersionPage" }
         meta: { $ref: "#/components/schemas/ResponseMeta" }
 
     TenantContext:

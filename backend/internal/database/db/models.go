@@ -413,6 +413,15 @@ type OrganizationMemberRole struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
+type OrganizationSettingsVersion struct {
+	ID             int64              `json:"id"`
+	OrganizationID int64              `json:"organization_id"`
+	Version        int32              `json:"version"`
+	Data           []byte             `json:"data"`
+	CreatedBy      pgtype.Int8        `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
 type OtpCode struct {
 	ID           int64              `json:"id"`
 	Uuid         uuid.UUID          `json:"uuid"`
