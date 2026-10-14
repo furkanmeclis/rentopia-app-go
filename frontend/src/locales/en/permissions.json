@@ -54,6 +54,14 @@
   "labels.platform.auth.settings.read": "Read auth registration settings",
   "labels.platform.auth.settings.write": "Write auth registration settings",
   "labels.auth.session": "Auth session",
+  "labels.platform.organizations.read": "Read organizations",
+  "labels.platform.organizations.write": "Manage organizations",
+  "labels.tenant.settings.read": "Read organization settings",
+  "labels.tenant.settings.write": "Write organization settings",
+  "labels.tenant.members.read": "Read organization members",
+  "labels.tenant.members.write": "Write organization members",
+  "labels.tenant.roles.read": "Read organization roles",
+  "labels.tenant.roles.write": "Write organization roles",
   "labels.notifications.read": "Read notifications",
   "labels.notifications.manage": "Manage notifications",
   "groups.users": "Users",
@@ -63,7 +71,5 @@
   "groups.roles": "Roles",
   "groups.permissions": "Permissions",
   "groups.system": "System",
-  "groups.other": "Other",
-  "labels.platform.organizations.read": "Read organizations",
-  "labels.platform.organizations.write": "Manage organizations"
+  "groups.other": "Other"
 }

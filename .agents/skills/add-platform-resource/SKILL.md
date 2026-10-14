@@ -86,5 +86,5 @@ Dates: `.agents/skills/admin-date-picker`.
 
 - Tenants, workspaces, `/business`, JWT `tid` / `wid`
 - SMTP/SMS from a handler
-- Assemble MinIO/S3 URLs in the browser
+- Assemble S3 URLs in the browser
 - Advertise `capabilities.export|import|bulk` until routes exist

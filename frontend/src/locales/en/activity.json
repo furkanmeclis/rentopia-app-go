@@ -26,6 +26,7 @@
   "actions.users.impersonated": "User impersonation started",
   "actions.users.impersonation_stopped": "User impersonation ended",
   "resources.platform.users": "Users",
+  "resources.platform.organizations": "Organizations",
   "resources.platform.roles": "Roles",
   "resources.platform.notifications": "Notifications",
   "resources.platform.activity": "Activity",
@@ -45,6 +46,5 @@
   "actions.organizations.access_updated": "Organization access window updated",
   "actions.organizations.member_added": "Organization member added",
   "actions.organizations.member_role_updated": "Organization member role updated",
-  "actions.organizations.member_removed": "Organization member removed",
-  "resources.platform.organizations": "Organizations"
+  "actions.organizations.member_removed": "Organization member removed"
 }

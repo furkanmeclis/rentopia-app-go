@@ -26,6 +26,7 @@
   "actions.users.impersonated": "Kullanıcı taklit oturumu başlatıldı",
   "actions.users.impersonation_stopped": "Kullanıcı taklit oturumu sonlandırıldı",
   "resources.platform.users": "Kullanıcılar",
+  "resources.platform.organizations": "Firmalar",
   "resources.platform.roles": "Roller",
   "resources.platform.notifications": "Bildirimler",
   "resources.platform.activity": "Etkinlik",
@@ -45,6 +46,5 @@
   "actions.organizations.access_updated": "Firma erişim süresi güncellendi",
   "actions.organizations.member_added": "Firma üyesi eklendi",
   "actions.organizations.member_role_updated": "Firma üyesinin rolü güncellendi",
-  "actions.organizations.member_removed": "Firma üyesi çıkarıldı",
-  "resources.platform.organizations": "Firmalar"
+  "actions.organizations.member_removed": "Firma üyesi çıkarıldı"
 }

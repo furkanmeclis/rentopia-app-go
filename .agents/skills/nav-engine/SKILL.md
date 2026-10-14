@@ -1,7 +1,7 @@
 ---
 name: nav-engine
 description: >-
-  Add or change platform/CMS sidebar items via the nav-engine catalog:
+  Add or change platform/organization sidebar items via the nav-engine catalog:
   accordion groups, count/label/dot/custom badges, and info popovers.
   Use when editing the sidebar, AppSidebar, config/nav.ts, nav items,
   nav groups, badges, or sidebar info.
@@ -16,7 +16,7 @@ That file only mounts `NavEngine`.
 
 | Piece | Path |
 |-------|------|
-| Catalog | `frontend/src/config/nav.ts` (`platformNav`, `settingsNav`, `cmsNav`) |
+| Catalog | `frontend/src/config/nav.ts` (`platformNav`, `settingsNav`, `tenantNav(slug)`) |
 | Engine | `frontend/src/features/nav-engine` |
 | Canonical example | `frontend/src/features/users/nav/` |
 
@@ -122,6 +122,10 @@ Expanded sidebar: info icon → popover. Icon-collapsed flyout: compact summary 
 - Expanded: accordion. Open state in `localStorage` (`app.nav.groups.v1:<catalogId>`).
 - Icon-collapsed: 2+ items → flyout with group `icon`; 1 item → direct link.
 - Empty after permission filter → group is hidden.
-- New shell: add a catalog with a unique `id` and pass it to `<NavEngine catalog={…} homeHref={…} />`.
+- New shell: add a catalog with a unique `id` and pass it to `<NavEngine catalog={…} homeHref={…} />`; `components/layout/use-shell-nav.ts` maps an `AppLayout` variant to its sidebar and command-palette catalogs.
+
+## Organization shell (`/t/{slug}`)
+
+`tenantNav(slug)` is a function because every href carries the slug (`routes.tenant.*` builders). Gate items with `permissions.tenant.*`: inside the tenant shell `usePermission()` answers from the current organization's permissions (`GET /v1/tenant/context`), never the global platform ones.
 
 Do not reimplement accordion, flyout, badges, or info in layout components.
