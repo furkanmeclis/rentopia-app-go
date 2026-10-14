@@ -181,6 +181,11 @@ func (s *Service) PublicImage(ctx context.Context, orgUUID, imageUUID uuid.UUID)
 	if err != nil {
 		return nil, "", 0, mapNotFound(err, ErrImageNotFound)
 	}
+	// Defence in depth: the public route serves keys under the named
+	// organization only.
+	if !storage.OrganizationOwnsKey(row.ObjectKey, orgUUID.String()) {
+		return nil, "", 0, ErrImageNotFound
+	}
 	rc, size, err := s.storage.Download(ctx, row.ObjectKey)
 	if err != nil {
 		return nil, "", 0, ErrImageNotFound

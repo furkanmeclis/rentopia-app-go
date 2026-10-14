@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/dbtest"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/repository"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/usecase"
@@ -35,13 +36,14 @@ func (d memDriver) Delete(ctx context.Context, path string) error { return d.m.D
 
 // TestCatalogDisplayBrandsAgainstPostgres covers display brands (mapping on
 // import, merge / unmerge / rename / logo), grouped tenant models and the
-// auto model rebuild. Like the import test it TRUNCATES the catalog tables
-// and only runs with CATALOG_TEST_DATABASE_URL.
+// auto model rebuild. Like the import test it TRUNCATES the catalog tables,
+// on a private database, and only runs with CATALOG_TEST_DATABASE_URL.
 func TestCatalogDisplayBrandsAgainstPostgres(t *testing.T) {
 	dsn := os.Getenv("CATALOG_TEST_DATABASE_URL")
 	if dsn == "" {
 		t.Skip("CATALOG_TEST_DATABASE_URL not set")
 	}
+	dsn = dbtest.FreshDatabase(t, dsn)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
