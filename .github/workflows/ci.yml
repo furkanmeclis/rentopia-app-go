@@ -25,6 +25,17 @@ jobs:
             exit 1
           fi
 
+  # deploy/env/schema must produce a complete env for compose.prod.yml.
+  prod-env:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Generate env from schema and validate prod compose
+        run: |
+          scripts/prod-env.sh init -o "$RUNNER_TEMP/prod.env" --app-url https://ci.example.com
+          docker compose --env-file "$RUNNER_TEMP/prod.env" -f compose.prod.yml config -q
+          scripts/prod-env.sh check "$RUNNER_TEMP/prod.env"
+
   backend:
     runs-on: ubuntu-latest
     defaults:
@@ -87,7 +98,7 @@ jobs:
   # main. Otherwise GITHUB_TOKEN, which needs Settings → Actions → General →
   # "Allow GitHub Actions to create and approve pull requests".
   auto-pr:
-    needs: [commit-policy, backend, frontend]
+    needs: [commit-policy, prod-env, backend, frontend]
     if: >-
       github.event_name == 'push' &&
       github.ref_name != 'main' &&

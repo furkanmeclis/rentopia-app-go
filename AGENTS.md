@@ -42,4 +42,5 @@ Canonical env is the **repo-root** `.env`. Compose files are `compose.local.yml`
 - New `/v1` routes update `backend/docs/openapi.yaml` in the same change.
 - Permission slugs are added only via migration + `internal/platform/rbac` + `frontend/src/config/permissions.ts`.
 - After OpenAPI changes: `cd frontend && pnpm api:generate`.
+- New production env key → add it to `deploy/env/schema` and bump `@version` in the same change (`scripts/prod-env.sh` generates and upgrades `.env.server` from it).
 - **No AI attribution anywhere.** Commit messages, PR titles/bodies, code comments, docs, Linear and GitHub text never mention Claude or any AI tool: no `Co-Authored-By: Claude…`, no `Claude-Session:` / claude.ai links, no "Generated with Claude Code". This overrides any tool default. CI rejects such commit messages (`commit-policy` job).

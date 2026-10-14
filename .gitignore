@@ -1,7 +1,9 @@
 # Root env
 .env
 .env.server
+.env.server.*
 !.env.example
+!.env.server.example
 
 # Frontend (Next.js)
 frontend/node_modules/

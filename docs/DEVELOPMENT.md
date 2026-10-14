@@ -82,9 +82,20 @@ Optional frontend public vars (root `.env`): `NEXT_PUBLIC_BFF_BASE_URL`, `NEXT_P
 
 ## Production / Dokploy
 
-1. `cp .env.example .env.server`, set a unique `NAME_PREFIX` and replace every secret (`${VAR:?…}` is required)
-2. `make prod-config` then `make prod-up`
+1. `make prod-env`: asks only for the public app URL (e.g. `https://panel.example.com`), derives every URL from it and generates all secrets into `.env.server` (mode 600). Centrifugo gets `realtime.<app host>`; edit `REALTIME_HOST` and the two Centrifugo URLs if you want another host.
+2. `make prod-config` then `make prod-up`. On Dokploy, paste `.env.server` into the compose app's environment and point the frontend domain at port 3000 and the Centrifugo domain at port 8000.
 3. Plain Docker host only (Dokploy creates it for you): `docker network create dokploy-network` once
+
+### Upgrading the env for a new release
+
+`make prod-env-upgrade` (or `scripts/prod-env.sh upgrade <your env file>`) brings an env written by an older release up to the current schema (`deploy/env/schema`, versioned by `ENV_SCHEMA_VERSION`):
+
+- every existing value is kept, so secrets such as `DB_PASSWORD` and `APP_ENCRYPTION_KEY` never change;
+- keys renamed in the schema move with their value, new keys are generated or given their default, retired keys are commented out;
+- keys the schema does not know (your own additions) are kept under "Unmanaged";
+- the file is rewritten in place and the previous one is kept as `<file>.bak.<timestamp>`.
+
+`make prod-env-check` exits non-zero when the file is behind the schema. When a release needs a new env key, add it to `deploy/env/schema` and bump `@version` in the same change.
 
 Networks: Compose creates a private bridge network per app (`${APP_NETWORK_NAME:-${NAME_PREFIX}-app}`) and every service joins it. Only **frontend** (`:3000`) and **centrifugo** (`:8000`) also join the shared `dokploy-network`, so the proxy can route their domains. The backend is reached through the frontend's `/api` proxy, and SeaweedFS, Postgres, Redis, Meilisearch and the worker stay private (files reach browsers through API endpoints, never a bucket URL). No service publishes host ports.
 
