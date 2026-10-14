@@ -339,6 +339,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	nh := notifhandler.New(notifSvc)
 	nh.SetRateLimiter(ratelimit.New(deps.Redis, cfg.App.Env))
 	notifmodule.RegisterRoutes(mux, nh, tokens, loader)
+	notifmodule.RegisterTenantRoutes(mux, nh, tokens, loader, tenantResolver)
 	notifmodule.RegisterEventHandlers(eventBus, notifSvc, log)
 
 	ioReg := ioengine.NewRegistry(
