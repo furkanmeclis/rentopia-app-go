@@ -292,7 +292,9 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		branchusecase.NewOrganizationHooks(searchIndexer),
 	)
 	uc.SetOrganizationsLister(orgSvc)
-	organizationsmodule.RegisterRoutes(mux, orghandler.New(orgSvc, activityRec), tokens, loader)
+	orgH := orghandler.New(orgSvc, activityRec)
+	orgH.SetResourceEvents(resourceEvents)
+	organizationsmodule.RegisterRoutes(mux, orgH, tokens, loader)
 	var tenantResolver orgctx.Resolver
 	if cfg.Tenancy.Enabled {
 		orgCache := orgcache.New(orgSvc, deps.Redis, cfg.Tenancy.CacheTTL, cfg.App.Env)
@@ -300,7 +302,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		tenantResolver = orgCache
 	}
 	tenantmodule.RegisterRoutes(mux, tokens, loader, tenantResolver)
-	organizationsmodule.RegisterTenantRoutes(mux, orghandler.New(orgSvc, activityRec), tokens, loader, tenantResolver)
+	organizationsmodule.RegisterTenantRoutes(mux, orgH, tokens, loader, tenantResolver)
 	orgsettingsmodule.RegisterRoutes(mux, orgsettingshandler.New(
 		orgsettingsusecase.New(orgsettingsrepository.NewPostgres(deps.DB, deps.Queries)), activityRec,
 	), tokens, loader, tenantResolver)
@@ -309,6 +311,8 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	// members whose tenant role grants the resource's read permission.
 	tenantLive := resourceevents.NewRegistry()
 	branchesmodule.RegisterLiveResources(tenantLive)
+	fleetmodule.RegisterLiveResources(tenantLive)
+	organizationsmodule.RegisterLiveResources(tenantLive)
 	resourceEvents.AddResolver(tenantmodule.ChannelResolver(tenantmodule.QueriesLookup(deps.Queries)))
 	uc.AddChannelRules(tenantmodule.ChannelRule(tenantLive, tenantResolver))
 	catalogmodule.RegisterLiveResources(liveResources)
@@ -404,7 +408,9 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		Sample: importH.TenantSample(branchesmodule.Resource),
 		Bulk:   bulkH.TenantExecute(branchesmodule.Resource),
 	}, tokens, loader, tenantResolver)
-	fleetmodule.RegisterRoutes(mux, fleethandler.New(fleetSvc, activityRec), fleetmodule.EngineHandlers{
+	fleetH := fleethandler.New(fleetSvc, activityRec)
+	fleetH.SetResourceEvents(resourceEvents)
+	fleetmodule.RegisterRoutes(mux, fleetH, fleetmodule.EngineHandlers{
 		ExportSegments: exportH.TenantExport(fleetmodule.ResourceSegments, fleetmodule.SegmentExportKeys...),
 		ExportGroups:   exportH.TenantExport(fleetmodule.ResourceRentalGroups, fleetmodule.GroupExportKeys...),
 		ExportProducts: exportH.TenantExport(fleetmodule.ResourceRentalProducts, fleetmodule.ProductExportKeys...),
