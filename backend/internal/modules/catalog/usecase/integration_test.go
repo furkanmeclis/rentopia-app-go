@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/dbtest"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/repository"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/usecase"
@@ -41,13 +42,17 @@ func (l *liveRecorder) take() []liveEvent {
 }
 
 // TestCatalogImportAgainstPostgres runs plan + apply against a real
-// database. It TRUNCATES the catalog tables, so it only runs when
-// CATALOG_TEST_DATABASE_URL points at a throwaway, migrated database.
+// database. It TRUNCATES the catalog tables, so it runs on a private copy
+// (dbtest.FreshDatabase) created on the CATALOG_TEST_DATABASE_URL server: a
+// TRUNCATE ... CASCADE of the catalog on the shared test database also
+// empties vehicles and everything referencing them under the other
+// packages' tests.
 func TestCatalogImportAgainstPostgres(t *testing.T) {
 	dsn := os.Getenv("CATALOG_TEST_DATABASE_URL")
 	if dsn == "" {
 		t.Skip("CATALOG_TEST_DATABASE_URL not set")
 	}
+	dsn = dbtest.FreshDatabase(t, dsn)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
