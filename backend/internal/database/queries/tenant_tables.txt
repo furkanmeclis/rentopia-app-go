@@ -16,3 +16,6 @@ organization_settings_versions
 vehicles
 vehicle_events
 vehicle_rental_groups
+vehicle_documents
+vehicle_maintenance
+vehicle_reminder_deliveries

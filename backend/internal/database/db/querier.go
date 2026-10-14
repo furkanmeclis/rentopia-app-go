@@ -23,6 +23,8 @@ type Querier interface {
 	// apply requests cannot run at once.
 	ClaimCatalogImport(ctx context.Context, arg ClaimCatalogImportParams) (CatalogImport, error)
 	ClaimOutboxEvents(ctx context.Context, arg ClaimOutboxEventsParams) ([]OutboxEvent, error)
+	// Idempotency: 1 when this subject was not reminded yet today.
+	ClaimVehicleReminder(ctx context.Context, arg ClaimVehicleReminderParams) (int64, error)
 	ClearAppSettingsLogo(ctx context.Context) (AppSetting, error)
 	ClearVehicleRentalGroups(ctx context.Context, arg ClearVehicleRentalGroupsParams) error
 	ConfirmUserTOTP(ctx context.Context, arg ConfirmUserTOTPParams) (UserTotp, error)
@@ -109,6 +111,15 @@ type Querier interface {
 	// Kasko value: the latest TSB valuation period of the vehicle's catalog
 	// type and model year, computed on read (never copied into the row).
 	CreateVehicle(ctx context.Context, arg CreateVehicleParams) (Vehicle, error)
+	// Vehicle documents, maintenance and expiry reminders (TEC-693). Vehicle
+	// sub-resources: every query filters by organization_id and, for one
+	// vehicle, by its internal id (the use case resolved the vehicle in the
+	// caller's branch scope first).
+	//
+	// Org-wide lists (alerts, export) apply the vehicle branch scope like the
+	// vehicles list: home OR current branch in branch_ids (NULL = every branch).
+	CreateVehicleDocument(ctx context.Context, arg CreateVehicleDocumentParams) (VehicleDocument, error)
+	CreateVehicleMaintenance(ctx context.Context, arg CreateVehicleMaintenanceParams) (VehicleMaintenance, error)
 	// Tenant resource: fleet classification (TEC-691) — vehicle segments,
 	// rental groups (+ catalog criteria) and rental products (+ versions, images).
 	// Every query on these tables filters by organization_id
@@ -244,6 +255,8 @@ type Querier interface {
 	// Platform catalog type picked on a vehicle form (not organization scoped).
 	GetVehicleCatalogType(ctx context.Context, argUuid uuid.UUID) (GetVehicleCatalogTypeRow, error)
 	GetVehicleDetail(ctx context.Context, arg GetVehicleDetailParams) (GetVehicleDetailRow, error)
+	GetVehicleDocument(ctx context.Context, arg GetVehicleDocumentParams) (GetVehicleDocumentRow, error)
+	GetVehicleMaintenance(ctx context.Context, arg GetVehicleMaintenanceParams) (VehicleMaintenance, error)
 	GetVehicleSearchDocument(ctx context.Context, arg GetVehicleSearchDocumentParams) (GetVehicleSearchDocumentRow, error)
 	GetVehicleSegmentByUUID(ctx context.Context, arg GetVehicleSegmentByUUIDParams) (VehicleSegment, error)
 	GetWebAuthnCredentialByCredentialID(ctx context.Context, credentialID string) (WebauthnCredential, error)
@@ -317,6 +330,8 @@ type Querier interface {
 	ListExportJobsForActor(ctx context.Context, arg ListExportJobsForActorParams) ([]ExportJob, error)
 	ListImportChangesForJob(ctx context.Context, jobID int64) ([]ImportChange, error)
 	ListImportJobsForActor(ctx context.Context, arg ListImportJobsForActorParams) ([]ImportJob, error)
+	// Latest earlier reminder of each subject (since a cutoff day).
+	ListLastVehicleReminders(ctx context.Context, arg ListLastVehicleRemindersParams) ([]ListLastVehicleRemindersRow, error)
 	ListLiveOrganizationIDs(ctx context.Context) ([]int64, error)
 	// Every live rental group of the organization (eligibility candidates).
 	ListLiveRentalGroupsForVehicles(ctx context.Context, organizationID int64) ([]ListLiveRentalGroupsForVehiclesRow, error)
@@ -387,13 +402,32 @@ type Querier interface {
 	ListUsersByIDsForFleet(ctx context.Context, ids []int64) ([]ListUsersByIDsForFleetRow, error)
 	ListUsersFiltered(ctx context.Context, arg ListUsersFilteredParams) ([]User, error)
 	ListUsersForExport(ctx context.Context, arg ListUsersForExportParams) ([]User, error)
+	// Current documents (latest valid_until per vehicle and type) of live,
+	// active vehicles that expire on or before due_before (today + horizon).
+	ListVehicleDocumentAlerts(ctx context.Context, arg ListVehicleDocumentAlertsParams) ([]ListVehicleDocumentAlertsRow, error)
+	// Live documents of one vehicle, newest validity first (history included).
+	ListVehicleDocuments(ctx context.Context, arg ListVehicleDocumentsParams) ([]ListVehicleDocumentsRow, error)
+	// Live documents of live vehicles in the branch scope (export engine).
+	ListVehicleDocumentsForExport(ctx context.Context, arg ListVehicleDocumentsForExportParams) ([]ListVehicleDocumentsForExportRow, error)
 	ListVehicleEvents(ctx context.Context, arg ListVehicleEventsParams) ([]ListVehicleEventsRow, error)
 	// Dynamic filter options of the vehicles list in the caller's branch scope.
-	// facet: status | ownership | pool | is_active | home_branch | current_branch
-	// | rental_group | segment; value is the filter value (uuid for references).
+	// facet: status | ownership | pool | is_active | document_status | home_branch
+	// | current_branch | rental_group | segment; value is the filter value (uuid for references).
 	ListVehicleFacets(ctx context.Context, arg ListVehicleFacetsParams) ([]ListVehicleFacetsRow, error)
 	// Live rental group memberships of the given vehicles.
 	ListVehicleGroupsByVehicleIDs(ctx context.Context, arg ListVehicleGroupsByVehicleIDsParams) ([]ListVehicleGroupsByVehicleIDsRow, error)
+	// Open plans first (soonest first), then the done history (newest first).
+	ListVehicleMaintenance(ctx context.Context, arg ListVehicleMaintenanceParams) ([]ListVehicleMaintenanceRow, error)
+	// Open plans of live, active vehicles whose planned date is on or before
+	// due_before, or whose planned km is within km_horizon of the odometer.
+	ListVehicleMaintenanceAlerts(ctx context.Context, arg ListVehicleMaintenanceAlertsParams) ([]ListVehicleMaintenanceAlertsRow, error)
+	ListVehicleMaintenanceForExport(ctx context.Context, arg ListVehicleMaintenanceForExportParams) ([]ListVehicleMaintenanceForExportRow, error)
+	// Live, active organizations with at least one document or open plan.
+	ListVehicleReminderOrganizations(ctx context.Context) ([]ListVehicleReminderOrganizationsRow, error)
+	// Members holding the permission (through any of their roles) with their
+	// branch scope: 'all' or the live branches of 'selected'. Disabled or
+	// deleted users get nothing.
+	ListVehicleReminderRecipients(ctx context.Context, arg ListVehicleReminderRecipientsParams) ([]ListVehicleReminderRecipientsRow, error)
 	ListVehicleSearchDocuments(ctx context.Context, organizationID int64) ([]ListVehicleSearchDocumentsRow, error)
 	ListVehicleSegmentActiveFacets(ctx context.Context, organizationID int64) ([]ListVehicleSegmentActiveFacetsRow, error)
 	ListVehicleSegments(ctx context.Context, arg ListVehicleSegmentsParams) ([]VehicleSegment, error)
@@ -463,6 +497,8 @@ type Querier interface {
 	SetUserEmailVerified(ctx context.Context, id int64) (User, error)
 	SetVehicleActive(ctx context.Context, arg SetVehicleActiveParams) (Vehicle, error)
 	SetVehicleCurrentBranch(ctx context.Context, arg SetVehicleCurrentBranchParams) (Vehicle, error)
+	SetVehicleDocumentFile(ctx context.Context, arg SetVehicleDocumentFileParams) (VehicleDocument, error)
+	SetVehicleReminderRecipients(ctx context.Context, arg SetVehicleReminderRecipientsParams) error
 	SetVehicleStatus(ctx context.Context, arg SetVehicleStatusParams) (Vehicle, error)
 	SlugExists(ctx context.Context, slug string) (bool, error)
 	SoftDeleteBranch(ctx context.Context, arg SoftDeleteBranchParams) (int64, error)
@@ -470,6 +506,8 @@ type Querier interface {
 	SoftDeleteRentalGroup(ctx context.Context, arg SoftDeleteRentalGroupParams) (int64, error)
 	SoftDeleteRentalProduct(ctx context.Context, arg SoftDeleteRentalProductParams) (int64, error)
 	SoftDeleteVehicle(ctx context.Context, arg SoftDeleteVehicleParams) (int64, error)
+	SoftDeleteVehicleDocument(ctx context.Context, arg SoftDeleteVehicleDocumentParams) (int64, error)
+	SoftDeleteVehicleMaintenance(ctx context.Context, arg SoftDeleteVehicleMaintenanceParams) (int64, error)
 	SoftDeleteVehicleSegment(ctx context.Context, arg SoftDeleteVehicleSegmentParams) (int64, error)
 	SyncCatalogBrandsDisplayName(ctx context.Context, displayBrandID int64) (int64, error)
 	TenantCountCatalogBrands(ctx context.Context, arg TenantCountCatalogBrandsParams) (int64, error)
@@ -517,6 +555,8 @@ type Querier interface {
 	UpdateUserProfileByUUID(ctx context.Context, arg UpdateUserProfileByUUIDParams) (User, error)
 	UpdateUserTOTPRecoveryHashes(ctx context.Context, arg UpdateUserTOTPRecoveryHashesParams) error
 	UpdateVehicle(ctx context.Context, arg UpdateVehicleParams) (Vehicle, error)
+	UpdateVehicleDocument(ctx context.Context, arg UpdateVehicleDocumentParams) (VehicleDocument, error)
+	UpdateVehicleMaintenance(ctx context.Context, arg UpdateVehicleMaintenanceParams) (VehicleMaintenance, error)
 	UpdateVehicleSegment(ctx context.Context, arg UpdateVehicleSegmentParams) (VehicleSegment, error)
 	UpdateWebAuthnCredentialCounter(ctx context.Context, arg UpdateWebAuthnCredentialCounterParams) error
 	UpdateWebAuthnCredentialName(ctx context.Context, arg UpdateWebAuthnCredentialNameParams) (WebauthnCredential, error)

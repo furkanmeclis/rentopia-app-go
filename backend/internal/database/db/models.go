@@ -787,6 +787,27 @@ type Vehicle struct {
 	DeletedAt          pgtype.Timestamptz `json:"deleted_at"`
 }
 
+type VehicleDocument struct {
+	ID              int64              `json:"id"`
+	Uuid            uuid.UUID          `json:"uuid"`
+	OrganizationID  int64              `json:"organization_id"`
+	VehicleID       int64              `json:"vehicle_id"`
+	DocType         string             `json:"doc_type"`
+	DocumentNumber  string             `json:"document_number"`
+	Issuer          string             `json:"issuer"`
+	ValidFrom       pgtype.Date        `json:"valid_from"`
+	ValidUntil      pgtype.Date        `json:"valid_until"`
+	FileObjectKey   pgtype.Text        `json:"file_object_key"`
+	FileName        string             `json:"file_name"`
+	FileContentType string             `json:"file_content_type"`
+	FileSizeBytes   int64              `json:"file_size_bytes"`
+	Note            string             `json:"note"`
+	CreatedBy       pgtype.Int8        `json:"created_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+}
+
 type VehicleEvent struct {
 	ID             int64              `json:"id"`
 	Uuid           uuid.UUID          `json:"uuid"`
@@ -799,6 +820,39 @@ type VehicleEvent struct {
 	FuelLevel      pgtype.Int2        `json:"fuel_level"`
 	Note           string             `json:"note"`
 	ActorID        pgtype.Int8        `json:"actor_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type VehicleMaintenance struct {
+	ID              int64              `json:"id"`
+	Uuid            uuid.UUID          `json:"uuid"`
+	OrganizationID  int64              `json:"organization_id"`
+	VehicleID       int64              `json:"vehicle_id"`
+	Kind            string             `json:"kind"`
+	MaintenanceType string             `json:"maintenance_type"`
+	PlannedDate     pgtype.Date        `json:"planned_date"`
+	PlannedKm       pgtype.Int4        `json:"planned_km"`
+	DoneDate        pgtype.Date        `json:"done_date"`
+	DoneKm          pgtype.Int4        `json:"done_km"`
+	ServiceProvider string             `json:"service_provider"`
+	Cost            pgtype.Numeric     `json:"cost"`
+	Currency        string             `json:"currency"`
+	Note            string             `json:"note"`
+	CreatedBy       pgtype.Int8        `json:"created_by"`
+	CompletedBy     pgtype.Int8        `json:"completed_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type VehicleReminderDelivery struct {
+	OrganizationID int64              `json:"organization_id"`
+	VehicleID      int64              `json:"vehicle_id"`
+	SubjectKind    string             `json:"subject_kind"`
+	SubjectID      int64              `json:"subject_id"`
+	ReminderDate   pgtype.Date        `json:"reminder_date"`
+	AlertState     string             `json:"alert_state"`
+	Recipients     int32              `json:"recipients"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
