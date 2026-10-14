@@ -154,6 +154,7 @@ type Server struct {
 	githubSvc     *githubusecase.Service
 	oauthProvSvc  *oauthproviderusecase.Service
 	authSettings  *authsettingsusecase.Service
+	mux           *http.ServeMux
 	http          *http.Server
 }
 
@@ -176,6 +177,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		realtime:    deps.Realtime,
 		worker:      deps.Worker,
 		events:      eventBus,
+		mux:         mux,
 	}
 
 	mux.HandleFunc("GET /healthz", s.handleHealthz)
@@ -196,7 +198,13 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		providers.NoopProvider{Name: "sms", Log: log},
 		providers.NoopProvider{Name: "push", Log: log},
 	}
-	notifSvc := notifusecase.New(deps.Queries, deps.Queue, provs, log)
+	// Job queue of the engines; nil (no Redis queue) runs jobs inline. A nil
+	// *queue.Client must not reach the use cases as a non-nil interface.
+	var jobQueue exportusecase.Enqueuer
+	if deps.Queue != nil {
+		jobQueue = deps.Queue
+	}
+	notifSvc := notifusecase.New(deps.Queries, jobQueue, provs, log)
 	notifSvc.WithActionSigner(cfg.JWT.AccessSecret, 0)
 	notifSvc.WithVAPID(notifusecase.VAPIDConfig{
 		PublicKey:  cfg.VAPID.PublicKey,
@@ -387,8 +395,8 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		fleetopsadapters.NewTransfersIO(fleetOpsSvc),
 		fleetopsadapters.NewOneWayIO(fleetOpsSvc),
 	)
-	exportSvc := exportusecase.New(deps.Queries, deps.Storage, ioReg, deps.Queue, notifSvc, activityRec, log)
-	importSvc := importusecase.New(deps.Queries, deps.Storage, ioReg, deps.Queue, notifSvc, activityRec, log)
+	exportSvc := exportusecase.New(deps.Queries, deps.Storage, ioReg, jobQueue, notifSvc, activityRec, log)
+	importSvc := importusecase.New(deps.Queries, deps.Storage, ioReg, jobQueue, notifSvc, activityRec, log)
 	// "Bakıma al" on the vehicles list opens maintenance blocks.
 	vehicleBulk := vehicleadapters.NewBulk(vehicleSvc)
 	vehicleBulk.SetMaintenance(fleetopsadapters.NewMaintenance(fleetOpsSvc))
@@ -401,7 +409,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		vehicleBulk,
 		fleetopsadapters.NewOneWayBulk(fleetOpsSvc),
 	)
-	bulkSvc := bulkusecase.New(deps.Queries, bulkReg, deps.Queue, notifSvc, activityRec, cfg.Bulk, log)
+	bulkSvc := bulkusecase.New(deps.Queries, bulkReg, jobQueue, notifSvc, activityRec, cfg.Bulk, log)
 	// Tenant jobs run with the requester's current membership (permissions
 	// and branch scope).
 	exportSvc.SetJobScopeLoader(orgSvc)
