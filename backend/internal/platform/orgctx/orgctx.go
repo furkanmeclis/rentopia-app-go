@@ -52,12 +52,19 @@ type Scope struct {
 	Status         string
 	AccessStartsAt time.Time
 	AccessEndsAt   *time.Time
-	// MemberRole is the tenant role key of the caller in this organization
-	// (owner, admin, member or a custom role key).
+	// MemberRole is the primary tenant role key of the caller in this
+	// organization (owner, admin, member, a Rentopia template or a custom
+	// role key). Kept for display; permissions come from MemberRoles.
 	MemberRole string
-	// Permissions are the tenant.* slugs granted by MemberRole in this
-	// organization only.
+	// MemberRoles are the keys of every role the caller holds here.
+	MemberRoles []string
+	// Permissions are the tenant.* slugs granted by the union of
+	// MemberRoles in this organization only.
 	Permissions []string
+	// BranchIDs are the branches the caller may access. nil means every
+	// branch of the organization (branch_scope 'all'); a non-nil slice,
+	// possibly empty, limits branch-bound data to those ids. See branch.go.
+	BranchIDs []int64
 }
 
 // Has reports whether the scope grants a tenant permission slug.

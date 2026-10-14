@@ -40,21 +40,24 @@ SELECT COUNT(*)::bigint
 FROM branches b
 WHERE b.organization_id = $1
   AND b.deleted_at IS NULL
-  AND ($2::boolean IS NULL OR b.is_active = $2)
-  AND ($3::text[] IS NULL OR b.city = ANY($3::text[]))
+  -- Branch scope of the caller: NULL = every branch.
+  AND ($2::bigint[] IS NULL OR b.id = ANY($2::bigint[]))
+  AND ($3::boolean IS NULL OR b.is_active = $3)
+  AND ($4::text[] IS NULL OR b.city = ANY($4::text[]))
   AND (
-    $4::text IS NULL
-    OR b.code ILIKE '%' || $4 || '%'
-    OR b.name ILIKE '%' || $4 || '%'
-    OR b.city ILIKE '%' || $4 || '%'
-    OR b.district ILIKE '%' || $4 || '%'
-    OR b.phone ILIKE '%' || $4 || '%'
-    OR b.email ILIKE '%' || $4 || '%'
+    $5::text IS NULL
+    OR b.code ILIKE '%' || $5 || '%'
+    OR b.name ILIKE '%' || $5 || '%'
+    OR b.city ILIKE '%' || $5 || '%'
+    OR b.district ILIKE '%' || $5 || '%'
+    OR b.phone ILIKE '%' || $5 || '%'
+    OR b.email ILIKE '%' || $5 || '%'
   )
 `
 
 type CountBranchesParams struct {
 	OrganizationID int64       `json:"organization_id"`
+	BranchIds      []int64     `json:"branch_ids"`
 	IsActive       pgtype.Bool `json:"is_active"`
 	Cities         []string    `json:"cities"`
 	Q              pgtype.Text `json:"q"`
@@ -63,6 +66,7 @@ type CountBranchesParams struct {
 func (q *Queries) CountBranches(ctx context.Context, arg CountBranchesParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countBranches,
 		arg.OrganizationID,
+		arg.BranchIds,
 		arg.IsActive,
 		arg.Cities,
 		arg.Q,
@@ -302,7 +306,7 @@ func (q *Queries) GetBranchByUUID(ctx context.Context, arg GetBranchByUUIDParams
 }
 
 const getBranchSearchDocument = `-- name: GetBranchSearchDocument :one
-SELECT b.uuid, b.code, b.name, b.city, b.district, b.is_active, b.organization_id, o.slug AS organization_slug
+SELECT b.id, b.uuid, b.code, b.name, b.city, b.district, b.is_active, b.organization_id, o.slug AS organization_slug
 FROM branches b
 JOIN organizations o ON o.id = b.organization_id
 WHERE b.organization_id = $1
@@ -316,6 +320,7 @@ type GetBranchSearchDocumentParams struct {
 }
 
 type GetBranchSearchDocumentRow struct {
+	ID               int64     `json:"id"`
 	Uuid             uuid.UUID `json:"uuid"`
 	Code             string    `json:"code"`
 	Name             string    `json:"name"`
@@ -330,6 +335,7 @@ func (q *Queries) GetBranchSearchDocument(ctx context.Context, arg GetBranchSear
 	row := q.db.QueryRow(ctx, getBranchSearchDocument, arg.OrganizationID, arg.Uuid)
 	var i GetBranchSearchDocumentRow
 	err := row.Scan(
+		&i.ID,
 		&i.Uuid,
 		&i.Code,
 		&i.Name,
@@ -381,18 +387,24 @@ SELECT city, COUNT(*)::bigint AS count
 FROM branches
 WHERE organization_id = $1
   AND deleted_at IS NULL
+  AND ($2::bigint[] IS NULL OR id = ANY($2::bigint[]))
   AND city <> ''
 GROUP BY city
 ORDER BY city ASC
 `
+
+type ListBranchCityFacetsParams struct {
+	OrganizationID int64   `json:"organization_id"`
+	BranchIds      []int64 `json:"branch_ids"`
+}
 
 type ListBranchCityFacetsRow struct {
 	City  string `json:"city"`
 	Count int64  `json:"count"`
 }
 
-func (q *Queries) ListBranchCityFacets(ctx context.Context, organizationID int64) ([]ListBranchCityFacetsRow, error) {
-	rows, err := q.db.Query(ctx, listBranchCityFacets, organizationID)
+func (q *Queries) ListBranchCityFacets(ctx context.Context, arg ListBranchCityFacetsParams) ([]ListBranchCityFacetsRow, error) {
+	rows, err := q.db.Query(ctx, listBranchCityFacets, arg.OrganizationID, arg.BranchIds)
 	if err != nil {
 		return nil, err
 	}
@@ -412,7 +424,7 @@ func (q *Queries) ListBranchCityFacets(ctx context.Context, organizationID int64
 }
 
 const listBranchSearchDocuments = `-- name: ListBranchSearchDocuments :many
-SELECT b.uuid, b.code, b.name, b.city, b.district, b.is_active, b.organization_id, o.slug AS organization_slug
+SELECT b.id, b.uuid, b.code, b.name, b.city, b.district, b.is_active, b.organization_id, o.slug AS organization_slug
 FROM branches b
 JOIN organizations o ON o.id = b.organization_id
 WHERE b.organization_id = $1
@@ -421,6 +433,7 @@ ORDER BY b.id ASC
 `
 
 type ListBranchSearchDocumentsRow struct {
+	ID               int64     `json:"id"`
 	Uuid             uuid.UUID `json:"uuid"`
 	Code             string    `json:"code"`
 	Name             string    `json:"name"`
@@ -441,6 +454,7 @@ func (q *Queries) ListBranchSearchDocuments(ctx context.Context, organizationID 
 	for rows.Next() {
 		var i ListBranchSearchDocumentsRow
 		if err := rows.Scan(
+			&i.ID,
 			&i.Uuid,
 			&i.Code,
 			&i.Name,
@@ -465,23 +479,26 @@ SELECT uuid
 FROM branches b
 WHERE b.organization_id = $1
   AND b.deleted_at IS NULL
-  AND ($2::boolean IS NULL OR b.is_active = $2)
-  AND ($3::text[] IS NULL OR b.city = ANY($3::text[]))
+  -- Branch scope of the caller: NULL = every branch.
+  AND ($2::bigint[] IS NULL OR b.id = ANY($2::bigint[]))
+  AND ($3::boolean IS NULL OR b.is_active = $3)
+  AND ($4::text[] IS NULL OR b.city = ANY($4::text[]))
   AND (
-    $4::text IS NULL
-    OR b.code ILIKE '%' || $4 || '%'
-    OR b.name ILIKE '%' || $4 || '%'
-    OR b.city ILIKE '%' || $4 || '%'
-    OR b.district ILIKE '%' || $4 || '%'
-    OR b.phone ILIKE '%' || $4 || '%'
-    OR b.email ILIKE '%' || $4 || '%'
+    $5::text IS NULL
+    OR b.code ILIKE '%' || $5 || '%'
+    OR b.name ILIKE '%' || $5 || '%'
+    OR b.city ILIKE '%' || $5 || '%'
+    OR b.district ILIKE '%' || $5 || '%'
+    OR b.phone ILIKE '%' || $5 || '%'
+    OR b.email ILIKE '%' || $5 || '%'
   )
 ORDER BY b.id ASC
-LIMIT $5
+LIMIT $6
 `
 
 type ListBranchUUIDsParams struct {
 	OrganizationID int64       `json:"organization_id"`
+	BranchIds      []int64     `json:"branch_ids"`
 	IsActive       pgtype.Bool `json:"is_active"`
 	Cities         []string    `json:"cities"`
 	Q              pgtype.Text `json:"q"`
@@ -491,6 +508,7 @@ type ListBranchUUIDsParams struct {
 func (q *Queries) ListBranchUUIDs(ctx context.Context, arg ListBranchUUIDsParams) ([]uuid.UUID, error) {
 	rows, err := q.db.Query(ctx, listBranchUUIDs,
 		arg.OrganizationID,
+		arg.BranchIds,
 		arg.IsActive,
 		arg.Cities,
 		arg.Q,
@@ -524,38 +542,41 @@ SELECT
 FROM branches b
 WHERE b.organization_id = $1
   AND b.deleted_at IS NULL
-  AND ($2::boolean IS NULL OR b.is_active = $2)
-  AND ($3::text[] IS NULL OR b.city = ANY($3::text[]))
+  -- Branch scope of the caller: NULL = every branch.
+  AND ($2::bigint[] IS NULL OR b.id = ANY($2::bigint[]))
+  AND ($3::boolean IS NULL OR b.is_active = $3)
+  AND ($4::text[] IS NULL OR b.city = ANY($4::text[]))
   AND (
-    $4::text IS NULL
-    OR b.code ILIKE '%' || $4 || '%'
-    OR b.name ILIKE '%' || $4 || '%'
-    OR b.city ILIKE '%' || $4 || '%'
-    OR b.district ILIKE '%' || $4 || '%'
-    OR b.phone ILIKE '%' || $4 || '%'
-    OR b.email ILIKE '%' || $4 || '%'
+    $5::text IS NULL
+    OR b.code ILIKE '%' || $5 || '%'
+    OR b.name ILIKE '%' || $5 || '%'
+    OR b.city ILIKE '%' || $5 || '%'
+    OR b.district ILIKE '%' || $5 || '%'
+    OR b.phone ILIKE '%' || $5 || '%'
+    OR b.email ILIKE '%' || $5 || '%'
   )
 ORDER BY
-  CASE WHEN $5::text = 'code' AND NOT $6::boolean THEN b.code END ASC,
-  CASE WHEN $5::text = 'code' AND $6::boolean THEN b.code END DESC,
-  CASE WHEN $5::text = 'name' AND NOT $6::boolean THEN b.name END ASC,
-  CASE WHEN $5::text = 'name' AND $6::boolean THEN b.name END DESC,
-  CASE WHEN $5::text = 'city' AND NOT $6::boolean THEN b.city END ASC,
-  CASE WHEN $5::text = 'city' AND $6::boolean THEN b.city END DESC,
-  CASE WHEN $5::text = 'prep_minutes' AND NOT $6::boolean THEN b.prep_minutes END ASC,
-  CASE WHEN $5::text = 'prep_minutes' AND $6::boolean THEN b.prep_minutes END DESC,
-  CASE WHEN $5::text = 'is_active' AND NOT $6::boolean THEN b.is_active END ASC,
-  CASE WHEN $5::text = 'is_active' AND $6::boolean THEN b.is_active END DESC,
-  CASE WHEN $5::text = 'updated_at' AND NOT $6::boolean THEN b.updated_at END ASC,
-  CASE WHEN $5::text = 'updated_at' AND $6::boolean THEN b.updated_at END DESC,
-  CASE WHEN $5::text = 'created_at' AND NOT $6::boolean THEN b.created_at END ASC,
-  CASE WHEN $5::text = 'created_at' AND $6::boolean THEN b.created_at END DESC,
+  CASE WHEN $6::text = 'code' AND NOT $7::boolean THEN b.code END ASC,
+  CASE WHEN $6::text = 'code' AND $7::boolean THEN b.code END DESC,
+  CASE WHEN $6::text = 'name' AND NOT $7::boolean THEN b.name END ASC,
+  CASE WHEN $6::text = 'name' AND $7::boolean THEN b.name END DESC,
+  CASE WHEN $6::text = 'city' AND NOT $7::boolean THEN b.city END ASC,
+  CASE WHEN $6::text = 'city' AND $7::boolean THEN b.city END DESC,
+  CASE WHEN $6::text = 'prep_minutes' AND NOT $7::boolean THEN b.prep_minutes END ASC,
+  CASE WHEN $6::text = 'prep_minutes' AND $7::boolean THEN b.prep_minutes END DESC,
+  CASE WHEN $6::text = 'is_active' AND NOT $7::boolean THEN b.is_active END ASC,
+  CASE WHEN $6::text = 'is_active' AND $7::boolean THEN b.is_active END DESC,
+  CASE WHEN $6::text = 'updated_at' AND NOT $7::boolean THEN b.updated_at END ASC,
+  CASE WHEN $6::text = 'updated_at' AND $7::boolean THEN b.updated_at END DESC,
+  CASE WHEN $6::text = 'created_at' AND NOT $7::boolean THEN b.created_at END ASC,
+  CASE WHEN $6::text = 'created_at' AND $7::boolean THEN b.created_at END DESC,
   b.id DESC
-LIMIT $8 OFFSET $7
+LIMIT $9 OFFSET $8
 `
 
 type ListBranchesParams struct {
 	OrganizationID int64       `json:"organization_id"`
+	BranchIds      []int64     `json:"branch_ids"`
 	IsActive       pgtype.Bool `json:"is_active"`
 	Cities         []string    `json:"cities"`
 	Q              pgtype.Text `json:"q"`
@@ -591,6 +612,7 @@ type ListBranchesRow struct {
 func (q *Queries) ListBranches(ctx context.Context, arg ListBranchesParams) ([]ListBranchesRow, error) {
 	rows, err := q.db.Query(ctx, listBranches,
 		arg.OrganizationID,
+		arg.BranchIds,
 		arg.IsActive,
 		arg.Cities,
 		arg.Q,
@@ -643,22 +665,25 @@ SELECT id, uuid, organization_id, code, name, address, city, district, latitude,
 FROM branches b
 WHERE b.organization_id = $1
   AND b.deleted_at IS NULL
-  AND ($2::boolean IS NULL OR b.is_active = $2)
-  AND ($3::text[] IS NULL OR b.city = ANY($3::text[]))
+  -- Branch scope of the caller: NULL = every branch.
+  AND ($2::bigint[] IS NULL OR b.id = ANY($2::bigint[]))
+  AND ($3::boolean IS NULL OR b.is_active = $3)
+  AND ($4::text[] IS NULL OR b.city = ANY($4::text[]))
   AND (
-    $4::text IS NULL
-    OR b.code ILIKE '%' || $4 || '%'
-    OR b.name ILIKE '%' || $4 || '%'
-    OR b.city ILIKE '%' || $4 || '%'
-    OR b.district ILIKE '%' || $4 || '%'
-    OR b.phone ILIKE '%' || $4 || '%'
-    OR b.email ILIKE '%' || $4 || '%'
+    $5::text IS NULL
+    OR b.code ILIKE '%' || $5 || '%'
+    OR b.name ILIKE '%' || $5 || '%'
+    OR b.city ILIKE '%' || $5 || '%'
+    OR b.district ILIKE '%' || $5 || '%'
+    OR b.phone ILIKE '%' || $5 || '%'
+    OR b.email ILIKE '%' || $5 || '%'
   )
 ORDER BY b.code ASC, b.id ASC
 `
 
 type ListBranchesForExportParams struct {
 	OrganizationID int64       `json:"organization_id"`
+	BranchIds      []int64     `json:"branch_ids"`
 	IsActive       pgtype.Bool `json:"is_active"`
 	Cities         []string    `json:"cities"`
 	Q              pgtype.Text `json:"q"`
@@ -667,6 +692,7 @@ type ListBranchesForExportParams struct {
 func (q *Queries) ListBranchesForExport(ctx context.Context, arg ListBranchesForExportParams) ([]Branch, error) {
 	rows, err := q.db.Query(ctx, listBranchesForExport,
 		arg.OrganizationID,
+		arg.BranchIds,
 		arg.IsActive,
 		arg.Cities,
 		arg.Q,

@@ -17,11 +17,16 @@ import (
 	catalogrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/repository"
 	catalogusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/usecase"
 	exportusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/exports/usecase"
+	fleetadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleet/adapters"
+	fleetrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleet/repository"
+	fleetusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleet/usecase"
 	importusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/imports/usecase"
 	logsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/logs/usecase"
 	notifmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications/providers"
 	notifusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications/usecase"
+	orgrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/repository"
+	orgusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/usecase"
 	tenantmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tenant"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/observability"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/activity"
@@ -116,12 +121,16 @@ func main() {
 	activityRec := activity.NewRecorder(queries, log)
 	// Tenant resources: adapters read the organization from the job row.
 	branchSvc := branchusecase.New(branchrepository.NewPostgres(queries), nil)
+	fleetSvc := fleetusecase.New(fleetrepository.NewPostgres(pool, queries), store, nil)
 	ioReg := ioengine.NewRegistry(
 		ioadapters.NewUsers(queries),
 		ioadapters.NewRoles(queries),
 		ioadapters.NewNotifications(queries),
 		ioadapters.NewActivity(queries),
 		branchadapters.NewIO(branchSvc),
+		fleetadapters.NewSegmentsIO(fleetSvc),
+		fleetadapters.NewGroupsIO(fleetSvc),
+		fleetadapters.NewProductsIO(fleetSvc),
 	)
 	exportSvc := exportusecase.New(queries, store, ioReg, nil, notifSvc, activityRec, log)
 	importSvc := importusecase.New(queries, store, ioReg, nil, notifSvc, activityRec, log)
@@ -129,8 +138,16 @@ func main() {
 		bulkadapters.NewUsers(queries),
 		bulkadapters.NewRoles(queries),
 		branchadapters.NewBulk(branchSvc),
+		fleetadapters.NewGroupsBulk(fleetSvc),
+		fleetadapters.NewProductsBulk(fleetSvc),
 	)
 	bulkSvc := bulkusecase.New(queries, bulkReg, nil, notifSvc, activityRec, cfg.Bulk, log)
+	// Tenant jobs run with the requester's current membership (permissions
+	// and branch scope), re-resolved from the job's actor.
+	jobScopes := orgusecase.New(orgrepository.NewPostgres(pool, queries), nil)
+	exportSvc.SetJobScopeLoader(jobScopes)
+	importSvc.SetJobScopeLoader(jobScopes)
+	bulkSvc.SetJobScopeLoader(jobScopes)
 	logsSvc := logsusecase.New(queries)
 	// Steps run inline inside the worker task, so no queue is passed.
 	catalogSvc := catalogusecase.New(catalogrepository.NewPostgres(pool, queries), store, nil, activityRec, log)
@@ -138,6 +155,7 @@ func main() {
 		searchadapters.NewUsers(queries),
 		searchadapters.NewRoles(queries),
 		branchadapters.NewSearch(queries),
+		fleetadapters.NewProductsSearch(queries),
 	)
 	searchClient := searchengine.NewClient(cfg.Search, log)
 	searchIndexer := searchengine.NewIndexer(searchClient, searchReg, nil, log)

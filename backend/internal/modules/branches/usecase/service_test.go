@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -61,14 +62,20 @@ func (f *fakeRepo) ListBranches(_ context.Context, orgID int64, filter model.Lis
 		if filter.IsActive != nil && b.IsActive != *filter.IsActive {
 			continue
 		}
+		if filter.BranchIDs != nil && !slices.Contains(filter.BranchIDs, b.ID) {
+			continue
+		}
 		rows = append(rows, repository.BranchRow{Branch: *b})
 	}
 	return rows, int64(len(rows)), nil
 }
 
-func (f *fakeRepo) CityFacets(_ context.Context, orgID int64) ([]model.Facet, error) {
+func (f *fakeRepo) CityFacets(_ context.Context, orgID int64, branchIDs []int64) ([]model.Facet, error) {
 	counts := map[string]int64{}
 	for _, b := range f.live(orgID) {
+		if branchIDs != nil && !slices.Contains(branchIDs, b.ID) {
+			continue
+		}
 		if b.City != "" {
 			counts[b.City]++
 		}

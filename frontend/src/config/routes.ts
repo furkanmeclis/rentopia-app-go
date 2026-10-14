@@ -45,6 +45,23 @@ export const routes = {
       edit: (slug: string, uuid: string) =>
         `/t/${encodeURIComponent(slug)}/branches/${uuid}/edit`,
     },
+    fleet: {
+      segments: fleetRoutes("segments"),
+      groups: fleetRoutes("groups"),
+      products: fleetRoutes("products"),
+    },
+    settings: {
+      root: (slug: string) => `/t/${encodeURIComponent(slug)}/settings`,
+      members: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/settings/members`,
+      roles: {
+        root: (slug: string) => `/t/${encodeURIComponent(slug)}/settings/roles`,
+        create: (slug: string) =>
+          `/t/${encodeURIComponent(slug)}/settings/roles/create`,
+        detail: (slug: string, uuid: string) =>
+          `/t/${encodeURIComponent(slug)}/settings/roles/${uuid}`,
+      },
+    },
   },
   platform: {
     root: "/platform",
@@ -150,3 +167,15 @@ type NestedRoutes<T> = T extends string
       : never;
 
 export type AppRoute = NestedRoutes<typeof routes>;
+
+/** `/t/{slug}/fleet/{section}` list / create / detail / edit routes. */
+function fleetRoutes(section: "segments" | "groups" | "products") {
+  const base = (slug: string) =>
+    `/t/${encodeURIComponent(slug)}/fleet/${section}`;
+  return {
+    root: base,
+    create: (slug: string) => `${base(slug)}/create`,
+    detail: (slug: string, uuid: string) => `${base(slug)}/${uuid}`,
+    edit: (slug: string, uuid: string) => `${base(slug)}/${uuid}/edit`,
+  };
+}

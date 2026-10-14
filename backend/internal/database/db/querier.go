@@ -12,6 +12,8 @@ import (
 )
 
 type Querier interface {
+	AddMemberBranch(ctx context.Context, arg AddMemberBranchParams) error
+	AddMemberRole(ctx context.Context, arg AddMemberRoleParams) error
 	AddOrganizationMember(ctx context.Context, arg AddOrganizationMemberParams) (OrganizationMember, error)
 	AssignUserRoleBySlug(ctx context.Context, arg AssignUserRoleBySlugParams) error
 	BranchCodeTaken(ctx context.Context, arg BranchCodeTakenParams) (bool, error)
@@ -40,19 +42,31 @@ type Querier interface {
 	CountImportJobsForActor(ctx context.Context, actorID int64) (int64, error)
 	CountNotificationsForUser(ctx context.Context, arg CountNotificationsForUserParams) (int64, error)
 	CountOrganizationMembersByOrg(ctx context.Context, arg CountOrganizationMembersByOrgParams) (int64, error)
+	// Members holding the template owner role (any of their roles).
 	CountOrganizationOwners(ctx context.Context, organizationID int64) (int64, error)
 	CountOrganizationResourceActivity(ctx context.Context, arg CountOrganizationResourceActivityParams) (int64, error)
+	CountOrganizationSettingsVersions(ctx context.Context, organizationID int64) (int64, error)
 	CountOrganizations(ctx context.Context, arg CountOrganizationsParams) (int64, error)
 	CountOutboxByStatus(ctx context.Context, status string) (int64, error)
 	CountPermissions(ctx context.Context, q_ pgtype.Text) (int64, error)
 	CountPlatformNotifications(ctx context.Context, arg CountPlatformNotificationsParams) (int64, error)
+	// Live products whose current version guarantees each group.
+	CountRentalGroupProducts(ctx context.Context, arg CountRentalGroupProductsParams) ([]CountRentalGroupProductsRow, error)
+	CountRentalGroups(ctx context.Context, arg CountRentalGroupsParams) (int64, error)
+	CountRentalProductImages(ctx context.Context, arg CountRentalProductImagesParams) (int64, error)
+	CountRentalProductVersions(ctx context.Context, arg CountRentalProductVersionsParams) (int64, error)
+	CountRentalProducts(ctx context.Context, arg CountRentalProductsParams) (int64, error)
 	CountRoles(ctx context.Context, q_ pgtype.Text) (int64, error)
 	CountStorageActivity(ctx context.Context, objectKey string) (int64, error)
 	CountStorageTrash(ctx context.Context) (int64, error)
+	CountTenantMembers(ctx context.Context, arg CountTenantMembersParams) (int64, error)
 	CountUnreadInappForUser(ctx context.Context, userID pgtype.Int8) (int64, error)
 	CountUnresolvedCatalogTypesByCategory(ctx context.Context) ([]CountUnresolvedCatalogTypesByCategoryRow, error)
 	CountUsers(ctx context.Context, arg CountUsersParams) (int64, error)
 	CountUsersWithRole(ctx context.Context, roleSlug string) (int64, error)
+	// Live groups and products per segment.
+	CountVehicleSegmentUsage(ctx context.Context, arg CountVehicleSegmentUsageParams) ([]CountVehicleSegmentUsageRow, error)
+	CountVehicleSegments(ctx context.Context, arg CountVehicleSegmentsParams) (int64, error)
 	// Tenant resource: branches and service points.
 	// Every query filters by organization_id (see docs/design/tenant-core.md §8).
 	CreateBranch(ctx context.Context, arg CreateBranchParams) (Branch, error)
@@ -69,9 +83,25 @@ type Querier interface {
 	CreateOrganization(ctx context.Context, arg CreateOrganizationParams) (Organization, error)
 	CreateOrganizationInvitation(ctx context.Context, arg CreateOrganizationInvitationParams) (OrganizationInvitation, error)
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
+	// ----------------------------------------------------------- rental groups
+	CreateRentalGroup(ctx context.Context, arg CreateRentalGroupParams) (RentalGroup, error)
+	// -------------------------------------------------------- rental products
+	CreateRentalProduct(ctx context.Context, arg CreateRentalProductParams) (RentalProduct, error)
+	// --------------------------------------------------- rental product images
+	CreateRentalProductImage(ctx context.Context, arg CreateRentalProductImageParams) (RentalProductImage, error)
+	// ------------------------------------------------- rental product versions
+	CreateRentalProductVersion(ctx context.Context, arg CreateRentalProductVersionParams) (RentalProductVersion, error)
 	CreateRole(ctx context.Context, arg CreateRoleParams) (Role, error)
 	CreateServicePoint(ctx context.Context, arg CreateServicePointParams) (ServicePoint, error)
+	CreateTenantRole(ctx context.Context, arg CreateTenantRoleParams) (CreateTenantRoleRow, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	// Tenant resource: fleet classification (TEC-691) — vehicle segments,
+	// rental groups (+ catalog criteria) and rental products (+ versions, images).
+	// Every query on these tables filters by organization_id
+	// (see docs/design/tenant-core.md §8). List queries return the table rows;
+	// the repository hydrates references with the batch lookups below.
+	// ---------------------------------------------------------------- segments
+	CreateVehicleSegment(ctx context.Context, arg CreateVehicleSegmentParams) (VehicleSegment, error)
 	CreateWebAuthnCredential(ctx context.Context, arg CreateWebAuthnCredentialParams) (WebauthnCredential, error)
 	// Self-service account deletion: keep every row, mark the user disabled.
 	DeactivateUser(ctx context.Context, id int64) (User, error)
@@ -81,17 +111,23 @@ type Querier interface {
 	DeleteCatalogDisplayBrand(ctx context.Context, id int64) (int64, error)
 	DeleteCatalogModel(ctx context.Context, id int64) (int64, error)
 	DeleteLogPurgeRule(ctx context.Context, argUuid uuid.UUID) (int64, error)
+	DeleteMemberBranches(ctx context.Context, arg DeleteMemberBranchesParams) error
+	DeleteMemberRoles(ctx context.Context, arg DeleteMemberRolesParams) error
 	DeleteOAuthAccountByProviderAccount(ctx context.Context, arg DeleteOAuthAccountByProviderAccountParams) error
 	DeleteOAuthAccountByUserProvider(ctx context.Context, arg DeleteOAuthAccountByUserProviderParams) error
 	DeleteOrganizationMember(ctx context.Context, arg DeleteOrganizationMemberParams) (int64, error)
 	DeletePushDeviceForUser(ctx context.Context, arg DeletePushDeviceForUserParams) (int64, error)
 	DeletePushSubscription(ctx context.Context, arg DeletePushSubscriptionParams) error
 	DeletePushTickets(ctx context.Context, ids []int64) error
+	DeleteRentalGroupCatalogModels(ctx context.Context, arg DeleteRentalGroupCatalogModelsParams) error
+	DeleteRentalGroupCatalogTypes(ctx context.Context, arg DeleteRentalGroupCatalogTypesParams) error
+	DeleteRentalProductImage(ctx context.Context, arg DeleteRentalProductImageParams) (int64, error)
 	DeleteRole(ctx context.Context, argUuid uuid.UUID) error
 	DeleteServicePoint(ctx context.Context, arg DeleteServicePointParams) (int64, error)
 	DeleteStorageShare(ctx context.Context, argUuid uuid.UUID) error
 	DeleteStorageStar(ctx context.Context, arg DeleteStorageStarParams) error
 	DeleteStorageTrashByUUID(ctx context.Context, argUuid uuid.UUID) error
+	DeleteTenantRole(ctx context.Context, arg DeleteTenantRoleParams) (int64, error)
 	DeleteUserTOTP(ctx context.Context, userID int64) error
 	DeleteWebAuthnCredentialByCredentialID(ctx context.Context, credentialID string) error
 	DeleteWebAuthnCredentialByUUID(ctx context.Context, arg DeleteWebAuthnCredentialByUUIDParams) error
@@ -100,6 +136,12 @@ type Querier interface {
 	// prompt is the consent). An existing preference row is left untouched.
 	EnsureNotificationPreferencesPushDefault(ctx context.Context, userID int64) error
 	ExtensionExists(ctx context.Context, extname string) (bool, error)
+	FleetCatalogModelRefsByIDs(ctx context.Context, ids []int64) ([]FleetCatalogModelRefsByIDsRow, error)
+	// ------------------------------------------- platform catalog references
+	// (catalog tables are platform data, not organization scoped)
+	FleetCatalogModelRefsByUUIDs(ctx context.Context, uuids []uuid.UUID) ([]FleetCatalogModelRefsByUUIDsRow, error)
+	FleetCatalogTypeRefsByIDs(ctx context.Context, ids []int64) ([]FleetCatalogTypeRefsByIDsRow, error)
+	FleetCatalogTypeRefsByUUIDs(ctx context.Context, uuids []uuid.UUID) ([]FleetCatalogTypeRefsByUUIDsRow, error)
 	// Resolves a tenant brand reference: a display brand uuid, or (older
 	// clients) a TSB brand uuid mapped to its display brand.
 	GetActiveCatalogDisplayBrandForTenant(ctx context.Context, ref uuid.UUID) (GetActiveCatalogDisplayBrandForTenantRow, error)
@@ -124,6 +166,9 @@ type Querier interface {
 	// under the TSB brands of the model's display brand.
 	GetCatalogModelGroup(ctx context.Context, argUuid uuid.UUID) (GetCatalogModelGroupRow, error)
 	GetCatalogTypeByUUID(ctx context.Context, argUuid uuid.UUID) (GetCatalogTypeByUUIDRow, error)
+	// Versioned organization settings. Rows are immutable; the current settings
+	// are the highest version of the organization.
+	GetCurrentOrganizationSettings(ctx context.Context, organizationID int64) (GetCurrentOrganizationSettingsRow, error)
 	GetExportJobByID(ctx context.Context, id int64) (ExportJob, error)
 	GetExportJobByUUID(ctx context.Context, argUuid uuid.UUID) (ExportJob, error)
 	GetGitHubAppSettings(ctx context.Context) (GithubAppSetting, error)
@@ -142,7 +187,16 @@ type Querier interface {
 	GetOrganizationInvitationByUUID(ctx context.Context, argUuid uuid.UUID) (OrganizationInvitation, error)
 	GetOrganizationMember(ctx context.Context, arg GetOrganizationMemberParams) (GetOrganizationMemberRow, error)
 	GetOrganizationMemberByUserUUID(ctx context.Context, arg GetOrganizationMemberByUserUUIDParams) (GetOrganizationMemberByUserUUIDRow, error)
+	GetOrganizationSettingsVersion(ctx context.Context, arg GetOrganizationSettingsVersionParams) (GetOrganizationSettingsVersionRow, error)
 	GetPermissionBySlug(ctx context.Context, slug string) (Permission, error)
+	// Public media stream: the organization is named by its uuid in the URL.
+	GetPublicRentalProductImage(ctx context.Context, arg GetPublicRentalProductImageParams) (GetPublicRentalProductImageRow, error)
+	GetRentalGroupByUUID(ctx context.Context, arg GetRentalGroupByUUIDParams) (RentalGroup, error)
+	GetRentalProductByUUID(ctx context.Context, arg GetRentalProductByUUIDParams) (RentalProduct, error)
+	GetRentalProductByUUIDForUpdate(ctx context.Context, arg GetRentalProductByUUIDForUpdateParams) (RentalProduct, error)
+	GetRentalProductImage(ctx context.Context, arg GetRentalProductImageParams) (RentalProductImage, error)
+	GetRentalProductSearchDocument(ctx context.Context, arg GetRentalProductSearchDocumentParams) (GetRentalProductSearchDocumentRow, error)
+	GetRentalProductVersionByUUID(ctx context.Context, arg GetRentalProductVersionByUUIDParams) (RentalProductVersion, error)
 	GetRoleByID(ctx context.Context, id int64) (Role, error)
 	GetRoleBySlug(ctx context.Context, slug string) (Role, error)
 	GetRoleByUUID(ctx context.Context, argUuid uuid.UUID) (Role, error)
@@ -154,12 +208,15 @@ type Querier interface {
 	GetStorageTrashByOriginalKey(ctx context.Context, originalKey string) (StorageTrash, error)
 	GetStorageTrashByUUID(ctx context.Context, argUuid uuid.UUID) (StorageTrash, error)
 	GetTemplateByCodeChannelLang(ctx context.Context, arg GetTemplateByCodeChannelLangParams) (NotificationTemplate, error)
+	GetTenantMemberByUserUUID(ctx context.Context, arg GetTenantMemberByUserUUIDParams) (GetTenantMemberByUserUUIDRow, error)
 	GetTenantRoleByKey(ctx context.Context, arg GetTenantRoleByKeyParams) (Role, error)
+	GetTenantRoleByUUIDForOrganization(ctx context.Context, arg GetTenantRoleByUUIDForOrganizationParams) (GetTenantRoleByUUIDForOrganizationRow, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id int64) (User, error)
 	GetUserByUUID(ctx context.Context, argUuid uuid.UUID) (User, error)
 	GetUserTOTPByUserID(ctx context.Context, userID int64) (UserTotp, error)
 	GetValidRefreshTokenByHash(ctx context.Context, tokenHash string) (RefreshToken, error)
+	GetVehicleSegmentByUUID(ctx context.Context, arg GetVehicleSegmentByUUIDParams) (VehicleSegment, error)
 	GetWebAuthnCredentialByCredentialID(ctx context.Context, credentialID string) (WebauthnCredential, error)
 	GetWebAuthnCredentialByUUID(ctx context.Context, arg GetWebAuthnCredentialByUUIDParams) (WebauthnCredential, error)
 	HasActivePushDevices(ctx context.Context, userID int64) (bool, error)
@@ -169,8 +226,11 @@ type Querier interface {
 	InsertBulkChange(ctx context.Context, arg InsertBulkChangeParams) (BulkChange, error)
 	InsertImportChange(ctx context.Context, arg InsertImportChangeParams) (ImportChange, error)
 	InsertNotificationHistory(ctx context.Context, arg InsertNotificationHistoryParams) (NotificationHistory, error)
+	InsertOrganizationSettingsVersion(ctx context.Context, arg InsertOrganizationSettingsVersionParams) (OrganizationSettingsVersion, error)
 	InsertOutboxEvent(ctx context.Context, arg InsertOutboxEventParams) (OutboxEvent, error)
 	InsertPushTicket(ctx context.Context, arg InsertPushTicketParams) error
+	InsertRentalGroupCatalogModels(ctx context.Context, arg InsertRentalGroupCatalogModelsParams) error
+	InsertRentalGroupCatalogTypes(ctx context.Context, arg InsertRentalGroupCatalogTypesParams) error
 	InsertRolePermission(ctx context.Context, arg InsertRolePermissionParams) error
 	InsertStorageActivity(ctx context.Context, arg InsertStorageActivityParams) (StorageActivity, error)
 	InsertStorageLink(ctx context.Context, arg InsertStorageLinkParams) (StorageLink, error)
@@ -179,6 +239,7 @@ type Querier interface {
 	InsertStorageTrash(ctx context.Context, arg InsertStorageTrashParams) (StorageTrash, error)
 	InsertUserRole(ctx context.Context, arg InsertUserRoleParams) error
 	InvalidateActiveOTPs(ctx context.Context, arg InvalidateActiveOTPsParams) error
+	LatestOrganizationSettingsVersion(ctx context.Context, organizationID int64) (int32, error)
 	ListActivePublicKeys(ctx context.Context, keys []string) ([]string, error)
 	ListActivePublicLinks(ctx context.Context) ([]StorageLink, error)
 	ListActivePushDevicesByUser(ctx context.Context, userID int64) ([]PushDevice, error)
@@ -190,7 +251,8 @@ type Querier interface {
 	ListAllPermissionSlugs(ctx context.Context) ([]string, error)
 	ListAppLogSources(ctx context.Context) ([]string, error)
 	ListAppLogs(ctx context.Context, arg ListAppLogsParams) ([]AppLog, error)
-	ListBranchCityFacets(ctx context.Context, organizationID int64) ([]ListBranchCityFacetsRow, error)
+	ListBranchCityFacets(ctx context.Context, arg ListBranchCityFacetsParams) ([]ListBranchCityFacetsRow, error)
+	ListBranchIDsByUUIDs(ctx context.Context, arg ListBranchIDsByUUIDsParams) ([]ListBranchIDsByUUIDsRow, error)
 	ListBranchSearchDocuments(ctx context.Context, organizationID int64) ([]ListBranchSearchDocumentsRow, error)
 	ListBranchUUIDs(ctx context.Context, arg ListBranchUUIDsParams) ([]uuid.UUID, error)
 	ListBranches(ctx context.Context, arg ListBranchesParams) ([]ListBranchesRow, error)
@@ -217,6 +279,7 @@ type Querier interface {
 	ListCatalogTypesForRule(ctx context.Context, brandID int64) ([]ListCatalogTypesForRuleRow, error)
 	ListCatalogTypesState(ctx context.Context) ([]ListCatalogTypesStateRow, error)
 	ListCatalogValuationsByPeriod(ctx context.Context, period string) ([]ListCatalogValuationsByPeriodRow, error)
+	ListCurrentRentalProductVersions(ctx context.Context, arg ListCurrentRentalProductVersionsParams) ([]RentalProductVersion, error)
 	ListDuePushTickets(ctx context.Context, arg ListDuePushTicketsParams) ([]ListDuePushTicketsRow, error)
 	ListEnabledLogPurgeRules(ctx context.Context) ([]LogPurgeRule, error)
 	ListExportJobsForActor(ctx context.Context, arg ListExportJobsForActorParams) ([]ExportJob, error)
@@ -224,6 +287,14 @@ type Querier interface {
 	ListImportJobsForActor(ctx context.Context, arg ListImportJobsForActorParams) ([]ImportJob, error)
 	ListLiveOrganizationIDs(ctx context.Context) ([]int64, error)
 	ListLogPurgeRules(ctx context.Context) ([]LogPurgeRule, error)
+	ListMemberBranchIDs(ctx context.Context, arg ListMemberBranchIDsParams) ([]int64, error)
+	// Live branches granted to members with branch_scope = 'selected'.
+	ListMemberBranches(ctx context.Context, arg ListMemberBranchesParams) ([]ListMemberBranchesRow, error)
+	// Tenant access: member roles (many per member), branch scope and
+	// organization-specific roles. Every query is scoped by organization_id.
+	// Union of the permissions of every role the member holds.
+	ListMemberPermissionSlugs(ctx context.Context, arg ListMemberPermissionSlugsParams) ([]string, error)
+	ListMemberRoles(ctx context.Context, arg ListMemberRolesParams) ([]ListMemberRolesRow, error)
 	ListNotificationsForUser(ctx context.Context, arg ListNotificationsForUserParams) ([]Notification, error)
 	ListOAuthAccountsByUserID(ctx context.Context, userID int64) ([]ListOAuthAccountsByUserIDRow, error)
 	ListOAuthAccountsForUserIDs(ctx context.Context, userIds []int64) ([]ListOAuthAccountsForUserIDsRow, error)
@@ -232,6 +303,7 @@ type Querier interface {
 	ListOrganizationMembersByOrg(ctx context.Context, arg ListOrganizationMembersByOrgParams) ([]ListOrganizationMembersByOrgRow, error)
 	ListOrganizationMembershipsByUser(ctx context.Context, userID int64) ([]ListOrganizationMembershipsByUserRow, error)
 	ListOrganizationResourceActivity(ctx context.Context, arg ListOrganizationResourceActivityParams) ([]ListOrganizationResourceActivityRow, error)
+	ListOrganizationSettingsVersions(ctx context.Context, arg ListOrganizationSettingsVersionsParams) ([]ListOrganizationSettingsVersionsRow, error)
 	ListOrganizationsFiltered(ctx context.Context, arg ListOrganizationsFilteredParams) ([]Organization, error)
 	ListPermissionSlugsByRoleID(ctx context.Context, roleID int64) ([]string, error)
 	ListPermissionSlugsByRoleSlug(ctx context.Context, slug string) ([]string, error)
@@ -239,6 +311,21 @@ type Querier interface {
 	ListPlatformNotifications(ctx context.Context, arg ListPlatformNotificationsParams) ([]Notification, error)
 	ListPlatformNotificationsForExport(ctx context.Context, arg ListPlatformNotificationsForExportParams) ([]Notification, error)
 	ListPushSubscriptionsByUser(ctx context.Context, userID int64) ([]PushSubscription, error)
+	// One row per (attribute, value) in use: transmission, fuel, body_type.
+	ListRentalGroupAttributeFacets(ctx context.Context, organizationID int64) ([]ListRentalGroupAttributeFacetsRow, error)
+	ListRentalGroupCatalogModelIDs(ctx context.Context, arg ListRentalGroupCatalogModelIDsParams) ([]ListRentalGroupCatalogModelIDsRow, error)
+	ListRentalGroupCatalogTypeIDs(ctx context.Context, arg ListRentalGroupCatalogTypeIDsParams) ([]ListRentalGroupCatalogTypeIDsRow, error)
+	ListRentalGroupSegmentFacets(ctx context.Context, organizationID int64) ([]ListRentalGroupSegmentFacetsRow, error)
+	ListRentalGroups(ctx context.Context, arg ListRentalGroupsParams) ([]RentalGroup, error)
+	ListRentalGroupsByIDs(ctx context.Context, arg ListRentalGroupsByIDsParams) ([]RentalGroup, error)
+	ListRentalProductGuaranteeFacets(ctx context.Context, organizationID int64) ([]ListRentalProductGuaranteeFacetsRow, error)
+	ListRentalProductImages(ctx context.Context, arg ListRentalProductImagesParams) ([]RentalProductImage, error)
+	ListRentalProductSearchDocuments(ctx context.Context, organizationID int64) ([]ListRentalProductSearchDocumentsRow, error)
+	ListRentalProductSegmentFacets(ctx context.Context, organizationID int64) ([]ListRentalProductSegmentFacetsRow, error)
+	ListRentalProductStatusFacets(ctx context.Context, organizationID int64) ([]ListRentalProductStatusFacetsRow, error)
+	ListRentalProductVersions(ctx context.Context, arg ListRentalProductVersionsParams) ([]RentalProductVersion, error)
+	ListRentalProducts(ctx context.Context, arg ListRentalProductsParams) ([]RentalProduct, error)
+	ListRolePermissionSlugsByRoleIDs(ctx context.Context, roleIds []int64) ([]ListRolePermissionSlugsByRoleIDsRow, error)
 	ListRolePermissionSlugsByRoleUUID(ctx context.Context, argUuid uuid.UUID) ([]string, error)
 	ListRoleUUIDsForBulk(ctx context.Context, q_ pgtype.Text) ([]uuid.UUID, error)
 	ListRolesFiltered(ctx context.Context, arg ListRolesFilteredParams) ([]Role, error)
@@ -254,13 +341,21 @@ type Querier interface {
 	ListStorageStarsByUser(ctx context.Context, userID int64) ([]StorageStar, error)
 	ListStorageTrash(ctx context.Context, arg ListStorageTrashParams) ([]StorageTrash, error)
 	ListStuckProcessingNotificationIDs(ctx context.Context, staleMinutes int32) ([]int64, error)
+	ListTenantMembers(ctx context.Context, arg ListTenantMembersParams) ([]ListTenantMembersRow, error)
+	ListTenantPermissions(ctx context.Context) ([]ListTenantPermissionsRow, error)
 	ListTenantRolePermissionSlugsByRoleID(ctx context.Context, roleID int64) ([]string, error)
+	// Template roles plus the roles created by this organization.
+	ListTenantRolesForOrganization(ctx context.Context, organizationID int64) ([]ListTenantRolesForOrganizationRow, error)
 	ListUserRoleSlugs(ctx context.Context, userID int64) ([]string, error)
 	ListUserRolesByUserID(ctx context.Context, userID int64) ([]Role, error)
 	ListUserRolesByUserUUID(ctx context.Context, argUuid uuid.UUID) ([]Role, error)
 	ListUserUUIDsForBulk(ctx context.Context, arg ListUserUUIDsForBulkParams) ([]uuid.UUID, error)
+	ListUsersByIDsForFleet(ctx context.Context, ids []int64) ([]ListUsersByIDsForFleetRow, error)
 	ListUsersFiltered(ctx context.Context, arg ListUsersFilteredParams) ([]User, error)
 	ListUsersForExport(ctx context.Context, arg ListUsersForExportParams) ([]User, error)
+	ListVehicleSegmentActiveFacets(ctx context.Context, organizationID int64) ([]ListVehicleSegmentActiveFacetsRow, error)
+	ListVehicleSegments(ctx context.Context, arg ListVehicleSegmentsParams) ([]VehicleSegment, error)
+	ListVehicleSegmentsByIDs(ctx context.Context, arg ListVehicleSegmentsByIDsParams) ([]VehicleSegment, error)
 	ListWebAuthnCredentialsByUserID(ctx context.Context, userID int64) ([]WebauthnCredential, error)
 	ListWebAuthnCredentialsForUserIDs(ctx context.Context, userIds []int64) ([]WebauthnCredential, error)
 	LockOrganizationRow(ctx context.Context, id int64) (Organization, error)
@@ -295,6 +390,8 @@ type Querier interface {
 	ReassignCatalogModelRules(ctx context.Context, arg ReassignCatalogModelRulesParams) (int64, error)
 	ReassignCatalogTypesModel(ctx context.Context, arg ReassignCatalogTypesModelParams) (int64, error)
 	RemoveUserRoleBySlug(ctx context.Context, arg RemoveUserRoleBySlugParams) error
+	RentalGroupCodeTaken(ctx context.Context, arg RentalGroupCodeTakenParams) (bool, error)
+	RentalProductCodeTaken(ctx context.Context, arg RentalProductCodeTakenParams) (bool, error)
 	ReplaceUserRoles(ctx context.Context, userID int64) error
 	ResolveOrganizationScopeBySlug(ctx context.Context, arg ResolveOrganizationScopeBySlugParams) (ResolveOrganizationScopeBySlugRow, error)
 	ResolveOrganizationScopeByUUID(ctx context.Context, arg ResolveOrganizationScopeByUUIDParams) (ResolveOrganizationScopeByUUIDRow, error)
@@ -310,13 +407,21 @@ type Querier interface {
 	SetCatalogDisplayBrandLogo(ctx context.Context, arg SetCatalogDisplayBrandLogoParams) (CatalogDisplayBrand, error)
 	SetCatalogImportFileKey(ctx context.Context, arg SetCatalogImportFileKeyParams) (CatalogImport, error)
 	SetCatalogTypesModel(ctx context.Context, arg SetCatalogTypesModelParams) (int64, error)
+	SetMemberBranchScope(ctx context.Context, arg SetMemberBranchScopeParams) error
+	SetMemberPrimaryRole(ctx context.Context, arg SetMemberPrimaryRoleParams) error
 	SetOrganizationAccessWindow(ctx context.Context, arg SetOrganizationAccessWindowParams) (Organization, error)
 	SetOrganizationStatus(ctx context.Context, arg SetOrganizationStatusParams) (Organization, error)
+	SetRentalGroupActive(ctx context.Context, arg SetRentalGroupActiveParams) (RentalGroup, error)
+	SetRentalProductActive(ctx context.Context, arg SetRentalProductActiveParams) (RentalProduct, error)
+	SetRentalProductImageSort(ctx context.Context, arg SetRentalProductImageSortParams) (int64, error)
 	SetRolePermissions(ctx context.Context, roleID int64) error
 	SetUserEmailVerified(ctx context.Context, id int64) (User, error)
 	SlugExists(ctx context.Context, slug string) (bool, error)
 	SoftDeleteBranch(ctx context.Context, arg SoftDeleteBranchParams) (int64, error)
 	SoftDeleteOrganization(ctx context.Context, argUuid uuid.UUID) (Organization, error)
+	SoftDeleteRentalGroup(ctx context.Context, arg SoftDeleteRentalGroupParams) (int64, error)
+	SoftDeleteRentalProduct(ctx context.Context, arg SoftDeleteRentalProductParams) (int64, error)
+	SoftDeleteVehicleSegment(ctx context.Context, arg SoftDeleteVehicleSegmentParams) (int64, error)
 	SyncCatalogBrandsDisplayName(ctx context.Context, displayBrandID int64) (int64, error)
 	TenantCountCatalogBrands(ctx context.Context, arg TenantCountCatalogBrandsParams) (int64, error)
 	TenantCountCatalogModels(ctx context.Context, arg TenantCountCatalogModelsParams) (int64, error)
@@ -328,6 +433,8 @@ type Querier interface {
 	// grouped model keeps one id whatever the year filter is.
 	TenantListCatalogModels(ctx context.Context, arg TenantListCatalogModelsParams) ([]TenantListCatalogModelsRow, error)
 	TenantListCatalogTypes(ctx context.Context, arg TenantListCatalogTypesParams) ([]TenantListCatalogTypesRow, error)
+	TenantRoleSlugTaken(ctx context.Context, arg TenantRoleSlugTakenParams) (bool, error)
+	TouchRentalProduct(ctx context.Context, arg TouchRentalProductParams) error
 	UpdateAppSettings(ctx context.Context, arg UpdateAppSettingsParams) (AppSetting, error)
 	UpdateAuthSettings(ctx context.Context, arg UpdateAuthSettingsParams) (AuthSetting, error)
 	UpdateBranch(ctx context.Context, arg UpdateBranchParams) (Branch, error)
@@ -345,9 +452,12 @@ type Querier interface {
 	UpdateOAuthProviderSettings(ctx context.Context, arg UpdateOAuthProviderSettingsParams) (OauthProviderSetting, error)
 	UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) (Organization, error)
 	UpdateOrganizationMemberRole(ctx context.Context, arg UpdateOrganizationMemberRoleParams) (OrganizationMember, error)
+	UpdateRentalGroup(ctx context.Context, arg UpdateRentalGroupParams) (RentalGroup, error)
+	UpdateRentalProduct(ctx context.Context, arg UpdateRentalProductParams) (RentalProduct, error)
 	UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, error)
 	UpdateServicePoint(ctx context.Context, arg UpdateServicePointParams) (ServicePoint, error)
 	UpdateStepupSettings(ctx context.Context, arg UpdateStepupSettingsParams) (StepupSetting, error)
+	UpdateTenantRole(ctx context.Context, arg UpdateTenantRoleParams) (int64, error)
 	UpdateUserLastLogin(ctx context.Context, id int64) error
 	UpdateUserLocale(ctx context.Context, arg UpdateUserLocaleParams) error
 	UpdateUserPasswordByID(ctx context.Context, arg UpdateUserPasswordByIDParams) error
@@ -357,6 +467,7 @@ type Querier interface {
 	UpdateUserProfileBasics(ctx context.Context, arg UpdateUserProfileBasicsParams) error
 	UpdateUserProfileByUUID(ctx context.Context, arg UpdateUserProfileByUUIDParams) (User, error)
 	UpdateUserTOTPRecoveryHashes(ctx context.Context, arg UpdateUserTOTPRecoveryHashesParams) error
+	UpdateVehicleSegment(ctx context.Context, arg UpdateVehicleSegmentParams) (VehicleSegment, error)
 	UpdateWebAuthnCredentialCounter(ctx context.Context, arg UpdateWebAuthnCredentialCounterParams) error
 	UpdateWebAuthnCredentialName(ctx context.Context, arg UpdateWebAuthnCredentialNameParams) (WebauthnCredential, error)
 	UpsertCatalogModelRule(ctx context.Context, arg UpsertCatalogModelRuleParams) (CatalogModelRule, error)
@@ -368,6 +479,7 @@ type Querier interface {
 	UpsertPushSubscription(ctx context.Context, arg UpsertPushSubscriptionParams) (PushSubscription, error)
 	UpsertUserTOTPSetup(ctx context.Context, arg UpsertUserTOTPSetupParams) (UserTotp, error)
 	UserHasRoleSlug(ctx context.Context, arg UserHasRoleSlugParams) (bool, error)
+	VehicleSegmentCodeTaken(ctx context.Context, arg VehicleSegmentCodeTakenParams) (bool, error)
 }
 
 var _ Querier = (*Queries)(nil)

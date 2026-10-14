@@ -6,6 +6,9 @@ const RESOURCE_LABEL_KEYS: Record<IoResource, string> = {
   "platform.notifications": "notifications.title",
   "platform.activity": "activity.title",
   "tenant.branches": "branches.title",
+  "tenant.segments": "fleet.segments.title",
+  "tenant.rental_groups": "fleet.groups.title",
+  "tenant.rental_products": "fleet.products.title",
 };
 
 export function resourceLabelKey(resource: string): string | null {

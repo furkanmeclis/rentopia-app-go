@@ -127,16 +127,24 @@ func (s *Service) SearchTenant(ctx context.Context, q, spec string, limit int) [
 		return nil
 	}
 	requested := strings.TrimSpace(spec)
+	branchIDs := orgctx.BranchScope(ctx)
 	specs := make([]string, 0)
+	filters := make([]string, 0)
 	for _, sp := range s.ListTenantSpecs(ctx) {
-		if requested == "" || sp.ID == requested {
-			specs = append(specs, sp.ID)
+		if requested != "" && sp.ID != requested {
+			continue
 		}
+		filter, ok := searchengine.TenantFilter(sp, orgID, branchIDs)
+		if !ok {
+			continue
+		}
+		specs = append(specs, sp.ID)
+		filters = append(filters, filter)
 	}
 	if len(specs) == 0 {
 		return nil
 	}
-	hits, err := s.client.SearchOrganization(ctx, specs, q, limit, orgID)
+	hits, err := s.client.SearchPerSpec(ctx, specs, filters, q, limit)
 	if err != nil {
 		s.log.Warn("search_tenant_query_failed", "error", err)
 		return nil

@@ -194,6 +194,10 @@ type ListFilter struct {
 	IsActive  *bool
 	SortField string
 	SortDesc  bool
+	// BranchIDs is the caller's branch scope (orgctx.BranchScope): nil means
+	// every branch, otherwise only these ids. Set by the usecase, never
+	// from the request.
+	BranchIDs []int64
 }
 
 // Facet is one value of a faceted filter with its row count.
