@@ -55,5 +55,8 @@
   "toast.download_failed": "Could not download the file.",
   "resources.tenant.branches": "Branches",
   "toast.preparing": "Preparing the file…",
-  "toast.ready": "File ready, downloading."
+  "toast.ready": "File ready, downloading.",
+  "resources.tenant.segments": "Segments",
+  "resources.tenant.rental_groups": "Rental groups",
+  "resources.tenant.rental_products": "Products"
 }

@@ -94,5 +94,8 @@
   "toast.confirmed": "İçe aktarma onaylandı ve kuyruğa alındı.",
   "toast.rollback_success": "İçe aktarma başarıyla geri alındı.",
   "toast.auto_mapped": "{{count}} kolon otomatik eşleştirildi.",
-  "resources.tenant.branches": "Şubeler"
+  "resources.tenant.branches": "Şubeler",
+  "resources.tenant.segments": "Segmentler",
+  "resources.tenant.rental_groups": "Kiralama grupları",
+  "resources.tenant.rental_products": "Ürünler"
 }

@@ -1,12 +1,14 @@
 import {
   Activity,
   Bell,
+  Boxes,
   Building2,
   CarFront,
   Cpu,
   Download,
   HardDrive,
   KeyRound,
+  Layers,
   LayoutDashboard,
   LogIn,
   Palette,
@@ -16,6 +18,7 @@ import {
   Shield,
   Sparkles,
   Store,
+  Tags,
   Upload,
 } from "lucide-react";
 
@@ -274,6 +277,35 @@ export function tenantNav(slug: string): NavCatalog {
             href: routes.tenant.branches.root(slug),
             icon: Store,
             permission: permissions.tenant.branches.read,
+          },
+        ],
+      },
+      {
+        id: "fleet",
+        labelKey: "layout.section_fleet",
+        icon: CarFront,
+        defaultOpen: true,
+        items: [
+          {
+            id: "fleet-segments",
+            titleKey: "layout.nav_fleet_segments",
+            href: routes.tenant.fleet.segments.root(slug),
+            icon: Layers,
+            permission: permissions.tenant.fleet.read,
+          },
+          {
+            id: "fleet-groups",
+            titleKey: "layout.nav_fleet_groups",
+            href: routes.tenant.fleet.groups.root(slug),
+            icon: Boxes,
+            permission: permissions.tenant.fleet.read,
+          },
+          {
+            id: "fleet-products",
+            titleKey: "layout.nav_fleet_products",
+            href: routes.tenant.fleet.products.root(slug),
+            icon: Tags,
+            permission: permissions.tenant.fleet.read,
           },
         ],
       },

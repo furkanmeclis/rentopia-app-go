@@ -94,5 +94,8 @@
   "toast.confirmed": "Import confirmed and queued.",
   "toast.rollback_success": "Import rolled back successfully.",
   "toast.auto_mapped": "{{count}} column(s) auto-matched.",
-  "resources.tenant.branches": "Branches"
+  "resources.tenant.branches": "Branches",
+  "resources.tenant.segments": "Segments",
+  "resources.tenant.rental_groups": "Rental groups",
+  "resources.tenant.rental_products": "Products"
 }

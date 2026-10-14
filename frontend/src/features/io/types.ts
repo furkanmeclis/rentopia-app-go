@@ -89,7 +89,10 @@ export type IoResource =
   | "platform.roles"
   | "platform.notifications"
   | "platform.activity"
-  | "tenant.branches";
+  | "tenant.branches"
+  | "tenant.segments"
+  | "tenant.rental_groups"
+  | "tenant.rental_products";
 
 export const EXPORT_PATHS: Record<IoResource, string> = {
   "platform.users": "/v1/platform/users/export",
@@ -97,6 +100,9 @@ export const EXPORT_PATHS: Record<IoResource, string> = {
   "platform.notifications": "/v1/platform/notifications/export",
   "platform.activity": "/v1/platform/activity/export",
   "tenant.branches": "/v1/tenant/branches/export",
+  "tenant.segments": "/v1/tenant/segments/export",
+  "tenant.rental_groups": "/v1/tenant/rental-groups/export",
+  "tenant.rental_products": "/v1/tenant/products/export",
 };
 
 export const IMPORT_PATHS: Partial<

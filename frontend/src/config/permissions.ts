@@ -61,6 +61,8 @@ export const Permission = {
   TenantBranchesImport: "tenant.branches.import",
   TenantBranchesBulkActivate: "tenant.branches.bulk.activate",
   TenantBranchesBulkDeactivate: "tenant.branches.bulk.deactivate",
+  TenantFleetRead: "tenant.fleet.read",
+  TenantFleetWrite: "tenant.fleet.write",
 } as const;
 
 export type PermissionSlug = (typeof Permission)[keyof typeof Permission];
@@ -180,6 +182,11 @@ export const permissions = {
       import: Permission.TenantBranchesImport,
       bulkActivate: Permission.TenantBranchesBulkActivate,
       bulkDeactivate: Permission.TenantBranchesBulkDeactivate,
+    },
+    /** Segments, rental groups and rentable products (one slug pair). */
+    fleet: {
+      read: Permission.TenantFleetRead,
+      write: Permission.TenantFleetWrite,
     },
   },
 } as const;

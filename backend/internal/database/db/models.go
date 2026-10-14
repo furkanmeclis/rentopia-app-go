@@ -498,6 +498,97 @@ type RefreshToken struct {
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
+type RentalGroup struct {
+	ID              int64              `json:"id"`
+	Uuid            uuid.UUID          `json:"uuid"`
+	OrganizationID  int64              `json:"organization_id"`
+	Code            string             `json:"code"`
+	Name            string             `json:"name"`
+	Description     string             `json:"description"`
+	SegmentID       int64              `json:"segment_id"`
+	Transmission    pgtype.Text        `json:"transmission"`
+	Fuel            pgtype.Text        `json:"fuel"`
+	BodyType        pgtype.Text        `json:"body_type"`
+	MinSeats        pgtype.Int2        `json:"min_seats"`
+	MinLuggage      pgtype.Int2        `json:"min_luggage"`
+	AirConditioning bool               `json:"air_conditioning"`
+	AcrissCode      pgtype.Text        `json:"acriss_code"`
+	IsActive        bool               `json:"is_active"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type RentalGroupCatalogModel struct {
+	OrganizationID int64              `json:"organization_id"`
+	RentalGroupID  int64              `json:"rental_group_id"`
+	CatalogModelID int64              `json:"catalog_model_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type RentalGroupCatalogType struct {
+	OrganizationID int64              `json:"organization_id"`
+	RentalGroupID  int64              `json:"rental_group_id"`
+	CatalogTypeID  int64              `json:"catalog_type_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type RentalProduct struct {
+	ID                    int64              `json:"id"`
+	Uuid                  uuid.UUID          `json:"uuid"`
+	OrganizationID        int64              `json:"organization_id"`
+	Code                  string             `json:"code"`
+	Title                 string             `json:"title"`
+	Description           string             `json:"description"`
+	SegmentID             int64              `json:"segment_id"`
+	RepresentativeModelID pgtype.Int8        `json:"representative_model_id"`
+	RepresentativeTypeID  pgtype.Int8        `json:"representative_type_id"`
+	Status                string             `json:"status"`
+	IsActive              bool               `json:"is_active"`
+	CurrentVersion        int32              `json:"current_version"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt             pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type RentalProductImage struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	ProductID      int64              `json:"product_id"`
+	ObjectKey      string             `json:"object_key"`
+	Filename       string             `json:"filename"`
+	ContentType    string             `json:"content_type"`
+	SizeBytes      int64              `json:"size_bytes"`
+	SortOrder      int32              `json:"sort_order"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type RentalProductVersion struct {
+	ID               int64              `json:"id"`
+	Uuid             uuid.UUID          `json:"uuid"`
+	OrganizationID   int64              `json:"organization_id"`
+	ProductID        int64              `json:"product_id"`
+	Version          int32              `json:"version"`
+	GuaranteeType    string             `json:"guarantee_type"`
+	VehicleID        pgtype.UUID        `json:"vehicle_id"`
+	VariantLevel     pgtype.Text        `json:"variant_level"`
+	CatalogModelID   pgtype.Int8        `json:"catalog_model_id"`
+	CatalogTypeID    pgtype.Int8        `json:"catalog_type_id"`
+	RentalGroupID    pgtype.Int8        `json:"rental_group_id"`
+	GuaranteeLabel   string             `json:"guarantee_label"`
+	DepositAmount    pgtype.Numeric     `json:"deposit_amount"`
+	MinDriverAge     int16              `json:"min_driver_age"`
+	MinLicenseYears  int16              `json:"min_license_years"`
+	IncludedKmPerDay pgtype.Int4        `json:"included_km_per_day"`
+	ExtraKmFee       pgtype.Numeric     `json:"extra_km_fee"`
+	FuelPolicy       string             `json:"fuel_policy"`
+	Notes            string             `json:"notes"`
+	ChangeNote       string             `json:"change_note"`
+	CreatedBy        pgtype.Int8        `json:"created_by"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
 type Role struct {
 	ID             int64              `json:"id"`
 	Uuid           uuid.UUID          `json:"uuid"`
@@ -632,6 +723,20 @@ type UserTotp struct {
 	RecoveryHashes []string           `json:"recovery_hashes"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type VehicleSegment struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	Code           string             `json:"code"`
+	Name           string             `json:"name"`
+	Description    string             `json:"description"`
+	SortOrder      int32              `json:"sort_order"`
+	IsActive       bool               `json:"is_active"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt      pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type WebauthnCredential struct {

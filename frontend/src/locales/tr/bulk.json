@@ -18,5 +18,11 @@
   "confirm.roles.delete": "Seçili {{count}} rol silinsin mi?",
   "actions.branches.activate": "Şubeleri aktifleştir",
   "actions.branches.deactivate": "Şubeleri pasifleştir",
-  "confirm.branches.deactivate": "Seçili {{count}} şube pasifleştirilsin mi? Yeni rezervasyonlarda seçilemezler."
+  "confirm.branches.deactivate": "Seçili {{count}} şube pasifleştirilsin mi? Yeni rezervasyonlarda seçilemezler.",
+  "actions.rental_groups.activate": "Grupları aktifleştir",
+  "actions.rental_groups.deactivate": "Grupları pasifleştir",
+  "confirm.rental_groups.deactivate": "Seçili {{count}} kiralama grubu pasifleştirilsin mi? Yeni ürünlerde seçilemezler.",
+  "actions.rental_products.activate": "Ürünleri aktifleştir",
+  "actions.rental_products.deactivate": "Ürünleri pasifleştir",
+  "confirm.rental_products.deactivate": "Seçili {{count}} ürün pasifleştirilsin mi? Satışa kapanırlar."
 }

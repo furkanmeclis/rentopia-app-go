@@ -17,5 +17,7 @@
   "prefix_users": "users",
   "prefix_roles": "roles",
   "specs_branches": "Branches",
-  "prefix_branches": "branch"
+  "prefix_branches": "branch",
+  "specs_rental_products": "Products",
+  "prefix_rental_products": "product"
 }
