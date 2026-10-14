@@ -154,7 +154,8 @@ func (a *IO) ApplyRow(ctx context.Context, row map[string]any, defaults map[stri
 	id, created, prev, err := a.svc.ImportRow(ctx, orgID, in)
 	if err != nil {
 		var ve *usecase.ValidationError
-		if errors.As(err, &ve) || errors.Is(err, usecase.ErrCodeTaken) {
+		if errors.As(err, &ve) || errors.Is(err, usecase.ErrCodeTaken) ||
+			errors.Is(err, usecase.ErrNotFound) || errors.Is(err, usecase.ErrAllBranchesRequired) {
 			return ioengine.RowResult{OK: false, Error: err.Error()}, nil
 		}
 		return ioengine.RowResult{}, err
@@ -427,6 +428,9 @@ func (a *Search) Spec() searchengine.Spec {
 		Icon:       "branches",
 		Searchable: []string{"title", "subtitle", "keywords"},
 		Scope:      searchengine.ScopeTenant,
+		// Documents carry branch_ids; tenant searches apply the caller's
+		// branch scope to this spec.
+		BranchScoped: true,
 	}
 }
 
@@ -477,6 +481,8 @@ func searchDocument(row db.GetBranchSearchDocumentRow) searchengine.Document {
 		Href:           "/t/" + row.OrganizationSlug + "/branches/" + row.Uuid.String(),
 		Icon:           "branches",
 		OrganizationID: row.OrganizationID,
+		// Branch-restricted members only find the branches they may see.
+		BranchIDs: []int64{row.ID},
 	}
 }
 

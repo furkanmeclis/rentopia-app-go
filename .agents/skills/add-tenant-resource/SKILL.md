@@ -56,6 +56,23 @@ Follow `.agents/skills/db-migration`. Tenant-specific rules:
 
 Seed data for new organizations through `OrganizationHooks.OnCreated(ctx, tx, org, owner)` (runs inside the create transaction; use `db.New(tx)`). Branches seeds "Merkez" (`MRK`). Pass the hooks to `orgusecase.New(...)` in `server.go`.
 
+### Branch scope (branch-bound resources)
+
+A member's `branch_scope` is `all` or `selected` (TEC-689, migration 000034); `orgctx.Scope.BranchIDs` is nil for `all` and the allowed branch ids otherwise. A resource that belongs to a branch (reservations, vehicles, contracts, …; branches themselves) must apply it everywhere it reads:
+
+- Table: `branch_id BIGINT NOT NULL` + composite FK `(organization_id, branch_id) REFERENCES branches (organization_id, id)` and an index starting with `(organization_id, branch_id)`.
+- Queries: every list / count / facets / export / bulk-uuid query gets
+  `AND (sqlc.narg(branch_ids)::bigint[] IS NULL OR t.branch_id = ANY(sqlc.narg(branch_ids)::bigint[]))`
+  (nil = every branch; an empty slice matches nothing).
+- Usecase (not the handler, so engine adapters and worker jobs are covered too): set the filter from `orgctx.BranchScope(ctx)` (never from the request); after loading one record call `orgctx.CheckBranch(ctx, row.BranchID)` and answer **404** (`ErrNotFound`) when it fails; actions that need every branch use `orgctx.RequireAllBranches(ctx)` (**403**). Creating a record in a branch outside the scope is a validation error on `branch_uuid` (same answer as an unknown branch).
+- Search: `Spec.BranchScoped = true` and `Document.BranchIDs = []int64{branchID}`; `/v1/tenant/search` filters by `branch_ids` for restricted members.
+- Jobs: export / import / bulk workers run with `orgctx.WithJobScope` (the requester's current scope); keep adapters reading the organization and branch scope from the context.
+- Tests: an RT-A02 style test (`branches/branch_scope_test.go`): member with `selected [A]` gets 404 for B and never sees B in list, facets, export (request and worker context), bulk and search filter.
+
+Branches example: `branchusecase.Service.getBranch`, `ListFilter.BranchIDs`, `adapters.Search` (`BranchScoped`).
+
+Permissions for sensitive actions are separate slugs, granted to roles one by one: `tenant.price.override`, `tenant.discount.apply`, `tenant.payment.collect`, `tenant.payment.refund`, `tenant.damage.approve`, `tenant.signature.waive`, `tenant.document.download`, `tenant.report.export`. When a new resource adds slugs, also grant them to the matching Rentopia template roles (`merkez_yoneticisi` everything; `sube_yoneticisi` read/write of branch-bound resources; `rezervasyon_satis`, `muhasebe`, `teslim_iade` as fits) in the same migration.
+
 ## 4. Engines with organization scope
 
 Engine resource slugs start with `tenant.`; `orgctx.EngineScope` refuses a tenant resource without an organization and a platform resource inside one. Jobs are stamped with `organization_id`, the worker re-scopes the context from the job row (`orgctx.WithOrganizationID`), job lookups only match the caller's scope (`orgctx.SameEngineScope`), platform job lists exclude tenant jobs.

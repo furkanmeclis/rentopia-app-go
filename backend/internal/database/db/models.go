@@ -396,6 +396,21 @@ type OrganizationMember struct {
 	RoleID         int64              `json:"role_id"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	BranchScope    string             `json:"branch_scope"`
+}
+
+type OrganizationMemberBranch struct {
+	OrganizationID int64              `json:"organization_id"`
+	MemberID       int64              `json:"member_id"`
+	BranchID       int64              `json:"branch_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type OrganizationMemberRole struct {
+	OrganizationID int64              `json:"organization_id"`
+	MemberID       int64              `json:"member_id"`
+	RoleID         int64              `json:"role_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
 type OtpCode struct {

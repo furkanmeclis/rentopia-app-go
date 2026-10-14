@@ -20,6 +20,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/branches/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/branches/repository"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/searchengine"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -32,6 +33,9 @@ var (
 	ErrNotFound             = errors.New("branch not found")
 	ErrServicePointNotFound = errors.New("service point not found")
 	ErrCodeTaken            = errors.New("branch code is already used in this organization")
+	// ErrAllBranchesRequired is returned when a branch-restricted member
+	// tries an action that needs every branch (creating a branch).
+	ErrAllBranchesRequired = errors.New("this action needs access to every branch")
 )
 
 // Detail is one field-level validation problem.
@@ -67,7 +71,7 @@ func (e *ValidationError) orNil() error {
 // Repository is the persistence port. Every method is scoped by orgID.
 type Repository interface {
 	ListBranches(ctx context.Context, orgID int64, f model.ListFilter) ([]repository.BranchRow, int64, error)
-	CityFacets(ctx context.Context, orgID int64) ([]model.Facet, error)
+	CityFacets(ctx context.Context, orgID int64, branchIDs []int64) ([]model.Facet, error)
 	ListBranchUUIDs(ctx context.Context, orgID int64, f model.ListFilter, limit int32) ([]uuid.UUID, error)
 	ListBranchesForExport(ctx context.Context, orgID int64, f model.ListFilter) ([]db.Branch, error)
 	GetBranch(ctx context.Context, orgID int64, id uuid.UUID) (db.Branch, error)
@@ -114,6 +118,7 @@ func (s *Service) List(ctx context.Context, orgID int64, f model.ListFilter) ([]
 		f.SortField = "created_at"
 		f.SortDesc = true
 	}
+	f.BranchIDs = orgctx.BranchScope(ctx)
 	rows, total, err := s.repo.ListBranches(ctx, orgID, f)
 	if err != nil {
 		return nil, 0, err
@@ -129,7 +134,7 @@ func (s *Service) List(ctx context.Context, orgID int64, f model.ListFilter) ([]
 
 // Facets returns the dynamic filter options (cities in use).
 func (s *Service) Facets(ctx context.Context, orgID int64) (model.Facets, error) {
-	cities, err := s.repo.CityFacets(ctx, orgID)
+	cities, err := s.repo.CityFacets(ctx, orgID, orgctx.BranchScope(ctx))
 	if err != nil {
 		return model.Facets{}, err
 	}
@@ -138,9 +143,9 @@ func (s *Service) Facets(ctx context.Context, orgID int64) (model.Facets, error)
 
 // Get returns one branch of the organization.
 func (s *Service) Get(ctx context.Context, orgID int64, id uuid.UUID) (model.Branch, error) {
-	row, err := s.repo.GetBranch(ctx, orgID, id)
+	row, err := s.getBranch(ctx, orgID, id)
 	if err != nil {
-		return model.Branch{}, mapNotFound(err, ErrNotFound)
+		return model.Branch{}, err
 	}
 	points, err := s.repo.ListServicePoints(ctx, orgID, row.ID)
 	if err != nil {
@@ -153,6 +158,11 @@ func (s *Service) Get(ctx context.Context, orgID int64, id uuid.UUID) (model.Bra
 
 // Create validates and stores a new branch.
 func (s *Service) Create(ctx context.Context, orgID int64, in model.BranchInput) (model.Branch, error) {
+	// A new branch is outside every 'selected' scope, so only members with
+	// access to every branch create branches.
+	if err := orgctx.RequireAllBranches(ctx); err != nil {
+		return model.Branch{}, ErrAllBranchesRequired
+	}
 	fields := repository.BranchFields{
 		PrepMinutes: 60, IsActive: true,
 		WorkingHours: mustJSON(model.DefaultWeeklyHours()), HolidayExceptions: []byte("[]"),
@@ -175,9 +185,9 @@ func (s *Service) Create(ctx context.Context, orgID int64, in model.BranchInput)
 
 // Patch updates the given fields of a branch.
 func (s *Service) Patch(ctx context.Context, orgID int64, id uuid.UUID, in model.BranchInput) (model.Branch, error) {
-	current, err := s.repo.GetBranch(ctx, orgID, id)
+	current, err := s.getBranch(ctx, orgID, id)
 	if err != nil {
-		return model.Branch{}, mapNotFound(err, ErrNotFound)
+		return model.Branch{}, err
 	}
 	fields := fieldsFromBranch(current)
 	if err := applyBranchInput(&fields, in, false); err != nil {
@@ -200,9 +210,9 @@ func (s *Service) Patch(ctx context.Context, orgID int64, id uuid.UUID, in model
 
 // SetActive switches is_active and returns the previous value (bulk engine).
 func (s *Service) SetActive(ctx context.Context, orgID int64, id uuid.UUID, active bool) (bool, error) {
-	current, err := s.repo.GetBranch(ctx, orgID, id)
+	current, err := s.getBranch(ctx, orgID, id)
 	if err != nil {
-		return false, mapNotFound(err, ErrNotFound)
+		return false, err
 	}
 	if current.IsActive != active {
 		if _, err := s.repo.SetBranchActive(ctx, orgID, id, active); err != nil {
@@ -215,6 +225,9 @@ func (s *Service) SetActive(ctx context.Context, orgID int64, id uuid.UUID, acti
 
 // Delete soft-deletes a branch.
 func (s *Service) Delete(ctx context.Context, orgID int64, id uuid.UUID) error {
+	if _, err := s.getBranch(ctx, orgID, id); err != nil {
+		return err
+	}
 	if err := s.repo.DeleteBranch(ctx, orgID, id); err != nil {
 		return mapNotFound(err, ErrNotFound)
 	}
@@ -227,11 +240,13 @@ func (s *Service) Delete(ctx context.Context, orgID int64, id uuid.UUID) error {
 // TargetUUIDs resolves the branches matching a list filter (bulk "all
 // matching" scope), capped at limit.
 func (s *Service) TargetUUIDs(ctx context.Context, orgID int64, f model.ListFilter, limit int32) ([]uuid.UUID, error) {
+	f.BranchIDs = orgctx.BranchScope(ctx)
 	return s.repo.ListBranchUUIDs(ctx, orgID, f, limit)
 }
 
 // ExportRows returns every branch matching a list filter (export engine).
 func (s *Service) ExportRows(ctx context.Context, orgID int64, f model.ListFilter) ([]model.Branch, error) {
+	f.BranchIDs = orgctx.BranchScope(ctx)
 	rows, err := s.repo.ListBranchesForExport(ctx, orgID, f)
 	if err != nil {
 		return nil, err
@@ -245,9 +260,9 @@ func (s *Service) ExportRows(ctx context.Context, orgID int64, f model.ListFilte
 
 // ListServicePoints lists the service points of a branch.
 func (s *Service) ListServicePoints(ctx context.Context, orgID int64, branchUUID uuid.UUID) ([]model.ServicePoint, error) {
-	branch, err := s.repo.GetBranch(ctx, orgID, branchUUID)
+	branch, err := s.getBranch(ctx, orgID, branchUUID)
 	if err != nil {
-		return nil, mapNotFound(err, ErrNotFound)
+		return nil, err
 	}
 	rows, err := s.repo.ListServicePoints(ctx, orgID, branch.ID)
 	if err != nil {
@@ -262,9 +277,9 @@ func (s *Service) ListServicePoints(ctx context.Context, orgID int64, branchUUID
 
 // CreateServicePoint adds a service point to a branch.
 func (s *Service) CreateServicePoint(ctx context.Context, orgID int64, branchUUID uuid.UUID, in model.ServicePointInput) (model.ServicePoint, error) {
-	branch, err := s.repo.GetBranch(ctx, orgID, branchUUID)
+	branch, err := s.getBranch(ctx, orgID, branchUUID)
 	if err != nil {
-		return model.ServicePoint{}, mapNotFound(err, ErrNotFound)
+		return model.ServicePoint{}, err
 	}
 	fields := repository.ServicePointFields{OnlineSelectable: true, IsActive: true}
 	_ = fields.ExtraFee.Scan("0")
@@ -281,9 +296,9 @@ func (s *Service) CreateServicePoint(ctx context.Context, orgID int64, branchUUI
 // PatchServicePoint updates a service point of a branch. A point of another
 // branch reads as not found.
 func (s *Service) PatchServicePoint(ctx context.Context, orgID int64, branchUUID, pointUUID uuid.UUID, in model.ServicePointInput) (model.ServicePoint, error) {
-	branch, err := s.repo.GetBranch(ctx, orgID, branchUUID)
+	branch, err := s.getBranch(ctx, orgID, branchUUID)
 	if err != nil {
-		return model.ServicePoint{}, mapNotFound(err, ErrNotFound)
+		return model.ServicePoint{}, err
 	}
 	current, err := s.repo.GetServicePoint(ctx, orgID, branch.ID, pointUUID)
 	if err != nil {
@@ -305,9 +320,9 @@ func (s *Service) PatchServicePoint(ctx context.Context, orgID int64, branchUUID
 
 // DeleteServicePoint removes a service point of a branch.
 func (s *Service) DeleteServicePoint(ctx context.Context, orgID int64, branchUUID, pointUUID uuid.UUID) error {
-	branch, err := s.repo.GetBranch(ctx, orgID, branchUUID)
+	branch, err := s.getBranch(ctx, orgID, branchUUID)
 	if err != nil {
-		return mapNotFound(err, ErrNotFound)
+		return err
 	}
 	if err := s.repo.DeleteServicePoint(ctx, orgID, branch.ID, pointUUID); err != nil {
 		return mapNotFound(err, ErrServicePointNotFound)
@@ -317,8 +332,8 @@ func (s *Service) DeleteServicePoint(ctx context.Context, orgID int64, branchUUI
 
 // Activity lists the audit events of a branch.
 func (s *Service) Activity(ctx context.Context, orgID int64, branchUUID uuid.UUID, limit, offset int32) ([]model.ActivityEntry, int64, error) {
-	if _, err := s.repo.GetBranch(ctx, orgID, branchUUID); err != nil {
-		return nil, 0, mapNotFound(err, ErrNotFound)
+	if _, err := s.getBranch(ctx, orgID, branchUUID); err != nil {
+		return nil, 0, err
 	}
 	rows, total, err := s.repo.ListActivity(ctx, orgID, branchUUID, limit, offset)
 	if err != nil {
@@ -354,6 +369,10 @@ func (s *Service) ImportRow(ctx context.Context, orgID int64, in model.BranchInp
 	}
 	if code != "" {
 		row, err := s.repo.GetBranchByCode(ctx, orgID, code)
+		if err == nil && orgctx.CheckBranch(ctx, row.ID) != nil {
+			// Same answer as a missing branch: do not leak it.
+			return uuid.Nil, false, nil, ErrNotFound
+		}
 		switch {
 		case err == nil:
 			prev := MapBranch(row)
@@ -371,6 +390,20 @@ func (s *Service) ImportRow(ctx context.Context, orgID int64, in model.BranchInp
 		return uuid.Nil, false, nil, err
 	}
 	return created.UUID, true, nil, nil
+}
+
+// getBranch loads a branch of the organization and applies the caller's
+// branch scope: a branch outside it reads as not found (404), like another
+// organization's uuid.
+func (s *Service) getBranch(ctx context.Context, orgID int64, id uuid.UUID) (db.Branch, error) {
+	row, err := s.repo.GetBranch(ctx, orgID, id)
+	if err != nil {
+		return db.Branch{}, mapNotFound(err, ErrNotFound)
+	}
+	if err := orgctx.CheckBranch(ctx, row.ID); err != nil {
+		return db.Branch{}, ErrNotFound
+	}
+	return row, nil
 }
 
 func (s *Service) index(ctx context.Context, orgID int64, id uuid.UUID) {

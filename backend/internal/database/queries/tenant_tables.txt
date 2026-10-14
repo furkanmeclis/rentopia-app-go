@@ -3,3 +3,5 @@
 # (enforced by internal/database/queries_test.go).
 branches
 service_points
+organization_member_roles
+organization_member_branches

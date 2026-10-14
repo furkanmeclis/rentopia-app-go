@@ -3135,6 +3135,324 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /v1/tenant/members/meta:
+    get:
+      tags: [Tenant]
+      operationId: getTenantMembersMeta
+      summary: Members list metadata
+      description: Table contract of `GET /v1/tenant/members` (`tenant.members.read`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Resource meta
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeResourceMeta"
+        "400": { $ref: "#/components/responses/OrganizationRequired" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/members:
+    get:
+      tags: [Tenant]
+      operationId: getTenantMembers
+      summary: List members of the organization
+      description: |
+        Members of the `X-Organization` organization with all their roles and
+        their branch access (`tenant.members.read`). `q` searches name,
+        surname and email. Invitations are managed separately.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - name: sort
+          in: query
+          description: "One of `name`, `email`, `branch_scope`, `last_login_at`, `created_at`; prefix `-` for descending. Default `created_at`."
+          schema: { type: string, example: "name" }
+        - name: role
+          in: query
+          description: Tenant role uuid; comma-separate or repeat for several (any of them)
+          schema: { type: string }
+        - name: branch_scope
+          in: query
+          schema: { type: string, enum: [all, selected] }
+      responses:
+        "200":
+          description: Member page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeTenantMemberPage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /v1/tenant/members/{userUuid}:
+    parameters:
+      - name: userUuid
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Tenant]
+      operationId: getTenantMember
+      summary: Get a member
+      description: "`tenant.members.read`. A user who is not a member answers `404`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeTenantMember"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantMember
+      summary: Change a member's roles and branch access
+      description: |
+        `tenant.members.write`. `role_uuids` replaces every role of the member
+        (at least one; template or organization roles). `branch_scope`
+        `selected` needs `branch_uuids` (at least one live branch of the
+        organization); `all` clears the selection. The change invalidates the
+        cached organization scope immediately.
+
+        Guards (`403 FORBIDDEN`): only owners grant or revoke `owner`; a
+        non-owner can only grant roles whose permissions it holds itself; a
+        branch-restricted caller can only manage members inside its own
+        branches and cannot grant `all`. Demoting the last owner answers
+        `409 LAST_ORGANIZATION_OWNER`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantMemberPatchRequest"
+      responses:
+        "200":
+          description: Updated member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeTenantMember"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantMember
+      summary: Remove a member from the organization
+      description: "`tenant.members.write`. Only owners remove an owner; the last owner cannot be removed (`409 LAST_ORGANIZATION_OWNER`)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeStatus"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/roles/meta:
+    get:
+      tags: [Tenant]
+      operationId: getTenantRolesMeta
+      summary: Tenant roles list metadata
+      description: Table contract of `GET /v1/tenant/roles` (`tenant.roles.read`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Resource meta
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeResourceMeta"
+        "400": { $ref: "#/components/responses/OrganizationRequired" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/roles/permissions:
+    get:
+      tags: [Tenant]
+      operationId: getTenantRolePermissions
+      summary: Assignable tenant permissions
+      description: Every `tenant.*` permission a role can hold (`tenant.roles.read`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeTenantPermissionList"
+        "400": { $ref: "#/components/responses/OrganizationRequired" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/roles:
+    get:
+      tags: [Tenant]
+      operationId: getTenantRoles
+      summary: List tenant roles
+      description: |
+        Template roles (shared by every organization, read-only) followed by
+        the organization's own roles, with permissions and member counts
+        (`tenant.roles.read`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - name: is_template
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Role page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeTenantRolePage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantRole
+      summary: Create an organization role
+      description: |
+        `tenant.roles.write`. `key` defaults to the slugified name and must be
+        unique among template and organization roles (`409 CONFLICT` with a
+        `key` detail). Non-owners can only grant permissions they hold.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantRoleRequest"
+      responses:
+        "201":
+          description: Created role
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeTenantRole"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/roles/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantRole
+      summary: Get a tenant role
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Role
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeTenantRole"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantRole
+      summary: Update an organization role
+      description: "`tenant.roles.write`. Template roles answer `403`; `key` is immutable."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantRoleRequest"
+      responses:
+        "200":
+          description: Updated role
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeTenantRole"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantRole
+      summary: Delete an organization role
+      description: "`tenant.roles.write`. Template roles answer `403`; a role members still hold answers `409 CONFLICT`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeStatus"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
   /v1/tenant/branches/meta:
     get:
       tags: [Tenant]
@@ -3185,7 +3503,10 @@ paths:
       summary: List branches of the organization
       description: |
         Branches of the `X-Organization` organization (`tenant.branches.read`).
-        `q` searches code, name, city, district, phone and email.
+        `q` searches code, name, city, district, phone and email. A member with
+        `branch_scope` = `selected` only sees (and exports, bulk-edits and
+        finds in search) its own branches; any other branch answers `404`, and
+        creating a branch answers `403`.
       security:
         - bearerAuth: []
       parameters:
@@ -4918,19 +5239,197 @@ components:
           format: date-time
           description: End of the access window; `null` = no end
 
+    TenantRoleRef:
+      type: object
+      required: [uuid, key, name, is_template]
+      properties:
+        uuid: { type: string, format: uuid }
+        key: { type: string, example: sube_yoneticisi }
+        name: { type: string, example: Şube Yöneticisi }
+        is_template: { type: boolean }
+
+    BranchRef:
+      type: object
+      required: [uuid, code, name]
+      properties:
+        uuid: { type: string, format: uuid }
+        code: { type: string, example: MRK }
+        name: { type: string, example: Merkez }
+
+    TenantMemberUser:
+      type: object
+      required: [uuid, email, name, surname, status]
+      properties:
+        uuid: { type: string, format: uuid }
+        email: { type: string, format: email }
+        name: { type: string }
+        surname: { type: string }
+        status: { type: string }
+
+    TenantMember:
+      type: object
+      required: [user, roles, branch_scope, branches, last_login_at, created_at, updated_at]
+      properties:
+        user: { $ref: "#/components/schemas/TenantMemberUser" }
+        roles:
+          type: array
+          description: Every role of the member; permissions are their union
+          items: { $ref: "#/components/schemas/TenantRoleRef" }
+        branch_scope:
+          type: string
+          enum: [all, selected]
+          description: "`all` = every branch; `selected` = only `branches`"
+        branches:
+          type: array
+          description: Granted branches (empty unless `branch_scope` is `selected`)
+          items: { $ref: "#/components/schemas/BranchRef" }
+        last_login_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    TenantMemberPage:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/TenantMember" }
+        total: { type: integer, format: int64 }
+        limit: { type: integer }
+        offset: { type: integer }
+
+    TenantMemberPatchRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        role_uuids:
+          type: array
+          minItems: 1
+          items: { type: string, format: uuid }
+        branch_scope: { type: string, enum: [all, selected] }
+        branch_uuids:
+          type: array
+          description: Required with `branch_scope` = `selected`
+          items: { type: string, format: uuid }
+
+    TenantRole:
+      type: object
+      required: [uuid, key, name, description, is_template, member_count, permissions, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        key: { type: string, example: gece_vardiyasi }
+        name: { type: string }
+        description: { type: string }
+        is_template:
+          type: boolean
+          description: Template roles are shared by every organization and read-only
+        member_count: { type: integer, format: int64 }
+        permissions:
+          type: array
+          items: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    TenantRolePage:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/TenantRole" }
+        total: { type: integer, format: int64 }
+        limit: { type: integer }
+        offset: { type: integer }
+
+    TenantRoleRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        key:
+          type: string
+          description: "Create only: `^[a-z][a-z0-9_]{1,63}$`; defaults to the slugified name"
+        name: { type: string, maxLength: 100 }
+        description: { type: string, maxLength: 500 }
+        permissions:
+          type: array
+          items: { type: string, example: tenant.branches.read }
+
+    TenantPermission:
+      type: object
+      required: [slug, name]
+      properties:
+        slug: { type: string, example: tenant.payment.refund }
+        name: { type: string, example: Refund payments }
+
+    TenantPermissionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/TenantPermission" }
+
+    EnvelopeTenantMember:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/TenantMember" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeTenantMemberPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/TenantMemberPage" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeTenantRole:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/TenantRole" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeTenantRolePage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/TenantRolePage" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeTenantPermissionList:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/TenantPermissionList" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
     TenantContext:
       type: object
-      required: [organization, role, permissions]
+      required: [organization, role, roles, permissions, branch_scope]
       properties:
         organization: { $ref: "#/components/schemas/TenantOrganization" }
         role:
           type: string
-          description: Caller's tenant role key in this organization (`owner`, `admin`, `member` or a custom key)
+          description: Caller's primary tenant role key in this organization (`owner`, `admin`, `member`, a Rentopia template or a custom key)
           example: owner
+        roles:
+          type: array
+          description: Every tenant role key of the caller in this organization
+          items: { type: string }
         permissions:
           type: array
-          description: "`tenant.*` permission slugs granted in this organization only"
+          description: "`tenant.*` permission slugs granted in this organization only: the union over `roles`"
           items: { type: string }
+        branch_scope:
+          type: string
+          enum: [all, selected]
+          description: "`selected`: branch-bound data (branches and later reservations, vehicles, …) is limited to the caller's branches; other branches answer `404`"
 
     EnvelopeTenantContext:
       type: object

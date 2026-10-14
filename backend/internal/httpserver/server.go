@@ -279,6 +279,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		tenantResolver = orgCache
 	}
 	tenantmodule.RegisterRoutes(mux, tokens, loader, tenantResolver)
+	organizationsmodule.RegisterTenantRoutes(mux, orghandler.New(orgSvc, activityRec), tokens, loader, tenantResolver)
 
 	// Vehicle catalog (TSB kasko list): platform curation + imports, and
 	// read-only lookups for organization members when tenancy is on.
@@ -322,6 +323,11 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		branchadapters.NewBulk(branchSvc),
 	)
 	bulkSvc := bulkusecase.New(deps.Queries, bulkReg, deps.Queue, notifSvc, activityRec, cfg.Bulk, log)
+	// Tenant jobs run with the requester's current membership (permissions
+	// and branch scope).
+	exportSvc.SetJobScopeLoader(orgSvc)
+	importSvc.SetJobScopeLoader(orgSvc)
+	bulkSvc.SetJobScopeLoader(orgSvc)
 	logsSvc := logsusecase.New(deps.Queries)
 	if s.worker != nil {
 		s.worker.WithExport(exportSvc.ProcessExport).

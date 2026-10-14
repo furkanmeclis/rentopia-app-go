@@ -328,6 +328,8 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, usecase.ErrNotFound):
 		response.NotFound(w, r, "Branch was not found")
+	case errors.Is(err, usecase.ErrAllBranchesRequired):
+		response.Forbidden(w, r, err.Error())
 	case errors.Is(err, usecase.ErrServicePointNotFound):
 		response.NotFound(w, r, "Service point was not found")
 	case errors.Is(err, usecase.ErrCodeTaken):
