@@ -58,6 +58,8 @@ export const routes = {
       groups: fleetRoutes("groups"),
       products: fleetRoutes("products"),
       vehicles: fleetRoutes("vehicles"),
+      /** Upcoming / overdue documents and maintenance ("Operasyon özeti"). */
+      alerts: (slug: string) => `/t/${encodeURIComponent(slug)}/fleet/alerts`,
     },
     settings: {
       root: (slug: string) => `/t/${encodeURIComponent(slug)}/settings`,

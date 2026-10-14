@@ -33,4 +33,6 @@ export type ListVehiclesParams = {
   ownership?: string;
   pool?: string;
   is_active?: "true" | "false";
+  /** Next document to renew: expired / expiring / valid / none. */
+  document_status?: string;
 };
