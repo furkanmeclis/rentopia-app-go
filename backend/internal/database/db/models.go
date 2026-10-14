@@ -409,6 +409,30 @@ type OrganizationMember struct {
 	RoleID         int64              `json:"role_id"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	BranchScope    string             `json:"branch_scope"`
+}
+
+type OrganizationMemberBranch struct {
+	OrganizationID int64              `json:"organization_id"`
+	MemberID       int64              `json:"member_id"`
+	BranchID       int64              `json:"branch_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type OrganizationMemberRole struct {
+	OrganizationID int64              `json:"organization_id"`
+	MemberID       int64              `json:"member_id"`
+	RoleID         int64              `json:"role_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type OrganizationSettingsVersion struct {
+	ID             int64              `json:"id"`
+	OrganizationID int64              `json:"organization_id"`
+	Version        int32              `json:"version"`
+	Data           []byte             `json:"data"`
+	CreatedBy      pgtype.Int8        `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
 type OtpCode struct {

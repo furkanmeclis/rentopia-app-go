@@ -39,5 +39,9 @@
   "section_fleet": "Filo",
   "nav_fleet_segments": "Segmentler",
   "nav_fleet_groups": "Kiralama grupları",
-  "nav_fleet_products": "Ürünler"
+  "nav_fleet_products": "Ürünler",
+  "section_tenant_settings": "Ayarlar",
+  "nav_tenant_settings_general": "Genel",
+  "nav_tenant_settings_members": "Üyeler",
+  "nav_tenant_settings_roles": "Roller"
 }

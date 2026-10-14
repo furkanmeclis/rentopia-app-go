@@ -50,6 +50,18 @@ export const routes = {
       groups: fleetRoutes("groups"),
       products: fleetRoutes("products"),
     },
+    settings: {
+      root: (slug: string) => `/t/${encodeURIComponent(slug)}/settings`,
+      members: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/settings/members`,
+      roles: {
+        root: (slug: string) => `/t/${encodeURIComponent(slug)}/settings/roles`,
+        create: (slug: string) =>
+          `/t/${encodeURIComponent(slug)}/settings/roles/create`,
+        detail: (slug: string, uuid: string) =>
+          `/t/${encodeURIComponent(slug)}/settings/roles/${uuid}`,
+      },
+    },
   },
   platform: {
     root: "/platform",

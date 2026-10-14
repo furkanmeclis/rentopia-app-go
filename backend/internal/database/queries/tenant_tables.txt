@@ -10,3 +10,6 @@ rental_group_catalog_types
 rental_products
 rental_product_versions
 rental_product_images
+organization_member_roles
+organization_member_branches
+organization_settings_versions

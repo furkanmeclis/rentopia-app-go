@@ -39,5 +39,9 @@
   "section_fleet": "Fleet",
   "nav_fleet_segments": "Segments",
   "nav_fleet_groups": "Rental groups",
-  "nav_fleet_products": "Products"
+  "nav_fleet_products": "Products",
+  "section_tenant_settings": "Settings",
+  "nav_tenant_settings_general": "General",
+  "nav_tenant_settings_members": "Members",
+  "nav_tenant_settings_roles": "Roles"
 }

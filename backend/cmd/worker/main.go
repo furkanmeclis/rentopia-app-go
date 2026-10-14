@@ -25,6 +25,8 @@ import (
 	notifmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications/providers"
 	notifusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications/usecase"
+	orgrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/repository"
+	orgusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/usecase"
 	tenantmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tenant"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/observability"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/activity"
@@ -140,6 +142,12 @@ func main() {
 		fleetadapters.NewProductsBulk(fleetSvc),
 	)
 	bulkSvc := bulkusecase.New(queries, bulkReg, nil, notifSvc, activityRec, cfg.Bulk, log)
+	// Tenant jobs run with the requester's current membership (permissions
+	// and branch scope), re-resolved from the job's actor.
+	jobScopes := orgusecase.New(orgrepository.NewPostgres(pool, queries), nil)
+	exportSvc.SetJobScopeLoader(jobScopes)
+	importSvc.SetJobScopeLoader(jobScopes)
+	bulkSvc.SetJobScopeLoader(jobScopes)
 	logsSvc := logsusecase.New(queries)
 	// Steps run inline inside the worker task, so no queue is passed.
 	catalogSvc := catalogusecase.New(catalogrepository.NewPostgres(pool, queries), store, nil, activityRec, log)

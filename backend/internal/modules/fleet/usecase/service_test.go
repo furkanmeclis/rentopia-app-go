@@ -144,10 +144,14 @@ func newFixture(t *testing.T) *fixture {
 	}
 	// Platform catalog rows of the worked examples.
 	var brandRenault, brandFiat int64
-	if err := pool.QueryRow(ctx, `INSERT INTO catalog_brands (tsb_code, tsb_name, display_name) VALUES ($1, 'RENAULT', 'Renault') RETURNING id`, "RN"+suffix).Scan(&brandRenault); err != nil {
+	if err := pool.QueryRow(ctx, `WITH d AS (INSERT INTO catalog_display_brands (name, slug) VALUES ($2, $3) RETURNING id)
+		INSERT INTO catalog_brands (tsb_code, tsb_name, display_name, display_brand_id) SELECT $1, 'RENAULT', 'Renault', d.id FROM d RETURNING id`,
+		"RN"+suffix, "Renault "+suffix, "renault-"+strings.ToLower(suffix)).Scan(&brandRenault); err != nil {
 		t.Fatal(err)
 	}
-	if err := pool.QueryRow(ctx, `INSERT INTO catalog_brands (tsb_code, tsb_name, display_name) VALUES ($1, 'FIAT', 'Fiat') RETURNING id`, "FT"+suffix).Scan(&brandFiat); err != nil {
+	if err := pool.QueryRow(ctx, `WITH d AS (INSERT INTO catalog_display_brands (name, slug) VALUES ($2, $3) RETURNING id)
+		INSERT INTO catalog_brands (tsb_code, tsb_name, display_name, display_brand_id) SELECT $1, 'FIAT', 'Fiat', d.id FROM d RETURNING id`,
+		"FT"+suffix, "Fiat "+suffix, "fiat-"+strings.ToLower(suffix)).Scan(&brandFiat); err != nil {
 		t.Fatal(err)
 	}
 	clio, err := q.CreateCatalogModel(ctx, db.CreateCatalogModelParams{BrandID: brandRenault, Name: "Clio", Source: "manual"})
@@ -167,6 +171,7 @@ func newFixture(t *testing.T) *fixture {
 		bg := context.Background()
 		_, _ = pool.Exec(bg, "DELETE FROM organizations WHERE id = ANY($1)", []int64{orgA.ID, orgB.ID})
 		_, _ = pool.Exec(bg, "DELETE FROM catalog_brands WHERE id = ANY($1)", []int64{brandRenault, brandFiat})
+		_, _ = pool.Exec(bg, "DELETE FROM catalog_display_brands WHERE name = ANY($1)", []string{"Renault " + suffix, "Fiat " + suffix})
 		_, _ = pool.Exec(bg, "DELETE FROM users WHERE id = $1", user.ID)
 	})
 	svc := New(repository.NewPostgres(pool, q), memDriver{m: storage.NewMemory()}, nil)

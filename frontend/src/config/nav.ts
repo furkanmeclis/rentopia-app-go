@@ -16,10 +16,12 @@ import {
   Settings2,
   Share2,
   Shield,
+  SlidersHorizontal,
   Sparkles,
   Store,
   Tags,
   Upload,
+  Users,
 } from "lucide-react";
 
 import { permissions } from "@/config/permissions";
@@ -306,6 +308,35 @@ export function tenantNav(slug: string): NavCatalog {
             href: routes.tenant.fleet.products.root(slug),
             icon: Tags,
             permission: permissions.tenant.fleet.read,
+          },
+        ],
+      },
+      {
+        id: "settings",
+        labelKey: "layout.section_tenant_settings",
+        icon: Settings2,
+        defaultOpen: false,
+        items: [
+          {
+            id: "settings-general",
+            titleKey: "layout.nav_tenant_settings_general",
+            href: routes.tenant.settings.root(slug),
+            icon: SlidersHorizontal,
+            permission: permissions.tenant.settings.read,
+          },
+          {
+            id: "settings-members",
+            titleKey: "layout.nav_tenant_settings_members",
+            href: routes.tenant.settings.members(slug),
+            icon: Users,
+            permission: permissions.tenant.members.read,
+          },
+          {
+            id: "settings-roles",
+            titleKey: "layout.nav_tenant_settings_roles",
+            href: routes.tenant.settings.roles.root(slug),
+            icon: Shield,
+            permission: permissions.tenant.roles.read,
           },
         ],
       },

@@ -67,6 +67,10 @@ import (
 	orghandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/handler"
 	orgrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/repository"
 	orgusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/usecase"
+	orgsettingsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings"
+	orgsettingshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/handler"
+	orgsettingsrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/repository"
+	orgsettingsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/qrlogin"
 	searchmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/search"
 	searchhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/search/handler"
@@ -296,6 +300,10 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		tenantResolver = orgCache
 	}
 	tenantmodule.RegisterRoutes(mux, tokens, loader, tenantResolver)
+	organizationsmodule.RegisterTenantRoutes(mux, orghandler.New(orgSvc, activityRec), tokens, loader, tenantResolver)
+	orgsettingsmodule.RegisterRoutes(mux, orgsettingshandler.New(
+		orgsettingsusecase.New(orgsettingsrepository.NewPostgres(deps.DB, deps.Queries)), activityRec,
+	), tokens, loader, tenantResolver)
 
 	// Live lists of tenant resources: org:{org_uuid}:resource:{name}, open to
 	// members whose tenant role grants the resource's read permission.
@@ -353,6 +361,11 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		fleetadapters.NewProductsBulk(fleetSvc),
 	)
 	bulkSvc := bulkusecase.New(deps.Queries, bulkReg, deps.Queue, notifSvc, activityRec, cfg.Bulk, log)
+	// Tenant jobs run with the requester's current membership (permissions
+	// and branch scope).
+	exportSvc.SetJobScopeLoader(orgSvc)
+	importSvc.SetJobScopeLoader(orgSvc)
+	bulkSvc.SetJobScopeLoader(orgSvc)
 	logsSvc := logsusecase.New(deps.Queries)
 	importSvc.SetResourceEvents(resourceEvents)
 	bulkSvc.SetResourceEvents(resourceEvents)

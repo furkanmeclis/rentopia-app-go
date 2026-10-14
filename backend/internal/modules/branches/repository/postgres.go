@@ -74,13 +74,14 @@ func (r *Postgres) WithQueries(q *db.Queries) *Postgres {
 func (r *Postgres) ListBranches(ctx context.Context, orgID int64, f model.ListFilter) ([]BranchRow, int64, error) {
 	rows, err := r.q.ListBranches(ctx, db.ListBranchesParams{
 		OrganizationID: orgID, IsActive: boolArg(f.IsActive), Cities: citiesArg(f.Cities), Q: textArg(f.Q),
-		SortField: f.SortField, SortDesc: f.SortDesc, LimitCount: f.Limit, OffsetCount: f.Offset,
+		BranchIds: f.BranchIDs, SortField: f.SortField, SortDesc: f.SortDesc, LimitCount: f.Limit, OffsetCount: f.Offset,
 	})
 	if err != nil {
 		return nil, 0, err
 	}
 	total, err := r.q.CountBranches(ctx, db.CountBranchesParams{
 		OrganizationID: orgID, IsActive: boolArg(f.IsActive), Cities: citiesArg(f.Cities), Q: textArg(f.Q),
+		BranchIds: f.BranchIDs,
 	})
 	if err != nil {
 		return nil, 0, err
@@ -101,8 +102,8 @@ func (r *Postgres) ListBranches(ctx context.Context, orgID int64, f model.ListFi
 	return out, total, nil
 }
 
-func (r *Postgres) CityFacets(ctx context.Context, orgID int64) ([]model.Facet, error) {
-	rows, err := r.q.ListBranchCityFacets(ctx, orgID)
+func (r *Postgres) CityFacets(ctx context.Context, orgID int64, branchIDs []int64) ([]model.Facet, error) {
+	rows, err := r.q.ListBranchCityFacets(ctx, db.ListBranchCityFacetsParams{OrganizationID: orgID, BranchIds: branchIDs})
 	if err != nil {
 		return nil, err
 	}
@@ -116,13 +117,14 @@ func (r *Postgres) CityFacets(ctx context.Context, orgID int64) ([]model.Facet, 
 func (r *Postgres) ListBranchUUIDs(ctx context.Context, orgID int64, f model.ListFilter, limit int32) ([]uuid.UUID, error) {
 	return r.q.ListBranchUUIDs(ctx, db.ListBranchUUIDsParams{
 		OrganizationID: orgID, IsActive: boolArg(f.IsActive), Cities: citiesArg(f.Cities), Q: textArg(f.Q),
-		LimitCount: limit,
+		BranchIds: f.BranchIDs, LimitCount: limit,
 	})
 }
 
 func (r *Postgres) ListBranchesForExport(ctx context.Context, orgID int64, f model.ListFilter) ([]db.Branch, error) {
 	return r.q.ListBranchesForExport(ctx, db.ListBranchesForExportParams{
 		OrganizationID: orgID, IsActive: boolArg(f.IsActive), Cities: citiesArg(f.Cities), Q: textArg(f.Q),
+		BranchIds: f.BranchIDs,
 	})
 }
 

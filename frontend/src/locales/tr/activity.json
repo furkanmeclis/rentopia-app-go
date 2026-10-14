@@ -84,5 +84,13 @@
   "actions.rental_products.version_created": "Yeni ürün sürümü oluşturuldu",
   "actions.rental_products.image_uploaded": "Ürün görseli yüklendi",
   "actions.rental_products.image_deleted": "Ürün görseli silindi",
-  "actions.rental_products.images_reordered": "Ürün görsellerinin sırası değişti"
+  "actions.rental_products.images_reordered": "Ürün görsellerinin sırası değişti",
+  "resources.tenant.members": "Firma üyeleri",
+  "resources.tenant.roles": "Firma rolleri",
+  "resources.tenant.settings": "Firma ayarları",
+  "actions.members.updated": "Üye erişimi güncellendi",
+  "actions.members.removed": "Üye firmadan çıkarıldı",
+  "actions.roles.created": "Rol oluşturuldu",
+  "actions.roles.updated": "Rol güncellendi",
+  "actions.roles.deleted": "Rol silindi"
 }

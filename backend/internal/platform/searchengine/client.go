@@ -74,6 +74,9 @@ func (c *Client) EnsureIndex(ctx context.Context, spec Spec) error {
 	filterable := append([]string{"spec"}, spec.Filterable...)
 	if spec.Scope == ScopeTenant {
 		filterable = append(filterable, "organization_id")
+		if spec.BranchScoped {
+			filterable = append(filterable, "branch_ids")
+		}
 	}
 	settings := &meilisearch.Settings{
 		SearchableAttributes: searchable,
@@ -138,8 +141,21 @@ func (c *Client) SearchOrganization(ctx context.Context, specs []string, q strin
 // SearchFiltered queries one or more spec indexes with an optional
 // Meilisearch filter expression (trusted, server-built).
 func (c *Client) SearchFiltered(ctx context.Context, specs []string, q string, limit int, filter string) ([]Hit, error) {
+	filters := make([]string, len(specs))
+	for i := range filters {
+		filters[i] = filter
+	}
+	return c.SearchPerSpec(ctx, specs, filters, q, limit)
+}
+
+// SearchPerSpec queries spec indexes with one trusted filter per spec
+// (filters[i] applies to specs[i]; empty = no filter).
+func (c *Client) SearchPerSpec(ctx context.Context, specs, filters []string, q string, limit int) ([]Hit, error) {
 	if !c.Enabled() {
 		return nil, nil
+	}
+	if len(filters) != len(specs) {
+		return nil, fmt.Errorf("searchengine: %d filters for %d specs", len(filters), len(specs))
 	}
 	if limit <= 0 {
 		limit = 20
@@ -148,23 +164,23 @@ func (c *Client) SearchFiltered(ctx context.Context, specs []string, q string, l
 		limit = 50
 	}
 	q = strings.TrimSpace(q)
-	if q == "" {
+	if q == "" || len(specs) == 0 {
 		return nil, nil
 	}
 
 	if len(specs) == 1 {
-		return c.searchOne(ctx, specs[0], q, limit, filter)
+		return c.searchOne(ctx, specs[0], q, limit, filters[0])
 	}
 
 	queries := make([]*meilisearch.SearchRequest, 0, len(specs))
-	for _, spec := range specs {
+	for i, spec := range specs {
 		req := &meilisearch.SearchRequest{
 			IndexUID: c.indexUID(spec),
 			Query:    q,
 			Limit:    int64(limit),
 		}
-		if filter != "" {
-			req.Filter = filter
+		if filters[i] != "" {
+			req.Filter = filters[i]
 		}
 		queries = append(queries, req)
 	}

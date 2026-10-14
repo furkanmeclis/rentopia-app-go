@@ -49,6 +49,16 @@ type Service struct {
 	log      *slog.Logger
 	syncMode bool
 	events   resourceEvents
+	// scopes re-resolves the requester's membership for tenant jobs
+	// (permissions and branch scope); see orgctx.WithJobScope.
+	scopes orgctx.JobScopeLoader
+}
+
+// SetJobScopeLoader makes tenant jobs run with the requester's current
+// organization scope (branch scope included) instead of the bare
+// organization id.
+func (s *Service) SetJobScopeLoader(l orgctx.JobScopeLoader) {
+	s.scopes = l
 }
 
 func New(
@@ -225,8 +235,13 @@ func (s *Service) ProcessImport(ctx context.Context, jobID int64) error {
 		return err
 	}
 	if job.OrganizationID.Valid {
-		// Tenant job: adapters read the organization from the context.
-		ctx = orgctx.WithOrganizationID(ctx, job.OrganizationID.Int64)
+		// Tenant job: adapters read the organization (and the requester's
+		// branch scope) from the context.
+		scoped, err := orgctx.WithJobScope(ctx, s.scopes, job.OrganizationID.Int64, job.ActorID)
+		if err != nil {
+			return s.failImport(ctx, jobID, err.Error())
+		}
+		ctx = scoped
 	}
 	adapter, err := s.registry.Get(job.Resource)
 	if err != nil {

@@ -26,6 +26,9 @@ type Spec struct {
 	Filterable []string `json:"filterable_fields,omitempty"`
 	// Scope is ScopePlatform (empty) or ScopeTenant.
 	Scope string `json:"scope,omitempty"`
+	// BranchScoped tenant specs index Document.BranchIDs; a tenant search
+	// by a branch-restricted member only matches its branches.
+	BranchScoped bool `json:"-"`
 }
 
 // Document is the Meilisearch index payload for one entity.
@@ -39,6 +42,9 @@ type Document struct {
 	Icon     string   `json:"icon,omitempty"`
 	// OrganizationID is set on tenant documents; tenant searches filter on it.
 	OrganizationID int64 `json:"organization_id,omitempty"`
+	// BranchIDs are the branches a branch-bound tenant document belongs to
+	// (BranchScoped specs).
+	BranchIDs []int64 `json:"branch_ids,omitempty"`
 }
 
 // Hit is a normalized search result returned to clients.
@@ -78,4 +84,23 @@ func ParseTenantDocumentID(docID string) (int64, string, error) {
 		return 0, "", fmt.Errorf("searchengine: invalid tenant document id %q", docID)
 	}
 	return orgID, id, nil
+}
+
+// TenantFilter builds the trusted Meilisearch filter of a tenant search in
+// spec for one organization and the caller's branch scope (nil = every
+// branch). ok is false when the spec must be skipped: a branch-scoped spec
+// for a member without any branch.
+func TenantFilter(spec Spec, organizationID int64, branchIDs []int64) (filter string, ok bool) {
+	filter = "organization_id = " + strconv.FormatInt(organizationID, 10)
+	if !spec.BranchScoped || branchIDs == nil {
+		return filter, true
+	}
+	if len(branchIDs) == 0 {
+		return "", false
+	}
+	ids := make([]string, 0, len(branchIDs))
+	for _, id := range branchIDs {
+		ids = append(ids, strconv.FormatInt(id, 10))
+	}
+	return filter + " AND branch_ids IN [" + strings.Join(ids, ", ") + "]", true
 }

@@ -44,6 +44,8 @@ SELECT
 FROM branches b
 WHERE b.organization_id = sqlc.arg(organization_id)
   AND b.deleted_at IS NULL
+  -- Branch scope of the caller: NULL = every branch.
+  AND (sqlc.narg(branch_ids)::bigint[] IS NULL OR b.id = ANY(sqlc.narg(branch_ids)::bigint[]))
   AND (sqlc.narg(is_active)::boolean IS NULL OR b.is_active = sqlc.narg(is_active))
   AND (sqlc.narg(cities)::text[] IS NULL OR b.city = ANY(sqlc.narg(cities)::text[]))
   AND (
@@ -78,6 +80,8 @@ SELECT COUNT(*)::bigint
 FROM branches b
 WHERE b.organization_id = sqlc.arg(organization_id)
   AND b.deleted_at IS NULL
+  -- Branch scope of the caller: NULL = every branch.
+  AND (sqlc.narg(branch_ids)::bigint[] IS NULL OR b.id = ANY(sqlc.narg(branch_ids)::bigint[]))
   AND (sqlc.narg(is_active)::boolean IS NULL OR b.is_active = sqlc.narg(is_active))
   AND (sqlc.narg(cities)::text[] IS NULL OR b.city = ANY(sqlc.narg(cities)::text[]))
   AND (
@@ -95,6 +99,7 @@ SELECT city, COUNT(*)::bigint AS count
 FROM branches
 WHERE organization_id = sqlc.arg(organization_id)
   AND deleted_at IS NULL
+  AND (sqlc.narg(branch_ids)::bigint[] IS NULL OR id = ANY(sqlc.narg(branch_ids)::bigint[]))
   AND city <> ''
 GROUP BY city
 ORDER BY city ASC;
@@ -104,6 +109,8 @@ SELECT uuid
 FROM branches b
 WHERE b.organization_id = sqlc.arg(organization_id)
   AND b.deleted_at IS NULL
+  -- Branch scope of the caller: NULL = every branch.
+  AND (sqlc.narg(branch_ids)::bigint[] IS NULL OR b.id = ANY(sqlc.narg(branch_ids)::bigint[]))
   AND (sqlc.narg(is_active)::boolean IS NULL OR b.is_active = sqlc.narg(is_active))
   AND (sqlc.narg(cities)::text[] IS NULL OR b.city = ANY(sqlc.narg(cities)::text[]))
   AND (
@@ -123,6 +130,8 @@ SELECT *
 FROM branches b
 WHERE b.organization_id = sqlc.arg(organization_id)
   AND b.deleted_at IS NULL
+  -- Branch scope of the caller: NULL = every branch.
+  AND (sqlc.narg(branch_ids)::bigint[] IS NULL OR b.id = ANY(sqlc.narg(branch_ids)::bigint[]))
   AND (sqlc.narg(is_active)::boolean IS NULL OR b.is_active = sqlc.narg(is_active))
   AND (sqlc.narg(cities)::text[] IS NULL OR b.city = ANY(sqlc.narg(cities)::text[]))
   AND (
@@ -172,7 +181,7 @@ WHERE organization_id = sqlc.arg(organization_id)
   AND deleted_at IS NULL;
 
 -- name: GetBranchSearchDocument :one
-SELECT b.uuid, b.code, b.name, b.city, b.district, b.is_active, b.organization_id, o.slug AS organization_slug
+SELECT b.id, b.uuid, b.code, b.name, b.city, b.district, b.is_active, b.organization_id, o.slug AS organization_slug
 FROM branches b
 JOIN organizations o ON o.id = b.organization_id
 WHERE b.organization_id = sqlc.arg(organization_id)
@@ -180,7 +189,7 @@ WHERE b.organization_id = sqlc.arg(organization_id)
   AND b.deleted_at IS NULL;
 
 -- name: ListBranchSearchDocuments :many
-SELECT b.uuid, b.code, b.name, b.city, b.district, b.is_active, b.organization_id, o.slug AS organization_slug
+SELECT b.id, b.uuid, b.code, b.name, b.city, b.district, b.is_active, b.organization_id, o.slug AS organization_slug
 FROM branches b
 JOIN organizations o ON o.id = b.organization_id
 WHERE b.organization_id = sqlc.arg(organization_id)

@@ -84,5 +84,13 @@
   "actions.rental_products.version_created": "New product version created",
   "actions.rental_products.image_uploaded": "Product image uploaded",
   "actions.rental_products.image_deleted": "Product image deleted",
-  "actions.rental_products.images_reordered": "Product images reordered"
+  "actions.rental_products.images_reordered": "Product images reordered",
+  "resources.tenant.members": "Organization members",
+  "resources.tenant.roles": "Organization roles",
+  "resources.tenant.settings": "Organization settings",
+  "actions.members.updated": "Member access updated",
+  "actions.members.removed": "Member removed from the organization",
+  "actions.roles.created": "Role created",
+  "actions.roles.updated": "Role updated",
+  "actions.roles.deleted": "Role deleted"
 }
