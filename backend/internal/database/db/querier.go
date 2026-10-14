@@ -18,6 +18,7 @@ type Querier interface {
 	AddVehicleRentalGroup(ctx context.Context, arg AddVehicleRentalGroupParams) error
 	AssignUserRoleBySlug(ctx context.Context, arg AssignUserRoleBySlugParams) error
 	BranchCodeTaken(ctx context.Context, arg BranchCodeTakenParams) (bool, error)
+	CancelVehicleTransfer(ctx context.Context, arg CancelVehicleTransferParams) (int64, error)
 	CatalogDisplayBrandSlugTaken(ctx context.Context, arg CatalogDisplayBrandSlugTakenParams) (bool, error)
 	// Moves an import into a working state only from an allowed state, so two
 	// apply requests cannot run at once.
@@ -25,6 +26,7 @@ type Querier interface {
 	ClaimOutboxEvents(ctx context.Context, arg ClaimOutboxEventsParams) ([]OutboxEvent, error)
 	ClearAppSettingsLogo(ctx context.Context) (AppSetting, error)
 	ClearVehicleRentalGroups(ctx context.Context, arg ClearVehicleRentalGroupsParams) error
+	CompleteVehicleTransfer(ctx context.Context, arg CompleteVehicleTransferParams) (int64, error)
 	ConfirmUserTOTP(ctx context.Context, arg ConfirmUserTOTPParams) (UserTotp, error)
 	ConsumeOTP(ctx context.Context, id int64) (int64, error)
 	CountActivityEvents(ctx context.Context, arg CountActivityEventsParams) (int64, error)
@@ -43,6 +45,7 @@ type Querier interface {
 	CountExportJobsForActor(ctx context.Context, actorID int64) (int64, error)
 	CountImportJobsForActor(ctx context.Context, actorID int64) (int64, error)
 	CountNotificationsForUser(ctx context.Context, arg CountNotificationsForUserParams) (int64, error)
+	CountOneWayRules(ctx context.Context, arg CountOneWayRulesParams) (int64, error)
 	CountOrganizationMembersByOrg(ctx context.Context, arg CountOrganizationMembersByOrgParams) (int64, error)
 	// Members holding the template owner role (any of their roles).
 	CountOrganizationOwners(ctx context.Context, organizationID int64) (int64, error)
@@ -66,10 +69,12 @@ type Querier interface {
 	CountUnresolvedCatalogTypesByCategory(ctx context.Context) ([]CountUnresolvedCatalogTypesByCategoryRow, error)
 	CountUsers(ctx context.Context, arg CountUsersParams) (int64, error)
 	CountUsersWithRole(ctx context.Context, roleSlug string) (int64, error)
+	CountVehicleBlocks(ctx context.Context, arg CountVehicleBlocksParams) (int64, error)
 	CountVehicleEvents(ctx context.Context, arg CountVehicleEventsParams) (int64, error)
 	// Live groups and products per segment.
 	CountVehicleSegmentUsage(ctx context.Context, arg CountVehicleSegmentUsageParams) ([]CountVehicleSegmentUsageRow, error)
 	CountVehicleSegments(ctx context.Context, arg CountVehicleSegmentsParams) (int64, error)
+	CountVehicleTransfers(ctx context.Context, arg CountVehicleTransfersParams) (int64, error)
 	CountVehicles(ctx context.Context, arg CountVehiclesParams) (int64, error)
 	// Tenant resource: branches and service points.
 	// Every query filters by organization_id (see docs/design/tenant-core.md §8).
@@ -84,6 +89,12 @@ type Querier interface {
 	CreateNotification(ctx context.Context, arg CreateNotificationParams) (Notification, error)
 	CreateOAuthAccount(ctx context.Context, arg CreateOAuthAccountParams) (OauthAccount, error)
 	CreateOTPCode(ctx context.Context, arg CreateOTPCodeParams) (OtpCode, error)
+	// Tenant resource: one-way rules (TEC-695). Every query filters by
+	// organization_id (docs/design/tenant-core.md §8).
+	//
+	// Branch scope: a rule is visible when its from OR to branch is in the
+	// caller's scope (branch_ids NULL = every branch).
+	CreateOneWayRule(ctx context.Context, arg CreateOneWayRuleParams) (uuid.UUID, error)
 	CreateOrganization(ctx context.Context, arg CreateOrganizationParams) (Organization, error)
 	CreateOrganizationInvitation(ctx context.Context, arg CreateOrganizationInvitationParams) (OrganizationInvitation, error)
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
@@ -109,6 +120,7 @@ type Querier interface {
 	// Kasko value: the latest TSB valuation period of the vehicle's catalog
 	// type and model year, computed on read (never copied into the row).
 	CreateVehicle(ctx context.Context, arg CreateVehicleParams) (Vehicle, error)
+	CreateVehicleBlock(ctx context.Context, arg CreateVehicleBlockParams) (uuid.UUID, error)
 	// Tenant resource: fleet classification (TEC-691) — vehicle segments,
 	// rental groups (+ catalog criteria) and rental products (+ versions, images).
 	// Every query on these tables filters by organization_id
@@ -116,6 +128,12 @@ type Querier interface {
 	// the repository hydrates references with the batch lookups below.
 	// ---------------------------------------------------------------- segments
 	CreateVehicleSegment(ctx context.Context, arg CreateVehicleSegmentParams) (VehicleSegment, error)
+	// Tenant resource: vehicle transfers between branches (TEC-695). Every
+	// query filters by organization_id (docs/design/tenant-core.md §8).
+	//
+	// Branch scope: a transfer is visible when its from OR to branch is in the
+	// caller's scope (branch_ids NULL = every branch).
+	CreateVehicleTransfer(ctx context.Context, arg CreateVehicleTransferParams) (uuid.UUID, error)
 	CreateWebAuthnCredential(ctx context.Context, arg CreateWebAuthnCredentialParams) (WebauthnCredential, error)
 	// Self-service account deletion: keep every row, mark the user disabled.
 	DeactivateUser(ctx context.Context, id int64) (User, error)
@@ -193,6 +211,12 @@ type Querier interface {
 	GetCurrentOrganizationSettings(ctx context.Context, organizationID int64) (GetCurrentOrganizationSettingsRow, error)
 	GetExportJobByID(ctx context.Context, id int64) (ExportJob, error)
 	GetExportJobByUUID(ctx context.Context, argUuid uuid.UUID) (ExportJob, error)
+	// Tenant resource: vehicle usage blocks (TEC-694). Every query filters by
+	// organization_id (docs/design/tenant-core.md §8). during is [start, end);
+	// an unbounded end is an open-ended block. The vehicle (and with it the
+	// caller's branch scope) is resolved by the use case before these run.
+	// A live vehicle with the fields the block / transfer rules need.
+	GetFleetOpsVehicle(ctx context.Context, arg GetFleetOpsVehicleParams) (GetFleetOpsVehicleRow, error)
 	GetGitHubAppSettings(ctx context.Context) (GithubAppSetting, error)
 	GetImportJobByID(ctx context.Context, id int64) (ImportJob, error)
 	GetImportJobByUUID(ctx context.Context, argUuid uuid.UUID) (ImportJob, error)
@@ -204,6 +228,7 @@ type Querier interface {
 	GetOAuthAccountByProviderAccount(ctx context.Context, arg GetOAuthAccountByProviderAccountParams) (GetOAuthAccountByProviderAccountRow, error)
 	GetOAuthAccountByUserProvider(ctx context.Context, arg GetOAuthAccountByUserProviderParams) (GetOAuthAccountByUserProviderRow, error)
 	GetOAuthProviderSettings(ctx context.Context, provider string) (OauthProviderSetting, error)
+	GetOneWayRule(ctx context.Context, arg GetOneWayRuleParams) (GetOneWayRuleRow, error)
 	GetOrganizationByID(ctx context.Context, id int64) (Organization, error)
 	GetOrganizationBySlug(ctx context.Context, slug string) (Organization, error)
 	GetOrganizationByUUID(ctx context.Context, argUuid uuid.UUID) (Organization, error)
@@ -239,6 +264,7 @@ type Querier interface {
 	GetUserByUUID(ctx context.Context, argUuid uuid.UUID) (User, error)
 	GetUserTOTPByUserID(ctx context.Context, userID int64) (UserTotp, error)
 	GetValidRefreshTokenByHash(ctx context.Context, tokenHash string) (RefreshToken, error)
+	GetVehicleBlock(ctx context.Context, arg GetVehicleBlockParams) (GetVehicleBlockRow, error)
 	// Import natural key: the live vehicle with this plate key (active first).
 	GetVehicleByPlate(ctx context.Context, arg GetVehicleByPlateParams) (Vehicle, error)
 	// Platform catalog type picked on a vehicle form (not organization scoped).
@@ -246,6 +272,7 @@ type Querier interface {
 	GetVehicleDetail(ctx context.Context, arg GetVehicleDetailParams) (GetVehicleDetailRow, error)
 	GetVehicleSearchDocument(ctx context.Context, arg GetVehicleSearchDocumentParams) (GetVehicleSearchDocumentRow, error)
 	GetVehicleSegmentByUUID(ctx context.Context, arg GetVehicleSegmentByUUIDParams) (VehicleSegment, error)
+	GetVehicleTransfer(ctx context.Context, arg GetVehicleTransferParams) (GetVehicleTransferRow, error)
 	GetWebAuthnCredentialByCredentialID(ctx context.Context, credentialID string) (WebauthnCredential, error)
 	GetWebAuthnCredentialByUUID(ctx context.Context, arg GetWebAuthnCredentialByUUIDParams) (WebauthnCredential, error)
 	HasActivePushDevices(ctx context.Context, userID int64) (bool, error)
@@ -333,12 +360,27 @@ type Querier interface {
 	ListOAuthAccountsByUserID(ctx context.Context, userID int64) ([]ListOAuthAccountsByUserIDRow, error)
 	ListOAuthAccountsForUserIDs(ctx context.Context, userIds []int64) ([]ListOAuthAccountsForUserIDsRow, error)
 	ListOAuthProviderSettings(ctx context.Context) ([]OauthProviderSetting, error)
+	// facet: from_branch | to_branch | is_active | allowed, in the caller's
+	// branch scope.
+	ListOneWayRuleFacets(ctx context.Context, arg ListOneWayRuleFacetsParams) ([]ListOneWayRuleFacetsRow, error)
+	// Bulk "all matching" scope.
+	ListOneWayRuleUUIDs(ctx context.Context, arg ListOneWayRuleUUIDsParams) ([]uuid.UUID, error)
+	ListOneWayRules(ctx context.Context, arg ListOneWayRulesParams) ([]ListOneWayRulesRow, error)
+	// Active rules of a route: the product rule (when product_id is given)
+	// first, then the generic rule. The use case takes the first row.
+	ListOneWayRulesForRoute(ctx context.Context, arg ListOneWayRulesForRouteParams) ([]ListOneWayRulesForRouteRow, error)
 	ListOrganizationInvitations(ctx context.Context, arg ListOrganizationInvitationsParams) ([]ListOrganizationInvitationsRow, error)
 	ListOrganizationMembersByOrg(ctx context.Context, arg ListOrganizationMembersByOrgParams) ([]ListOrganizationMembersByOrgRow, error)
 	ListOrganizationMembershipsByUser(ctx context.Context, userID int64) ([]ListOrganizationMembershipsByUserRow, error)
 	ListOrganizationResourceActivity(ctx context.Context, arg ListOrganizationResourceActivityParams) ([]ListOrganizationResourceActivityRow, error)
 	ListOrganizationSettingsVersions(ctx context.Context, arg ListOrganizationSettingsVersionsParams) ([]ListOrganizationSettingsVersionsRow, error)
 	ListOrganizationsFiltered(ctx context.Context, arg ListOrganizationsFilteredParams) ([]Organization, error)
+	// Live blocks of a vehicle that overlap [starts_at, ends_at) (NULL end =
+	// unbounded), except exclude_id (the block being changed).
+	ListOverlappingVehicleBlocks(ctx context.Context, arg ListOverlappingVehicleBlocksParams) ([]ListOverlappingVehicleBlocksRow, error)
+	// Open (planned / in transit) transfers of a vehicle overlapping
+	// [starts_at, ends_at) (NULL end = unbounded), except exclude_id.
+	ListOverlappingVehicleTransfers(ctx context.Context, arg ListOverlappingVehicleTransfersParams) ([]ListOverlappingVehicleTransfersRow, error)
 	ListPermissionSlugsByRoleID(ctx context.Context, roleID int64) ([]string, error)
 	ListPermissionSlugsByRoleSlug(ctx context.Context, slug string) ([]string, error)
 	ListPermissionsFiltered(ctx context.Context, arg ListPermissionsFilteredParams) ([]Permission, error)
@@ -387,6 +429,12 @@ type Querier interface {
 	ListUsersByIDsForFleet(ctx context.Context, ids []int64) ([]ListUsersByIDsForFleetRow, error)
 	ListUsersFiltered(ctx context.Context, arg ListUsersFilteredParams) ([]User, error)
 	ListUsersForExport(ctx context.Context, arg ListUsersForExportParams) ([]User, error)
+	// Blocks of one vehicle, newest start first. states: scheduled (starts
+	// after now) | active (covers now) | ended (ended before now).
+	ListVehicleBlocks(ctx context.Context, arg ListVehicleBlocksParams) ([]ListVehicleBlocksRow, error)
+	// Busy intervals of one vehicle that overlap [from_at, to_at) (NULL end =
+	// unbounded), from the vehicle_busy_intervals view; kinds NULL = all.
+	ListVehicleBusyIntervals(ctx context.Context, arg ListVehicleBusyIntervalsParams) ([]ListVehicleBusyIntervalsRow, error)
 	ListVehicleEvents(ctx context.Context, arg ListVehicleEventsParams) ([]ListVehicleEventsRow, error)
 	// Dynamic filter options of the vehicles list in the caller's branch scope.
 	// facet: status | ownership | pool | is_active | home_branch | current_branch
@@ -394,10 +442,16 @@ type Querier interface {
 	ListVehicleFacets(ctx context.Context, arg ListVehicleFacetsParams) ([]ListVehicleFacetsRow, error)
 	// Live rental group memberships of the given vehicles.
 	ListVehicleGroupsByVehicleIDs(ctx context.Context, arg ListVehicleGroupsByVehicleIDsParams) ([]ListVehicleGroupsByVehicleIDsRow, error)
+	// Every non-cancelled transfer of a vehicle, oldest first: the input of
+	// LocationAt (where is the vehicle at time t).
+	ListVehicleMovements(ctx context.Context, arg ListVehicleMovementsParams) ([]ListVehicleMovementsRow, error)
 	ListVehicleSearchDocuments(ctx context.Context, organizationID int64) ([]ListVehicleSearchDocumentsRow, error)
 	ListVehicleSegmentActiveFacets(ctx context.Context, organizationID int64) ([]ListVehicleSegmentActiveFacetsRow, error)
 	ListVehicleSegments(ctx context.Context, arg ListVehicleSegmentsParams) ([]VehicleSegment, error)
 	ListVehicleSegmentsByIDs(ctx context.Context, arg ListVehicleSegmentsByIDsParams) ([]VehicleSegment, error)
+	// facet: status | from_branch | to_branch, in the caller's branch scope.
+	ListVehicleTransferFacets(ctx context.Context, arg ListVehicleTransferFacetsParams) ([]ListVehicleTransferFacetsRow, error)
+	ListVehicleTransfers(ctx context.Context, arg ListVehicleTransfersParams) ([]ListVehicleTransfersRow, error)
 	ListVehicleUUIDs(ctx context.Context, arg ListVehicleUUIDsParams) ([]uuid.UUID, error)
 	ListVehicles(ctx context.Context, arg ListVehiclesParams) ([]ListVehiclesRow, error)
 	ListWebAuthnCredentialsByUserID(ctx context.Context, userID int64) ([]WebauthnCredential, error)
@@ -429,10 +483,14 @@ type Querier interface {
 	// OAuth sign-up stores a random hash; the user never chose a password.
 	MarkUserPasswordUnset(ctx context.Context, id int64) error
 	MoveCatalogBrandsDisplayBrand(ctx context.Context, arg MoveCatalogBrandsDisplayBrandParams) (int64, error)
+	// Another live rule with the same route and product (NULL = generic).
+	OneWayRouteTaken(ctx context.Context, arg OneWayRouteTakenParams) (bool, error)
 	PingDB(ctx context.Context) (int32, error)
 	QueueImportJob(ctx context.Context, argUuid uuid.UUID) (ImportJob, error)
 	ReassignCatalogModelRules(ctx context.Context, arg ReassignCatalogModelRulesParams) (int64, error)
 	ReassignCatalogTypesModel(ctx context.Context, arg ReassignCatalogTypesModelParams) (int64, error)
+	// "Engeli kapat": the block ends at released_at.
+	ReleaseVehicleBlock(ctx context.Context, arg ReleaseVehicleBlockParams) (int64, error)
 	RemoveUserRoleBySlug(ctx context.Context, arg RemoveUserRoleBySlugParams) error
 	RemoveVehicleRentalGroup(ctx context.Context, arg RemoveVehicleRentalGroupParams) (int64, error)
 	RentalGroupCodeTaken(ctx context.Context, arg RentalGroupCodeTakenParams) (bool, error)
@@ -454,6 +512,7 @@ type Querier interface {
 	SetCatalogTypesModel(ctx context.Context, arg SetCatalogTypesModelParams) (int64, error)
 	SetMemberBranchScope(ctx context.Context, arg SetMemberBranchScopeParams) error
 	SetMemberPrimaryRole(ctx context.Context, arg SetMemberPrimaryRoleParams) error
+	SetOneWayRuleActive(ctx context.Context, arg SetOneWayRuleActiveParams) (int64, error)
 	SetOrganizationAccessWindow(ctx context.Context, arg SetOrganizationAccessWindowParams) (Organization, error)
 	SetOrganizationStatus(ctx context.Context, arg SetOrganizationStatusParams) (Organization, error)
 	SetRentalGroupActive(ctx context.Context, arg SetRentalGroupActiveParams) (RentalGroup, error)
@@ -464,13 +523,18 @@ type Querier interface {
 	SetVehicleActive(ctx context.Context, arg SetVehicleActiveParams) (Vehicle, error)
 	SetVehicleCurrentBranch(ctx context.Context, arg SetVehicleCurrentBranchParams) (Vehicle, error)
 	SetVehicleStatus(ctx context.Context, arg SetVehicleStatusParams) (Vehicle, error)
+	// Cost and note stay editable after departure (fuel, tolls, driver).
+	SetVehicleTransferCost(ctx context.Context, arg SetVehicleTransferCostParams) (int64, error)
 	SlugExists(ctx context.Context, slug string) (bool, error)
 	SoftDeleteBranch(ctx context.Context, arg SoftDeleteBranchParams) (int64, error)
+	SoftDeleteOneWayRule(ctx context.Context, arg SoftDeleteOneWayRuleParams) (int64, error)
 	SoftDeleteOrganization(ctx context.Context, argUuid uuid.UUID) (Organization, error)
 	SoftDeleteRentalGroup(ctx context.Context, arg SoftDeleteRentalGroupParams) (int64, error)
 	SoftDeleteRentalProduct(ctx context.Context, arg SoftDeleteRentalProductParams) (int64, error)
 	SoftDeleteVehicle(ctx context.Context, arg SoftDeleteVehicleParams) (int64, error)
+	SoftDeleteVehicleBlock(ctx context.Context, arg SoftDeleteVehicleBlockParams) (int64, error)
 	SoftDeleteVehicleSegment(ctx context.Context, arg SoftDeleteVehicleSegmentParams) (int64, error)
+	StartVehicleTransfer(ctx context.Context, arg StartVehicleTransferParams) (int64, error)
 	SyncCatalogBrandsDisplayName(ctx context.Context, displayBrandID int64) (int64, error)
 	TenantCountCatalogBrands(ctx context.Context, arg TenantCountCatalogBrandsParams) (int64, error)
 	TenantCountCatalogModels(ctx context.Context, arg TenantCountCatalogModelsParams) (int64, error)
@@ -499,6 +563,7 @@ type Querier interface {
 	UpdateLogPurgeRule(ctx context.Context, arg UpdateLogPurgeRuleParams) (LogPurgeRule, error)
 	UpdateOAuthAccountRefreshToken(ctx context.Context, arg UpdateOAuthAccountRefreshTokenParams) error
 	UpdateOAuthProviderSettings(ctx context.Context, arg UpdateOAuthProviderSettingsParams) (OauthProviderSetting, error)
+	UpdateOneWayRule(ctx context.Context, arg UpdateOneWayRuleParams) (int64, error)
 	UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) (Organization, error)
 	UpdateOrganizationMemberRole(ctx context.Context, arg UpdateOrganizationMemberRoleParams) (OrganizationMember, error)
 	UpdateRentalGroup(ctx context.Context, arg UpdateRentalGroupParams) (RentalGroup, error)
@@ -517,7 +582,10 @@ type Querier interface {
 	UpdateUserProfileByUUID(ctx context.Context, arg UpdateUserProfileByUUIDParams) (User, error)
 	UpdateUserTOTPRecoveryHashes(ctx context.Context, arg UpdateUserTOTPRecoveryHashesParams) error
 	UpdateVehicle(ctx context.Context, arg UpdateVehicleParams) (Vehicle, error)
+	UpdateVehicleBlock(ctx context.Context, arg UpdateVehicleBlockParams) (int64, error)
 	UpdateVehicleSegment(ctx context.Context, arg UpdateVehicleSegmentParams) (VehicleSegment, error)
+	// Only planned transfers can be re-planned.
+	UpdateVehicleTransferPlan(ctx context.Context, arg UpdateVehicleTransferPlanParams) (int64, error)
 	UpdateWebAuthnCredentialCounter(ctx context.Context, arg UpdateWebAuthnCredentialCounterParams) error
 	UpdateWebAuthnCredentialName(ctx context.Context, arg UpdateWebAuthnCredentialNameParams) (WebauthnCredential, error)
 	UpsertCatalogModelRule(ctx context.Context, arg UpsertCatalogModelRuleParams) (CatalogModelRule, error)

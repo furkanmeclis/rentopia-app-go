@@ -16,3 +16,7 @@ organization_settings_versions
 vehicles
 vehicle_events
 vehicle_rental_groups
+vehicle_blocks
+vehicle_transfers
+one_way_rules
+vehicle_busy_intervals
