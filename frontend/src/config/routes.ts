@@ -57,6 +57,7 @@ export const routes = {
       segments: fleetRoutes("segments"),
       groups: fleetRoutes("groups"),
       products: fleetRoutes("products"),
+      vehicles: fleetRoutes("vehicles"),
     },
     settings: {
       root: (slug: string) => `/t/${encodeURIComponent(slug)}/settings`,
@@ -177,7 +178,7 @@ type NestedRoutes<T> = T extends string
 export type AppRoute = NestedRoutes<typeof routes>;
 
 /** `/t/{slug}/fleet/{section}` list / create / detail / edit routes. */
-function fleetRoutes(section: "segments" | "groups" | "products") {
+function fleetRoutes(section: "segments" | "groups" | "products" | "vehicles") {
   const base = (slug: string) =>
     `/t/${encodeURIComponent(slug)}/fleet/${section}`;
   return {

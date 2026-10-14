@@ -24,5 +24,13 @@
   "confirm.rental_groups.deactivate": "Deactivate {{count}} selected rental groups? They cannot be picked for new products.",
   "actions.rental_products.activate": "Activate products",
   "actions.rental_products.deactivate": "Deactivate products",
-  "confirm.rental_products.deactivate": "Deactivate {{count}} selected products? They are taken off sale."
+  "confirm.rental_products.deactivate": "Deactivate {{count}} selected products? They are taken off sale.",
+  "actions.vehicles.set_status": "Change status",
+  "actions.vehicles.move_branch": "Move to branch",
+  "actions.vehicles.add_rental_group": "Add to rental group",
+  "actions.vehicles.replace_rental_group": "Replace rental group",
+  "actions.vehicles.activate": "Activate vehicles",
+  "actions.vehicles.deactivate": "Deactivate vehicles",
+  "confirm.vehicles.replace_rental_group": "Replace every rental group of the {{count}} selected vehicles with the chosen group?",
+  "confirm.vehicles.deactivate": "Deactivate {{count}} selected vehicles? They stop counting as capacity."
 }

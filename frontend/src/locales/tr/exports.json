@@ -60,11 +60,12 @@
   "resources.tenant.rental_groups": "Kiralama grupları",
   "resources.tenant.rental_products": "Ürünler",
   "tenant_download.title": "Dışa aktarmayı indir",
-  "tenant_download.description": "Bildirimdeki bağlantı dosyayı bu organizasyon üzerinden indirir.",
+  "tenant_download.description": "Bildirimdeki bağlantı dosyayı bu firma üzerinden indirir.",
   "tenant_download.not_ready": "Dışa aktarma henüz hazır değil veya başarısız oldu; dosya indirilemez.",
   "tenant_download.state_idle": "Dosya hazır.",
   "tenant_download.state_downloading": "Dosya indiriliyor…",
   "tenant_download.state_done": "İndirme başladı. Dosyayı tekrar indirebilirsiniz.",
   "tenant_download.state_failed": "Dosya indirilemedi. Tekrar deneyin.",
-  "tenant_download.again": "Tekrar indir"
+  "tenant_download.again": "Tekrar indir",
+  "resources.tenant.vehicles": "Araçlar"
 }

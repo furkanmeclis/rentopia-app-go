@@ -28,6 +28,9 @@ import (
 	orgrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/repository"
 	orgusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/usecase"
 	tenantmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tenant"
+	vehicleadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/adapters"
+	vehiclerepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/repository"
+	vehicleusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/observability"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/activity"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/bulkengine"
@@ -122,6 +125,7 @@ func main() {
 	// Tenant resources: adapters read the organization from the job row.
 	branchSvc := branchusecase.New(branchrepository.NewPostgres(queries), nil)
 	fleetSvc := fleetusecase.New(fleetrepository.NewPostgres(pool, queries), store, nil)
+	vehicleSvc := vehicleusecase.New(vehiclerepository.NewPostgres(pool, queries), nil)
 	ioReg := ioengine.NewRegistry(
 		ioadapters.NewUsers(queries),
 		ioadapters.NewRoles(queries),
@@ -131,6 +135,7 @@ func main() {
 		fleetadapters.NewSegmentsIO(fleetSvc),
 		fleetadapters.NewGroupsIO(fleetSvc),
 		fleetadapters.NewProductsIO(fleetSvc),
+		vehicleadapters.NewIO(vehicleSvc),
 	)
 	exportSvc := exportusecase.New(queries, store, ioReg, nil, notifSvc, activityRec, log)
 	importSvc := importusecase.New(queries, store, ioReg, nil, notifSvc, activityRec, log)
@@ -140,6 +145,7 @@ func main() {
 		branchadapters.NewBulk(branchSvc),
 		fleetadapters.NewGroupsBulk(fleetSvc),
 		fleetadapters.NewProductsBulk(fleetSvc),
+		vehicleadapters.NewBulk(vehicleSvc),
 	)
 	bulkSvc := bulkusecase.New(queries, bulkReg, nil, notifSvc, activityRec, cfg.Bulk, log)
 	// Tenant jobs run with the requester's current membership (permissions
@@ -156,9 +162,12 @@ func main() {
 		searchadapters.NewRoles(queries),
 		branchadapters.NewSearch(queries),
 		fleetadapters.NewProductsSearch(queries),
+		vehicleadapters.NewSearch(queries),
 	)
 	searchClient := searchengine.NewClient(cfg.Search, log)
 	searchIndexer := searchengine.NewIndexer(searchClient, searchReg, nil, log)
+	// Vehicle imports / bulk changes keep the Cmd+K index current.
+	vehicleSvc.SetSearchIndexer(searchIndexer)
 	// Deliveries run inline here; mobile pushes go through the queue (retries).
 	queueClient := queue.NewClient(cfg.Redis)
 	defer func() { _ = queueClient.Close() }()

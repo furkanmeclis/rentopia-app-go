@@ -63,6 +63,11 @@ export const Permission = {
   TenantBranchesBulkDeactivate: "tenant.branches.bulk.deactivate",
   TenantFleetRead: "tenant.fleet.read",
   TenantFleetWrite: "tenant.fleet.write",
+  TenantVehiclesRead: "tenant.vehicles.read",
+  TenantVehiclesWrite: "tenant.vehicles.write",
+  TenantVehiclesExport: "tenant.vehicles.export",
+  TenantVehiclesImport: "tenant.vehicles.import",
+  TenantVehiclesBulk: "tenant.vehicles.bulk",
   TenantPriceOverride: "tenant.price.override",
   TenantDiscountApply: "tenant.discount.apply",
   TenantPaymentCollect: "tenant.payment.collect",
@@ -195,6 +200,14 @@ export const permissions = {
     fleet: {
       read: Permission.TenantFleetRead,
       write: Permission.TenantFleetWrite,
+    },
+    /** Physical vehicles; every bulk action shares `bulk`. */
+    vehicles: {
+      read: Permission.TenantVehiclesRead,
+      write: Permission.TenantVehiclesWrite,
+      export: Permission.TenantVehiclesExport,
+      import: Permission.TenantVehiclesImport,
+      bulk: Permission.TenantVehiclesBulk,
     },
     price: {
       override: Permission.TenantPriceOverride,

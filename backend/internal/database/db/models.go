@@ -749,6 +749,66 @@ type UserTotp struct {
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
+type Vehicle struct {
+	ID                 int64              `json:"id"`
+	Uuid               uuid.UUID          `json:"uuid"`
+	OrganizationID     int64              `json:"organization_id"`
+	Plate              string             `json:"plate"`
+	PlateKey           pgtype.Text        `json:"plate_key"`
+	Vin                string             `json:"vin"`
+	CatalogTypeID      pgtype.Int8        `json:"catalog_type_id"`
+	ManualEntry        bool               `json:"manual_entry"`
+	ManualBrand        string             `json:"manual_brand"`
+	ManualModel        string             `json:"manual_model"`
+	ManualType         string             `json:"manual_type"`
+	ModelYear          int16              `json:"model_year"`
+	Transmission       pgtype.Text        `json:"transmission"`
+	Fuel               pgtype.Text        `json:"fuel"`
+	BodyType           pgtype.Text        `json:"body_type"`
+	Seats              pgtype.Int2        `json:"seats"`
+	Luggage            pgtype.Int2        `json:"luggage"`
+	AirConditioning    bool               `json:"air_conditioning"`
+	AttributesVerified bool               `json:"attributes_verified"`
+	Color              string             `json:"color"`
+	HomeBranchID       int64              `json:"home_branch_id"`
+	CurrentBranchID    int64              `json:"current_branch_id"`
+	FleetPool          string             `json:"fleet_pool"`
+	Ownership          string             `json:"ownership"`
+	SupplierName       string             `json:"supplier_name"`
+	InServiceDate      pgtype.Date        `json:"in_service_date"`
+	OutOfServiceDate   pgtype.Date        `json:"out_of_service_date"`
+	OdometerKm         int32              `json:"odometer_km"`
+	FuelLevel          pgtype.Int2        `json:"fuel_level"`
+	Status             string             `json:"status"`
+	StatusChangedAt    pgtype.Timestamptz `json:"status_changed_at"`
+	IsActive           bool               `json:"is_active"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt          pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type VehicleEvent struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	VehicleID      int64              `json:"vehicle_id"`
+	EventType      string             `json:"event_type"`
+	FromStatus     pgtype.Text        `json:"from_status"`
+	ToStatus       string             `json:"to_status"`
+	OdometerKm     pgtype.Int4        `json:"odometer_km"`
+	FuelLevel      pgtype.Int2        `json:"fuel_level"`
+	Note           string             `json:"note"`
+	ActorID        pgtype.Int8        `json:"actor_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type VehicleRentalGroup struct {
+	OrganizationID int64              `json:"organization_id"`
+	VehicleID      int64              `json:"vehicle_id"`
+	RentalGroupID  int64              `json:"rental_group_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
 type VehicleSegment struct {
 	ID             int64              `json:"id"`
 	Uuid           uuid.UUID          `json:"uuid"`

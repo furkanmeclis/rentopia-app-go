@@ -97,5 +97,15 @@
   "resources.tenant.branches": "Şubeler",
   "resources.tenant.segments": "Segmentler",
   "resources.tenant.rental_groups": "Kiralama grupları",
-  "resources.tenant.rental_products": "Ürünler"
+  "resources.tenant.rental_products": "Ürünler",
+  "resources.tenant.vehicles": "Araçlar",
+  "diff.summary": "Kuru çalıştırma: {{creates}} yeni kayıt, {{updates}} güncelleme.",
+  "diff.create": "Yeni",
+  "diff.update": "Güncelleme",
+  "diff.no_changes": "Değişiklik yok",
+  "diff.catalog": "Katalog eşleşmesi",
+  "diff.empty": "Gösterilecek satır yok",
+  "diff.columns.row": "Satır",
+  "diff.columns.op": "İşlem",
+  "diff.columns.changes": "Değişecek alanlar"
 }

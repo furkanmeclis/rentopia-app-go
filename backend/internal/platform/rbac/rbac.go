@@ -66,6 +66,11 @@ const (
 	PermTenantBranchesBulkDeactivate      = "tenant.branches.bulk.deactivate"
 	PermTenantFleetRead                   = "tenant.fleet.read"
 	PermTenantFleetWrite                  = "tenant.fleet.write"
+	PermTenantVehiclesRead                = "tenant.vehicles.read"
+	PermTenantVehiclesWrite               = "tenant.vehicles.write"
+	PermTenantVehiclesExport              = "tenant.vehicles.export"
+	PermTenantVehiclesImport              = "tenant.vehicles.import"
+	PermTenantVehiclesBulk                = "tenant.vehicles.bulk"
 	// Sensitive actions of later tenant modules (TEC-689), separate from the
 	// resource read/write slugs so roles can grant them one by one.
 	PermTenantPriceOverride    = "tenant.price.override"
