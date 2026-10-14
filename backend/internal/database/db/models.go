@@ -115,15 +115,27 @@ type BulkJob struct {
 }
 
 type CatalogBrand struct {
-	ID          int64              `json:"id"`
-	Uuid        uuid.UUID          `json:"uuid"`
-	TsbCode     string             `json:"tsb_code"`
-	TsbName     string             `json:"tsb_name"`
-	DisplayName string             `json:"display_name"`
-	Category    string             `json:"category"`
-	IsActive    bool               `json:"is_active"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	TsbCode        string             `json:"tsb_code"`
+	TsbName        string             `json:"tsb_name"`
+	DisplayName    string             `json:"display_name"`
+	Category       string             `json:"category"`
+	IsActive       bool               `json:"is_active"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	DisplayBrandID int64              `json:"display_brand_id"`
+}
+
+type CatalogDisplayBrand struct {
+	ID            int64              `json:"id"`
+	Uuid          uuid.UUID          `json:"uuid"`
+	Name          string             `json:"name"`
+	Slug          string             `json:"slug"`
+	LogoObjectKey pgtype.Text        `json:"logo_object_key"`
+	IsActive      bool               `json:"is_active"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
 
 type CatalogImport struct {
@@ -150,6 +162,7 @@ type CatalogModel struct {
 	Source    string             `json:"source"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	GroupKey  pgtype.Text        `json:"group_key"`
 }
 
 type CatalogModelRule struct {

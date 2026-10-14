@@ -5,15 +5,18 @@ import { z } from "zod";
 
 import { AppDialog } from "@/components/dialogs/app-dialog";
 import {
+  AppCombobox,
   AppForm,
-  AppInput,
   AppSelect,
   AppSwitch,
   FormActions,
 } from "@/components/forms";
 import { Button } from "@/components/ui/button";
 import { CATALOG_CATEGORIES } from "@/features/catalog/constants";
-import { usePatchBrand } from "@/features/catalog/hooks/use-catalog";
+import {
+  useCatalogDisplayBrandOptions,
+  usePatchBrand,
+} from "@/features/catalog/hooks/use-catalog";
 import type { CatalogBrand } from "@/features/catalog/services/catalog.service";
 import { useLocale } from "@/providers/locale-provider";
 
@@ -25,13 +28,22 @@ type BrandEditDialogProps = {
 export function BrandEditDialog({ brand, onOpenChange }: BrandEditDialogProps) {
   const { t } = useLocale();
   const patch = usePatchBrand();
+  const displayBrands = useCatalogDisplayBrandOptions();
+  const displayOptions = useMemo(
+    () =>
+      (displayBrands.data ?? []).map((d) => ({
+        value: d.uuid,
+        label: d.name,
+        description: d.tsb_names.join(", "),
+      })),
+    [displayBrands.data],
+  );
   const schema = useMemo(
     () =>
       z.object({
-        display_name: z
+        display_brand_uuid: z
           .string()
-          .trim()
-          .min(1, t("catalog.validation.display_name_required")),
+          .uuid(t("catalog.validation.display_brand_required")),
         category: z.enum(["passenger", "light_commercial", "other"]),
         is_active: z.boolean(),
       }),
@@ -59,21 +71,34 @@ export function BrandEditDialog({ brand, onOpenChange }: BrandEditDialogProps) {
           key={brand.uuid}
           schema={schema}
           defaultValues={{
-            display_name: brand.display_name,
+            display_brand_uuid: brand.display_brand.uuid,
             category: brand.category,
             is_active: brand.is_active,
           }}
-          onSubmit={async (values) => {
-            await patch.mutateAsync({ uuid: brand.uuid, body: values });
+          onSubmit={async ({ display_brand_uuid, ...rest }) => {
+            await patch.mutateAsync({
+              uuid: brand.uuid,
+              body: {
+                ...rest,
+                ...(display_brand_uuid !== brand.display_brand.uuid
+                  ? { display_brand_uuid }
+                  : {}),
+              },
+            });
             onOpenChange(false);
           }}
           className="space-y-4"
         >
           {(form) => (
             <>
-              <AppInput
-                name="display_name"
-                label={t("catalog.columns.display_name")}
+              <AppCombobox
+                name="display_brand_uuid"
+                label={t("catalog.columns.display_brand")}
+                description={t("catalog.brands.display_brand_hint")}
+                options={displayOptions}
+                placeholder={t("catalog.picker.brand_placeholder")}
+                searchPlaceholder={t("catalog.picker.search")}
+                emptyText={t("catalog.picker.empty")}
               />
               <AppSelect
                 name="category"

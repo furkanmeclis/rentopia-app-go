@@ -32,6 +32,36 @@ func PlatformCatalogBrands() ResourceMeta {
 	}
 }
 
+// PlatformCatalogDisplayBrands returns meta for GET /v1/platform/catalog/display-brands.
+func PlatformCatalogDisplayBrands() ResourceMeta {
+	return ResourceMeta{
+		Resource:      "platform.catalog.display_brands",
+		DefaultSort:   "name",
+		DefaultFields: []string{"name", "tsb_names", "brands_count", "types_count", "models_count", "is_active"},
+		Capabilities: Capabilities{
+			Read: true, Update: true, Search: true, Filter: true, Sort: true,
+		},
+		SearchableFields: []string{"name", "tsb_name", "tsb_code"},
+		SortableFields:   []string{"name", "brands_count", "types_count", "created_at"},
+		FilterableFields: []string{"is_active", "merged"},
+		Columns: []Column{
+			{Key: "name", LabelKey: "catalog.columns.display_name", Type: ColumnTypeString, Sortable: true, DefaultVisible: true},
+			{Key: "tsb_names", LabelKey: "catalog.columns.tsb_brands", Type: ColumnTypeString, DefaultVisible: true},
+			{Key: "brands_count", LabelKey: "catalog.columns.brands_count", Type: ColumnTypeString, Sortable: true, DefaultVisible: true},
+			{Key: "types_count", LabelKey: "catalog.columns.types_count", Type: ColumnTypeString, Sortable: true, DefaultVisible: true},
+			{Key: "models_count", LabelKey: "catalog.columns.models_count", Type: ColumnTypeString, DefaultVisible: true},
+			{Key: "is_active", LabelKey: "catalog.columns.is_active", Type: ColumnTypeBoolean, Filterable: true, FilterVariant: FilterVariantFaceted, DefaultVisible: true},
+			{Key: "created_at", LabelKey: "catalog.columns.created_at", Type: ColumnTypeDatetime, Sortable: true, DefaultVisible: false},
+		},
+		Filters: []Filter{
+			{Key: "is_active", LabelKey: "catalog.columns.is_active", Variant: FilterVariantFaceted},
+			{Key: "merged", LabelKey: "catalog.display_brands.merged_only", Variant: FilterVariantFaceted},
+		},
+		Includes:    []string{"brands"},
+		BulkActions: []bulkengine.BulkActionDef{},
+	}
+}
+
 // PlatformCatalogModels returns meta for GET /v1/platform/catalog/models.
 func PlatformCatalogModels() ResourceMeta {
 	return ResourceMeta{

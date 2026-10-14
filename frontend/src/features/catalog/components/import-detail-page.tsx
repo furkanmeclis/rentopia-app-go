@@ -1,7 +1,8 @@
 "use client";
 
+import type { ColumnDef } from "@tanstack/react-table";
 import { CheckCircle2, FileSpreadsheet, Play } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { AppDialog } from "@/components/dialogs/app-dialog";
 import { ErrorState } from "@/components/common/error-state";
@@ -16,11 +17,13 @@ import {
   EntityPage,
   EntitySectionCard,
 } from "@/components/entity";
+import { createColumn } from "@/components/tables";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { permissions } from "@/config/permissions";
 import { routes } from "@/config/routes";
+import { CatalogLocalTable } from "@/features/catalog/components/catalog-local-table";
 import { useCatalogBreadcrumbs } from "@/features/catalog/components/catalog-tabs";
 import {
   CATALOG_IMPORT_RUNNING,
@@ -43,6 +46,7 @@ import { useLocale } from "@/providers/locale-provider";
 const COUNT_KEYS: (keyof CatalogImportCounts)[] = [
   "brands_new",
   "brands_renamed",
+  "display_brands_new",
   "models_new",
   "types_new",
   "types_renamed",
@@ -55,162 +59,214 @@ const COUNT_KEYS: (keyof CatalogImportCounts)[] = [
   "unresolved_models",
 ];
 
-type SampleRow = { key: string; cells: ReactNode[] };
+type SampleRow = { key: string } & Record<string, unknown>;
 
+type SampleColumn = {
+  id: string;
+  labelKey: string;
+  cell?: (row: SampleRow) => ReactNode;
+};
+
+/** Cell renderer showing a TSB code in monospace. */
+function code(id: string) {
+  return function CodeCell(row: SampleRow) {
+    return <code className="text-xs">{String(row[id] ?? "")}</code>;
+  };
+}
+
+/** One diff sample list: a collapsible section with a client DataTable. */
 function SampleTable({
   title,
-  headers,
+  columns,
   rows,
 }: {
   title: string;
-  headers: string[];
+  columns: SampleColumn[];
   rows: SampleRow[];
 }) {
+  const defs = useMemo(
+    () =>
+      columns.map((c, i) =>
+        createColumn<SampleRow>({
+          id: c.id,
+          accessorFn: (row) => row[c.id] as string | number | undefined,
+          labelKey: c.labelKey,
+          enableSorting: true,
+          gridPrimary: i === 0,
+          gridSecondary: i === 1,
+          cell: ({ row }) =>
+            c.cell
+              ? c.cell(row.original)
+              : String(row.original[c.id] ?? "") || "—",
+        }),
+      ) as ColumnDef<SampleRow, unknown>[],
+    [columns],
+  );
   if (rows.length === 0) return null;
   return (
     <EntitySectionCard title={title} badge={rows.length} collapsible>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-muted-foreground text-left text-xs">
-              {headers.map((h) => (
-                <th key={h} className="py-1 pe-4 font-medium">
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-border divide-y">
-            {rows.map((row) => (
-              <tr key={row.key}>
-                {row.cells.map((cell, i) => (
-                  <td key={i} className="py-1.5 pe-4 align-top">
-                    {cell}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <CatalogLocalTable
+        columns={defs}
+        data={rows}
+        getRowId={(row) => row.key}
+      />
     </EntitySectionCard>
   );
 }
 
+const TYPE_COLUMNS: SampleColumn[] = [
+  { id: "brand", labelKey: "catalog.columns.brand" },
+  {
+    id: "code",
+    labelKey: "catalog.columns.tsb_type_code",
+    cell: code("code"),
+  },
+  { id: "name", labelKey: "catalog.columns.raw_name" },
+];
+
+function typeRows(list: CatalogImportDiff["new_types"]): SampleRow[] {
+  return (list ?? []).map((s, i) => ({
+    ...s,
+    key: `${s.brand}-${s.code}-${i}`,
+  }));
+}
+
 function DiffSamples({ diff }: { diff: CatalogImportDiff }) {
   const { t, locale } = useLocale();
-  const typeHeaders = [
-    t("catalog.columns.brand"),
-    t("catalog.columns.tsb_type_code"),
-    t("catalog.columns.raw_name"),
-  ];
-  const typeRows = (
-    list: CatalogImportDiff["new_types"],
-    extra?: (
-      s: NonNullable<CatalogImportDiff["new_types"]>[number],
-    ) => ReactNode,
-  ): SampleRow[] =>
-    (list ?? []).map((s) => ({
-      key: `${s.brand}-${s.code}`,
-      cells: [
-        s.brand,
-        <code key="c" className="text-xs">
-          {s.code}
-        </code>,
-        s.name,
-        ...(extra ? [extra(s)] : []),
+  const columns = useMemo(
+    () => ({
+      brands: [
+        {
+          id: "code",
+          labelKey: "catalog.columns.tsb_code",
+          cell: code("code"),
+        },
+        { id: "name", labelKey: "catalog.columns.tsb_name" },
+        { id: "display_name", labelKey: "catalog.columns.display_brand" },
+        {
+          id: "category",
+          labelKey: "catalog.columns.category",
+          cell: (row: SampleRow) =>
+            row.category ? t(`catalog.category.${String(row.category)}`) : "—",
+        },
+      ] satisfies SampleColumn[],
+      renamedBrands: [
+        {
+          id: "code",
+          labelKey: "catalog.columns.tsb_code",
+          cell: code("code"),
+        },
+        { id: "old_name", labelKey: "catalog.diff.old_name" },
+        { id: "name", labelKey: "catalog.diff.new_name" },
+      ] satisfies SampleColumn[],
+      models: [
+        { id: "brand", labelKey: "catalog.columns.brand" },
+        { id: "name", labelKey: "catalog.columns.model" },
+        {
+          id: "types",
+          labelKey: "catalog.columns.types_count",
+          cell: (row: SampleRow) => (
+            <span className="tabular-nums">{String(row.types ?? 0)}</span>
+          ),
+        },
+      ] satisfies SampleColumn[],
+      newTypes: [
+        ...TYPE_COLUMNS,
+        { id: "model", labelKey: "catalog.columns.model" },
       ],
-    }));
+      renamedTypes: [
+        ...TYPE_COLUMNS,
+        { id: "old_name", labelKey: "catalog.diff.old_name" },
+      ],
+      valuations: [
+        ...TYPE_COLUMNS,
+        {
+          id: "year",
+          labelKey: "catalog.columns.year",
+          cell: (row: SampleRow) => (
+            <span className="tabular-nums">{String(row.year ?? "")}</span>
+          ),
+        },
+        {
+          id: "old",
+          labelKey: "catalog.diff.old_value",
+          cell: (row: SampleRow) => (
+            <span className="tabular-nums">
+              {formatTRY(row.old as number, locale)}
+            </span>
+          ),
+        },
+        {
+          id: "new",
+          labelKey: "catalog.diff.new_value",
+          cell: (row: SampleRow) => (
+            <span className="tabular-nums">
+              {formatTRY(row.new as number, locale)}
+            </span>
+          ),
+        },
+      ] satisfies SampleColumn[],
+    }),
+    [locale, t],
+  );
 
   return (
     <div className="space-y-4">
       <SampleTable
         title={t("catalog.diff.new_brands")}
-        headers={[
-          t("catalog.columns.tsb_code"),
-          t("catalog.columns.tsb_name"),
-          t("catalog.columns.display_name"),
-          t("catalog.columns.category"),
-        ]}
-        rows={(diff.new_brands ?? []).map((b) => ({
-          key: b.code ?? "",
-          cells: [
-            b.code,
-            b.name,
-            b.display_name,
-            b.category ? t(`catalog.category.${b.category}`) : "—",
-          ],
+        columns={columns.brands}
+        rows={(diff.new_brands ?? []).map((b, i) => ({
+          ...b,
+          key: `${b.code ?? ""}-${i}`,
         }))}
       />
       <SampleTable
         title={t("catalog.diff.renamed_brands")}
-        headers={[
-          t("catalog.columns.tsb_code"),
-          t("catalog.diff.old_name"),
-          t("catalog.diff.new_name"),
-        ]}
-        rows={(diff.renamed_brands ?? []).map((b) => ({
-          key: b.code ?? "",
-          cells: [b.code, b.old_name, b.name],
+        columns={columns.renamedBrands}
+        rows={(diff.renamed_brands ?? []).map((b, i) => ({
+          ...b,
+          key: `${b.code ?? ""}-${i}`,
         }))}
       />
       <SampleTable
         title={t("catalog.diff.new_models")}
-        headers={[
-          t("catalog.columns.brand"),
-          t("catalog.columns.model"),
-          t("catalog.columns.types_count"),
-        ]}
-        rows={(diff.new_models ?? []).map((m) => ({
-          key: `${m.brand}-${m.name}`,
-          cells: [m.brand, m.name, m.types],
+        columns={columns.models}
+        rows={(diff.new_models ?? []).map((m, i) => ({
+          ...m,
+          key: `${m.brand}-${m.name}-${i}`,
         }))}
       />
       <SampleTable
         title={t("catalog.diff.new_types")}
-        headers={[...typeHeaders, t("catalog.columns.model")]}
-        rows={typeRows(diff.new_types, (s) => s.model || "—")}
+        columns={columns.newTypes}
+        rows={typeRows(diff.new_types)}
       />
       <SampleTable
         title={t("catalog.diff.renamed_types")}
-        headers={[...typeHeaders, t("catalog.diff.old_name")]}
-        rows={typeRows(diff.renamed_types, (s) => s.old_name)}
+        columns={columns.renamedTypes}
+        rows={typeRows(diff.renamed_types)}
       />
       <SampleTable
         title={t("catalog.diff.deactivated_types")}
-        headers={typeHeaders}
+        columns={TYPE_COLUMNS}
         rows={typeRows(diff.deactivated_types)}
       />
       <SampleTable
         title={t("catalog.diff.reactivated_types")}
-        headers={typeHeaders}
+        columns={TYPE_COLUMNS}
         rows={typeRows(diff.reactivated_types)}
       />
       <SampleTable
         title={t("catalog.diff.unresolved_types")}
-        headers={typeHeaders}
+        columns={TYPE_COLUMNS}
         rows={typeRows(diff.unresolved_types)}
       />
       <SampleTable
         title={t("catalog.diff.changed_valuations")}
-        headers={[
-          ...typeHeaders,
-          t("catalog.columns.year"),
-          t("catalog.diff.old_value"),
-          t("catalog.diff.new_value"),
-        ]}
-        rows={(diff.changed_valuations ?? []).map((v) => ({
-          key: `${v.brand}-${v.code}-${v.year}`,
-          cells: [
-            v.brand,
-            <code key="c" className="text-xs">
-              {v.code}
-            </code>,
-            v.name,
-            v.year,
-            formatTRY(v.old, locale),
-            formatTRY(v.new, locale),
-          ],
+        columns={columns.valuations}
+        rows={(diff.changed_valuations ?? []).map((v, i) => ({
+          ...v,
+          key: `${v.brand}-${v.code}-${v.year}-${i}`,
         }))}
       />
     </div>

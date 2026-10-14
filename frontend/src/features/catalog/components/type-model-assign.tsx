@@ -22,15 +22,18 @@ import type { CatalogType } from "@/features/catalog/services/catalog.service";
 import { useLocale } from "@/providers/locale-provider";
 
 type TypeModelAssignProps = {
-  type: Pick<CatalogType, "uuid" | "raw_name" | "brand" | "model">;
+  type: Pick<
+    CatalogType,
+    "uuid" | "raw_name" | "brand" | "display_brand" | "model"
+  >;
   /** Compact = table cell (model badge + small trigger). */
   compact?: boolean;
 };
 
 /**
  * Inline model assignment for a catalog type: pick a model of the same
- * brand and optionally store a prefix rule so later imports (and the other
- * unresolved / auto types of the brand) follow it.
+ * display brand and optionally store a prefix rule so later imports (and
+ * the other unresolved / auto types of the brand) follow it.
  */
 export function TypeModelAssign({ type, compact }: TypeModelAssignProps) {
   const { t } = useLocale();
@@ -39,8 +42,10 @@ export function TypeModelAssign({ type, compact }: TypeModelAssignProps) {
   const [saveRule, setSaveRule] = useState(false);
   const [prefix, setPrefix] = useState("");
   const patch = usePatchType();
+  // Models of every TSB brand under the display brand: picking a sibling
+  // brand's model assigns the same-name model of this type's brand.
   const { loadOptions, options } = useBrandModelOptions(
-    open ? type.brand.uuid : undefined,
+    open ? { displayBrand: type.display_brand.uuid } : undefined,
   );
 
   const selectedLabel =

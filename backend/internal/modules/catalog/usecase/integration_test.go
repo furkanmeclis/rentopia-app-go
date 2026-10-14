@@ -54,7 +54,7 @@ func TestCatalogImportAgainstPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pool.Close()
-	if _, err := pool.Exec(ctx, `TRUNCATE catalog_brands, catalog_imports RESTART IDENTITY CASCADE`); err != nil {
+	if _, err := pool.Exec(ctx, `TRUNCATE catalog_brands, catalog_display_brands, catalog_imports RESTART IDENTITY CASCADE`); err != nil {
 		t.Fatal(err)
 	}
 	q := db.New(pool)

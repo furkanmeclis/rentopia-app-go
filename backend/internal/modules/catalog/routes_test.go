@@ -82,6 +82,31 @@ func TestPlatformRoutesRequireCatalogPermissions(t *testing.T) {
 	if code := call(readOnly, http.MethodPost, "/v1/platform/catalog/imports/"+uuid.NewString()+"/apply", rt, ""); code != http.StatusForbidden {
 		t.Fatalf("apply without write = %d", code)
 	}
+	if code := call(readOnly, http.MethodGet, "/v1/platform/catalog/display-brands/meta", rt, ""); code != http.StatusOK {
+		t.Fatalf("display brands meta = %d", code)
+	}
+	if code := call(readOnly, http.MethodGet, "/v1/platform/catalog/display-brands?sort=bogus", rt, ""); code != http.StatusBadRequest {
+		t.Fatalf("display brands bad sort = %d", code)
+	}
+	if code := call(mux, http.MethodGet, "/v1/platform/catalog/display-brands", token, ""); code != http.StatusForbidden {
+		t.Fatalf("display brands without permission = %d", code)
+	}
+	for _, path := range []string{
+		"/v1/platform/catalog/display-brands/" + uuid.NewString() + "/merge",
+		"/v1/platform/catalog/display-brands/" + uuid.NewString() + "/unmerge",
+		"/v1/platform/catalog/models/bulk-rules",
+	} {
+		if code := call(readOnly, http.MethodPost, path, rt, ""); code != http.StatusForbidden {
+			t.Fatalf("POST %s without write = %d", path, code)
+		}
+	}
+	// The logo stream only needs a session (tenant forms show it too).
+	if code := call(mux, http.MethodGet, "/v1/platform/catalog/display-brands/not-a-uuid/logo", token, ""); code != http.StatusBadRequest {
+		t.Fatalf("logo without catalog permission = %d", code)
+	}
+	if code := call(mux, http.MethodGet, "/v1/platform/catalog/display-brands/"+uuid.NewString()+"/logo", "", ""); code != http.StatusUnauthorized {
+		t.Fatalf("anonymous logo = %d", code)
+	}
 }
 
 func TestTenantRoutes(t *testing.T) {

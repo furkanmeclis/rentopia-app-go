@@ -16,6 +16,7 @@ import {
 } from "@/components/entity";
 import { createColumn } from "@/components/tables";
 import { Badge } from "@/components/ui/badge";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { permissions } from "@/config/permissions";
 import { routes } from "@/config/routes";
 import { BrandEditDialog } from "@/features/catalog/components/brand-edit-dialog";
@@ -23,6 +24,7 @@ import {
   CatalogTabs,
   useCatalogBreadcrumbs,
 } from "@/features/catalog/components/catalog-tabs";
+import { DisplayBrandsTable } from "@/features/catalog/components/display-brands-table";
 import {
   CATALOG_CATEGORIES,
   firstFilterValue,
@@ -30,6 +32,7 @@ import {
 } from "@/features/catalog/constants";
 import {
   useCatalogBrands,
+  useCatalogDisplayBrandOptions,
   useCatalogMeta,
 } from "@/features/catalog/hooks/use-catalog";
 import type {
@@ -38,16 +41,96 @@ import type {
 } from "@/features/catalog/services/catalog.service";
 import { useLocale } from "@/providers/locale-provider";
 
-export function CatalogBrandsPage() {
+export type CatalogBrandsView = "tsb" | "display";
+
+type CatalogBrandsPageProps = {
+  initialView?: CatalogBrandsView;
+  initialDisplayBrand?: string;
+};
+
+/**
+ * Brands tab: raw TSB brands (one row per TSB brand code) or the display
+ * brands users see, where several TSB brands are merged into one.
+ */
+export function CatalogBrandsPage({
+  initialView = "tsb",
+  initialDisplayBrand,
+}: CatalogBrandsPageProps) {
   const { t } = useLocale();
   const router = useRouter();
   const breadcrumbs = useCatalogBreadcrumbs(t("catalog.tabs.brands"));
+  const [view, setView] = useState<CatalogBrandsView>(initialView);
+
+  return (
+    <EntityPage
+      title={t("catalog.title")}
+      description={t("catalog.description")}
+      permission={permissions.catalog.read}
+      forbiddenFallback={
+        <ErrorState
+          title={t("common.error_forbidden")}
+          description={t("catalog.forbidden")}
+        />
+      }
+      breadcrumbs={breadcrumbs}
+    >
+      <CatalogTabs active="brands" />
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          size="sm"
+          value={view}
+          onValueChange={(next) => {
+            if (!next) return;
+            setView(next as CatalogBrandsView);
+            router.replace(
+              next === "display"
+                ? `${routes.platform.catalog.brands}?view=display`
+                : routes.platform.catalog.brands,
+            );
+          }}
+          aria-label={t("catalog.brands.view_label")}
+        >
+          <ToggleGroupItem value="tsb">
+            {t("catalog.brands.view_tsb")}
+          </ToggleGroupItem>
+          <ToggleGroupItem value="display">
+            {t("catalog.brands.view_display")}
+          </ToggleGroupItem>
+        </ToggleGroup>
+        <p className="text-muted-foreground text-xs">
+          {view === "display"
+            ? t("catalog.brands.view_display_hint")
+            : t("catalog.brands.view_tsb_hint")}
+        </p>
+      </div>
+      {view === "display" ? (
+        <DisplayBrandsTable />
+      ) : (
+        <TsbBrandsTable initialDisplayBrand={initialDisplayBrand} />
+      )}
+    </EntityPage>
+  );
+}
+
+function TsbBrandsTable({
+  initialDisplayBrand,
+}: {
+  initialDisplayBrand?: string;
+}) {
+  const { t } = useLocale();
+  const router = useRouter();
   const [editing, setEditing] = useState<CatalogBrand | null>(null);
   const listState = useServerListState({
     initialSort: "display_name",
     initialPageSize: 50,
+    initialColumnFilters: initialDisplayBrand
+      ? [{ id: "display_brand", value: [initialDisplayBrand] }]
+      : undefined,
     realtime: { resource: CATALOG_LIVE.brands },
   });
+  const displayBrands = useCatalogDisplayBrandOptions();
 
   const params = useMemo<ListBrandsParams>(
     () => ({
@@ -57,11 +140,20 @@ export function CatalogBrandsPage() {
         firstFilterValue(listState.columnFilters, "display_name"),
       category: firstFilterValue(listState.columnFilters, "category"),
       is_active: firstFilterValue(listState.columnFilters, "is_active"),
+      display_brand: firstFilterValue(listState.columnFilters, "display_brand"),
     }),
     [listState.columnFilters, listState.params],
   );
   const listQuery = useCatalogBrands(params);
   useCatalogMeta("brands");
+  const displayOptions = useMemo(
+    () =>
+      (displayBrands.data ?? []).map((d) => ({
+        value: d.uuid,
+        label: d.name,
+      })),
+    [displayBrands.data],
+  );
 
   const columns = useMemo(
     () =>
@@ -94,6 +186,16 @@ export function CatalogBrandsPage() {
           cell: ({ row }) => (
             <code className="text-xs">{row.original.tsb_code}</code>
           ),
+        }),
+        createColumn<CatalogBrand>({
+          id: "display_brand",
+          accessorFn: (row) => row.display_brand.uuid,
+          labelKey: "catalog.columns.display_brand",
+          filterVariant: "faceted",
+          filterOptions: displayOptions,
+          // Same text as the brand column: kept for the facet filter.
+          defaultHidden: true,
+          cell: ({ row }) => row.original.display_brand.name,
         }),
         createColumn<CatalogBrand>({
           accessorKey: "category",
@@ -188,7 +290,7 @@ export function CatalogBrandsPage() {
           ),
         }),
       ] as ColumnDef<CatalogBrand, unknown>[],
-    [router, t],
+    [displayOptions, router, t],
   );
 
   const pageCount = Math.max(
@@ -199,19 +301,7 @@ export function CatalogBrandsPage() {
   );
 
   return (
-    <EntityPage
-      title={t("catalog.title")}
-      description={t("catalog.description")}
-      permission={permissions.catalog.read}
-      forbiddenFallback={
-        <ErrorState
-          title={t("common.error_forbidden")}
-          description={t("catalog.forbidden")}
-        />
-      }
-      breadcrumbs={breadcrumbs}
-    >
-      <CatalogTabs active="brands" />
+    <>
       <EntityTable
         columns={columns}
         data={listQuery.data?.items ?? []}
@@ -245,6 +335,6 @@ export function CatalogBrandsPage() {
           if (!open) setEditing(null);
         }}
       />
-    </EntityPage>
+    </>
   );
 }
