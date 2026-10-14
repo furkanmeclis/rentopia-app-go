@@ -71,6 +71,13 @@ A member's `branch_scope` is `all` or `selected` (TEC-689, migration 000041); `o
 
 Branches example: `branchusecase.Service.getBranch`, `ListFilter.BranchIDs`, `adapters.Search` (`BranchScoped`).
 
+**Two-branch resources (vehicles, TEC-692).** A vehicle has a home branch and a current (physical) branch. It is visible when **either** is in the scope:
+`AND (narg(branch_ids) IS NULL OR v.home_branch_id = ANY(...) OR v.current_branch_id = ANY(...))`, and `getVehicle` accepts the row when `CheckBranch(home)` or `CheckBranch(current)` passes. Creating a vehicle or changing its home branch needs the (new) home branch in the scope (validation error on `home_branch_uuid` otherwise); the current branch may be any branch of the organization, because vehicles move (one-way rentals, transfers). Search documents carry both branch ids. See `vehicleusecase.Service.getVehicle` / `applyBranches`.
+
+**Parameterised bulk actions.** `bulkengine.BulkTarget.params` carries action arguments (`{"status": "maintenance"}`); validate them in `ResolveTargets` (a bad param answers 400 before any item runs) and read them in `ApplyItem` with `bulkengine.Params(ctx)`. Vehicles: `set_status`, `move_branch`, `add_rental_group`, `replace_rental_group`.
+
+**Import dry-run diff.** An io adapter may implement `ioengine.RowPreviewer`; the import preview then validates every row through it and returns `op` (`create` / `update`) and `changes` per row plus `creates` / `updates` counts. Vehicles implement it (`PreviewImport`).
+
 Permissions for sensitive actions are separate slugs, granted to roles one by one: `tenant.price.override`, `tenant.discount.apply`, `tenant.payment.collect`, `tenant.payment.refund`, `tenant.damage.approve`, `tenant.signature.waive`, `tenant.document.download`, `tenant.report.export`. When a new resource adds slugs, also grant them to the matching Rentopia template roles (`merkez_yoneticisi` everything; `sube_yoneticisi` read/write of branch-bound resources; `rezervasyon_satis`, `muhasebe`, `teslim_iade` as fits) in the same migration.
 
 ## 4. Engines with organization scope

@@ -40,6 +40,7 @@ import {
   type IoResource,
 } from "@/features/io/types";
 import { routes } from "@/config/routes";
+import { ImportDiffTable } from "@/features/io/components/import-diff-table";
 import { useLocale } from "@/providers/locale-provider";
 import { appToast } from "@/providers/toast-provider";
 import { cn } from "@/lib/utils";
@@ -301,7 +302,13 @@ export function ImportWizard({
   };
 
   const preview = job?.preview_summary;
+  const hasDiff = Boolean(preview?.rows?.some((row) => row.op));
   const mappedCount = countMappedFields(mapping);
+  const diffFieldLabel = (key: string) => {
+    if (key === "catalog") return t("imports.diff.catalog");
+    const field = schema.find((item) => item.key === key);
+    return field ? t(field.labelKey) : key;
+  };
 
   const usedHeaders = useMemo(() => {
     const set = new Set<string>();
@@ -326,7 +333,12 @@ export function ImportWizard({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+      <DialogContent
+        className={cn(
+          "max-h-[90vh] overflow-y-auto",
+          step === "preview" && hasDiff ? "sm:max-w-3xl" : "max-w-lg",
+        )}
+      >
         <DialogHeader className="space-y-3">
           <DialogTitle>{t("imports.wizard_title")}</DialogTitle>
           <DialogDescription>
@@ -566,6 +578,9 @@ export function ImportWizard({
                   </p>
                 ) : null}
               </>
+            ) : null}
+            {hasDiff ? (
+              <ImportDiffTable preview={preview} fieldLabel={diffFieldLabel} />
             ) : null}
             <p className="text-muted-foreground text-xs">
               {t("imports.confirm_hint")}

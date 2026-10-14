@@ -1,9 +1,13 @@
 import {
+  ArrowRightLeft,
   CircleCheck,
   CircleOff,
+  Layers,
+  ListChecks,
   Trash2,
   UserCheck,
   UserX,
+  Wrench,
   type LucideIcon,
 } from "lucide-react";
 
@@ -33,6 +37,14 @@ const bulkActionIconCatalog: Record<
     deactivate: CircleOff,
   },
   "tenant.rental_products": {
+    activate: CircleCheck,
+    deactivate: CircleOff,
+  },
+  "tenant.vehicles": {
+    set_status: Wrench,
+    move_branch: ArrowRightLeft,
+    add_rental_group: ListChecks,
+    replace_rental_group: Layers,
     activate: CircleCheck,
     deactivate: CircleOff,
   },

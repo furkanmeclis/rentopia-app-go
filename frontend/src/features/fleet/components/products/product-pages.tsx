@@ -35,7 +35,6 @@ import {
 } from "@/features/fleet/components/products/version-views";
 import { FleetActivityCard } from "@/features/fleet/components/shared/fleet-activity-card";
 import { CodeBadge } from "@/features/fleet/components/shared/list-utils";
-import { VehiclesPlaceholder } from "@/features/fleet/components/shared/vehicles-placeholder";
 import {
   GUARANTEE_LABEL_KEYS,
   STATUS_LABEL_KEYS,
@@ -53,6 +52,7 @@ import {
 } from "@/features/fleet/schemas/product-form";
 import type { RentalProduct } from "@/features/fleet/types";
 import { useTenant } from "@/features/tenant/components/tenant-provider";
+import { ProductVehiclesTable } from "@/features/vehicles/components/vehicle-sub-tables";
 import { datetime } from "@/lib/utils/format";
 import { useLocale } from "@/providers/locale-provider";
 
@@ -410,19 +410,19 @@ export function ProductDetailPage({ uuid }: { uuid: string }) {
             </TabsContent>
 
             <TabsContent value="guarantee" className="space-y-6">
-              <div className="grid gap-6 lg:grid-cols-3">
-                <EntitySectionCard
-                  title={t("fleet.products.detail.guarantee", {
-                    version: product.current_version,
-                  })}
-                  className="lg:col-span-2"
-                >
-                  <GuaranteeView guarantee={product.version.guarantee} />
-                </EntitySectionCard>
-                <EntitySectionCard title={t("fleet.products.detail.vehicles")}>
-                  <VehiclesPlaceholder />
-                </EntitySectionCard>
-              </div>
+              <EntitySectionCard
+                title={t("fleet.products.detail.guarantee", {
+                  version: product.current_version,
+                })}
+              >
+                <GuaranteeView guarantee={product.version.guarantee} />
+              </EntitySectionCard>
+              <EntitySectionCard title={t("fleet.products.detail.vehicles")}>
+                <p className="text-muted-foreground mb-4 text-sm">
+                  {t("fleet.products.detail.vehicles_help")}
+                </p>
+                <ProductVehiclesTable productUuid={uuid} />
+              </EntitySectionCard>
             </TabsContent>
 
             <TabsContent value="conditions">

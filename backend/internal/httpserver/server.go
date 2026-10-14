@@ -82,6 +82,11 @@ import (
 	storagehandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/storage/handler"
 	storageusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/storage/usecase"
 	tenantmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tenant"
+	vehiclesmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles"
+	vehicleadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/adapters"
+	vehiclehandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/handler"
+	vehiclerepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/repository"
+	vehicleusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/activity"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/appleauth"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/bulkengine"
@@ -200,6 +205,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		searchadapters.NewRoles(deps.Queries),
 		branchadapters.NewSearch(deps.Queries),
 		fleetadapters.NewProductsSearch(deps.Queries),
+		vehicleadapters.NewSearch(deps.Queries),
 	)
 	searchClient := searchengine.NewClient(cfg.Search, log)
 	searchIndexer := searchengine.NewIndexer(searchClient, searchReg, deps.Queue, log)
@@ -287,6 +293,8 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	branchSvc := branchusecase.New(branchrepository.NewPostgres(deps.Queries), searchIndexer)
 	// Fleet classification: segments, rental groups, versioned products.
 	fleetSvc := fleetusecase.New(fleetrepository.NewPostgres(deps.DB, deps.Queries), deps.Storage, searchIndexer)
+	// Fleet vehicles (physical reality, status history, group memberships).
+	vehicleSvc := vehicleusecase.New(vehiclerepository.NewPostgres(deps.DB, deps.Queries), searchIndexer)
 	orgSvc := orgusecase.New(
 		orgrepository.NewPostgres(deps.DB, deps.Queries),
 		branchusecase.NewOrganizationHooks(searchIndexer),
@@ -313,6 +321,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	branchesmodule.RegisterLiveResources(tenantLive)
 	fleetmodule.RegisterLiveResources(tenantLive)
 	organizationsmodule.RegisterLiveResources(tenantLive)
+	vehiclesmodule.RegisterLiveResources(tenantLive)
 	resourceEvents.AddResolver(tenantmodule.ChannelResolver(tenantmodule.QueriesLookup(deps.Queries)))
 	uc.AddChannelRules(tenantmodule.ChannelRule(tenantLive, tenantResolver))
 	catalogmodule.RegisterLiveResources(liveResources)
@@ -355,6 +364,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		fleetadapters.NewSegmentsIO(fleetSvc),
 		fleetadapters.NewGroupsIO(fleetSvc),
 		fleetadapters.NewProductsIO(fleetSvc),
+		vehicleadapters.NewIO(vehicleSvc),
 	)
 	exportSvc := exportusecase.New(deps.Queries, deps.Storage, ioReg, deps.Queue, notifSvc, activityRec, log)
 	importSvc := importusecase.New(deps.Queries, deps.Storage, ioReg, deps.Queue, notifSvc, activityRec, log)
@@ -364,6 +374,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		branchadapters.NewBulk(branchSvc),
 		fleetadapters.NewGroupsBulk(fleetSvc),
 		fleetadapters.NewProductsBulk(fleetSvc),
+		vehicleadapters.NewBulk(vehicleSvc),
 	)
 	bulkSvc := bulkusecase.New(deps.Queries, bulkReg, deps.Queue, notifSvc, activityRec, cfg.Bulk, log)
 	// Tenant jobs run with the requester's current membership (permissions
@@ -416,6 +427,14 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		ExportProducts: exportH.TenantExport(fleetmodule.ResourceRentalProducts, fleetmodule.ProductExportKeys...),
 		BulkGroups:     bulkH.TenantExecute(fleetmodule.ResourceRentalGroups),
 		BulkProducts:   bulkH.TenantExecute(fleetmodule.ResourceRentalProducts),
+	}, tokens, loader, tenantResolver)
+	vehicleH := vehiclehandler.New(vehicleSvc, activityRec)
+	vehicleH.SetResourceEvents(resourceEvents)
+	vehiclesmodule.RegisterRoutes(mux, vehicleH, vehiclesmodule.EngineHandlers{
+		Export: exportH.TenantExport(vehiclesmodule.Resource, vehiclesmodule.ExportQueryKeys...),
+		Import: importH.TenantUpload(vehiclesmodule.Resource),
+		Sample: importH.TenantSample(vehiclesmodule.Resource),
+		Bulk:   bulkH.TenantExecute(vehiclesmodule.Resource),
 	}, tokens, loader, tenantResolver)
 	settingsmodule.RegisterRoutes(mux, settingshandler.New(
 		settingsusecase.New(deps.Queries),

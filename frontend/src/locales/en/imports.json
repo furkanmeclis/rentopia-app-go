@@ -97,5 +97,15 @@
   "resources.tenant.branches": "Branches",
   "resources.tenant.segments": "Segments",
   "resources.tenant.rental_groups": "Rental groups",
-  "resources.tenant.rental_products": "Products"
+  "resources.tenant.rental_products": "Products",
+  "resources.tenant.vehicles": "Vehicles",
+  "diff.summary": "Dry run: {{creates}} new records, {{updates}} updates.",
+  "diff.create": "New",
+  "diff.update": "Update",
+  "diff.no_changes": "No changes",
+  "diff.catalog": "Catalog match",
+  "diff.empty": "No rows to show",
+  "diff.columns.row": "Row",
+  "diff.columns.op": "Operation",
+  "diff.columns.changes": "Fields to change"
 }

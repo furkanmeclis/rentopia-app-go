@@ -19,5 +19,7 @@
   "specs_branches": "Branches",
   "prefix_branches": "branch",
   "specs_rental_products": "Products",
-  "prefix_rental_products": "product"
+  "prefix_rental_products": "product",
+  "specs_vehicles": "Vehicles",
+  "prefix_vehicles": "vehicle"
 }

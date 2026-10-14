@@ -289,6 +289,13 @@ export function tenantNav(slug: string): NavCatalog {
         defaultOpen: true,
         items: [
           {
+            id: "fleet-vehicles",
+            titleKey: "layout.nav_fleet_vehicles",
+            href: routes.tenant.fleet.vehicles.root(slug),
+            icon: CarFront,
+            permission: permissions.tenant.vehicles.read,
+          },
+          {
             id: "fleet-segments",
             titleKey: "layout.nav_fleet_segments",
             href: routes.tenant.fleet.segments.root(slug),

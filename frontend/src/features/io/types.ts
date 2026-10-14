@@ -49,12 +49,26 @@ export type ImportJob = {
   created_at: string;
 };
 
+/** One field an import row would change (dry-run diff adapters). */
+export type ImportFieldChange = { field: string; from: string; to: string };
+
+export type ImportPreviewRow = {
+  index: number;
+  data: Record<string, unknown>;
+  /** Dry-run diff adapters only: what the row would do. */
+  op?: "create" | "update";
+  changes?: ImportFieldChange[];
+};
+
 export type ImportPreviewSummary = {
   total: number;
   valid: number;
   invalid: number;
-  rows?: { index: number; data: Record<string, unknown> }[];
-  errors?: { index: number; field?: string; error: string }[];
+  /** Dry-run diff adapters only. */
+  creates?: number;
+  updates?: number;
+  rows?: ImportPreviewRow[] | null;
+  errors?: { index: number; field?: string; error: string }[] | null;
 };
 
 export type AppSettings = {
@@ -92,7 +106,8 @@ export type IoResource =
   | "tenant.branches"
   | "tenant.segments"
   | "tenant.rental_groups"
-  | "tenant.rental_products";
+  | "tenant.rental_products"
+  | "tenant.vehicles";
 
 export const EXPORT_PATHS: Record<IoResource, string> = {
   "platform.users": "/v1/platform/users/export",
@@ -103,6 +118,7 @@ export const EXPORT_PATHS: Record<IoResource, string> = {
   "tenant.segments": "/v1/tenant/segments/export",
   "tenant.rental_groups": "/v1/tenant/rental-groups/export",
   "tenant.rental_products": "/v1/tenant/products/export",
+  "tenant.vehicles": "/v1/tenant/vehicles/export",
 };
 
 export const IMPORT_PATHS: Partial<
@@ -119,6 +135,10 @@ export const IMPORT_PATHS: Partial<
   "tenant.branches": {
     upload: "/v1/tenant/branches/import",
     sample: "/v1/tenant/branches/import/sample",
+  },
+  "tenant.vehicles": {
+    upload: "/v1/tenant/vehicles/import",
+    sample: "/v1/tenant/vehicles/import/sample",
   },
 };
 
@@ -151,5 +171,29 @@ export const IMPORT_SCHEMA: Partial<
     { key: "longitude", labelKey: "branches.fields.longitude" },
     { key: "prep_minutes", labelKey: "branches.fields.prep_minutes" },
     { key: "is_active", labelKey: "branches.fields.is_active" },
+  ],
+  // İdes fleet XLSX: plaka, şasi, marka, model, tip / kasko kodu, model yılı,
+  // renk, vites, yakıt, şube, mülkiyet, km. type_code before type_name so a
+  // "Tip/Kasko Kodu" header maps to the code.
+  "tenant.vehicles": [
+    { key: "plate", labelKey: "vehicles.fields.plate", required: true },
+    { key: "vin", labelKey: "vehicles.fields.vin" },
+    { key: "brand", labelKey: "vehicles.fields.brand" },
+    { key: "model", labelKey: "vehicles.fields.model" },
+    { key: "type_code", labelKey: "vehicles.fields.type_code" },
+    { key: "type_name", labelKey: "vehicles.fields.type" },
+    {
+      key: "model_year",
+      labelKey: "vehicles.fields.model_year",
+      required: true,
+    },
+    { key: "color", labelKey: "vehicles.fields.color" },
+    { key: "transmission", labelKey: "vehicles.fields.transmission" },
+    { key: "fuel", labelKey: "vehicles.fields.fuel" },
+    { key: "branch", labelKey: "vehicles.fields.branch", required: true },
+    { key: "ownership", labelKey: "vehicles.fields.ownership" },
+    { key: "supplier_name", labelKey: "vehicles.fields.supplier_name" },
+    { key: "fleet_pool", labelKey: "vehicles.fields.fleet_pool" },
+    { key: "odometer_km", labelKey: "vehicles.fields.odometer_km" },
   ],
 };
