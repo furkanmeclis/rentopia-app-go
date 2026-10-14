@@ -6187,7 +6187,7 @@ paths:
         - $ref: "#/components/parameters/Q"
         - name: sort
           in: query
-          description: "One of `plate`, `model_year`, `odometer_km`, `status`, `kasko_value`, `is_active`, `created_at`, `updated_at`; prefix `-` for descending. Default `-created_at`."
+          description: "One of `plate`, `model_year`, `odometer_km`, `status`, `kasko_value`, `is_active`, `created_at`, `updated_at`, `inspection_until`, `insurance_until`, `kasko_until`, `document_expires_at`, `next_maintenance_date`, `next_maintenance_km` (empty values last); prefix `-` for descending. Default `-created_at`."
           schema: { type: string, example: "plate" }
         - name: status
           in: query
@@ -6220,6 +6220,10 @@ paths:
         - name: is_active
           in: query
           schema: { type: boolean }
+        - name: document_status
+          in: query
+          description: "State of the next document to renew: `expired`, `expiring` (within 30 days), `valid`, `none`; comma-separated"
+          schema: { type: string, example: "expired,expiring" }
       responses:
         "200":
           description: Vehicle page
@@ -6667,6 +6671,440 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/TenantForbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/vehicles/{uuid}/documents:
+    get:
+      tags: [Tenant]
+      operationId: getTenantVehicleDocuments
+      summary: Documents of a vehicle
+      description: |
+        `tenant.vehicles.read`. Live documents with their history (at most
+        500), grouped by type, latest validity first. `is_current` marks the
+        document of each type with the latest `valid_until`; `status` is
+        `none` (no expiry), `valid`, `expiring` (within 30 days) or `expired`.
+        A vehicle of another organization or outside the caller's branch
+        scope answers `404`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Documents
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeVehicleDocumentList"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantVehicleDocument
+      summary: Record a vehicle document
+      description: |
+        `tenant.vehicles.write`. Metadata only; upload the scanned file with
+        `PUT …/documents/{documentUuid}/file`. Publishes the vehicle as
+        updated on the live vehicles list (expiry columns).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VehicleDocumentCreateRequest"
+      responses:
+        "201":
+          description: Created document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeVehicleDocument"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/vehicles/{uuid}/documents/{documentUuid}:
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantVehicleDocument
+      summary: Update a vehicle document
+      description: "`tenant.vehicles.write`. Omitted fields are unchanged; dates accept `null`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - name: documentUuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VehicleDocumentPatchRequest"
+      responses:
+        "200":
+          description: Updated document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeVehicleDocument"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantVehicleDocument
+      summary: Delete a vehicle document (soft)
+      description: "`tenant.vehicles.write`. The stored file is kept (restorable by support)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - name: documentUuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeStatus"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/vehicles/{uuid}/documents/{documentUuid}/file:
+    put:
+      tags: [Tenant]
+      operationId: putTenantVehicleDocumentFile
+      summary: Upload or replace the file of a vehicle document
+      description: |
+        `tenant.vehicles.write`. Multipart field `file`: PDF, JPEG, PNG or
+        WebP (type sniffed from the bytes; the declared type and the name are
+        ignored), at most 10 MiB. Stored in private object storage; the
+        replaced file is removed.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - name: documentUuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "200":
+          description: Document with its file
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeVehicleDocument"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503":
+          description: Object storage is not configured (`STORAGE_UNAVAILABLE`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    get:
+      tags: [Tenant]
+      operationId: getTenantVehicleDocumentFile
+      summary: Download the file of a vehicle document
+      description: |
+        `tenant.vehicles.read` and `tenant.document.download`. The API streams
+        the file (`Content-Disposition: attachment`); storage keys and URLs
+        never reach the browser. Every download is recorded in the vehicle's
+        activity. `404` when the document has no file.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - name: documentUuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: File bytes
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+            image/jpeg:
+              schema: { type: string, format: binary }
+            image/png:
+              schema: { type: string, format: binary }
+            image/webp:
+              schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/vehicles/{uuid}/maintenance:
+    get:
+      tags: [Tenant]
+      operationId: getTenantVehicleMaintenance
+      summary: Maintenance of a vehicle
+      description: |
+        `tenant.vehicles.read`. Open plans first (soonest first), then the
+        done history (at most 500). A plan's `status` is `scheduled`, `due`
+        (within 15 days or 1000 km) or `overdue`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Maintenance items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeVehicleMaintenanceList"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantVehicleMaintenance
+      summary: Plan or record maintenance
+      description: |
+        `tenant.vehicles.write`. `kind` = `planned` needs `planned_date`
+        and / or `planned_km`; `kind` = `done` needs `done_date` (not in the
+        future). `cost` is a TRY amount (expense linkage arrives in M4).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VehicleMaintenanceCreateRequest"
+      responses:
+        "201":
+          description: Created item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeVehicleMaintenance"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/vehicles/{uuid}/maintenance/{itemUuid}:
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantVehicleMaintenance
+      summary: Update a maintenance item
+      description: "`tenant.vehicles.write`. `kind` cannot change (complete a plan instead)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - name: itemUuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VehicleMaintenancePatchRequest"
+      responses:
+        "200":
+          description: Updated item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeVehicleMaintenance"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantVehicleMaintenance
+      summary: Delete a maintenance item (soft)
+      description: "`tenant.vehicles.write`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - name: itemUuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeStatus"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/vehicles/{uuid}/maintenance/{itemUuid}/complete:
+    post:
+      tags: [Tenant]
+      operationId: postTenantVehicleMaintenanceComplete
+      summary: Complete a maintenance plan
+      description: |
+        `tenant.vehicles.write`. Turns the plan into a done record (same
+        row). `done_date` defaults to today; the plan's targets are kept.
+        A done item answers `400` (`already_done`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - name: itemUuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VehicleMaintenanceCompleteRequest"
+      responses:
+        "200":
+          description: Completed item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeVehicleMaintenance"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/fleet/alerts:
+    get:
+      tags: [Tenant]
+      operationId: getTenantFleetAlerts
+      summary: Upcoming and overdue documents and maintenance
+      description: |
+        "Operasyon özeti" (`tenant.vehicles.read`): current documents (latest
+        validity per vehicle and type) expiring within 30 days or expired,
+        and open maintenance plans due within 15 days / 1000 km or overdue,
+        of active vehicles in the caller's branch scope. Overdue first, then
+        by due date. Horizons are application constants (no organization
+        setting yet).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Alerts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeFleetAlerts"
+        "400": { $ref: "#/components/responses/OrganizationRequired" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/vehicle-documents/export:
+    post:
+      tags: [Tenant]
+      operationId: postTenantVehicleDocumentsExport
+      summary: Export vehicle documents
+      description: |
+        Queues an export of the organization's vehicle documents in the caller's branch
+        scope (`tenant.vehicles.read` + `tenant.vehicles.export`). `query`
+        honours `vehicle` (uuids) and `doc_type` (comma-separated). Poll `GET /v1/tenant/exports/{uuid}`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportRequest"
+      responses:
+        "202":
+          description: Export job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeExportJob"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/vehicle-maintenance/export:
+    post:
+      tags: [Tenant]
+      operationId: postTenantVehicleMaintenanceExport
+      summary: Export vehicle maintenance
+      description: |
+        Queues an export of the organization's vehicle maintenance in the caller's branch
+        scope (`tenant.vehicles.read` + `tenant.vehicles.export`). `query`
+        honours `vehicle` (uuids), `kind` and `maintenance_type` (comma-separated). Poll `GET /v1/tenant/exports/{uuid}`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportRequest"
+      responses:
+        "202":
+          description: Export job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeExportJob"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
 
   /v1/tenant/products/{uuid}/eligible-vehicles:
     get:
@@ -7959,6 +8397,14 @@ components:
         - kasko_value
         - kasko_period
         - rental_groups
+        - inspection_until
+        - insurance_until
+        - kasko_until
+        - document_expires_at
+        - document_status
+        - next_maintenance_date
+        - next_maintenance_km
+        - maintenance_status
         - is_active
         - created_at
         - updated_at
@@ -8005,6 +8451,20 @@ components:
         rental_groups:
           type: array
           items: { $ref: "#/components/schemas/VehicleGroupRef" }
+        inspection_until: { type: [string, "null"], format: date, description: valid_until of the current inspection (muayene) }
+        insurance_until: { type: [string, "null"], format: date, description: valid_until of the current traffic insurance }
+        kasko_until: { type: [string, "null"], format: date, description: valid_until of the current kasko policy }
+        document_expires_at: { type: [string, "null"], format: date, description: Earliest valid_until among the current documents }
+        document_status:
+          type: string
+          enum: [none, valid, expiring, expired]
+          description: State of document_expires_at (expiring = within 30 days)
+        next_maintenance_date: { type: [string, "null"], format: date, description: Earliest open plan date }
+        next_maintenance_km: { type: [integer, "null"], description: Lowest open plan km }
+        maintenance_status:
+          type: string
+          enum: [none, scheduled, due, overdue]
+          description: due = within 15 days or 1000 km
         is_active: { type: boolean }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
@@ -8083,9 +8543,12 @@ components:
 
     VehicleFacets:
       type: object
-      required: [status, ownership, pool, is_active, home_branch, current_branch, rental_group, segment]
+      required: [status, ownership, pool, is_active, document_status, home_branch, current_branch, rental_group, segment]
       properties:
         status:
+          type: array
+          items: { $ref: "#/components/schemas/FleetFacet" }
+        document_status:
           type: array
           items: { $ref: "#/components/schemas/FleetFacet" }
         ownership:
@@ -8264,6 +8727,213 @@ components:
       properties:
         success: { type: boolean, enum: [true] }
         data: { $ref: "#/components/schemas/ProductVehicles" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    VehicleRecordActor:
+      type: object
+      required: [uuid, name, surname, email]
+      properties:
+        uuid: { type: string, format: uuid }
+        name: { type: string }
+        surname: { type: string }
+        email: { type: string }
+
+    VehicleDocumentFile:
+      type: object
+      required: [name, content_type, size_bytes]
+      properties:
+        name: { type: string }
+        content_type: { type: string, enum: [application/pdf, image/jpeg, image/png, image/webp] }
+        size_bytes: { type: integer, format: int64 }
+
+    VehicleDocument:
+      type: object
+      required: [uuid, doc_type, document_number, issuer, valid_from, valid_until, status, days_left, is_current, file, note, created_by, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        doc_type: { type: string, enum: [ruhsat, trafik_sigortasi, kasko, muayene, egzoz, diger] }
+        document_number: { type: string }
+        issuer: { type: string }
+        valid_from: { type: [string, "null"], format: date }
+        valid_until: { type: [string, "null"], format: date }
+        status: { type: string, enum: [none, valid, expiring, expired] }
+        days_left: { type: [integer, "null"], description: Days until valid_until (negative when expired) }
+        is_current: { type: boolean, description: Latest valid_until of its type }
+        file:
+          oneOf:
+            - $ref: "#/components/schemas/VehicleDocumentFile"
+            - type: "null"
+        note: { type: string }
+        created_by:
+          oneOf:
+            - $ref: "#/components/schemas/VehicleRecordActor"
+            - type: "null"
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    VehicleDocumentList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/VehicleDocument" }
+
+    VehicleDocumentPatchRequest:
+      type: object
+      additionalProperties: false
+      properties: &vehicleDocumentWriteProperties
+        doc_type: { type: string, enum: [ruhsat, trafik_sigortasi, kasko, muayene, egzoz, diger] }
+        document_number: { type: string, maxLength: 128 }
+        issuer: { type: string, maxLength: 255 }
+        valid_from: { type: [string, "null"], format: date }
+        valid_until: { type: [string, "null"], format: date }
+        note: { type: string, maxLength: 2000 }
+
+    VehicleDocumentCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [doc_type]
+      properties: *vehicleDocumentWriteProperties
+
+    VehicleMaintenance:
+      type: object
+      required: [uuid, kind, maintenance_type, planned_date, planned_km, done_date, done_km, service_provider, cost, currency, note, status, days_left, km_left, created_by, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        kind: { type: string, enum: [planned, done] }
+        maintenance_type: { type: string, enum: [periodic, tire, brake, oil, repair, other] }
+        planned_date: { type: [string, "null"], format: date }
+        planned_km: { type: [integer, "null"] }
+        done_date: { type: [string, "null"], format: date }
+        done_km: { type: [integer, "null"] }
+        service_provider: { type: string }
+        cost: { type: [string, "null"], description: Decimal string, example: "2450.50" }
+        currency: { type: string, enum: [TRY] }
+        note: { type: string }
+        status: { type: string, enum: [done, scheduled, due, overdue] }
+        days_left: { type: [integer, "null"], description: Days until the planned date (plans) }
+        km_left: { type: [integer, "null"], description: Km until the planned km (plans) }
+        created_by:
+          oneOf:
+            - $ref: "#/components/schemas/VehicleRecordActor"
+            - type: "null"
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    VehicleMaintenanceList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/VehicleMaintenance" }
+
+    VehicleMaintenancePatchRequest:
+      type: object
+      additionalProperties: false
+      properties: &vehicleMaintenanceWriteProperties
+        kind: { type: string, enum: [planned, done], description: Set on create only }
+        maintenance_type: { type: string, enum: [periodic, tire, brake, oil, repair, other] }
+        planned_date: { type: [string, "null"], format: date }
+        planned_km: { type: [integer, "null"], minimum: 0, maximum: 5000000 }
+        done_date: { type: [string, "null"], format: date }
+        done_km: { type: [integer, "null"], minimum: 0, maximum: 5000000 }
+        service_provider: { type: string, maxLength: 255 }
+        cost: { type: [string, "null"], description: "TRY amount, at most 2 decimals", example: "2450.50" }
+        note: { type: string, maxLength: 2000 }
+
+    VehicleMaintenanceCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [kind, maintenance_type]
+      properties: *vehicleMaintenanceWriteProperties
+
+    VehicleMaintenanceCompleteRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        done_date: { type: string, format: date, description: Defaults to today }
+        done_km: { type: [integer, "null"], minimum: 0, maximum: 5000000 }
+        service_provider: { type: string, maxLength: 255 }
+        cost: { type: [string, "null"], example: "2450.50" }
+        note: { type: string, maxLength: 2000 }
+
+    FleetAlertVehicle:
+      type: object
+      required: [uuid, plate, label, odometer_km, current_branch]
+      properties:
+        uuid: { type: string, format: uuid }
+        plate: { type: string }
+        label: { type: string }
+        odometer_km: { type: integer }
+        current_branch: { type: string }
+
+    FleetAlert:
+      type: object
+      required: [kind, state, subject_uuid, type, document_number, due_date, due_km, days_left, km_left, vehicle]
+      properties:
+        kind: { type: string, enum: [document, maintenance] }
+        state: { type: string, enum: [expiring, overdue] }
+        subject_uuid: { type: string, format: uuid, description: Document or maintenance item }
+        type: { type: string, description: Document type or maintenance type }
+        document_number: { type: string }
+        due_date: { type: [string, "null"], format: date }
+        due_km: { type: [integer, "null"] }
+        days_left: { type: [integer, "null"] }
+        km_left: { type: [integer, "null"] }
+        vehicle: { $ref: "#/components/schemas/FleetAlertVehicle" }
+
+    FleetAlerts:
+      type: object
+      required: [items, total, document_horizon_days, maintenance_horizon_days, maintenance_horizon_km]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/FleetAlert" }
+        total: { type: integer }
+        document_horizon_days: { type: integer, example: 30 }
+        maintenance_horizon_days: { type: integer, example: 15 }
+        maintenance_horizon_km: { type: integer, example: 1000 }
+
+    EnvelopeVehicleDocument:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/VehicleDocument" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeVehicleDocumentList:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/VehicleDocumentList" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeVehicleMaintenance:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/VehicleMaintenance" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeVehicleMaintenanceList:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/VehicleMaintenanceList" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeFleetAlerts:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/FleetAlerts" }
         meta: { $ref: "#/components/schemas/ResponseMeta" }
 
     EnvelopeBranch:

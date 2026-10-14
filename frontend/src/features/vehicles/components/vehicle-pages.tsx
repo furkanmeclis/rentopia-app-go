@@ -36,6 +36,10 @@ import {
   PlateBadge,
   VehicleStatusChip,
 } from "@/features/vehicles/components/vehicle-cells";
+import {
+  VehicleDocumentsTab,
+  VehicleMaintenanceTab,
+} from "@/features/vehicle-records";
 import { VehicleForm } from "@/features/vehicles/components/vehicle-form";
 import { VehicleStatusDialog } from "@/features/vehicles/components/vehicle-status-dialog";
 import {
@@ -177,7 +181,14 @@ export function VehicleEditPage({ uuid }: { uuid: string }) {
  * Show page with tabs: general, rental groups (memberships + suggestions),
  * status history, kasko and activity; a status change dialog.
  */
-export function VehicleDetailPage({ uuid }: { uuid: string }) {
+export function VehicleDetailPage({
+  uuid,
+  initialTab,
+}: {
+  uuid: string;
+  /** Tab opened first (`?tab=` of notification links). */
+  initialTab?: string;
+}) {
   const { t, locale } = useLocale();
   const { slug } = useTenant();
   const router = useRouter();
@@ -296,7 +307,7 @@ export function VehicleDetailPage({ uuid }: { uuid: string }) {
             }
           />
 
-          <Tabs defaultValue="general" className="space-y-4">
+          <Tabs defaultValue={initialTab ?? "general"} className="space-y-4">
             <TabsList className="flex h-auto flex-wrap">
               <TabsTrigger value="general">
                 {t("vehicles.tabs.general")}
@@ -309,6 +320,12 @@ export function VehicleDetailPage({ uuid }: { uuid: string }) {
               </TabsTrigger>
               <TabsTrigger value="kasko">
                 {t("vehicles.tabs.kasko")}
+              </TabsTrigger>
+              <TabsTrigger value="documents">
+                {t("vehicle_records.tabs.documents")}
+              </TabsTrigger>
+              <TabsTrigger value="maintenance">
+                {t("vehicle_records.tabs.maintenance")}
               </TabsTrigger>
               <TabsTrigger value="activity">
                 {t("vehicles.tabs.activity")}
@@ -557,6 +574,14 @@ export function VehicleDetailPage({ uuid }: { uuid: string }) {
               <EntitySectionCard title={t("vehicles.tabs.kasko")}>
                 <VehicleKaskoTab uuid={uuid} />
               </EntitySectionCard>
+            </TabsContent>
+
+            <TabsContent value="documents">
+              <VehicleDocumentsTab vehicleUuid={uuid} />
+            </TabsContent>
+
+            <TabsContent value="maintenance">
+              <VehicleMaintenanceTab vehicleUuid={uuid} />
             </TabsContent>
 
             <TabsContent value="activity">

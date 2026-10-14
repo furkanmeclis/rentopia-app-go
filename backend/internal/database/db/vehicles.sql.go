@@ -73,6 +73,23 @@ LEFT JOIN catalog_types t ON t.id = v.catalog_type_id
 LEFT JOIN catalog_models m ON m.id = t.model_id
 LEFT JOIN catalog_brands tb ON tb.id = t.brand_id
 LEFT JOIN catalog_display_brands d ON d.id = tb.display_brand_id
+LEFT JOIN LATERAL (
+    -- Expiry tracking (TEC-693): the current document of a type is the live
+    -- one with the latest valid_until; document_expires_at is the earliest
+    -- of those (the next document to renew).
+    SELECT
+        MAX(c.until) FILTER (WHERE c.doc_type = 'muayene') AS inspection_until,
+        MAX(c.until) FILTER (WHERE c.doc_type = 'trafik_sigortasi') AS insurance_until,
+        MAX(c.until) FILTER (WHERE c.doc_type = 'kasko') AS kasko_until,
+        MIN(c.until) AS document_expires_at
+    FROM (
+        SELECT d.doc_type, MAX(d.valid_until) AS until
+        FROM vehicle_documents d
+        WHERE d.organization_id = v.organization_id AND d.vehicle_id = v.id
+          AND d.deleted_at IS NULL AND d.valid_until IS NOT NULL
+        GROUP BY d.doc_type
+    ) c
+) dx ON TRUE
 WHERE v.organization_id = $1
   AND v.deleted_at IS NULL
   AND (
@@ -84,47 +101,57 @@ WHERE v.organization_id = $1
   AND ($4::text[] IS NULL OR v.status = ANY($4::text[]))
   AND ($5::text[] IS NULL OR v.ownership = ANY($5::text[]))
   AND ($6::text[] IS NULL OR v.fleet_pool = ANY($6::text[]))
-  AND ($7::uuid[] IS NULL OR hb.uuid = ANY($7::uuid[]))
-  AND ($8::uuid[] IS NULL OR cb.uuid = ANY($8::uuid[]))
-  AND ($9::uuid[] IS NULL OR EXISTS (
+  AND ($7::text[] IS NULL OR (
+    CASE
+      WHEN dx.document_expires_at IS NULL THEN 'none'
+      WHEN dx.document_expires_at < $8::date THEN 'expired'
+      WHEN dx.document_expires_at <= $8::date + $9::int THEN 'expiring'
+      ELSE 'valid'
+    END) = ANY($7::text[]))
+  AND ($10::uuid[] IS NULL OR hb.uuid = ANY($10::uuid[]))
+  AND ($11::uuid[] IS NULL OR cb.uuid = ANY($11::uuid[]))
+  AND ($12::uuid[] IS NULL OR EXISTS (
     SELECT 1 FROM vehicle_rental_groups vg
     JOIN rental_groups g ON g.organization_id = vg.organization_id AND g.id = vg.rental_group_id
     WHERE vg.organization_id = v.organization_id AND vg.vehicle_id = v.id
-      AND g.deleted_at IS NULL AND g.uuid = ANY($9::uuid[])
+      AND g.deleted_at IS NULL AND g.uuid = ANY($12::uuid[])
   ))
-  AND ($10::uuid[] IS NULL OR EXISTS (
+  AND ($13::uuid[] IS NULL OR EXISTS (
     SELECT 1 FROM vehicle_rental_groups vg
     JOIN rental_groups g ON g.organization_id = vg.organization_id AND g.id = vg.rental_group_id
     JOIN vehicle_segments s ON s.organization_id = g.organization_id AND s.id = g.segment_id
     WHERE vg.organization_id = v.organization_id AND vg.vehicle_id = v.id
-      AND g.deleted_at IS NULL AND s.uuid = ANY($10::uuid[])
+      AND g.deleted_at IS NULL AND s.uuid = ANY($13::uuid[])
   ))
   AND (
-    $11::text IS NULL
-    OR v.plate ILIKE '%' || $11 || '%'
-    OR v.plate_key LIKE '%' || upper(regexp_replace($11, '[^A-Za-z0-9]', '', 'g')) || '%'
-    OR v.vin ILIKE '%' || $11 || '%'
-    OR v.color ILIKE '%' || $11 || '%'
-    OR v.manual_brand ILIKE '%' || $11 || '%'
-    OR v.manual_model ILIKE '%' || $11 || '%'
-    OR t.raw_name ILIKE '%' || $11 || '%'
-    OR m.name ILIKE '%' || $11 || '%'
-    OR d.name ILIKE '%' || $11 || '%'
+    $14::text IS NULL
+    OR v.plate ILIKE '%' || $14 || '%'
+    OR v.plate_key LIKE '%' || upper(regexp_replace($14, '[^A-Za-z0-9]', '', 'g')) || '%'
+    OR v.vin ILIKE '%' || $14 || '%'
+    OR v.color ILIKE '%' || $14 || '%'
+    OR v.manual_brand ILIKE '%' || $14 || '%'
+    OR v.manual_model ILIKE '%' || $14 || '%'
+    OR t.raw_name ILIKE '%' || $14 || '%'
+    OR m.name ILIKE '%' || $14 || '%'
+    OR d.name ILIKE '%' || $14 || '%'
   )
 `
 
 type CountVehiclesParams struct {
-	OrganizationID     int64       `json:"organization_id"`
-	BranchIds          []int64     `json:"branch_ids"`
-	IsActive           pgtype.Bool `json:"is_active"`
-	Statuses           []string    `json:"statuses"`
-	Ownerships         []string    `json:"ownerships"`
-	Pools              []string    `json:"pools"`
-	HomeBranchUuids    []uuid.UUID `json:"home_branch_uuids"`
-	CurrentBranchUuids []uuid.UUID `json:"current_branch_uuids"`
-	GroupUuids         []uuid.UUID `json:"group_uuids"`
-	SegmentUuids       []uuid.UUID `json:"segment_uuids"`
-	Q                  pgtype.Text `json:"q"`
+	OrganizationID      int64       `json:"organization_id"`
+	BranchIds           []int64     `json:"branch_ids"`
+	IsActive            pgtype.Bool `json:"is_active"`
+	Statuses            []string    `json:"statuses"`
+	Ownerships          []string    `json:"ownerships"`
+	Pools               []string    `json:"pools"`
+	DocumentStatuses    []string    `json:"document_statuses"`
+	Today               pgtype.Date `json:"today"`
+	DocumentHorizonDays int32       `json:"document_horizon_days"`
+	HomeBranchUuids     []uuid.UUID `json:"home_branch_uuids"`
+	CurrentBranchUuids  []uuid.UUID `json:"current_branch_uuids"`
+	GroupUuids          []uuid.UUID `json:"group_uuids"`
+	SegmentUuids        []uuid.UUID `json:"segment_uuids"`
+	Q                   pgtype.Text `json:"q"`
 }
 
 func (q *Queries) CountVehicles(ctx context.Context, arg CountVehiclesParams) (int64, error) {
@@ -135,6 +162,9 @@ func (q *Queries) CountVehicles(ctx context.Context, arg CountVehiclesParams) (i
 		arg.Statuses,
 		arg.Ownerships,
 		arg.Pools,
+		arg.DocumentStatuses,
+		arg.Today,
+		arg.DocumentHorizonDays,
 		arg.HomeBranchUuids,
 		arg.CurrentBranchUuids,
 		arg.GroupUuids,
@@ -611,7 +641,12 @@ SELECT v.id, v.uuid, v.organization_id, v.plate, v.plate_key, v.vin, v.catalog_t
     COALESCE(mg.uuid, '00000000-0000-0000-0000-000000000000'::uuid)::uuid AS model_group_uuid,
     hb.uuid AS home_branch_uuid, hb.code AS home_branch_code, hb.name AS home_branch_name,
     cb.uuid AS current_branch_uuid, cb.code AS current_branch_code, cb.name AS current_branch_name,
-    k.value AS kasko_value, COALESCE(k.period, '')::text AS kasko_period
+    k.value AS kasko_value, COALESCE(k.period, '')::text AS kasko_period,
+    dx.inspection_until::date AS inspection_until, dx.insurance_until::date AS insurance_until,
+    dx.kasko_until::date AS kasko_until, dx.document_expires_at::date AS document_expires_at,
+    mx.next_maintenance_date::date AS next_maintenance_date,
+    -- -1 = no open plan with a km target.
+    COALESCE(mx.next_maintenance_km, -1)::int AS next_maintenance_km
 FROM vehicles v
 JOIN branches hb ON hb.organization_id = v.organization_id AND hb.id = v.home_branch_id
 JOIN branches cb ON cb.organization_id = v.organization_id AND cb.id = v.current_branch_id
@@ -632,6 +667,30 @@ LEFT JOIN LATERAL (
     ORDER BY cv.period DESC
     LIMIT 1
 ) k ON TRUE
+LEFT JOIN LATERAL (
+    -- Expiry tracking (TEC-693): the current document of a type is the live
+    -- one with the latest valid_until; document_expires_at is the earliest
+    -- of those (the next document to renew).
+    SELECT
+        MAX(c.until) FILTER (WHERE c.doc_type = 'muayene') AS inspection_until,
+        MAX(c.until) FILTER (WHERE c.doc_type = 'trafik_sigortasi') AS insurance_until,
+        MAX(c.until) FILTER (WHERE c.doc_type = 'kasko') AS kasko_until,
+        MIN(c.until) AS document_expires_at
+    FROM (
+        SELECT d.doc_type, MAX(d.valid_until) AS until
+        FROM vehicle_documents d
+        WHERE d.organization_id = v.organization_id AND d.vehicle_id = v.id
+          AND d.deleted_at IS NULL AND d.valid_until IS NOT NULL
+        GROUP BY d.doc_type
+    ) c
+) dx ON TRUE
+LEFT JOIN LATERAL (
+    -- Next open maintenance plan (by date and by km).
+    SELECT MIN(mp.planned_date) AS next_maintenance_date, MIN(mp.planned_km) AS next_maintenance_km
+    FROM vehicle_maintenance mp
+    WHERE mp.organization_id = v.organization_id AND mp.vehicle_id = v.id
+      AND mp.kind = 'planned' AND mp.deleted_at IS NULL
+) mx ON TRUE
 WHERE v.organization_id = $1
   AND v.uuid = $2
   AND v.deleted_at IS NULL
@@ -643,25 +702,31 @@ type GetVehicleDetailParams struct {
 }
 
 type GetVehicleDetailRow struct {
-	Vehicle           Vehicle        `json:"vehicle"`
-	TypeUuid          pgtype.UUID    `json:"type_uuid"`
-	TypeName          pgtype.Text    `json:"type_name"`
-	TypeCode          pgtype.Text    `json:"type_code"`
-	TypeYears         []int32        `json:"type_years"`
-	CatalogModelID    pgtype.Int8    `json:"catalog_model_id"`
-	ModelName         pgtype.Text    `json:"model_name"`
-	BrandUuid         pgtype.UUID    `json:"brand_uuid"`
-	BrandName         pgtype.Text    `json:"brand_name"`
-	ModelGroupID      int64          `json:"model_group_id"`
-	ModelGroupUuid    uuid.UUID      `json:"model_group_uuid"`
-	HomeBranchUuid    uuid.UUID      `json:"home_branch_uuid"`
-	HomeBranchCode    string         `json:"home_branch_code"`
-	HomeBranchName    string         `json:"home_branch_name"`
-	CurrentBranchUuid uuid.UUID      `json:"current_branch_uuid"`
-	CurrentBranchCode string         `json:"current_branch_code"`
-	CurrentBranchName string         `json:"current_branch_name"`
-	KaskoValue        pgtype.Numeric `json:"kasko_value"`
-	KaskoPeriod       string         `json:"kasko_period"`
+	Vehicle             Vehicle        `json:"vehicle"`
+	TypeUuid            pgtype.UUID    `json:"type_uuid"`
+	TypeName            pgtype.Text    `json:"type_name"`
+	TypeCode            pgtype.Text    `json:"type_code"`
+	TypeYears           []int32        `json:"type_years"`
+	CatalogModelID      pgtype.Int8    `json:"catalog_model_id"`
+	ModelName           pgtype.Text    `json:"model_name"`
+	BrandUuid           pgtype.UUID    `json:"brand_uuid"`
+	BrandName           pgtype.Text    `json:"brand_name"`
+	ModelGroupID        int64          `json:"model_group_id"`
+	ModelGroupUuid      uuid.UUID      `json:"model_group_uuid"`
+	HomeBranchUuid      uuid.UUID      `json:"home_branch_uuid"`
+	HomeBranchCode      string         `json:"home_branch_code"`
+	HomeBranchName      string         `json:"home_branch_name"`
+	CurrentBranchUuid   uuid.UUID      `json:"current_branch_uuid"`
+	CurrentBranchCode   string         `json:"current_branch_code"`
+	CurrentBranchName   string         `json:"current_branch_name"`
+	KaskoValue          pgtype.Numeric `json:"kasko_value"`
+	KaskoPeriod         string         `json:"kasko_period"`
+	InspectionUntil     pgtype.Date    `json:"inspection_until"`
+	InsuranceUntil      pgtype.Date    `json:"insurance_until"`
+	KaskoUntil          pgtype.Date    `json:"kasko_until"`
+	DocumentExpiresAt   pgtype.Date    `json:"document_expires_at"`
+	NextMaintenanceDate pgtype.Date    `json:"next_maintenance_date"`
+	NextMaintenanceKm   int32          `json:"next_maintenance_km"`
 }
 
 func (q *Queries) GetVehicleDetail(ctx context.Context, arg GetVehicleDetailParams) (GetVehicleDetailRow, error) {
@@ -721,6 +786,12 @@ func (q *Queries) GetVehicleDetail(ctx context.Context, arg GetVehicleDetailPara
 		&i.CurrentBranchName,
 		&i.KaskoValue,
 		&i.KaskoPeriod,
+		&i.InspectionUntil,
+		&i.InsuranceUntil,
+		&i.KaskoUntil,
+		&i.DocumentExpiresAt,
+		&i.NextMaintenanceDate,
+		&i.NextMaintenanceKm,
 	)
 	return i, err
 }
@@ -1025,14 +1096,37 @@ func (q *Queries) ListVehicleEvents(ctx context.Context, arg ListVehicleEventsPa
 const listVehicleFacets = `-- name: ListVehicleFacets :many
 WITH scoped AS (
     SELECT v.id, v.organization_id, v.status, v.ownership, v.fleet_pool, v.is_active,
-        v.home_branch_id, v.current_branch_id
+        v.home_branch_id, v.current_branch_id,
+        (CASE
+          WHEN dx.document_expires_at IS NULL THEN 'none'
+          WHEN dx.document_expires_at < $1::date THEN 'expired'
+          WHEN dx.document_expires_at <= $1::date + $2::int THEN 'expiring'
+          ELSE 'valid'
+        END)::text AS document_status
     FROM vehicles v
-    WHERE v.organization_id = $1
+    LEFT JOIN LATERAL (
+        -- Expiry tracking (TEC-693): the current document of a type is the live
+        -- one with the latest valid_until; document_expires_at is the earliest
+        -- of those (the next document to renew).
+        SELECT
+            MAX(c.until) FILTER (WHERE c.doc_type = 'muayene') AS inspection_until,
+            MAX(c.until) FILTER (WHERE c.doc_type = 'trafik_sigortasi') AS insurance_until,
+            MAX(c.until) FILTER (WHERE c.doc_type = 'kasko') AS kasko_until,
+            MIN(c.until) AS document_expires_at
+        FROM (
+            SELECT d.doc_type, MAX(d.valid_until) AS until
+            FROM vehicle_documents d
+            WHERE d.organization_id = v.organization_id AND d.vehicle_id = v.id
+              AND d.deleted_at IS NULL AND d.valid_until IS NOT NULL
+            GROUP BY d.doc_type
+        ) c
+    ) dx ON TRUE
+    WHERE v.organization_id = $3
       AND v.deleted_at IS NULL
       AND (
-        $2::bigint[] IS NULL
-        OR v.home_branch_id = ANY($2::bigint[])
-        OR v.current_branch_id = ANY($2::bigint[])
+        $4::bigint[] IS NULL
+        OR v.home_branch_id = ANY($4::bigint[])
+        OR v.current_branch_id = ANY($4::bigint[])
       )
 )
 SELECT 'status'::text AS facet, s.status::text AS value, ''::text AS label, COUNT(*)::bigint AS count
@@ -1046,6 +1140,9 @@ FROM scoped s GROUP BY s.fleet_pool
 UNION ALL
 SELECT 'is_active'::text, s.is_active::text, ''::text, COUNT(*)::bigint
 FROM scoped s GROUP BY s.is_active
+UNION ALL
+SELECT 'document_status'::text, s.document_status, ''::text, COUNT(*)::bigint
+FROM scoped s GROUP BY s.document_status
 UNION ALL
 SELECT 'home_branch'::text, b.uuid::text, b.name::text, COUNT(*)::bigint
 FROM scoped s JOIN branches b ON b.organization_id = s.organization_id AND b.id = s.home_branch_id
@@ -1070,8 +1167,10 @@ GROUP BY sg.uuid, sg.name
 `
 
 type ListVehicleFacetsParams struct {
-	OrganizationID int64   `json:"organization_id"`
-	BranchIds      []int64 `json:"branch_ids"`
+	Today               pgtype.Date `json:"today"`
+	DocumentHorizonDays int32       `json:"document_horizon_days"`
+	OrganizationID      int64       `json:"organization_id"`
+	BranchIds           []int64     `json:"branch_ids"`
 }
 
 type ListVehicleFacetsRow struct {
@@ -1082,10 +1181,15 @@ type ListVehicleFacetsRow struct {
 }
 
 // Dynamic filter options of the vehicles list in the caller's branch scope.
-// facet: status | ownership | pool | is_active | home_branch | current_branch
-// | rental_group | segment; value is the filter value (uuid for references).
+// facet: status | ownership | pool | is_active | document_status | home_branch
+// | current_branch | rental_group | segment; value is the filter value (uuid for references).
 func (q *Queries) ListVehicleFacets(ctx context.Context, arg ListVehicleFacetsParams) ([]ListVehicleFacetsRow, error) {
-	rows, err := q.db.Query(ctx, listVehicleFacets, arg.OrganizationID, arg.BranchIds)
+	rows, err := q.db.Query(ctx, listVehicleFacets,
+		arg.Today,
+		arg.DocumentHorizonDays,
+		arg.OrganizationID,
+		arg.BranchIds,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -1241,6 +1345,23 @@ LEFT JOIN catalog_types t ON t.id = v.catalog_type_id
 LEFT JOIN catalog_models m ON m.id = t.model_id
 LEFT JOIN catalog_brands tb ON tb.id = t.brand_id
 LEFT JOIN catalog_display_brands d ON d.id = tb.display_brand_id
+LEFT JOIN LATERAL (
+    -- Expiry tracking (TEC-693): the current document of a type is the live
+    -- one with the latest valid_until; document_expires_at is the earliest
+    -- of those (the next document to renew).
+    SELECT
+        MAX(c.until) FILTER (WHERE c.doc_type = 'muayene') AS inspection_until,
+        MAX(c.until) FILTER (WHERE c.doc_type = 'trafik_sigortasi') AS insurance_until,
+        MAX(c.until) FILTER (WHERE c.doc_type = 'kasko') AS kasko_until,
+        MIN(c.until) AS document_expires_at
+    FROM (
+        SELECT d.doc_type, MAX(d.valid_until) AS until
+        FROM vehicle_documents d
+        WHERE d.organization_id = v.organization_id AND d.vehicle_id = v.id
+          AND d.deleted_at IS NULL AND d.valid_until IS NOT NULL
+        GROUP BY d.doc_type
+    ) c
+) dx ON TRUE
 WHERE v.organization_id = $1
   AND v.deleted_at IS NULL
   AND (
@@ -1252,50 +1373,60 @@ WHERE v.organization_id = $1
   AND ($4::text[] IS NULL OR v.status = ANY($4::text[]))
   AND ($5::text[] IS NULL OR v.ownership = ANY($5::text[]))
   AND ($6::text[] IS NULL OR v.fleet_pool = ANY($6::text[]))
-  AND ($7::uuid[] IS NULL OR hb.uuid = ANY($7::uuid[]))
-  AND ($8::uuid[] IS NULL OR cb.uuid = ANY($8::uuid[]))
-  AND ($9::uuid[] IS NULL OR EXISTS (
+  AND ($7::text[] IS NULL OR (
+    CASE
+      WHEN dx.document_expires_at IS NULL THEN 'none'
+      WHEN dx.document_expires_at < $8::date THEN 'expired'
+      WHEN dx.document_expires_at <= $8::date + $9::int THEN 'expiring'
+      ELSE 'valid'
+    END) = ANY($7::text[]))
+  AND ($10::uuid[] IS NULL OR hb.uuid = ANY($10::uuid[]))
+  AND ($11::uuid[] IS NULL OR cb.uuid = ANY($11::uuid[]))
+  AND ($12::uuid[] IS NULL OR EXISTS (
     SELECT 1 FROM vehicle_rental_groups vg
     JOIN rental_groups g ON g.organization_id = vg.organization_id AND g.id = vg.rental_group_id
     WHERE vg.organization_id = v.organization_id AND vg.vehicle_id = v.id
-      AND g.deleted_at IS NULL AND g.uuid = ANY($9::uuid[])
+      AND g.deleted_at IS NULL AND g.uuid = ANY($12::uuid[])
   ))
-  AND ($10::uuid[] IS NULL OR EXISTS (
+  AND ($13::uuid[] IS NULL OR EXISTS (
     SELECT 1 FROM vehicle_rental_groups vg
     JOIN rental_groups g ON g.organization_id = vg.organization_id AND g.id = vg.rental_group_id
     JOIN vehicle_segments s ON s.organization_id = g.organization_id AND s.id = g.segment_id
     WHERE vg.organization_id = v.organization_id AND vg.vehicle_id = v.id
-      AND g.deleted_at IS NULL AND s.uuid = ANY($10::uuid[])
+      AND g.deleted_at IS NULL AND s.uuid = ANY($13::uuid[])
   ))
   AND (
-    $11::text IS NULL
-    OR v.plate ILIKE '%' || $11 || '%'
-    OR v.plate_key LIKE '%' || upper(regexp_replace($11, '[^A-Za-z0-9]', '', 'g')) || '%'
-    OR v.vin ILIKE '%' || $11 || '%'
-    OR v.color ILIKE '%' || $11 || '%'
-    OR v.manual_brand ILIKE '%' || $11 || '%'
-    OR v.manual_model ILIKE '%' || $11 || '%'
-    OR t.raw_name ILIKE '%' || $11 || '%'
-    OR m.name ILIKE '%' || $11 || '%'
-    OR d.name ILIKE '%' || $11 || '%'
+    $14::text IS NULL
+    OR v.plate ILIKE '%' || $14 || '%'
+    OR v.plate_key LIKE '%' || upper(regexp_replace($14, '[^A-Za-z0-9]', '', 'g')) || '%'
+    OR v.vin ILIKE '%' || $14 || '%'
+    OR v.color ILIKE '%' || $14 || '%'
+    OR v.manual_brand ILIKE '%' || $14 || '%'
+    OR v.manual_model ILIKE '%' || $14 || '%'
+    OR t.raw_name ILIKE '%' || $14 || '%'
+    OR m.name ILIKE '%' || $14 || '%'
+    OR d.name ILIKE '%' || $14 || '%'
   )
 ORDER BY v.id ASC
-LIMIT $12
+LIMIT $15
 `
 
 type ListVehicleUUIDsParams struct {
-	OrganizationID     int64       `json:"organization_id"`
-	BranchIds          []int64     `json:"branch_ids"`
-	IsActive           pgtype.Bool `json:"is_active"`
-	Statuses           []string    `json:"statuses"`
-	Ownerships         []string    `json:"ownerships"`
-	Pools              []string    `json:"pools"`
-	HomeBranchUuids    []uuid.UUID `json:"home_branch_uuids"`
-	CurrentBranchUuids []uuid.UUID `json:"current_branch_uuids"`
-	GroupUuids         []uuid.UUID `json:"group_uuids"`
-	SegmentUuids       []uuid.UUID `json:"segment_uuids"`
-	Q                  pgtype.Text `json:"q"`
-	LimitCount         int32       `json:"limit_count"`
+	OrganizationID      int64       `json:"organization_id"`
+	BranchIds           []int64     `json:"branch_ids"`
+	IsActive            pgtype.Bool `json:"is_active"`
+	Statuses            []string    `json:"statuses"`
+	Ownerships          []string    `json:"ownerships"`
+	Pools               []string    `json:"pools"`
+	DocumentStatuses    []string    `json:"document_statuses"`
+	Today               pgtype.Date `json:"today"`
+	DocumentHorizonDays int32       `json:"document_horizon_days"`
+	HomeBranchUuids     []uuid.UUID `json:"home_branch_uuids"`
+	CurrentBranchUuids  []uuid.UUID `json:"current_branch_uuids"`
+	GroupUuids          []uuid.UUID `json:"group_uuids"`
+	SegmentUuids        []uuid.UUID `json:"segment_uuids"`
+	Q                   pgtype.Text `json:"q"`
+	LimitCount          int32       `json:"limit_count"`
 }
 
 func (q *Queries) ListVehicleUUIDs(ctx context.Context, arg ListVehicleUUIDsParams) ([]uuid.UUID, error) {
@@ -1306,6 +1437,9 @@ func (q *Queries) ListVehicleUUIDs(ctx context.Context, arg ListVehicleUUIDsPara
 		arg.Statuses,
 		arg.Ownerships,
 		arg.Pools,
+		arg.DocumentStatuses,
+		arg.Today,
+		arg.DocumentHorizonDays,
 		arg.HomeBranchUuids,
 		arg.CurrentBranchUuids,
 		arg.GroupUuids,
@@ -1340,7 +1474,12 @@ SELECT v.id, v.uuid, v.organization_id, v.plate, v.plate_key, v.vin, v.catalog_t
     COALESCE(mg.uuid, '00000000-0000-0000-0000-000000000000'::uuid)::uuid AS model_group_uuid,
     hb.uuid AS home_branch_uuid, hb.code AS home_branch_code, hb.name AS home_branch_name,
     cb.uuid AS current_branch_uuid, cb.code AS current_branch_code, cb.name AS current_branch_name,
-    k.value AS kasko_value, COALESCE(k.period, '')::text AS kasko_period
+    k.value AS kasko_value, COALESCE(k.period, '')::text AS kasko_period,
+    dx.inspection_until::date AS inspection_until, dx.insurance_until::date AS insurance_until,
+    dx.kasko_until::date AS kasko_until, dx.document_expires_at::date AS document_expires_at,
+    mx.next_maintenance_date::date AS next_maintenance_date,
+    -- -1 = no open plan with a km target.
+    COALESCE(mx.next_maintenance_km, -1)::int AS next_maintenance_km
 FROM vehicles v
 JOIN branches hb ON hb.organization_id = v.organization_id AND hb.id = v.home_branch_id
 JOIN branches cb ON cb.organization_id = v.organization_id AND cb.id = v.current_branch_id
@@ -1361,6 +1500,30 @@ LEFT JOIN LATERAL (
     ORDER BY cv.period DESC
     LIMIT 1
 ) k ON TRUE
+LEFT JOIN LATERAL (
+    -- Expiry tracking (TEC-693): the current document of a type is the live
+    -- one with the latest valid_until; document_expires_at is the earliest
+    -- of those (the next document to renew).
+    SELECT
+        MAX(c.until) FILTER (WHERE c.doc_type = 'muayene') AS inspection_until,
+        MAX(c.until) FILTER (WHERE c.doc_type = 'trafik_sigortasi') AS insurance_until,
+        MAX(c.until) FILTER (WHERE c.doc_type = 'kasko') AS kasko_until,
+        MIN(c.until) AS document_expires_at
+    FROM (
+        SELECT d.doc_type, MAX(d.valid_until) AS until
+        FROM vehicle_documents d
+        WHERE d.organization_id = v.organization_id AND d.vehicle_id = v.id
+          AND d.deleted_at IS NULL AND d.valid_until IS NOT NULL
+        GROUP BY d.doc_type
+    ) c
+) dx ON TRUE
+LEFT JOIN LATERAL (
+    -- Next open maintenance plan (by date and by km).
+    SELECT MIN(mp.planned_date) AS next_maintenance_date, MIN(mp.planned_km) AS next_maintenance_km
+    FROM vehicle_maintenance mp
+    WHERE mp.organization_id = v.organization_id AND mp.vehicle_id = v.id
+      AND mp.kind = 'planned' AND mp.deleted_at IS NULL
+) mx ON TRUE
 WHERE v.organization_id = $1
   AND v.deleted_at IS NULL
   -- Branch scope of the caller: home OR current branch; NULL = every branch.
@@ -1373,92 +1536,120 @@ WHERE v.organization_id = $1
   AND ($4::text[] IS NULL OR v.status = ANY($4::text[]))
   AND ($5::text[] IS NULL OR v.ownership = ANY($5::text[]))
   AND ($6::text[] IS NULL OR v.fleet_pool = ANY($6::text[]))
-  AND ($7::uuid[] IS NULL OR hb.uuid = ANY($7::uuid[]))
-  AND ($8::uuid[] IS NULL OR cb.uuid = ANY($8::uuid[]))
-  AND ($9::uuid[] IS NULL OR EXISTS (
+  AND ($7::text[] IS NULL OR (
+    CASE
+      WHEN dx.document_expires_at IS NULL THEN 'none'
+      WHEN dx.document_expires_at < $8::date THEN 'expired'
+      WHEN dx.document_expires_at <= $8::date + $9::int THEN 'expiring'
+      ELSE 'valid'
+    END) = ANY($7::text[]))
+  AND ($10::uuid[] IS NULL OR hb.uuid = ANY($10::uuid[]))
+  AND ($11::uuid[] IS NULL OR cb.uuid = ANY($11::uuid[]))
+  AND ($12::uuid[] IS NULL OR EXISTS (
     SELECT 1 FROM vehicle_rental_groups vg
     JOIN rental_groups g ON g.organization_id = vg.organization_id AND g.id = vg.rental_group_id
     WHERE vg.organization_id = v.organization_id AND vg.vehicle_id = v.id
-      AND g.deleted_at IS NULL AND g.uuid = ANY($9::uuid[])
+      AND g.deleted_at IS NULL AND g.uuid = ANY($12::uuid[])
   ))
-  AND ($10::uuid[] IS NULL OR EXISTS (
+  AND ($13::uuid[] IS NULL OR EXISTS (
     SELECT 1 FROM vehicle_rental_groups vg
     JOIN rental_groups g ON g.organization_id = vg.organization_id AND g.id = vg.rental_group_id
     JOIN vehicle_segments s ON s.organization_id = g.organization_id AND s.id = g.segment_id
     WHERE vg.organization_id = v.organization_id AND vg.vehicle_id = v.id
-      AND g.deleted_at IS NULL AND s.uuid = ANY($10::uuid[])
+      AND g.deleted_at IS NULL AND s.uuid = ANY($13::uuid[])
   ))
   AND (
-    $11::text IS NULL
-    OR v.plate ILIKE '%' || $11 || '%'
-    OR v.plate_key LIKE '%' || upper(regexp_replace($11, '[^A-Za-z0-9]', '', 'g')) || '%'
-    OR v.vin ILIKE '%' || $11 || '%'
-    OR v.color ILIKE '%' || $11 || '%'
-    OR v.manual_brand ILIKE '%' || $11 || '%'
-    OR v.manual_model ILIKE '%' || $11 || '%'
-    OR t.raw_name ILIKE '%' || $11 || '%'
-    OR m.name ILIKE '%' || $11 || '%'
-    OR d.name ILIKE '%' || $11 || '%'
+    $14::text IS NULL
+    OR v.plate ILIKE '%' || $14 || '%'
+    OR v.plate_key LIKE '%' || upper(regexp_replace($14, '[^A-Za-z0-9]', '', 'g')) || '%'
+    OR v.vin ILIKE '%' || $14 || '%'
+    OR v.color ILIKE '%' || $14 || '%'
+    OR v.manual_brand ILIKE '%' || $14 || '%'
+    OR v.manual_model ILIKE '%' || $14 || '%'
+    OR t.raw_name ILIKE '%' || $14 || '%'
+    OR m.name ILIKE '%' || $14 || '%'
+    OR d.name ILIKE '%' || $14 || '%'
   )
 ORDER BY
-  CASE WHEN $12::text = 'plate' AND NOT $13::boolean THEN v.plate_key END ASC,
-  CASE WHEN $12::text = 'plate' AND $13::boolean THEN v.plate_key END DESC,
-  CASE WHEN $12::text = 'model_year' AND NOT $13::boolean THEN v.model_year END ASC,
-  CASE WHEN $12::text = 'model_year' AND $13::boolean THEN v.model_year END DESC,
-  CASE WHEN $12::text = 'odometer_km' AND NOT $13::boolean THEN v.odometer_km END ASC,
-  CASE WHEN $12::text = 'odometer_km' AND $13::boolean THEN v.odometer_km END DESC,
-  CASE WHEN $12::text = 'status' AND NOT $13::boolean THEN v.status END ASC,
-  CASE WHEN $12::text = 'status' AND $13::boolean THEN v.status END DESC,
-  CASE WHEN $12::text = 'kasko_value' AND NOT $13::boolean THEN k.value END ASC NULLS LAST,
-  CASE WHEN $12::text = 'kasko_value' AND $13::boolean THEN k.value END DESC NULLS LAST,
-  CASE WHEN $12::text = 'is_active' AND NOT $13::boolean THEN v.is_active END ASC,
-  CASE WHEN $12::text = 'is_active' AND $13::boolean THEN v.is_active END DESC,
-  CASE WHEN $12::text = 'updated_at' AND NOT $13::boolean THEN v.updated_at END ASC,
-  CASE WHEN $12::text = 'updated_at' AND $13::boolean THEN v.updated_at END DESC,
-  CASE WHEN $12::text = 'created_at' AND NOT $13::boolean THEN v.created_at END ASC,
-  CASE WHEN $12::text = 'created_at' AND $13::boolean THEN v.created_at END DESC,
+  CASE WHEN $15::text = 'plate' AND NOT $16::boolean THEN v.plate_key END ASC,
+  CASE WHEN $15::text = 'plate' AND $16::boolean THEN v.plate_key END DESC,
+  CASE WHEN $15::text = 'model_year' AND NOT $16::boolean THEN v.model_year END ASC,
+  CASE WHEN $15::text = 'model_year' AND $16::boolean THEN v.model_year END DESC,
+  CASE WHEN $15::text = 'odometer_km' AND NOT $16::boolean THEN v.odometer_km END ASC,
+  CASE WHEN $15::text = 'odometer_km' AND $16::boolean THEN v.odometer_km END DESC,
+  CASE WHEN $15::text = 'status' AND NOT $16::boolean THEN v.status END ASC,
+  CASE WHEN $15::text = 'status' AND $16::boolean THEN v.status END DESC,
+  CASE WHEN $15::text = 'kasko_value' AND NOT $16::boolean THEN k.value END ASC NULLS LAST,
+  CASE WHEN $15::text = 'kasko_value' AND $16::boolean THEN k.value END DESC NULLS LAST,
+  CASE WHEN $15::text = 'inspection_until' AND NOT $16::boolean THEN dx.inspection_until END ASC NULLS LAST,
+  CASE WHEN $15::text = 'inspection_until' AND $16::boolean THEN dx.inspection_until END DESC NULLS LAST,
+  CASE WHEN $15::text = 'insurance_until' AND NOT $16::boolean THEN dx.insurance_until END ASC NULLS LAST,
+  CASE WHEN $15::text = 'insurance_until' AND $16::boolean THEN dx.insurance_until END DESC NULLS LAST,
+  CASE WHEN $15::text = 'kasko_until' AND NOT $16::boolean THEN dx.kasko_until END ASC NULLS LAST,
+  CASE WHEN $15::text = 'kasko_until' AND $16::boolean THEN dx.kasko_until END DESC NULLS LAST,
+  CASE WHEN $15::text = 'document_expires_at' AND NOT $16::boolean THEN dx.document_expires_at END ASC NULLS LAST,
+  CASE WHEN $15::text = 'document_expires_at' AND $16::boolean THEN dx.document_expires_at END DESC NULLS LAST,
+  CASE WHEN $15::text = 'next_maintenance_date' AND NOT $16::boolean THEN mx.next_maintenance_date END ASC NULLS LAST,
+  CASE WHEN $15::text = 'next_maintenance_date' AND $16::boolean THEN mx.next_maintenance_date END DESC NULLS LAST,
+  CASE WHEN $15::text = 'next_maintenance_km' AND NOT $16::boolean THEN mx.next_maintenance_km END ASC NULLS LAST,
+  CASE WHEN $15::text = 'next_maintenance_km' AND $16::boolean THEN mx.next_maintenance_km END DESC NULLS LAST,
+  CASE WHEN $15::text = 'is_active' AND NOT $16::boolean THEN v.is_active END ASC,
+  CASE WHEN $15::text = 'is_active' AND $16::boolean THEN v.is_active END DESC,
+  CASE WHEN $15::text = 'updated_at' AND NOT $16::boolean THEN v.updated_at END ASC,
+  CASE WHEN $15::text = 'updated_at' AND $16::boolean THEN v.updated_at END DESC,
+  CASE WHEN $15::text = 'created_at' AND NOT $16::boolean THEN v.created_at END ASC,
+  CASE WHEN $15::text = 'created_at' AND $16::boolean THEN v.created_at END DESC,
   v.id DESC
-LIMIT $15 OFFSET $14
+LIMIT $18 OFFSET $17
 `
 
 type ListVehiclesParams struct {
-	OrganizationID     int64       `json:"organization_id"`
-	BranchIds          []int64     `json:"branch_ids"`
-	IsActive           pgtype.Bool `json:"is_active"`
-	Statuses           []string    `json:"statuses"`
-	Ownerships         []string    `json:"ownerships"`
-	Pools              []string    `json:"pools"`
-	HomeBranchUuids    []uuid.UUID `json:"home_branch_uuids"`
-	CurrentBranchUuids []uuid.UUID `json:"current_branch_uuids"`
-	GroupUuids         []uuid.UUID `json:"group_uuids"`
-	SegmentUuids       []uuid.UUID `json:"segment_uuids"`
-	Q                  pgtype.Text `json:"q"`
-	SortField          string      `json:"sort_field"`
-	SortDesc           bool        `json:"sort_desc"`
-	OffsetCount        int32       `json:"offset_count"`
-	LimitCount         int32       `json:"limit_count"`
+	OrganizationID      int64       `json:"organization_id"`
+	BranchIds           []int64     `json:"branch_ids"`
+	IsActive            pgtype.Bool `json:"is_active"`
+	Statuses            []string    `json:"statuses"`
+	Ownerships          []string    `json:"ownerships"`
+	Pools               []string    `json:"pools"`
+	DocumentStatuses    []string    `json:"document_statuses"`
+	Today               pgtype.Date `json:"today"`
+	DocumentHorizonDays int32       `json:"document_horizon_days"`
+	HomeBranchUuids     []uuid.UUID `json:"home_branch_uuids"`
+	CurrentBranchUuids  []uuid.UUID `json:"current_branch_uuids"`
+	GroupUuids          []uuid.UUID `json:"group_uuids"`
+	SegmentUuids        []uuid.UUID `json:"segment_uuids"`
+	Q                   pgtype.Text `json:"q"`
+	SortField           string      `json:"sort_field"`
+	SortDesc            bool        `json:"sort_desc"`
+	OffsetCount         int32       `json:"offset_count"`
+	LimitCount          int32       `json:"limit_count"`
 }
 
 type ListVehiclesRow struct {
-	Vehicle           Vehicle        `json:"vehicle"`
-	TypeUuid          pgtype.UUID    `json:"type_uuid"`
-	TypeName          pgtype.Text    `json:"type_name"`
-	TypeCode          pgtype.Text    `json:"type_code"`
-	TypeYears         []int32        `json:"type_years"`
-	CatalogModelID    pgtype.Int8    `json:"catalog_model_id"`
-	ModelName         pgtype.Text    `json:"model_name"`
-	BrandUuid         pgtype.UUID    `json:"brand_uuid"`
-	BrandName         pgtype.Text    `json:"brand_name"`
-	ModelGroupID      int64          `json:"model_group_id"`
-	ModelGroupUuid    uuid.UUID      `json:"model_group_uuid"`
-	HomeBranchUuid    uuid.UUID      `json:"home_branch_uuid"`
-	HomeBranchCode    string         `json:"home_branch_code"`
-	HomeBranchName    string         `json:"home_branch_name"`
-	CurrentBranchUuid uuid.UUID      `json:"current_branch_uuid"`
-	CurrentBranchCode string         `json:"current_branch_code"`
-	CurrentBranchName string         `json:"current_branch_name"`
-	KaskoValue        pgtype.Numeric `json:"kasko_value"`
-	KaskoPeriod       string         `json:"kasko_period"`
+	Vehicle             Vehicle        `json:"vehicle"`
+	TypeUuid            pgtype.UUID    `json:"type_uuid"`
+	TypeName            pgtype.Text    `json:"type_name"`
+	TypeCode            pgtype.Text    `json:"type_code"`
+	TypeYears           []int32        `json:"type_years"`
+	CatalogModelID      pgtype.Int8    `json:"catalog_model_id"`
+	ModelName           pgtype.Text    `json:"model_name"`
+	BrandUuid           pgtype.UUID    `json:"brand_uuid"`
+	BrandName           pgtype.Text    `json:"brand_name"`
+	ModelGroupID        int64          `json:"model_group_id"`
+	ModelGroupUuid      uuid.UUID      `json:"model_group_uuid"`
+	HomeBranchUuid      uuid.UUID      `json:"home_branch_uuid"`
+	HomeBranchCode      string         `json:"home_branch_code"`
+	HomeBranchName      string         `json:"home_branch_name"`
+	CurrentBranchUuid   uuid.UUID      `json:"current_branch_uuid"`
+	CurrentBranchCode   string         `json:"current_branch_code"`
+	CurrentBranchName   string         `json:"current_branch_name"`
+	KaskoValue          pgtype.Numeric `json:"kasko_value"`
+	KaskoPeriod         string         `json:"kasko_period"`
+	InspectionUntil     pgtype.Date    `json:"inspection_until"`
+	InsuranceUntil      pgtype.Date    `json:"insurance_until"`
+	KaskoUntil          pgtype.Date    `json:"kasko_until"`
+	DocumentExpiresAt   pgtype.Date    `json:"document_expires_at"`
+	NextMaintenanceDate pgtype.Date    `json:"next_maintenance_date"`
+	NextMaintenanceKm   int32          `json:"next_maintenance_km"`
 }
 
 func (q *Queries) ListVehicles(ctx context.Context, arg ListVehiclesParams) ([]ListVehiclesRow, error) {
@@ -1469,6 +1660,9 @@ func (q *Queries) ListVehicles(ctx context.Context, arg ListVehiclesParams) ([]L
 		arg.Statuses,
 		arg.Ownerships,
 		arg.Pools,
+		arg.DocumentStatuses,
+		arg.Today,
+		arg.DocumentHorizonDays,
 		arg.HomeBranchUuids,
 		arg.CurrentBranchUuids,
 		arg.GroupUuids,
@@ -1540,6 +1734,12 @@ func (q *Queries) ListVehicles(ctx context.Context, arg ListVehiclesParams) ([]L
 			&i.CurrentBranchName,
 			&i.KaskoValue,
 			&i.KaskoPeriod,
+			&i.InspectionUntil,
+			&i.InsuranceUntil,
+			&i.KaskoUntil,
+			&i.DocumentExpiresAt,
+			&i.NextMaintenanceDate,
+			&i.NextMaintenanceKm,
 		); err != nil {
 			return nil, err
 		}

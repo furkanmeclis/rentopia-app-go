@@ -28,6 +28,9 @@ import (
 	orgrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/repository"
 	orgusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/usecase"
 	tenantmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tenant"
+	vehiclerecordsadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehiclerecords/adapters"
+	vehiclerecordsrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehiclerecords/repository"
+	vehiclerecordsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehiclerecords/usecase"
 	vehicleadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/adapters"
 	vehiclerepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/repository"
 	vehicleusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/usecase"
@@ -126,6 +129,10 @@ func main() {
 	branchSvc := branchusecase.New(branchrepository.NewPostgres(queries), nil)
 	fleetSvc := fleetusecase.New(fleetrepository.NewPostgres(pool, queries), store, nil)
 	vehicleSvc := vehicleusecase.New(vehiclerepository.NewPostgres(pool, queries), nil)
+	// Vehicle documents / maintenance: exports and the daily reminder job.
+	vehicleRecordsSvc := vehiclerecordsusecase.New(
+		vehiclerecordsrepository.NewPostgres(queries), vehicleSvc, store, notifSvc, log,
+	)
 	ioReg := ioengine.NewRegistry(
 		ioadapters.NewUsers(queries),
 		ioadapters.NewRoles(queries),
@@ -136,6 +143,8 @@ func main() {
 		fleetadapters.NewGroupsIO(fleetSvc),
 		fleetadapters.NewProductsIO(fleetSvc),
 		vehicleadapters.NewIO(vehicleSvc),
+		vehiclerecordsadapters.NewDocumentsIO(vehicleRecordsSvc),
+		vehiclerecordsadapters.NewMaintenanceIO(vehicleRecordsSvc),
 	)
 	exportSvc := exportusecase.New(queries, store, ioReg, nil, notifSvc, activityRec, log)
 	importSvc := importusecase.New(queries, store, ioReg, nil, notifSvc, activityRec, log)
@@ -191,6 +200,7 @@ func main() {
 		WithLogPurge(logsSvc.ApplyDueRules).
 		WithMobilePush(notifSvc.SendMobilePush, notifSvc.ProcessPushReceipts).
 		WithCatalogImport(catalogSvc.ProcessImport).
+		WithVehicleReminders(vehicleRecordsSvc.RunReminders).
 		WithSearch(
 			searchIndexer.ProcessUpsert,
 			searchIndexer.ProcessDelete,
@@ -208,6 +218,10 @@ func main() {
 	}
 	if err := queue.RegisterPushReceiptsSchedule(scheduler); err != nil {
 		log.Error("push_receipts_scheduler_failed", "error", err)
+		exit(1)
+	}
+	if err := queue.RegisterVehicleRemindersSchedule(scheduler); err != nil {
+		log.Error("vehicle_reminders_scheduler_failed", "error", err)
 		exit(1)
 	}
 	go func() {

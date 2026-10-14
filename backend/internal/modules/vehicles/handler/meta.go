@@ -33,9 +33,12 @@ func Meta() rm.ResourceMeta {
 		SearchableFields: []string{"plate", "vin", "brand", "model", "type_name", "color"},
 		SortableFields: []string{
 			"plate", "model_year", "odometer_km", "status", "kasko_value", "is_active", "created_at", "updated_at",
+			"inspection_until", "insurance_until", "kasko_until", "document_expires_at",
+			"next_maintenance_date", "next_maintenance_km",
 		},
 		FilterableFields: []string{
 			"status", "rental_group", "segment", "home_branch", "current_branch", "ownership", "pool", "is_active",
+			"document_status",
 		},
 		Columns: []rm.Column{
 			col("plate", s, true, true),
@@ -46,6 +49,12 @@ func Meta() rm.ResourceMeta {
 			facet(col("current_branch", e, false, true)),
 			facet(col("home_branch", e, false, false)),
 			col("kasko_value", s, true, true),
+			facet(col("document_status", e, false, true)),
+			col("inspection_until", s, true, false),
+			col("insurance_until", s, true, false),
+			col("kasko_until", s, true, false),
+			col("next_maintenance_date", s, true, false),
+			col("next_maintenance_km", s, true, false),
 			facet(col("rental_group", e, false, false)),
 			facet(col("segment", e, false, false)),
 			facet(col("ownership", e, false, false)),
@@ -65,6 +74,7 @@ func Meta() rm.ResourceMeta {
 			filter("ownership", "vehicles.ownership"),
 			filter("pool", "vehicles.facets.pool"),
 			filter("is_active", "boolean"),
+			filter("document_status", "vehicle_records.doc_status"),
 		},
 		Includes:    []string{},
 		BulkActions: adapters.NewBulk(nil).BulkActions(),

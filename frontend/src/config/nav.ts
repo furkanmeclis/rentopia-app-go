@@ -3,6 +3,7 @@ import {
   Bell,
   Boxes,
   Building2,
+  CalendarClock,
   CarFront,
   Cpu,
   Download,
@@ -293,6 +294,13 @@ export function tenantNav(slug: string): NavCatalog {
             titleKey: "layout.nav_fleet_vehicles",
             href: routes.tenant.fleet.vehicles.root(slug),
             icon: CarFront,
+            permission: permissions.tenant.vehicles.read,
+          },
+          {
+            id: "fleet-alerts",
+            titleKey: "layout.nav_fleet_alerts",
+            href: routes.tenant.fleet.alerts(slug),
+            icon: CalendarClock,
             permission: permissions.tenant.vehicles.read,
           },
           {
