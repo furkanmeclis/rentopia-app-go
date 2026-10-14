@@ -318,6 +318,7 @@ func appliedCounts(plan model.Plan, res model.ApplyResult) model.Counts {
 		Rows:                 plan.Counts.Rows,
 		BrandsNew:            res.BrandsInserted,
 		BrandsRenamed:        res.BrandsUpdated,
+		DisplayBrandsNew:     res.DisplayBrandsInserted,
 		ModelsNew:            res.ModelsInserted,
 		TypesNew:             res.TypesInserted,
 		TypesUpdated:         res.TypesUpdated,
