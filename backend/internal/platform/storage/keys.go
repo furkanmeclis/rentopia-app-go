@@ -17,6 +17,12 @@ func ImportSourceObjectKey(jobUUID, ext string) string {
 	return fmt.Sprintf("imports/%s/source.%s", jobUUID, trimExt(ext))
 }
 
+// CatalogImportObjectKey builds catalog/imports/{importUUID}/source.{ext}
+// for the private TSB kasko list uploads.
+func CatalogImportObjectKey(importUUID, ext string) string {
+	return fmt.Sprintf("catalog/imports/%s/source.%s", importUUID, trimExt(ext))
+}
+
 func trimExt(ext string) string {
 	for len(ext) > 0 && ext[0] == '.' {
 		ext = ext[1:]
