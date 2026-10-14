@@ -36,6 +36,14 @@ func RentalProductImageObjectKey(orgUUID, productUUID, imageUUID, ext string) st
 	return fmt.Sprintf("organizations/%s/rental-products/%s/images/%s.%s", orgUUID, productUUID, imageUUID, trimExt(ext))
 }
 
+// VehicleDocumentObjectKey builds
+// organizations/{orgUUID}/vehicles/{vehicleUUID}/documents/{documentUUID}/{fileUUID}.{ext}
+// for scanned vehicle documents (private: streamed by the API only, never
+// linked from the browser). A replaced file gets a new fileUUID.
+func VehicleDocumentObjectKey(orgUUID, vehicleUUID, documentUUID, fileUUID, ext string) string {
+	return fmt.Sprintf("organizations/%s/vehicles/%s/documents/%s/%s.%s", orgUUID, vehicleUUID, documentUUID, fileUUID, trimExt(ext))
+}
+
 func trimExt(ext string) string {
 	for len(ext) > 0 && ext[0] == '.' {
 		ext = ext[1:]
