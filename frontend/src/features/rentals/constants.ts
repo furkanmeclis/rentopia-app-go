@@ -1,5 +1,6 @@
 import type {
   ChargeKind,
+  ManualChargeKind,
   ChargeStatus,
   OperationTaskStatus,
   OperationTaskType,
@@ -37,7 +38,8 @@ export const RENTAL_STATUS_TONES: Record<RentalStatus, Tone> = {
   cancelled: "danger",
 };
 
-export const CHARGE_KINDS: ChargeKind[] = [
+/** Kinds a person may propose (toll charges come from toll passes only). */
+export const CHARGE_KINDS: ManualChargeKind[] = [
   "late_return",
   "early_return",
   "damage",
@@ -54,6 +56,8 @@ export const CHARGE_KIND_LABEL_KEYS: Record<ChargeKind, string> = {
   fuel: "rentals.charges.kinds.fuel",
   mileage: "rentals.charges.kinds.mileage",
   equipment: "rentals.charges.kinds.equipment",
+  toll: "rentals.charges.kinds.toll",
+  toll_fee: "rentals.charges.kinds.toll_fee",
   other: "rentals.charges.kinds.other",
 };
 
@@ -135,6 +139,8 @@ export const EVENT_LABEL_KEYS: Record<string, string> = {
   inspection_finalized: "rentals.events.actions.inspection_finalized",
   inspection_revised: "rentals.events.actions.inspection_revised",
   inspection_reviewed: "rentals.events.actions.inspection_reviewed",
+  toll_charged: "rentals.events.actions.toll_charged",
+  toll_reversed: "rentals.events.actions.toll_reversed",
 };
 
 export function eventLabel(t: (key: string) => string, action: string) {

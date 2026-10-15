@@ -37,7 +37,7 @@ import {
   useSwapVehicle,
 } from "@/features/rentals/hooks/use-rentals";
 import { rentalProblemText } from "@/features/rentals/lib/errors";
-import type { ChargeKind, Rental } from "@/features/rentals/types";
+import type { ManualChargeKind, Rental } from "@/features/rentals/types";
 import { useTenant } from "@/features/tenant/components/tenant-provider";
 import { vehiclesService } from "@/features/vehicles/services/vehicles.service";
 import { useLocale } from "@/providers/locale-provider";
@@ -851,7 +851,7 @@ export function ChargeDialog({ rental, open, onOpenChange }: DialogProps) {
   const schema = useMemo(
     () =>
       z.object({
-        kind: z.enum(CHARGE_KINDS as [ChargeKind, ...ChargeKind[]]),
+        kind: z.enum(CHARGE_KINDS as [ManualChargeKind, ...ManualChargeKind[]]),
         amount: z
           .string()
           .trim()
@@ -886,7 +886,7 @@ export function ChargeDialog({ rental, open, onOpenChange }: DialogProps) {
       }
     >
       {open ? (
-        <AppForm<{ kind: ChargeKind; amount: string; reason: string }>
+        <AppForm<{ kind: ManualChargeKind; amount: string; reason: string }>
           id={CHARGE_FORM_ID}
           className="grid gap-4"
           schema={schema}

@@ -74,5 +74,7 @@
   "nav_field_tasks": "Saha görevleri",
   "nav_inspections": "Teslim / iade formları",
   "nav_tenant_settings_inspection_templates": "Teslim / iade formları",
-  "nav_customer_requests": "Müşteri talepleri"
+  "nav_customer_requests": "Müşteri talepleri",
+  "nav_tolls": "HGS/OGS geçişleri",
+  "nav_tolls_review": "HGS inceleme kuyruğu"
 }

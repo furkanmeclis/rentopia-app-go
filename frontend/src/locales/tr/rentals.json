@@ -317,5 +317,9 @@
   "detail.open_inspections": "Teslim / iade formları",
   "actions.mobile_handover": "Mobil teslim",
   "actions.mobile_return": "Mobil iade",
-  "policy.fuel_fee_per_percent": "Eksik yakıt ücreti (%)"
+  "policy.fuel_fee_per_percent": "Eksik yakıt ücreti (%)",
+  "charges.kinds.toll": "Köprü / otoyol geçişi",
+  "charges.kinds.toll_fee": "HGS işlem ücreti",
+  "events.actions.toll_charged": "HGS/OGS geçişi yansıtıldı",
+  "events.actions.toll_reversed": "HGS/OGS masrafı ters kayıtla iptal edildi"
 }

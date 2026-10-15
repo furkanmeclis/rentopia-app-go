@@ -119,7 +119,8 @@ export type IoResource =
   | "tenant.extras"
   | "tenant.campaigns"
   | "tenant.reservations"
-  | "tenant.rentals";
+  | "tenant.rentals"
+  | "tenant.toll_passes";
 
 export const EXPORT_PATHS: Record<IoResource, string> = {
   "platform.users": "/v1/platform/users/export",
@@ -143,6 +144,7 @@ export const EXPORT_PATHS: Record<IoResource, string> = {
   "tenant.campaigns": "/v1/tenant/campaigns/export",
   "tenant.reservations": "/v1/tenant/reservations/export",
   "tenant.rentals": "/v1/tenant/rentals/export",
+  "tenant.toll_passes": "/v1/tenant/toll-passes/export",
 };
 
 export const IMPORT_PATHS: Partial<
@@ -171,6 +173,10 @@ export const IMPORT_PATHS: Partial<
   "tenant.customers": {
     upload: "/v1/tenant/customers/import",
     sample: "/v1/tenant/customers/import/sample",
+  },
+  "tenant.toll_passes": {
+    upload: "/v1/tenant/toll-passes/import",
+    sample: "/v1/tenant/toll-passes/import/sample",
   },
 };
 
@@ -207,6 +213,21 @@ export const IMPORT_SCHEMA: Partial<
   // İdes fleet XLSX: plaka, şasi, marka, model, tip / kasko kodu, model yılı,
   // renk, vites, yakıt, şube, mülkiyet, km. type_code before type_name so a
   // "Tip/Kasko Kodu" header maps to the code.
+  "tenant.toll_passes": [
+    {
+      key: "external_id",
+      labelKey: "tolls.import.external_id",
+      required: true,
+    },
+    { key: "passed_at", labelKey: "tolls.import.passed_at", required: true },
+    { key: "plate", labelKey: "tolls.import.plate" },
+    { key: "tag_number", labelKey: "tolls.import.tag_number" },
+    { key: "station", labelKey: "tolls.import.station", required: true },
+    { key: "exit_station", labelKey: "tolls.import.exit_station" },
+    { key: "amount", labelKey: "tolls.import.amount", required: true },
+    { key: "currency", labelKey: "tolls.import.currency" },
+    { key: "provider", labelKey: "tolls.import.provider" },
+  ],
   "tenant.vehicles": [
     { key: "plate", labelKey: "vehicles.fields.plate", required: true },
     { key: "vin", labelKey: "vehicles.fields.vin" },

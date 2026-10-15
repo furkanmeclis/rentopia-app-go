@@ -283,5 +283,9 @@
   "integrations.jobs.toast.unverified": "Sağlayıcı durumu doğrulayamadı; tekrar gönderilmedi. Sağlayıcı panelinden kontrol edin.",
   "integrations.jobs.toast.busy": "İş şu anda işleniyor; biraz sonra tekrar deneyin.",
   "integrations.jobs.toast.not_retryable": "Bu iş yeniden denenemez.",
-  "integrations.jobs.toast.retry_failed": "Yeniden deneme başarısız"
+  "integrations.jobs.toast.retry_failed": "Yeniden deneme başarısız",
+  "integrations.providers.hgs_fake": "HGS test sağlayıcısı (geliştirme)",
+  "integrations.provider_hints.hgs_fake": "Yalnızca geliştirme ve test: araç etiketleri için örnek HGS geçişleri üretir. Herhangi bir API anahtarı girin.",
+  "integrations.fields.customer_no": "Müşteri no",
+  "integrations.jobs.kinds.toll_fetch": "HGS/OGS geçiş sorgusu"
 }

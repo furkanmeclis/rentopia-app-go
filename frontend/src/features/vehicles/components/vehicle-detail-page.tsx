@@ -85,6 +85,7 @@ import type { Vehicle } from "@/features/vehicles/types";
 import { date, datetime } from "@/lib/utils/format";
 import { useLocale } from "@/providers/locale-provider";
 import { usePermission } from "@/providers/permission-provider";
+import { VehicleTollsTab } from "@/features/tolls/components/vehicle-tolls-tab";
 
 /** Tabs of the vehicle page, in display order (`?tab=` values). */
 const VEHICLE_TABS = [
@@ -100,6 +101,7 @@ const VEHICLE_TABS = [
   "damage",
   "finance",
   "kasko",
+  "tolls",
   "activity",
 ] as const;
 
@@ -118,6 +120,7 @@ const TAB_LABEL_KEYS: Record<VehicleTab, string> = {
   damage: "vehicles.tabs.damage",
   finance: "vehicles.tabs.finance",
   kasko: "vehicles.tabs.kasko",
+  tolls: "vehicles.tabs.tolls",
   activity: "vehicles.tabs.activity",
 };
 
@@ -637,7 +640,10 @@ export function VehicleDetailPage({
           <Tabs value={tab} onValueChange={openTab} className="space-y-4">
             <div className="-mx-1 overflow-x-auto px-1 pb-1">
               <TabsList className="h-auto w-max">
-                {VEHICLE_TABS.map((value) => (
+                {VEHICLE_TABS.filter(
+                  (value) =>
+                    value !== "tolls" || can(permissions.tenant.tolls.read),
+                ).map((value) => (
                   <TabsTrigger key={value} value={value}>
                     {t(TAB_LABEL_KEYS[value])}
                   </TabsTrigger>
@@ -702,6 +708,12 @@ export function VehicleDetailPage({
                 <VehicleKaskoTab uuid={uuid} />
               </EntitySectionCard>
             </TabsContent>
+
+            {can(permissions.tenant.tolls.read) ? (
+              <TabsContent value="tolls">
+                <VehicleTollsTab vehicleUuid={uuid} />
+              </TabsContent>
+            ) : null}
 
             <TabsContent value="activity">
               <VehicleActivityCard uuid={uuid} />

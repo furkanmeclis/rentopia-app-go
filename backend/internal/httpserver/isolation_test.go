@@ -79,6 +79,9 @@ var isolationAllowlist = map[string]string{
 	"POST /v1/tenant/integrations":           "body has no foreign references (provider code, display name, mode, the organization's own credentials)",
 	"POST /v1/tenant/contract-templates":     "body has no foreign references (kind, name, editor content, body with placeholders)",
 	"POST /v1/tenant/inspection-templates":   "body has no foreign references (name, photo slots, checklist items)",
+	"POST /v1/tenant/toll-passes/import":     "rows match provider transaction ids and plates / tags inside the organization (tolls tests); the job is the {uuid} cases",
+	"POST /v1/tenant/toll-passes/fetch":      "no body; fetches with the caller's organization's active toll account (tolls fetch test)",
+	"PATCH /v1/tenant/toll-settings":         "processing fee / fetch options of the caller's organization; no foreign references",
 }
 
 type isoOrg struct {
@@ -440,6 +443,22 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		ids["integrationJob"] = str(must(call(o, http.MethodPost, "/v1/tenant/integrations/"+ids["smsAccount"]+"/test-sms", map[string]any{
 			"phone": "05321234567",
 		}), http.StatusAccepted, "test sms"), "job_uuid")
+		// Toll passes (TEC-725): a tag on the vehicle, the development
+		// provider account and a fetch (inline without a queue) → passes
+		// of the tag, in review (the vehicle was on no rental).
+		ids["tollTag"] = str(must(call(o, http.MethodPost, "/v1/tenant/vehicles/"+ids["vehicle"]+"/toll-tags", map[string]any{
+			"provider": "hgs_fake", "tag_number": m + "TAG", "valid_from": time.Now().AddDate(0, 0, -30).UTC().Format(time.RFC3339),
+			"note": m,
+		}), http.StatusCreated, "toll tag"), "uuid")
+		must(call(o, http.MethodPost, "/v1/tenant/integrations", map[string]any{
+			"provider": "hgs_fake", "display_name": m + " HGS", "credentials": map[string]string{"api_key": "fake-" + m},
+		}), http.StatusCreated, "toll provider account")
+		must(call(o, http.MethodPost, "/v1/tenant/toll-passes/fetch", nil), http.StatusAccepted, "toll fetch")
+		tollPasses := pageItems(t, must(call(o, http.MethodGet, "/v1/tenant/toll-passes?limit=5", nil), http.StatusOK, "toll passes").data)
+		if len(tollPasses) == 0 {
+			t.Fatal("the toll fetch created no pass")
+		}
+		ids["tollPass"] = tollPasses[0].(map[string]any)["uuid"].(string)
 		ids["paymentLink"] = str(must(call(o, http.MethodPost, "/v1/tenant/reservations/"+ids["reservation"]+"/payment-links", map[string]any{
 			"amount": "100",
 		}), http.StatusCreated, "payment link"), "uuid")
@@ -713,6 +732,9 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		},
 		"GET /v1/tenant/documents":   {"?reservation=" + b["rentalReservation"], "?rental=" + b["rental"]},
 		"GET /v1/tenant/inspections": {"?rental=" + b["rental"]},
+		"GET /v1/tenant/toll-passes": {
+			"?vehicle=" + b["vehicle"], "?rental=" + b["rental"], "?q=" + orgB.marker, "?review=1",
+		},
 		// Operations overview (TEC-716): B's branches as the filter are
 		// unknown in A (not_found); the plain call and the badges are
 		// leak-scanned.
@@ -915,6 +937,7 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		{"POST /v1/tenant/rentals/" + orgA.ids["rental"] + "/handover", map[string]any{"km": 100, "fuel": 50,
 			"branch_uuid": orgA.ids["branch"], "point_uuid": orgB.ids["point"]}, reject},
 		{"PATCH /v1/tenant/inspections/" + orgA.ids["inspection"], map[string]any{"branch_uuid": orgB.ids["branch"]}, reject},
+		{"POST /v1/tenant/toll-passes/" + orgA.ids["tollPass"] + "/assign", map[string]any{"rental_uuid": orgB.ids["rental"], "reason": "yabancı kiralama"}, reject},
 		{"PATCH /v1/tenant/inspections/" + orgA.ids["inspection"], map[string]any{"verification": map[string]any{"driver_uuid": orgB.ids["driver"]}}, reject},
 		{"POST /v1/tenant/inspections/" + orgA.ids["inspection"] + "/photos", map[string]any{"slot": "damage", "damage_uuid": orgB.ids["inspectionDamage"],
 			"content_type": "image/png", "size_bytes": 10}, reject},
@@ -1196,6 +1219,10 @@ func paramKey(prev, name string) string {
 		return "approval"
 	case "customer-requests/uuid":
 		return "customerRequest"
+	case "toll-passes/uuid":
+		return "tollPass"
+	case "toll-tags/tagUuid":
+		return "tollTag"
 	}
 	return ""
 }

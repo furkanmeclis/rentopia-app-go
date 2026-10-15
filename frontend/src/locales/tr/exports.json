@@ -79,5 +79,6 @@
   "resources.tenant.extras": "Ek hizmetler",
   "resources.tenant.campaigns": "Kampanyalar",
   "resources.tenant.reservations": "Rezervasyonlar",
-  "resources.tenant.rentals": "Kiralamalar"
+  "resources.tenant.rentals": "Kiralamalar",
+  "resources.tenant.toll_passes": "HGS/OGS geçişleri"
 }

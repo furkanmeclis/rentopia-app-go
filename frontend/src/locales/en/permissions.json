@@ -170,5 +170,10 @@
   "labels.tenant.contracts.write": "Edit templates, prepare documents and record approvals",
   "labels.tenant.contracts.activate": "Activate a template version",
   "groups.tenant_rentals": "Rentals",
-  "groups.tenant_contracts": "Contracts"
+  "groups.tenant_contracts": "Contracts",
+  "labels.tenant.tolls.read": "View toll passes",
+  "labels.tenant.tolls.export": "Export toll passes",
+  "labels.tenant.tolls.import": "Import and fetch toll passes",
+  "labels.tenant.tolls.review": "Assign, unassign and ignore toll passes",
+  "groups.tenant_tolls": "Toll passes"
 }

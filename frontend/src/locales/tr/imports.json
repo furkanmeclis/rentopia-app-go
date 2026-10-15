@@ -115,5 +115,6 @@
   "resources.tenant.date_rules": "Tarih kuralları",
   "resources.tenant.customers": "Müşteriler",
   "resources.tenant.extras": "Ek hizmetler",
-  "resources.tenant.campaigns": "Kampanyalar"
+  "resources.tenant.campaigns": "Kampanyalar",
+  "resources.tenant.toll_passes": "HGS/OGS geçişleri"
 }

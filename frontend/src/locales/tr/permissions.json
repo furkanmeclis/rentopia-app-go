@@ -170,5 +170,10 @@
   "labels.tenant.contracts.write": "Şablon düzenle, belge hazırla ve onay kaydet",
   "labels.tenant.contracts.activate": "Şablon sürümünü aktifleştir",
   "groups.tenant_rentals": "Kiralamalar",
-  "groups.tenant_contracts": "Sözleşmeler"
+  "groups.tenant_contracts": "Sözleşmeler",
+  "labels.tenant.tolls.read": "HGS/OGS geçişlerini görüntüle",
+  "labels.tenant.tolls.export": "HGS/OGS geçişlerini dışa aktar",
+  "labels.tenant.tolls.import": "HGS/OGS geçişlerini içe aktar ve sorgula",
+  "labels.tenant.tolls.review": "HGS/OGS geçişlerini ata, kaldır, yok say",
+  "groups.tenant_tolls": "HGS/OGS geçişleri"
 }

@@ -273,5 +273,6 @@
   "odometer.source_status": "Durum değişikliği",
   "odometer.source_maintenance": "Bakım",
   "odometer.empty_title": "Km / yakıt kaydı yok",
-  "odometer.empty_description": "Durum değişikliklerinde veya bakım tamamlarken girilen km ve yakıt burada listelenir."
+  "odometer.empty_description": "Durum değişikliklerinde veya bakım tamamlarken girilen km ve yakıt burada listelenir.",
+  "tabs.tolls": "HGS / OGS"
 }

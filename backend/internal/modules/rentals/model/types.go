@@ -72,9 +72,16 @@ const (
 	ChargeMileage     = "mileage"
 	ChargeEquipment   = "equipment"
 	ChargeOther       = "other"
+	// ChargeToll / ChargeTollFee: a toll pass and its processing fee
+	// (TEC-725, docs/design/tolls.md); recorded by the tolls module only.
+	ChargeToll    = "toll"
+	ChargeTollFee = "toll_fee"
 
 	SourcePolicy = "policy"
 	SourceManual = "manual"
+	// SourceToll: created by toll matching (approved facts, reversed by a
+	// negative row instead of edited).
+	SourceToll = "toll"
 
 	ChargeProposed = "proposed"
 	ChargeApproved = "approved"
@@ -200,6 +207,12 @@ type Charge struct {
 	OverrideReason string       `json:"override_reason"`
 	OverriddenAt   *time.Time   `json:"overridden_at"`
 	OverriddenBy   *Actor       `json:"overridden_by"`
+	// TollPassUUID is the toll pass of a toll / toll_fee charge.
+	TollPassUUID *uuid.UUID `json:"toll_pass_uuid"`
+	// ReversalOfUUID: this row reverses that charge (negative amount).
+	ReversalOfUUID *uuid.UUID `json:"reversal_of_uuid"`
+	// Reversed: a later row reverses this charge.
+	Reversed bool `json:"reversed"`
 }
 
 // Policy is the policy part of the reservation's settings version that

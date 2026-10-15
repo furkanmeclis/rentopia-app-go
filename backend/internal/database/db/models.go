@@ -1472,6 +1472,8 @@ type RentalCharge struct {
 	OverrideReason  string             `json:"override_reason"`
 	OverriddenBy    pgtype.Int8        `json:"overridden_by"`
 	OverriddenAt    pgtype.Timestamptz `json:"overridden_at"`
+	TollPassID      pgtype.Int8        `json:"toll_pass_id"`
+	ReversalOfID    pgtype.Int8        `json:"reversal_of_id"`
 }
 
 type RentalDriver struct {
@@ -1878,6 +1880,82 @@ type StorageTrash struct {
 	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
 }
 
+type TollPass struct {
+	ID                   int64              `json:"id"`
+	Uuid                 uuid.UUID          `json:"uuid"`
+	OrganizationID       int64              `json:"organization_id"`
+	Provider             string             `json:"provider"`
+	ExternalID           string             `json:"external_id"`
+	Source               string             `json:"source"`
+	IntegrationAccountID pgtype.Int8        `json:"integration_account_id"`
+	PassedAt             pgtype.Timestamptz `json:"passed_at"`
+	Plate                string             `json:"plate"`
+	PlateKey             pgtype.Text        `json:"plate_key"`
+	TagNumber            string             `json:"tag_number"`
+	TagKey               pgtype.Text        `json:"tag_key"`
+	Station              string             `json:"station"`
+	ExitStation          string             `json:"exit_station"`
+	Currency             string             `json:"currency"`
+	Amount               pgtype.Numeric     `json:"amount"`
+	Status               string             `json:"status"`
+	ReviewReason         string             `json:"review_reason"`
+	VehicleID            pgtype.Int8        `json:"vehicle_id"`
+	RentalID             pgtype.Int8        `json:"rental_id"`
+	MatchMethod          string             `json:"match_method"`
+	Manual               bool               `json:"manual"`
+	ChargeID             pgtype.Int8        `json:"charge_id"`
+	FeeChargeID          pgtype.Int8        `json:"fee_charge_id"`
+	Revision             int32              `json:"revision"`
+	FirstFetchedAt       pgtype.Timestamptz `json:"first_fetched_at"`
+	LastFetchedAt        pgtype.Timestamptz `json:"last_fetched_at"`
+	Raw                  []byte             `json:"raw"`
+	DecidedBy            pgtype.Int8        `json:"decided_by"`
+	DecidedAt            pgtype.Timestamptz `json:"decided_at"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+type TollPassEvent struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	TollPassID     int64              `json:"toll_pass_id"`
+	Action         string             `json:"action"`
+	FromStatus     pgtype.Text        `json:"from_status"`
+	ToStatus       pgtype.Text        `json:"to_status"`
+	Reason         string             `json:"reason"`
+	Data           []byte             `json:"data"`
+	ActorID        pgtype.Int8        `json:"actor_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type TollPassRevision struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	TollPassID     int64              `json:"toll_pass_id"`
+	Revision       int32              `json:"revision"`
+	Source         string             `json:"source"`
+	ChangedFields  []string           `json:"changed_fields"`
+	Previous       []byte             `json:"previous"`
+	Current        []byte             `json:"current"`
+	AmountBefore   pgtype.Numeric     `json:"amount_before"`
+	AmountAfter    pgtype.Numeric     `json:"amount_after"`
+	CreatedBy      pgtype.Int8        `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type TollSetting struct {
+	OrganizationID int64              `json:"organization_id"`
+	ProcessingFee  pgtype.Numeric     `json:"processing_fee"`
+	Currency       string             `json:"currency"`
+	AutoFetch      bool               `json:"auto_fetch"`
+	LookbackDays   int32              `json:"lookback_days"`
+	UpdatedBy      pgtype.Int8        `json:"updated_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
 type User struct {
 	ID              int64              `json:"id"`
 	Uuid            uuid.UUID          `json:"uuid"`
@@ -2095,6 +2173,23 @@ type VehicleSegment struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt      pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type VehicleTollTag struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	VehicleID      int64              `json:"vehicle_id"`
+	Provider       string             `json:"provider"`
+	Network        string             `json:"network"`
+	TagNumber      string             `json:"tag_number"`
+	TagKey         pgtype.Text        `json:"tag_key"`
+	ValidFrom      pgtype.Timestamptz `json:"valid_from"`
+	ValidTo        pgtype.Timestamptz `json:"valid_to"`
+	Note           string             `json:"note"`
+	CreatedBy      pgtype.Int8        `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 type VehicleTransfer struct {

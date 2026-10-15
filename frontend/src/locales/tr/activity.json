@@ -298,5 +298,15 @@
   "actions.customer_portal.payment_link_reused": "Müşteri mevcut ödeme linkine yönlendirildi",
   "actions.customer_portal.request_created": "Müşteri talebi oluşturuldu",
   "actions.customer_requests.resolved": "Müşteri talebi sonuçlandırıldı",
-  "actions.customer_requests.rejected": "Müşteri talebi reddedildi"
+  "actions.customer_requests.rejected": "Müşteri talebi reddedildi",
+  "resources.tenant.toll_passes": "HGS/OGS geçişleri",
+  "actions.tolls.assigned": "HGS geçişi kiralamaya atandı",
+  "actions.tolls.unassigned": "HGS geçişinin ataması kaldırıldı",
+  "actions.tolls.ignored": "HGS geçişi yok sayıldı",
+  "actions.tolls.rematched": "HGS geçişi yeniden eşlendi",
+  "actions.tolls.fetch_requested": "HGS geçiş sorgusu başlatıldı",
+  "actions.tolls.settings_updated": "HGS ayarları güncellendi",
+  "actions.vehicles.toll_tag_created": "Araca HGS/OGS etiketi eklendi",
+  "actions.vehicles.toll_tag_updated": "Araç HGS/OGS etiketi güncellendi",
+  "actions.vehicles.toll_tag_deleted": "Araç HGS/OGS etiketi silindi"
 }

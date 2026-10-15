@@ -143,6 +143,12 @@ const (
 	PermTenantPaymentsRead        = "tenant.payments.read"
 	PermTenantPaymentsCreateLink  = "tenant.payments.create_link"
 	PermTenantReservationsApprove = "tenant.reservations.approve"
+	// Toll passes (TEC-725, migration 000094). Vehicle tags use
+	// PermTenantVehiclesWrite, the processing fee PermTenantSettingsWrite.
+	PermTenantTollsRead   = "tenant.tolls.read"
+	PermTenantTollsExport = "tenant.tolls.export"
+	PermTenantTollsImport = "tenant.tolls.import"
+	PermTenantTollsReview = "tenant.tolls.review"
 )
 
 // Tenant template role keys seeded by migrations 000030 and 000041.
