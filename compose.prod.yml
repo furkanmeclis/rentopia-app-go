@@ -101,6 +101,9 @@ x-backend-environment: &backend-environment
   SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
   # Share of HTTP requests sent as performance transactions (0 = off).
   SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0}
+  # --- Payments: provider endpoints only (merchant keys live per organization). ---
+  IYZICO_SANDBOX_BASE_URL: ${IYZICO_SANDBOX_BASE_URL:-https://sandbox-api.iyzipay.com}
+  IYZICO_LIVE_BASE_URL: ${IYZICO_LIVE_BASE_URL:-https://api.iyzipay.com}
 
 services:
   postgres:
