@@ -460,6 +460,19 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		docData := asMap(docResp.data)["document"].(map[string]any)
 		ids["contractDocument"] = docData["uuid"].(string)
 		ids["documentVersion"] = docData["current_version"].(map[string]any)["uuid"].(string)
+		// Remote approval (TEC-711): a link for the renter (revoked, so the
+		// version stays open) and an in-person approval of the version.
+		docPath := "/v1/tenant/documents/" + ids["contractDocument"]
+		docHash := docData["current_version"].(map[string]any)["content_hash"].(string)
+		linkResp := must(call(o, http.MethodPost, docPath+"/versions/"+ids["documentVersion"]+"/approval-links", map[string]any{
+			"content_hash": docHash, "signer_role": "renter",
+		}), http.StatusCreated, "approval link")
+		ids["approvalLink"] = asMap(asMap(linkResp.data)["link"])["uuid"].(string)
+		must(call(o, http.MethodPost, docPath+"/approval-links/"+ids["approvalLink"]+"/revoke", nil), http.StatusOK, "revoke approval link")
+		approved := must(call(o, http.MethodPost, docPath+"/versions/"+ids["documentVersion"]+"/approve", map[string]any{
+			"content_hash": docHash, "approver_name": m + " Onaylayan",
+		}), http.StatusOK, "approve document")
+		ids["approval"] = asMap(asMap(approved.data)["approvals"].([]any)[0])["uuid"].(string)
 		ids["exportJob"] = str(must(call(o, http.MethodPost, "/v1/tenant/branches/export", map[string]any{"format": "csv"}),
 			http.StatusAccepted, "export"), "uuid")
 		ids["importJob"] = str(must(upload(o, http.MethodPost, "/v1/tenant/branches/import", "file", "branches.csv",
@@ -1123,6 +1136,10 @@ func paramKey(prev, name string) string {
 		return "contractDocument"
 	case "versions/documentVersionUuid":
 		return "documentVersion"
+	case "approval-links/linkUuid":
+		return "approvalLink"
+	case "approvals/approvalUuid":
+		return "approval"
 	}
 	return ""
 }

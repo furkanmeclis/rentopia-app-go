@@ -148,6 +148,10 @@ func documentHTML(kind, company, reference string, version int32, at time.Time, 
 	b.WriteString(body)
 	b.WriteString(`</main><footer class="doc-footer">`)
 	b.WriteString(html.EscapeString(title + " · " + reference + " · Sürüm " + strconv.Itoa(int(version)) + " · " + date))
+	// Required statement (TEC-711): an SMS / tablet approval of this
+	// document is not a qualified electronic signature.
+	b.WriteString(`<br>`)
+	b.WriteString(html.EscapeString(model.DisclaimerTR + " / " + model.DisclaimerEN))
 	b.WriteString(`</footer></body></html>`)
 	return b.String()
 }

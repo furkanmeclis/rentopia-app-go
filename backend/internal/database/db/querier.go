@@ -28,6 +28,7 @@ type Querier interface {
 	AnonymizeCustomer(ctx context.Context, arg AnonymizeCustomerParams) (int64, error)
 	// Data subject request: wipes the drivers of a customer and soft-deletes them.
 	AnonymizeCustomerDrivers(ctx context.Context, arg AnonymizeCustomerDriversParams) error
+	ApproveDocumentApprovalLink(ctx context.Context, arg ApproveDocumentApprovalLinkParams) (int64, error)
 	ApproveDocumentVersion(ctx context.Context, arg ApproveDocumentVersionParams) (int64, error)
 	ArchiveActiveContractTemplate(ctx context.Context, arg ArchiveActiveContractTemplateParams) error
 	AssignOperationTask(ctx context.Context, arg AssignOperationTaskParams) (int64, error)
@@ -60,6 +61,9 @@ type Querier interface {
 	ClearVehicleRentalGroups(ctx context.Context, arg ClearVehicleRentalGroupsParams) error
 	// Ends the row that is effective at from_at (a price change from from_at).
 	CloseExtraPrice(ctx context.Context, arg CloseExtraPriceParams) (int64, error)
+	// Revokes (status revoked) or supersedes (status superseded) the open link
+	// of a document; a link of except_version_id stays open.
+	CloseOpenDocumentApprovalLinks(ctx context.Context, arg CloseOpenDocumentApprovalLinksParams) ([]uuid.UUID, error)
 	// Return of the current leg (the open one of the vehicle).
 	CloseRentalVehicleLeg(ctx context.Context, arg CloseRentalVehicleLegParams) (int64, error)
 	CompleteVehicleTransfer(ctx context.Context, arg CompleteVehicleTransferParams) (int64, error)
@@ -98,6 +102,8 @@ type Querier interface {
 	CountCustomerRedemptions(ctx context.Context, arg CountCustomerRedemptionsParams) (int64, error)
 	CountCustomers(ctx context.Context, arg CountCustomersParams) (int64, error)
 	CountDateRules(ctx context.Context, arg CountDateRulesParams) (int64, error)
+	// Counts a code request; refused (0 rows) at the per-link limit.
+	CountDocumentApprovalLinkCode(ctx context.Context, arg CountDocumentApprovalLinkCodeParams) (int64, error)
 	CountEquipmentAllocations(ctx context.Context, arg CountEquipmentAllocationsParams) (int64, error)
 	CountExportJobsForActor(ctx context.Context, actorID int64) (int64, error)
 	CountExtraPriceHistory(ctx context.Context, arg CountExtraPriceHistoryParams) (int64, error)
@@ -315,6 +321,7 @@ type Querier interface {
 	// First device registration opts the user into push (the OS permission
 	// prompt is the consent). An existing preference row is left untouched.
 	EnsureNotificationPreferencesPushDefault(ctx context.Context, userID int64) error
+	ExpireDocumentApprovalLinks(ctx context.Context, arg ExpireDocumentApprovalLinksParams) error
 	ExpireDueEquipment(ctx context.Context, arg ExpireDueEquipmentParams) (int64, error)
 	ExpireOTPChallenge(ctx context.Context, arg ExpireOTPChallengeParams) error
 	ExpirePaymentLink(ctx context.Context, arg ExpirePaymentLinkParams) (int64, error)
@@ -409,11 +416,15 @@ type Querier interface {
 	GetDateRule(ctx context.Context, arg GetDateRuleParams) (GetDateRuleRow, error)
 	GetDateRuleVersionByStatus(ctx context.Context, arg GetDateRuleVersionByStatusParams) (GetDateRuleVersionByStatusRow, error)
 	GetDocument(ctx context.Context, arg GetDocumentParams) (GetDocumentRow, error)
+	GetDocumentApprovalForPDF(ctx context.Context, arg GetDocumentApprovalForPDFParams) (GetDocumentApprovalForPDFRow, error)
+	GetDocumentApprovalLink(ctx context.Context, arg GetDocumentApprovalLinkParams) (GetDocumentApprovalLinkRow, error)
+	GetDocumentApprovalLinkPublic(ctx context.Context, arg GetDocumentApprovalLinkPublicParams) (GetDocumentApprovalLinkPublicRow, error)
 	GetDocumentOrganization(ctx context.Context, organizationID int64) (GetDocumentOrganizationRow, error)
 	// The live rental of a reservation as documents render it.
 	GetDocumentRentalFacts(ctx context.Context, arg GetDocumentRentalFactsParams) (GetDocumentRentalFactsRow, error)
 	GetDocumentReservationByID(ctx context.Context, arg GetDocumentReservationByIDParams) (GetDocumentReservationByIDRow, error)
 	GetDocumentReservationRef(ctx context.Context, arg GetDocumentReservationRefParams) (GetDocumentReservationRefRow, error)
+	GetDocumentSignerRenter(ctx context.Context, arg GetDocumentSignerRenterParams) (GetDocumentSignerRenterRow, error)
 	GetDocumentUUIDByID(ctx context.Context, arg GetDocumentUUIDByIDParams) (uuid.UUID, error)
 	GetDocumentVersion(ctx context.Context, arg GetDocumentVersionParams) (GetDocumentVersionRow, error)
 	GetDocumentVersionByID(ctx context.Context, arg GetDocumentVersionByIDParams) (GetDocumentVersionByIDRow, error)
@@ -459,6 +470,9 @@ type Querier interface {
 	GetOAuthAccountByProviderAccount(ctx context.Context, arg GetOAuthAccountByProviderAccountParams) (GetOAuthAccountByProviderAccountRow, error)
 	GetOAuthAccountByUserProvider(ctx context.Context, arg GetOAuthAccountByUserProviderParams) (GetOAuthAccountByUserProviderRow, error)
 	GetOAuthProviderSettings(ctx context.Context, provider string) (OauthProviderSetting, error)
+	// The number and time of a verified OTP challenge (a remote approval binds
+	// the code to the link's number).
+	GetOTPChallengeBinding(ctx context.Context, arg GetOTPChallengeBindingParams) (GetOTPChallengeBindingRow, error)
 	GetOneWayRule(ctx context.Context, arg GetOneWayRuleParams) (GetOneWayRuleRow, error)
 	GetOpenOTPChallengeForUpdate(ctx context.Context, arg GetOpenOTPChallengeForUpdateParams) (GetOpenOTPChallengeForUpdateRow, error)
 	GetOperationTask(ctx context.Context, arg GetOperationTaskParams) (GetOperationTaskRow, error)
@@ -604,6 +618,7 @@ type Querier interface {
 	InsertDateRuleTarget(ctx context.Context, arg InsertDateRuleTargetParams) error
 	InsertDocument(ctx context.Context, arg InsertDocumentParams) (InsertDocumentRow, error)
 	InsertDocumentApproval(ctx context.Context, arg InsertDocumentApprovalParams) (uuid.UUID, error)
+	InsertDocumentApprovalLink(ctx context.Context, arg InsertDocumentApprovalLinkParams) (int64, error)
 	InsertDocumentVersion(ctx context.Context, arg InsertDocumentVersionParams) (InsertDocumentVersionRow, error)
 	InsertEquipmentAllocation(ctx context.Context, arg InsertEquipmentAllocationParams) (InsertEquipmentAllocationRow, error)
 	InsertExtraPrice(ctx context.Context, arg InsertExtraPriceParams) (uuid.UUID, error)
@@ -636,6 +651,7 @@ type Querier interface {
 	InsertQuote(ctx context.Context, arg InsertQuoteParams) (InsertQuoteRow, error)
 	InsertQuoteLine(ctx context.Context, arg InsertQuoteLineParams) error
 	InsertRateBand(ctx context.Context, arg InsertRateBandParams) error
+	InsertRemoteDocumentApproval(ctx context.Context, arg InsertRemoteDocumentApprovalParams) (uuid.UUID, error)
 	// Rentals (TEC-709). Every query filters by organization_id; branch scope
 	// (planned pick-up OR planned return OR actual return branch) is applied by
 	// the list queries and checked by the use case on single rows.
@@ -776,7 +792,9 @@ type Querier interface {
 	// effective range [start, end) overlaps [date_from, date_to].
 	ListDateRules(ctx context.Context, arg ListDateRulesParams) ([]ListDateRulesRow, error)
 	ListDateRulesForExport(ctx context.Context, arg ListDateRulesForExportParams) ([]ListDateRulesForExportRow, error)
+	ListDocumentApprovalLinks(ctx context.Context, arg ListDocumentApprovalLinksParams) ([]ListDocumentApprovalLinksRow, error)
 	ListDocumentApprovals(ctx context.Context, arg ListDocumentApprovalsParams) ([]ListDocumentApprovalsRow, error)
+	ListDocumentSignerDrivers(ctx context.Context, arg ListDocumentSignerDriversParams) ([]ListDocumentSignerDriversRow, error)
 	ListDocumentVersions(ctx context.Context, arg ListDocumentVersionsParams) ([]ListDocumentVersionsRow, error)
 	ListDocuments(ctx context.Context, arg ListDocumentsParams) ([]ListDocumentsRow, error)
 	ListDueEquipmentOrganizations(ctx context.Context, nowAt pgtype.Timestamptz) ([]int64, error)
@@ -1052,6 +1070,8 @@ type Querier interface {
 	// Serialises the planners of one eligibility component (transaction-scoped).
 	LockAvailabilityComponent(ctx context.Context, lockKey int64) error
 	LockDateRule(ctx context.Context, arg LockDateRuleParams) (int64, error)
+	LockDocument(ctx context.Context, arg LockDocumentParams) (LockDocumentRow, error)
+	LockDocumentApprovalLink(ctx context.Context, arg LockDocumentApprovalLinkParams) (LockDocumentApprovalLinkRow, error)
 	// The serialisation point of every writer of one extra at one branch.
 	LockExtraStock(ctx context.Context, arg LockExtraStockParams) (int32, error)
 	LockInvitationByTokenHash(ctx context.Context, tokenHash string) (OrganizationInvitation, error)
@@ -1072,6 +1092,8 @@ type Querier interface {
 	MarkBulkJobFailed(ctx context.Context, arg MarkBulkJobFailedParams) (BulkJob, error)
 	MarkBulkJobProcessing(ctx context.Context, id int64) (BulkJob, error)
 	MarkBulkJobRolledBack(ctx context.Context, arg MarkBulkJobRolledBackParams) (BulkJob, error)
+	MarkDocumentApprovalLinkExpired(ctx context.Context, arg MarkDocumentApprovalLinkExpiredParams) error
+	MarkDocumentApprovalLinkSMS(ctx context.Context, arg MarkDocumentApprovalLinkSMSParams) error
 	MarkExportJobCompleted(ctx context.Context, arg MarkExportJobCompletedParams) (ExportJob, error)
 	MarkExportJobFailed(ctx context.Context, arg MarkExportJobFailedParams) (ExportJob, error)
 	MarkExportJobProcessing(ctx context.Context, id int64) (ExportJob, error)
@@ -1118,6 +1140,7 @@ type Querier interface {
 	QueueImportJob(ctx context.Context, argUuid uuid.UUID) (ImportJob, error)
 	ReassignCatalogModelRules(ctx context.Context, arg ReassignCatalogModelRulesParams) (int64, error)
 	ReassignCatalogTypesModel(ctx context.Context, arg ReassignCatalogTypesModelParams) (int64, error)
+	RecordDocumentApprovalLinkFailure(ctx context.Context, arg RecordDocumentApprovalLinkFailureParams) error
 	RecordOTPAttempt(ctx context.Context, arg RecordOTPAttemptParams) error
 	// A late payment re-secured capacity for an expired reservation (TEC-708):
 	// expired → confirmed on the new firm allocation; the cancellation facts
@@ -1142,6 +1165,9 @@ type Querier interface {
 	ReplanAllocation(ctx context.Context, arg ReplanAllocationParams) (int64, error)
 	// The planned pick-up / return moved: live tasks of the type follow.
 	RescheduleRentalTasks(ctx context.Context, arg RescheduleRentalTasksParams) error
+	// Remote approval links of documents (TEC-711, docs/design/contracts.md §7).
+	// Public approval page: the token hash names the link and its organization.
+	ResolveDocumentApprovalLinkToken(ctx context.Context, tokenHash string) (ResolveDocumentApprovalLinkTokenRow, error)
 	// For each extra: the price of the product effective at now_at, else the
 	// default price (product rows sort first).
 	ResolveExtraPrices(ctx context.Context, arg ResolveExtraPricesParams) ([]ResolveExtraPricesRow, error)
@@ -1156,6 +1182,7 @@ type Querier interface {
 	ResolveReservationTasks(ctx context.Context, arg ResolveReservationTasksParams) (int64, error)
 	ResolveResolutionTask(ctx context.Context, arg ResolveResolutionTaskParams) (int64, error)
 	RevokeAllRefreshTokensForUser(ctx context.Context, userID int64) error
+	RevokeDocumentApprovalLink(ctx context.Context, arg RevokeDocumentApprovalLinkParams) (int64, error)
 	RevokeInvitation(ctx context.Context, arg RevokeInvitationParams) (OrganizationInvitation, error)
 	// Re-inviting an e-mail replaces its open (possibly expired) invitation.
 	RevokeOpenInvitationsForEmail(ctx context.Context, arg RevokeOpenInvitationsForEmailParams) (int64, error)
@@ -1178,6 +1205,7 @@ type Querier interface {
 	SetCustomerDocumentFile(ctx context.Context, arg SetCustomerDocumentFileParams) (CustomerDocument, error)
 	SetCustomerTags(ctx context.Context, arg SetCustomerTagsParams) (Customer, error)
 	SetDateRuleState(ctx context.Context, arg SetDateRuleStateParams) (int64, error)
+	SetDocumentApprovalPDF(ctx context.Context, arg SetDocumentApprovalPDFParams) error
 	SetDocumentCurrent(ctx context.Context, arg SetDocumentCurrentParams) (int64, error)
 	SetDocumentStatus(ctx context.Context, arg SetDocumentStatusParams) (int64, error)
 	SetDocumentVersionPDF(ctx context.Context, arg SetDocumentVersionPDFParams) (int64, error)

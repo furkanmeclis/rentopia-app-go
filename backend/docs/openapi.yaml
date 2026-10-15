@@ -42,6 +42,8 @@ tags:
     description: Liveness and readiness probes
   - name: Payments
     description: Public pay-by-link page, hosted checkout start and provider webhooks (TEC-707)
+  - name: Documents
+    description: Public remote contract approval page (`/d/{token}`, signed link + SMS code, TEC-711)
   - name: Auth
     description: Register, login, tokens, sessions, profile
   - name: Search
@@ -11385,6 +11387,114 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
 
+  /v1/public/documents/{token}:
+    get:
+      tags: [Documents]
+      operationId: getPublicDocument
+      summary: Remote approval page data
+      description: |
+        No auth (the token is the bearer; 32 random bytes, stored only as a SHA-256 hash); rate-limited per IP.
+        The organization comes from the token. `state`: `pending`, `approved`, `expired`, `revoked` or
+        `superseded` (a newer version of the document exists). `html` (the stored, sanitized version, shown
+        in a fully sandboxed iframe) is returned while pending and after approval; `phone_masked` only while
+        pending.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/DocumentToken"
+      responses:
+        "200":
+          description: Page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopePublicDocument" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/public/documents/{token}/code:
+    post:
+      tags: [Documents]
+      operationId: postPublicDocumentCode
+      summary: Send the SMS approval code
+      description: |
+        No auth; rate-limited per IP and per token, plus the OTP service limits (60 s resend cooldown, codes per
+        number / organization per hour) and a per-link cap. Sends a one-time code (purpose `contract_approval`,
+        subject `document_version:<uuid>`) to the number staff chose. Errors are generic: 409 `LINK_UNAVAILABLE`,
+        429 `RATE_LIMITED` (`Retry-After`), 503 `CODE_UNAVAILABLE`.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/DocumentToken"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false }
+      responses:
+        "200":
+          description: Code sent (never the code)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopePublicDocumentCode" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "503":
+          description: The code could not be sent (`CODE_UNAVAILABLE`, generic)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /v1/public/documents/{token}/approve:
+    post:
+      tags: [Documents]
+      operationId: postPublicDocumentApprove
+      summary: Approve the document with the SMS code
+      description: |
+        No auth; rate-limited per IP and per token, plus a per-link failure cap. `content_hash` is the hash of the
+        content the page displayed: a version superseded since answers 409 `CONTENT_CHANGED` and nothing is
+        recorded. A code that does not verify (wrong, expired, locked) answers 400 `OTP_INVALID` (one generic
+        message). Success records a `remote_sms` approval of that exact version and hash with the verified
+        number (masked), the person, time, IP address and user agent, and an activity entry.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/DocumentToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PublicDocumentApproveRequest" }
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopePublicDocument" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/public/documents/{token}/pdf:
+    get:
+      tags: [Documents]
+      operationId: getPublicDocumentPdf
+      summary: Download the approved PDF
+      description: |
+        No auth; rate-limited per IP and per token. Only after this link approved: the approved version with an
+        approval page (hash, verified number, time, IP, device and the statement that SMS / tablet approval is
+        not a qualified electronic signature). Streamed by the API; the token reaches no other version.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/DocumentToken"
+      responses:
+        "200":
+          description: PDF
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
   /v1/public/pay/{token}:
     get:
       tags: [Payments]
@@ -14284,7 +14394,7 @@ paths:
       tags: [Tenant]
       operationId: postTenantDocumentVersionApprove
       summary: Record the approval of the current version
-      description: "`tenant.contracts.read` + (`tenant.contracts.write` or `tenant.rentals.write`). `content_hash` must be the hash of the content shown (409 `CONTENT_CHANGED` with the current version otherwise). In-person approvals only (signing: TEC-711)."
+      description: "`tenant.contracts.read` + (`tenant.contracts.write` or `tenant.rentals.write`). `content_hash` must be the hash of the content shown (409 `CONTENT_CHANGED` with the current version otherwise). In-person approvals here; remote approvals (link + SMS code) go through `/v1/public/documents/{token}` (TEC-711)."
       security:
         - bearerAuth: []
       parameters:
@@ -14316,6 +14426,152 @@ paths:
         - $ref: "#/components/parameters/XOrganization"
         - $ref: "#/components/parameters/ResourceUUID"
         - $ref: "#/components/parameters/DocumentVersionUUID"
+      responses:
+        "200":
+          description: PDF
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/documents/{uuid}/signers:
+    get:
+      tags: [Tenant]
+      operationId: getTenantDocumentSigners
+      summary: People who can approve a document remotely
+      description: "`tenant.contracts.read`. The renter and the drivers of the reservation with masked numbers; `sms_available` when the organization has an active SMS account."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Signers
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeDocumentSigners" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/documents/{uuid}/approval-links:
+    get:
+      tags: [Tenant]
+      operationId: getTenantDocumentApprovalLinks
+      summary: Remote approval links of a document
+      description: "`tenant.contracts.read`. Newest first; `url` only for pending links. A pending link past its expiry reads `expired`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Links
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeDocumentApprovalLinks" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/documents/{uuid}/versions/{documentVersionUuid}/approval-links:
+    post:
+      tags: [Tenant]
+      operationId: postTenantDocumentApprovalLink
+      summary: Create a remote approval link
+      description: |
+        `tenant.contracts.read` + (`tenant.contracts.write` or `tenant.rentals.write`). For the current version only:
+        `content_hash` must be the hash shown (409 `CONTENT_CHANGED` otherwise). Replaces the document's open link.
+        `expires_in_minutes` 15-10080 (default 1440). `send_sms` also sends the link by SMS (transactional class);
+        a failed SMS is reported in `sms_error`, the link exists anyway.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - $ref: "#/components/parameters/DocumentVersionUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DocumentApprovalLinkCreateRequest" }
+      responses:
+        "201":
+          description: Link
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeDocumentApprovalLinkCreated" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/documents/{uuid}/approval-links/{linkUuid}/send-sms:
+    post:
+      tags: [Tenant]
+      operationId: postTenantDocumentApprovalLinkSendSms
+      summary: Send an open link by SMS
+      description: "`tenant.contracts.read` + (`tenant.contracts.write` or `tenant.rentals.write`). Transactional SMS to the link's number; the SMS log keeps the text with the token redacted. 422 `SMS_ACCOUNT_REQUIRED` without an active SMS account."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - $ref: "#/components/parameters/ApprovalLinkUUID"
+      responses:
+        "202":
+          description: Queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeDocumentApprovalLinkSMS" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/tenant/documents/{uuid}/approval-links/{linkUuid}/revoke:
+    post:
+      tags: [Tenant]
+      operationId: postTenantDocumentApprovalLinkRevoke
+      summary: Revoke an open link
+      description: "`tenant.contracts.read` + (`tenant.contracts.write` or `tenant.rentals.write`)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - $ref: "#/components/parameters/ApprovalLinkUUID"
+      responses:
+        "200":
+          description: Link
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeDocumentApprovalLink" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/documents/{uuid}/approvals/{approvalUuid}/pdf:
+    get:
+      tags: [Tenant]
+      operationId: getTenantDocumentApprovalPdf
+      summary: Download the approval PDF
+      description: "`tenant.contracts.read` + `tenant.document.download`. The approved version with its approval page (rendered on first download, then stored privately). Every download is an activity event."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - $ref: "#/components/parameters/DocumentApprovalUUID"
       responses:
         "200":
           description: PDF
@@ -14402,6 +14658,29 @@ components:
       schema:
         type: string
         format: uuid
+    ApprovalLinkUUID:
+      name: linkUuid
+      in: path
+      required: true
+      description: Remote approval link UUID
+      schema:
+        type: string
+        format: uuid
+    DocumentApprovalUUID:
+      name: approvalUuid
+      in: path
+      required: true
+      description: Document approval UUID
+      schema:
+        type: string
+        format: uuid
+    DocumentToken:
+      name: token
+      in: path
+      required: true
+      description: Remote approval link token (43 characters, base64url)
+      schema:
+        type: string
     DocumentVersionUUID:
       name: documentVersionUuid
       in: path
@@ -23452,14 +23731,15 @@ components:
 
     DocumentApproval:
       type: object
-      required: [uuid, version_uuid, version_number, content_hash, party, method, approver_name, note, approved_at, valid, invalidated_at, invalidated_reason, recorded_by]
+      required: [uuid, version_uuid, version_number, content_hash, party, method, approver_name, note, approved_at, valid, invalidated_at, invalidated_reason, recorded_by,
+        verified_phone_masked, signer_role, link_uuid, ip_address, user_agent]
       properties:
         uuid: { type: string, format: uuid }
         version_uuid: { type: string, format: uuid }
         version_number: { type: integer }
         content_hash: { type: string }
         party: { type: string, enum: [customer, staff] }
-        method: { type: string, enum: [in_person, click, signature] }
+        method: { type: string, enum: [in_person, click, signature, remote_sms] }
         approver_name: { type: string }
         note: { type: string }
         approved_at: { type: string, format: date-time }
@@ -23470,6 +23750,11 @@ components:
           oneOf:
             - $ref: "#/components/schemas/ReservationActor"
             - type: "null"
+        verified_phone_masked: { type: string, description: "Remote approvals: the number the code was verified on (masked)" }
+        signer_role: { type: string, description: "Remote approvals: renter or driver; empty otherwise" }
+        link_uuid: { type: [string, "null"], format: uuid }
+        ip_address: { type: string }
+        user_agent: { type: string }
 
     Document:
       type: object
@@ -23495,7 +23780,7 @@ components:
     DocumentListItem:
       type: object
       required: [uuid, kind, status, reservation, rental, version_uuid, version_number, version_status, content_hash, pdf_status, template_name,
-        template_version, version_created_at, created_at, updated_at]
+        template_version, version_created_at, remote_link_status, created_at, updated_at]
       properties:
         uuid: { type: string, format: uuid }
         kind: { type: string, enum: [rental_contract, handover_form, return_form, terms] }
@@ -23513,8 +23798,175 @@ components:
         template_name: { type: string }
         template_version: { type: integer }
         version_created_at: { type: [string, "null"], format: date-time }
+        remote_link_status:
+          type: string
+          enum: ["", pending, approved, expired, revoked, superseded]
+          description: Status of the latest remote approval link ("" = none)
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+
+    DocumentSigner:
+      type: object
+      required: [role, driver_uuid, name, phone_masked, has_phone]
+      properties:
+        role: { type: string, enum: [renter, driver] }
+        driver_uuid: { type: [string, "null"], format: uuid }
+        name: { type: string }
+        phone_masked: { type: string }
+        has_phone: { type: boolean }
+
+    EnvelopeDocumentSigners:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [signers, sms_available]
+          properties:
+            signers: { type: array, items: { $ref: "#/components/schemas/DocumentSigner" } }
+            sms_available: { type: boolean }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    DocumentApprovalLink:
+      type: object
+      required: [uuid, version_uuid, version_number, content_hash, status, signer_role, signer_name, phone_masked, expires_at,
+        codes_sent, failed_attempts, sms_sent_count, last_sms_at, approved_at, approval_uuid, revoked_at, revoked_reason,
+        created_by, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        version_uuid: { type: string, format: uuid }
+        version_number: { type: integer }
+        content_hash: { type: string }
+        status: { type: string, enum: [pending, approved, expired, revoked, superseded] }
+        signer_role: { type: string, enum: [renter, driver] }
+        signer_name: { type: string }
+        phone_masked: { type: string }
+        url: { type: string, description: "The public page (`/d/{token}`); pending links only" }
+        expires_at: { type: string, format: date-time }
+        codes_sent: { type: integer }
+        failed_attempts: { type: integer }
+        sms_sent_count: { type: integer }
+        last_sms_at: { type: [string, "null"], format: date-time }
+        approved_at: { type: [string, "null"], format: date-time }
+        approval_uuid: { type: [string, "null"], format: uuid }
+        revoked_at: { type: [string, "null"], format: date-time }
+        revoked_reason: { type: string }
+        created_by:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        created_at: { type: string, format: date-time }
+
+    DocumentApprovalLinkCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [content_hash, signer_role]
+      properties:
+        content_hash: { type: string }
+        signer_role: { type: string, enum: [renter, driver] }
+        driver_uuid: { type: string, format: uuid }
+        expires_in_minutes: { type: integer, minimum: 15, maximum: 10080 }
+        send_sms: { type: boolean }
+
+    DocumentApprovalLinkSMS:
+      type: object
+      required: [link, message_uuid, phone_masked]
+      properties:
+        link: { $ref: "#/components/schemas/DocumentApprovalLink" }
+        message_uuid: { type: string, format: uuid }
+        phone_masked: { type: string }
+
+    EnvelopeDocumentApprovalLinkCreated:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [link]
+          properties:
+            link: { $ref: "#/components/schemas/DocumentApprovalLink" }
+            sms: { $ref: "#/components/schemas/DocumentApprovalLinkSMS" }
+            sms_error: { type: string }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeDocumentApprovalLink:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/DocumentApprovalLink" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeDocumentApprovalLinks:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/DocumentApprovalLink" } }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeDocumentApprovalLinkSMS:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/DocumentApprovalLinkSMS" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    PublicDocument:
+      type: object
+      required: [state, organization_name, kind, reference, version_number, content_hash, signer_name, expires_at, approved_at, pdf_available]
+      properties:
+        state: { type: string, enum: [pending, approved, expired, revoked, superseded] }
+        organization_name: { type: string }
+        kind: { type: string, enum: [rental_contract, handover_form, return_form, terms] }
+        reference: { type: string }
+        version_number: { type: integer }
+        content_hash: { type: string }
+        html: { type: string, description: "The stored version (pending / approved only)" }
+        signer_name: { type: string, description: "First name and last initial" }
+        phone_masked: { type: string, description: "Pending only" }
+        expires_at: { type: string, format: date-time }
+        approved_at: { type: [string, "null"], format: date-time }
+        pdf_available: { type: boolean }
+
+    EnvelopePublicDocument:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/PublicDocument" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    PublicDocumentCode:
+      type: object
+      required: [phone_masked, expires_at, resend_after]
+      properties:
+        phone_masked: { type: string }
+        expires_at: { type: string, format: date-time }
+        resend_after: { type: string, format: date-time }
+
+    EnvelopePublicDocumentCode:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/PublicDocumentCode" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    PublicDocumentApproveRequest:
+      type: object
+      additionalProperties: false
+      required: [code, content_hash]
+      properties:
+        code: { type: string, description: "The 6-digit SMS code" }
+        content_hash: { type: string, description: "The content hash the page displayed" }
 
     DocumentPrepareRequest:
       type: object
