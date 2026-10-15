@@ -719,6 +719,71 @@ type PushTicket struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
+type Quote struct {
+	ID                  int64              `json:"id"`
+	Uuid                uuid.UUID          `json:"uuid"`
+	OrganizationID      int64              `json:"organization_id"`
+	Purpose             string             `json:"purpose"`
+	Status              string             `json:"status"`
+	ReservationID       pgtype.Int8        `json:"reservation_id"`
+	CustomerID          pgtype.Int8        `json:"customer_id"`
+	RentalProductID     int64              `json:"rental_product_id"`
+	ProductVersion      int32              `json:"product_version"`
+	PickupBranchID      int64              `json:"pickup_branch_id"`
+	ReturnBranchID      int64              `json:"return_branch_id"`
+	PickupPointID       pgtype.Int8        `json:"pickup_point_id"`
+	ReturnPointID       pgtype.Int8        `json:"return_point_id"`
+	StartsAt            pgtype.Timestamptz `json:"starts_at"`
+	EndsAt              pgtype.Timestamptz `json:"ends_at"`
+	Channel             string             `json:"channel"`
+	BillingDays         int32              `json:"billing_days"`
+	Currency            string             `json:"currency"`
+	RentalSubtotal      pgtype.Numeric     `json:"rental_subtotal"`
+	DiscountTotal       pgtype.Numeric     `json:"discount_total"`
+	RentalTotal         pgtype.Numeric     `json:"rental_total"`
+	ExtrasTotal         pgtype.Numeric     `json:"extras_total"`
+	OneWayFee           pgtype.Numeric     `json:"one_way_fee"`
+	DeliveryFee         pgtype.Numeric     `json:"delivery_fee"`
+	BaseTotal           pgtype.Numeric     `json:"base_total"`
+	VatTotal            pgtype.Numeric     `json:"vat_total"`
+	Total               pgtype.Numeric     `json:"total"`
+	Prepayment          pgtype.Numeric     `json:"prepayment"`
+	PrepaymentRule      string             `json:"prepayment_rule"`
+	VatRateBp           pgtype.Int4        `json:"vat_rate_bp"`
+	Difference          pgtype.Numeric     `json:"difference"`
+	RatePlanVersionUuid pgtype.UUID        `json:"rate_plan_version_uuid"`
+	RatePlanVersion     pgtype.Int4        `json:"rate_plan_version"`
+	SettingsVersion     int32              `json:"settings_version"`
+	Extras              []byte             `json:"extras"`
+	CouponCode          pgtype.Text        `json:"coupon_code"`
+	ManualDiscount      []byte             `json:"manual_discount"`
+	Breakdown           []byte             `json:"breakdown"`
+	VehicleID           pgtype.Int8        `json:"vehicle_id"`
+	ValidUntil          pgtype.Timestamptz `json:"valid_until"`
+	UsedAt              pgtype.Timestamptz `json:"used_at"`
+	CreatedBy           pgtype.Int8        `json:"created_by"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
+type QuoteLine struct {
+	ID                  int64          `json:"id"`
+	OrganizationID      int64          `json:"organization_id"`
+	QuoteID             int64          `json:"quote_id"`
+	Position            int32          `json:"position"`
+	Kind                string         `json:"kind"`
+	DayIndex            pgtype.Int4    `json:"day_index"`
+	DayDate             pgtype.Date    `json:"day_date"`
+	DateRuleVersionUuid pgtype.UUID    `json:"date_rule_version_uuid"`
+	DateRuleName        string         `json:"date_rule_name"`
+	Code                string         `json:"code"`
+	Name                string         `json:"name"`
+	Quantity            int32          `json:"quantity"`
+	UnitPrice           pgtype.Numeric `json:"unit_price"`
+	Adjustment          pgtype.Numeric `json:"adjustment"`
+	Amount              pgtype.Numeric `json:"amount"`
+}
+
 type RateBand struct {
 	ID                int64              `json:"id"`
 	OrganizationID    int64              `json:"organization_id"`
@@ -865,6 +930,124 @@ type RentalProductVersion struct {
 	ChangeNote       string             `json:"change_note"`
 	CreatedBy        pgtype.Int8        `json:"created_by"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
+type Reservation struct {
+	ID                  int64              `json:"id"`
+	Uuid                uuid.UUID          `json:"uuid"`
+	OrganizationID      int64              `json:"organization_id"`
+	Reference           string             `json:"reference"`
+	Status              string             `json:"status"`
+	PaymentStatus       string             `json:"payment_status"`
+	CapacityCommitment  string             `json:"capacity_commitment"`
+	AllocationID        pgtype.Int8        `json:"allocation_id"`
+	PickupBranchID      int64              `json:"pickup_branch_id"`
+	ReturnBranchID      int64              `json:"return_branch_id"`
+	PickupPointID       pgtype.Int8        `json:"pickup_point_id"`
+	ReturnPointID       pgtype.Int8        `json:"return_point_id"`
+	StartsAt            pgtype.Timestamptz `json:"starts_at"`
+	EndsAt              pgtype.Timestamptz `json:"ends_at"`
+	RentalProductID     int64              `json:"rental_product_id"`
+	ProductVersion      int32              `json:"product_version"`
+	SoldRentalProductID int64              `json:"sold_rental_product_id"`
+	SoldProductVersion  int32              `json:"sold_product_version"`
+	GuaranteeType       string             `json:"guarantee_type"`
+	ProductSnapshot     []byte             `json:"product_snapshot"`
+	SoldSnapshot        []byte             `json:"sold_snapshot"`
+	CustomerID          int64              `json:"customer_id"`
+	InvoiceCustomerID   pgtype.Int8        `json:"invoice_customer_id"`
+	Channel             string             `json:"channel"`
+	ExternalReference   pgtype.Text        `json:"external_reference"`
+	CollectingParty     string             `json:"collecting_party"`
+	CommissionAmount    pgtype.Numeric     `json:"commission_amount"`
+	NetReceivable       pgtype.Numeric     `json:"net_receivable"`
+	Currency            string             `json:"currency"`
+	TotalAmount         pgtype.Numeric     `json:"total_amount"`
+	PrepaymentAmount    pgtype.Numeric     `json:"prepayment_amount"`
+	PaidAmount          pgtype.Numeric     `json:"paid_amount"`
+	QuoteID             pgtype.Int8        `json:"quote_id"`
+	QuoteSnapshot       []byte             `json:"quote_snapshot"`
+	SettingsVersion     int32              `json:"settings_version"`
+	PolicySnapshot      []byte             `json:"policy_snapshot"`
+	ReviewDeadline      pgtype.Timestamptz `json:"review_deadline"`
+	PaymentDeadline     pgtype.Timestamptz `json:"payment_deadline"`
+	AssignedUserID      pgtype.Int8        `json:"assigned_user_id"`
+	Note                string             `json:"note"`
+	EligibilityOverride []byte             `json:"eligibility_override"`
+	ConfirmedAt         pgtype.Timestamptz `json:"confirmed_at"`
+	CancelledAt         pgtype.Timestamptz `json:"cancelled_at"`
+	CancelReason        string             `json:"cancel_reason"`
+	CreatedBy           pgtype.Int8        `json:"created_by"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ReservationDriver struct {
+	ID             int64              `json:"id"`
+	OrganizationID int64              `json:"organization_id"`
+	ReservationID  int64              `json:"reservation_id"`
+	DriverID       pgtype.Int8        `json:"driver_id"`
+	Role           string             `json:"role"`
+	Snapshot       []byte             `json:"snapshot"`
+	Eligible       bool               `json:"eligible"`
+	Reasons        []string           `json:"reasons"`
+	OverrideReason string             `json:"override_reason"`
+	OverriddenBy   pgtype.Int8        `json:"overridden_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type ReservationEvent struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	ReservationID  int64              `json:"reservation_id"`
+	Action         string             `json:"action"`
+	FromStatus     pgtype.Text        `json:"from_status"`
+	ToStatus       pgtype.Text        `json:"to_status"`
+	Reason         string             `json:"reason"`
+	Data           []byte             `json:"data"`
+	ActorID        pgtype.Int8        `json:"actor_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type ReservationSequence struct {
+	OrganizationID int64 `json:"organization_id"`
+	Year           int32 `json:"year"`
+	LastValue      int64 `json:"last_value"`
+}
+
+type ReservationVehicleAssignment struct {
+	ID              int64              `json:"id"`
+	OrganizationID  int64              `json:"organization_id"`
+	ReservationID   int64              `json:"reservation_id"`
+	VehicleID       pgtype.Int8        `json:"vehicle_id"`
+	RentalProductID int64              `json:"rental_product_id"`
+	ProductVersion  int32              `json:"product_version"`
+	Kind            string             `json:"kind"`
+	Source          string             `json:"source"`
+	Note            string             `json:"note"`
+	ActorID         pgtype.Int8        `json:"actor_id"`
+	StartedAt       pgtype.Timestamptz `json:"started_at"`
+	EndedAt         pgtype.Timestamptz `json:"ended_at"`
+}
+
+type ResolutionTask struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	ReservationID  int64              `json:"reservation_id"`
+	TaskType       string             `json:"task_type"`
+	Status         string             `json:"status"`
+	Reason         string             `json:"reason"`
+	SourceType     string             `json:"source_type"`
+	SourceUuid     pgtype.UUID        `json:"source_uuid"`
+	Data           []byte             `json:"data"`
+	AssigneeID     pgtype.Int8        `json:"assignee_id"`
+	ResolvedAt     pgtype.Timestamptz `json:"resolved_at"`
+	ResolvedBy     pgtype.Int8        `json:"resolved_by"`
+	ResolutionNote string             `json:"resolution_note"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Role struct {

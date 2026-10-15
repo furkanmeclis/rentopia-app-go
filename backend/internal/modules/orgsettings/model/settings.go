@@ -5,6 +5,7 @@
 package model
 
 import (
+	"regexp"
 	"time"
 
 	"github.com/google/uuid"
@@ -72,7 +73,13 @@ type Reservation struct {
 	// (TEC-700): rate plans that price online sales must cover every length
 	// from 1 day up to it without a gap. Nil = DefaultMaxOnlineRentalDays.
 	MaxOnlineRentalDays *int `json:"max_online_rental_days"`
+	// ReferencePrefix starts reservation references (IDS-2026-000123,
+	// TEC-706); empty = derived from the organization slug.
+	ReferencePrefix string `json:"reference_prefix"`
 }
+
+// ReferencePrefixRE validates a reservation reference prefix.
+var ReferencePrefixRE = regexp.MustCompile(`^[A-Z][A-Z0-9]{1,5}$`)
 
 // DefaultMaxOnlineRentalDays applies while max_online_rental_days is unset;
 // MaxOnlineRentalDaysLimit is the largest accepted value.

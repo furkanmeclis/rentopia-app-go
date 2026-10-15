@@ -14065,6 +14065,10 @@ components:
           minimum: 1
           maximum: 365
           description: "Longest rental online channels sell; rate plans that price online sales must cover 1 day up to it without gaps (null = 30)"
+        reference_prefix:
+          type: string
+          pattern: "^([A-Z][A-Z0-9]{1,5})?$"
+          description: "Prefix of reservation references (IDS-2026-000123); empty = derived from the organization slug"
 
     OrganizationPaymentSettings:
       type: object

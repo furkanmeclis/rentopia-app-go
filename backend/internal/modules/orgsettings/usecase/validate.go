@@ -112,6 +112,10 @@ func Normalize(in model.Settings) (model.Settings, error) {
 		ve.add("reservation.max_online_rental_days", "out_of_range",
 			fmt.Sprintf("must be between 1 and %d days", model.MaxOnlineRentalDaysLimit))
 	}
+	r.ReferencePrefix = strings.ToUpper(strings.TrimSpace(r.ReferencePrefix))
+	if r.ReferencePrefix != "" && !model.ReferencePrefixRE.MatchString(r.ReferencePrefix) {
+		ve.add("reservation.reference_prefix", "invalid", "prefix must be 2-6 letters or digits, starting with a letter")
+	}
 
 	// --- payment
 	p := &s.Payment
