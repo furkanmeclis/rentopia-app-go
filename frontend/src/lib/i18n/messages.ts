@@ -3,6 +3,7 @@ import type { AppLocale } from "@/config/i18n";
 import enAccess from "@/locales/en/access.json";
 import enActivity from "@/locales/en/activity.json";
 import enAuth from "@/locales/en/auth.json";
+import enAvailability from "@/locales/en/availability.json";
 import enBranches from "@/locales/en/branches.json";
 import enFleet from "@/locales/en/fleet.json";
 import enBranding from "@/locales/en/branding.json";
@@ -38,6 +39,7 @@ import enTenantSettings from "@/locales/en/tenant_settings.json";
 import enUsers from "@/locales/en/users.json";
 import enVehicleRecords from "@/locales/en/vehicle_records.json";
 import enOneWayRules from "@/locales/en/one_way_rules.json";
+import enPricing from "@/locales/en/pricing.json";
 import enTransfers from "@/locales/en/transfers.json";
 import enFleetCalendar from "@/locales/en/fleet_calendar.json";
 import enVehicleBlocks from "@/locales/en/vehicle_blocks.json";
@@ -45,6 +47,7 @@ import enVehicles from "@/locales/en/vehicles.json";
 import trAccess from "@/locales/tr/access.json";
 import trActivity from "@/locales/tr/activity.json";
 import trAuth from "@/locales/tr/auth.json";
+import trAvailability from "@/locales/tr/availability.json";
 import trBranches from "@/locales/tr/branches.json";
 import trFleet from "@/locales/tr/fleet.json";
 import trBranding from "@/locales/tr/branding.json";
@@ -80,6 +83,7 @@ import trTenantSettings from "@/locales/tr/tenant_settings.json";
 import trUsers from "@/locales/tr/users.json";
 import trVehicleRecords from "@/locales/tr/vehicle_records.json";
 import trOneWayRules from "@/locales/tr/one_way_rules.json";
+import trPricing from "@/locales/tr/pricing.json";
 import trTransfers from "@/locales/tr/transfers.json";
 import trFleetCalendar from "@/locales/tr/fleet_calendar.json";
 import trVehicleBlocks from "@/locales/tr/vehicle_blocks.json";
@@ -96,6 +100,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     form: trForm,
     chart: trChart,
     auth: trAuth,
+    availability: trAvailability,
     branding: trBranding,
     bulk: trBulk,
     catalog: trCatalog,
@@ -112,6 +117,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     transfers: trTransfers,
     fleet_calendar: trFleetCalendar,
     one_way_rules: trOneWayRules,
+    pricing: trPricing,
     notifications: trNotifications,
     dashboard: trDashboard,
     activity: trActivity,
@@ -140,6 +146,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     form: enForm,
     chart: enChart,
     auth: enAuth,
+    availability: enAvailability,
     branding: enBranding,
     bulk: enBulk,
     catalog: enCatalog,
@@ -156,6 +163,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     transfers: enTransfers,
     fleet_calendar: enFleetCalendar,
     one_way_rules: enOneWayRules,
+    pricing: enPricing,
     notifications: enNotifications,
     dashboard: enDashboard,
     activity: enActivity,

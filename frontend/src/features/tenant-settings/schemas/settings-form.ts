@@ -33,6 +33,17 @@ function minutesField(t: Translate, min: number, max: number) {
     );
 }
 
+function daysField(t: Translate, min: number, max: number) {
+  return z
+    .string()
+    .trim()
+    .refine(
+      (v) =>
+        v === "" || (MINUTES.test(v) && Number(v) >= min && Number(v) <= max),
+      t("tenant_settings.validation.days_range", { min, max }),
+    );
+}
+
 function percentField(t: Translate) {
   return z
     .string()
@@ -80,6 +91,7 @@ export function createSettingsSchema(t: Translate) {
         staff_review_window_minutes: minutesField(t, 1, 10080),
         payment_hold_minutes: minutesField(t, 1, 10080),
         quote_validity_minutes: minutesField(t, 1, 43200),
+        max_online_rental_days: daysField(t, 1, 365),
       }),
       payment: z.object({
         prepayment_rule: z.enum(["none", "fixed", "percent"]),
@@ -162,6 +174,9 @@ export function settingsToForm(s: OrganizationSettings): SettingsFormValues {
       quote_validity_minutes: minutesToField(
         s.reservation.quote_validity_minutes,
       ),
+      max_online_rental_days: minutesToField(
+        s.reservation.max_online_rental_days,
+      ),
     },
     payment: { ...s.payment },
     policies: {
@@ -211,6 +226,9 @@ export function formToSaveRequest(
         ),
         quote_validity_minutes: fieldToMinutes(
           values.reservation.quote_validity_minutes,
+        ),
+        max_online_rental_days: fieldToMinutes(
+          values.reservation.max_online_rental_days,
         ),
       },
       payment: {

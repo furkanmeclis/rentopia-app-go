@@ -120,5 +120,15 @@
   "labels.tenant.one_way.write": "Tek yön kurallarını yönet",
   "groups.tenant_blocks": "Araç engelleri",
   "groups.tenant_transfers": "Transferler",
-  "groups.tenant_one_way": "Tek yön kuralları"
+  "groups.tenant_one_way": "Tek yön kuralları",
+  "labels.tenant.pricing.read": "Fiyatlandırmayı görüntüle (tarifeler, kurallar, önizleme)",
+  "labels.tenant.pricing.write": "Fiyat taslaklarını düzenle (tarife, matris, içe aktarma, kural)",
+  "labels.tenant.pricing.activate": "Fiyatları aktifleştir / pasifleştir",
+  "groups.tenant_pricing": "Fiyatlandırma",
+  "labels.tenant.availability.read": "Müsaitliği sorgula",
+  "labels.tenant.availability.hold": "Opsiyon koy, uzat, kaldır",
+  "labels.tenant.capacity_rules.read": "Kanal kapasite kurallarını görüntüle",
+  "labels.tenant.capacity_rules.write": "Kanal kapasite kurallarını yönet",
+  "groups.tenant_availability": "Müsaitlik",
+  "groups.tenant_capacity_rules": "Kanal kapasite kuralları"
 }

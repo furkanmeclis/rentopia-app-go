@@ -126,6 +126,15 @@ export function ReservationSection({ disabled }: SectionProps) {
           description={t("tenant_settings.fields.quote_validity_hint")}
           disabled={disabled}
         />
+        <AppInput
+          name="reservation.max_online_rental_days"
+          type="number"
+          min={1}
+          max={365}
+          label={t("tenant_settings.fields.max_online_rental_days")}
+          description={t("tenant_settings.fields.max_online_rental_days_hint")}
+          disabled={disabled}
+        />
       </FormSection>
       <FormSection
         title={t("tenant_settings.sections.payment")}

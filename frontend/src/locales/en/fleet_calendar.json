@@ -35,7 +35,7 @@
   "legend.coming_m2": "Coming with M2",
   "legend.coming_m3": "Coming with M3",
   "legend.drag": "Drag & drop",
-  "legend.drag_hint": "Swapping the plate of a reservation by dragging it onto another vehicle row arrives with reservations (M2). Blocks and transfers cannot be dragged.",
+  "legend.drag_hint": "Swapping the plate of a reservation by dragging it onto another vehicle row arrives with reservations (TEC-706). Blocks, transfers and holds cannot be dragged.",
   "filters.plate": "Search plate",
   "filters.status": "Status",
   "filters.segment": "Segment",
@@ -58,5 +58,17 @@
   "details.done_date": "Done on",
   "details.km": "Km",
   "details.provider": "Service",
-  "bar.transfer": "Transfer"
+  "bar.transfer": "Transfer",
+  "legend.hold": "Hold",
+  "legend.reservation_plan": "Reservation (plate plan)",
+  "bar.hold": "Hold",
+  "bar.reservation": "Reservation",
+  "details.product": "Product",
+  "details.expires_at": "Hold expires",
+  "details.ready_at": "Sellable again",
+  "details.plate": "Plate",
+  "details.channel": "Channel",
+  "details.plate_fixed": "Plate fixed",
+  "details.plate_provisional": "Provisional plate (the system may move it to another eligible vehicle)",
+  "details.open_availability": "Open availability"
 }

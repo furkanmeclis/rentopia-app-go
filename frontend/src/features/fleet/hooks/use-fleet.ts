@@ -31,12 +31,13 @@ function useInvalidateFleet() {
 
 // --- segments ---------------------------------------------------------------
 
-export function useSegmentsList(params: ListSegmentsParams) {
+export function useSegmentsList(params: ListSegmentsParams, enabled = true) {
   const { slug } = useTenant();
   return useQuery({
     queryKey: fleetKeys.list(slug, "segments", params),
     queryFn: () => fleetService.listSegments(slug, params),
     placeholderData: (previous) => previous,
+    enabled,
   });
 }
 

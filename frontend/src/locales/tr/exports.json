@@ -72,5 +72,7 @@
   "resources.tenant.vehicle_maintenance": "Araç bakımları",
   "resources.tenant.transfers": "Transferler",
   "resources.tenant.one_way_rules": "Tek yön kuralları",
-  "resources.platform.organizations": "Firmalar"
+  "resources.platform.organizations": "Firmalar",
+  "resources.tenant.rate_plans": "Tarifeler (fiyat listesi)",
+  "resources.tenant.date_rules": "Tarih kuralları"
 }

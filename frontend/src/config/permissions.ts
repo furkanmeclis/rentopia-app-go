@@ -77,6 +77,13 @@ export const Permission = {
   TenantTransfersWrite: "tenant.transfers.write",
   TenantOneWayRead: "tenant.one_way.read",
   TenantOneWayWrite: "tenant.one_way.write",
+  TenantPricingRead: "tenant.pricing.read",
+  TenantPricingWrite: "tenant.pricing.write",
+  TenantPricingActivate: "tenant.pricing.activate",
+  TenantAvailabilityRead: "tenant.availability.read",
+  TenantAvailabilityHold: "tenant.availability.hold",
+  TenantCapacityRulesRead: "tenant.capacity_rules.read",
+  TenantCapacityRulesWrite: "tenant.capacity_rules.write",
   TenantPriceOverride: "tenant.price.override",
   TenantDiscountApply: "tenant.discount.apply",
   TenantPaymentCollect: "tenant.payment.collect",
@@ -235,6 +242,26 @@ export const permissions = {
     oneWay: {
       read: Permission.TenantOneWayRead,
       write: Permission.TenantOneWayWrite,
+    },
+    /**
+     * Rate plans, date rules and the price preview. `write` edits drafts
+     * only; `activate` puts a draft live (separate so sales staff cannot
+     * change prices).
+     */
+    pricing: {
+      read: Permission.TenantPricingRead,
+      write: Permission.TenantPricingWrite,
+      activate: Permission.TenantPricingActivate,
+    },
+    /** Availability engine: capacity search (read) and holds ("opsiyon"). */
+    availability: {
+      read: Permission.TenantAvailabilityRead,
+      hold: Permission.TenantAvailabilityHold,
+    },
+    /** Channel capacity rules (sales limit, guaranteed quota, safety margin). */
+    capacityRules: {
+      read: Permission.TenantCapacityRulesRead,
+      write: Permission.TenantCapacityRulesWrite,
     },
     price: {
       override: Permission.TenantPriceOverride,

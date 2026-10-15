@@ -266,7 +266,8 @@ func TestFleetCalendar(t *testing.T) {
 			t.Fatalf("rows = %v (total %v)", got, body["total"])
 		}
 		layers, _ := body["layers"].([]any)
-		if len(layers) != 3 {
+		// block, transfer, hold, reservation (tenant.availability.read), maintenance.
+		if len(layers) != 5 {
 			t.Errorf("layers = %v", layers)
 		}
 

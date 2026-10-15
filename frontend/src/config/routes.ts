@@ -67,7 +67,32 @@ export const routes = {
         `/t/${encodeURIComponent(slug)}/fleet/calendar`,
       transfers: fleetRoutes("transfers"),
       oneWayRules: fleetRoutes("one-way-rules"),
+      /** Channel capacity rules (availability engine). */
+      capacityRules: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/fleet/capacity-rules`,
     },
+    /** Pricing: rate plans (+ matrix), date rules, price preview. */
+    pricing: {
+      plans: {
+        root: (slug: string) =>
+          `/t/${encodeURIComponent(slug)}/pricing/rate-plans`,
+        detail: (slug: string, uuid: string) =>
+          `/t/${encodeURIComponent(slug)}/pricing/rate-plans/${uuid}`,
+        matrix: (slug: string) =>
+          `/t/${encodeURIComponent(slug)}/pricing/rate-plans/matrix`,
+      },
+      rules: {
+        root: (slug: string) =>
+          `/t/${encodeURIComponent(slug)}/pricing/date-rules`,
+        detail: (slug: string, uuid: string) =>
+          `/t/${encodeURIComponent(slug)}/pricing/date-rules/${uuid}`,
+      },
+      preview: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/pricing/preview`,
+    },
+    /** Availability search and holds ("Müsaitlik"). */
+    availability: (slug: string) =>
+      `/t/${encodeURIComponent(slug)}/availability`,
     settings: {
       root: (slug: string) => `/t/${encodeURIComponent(slug)}/settings`,
       members: (slug: string) =>

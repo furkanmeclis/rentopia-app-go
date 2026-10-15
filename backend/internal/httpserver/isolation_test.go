@@ -72,6 +72,7 @@ var isolationAllowlist = map[string]string{
 	"PATCH /v1/tenant/organization":          "profile of the caller's organization (name only); no foreign references",
 	"PUT /v1/tenant/organization/logo":       "logo of the caller's organization; the key is built from the scope (storage prefix check)",
 	"DELETE /v1/tenant/organization/logo":    "logo of the caller's organization; no ids",
+	"POST /v1/tenant/rate-plans/import":      "price list rows match product / branch codes inside the organization (pricing usecase tests); the job is the {uuid} cases",
 }
 
 type isoOrg struct {
@@ -302,6 +303,29 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		ids["rule"] = str(must(call(o, http.MethodPost, "/v1/tenant/one-way-rules", map[string]any{
 			"from_branch_uuid": ids["home"], "to_branch_uuid": ids["branch"], "fee": 100, "note": m,
 		}), http.StatusCreated, "create one-way rule"), "uuid")
+		ids["ratePlan"] = str(must(call(o, http.MethodPost, "/v1/tenant/rate-plans", map[string]any{
+			"rental_product_uuid": ids["product"], "scope": "common", "name": m + " Tarife",
+			"bands": []map[string]any{{"min_days": 1, "max_days": 3, "daily_price": "1500"}, {"min_days": 4, "daily_price": "1300"}},
+		}), http.StatusCreated, "create rate plan"), "uuid")
+		must(call(o, http.MethodPost, "/v1/tenant/rate-plans/"+ids["ratePlan"]+"/activate", nil), http.StatusOK, "activate rate plan")
+		must(call(o, http.MethodPatch, "/v1/tenant/rate-plans/"+ids["ratePlan"], map[string]any{"priority": 1}), http.StatusOK, "draft rate plan")
+		ids["dateRule"] = str(must(call(o, http.MethodPost, "/v1/tenant/date-rules", map[string]any{
+			"name": m + " YAZ", "start_date": date(40), "end_date": date(60), "kind": "percent", "value": "20",
+			"product_scope": "segments", "segment_uuids": []string{ids["segment"]},
+			"all_branches": false, "branch_uuids": []string{ids["branch"]},
+		}), http.StatusCreated, "create date rule"), "uuid")
+		// Availability (TEC-697): the published product gets a hold at the
+		// transfer's destination (the vehicle is there from day 2) and a
+		// channel capacity rule.
+		must(call(o, http.MethodPatch, "/v1/tenant/products/"+ids["product"], map[string]any{"status": "published"}),
+			http.StatusOK, "publish product")
+		ids["hold"] = str(must(call(o, http.MethodPost, "/v1/tenant/availability/holds", map[string]any{
+			"product_uuid": ids["product"], "pickup_branch_uuid": ids["branch"], "starts_at": day(4), "ends_at": day(5),
+			"hold_minutes": 600, "note": m,
+		}), http.StatusCreated, "create hold"), "allocation", "uuid")
+		ids["capacityRule"] = str(must(call(o, http.MethodPost, "/v1/tenant/capacity-rules", map[string]any{
+			"rule_type": "safety_margin", "quantity": 0, "product_uuid": ids["product"], "note": m,
+		}), http.StatusCreated, "create capacity rule"), "uuid")
 		ids["role"] = str(must(call(o, http.MethodPost, "/v1/tenant/roles", map[string]any{
 			"key": "iso_role", "name": m + " Rol", "permissions": []string{rbac.PermTenantMembersRead},
 		}), http.StatusCreated, "create role"), "uuid")
@@ -498,6 +522,11 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		"GET /v1/tenant/rental-groups": {"?segment=" + b["segment"]},
 		"GET /v1/tenant/fleet/alerts":  {"?vehicle=" + b["vehicle"]},
 		"GET /v1/tenant/search":        {"?q=" + orgB.marker},
+		"GET /v1/tenant/rate-plans":    {"?rental_product=" + b["product"], "?branch=" + b["branch"]},
+		"GET /v1/tenant/rate-plans/matrix": {
+			"?scope=branch&branch=" + b["branch"],
+			"?scope=branch_channel&branch=" + b["home"] + "&channel=web",
+		},
 	}
 	for _, rt := range routes {
 		method, path, _ := strings.Cut(rt, " ")
@@ -561,6 +590,51 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		{"POST /v1/tenant/invitations", map[string]any{"email": "x1@iso.test", "role_uuids": []string{orgB.ids["role"]}, "branch_scope": "all"}, reject},
 		{"POST /v1/tenant/invitations", map[string]any{"email": "x2@iso.test", "role_uuids": []string{orgA.ids["role"]},
 			"branch_scope": "selected", "branch_uuids": []string{orgB.ids["branch"]}}, reject},
+		// Pricing: bodies naming B's products, branches, segments, plans, rules.
+		{"POST /v1/tenant/rate-plans", map[string]any{"rental_product_uuid": orgB.ids["product"], "scope": "common"}, reject},
+		{"POST /v1/tenant/rate-plans", map[string]any{"rental_product_uuid": orgA.ids["product"], "scope": "branch",
+			"branch_uuid": orgB.ids["branch"]}, reject},
+		{"PUT /v1/tenant/rate-plans/matrix", map[string]any{"scope": "common", "bands": []map[string]any{{"min_days": 1, "max_days": nil}},
+			"rows": []map[string]any{{"rental_product_uuid": orgB.ids["product"], "prices": []string{"100"}}}}, reject},
+		{"PUT /v1/tenant/rate-plans/matrix", map[string]any{"scope": "branch", "branch_uuid": orgB.ids["branch"],
+			"bands": []map[string]any{{"min_days": 1, "max_days": nil}},
+			"rows":  []map[string]any{{"rental_product_uuid": orgA.ids["product"], "prices": []string{"100"}}}}, reject},
+		{"POST /v1/tenant/rate-plans/matrix/activate", map[string]any{"scope": "branch", "branch_uuid": orgB.ids["branch"]}, reject},
+		{"POST /v1/tenant/date-rules", map[string]any{"name": "X1", "start_date": date(1), "end_date": date(2), "kind": "amount", "value": 10,
+			"product_scope": "products", "rental_product_uuids": []string{orgB.ids["product"]}}, reject},
+		{"POST /v1/tenant/date-rules", map[string]any{"name": "X2", "start_date": date(1), "end_date": date(2), "kind": "amount", "value": 10,
+			"product_scope": "segments", "segment_uuids": []string{orgB.ids["segment"]}}, reject},
+		{"POST /v1/tenant/date-rules", map[string]any{"name": "X3", "start_date": date(1), "end_date": date(2), "kind": "amount", "value": 10,
+			"all_branches": false, "branch_uuids": []string{orgB.ids["branch"]}}, reject},
+		{"POST /v1/tenant/pricing/preview", previewBody(orgB.ids["product"], orgA.ids["home"], nil), reject},
+		{"POST /v1/tenant/pricing/preview", previewBody(orgA.ids["product"], orgB.ids["home"], nil), reject},
+		{"POST /v1/tenant/pricing/preview", previewBody(orgA.ids["product"], orgA.ids["home"], map[string]any{"rate_plan_uuid": orgB.ids["ratePlan"]}), reject},
+		{"POST /v1/tenant/pricing/preview", previewBody(orgA.ids["product"], orgA.ids["home"], map[string]any{"date_rule_uuid": orgB.ids["dateRule"]}), reject},
+		{"POST /v1/tenant/pricing/preview", previewBody(orgA.ids["product"], orgA.ids["home"], map[string]any{"return_branch_uuid": orgB.ids["branch"]}), reject},
+		{"POST /v1/tenant/pricing/preview", previewBody(orgA.ids["product"], orgA.ids["home"], map[string]any{
+			"rate_plan_draft": map[string]any{"scope": "branch", "branch_uuid": orgB.ids["branch"], "bands": []map[string]any{{"min_days": 1, "daily_price": 1}}},
+		}), reject},
+		{"POST /v1/tenant/pricing/preview", previewBody(orgA.ids["product"], orgA.ids["home"], map[string]any{
+			"date_rule_draft": map[string]any{"start_date": date(1), "end_date": date(3), "kind": "percent", "value": 10,
+				"product_scope": "segments", "segment_uuids": []string{orgB.ids["segment"]}},
+		}), reject},
+		// Availability: search / hold / capacity rule bodies naming B's records.
+		{"POST /v1/tenant/availability/search", map[string]any{"pickup_branch_uuid": orgB.ids["branch"],
+			"starts_at": day(20), "ends_at": day(21)}, reject},
+		{"POST /v1/tenant/availability/search", map[string]any{"pickup_branch_uuid": orgA.ids["branch"],
+			"starts_at": day(20), "ends_at": day(21), "product_uuids": []string{orgB.ids["product"]}}, reject},
+		{"POST /v1/tenant/availability/search", map[string]any{"pickup_point_uuid": orgB.ids["point"],
+			"starts_at": day(20), "ends_at": day(21)}, reject},
+		{"POST /v1/tenant/availability/holds", map[string]any{"product_uuid": orgB.ids["product"],
+			"pickup_branch_uuid": orgA.ids["branch"], "starts_at": day(20), "ends_at": day(21)}, reject},
+		{"POST /v1/tenant/availability/holds", map[string]any{"product_uuid": orgA.ids["product"],
+			"pickup_branch_uuid": orgA.ids["branch"], "return_branch_uuid": orgB.ids["branch"], "starts_at": day(20), "ends_at": day(21)}, reject},
+		{"POST /v1/tenant/availability/holds", map[string]any{"product_uuid": orgA.ids["product"],
+			"pickup_branch_uuid": orgA.ids["branch"], "starts_at": day(20), "ends_at": day(21), "vehicle_uuid": orgB.ids["vehicle"]}, reject},
+		{"POST /v1/tenant/capacity-rules", map[string]any{"rule_type": "safety_margin", "quantity": 1,
+			"product_uuid": orgB.ids["product"]}, reject},
+		{"POST /v1/tenant/capacity-rules", map[string]any{"rule_type": "safety_margin", "quantity": 1,
+			"branch_uuid": orgB.ids["branch"]}, reject},
 		// Action parameters naming B's records, on A's vehicle.
 		{"POST /v1/tenant/vehicles/bulk", map[string]any{"action": "move_branch", "params": map[string]any{"branch_uuid": orgB.ids["branch"]},
 			"target": map[string]any{"scope": "ids", "ids": []string{orgA.ids["vehicle"]}}}, reject},
@@ -595,6 +669,10 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		{"PATCH /v1/tenant/members/" + alice.Uuid.String(), map[string]any{"role_uuids": []string{orgB.ids["role"]}}, reject},
 		{"PATCH /v1/tenant/members/" + alice.Uuid.String(), map[string]any{"branch_scope": "selected", "branch_uuids": []string{orgB.ids["home"]}}, reject},
 		{"PUT /v1/tenant/products/" + orgA.ids["product"] + "/images/order", map[string]any{"image_uuids": []string{orgB.ids["image"]}}, reject},
+		{"PATCH /v1/tenant/date-rules/" + orgA.ids["dateRule"], map[string]any{"segment_uuids": []string{orgB.ids["segment"]}}, reject},
+		{"PATCH /v1/tenant/date-rules/" + orgA.ids["dateRule"], map[string]any{"all_branches": false, "branch_uuids": []string{orgB.ids["home"]}}, reject},
+		{"PUT /v1/tenant/capacity-rules/" + orgA.ids["capacityRule"], map[string]any{"rule_type": "safety_margin", "quantity": 1,
+			"product_uuid": orgB.ids["product"]}, reject},
 	}
 	for _, c := range ownCases {
 		method, path, _ := strings.Cut(c.route, " ")
@@ -779,8 +857,16 @@ func paramKey(prev, name string) string {
 		return "importJob"
 	case "bulk/uuid":
 		return "bulkJob"
+	case "holds/uuid":
+		return "hold"
+	case "capacity-rules/uuid":
+		return "capacityRule"
 	case "versions/version":
 		return "version"
+	case "rate-plans/uuid":
+		return "ratePlan"
+	case "date-rules/uuid":
+		return "dateRule"
 	}
 	return ""
 }
@@ -862,6 +948,20 @@ func tenantRoutes(t *testing.T, mux *http.ServeMux) []string {
 		}
 	}
 	return routes
+}
+
+// previewBody is a pricing preview request (8 days from tomorrow) plus extra
+// fields.
+func previewBody(product, branch string, extra map[string]any) map[string]any {
+	start := time.Now().UTC().Add(24 * time.Hour).Truncate(time.Hour)
+	body := map[string]any{
+		"rental_product_uuid": product, "branch_uuid": branch, "channel": "web",
+		"start_at": start.Format(time.RFC3339), "end_at": start.Add(8 * 24 * time.Hour).Format(time.RFC3339),
+	}
+	for k, v := range extra {
+		body[k] = v
+	}
+	return body
 }
 
 func pageItems(t *testing.T, data any) []any {

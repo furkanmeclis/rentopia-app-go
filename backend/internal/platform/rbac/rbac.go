@@ -80,6 +80,15 @@ const (
 	PermTenantTransfersWrite              = "tenant.transfers.write"
 	PermTenantOneWayRead                  = "tenant.one_way.read"
 	PermTenantOneWayWrite                 = "tenant.one_way.write"
+	// Pricing (TEC-700 / TEC-701): rate plans, date rules, preview. Writes
+	// only touch drafts; activation is a separate slug.
+	PermTenantPricingRead        = "tenant.pricing.read"
+	PermTenantPricingWrite       = "tenant.pricing.write"
+	PermTenantPricingActivate    = "tenant.pricing.activate"
+	PermTenantAvailabilityRead   = "tenant.availability.read"
+	PermTenantAvailabilityHold   = "tenant.availability.hold"
+	PermTenantCapacityRulesRead  = "tenant.capacity_rules.read"
+	PermTenantCapacityRulesWrite = "tenant.capacity_rules.write"
 	// Sensitive actions of later tenant modules (TEC-689), separate from the
 	// resource read/write slugs so roles can grant them one by one.
 	PermTenantPriceOverride    = "tenant.price.override"

@@ -19,7 +19,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"math/big"
 	"regexp"
 	"strings"
 	"time"
@@ -30,6 +29,7 @@ import (
 	vehicleusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/authctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
+	pkgmoney "github.com/furkanmeclis/nextjs-go-boilerplate/backend/pkg/money"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -244,30 +244,10 @@ func parseMoney(ve *ValidationError, field string, in *json.Number) pgtype.Numer
 	return n
 }
 
-// FormatMoney renders a numeric as a decimal string with two fraction digits.
+// FormatMoney renders a numeric as a decimal string with two fraction digits
+// (pkg/money: one rounding rule for every amount).
 func FormatMoney(n pgtype.Numeric) string {
-	if !n.Valid || n.Int == nil {
-		return "0.00"
-	}
-	cents := new(big.Int).Set(n.Int)
-	shift := int(n.Exp) + 2
-	ten := big.NewInt(10)
-	if shift >= 0 {
-		cents.Mul(cents, new(big.Int).Exp(ten, big.NewInt(int64(shift)), nil))
-	} else {
-		cents.Quo(cents, new(big.Int).Exp(ten, big.NewInt(int64(-shift)), nil))
-	}
-	neg := cents.Sign() < 0
-	cents.Abs(cents)
-	str := cents.String()
-	for len(str) < 3 {
-		str = "0" + str
-	}
-	out := str[:len(str)-2] + "." + str[len(str)-2:]
-	if neg {
-		out = "-" + out
-	}
-	return out
+	return pkgmoney.FormatNumeric(n)
 }
 
 func moneyPtr(n pgtype.Numeric) *string {

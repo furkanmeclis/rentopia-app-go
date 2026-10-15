@@ -52,6 +52,7 @@ const (
 	CodeInvitationEmailMismatch   = "INVITATION_EMAIL_MISMATCH"
 	CodeAlreadyMember             = "ALREADY_MEMBER"
 	CodeAccountExists             = "ACCOUNT_EXISTS"
+	CodeCapacityUnavailable       = "CAPACITY_UNAVAILABLE"
 )
 
 // RequestIDFunc resolves the correlation id from request context.
@@ -110,6 +111,24 @@ func ErrorWithDetails(w http.ResponseWriter, r *http.Request, status int, code, 
 	}
 	write(w, r, status, Envelope{
 		Success: false,
+		Error:   body,
+		Meta:    metaFrom(r),
+	})
+}
+
+// ErrorWithData writes a failed envelope that also carries data (for example
+// the alternatives offered with CAPACITY_UNAVAILABLE).
+func ErrorWithData(w http.ResponseWriter, r *http.Request, status int, code, message string, details []Detail, data any) {
+	if rec, ok := w.(errorCodeRecorder); ok {
+		rec.RecordErrorCode(code)
+	}
+	body := &ErrorBody{Code: code, Message: message}
+	if len(details) > 0 {
+		body.Details = details
+	}
+	write(w, r, status, Envelope{
+		Success: false,
+		Data:    data,
 		Error:   body,
 		Meta:    metaFrom(r),
 	})

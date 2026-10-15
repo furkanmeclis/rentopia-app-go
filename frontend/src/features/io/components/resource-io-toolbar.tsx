@@ -31,6 +31,8 @@ const EXPORT_PERM: Partial<Record<IoResource, string>> = {
   "tenant.vehicle_maintenance": permissions.tenant.vehicles.export,
   "tenant.transfers": permissions.tenant.transfers.read,
   "tenant.one_way_rules": permissions.tenant.oneWay.read,
+  "tenant.rate_plans": permissions.tenant.pricing.read,
+  "tenant.date_rules": permissions.tenant.pricing.read,
 };
 
 const IMPORT_PERM: Partial<Record<IoResource, string>> = {
@@ -38,6 +40,8 @@ const IMPORT_PERM: Partial<Record<IoResource, string>> = {
   "platform.roles": permissions.roles.import,
   "tenant.branches": permissions.tenant.branches.import,
   "tenant.vehicles": permissions.tenant.vehicles.import,
+  // The price list import only writes drafts.
+  "tenant.rate_plans": permissions.tenant.pricing.write,
 };
 
 export function ResourceIOToolbar({

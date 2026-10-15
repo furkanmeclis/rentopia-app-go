@@ -49,5 +49,11 @@
   "nav_tenant_settings_roles": "Roller",
   "nav_fleet_transfers": "Transferler",
   "nav_fleet_one_way_rules": "Tek yön kuralları",
-  "nav_organizations": "Firmalar"
+  "nav_organizations": "Firmalar",
+  "section_pricing": "Fiyatlandırma",
+  "nav_pricing_plans": "Tarifeler",
+  "nav_pricing_rules": "Tarih kuralları",
+  "nav_pricing_preview": "Fiyat önizleme",
+  "nav_availability": "Müsaitlik",
+  "nav_fleet_capacity_rules": "Kanal kapasite kuralları"
 }

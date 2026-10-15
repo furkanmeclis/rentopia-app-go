@@ -202,6 +202,70 @@ func (q *Queries) GetVehicleBlock(ctx context.Context, arg GetVehicleBlockParams
 	return i, err
 }
 
+const listBlockAffectedAllocations = `-- name: ListBlockAffectedAllocations :many
+SELECT a.uuid, a.kind, a.starts_at, upper(a.period)::timestamptz AS ends_at, p.code AS product_code
+FROM vehicle_allocations a
+JOIN rental_products p ON p.organization_id = a.organization_id AND p.id = a.rental_product_id
+WHERE a.organization_id = $1
+  AND p.organization_id = $1
+  AND a.vehicle_id = $2
+  AND a.status = 'active'
+  AND (a.kind <> 'hold' OR a.expires_at > $3::timestamptz)
+  AND a.period && tstzrange($4::timestamptz, $5::timestamptz, '[)')
+ORDER BY lower(a.period)
+`
+
+type ListBlockAffectedAllocationsParams struct {
+	OrganizationID int64              `json:"organization_id"`
+	VehicleID      int64              `json:"vehicle_id"`
+	NowAt          pgtype.Timestamptz `json:"now_at"`
+	StartsAt       pgtype.Timestamptz `json:"starts_at"`
+	EndsAt         pgtype.Timestamptz `json:"ends_at"`
+}
+
+type ListBlockAffectedAllocationsRow struct {
+	Uuid        uuid.UUID          `json:"uuid"`
+	Kind        string             `json:"kind"`
+	StartsAt    pgtype.Timestamptz `json:"starts_at"`
+	EndsAt      pgtype.Timestamptz `json:"ends_at"`
+	ProductCode string             `json:"product_code"`
+}
+
+// Active, unexpired allocations (holds / reservations, TEC-697) of a vehicle
+// that overlap [starts_at, ends_at) (NULL end = unbounded): the commitments a
+// block now makes impossible on this vehicle (affected[]).
+func (q *Queries) ListBlockAffectedAllocations(ctx context.Context, arg ListBlockAffectedAllocationsParams) ([]ListBlockAffectedAllocationsRow, error) {
+	rows, err := q.db.Query(ctx, listBlockAffectedAllocations,
+		arg.OrganizationID,
+		arg.VehicleID,
+		arg.NowAt,
+		arg.StartsAt,
+		arg.EndsAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListBlockAffectedAllocationsRow{}
+	for rows.Next() {
+		var i ListBlockAffectedAllocationsRow
+		if err := rows.Scan(
+			&i.Uuid,
+			&i.Kind,
+			&i.StartsAt,
+			&i.EndsAt,
+			&i.ProductCode,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOverlappingVehicleBlocks = `-- name: ListOverlappingVehicleBlocks :many
 SELECT b.uuid, b.kind, lower(b.during)::timestamptz AS starts_at, upper(b.during)::timestamptz AS ends_at
 FROM vehicle_blocks b
