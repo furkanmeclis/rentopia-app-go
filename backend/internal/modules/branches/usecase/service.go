@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/big"
 	"net/mail"
 	"regexp"
 	"sort"
@@ -22,6 +21,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/branches/repository"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/searchengine"
+	pkgmoney "github.com/furkanmeclis/nextjs-go-boilerplate/backend/pkg/money"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -730,30 +730,10 @@ func numericToFloat(n pgtype.Numeric) *float64 {
 	return &v
 }
 
-// FormatMoney renders a numeric as a decimal string with two fraction digits.
+// FormatMoney renders a numeric as a decimal string with two fraction digits
+// (pkg/money: one rounding rule for every amount).
 func FormatMoney(n pgtype.Numeric) string {
-	if !n.Valid || n.Int == nil {
-		return "0.00"
-	}
-	cents := new(big.Int).Set(n.Int)
-	shift := int(n.Exp) + 2
-	ten := big.NewInt(10)
-	if shift >= 0 {
-		cents.Mul(cents, new(big.Int).Exp(ten, big.NewInt(int64(shift)), nil))
-	} else {
-		cents.Quo(cents, new(big.Int).Exp(ten, big.NewInt(int64(-shift)), nil))
-	}
-	neg := cents.Sign() < 0
-	cents.Abs(cents)
-	s := cents.String()
-	for len(s) < 3 {
-		s = "0" + s
-	}
-	out := s[:len(s)-2] + "." + s[len(s)-2:]
-	if neg {
-		out = "-" + out
-	}
-	return out
+	return pkgmoney.FormatNumeric(n)
 }
 
 func mapNotFound(err, target error) error {
