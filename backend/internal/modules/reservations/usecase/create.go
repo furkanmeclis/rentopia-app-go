@@ -59,7 +59,13 @@ func specFromQuote(row db.GetQuoteRow, customer *db.GetReservationCustomerRow) q
 			spec.manual = &model.ManualDiscountInput{Kind: md.Kind, Value: pricingDecimal(md.Value), Reason: md.Reason}
 		}
 	}
-	if !money.FromNumericOrZero(row.DeliveryFee).IsZero() {
+	spec.pickupDelivery, spec.returnDelivery = storedDelivery(row.PickupDelivery), storedDelivery(row.ReturnDelivery)
+	spec.checkPickup, spec.checkReturn = true, true
+	switch {
+	case row.DeliveryOverride.Valid:
+		spec.deliveryFee = money.FormatNumeric(row.DeliveryOverride)
+	case !row.PickupPointID.Valid && !row.ReturnPointID.Valid && !money.FromNumericOrZero(row.DeliveryFee).IsZero():
+		// A staff fee of a quote without delivery points (M2 quotes).
 		spec.deliveryFee = money.FormatNumeric(row.DeliveryFee)
 	}
 	return spec
@@ -386,6 +392,7 @@ func (s *Service) Create(ctx context.Context, orgID int64, in model.CreateInput)
 		PolicySnapshot: mustJSON(policySnapshot(settings)), ReviewDeadline: tsPtr(reviewDeadline), PaymentDeadline: tsPtr(payDeadline),
 		Note: strings.TrimSpace(in.Note), EligibilityOverride: overrideJSON(drivers, in.EligibilityOverride, actorID(ctx)),
 		CreatedBy: int8Ptr(actorID(ctx)), ApprovalProtocol: protocol,
+		PickupDelivery: deliveryJSON(spec.pickupDelivery), ReturnDelivery: deliveryJSON(spec.returnDelivery),
 	}
 	if invoice != nil {
 		params.InvoiceCustomerID = int8Of(invoice.ID)
@@ -488,6 +495,11 @@ func (s *Service) Create(ctx context.Context, orgID int64, in model.CreateInput)
 	}
 	s.publish(ctx, model.ResourceReservations, "created", resUUID)
 	s.publish(ctx, model.ResourceQuotes, "updated", row.Uuid)
+	if status == model.StatusConfirmed {
+		// Confirmed at once: the listeners (rentals, field tasks) hear it
+		// like any other confirmation.
+		s.notify(ctx, orgID, resUUID, LifecycleConfirmed)
+	}
 	return s.Get(ctx, orgID, resUUID)
 }
 

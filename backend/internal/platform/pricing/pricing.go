@@ -298,10 +298,23 @@ type Input struct {
 	OneWayFee *money.Money
 	// DeliveryFee is the delivery / collection fee (nil = none).
 	DeliveryFee *money.Money
+	// Deliveries are named delivery / collection fees of service points
+	// (TEC-724), one line each, after DeliveryFee.
+	Deliveries []DeliveryFee
 	// VATRate is the organization's VAT rate; nil = not configured (the
 	// breakdown then carries no VAT split: base = gross, VAT = 0).
 	VATRate    *money.Rate
 	Prepayment Prepayment
+}
+
+// DeliveryFee is one delivery or collection fee: the service point's
+// delivery extra price (ExtraID / PriceID set) or its flat fee.
+type DeliveryFee struct {
+	Code    string
+	Name    string
+	Fee     money.Money
+	ExtraID string
+	PriceID string
 }
 
 // PlanRef names the plan version a breakdown used.
@@ -525,6 +538,16 @@ func Calculate(in Input) (Breakdown, error) {
 			return Breakdown{}, fail(ErrInvalidInput, "delivery fee must not be negative")
 		}
 		addLine(Line{Kind: LineDelivery, Quantity: 1, Gross: *in.DeliveryFee})
+	}
+	for _, d := range in.Deliveries {
+		if d.Fee.IsZero() {
+			continue
+		}
+		if d.Fee.IsNegative() {
+			return Breakdown{}, fail(ErrInvalidInput, "delivery fee must not be negative")
+		}
+		unit := d.Fee
+		addLine(Line{Kind: LineDelivery, Code: d.Code, Name: d.Name, Quantity: 1, UnitPrice: &unit, ExtraID: d.ExtraID, PriceID: d.PriceID, Gross: d.Fee})
 	}
 	out.BaseTotal, out.VATTotal, out.Total = money.Zero(), money.Zero(), money.Zero()
 	for _, l := range out.Lines {

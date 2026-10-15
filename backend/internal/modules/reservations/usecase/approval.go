@@ -129,6 +129,7 @@ func (s *Service) acceptRequest(ctx context.Context, orgID int64, c db.GetReserv
 		// a staff decision at sale time: it stands).
 		spec := quoteSpec{
 			purpose: model.PurposeChange, reservationID: c.ID, where: w, productUUID: c.ProductUuid, extras: snap.Extras,
+			pickupDelivery: storedDelivery(c.PickupDelivery), returnDelivery: storedDelivery(c.ReturnDelivery),
 		}
 		if snap.CouponCode != nil {
 			spec.coupon = *snap.CouponCode
@@ -177,7 +178,8 @@ func (s *Service) acceptRequest(ctx context.Context, orgID int64, c db.GetReserv
 				n, err := q.UpdateReservationPlan(ctx, db.UpdateReservationPlanParams{
 					OrganizationID: orgID, ID: c.ID, AllocationID: int8Of(r.AllocationID), StartsAt: c.StartsAt, EndsAt: c.EndsAt,
 					PickupBranchID: c.PickupBranchID, ReturnBranchID: c.ReturnBranchID, PickupPointID: c.PickupPointID,
-					ReturnPointID: c.ReturnPointID, RentalProductID: r.ProductID, ProductVersion: r.ProductVersion,
+					ReturnPointID: c.ReturnPointID, PickupDelivery: c.PickupDelivery, ReturnDelivery: c.ReturnDelivery,
+					RentalProductID: r.ProductID, ProductVersion: r.ProductVersion,
 					GuaranteeType: conds.GuaranteeType, ProductSnapshot: mustJSON(conds), TotalAmount: total.Numeric(),
 					PrepaymentAmount: prepay.Numeric(), NetReceivable: total.Sub(commission).Numeric(),
 					QuoteID: int8Of(quoteRow.ID), QuoteSnapshot: mustJSON(newSnap),
@@ -233,6 +235,9 @@ func (s *Service) acceptRequest(ctx context.Context, orgID int64, c db.GetReserv
 		s.publish(ctx, model.ResourceQuotes, "updated", quoteRow.Uuid)
 	}
 	s.publish(ctx, model.ResourceReservations, "updated", append(touched, c.Uuid)...)
+	if status == model.StatusConfirmed {
+		s.notify(ctx, orgID, c.Uuid, LifecycleConfirmed)
+	}
 	return warnings, nil
 }
 
@@ -387,6 +392,7 @@ func (s *Service) latePayment(ctx context.Context, orgID int64, c db.GetReservat
 			if len(snap.Extras) > 0 {
 				s.resyncEquipment(ctx, orgID, c.ID, nil, snap.Extras, allocUUID, c.Uuid)
 			}
+			s.notify(ctx, orgID, c.Uuid, LifecycleConfirmed)
 			return model.OutcomeReinstated, nil
 		}
 		if _, ok := capacityErr(rerr); ok {

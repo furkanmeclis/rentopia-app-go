@@ -103,16 +103,28 @@ const (
 	TaskMaintenance = "maintenance"
 	TaskDeposit     = "deposit"
 
-	TaskOpen       = "open"
-	TaskInProgress = "in_progress"
-	TaskDone       = "done"
-	TaskCancelled  = "cancelled"
+	// TaskTransfer / TaskOther are field tasks (TEC-724): a transfer moves
+	// the vehicle to another branch through the fleet transfer.
+	TaskTransfer = "transfer"
+	TaskOther    = "other"
+
+	// Field task statuses (TEC-724, docs/design/field-tasks.md): planned
+	// (nobody assigned), assigned, en_route (started), issue_reported,
+	// completed, cancelled.
+	TaskPlanned       = "planned"
+	TaskAssigned      = "assigned"
+	TaskEnRoute       = "en_route"
+	TaskIssueReported = "issue_reported"
+	TaskCompleted     = "completed"
+	TaskCancelled     = "cancelled"
 )
 
 // TaskTypes / TaskStatuses in display order.
 var (
-	TaskTypes    = []string{TaskPreparation, TaskHandover, TaskReturn, TaskCleaning, TaskMaintenance, TaskDeposit}
-	TaskStatuses = []string{TaskOpen, TaskInProgress, TaskDone, TaskCancelled}
+	TaskTypes    = []string{TaskPreparation, TaskHandover, TaskReturn, TaskCleaning, TaskMaintenance, TaskDeposit, TaskTransfer, TaskOther}
+	TaskStatuses = []string{TaskPlanned, TaskAssigned, TaskEnRoute, TaskIssueReported, TaskCompleted, TaskCancelled}
+	// TaskLiveStatuses are the statuses of a task still to be done.
+	TaskLiveStatuses = []string{TaskPlanned, TaskAssigned, TaskEnRoute, TaskIssueReported}
 )
 
 // OverdueHorizon is how far the engine allocation of a late vehicle is

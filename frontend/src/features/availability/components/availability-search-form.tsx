@@ -10,6 +10,14 @@ import { DEFAULT_CHANNEL } from "@/features/availability/constants";
 import type { AvailabilitySearchRequest } from "@/features/availability/types";
 import { useBranchesList } from "@/features/branches/hooks/use-branches";
 import {
+  DeliveryFields,
+  deliveryFieldDefaults,
+  deliveryFieldsShape,
+  deliveryRequest,
+  type DeliveryFieldValues,
+} from "@/features/field-tasks/components/delivery-fields";
+import type { DeliveryDetails } from "@/features/field-tasks/types";
+import {
   localInputFromNow,
   localInputToISO,
 } from "@/features/fleet-ops/lib/datetime";
@@ -29,6 +37,14 @@ type Values = {
   starts_at: string;
   ends_at: string;
   channel: string;
+} & Partial<DeliveryFieldValues>;
+
+/** Delivery part of a reservation search (the wizard's delivery block). */
+export type DeliverySearchFields = {
+  pickup_point_uuid?: string | null;
+  return_point_uuid?: string | null;
+  pickup_delivery?: DeliveryDetails | null;
+  return_delivery?: DeliveryDetails | null;
 };
 
 /**
@@ -38,9 +54,12 @@ type Values = {
 export function AvailabilitySearchForm({
   pending,
   onSearch,
+  withDelivery = false,
 }: {
   pending: boolean;
-  onSearch: (request: AvailabilitySearchRequest) => void;
+  onSearch: (request: AvailabilitySearchRequest & DeliverySearchFields) => void;
+  /** Adds the delivery / collection block (points, address, flight). */
+  withDelivery?: boolean;
 }) {
   const { t } = useLocale();
   const branches = useBranchesList({ limit: 100, offset: 0, sort: "code" });
@@ -55,6 +74,7 @@ export function AvailabilitySearchForm({
           starts_at: z.string().min(1, t("availability.validation.starts_at")),
           ends_at: z.string().min(1, t("availability.validation.ends_at")),
           channel: z.string().min(1),
+          ...deliveryFieldsShape,
         })
         .refine(
           (v) =>
@@ -91,6 +111,7 @@ export function AvailabilitySearchForm({
         starts_at: localInputFromNow(24),
         ends_at: localInputFromNow(72),
         channel: DEFAULT_CHANNEL,
+        ...(withDelivery ? deliveryFieldDefaults : {}),
       }}
       onSubmit={(values) => {
         const pickup = values.pickup_branch_uuid;
@@ -103,6 +124,7 @@ export function AvailabilitySearchForm({
           starts_at: localInputToISO(values.starts_at) ?? values.starts_at,
           ends_at: localInputToISO(values.ends_at) ?? values.ends_at,
           channel: values.channel,
+          ...(withDelivery ? deliveryRequest(values) : {}),
         });
       }}
     >
@@ -133,6 +155,7 @@ export function AvailabilitySearchForm({
         description={t("availability.fields.channel_hint")}
         options={channelOptions}
       />
+      {withDelivery ? <DeliveryFields /> : null}
       <div className="flex items-end">
         <Button
           type="submit"

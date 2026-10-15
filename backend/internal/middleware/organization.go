@@ -77,6 +77,29 @@ func RequireTenantPermission(slug string) func(http.Handler) http.Handler {
 	}
 }
 
+// RequireAnyTenantPermission requires at least one of the tenant
+// permission slugs (a route whose use case narrows what each permission
+// sees, e.g. field tasks: the board readers and the executors of their own
+// tasks). Must run after RequireOrganization.
+func RequireAnyTenantPermission(slugs ...string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			scope, ok := orgctx.From(r.Context())
+			if !ok {
+				response.InternalErr(w, r, errors.New("RequireAnyTenantPermission without RequireOrganization"), "")
+				return
+			}
+			for _, slug := range slugs {
+				if scope.Has(slug) {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+			response.Forbidden(w, r, "Missing permission: "+strings.Join(slugs, " | "))
+		})
+	}
+}
+
 func writeOrganizationError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, orgctx.ErrOrganizationNotFound), errors.Is(err, orgctx.ErrNotMember):

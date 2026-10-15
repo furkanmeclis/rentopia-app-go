@@ -55,6 +55,7 @@ import type { NavCatalog } from "@/features/nav-engine";
 import { usersNavItem } from "@/features/users/nav";
 import { customerRequestsNavItem } from "@/features/customer-portal/nav";
 import { TollReviewNavAdornment } from "@/features/tolls/nav";
+import { MyFieldTasksNavAdornment } from "@/features/field-tasks/nav";
 import {
   ApprovalsNavAdornment,
   ResolutionTasksNavAdornment,
@@ -393,11 +394,19 @@ export function tenantNav(slug: string): NavCatalog {
             permission: permissions.tenant.rentals.read,
           },
           {
-            id: "field-tasks",
-            titleKey: "layout.nav_field_tasks",
+            id: "my-field-tasks",
+            titleKey: "layout.nav_my_field_tasks",
             href: routes.tenant.field.root(slug),
             icon: Smartphone,
-            permission: permissions.tenant.rentals.read,
+            permission: permissions.tenant.fieldTasks.execute,
+            Adornment: MyFieldTasksNavAdornment,
+          },
+          {
+            id: "field-task-board",
+            titleKey: "layout.nav_field_task_board",
+            href: routes.tenant.field.board(slug),
+            icon: ClipboardList,
+            permission: permissions.tenant.fieldTasks.read,
           },
           {
             id: "inspections",

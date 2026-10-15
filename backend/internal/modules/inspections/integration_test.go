@@ -706,7 +706,7 @@ func TestRT_A19_DisputedReturnNeverBecomesDebt(t *testing.T) {
 	for _, tk := range tasks {
 		types[tk.TaskType] = tk.Status + ":" + tk.Note
 	}
-	if !strings.HasPrefix(types[rentalmodel.TaskDeposit], rentalmodel.TaskOpen+":hold") || types[rentalmodel.TaskCleaning] != "" {
+	if !strings.HasPrefix(types[rentalmodel.TaskDeposit], rentalmodel.TaskPlanned+":hold") || types[rentalmodel.TaskCleaning] != "" {
 		t.Fatalf("tasks after a disputed return: %v", types)
 	}
 
@@ -760,7 +760,7 @@ func TestRT_A19_DisputedReturnNeverBecomesDebt(t *testing.T) {
 	f.must(err)
 	maintenance := false
 	for _, tk := range tasks {
-		maintenance = maintenance || (tk.TaskType == rentalmodel.TaskMaintenance && tk.Status == rentalmodel.TaskOpen)
+		maintenance = maintenance || (tk.TaskType == rentalmodel.TaskMaintenance && tk.Status == rentalmodel.TaskPlanned)
 	}
 	if !maintenance {
 		t.Fatalf("the reviewed return sends the vehicle to maintenance: %+v", tasks)
@@ -803,7 +803,7 @@ func TestRT_A19_SignedReturnCompletes(t *testing.T) {
 	f.must(err)
 	open := map[string]bool{}
 	for _, tk := range tasks {
-		if tk.Status == rentalmodel.TaskOpen {
+		if tk.Status == rentalmodel.TaskPlanned {
 			open[tk.TaskType] = true
 		}
 	}

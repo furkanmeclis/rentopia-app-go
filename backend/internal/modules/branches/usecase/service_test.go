@@ -231,6 +231,14 @@ func (f *fakeRepo) ListActivity(context.Context, int64, uuid.UUID, int32, int32)
 	return nil, 0, nil
 }
 
+func (f *fakeRepo) DeliveryExtraByUUID(context.Context, int64, uuid.UUID) (repository.DeliveryExtra, error) {
+	return repository.DeliveryExtra{}, repository.ErrNotFound
+}
+
+func (f *fakeRepo) DeliveryExtraByID(context.Context, int64, int64) (repository.DeliveryExtra, error) {
+	return repository.DeliveryExtra{}, repository.ErrNotFound
+}
+
 type fakeIndexer struct{ upserts, deletes []string }
 
 func (i *fakeIndexer) EnqueueUpsert(_ context.Context, spec, id string) {

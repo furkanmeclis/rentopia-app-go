@@ -308,7 +308,7 @@ func TestRentalLifecycle(t *testing.T) {
 	if again.UUID != created.UUID {
 		t.Fatal("a second create must return the same rental")
 	}
-	if got := f.tasks(created.UUID); got[model.TaskHandover] != model.TaskOpen || got[model.TaskPreparation] != model.TaskOpen {
+	if got := f.tasks(created.UUID); got[model.TaskHandover] != model.TaskPlanned || got[model.TaskPreparation] != model.TaskPlanned {
 		t.Fatalf("tasks after create: %v", got)
 	}
 
@@ -328,7 +328,7 @@ func TestRentalLifecycle(t *testing.T) {
 	if st, _, km := f.vehicleState(v.uuid); st != "rented" || km != 1200 {
 		t.Fatalf("vehicle %s %d", st, km)
 	}
-	if got := f.tasks(r.UUID); got[model.TaskHandover] != model.TaskDone || got[model.TaskReturn] != model.TaskOpen {
+	if got := f.tasks(r.UUID); got[model.TaskHandover] != model.TaskCompleted || got[model.TaskReturn] != model.TaskPlanned {
 		t.Fatalf("tasks after handover: %v", got)
 	}
 	// The reservation can no longer be cancelled (the vehicle is out).
@@ -362,7 +362,7 @@ func TestRentalLifecycle(t *testing.T) {
 		t.Fatalf("status %s", r.Status)
 	}
 	got := f.tasks(r.UUID)
-	if got[model.TaskCleaning] != model.TaskOpen {
+	if got[model.TaskCleaning] != model.TaskPlanned {
 		t.Fatalf("cleaning task: %v", got)
 	}
 	items, _, err := f.rentals.ListTasks(f.ctx, f.org, model.TaskFilter{RentalUUIDs: []uuid.UUID{r.UUID}, TaskTypes: []string{model.TaskCleaning}, Limit: 5})

@@ -272,7 +272,7 @@ func (s *Service) Preview(ctx context.Context, orgID int64, in model.PreviewInpu
 		Start: rng.Start, End: rng.End,
 		Product:  pricing.Product{ID: product.Uuid.String(), SegmentID: product.SegmentUuid.String()},
 		BranchID: branch.Uuid.String(), Channel: in.Channel, Discount: discount, DeliveryFee: delivery,
-		Extras: extras, VATRate: cfg.VAT, Prepayment: cfg.Prepayment,
+		Deliveries: in.Deliveries, Extras: extras, VATRate: cfg.VAT, Prepayment: cfg.Prepayment,
 	}
 	var coupon *CouponQuery
 	if s.coupons != nil && in.Discount == nil && (strings.TrimSpace(in.CouponCode) != "" || in.CustomerUUID != nil) {

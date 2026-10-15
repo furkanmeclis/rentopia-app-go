@@ -34,6 +34,7 @@ import {
 } from "@/features/fleet/components/shared/list-utils";
 import { OperationTaskStatusChip } from "@/features/rentals/components/rental-cells";
 import {
+  isLiveTask,
   OPERATION_TASKS_RESOURCE,
   TASK_STATUSES,
   TASK_STATUS_LABEL_KEYS,
@@ -216,8 +217,7 @@ export function OperationTasksTable({
           enableSorting: true,
           cell: ({ row }) => {
             const late =
-              (row.original.status === "open" ||
-                row.original.status === "in_progress") &&
+              isLiveTask(row.original.status) &&
               new Date(row.original.due_at) < new Date();
             return (
               <span className={late ? "text-destructive font-medium" : ""}>
@@ -270,8 +270,7 @@ export function OperationTasksTable({
           enableResizing: false,
           cell: ({ row }) => {
             const task = row.original;
-            const live =
-              task.status === "open" || task.status === "in_progress";
+            const live = isLiveTask(task.status);
             // Handover / return tasks close with the rental action.
             const manual =
               task.task_type === "preparation" || task.task_type === "cleaning";
@@ -294,7 +293,7 @@ export function OperationTasksTable({
                         },
                       ]
                     : []),
-                  ...(task.status === "open"
+                  ...(task.status === "planned" || task.status === "assigned"
                     ? [
                         {
                           id: "start",

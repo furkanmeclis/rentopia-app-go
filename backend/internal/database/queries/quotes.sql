@@ -9,7 +9,7 @@ INSERT INTO quotes (
     currency, rental_subtotal, discount_total, rental_total, extras_total, one_way_fee, delivery_fee,
     base_total, vat_total, total, prepayment, prepayment_rule, vat_rate_bp, difference,
     rate_plan_version_uuid, rate_plan_version, settings_version, extras, coupon_code, manual_discount,
-    breakdown, vehicle_id, valid_until, created_by
+    breakdown, vehicle_id, valid_until, created_by, pickup_delivery, return_delivery, delivery_override
 ) VALUES (
     sqlc.arg(organization_id), sqlc.arg(purpose), sqlc.narg(reservation_id), sqlc.narg(customer_id),
     sqlc.arg(rental_product_id), sqlc.arg(product_version),
@@ -21,7 +21,8 @@ INSERT INTO quotes (
     sqlc.narg(vat_rate_bp), sqlc.narg(difference),
     sqlc.narg(rate_plan_version_uuid), sqlc.narg(rate_plan_version), sqlc.arg(settings_version),
     sqlc.arg(extras), sqlc.narg(coupon_code), sqlc.narg(manual_discount),
-    sqlc.arg(breakdown), sqlc.narg(vehicle_id), sqlc.arg(valid_until), sqlc.narg(created_by)
+    sqlc.arg(breakdown), sqlc.narg(vehicle_id), sqlc.arg(valid_until), sqlc.narg(created_by),
+    sqlc.narg(pickup_delivery), sqlc.narg(return_delivery), sqlc.narg(delivery_override)
 )
 RETURNING id, uuid;
 
@@ -42,6 +43,7 @@ SELECT q.id, q.uuid, q.purpose, q.status, q.reservation_id, q.customer_id, q.ren
     q.one_way_fee, q.delivery_fee, q.base_total, q.vat_total, q.total, q.prepayment, q.prepayment_rule,
     q.vat_rate_bp, q.difference, q.rate_plan_version_uuid, q.rate_plan_version, q.settings_version, q.extras,
     q.coupon_code, q.manual_discount, q.breakdown, q.vehicle_id, q.valid_until, q.used_at, q.created_at,
+    q.pickup_delivery, q.return_delivery, q.delivery_override,
     p.uuid AS product_uuid, p.code AS product_code, p.title AS product_title,
     pb.uuid AS pickup_branch_uuid, pb.code AS pickup_branch_code, pb.name AS pickup_branch_name,
     rb.uuid AS return_branch_uuid, rb.code AS return_branch_code, rb.name AS return_branch_name,

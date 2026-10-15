@@ -155,6 +155,8 @@ type Service struct {
 	links     model.PaymentLinker
 	// listener hears committed lifecycle changes (rentals, contracts).
 	listener LifecycleListener
+	// delivery checks delivery points and prices their fees (TEC-724).
+	delivery DeliveryQuoter
 
 	now func() time.Time
 }

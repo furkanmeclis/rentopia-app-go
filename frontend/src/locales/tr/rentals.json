@@ -263,9 +263,6 @@
   "tasks.load_failed": "Görevler yüklenemedi.",
   "tasks.note": "Not",
   "tasks.statuses.cancelled": "İptal",
-  "tasks.statuses.done": "Tamamlandı",
-  "tasks.statuses.in_progress": "Sürüyor",
-  "tasks.statuses.open": "Açık",
   "tasks.title": "Operasyon görevleri",
   "tasks.toast.assigned": "Sorumlu güncellendi",
   "tasks.toast.cancel": "Görev iptal edildi",
@@ -321,5 +318,12 @@
   "charges.kinds.toll": "Köprü / otoyol geçişi",
   "charges.kinds.toll_fee": "HGS işlem ücreti",
   "events.actions.toll_charged": "HGS/OGS geçişi yansıtıldı",
-  "events.actions.toll_reversed": "HGS/OGS masrafı ters kayıtla iptal edildi"
+  "events.actions.toll_reversed": "HGS/OGS masrafı ters kayıtla iptal edildi",
+  "tasks.statuses.planned": "Planlandı",
+  "tasks.statuses.assigned": "Atandı",
+  "tasks.statuses.en_route": "Yolda",
+  "tasks.statuses.issue_reported": "Sorun bildirildi",
+  "tasks.statuses.completed": "Tamamlandı",
+  "tasks.types.transfer": "Transfer",
+  "tasks.types.other": "Diğer"
 }

@@ -86,6 +86,8 @@ type Repository interface {
 	CreateServicePoint(ctx context.Context, orgID, branchID int64, f repository.ServicePointFields) (db.ServicePoint, error)
 	UpdateServicePoint(ctx context.Context, orgID, branchID int64, id uuid.UUID, f repository.ServicePointFields) (db.ServicePoint, error)
 	DeleteServicePoint(ctx context.Context, orgID, branchID int64, id uuid.UUID) error
+	DeliveryExtraByUUID(ctx context.Context, orgID int64, id uuid.UUID) (repository.DeliveryExtra, error)
+	DeliveryExtraByID(ctx context.Context, orgID, id int64) (repository.DeliveryExtra, error)
 	ListActivity(ctx context.Context, orgID int64, branchUUID uuid.UUID, limit, offset int32) ([]db.ListOrganizationResourceActivityRow, int64, error)
 }
 
@@ -270,7 +272,7 @@ func (s *Service) ListServicePoints(ctx context.Context, orgID int64, branchUUID
 	}
 	out := make([]model.ServicePoint, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, MapServicePoint(row, branch.Uuid))
+		out = append(out, s.mapPoint(ctx, orgID, row, branch.Uuid))
 	}
 	return out, nil
 }
@@ -283,14 +285,21 @@ func (s *Service) CreateServicePoint(ctx context.Context, orgID int64, branchUUI
 	}
 	fields := repository.ServicePointFields{OnlineSelectable: true, IsActive: true}
 	_ = fields.ExtraFee.Scan("0")
+	if in.Type != nil && *in.Type != model.ServicePointOffice && in.DeliveryEnabled == nil {
+		// Airports, hotels and address zones deliver unless told otherwise.
+		fields.DeliveryEnabled = true
+	}
 	if err := applyServicePointInput(&fields, in, true); err != nil {
+		return model.ServicePoint{}, err
+	}
+	if err := s.applyDelivery(ctx, orgID, &fields, in); err != nil {
 		return model.ServicePoint{}, err
 	}
 	row, err := s.repo.CreateServicePoint(ctx, orgID, branch.ID, fields)
 	if err != nil {
 		return model.ServicePoint{}, err
 	}
-	return MapServicePoint(row, branch.Uuid), nil
+	return s.mapPoint(ctx, orgID, row, branch.Uuid), nil
 }
 
 // PatchServicePoint updates a service point of a branch. A point of another
@@ -304,18 +313,18 @@ func (s *Service) PatchServicePoint(ctx context.Context, orgID int64, branchUUID
 	if err != nil {
 		return model.ServicePoint{}, mapNotFound(err, ErrServicePointNotFound)
 	}
-	fields := repository.ServicePointFields{
-		Type: current.Type, Name: current.Name, Description: current.Description, ExtraFee: current.ExtraFee,
-		WorkingHours: current.WorkingHours, OnlineSelectable: current.OnlineSelectable, IsActive: current.IsActive,
-	}
+	fields := repository.PointFields(current)
 	if err := applyServicePointInput(&fields, in, false); err != nil {
+		return model.ServicePoint{}, err
+	}
+	if err := s.applyDelivery(ctx, orgID, &fields, in); err != nil {
 		return model.ServicePoint{}, err
 	}
 	row, err := s.repo.UpdateServicePoint(ctx, orgID, branch.ID, pointUUID, fields)
 	if err != nil {
 		return model.ServicePoint{}, mapNotFound(err, ErrServicePointNotFound)
 	}
-	return MapServicePoint(row, branch.Uuid), nil
+	return s.mapPoint(ctx, orgID, row, branch.Uuid), nil
 }
 
 // DeleteServicePoint removes a service point of a branch.
@@ -668,12 +677,119 @@ func MapBranch(row db.Branch) model.Branch {
 	return b
 }
 
+// applyDelivery validates and applies the delivery settings of a point.
+func (s *Service) applyDelivery(ctx context.Context, orgID int64, f *repository.ServicePointFields, in model.ServicePointInput) error {
+	ve := &ValidationError{}
+	if in.DeliveryEnabled != nil {
+		f.DeliveryEnabled = *in.DeliveryEnabled
+	}
+	if in.DeliveryExtraUUID.Set {
+		if in.DeliveryExtraUUID.Value == nil {
+			f.DeliveryExtraID = pgtype.Int8{}
+		} else if e, err := s.repo.DeliveryExtraByUUID(ctx, orgID, *in.DeliveryExtraUUID.Value); err != nil {
+			ve.add("delivery_extra_uuid", "not_found", "delivery extra was not found")
+		} else {
+			f.DeliveryExtraID = pgtype.Int8{Int64: e.ID, Valid: true}
+		}
+	}
+	if in.ServiceDistricts != nil {
+		out := []string{}
+		seen := map[string]bool{}
+		for i, d := range *in.ServiceDistricts {
+			d = strings.TrimSpace(d)
+			switch {
+			case d == "":
+				continue
+			case utf8.RuneCountInString(d) > 128:
+				ve.add("service_districts."+strconv.Itoa(i), "too_long", "a district is at most 128 characters")
+			case !seen[strings.ToLower(d)]:
+				seen[strings.ToLower(d)] = true
+				out = append(out, d)
+			}
+		}
+		if len(out) > 200 {
+			ve.add("service_districts", "too_many", "at most 200 districts")
+		}
+		f.ServiceDistricts = out
+	}
+	if in.Latitude.Set {
+		f.Latitude = pgtype.Float8{}
+		if v := in.Latitude.Value; v != nil {
+			if *v < -90 || *v > 90 {
+				ve.add("latitude", "out_of_range", "latitude is -90..90")
+			}
+			f.Latitude = pgtype.Float8{Float64: *v, Valid: true}
+		}
+	}
+	if in.Longitude.Set {
+		f.Longitude = pgtype.Float8{}
+		if v := in.Longitude.Value; v != nil {
+			if *v < -180 || *v > 180 {
+				ve.add("longitude", "out_of_range", "longitude is -180..180")
+			}
+			f.Longitude = pgtype.Float8{Float64: *v, Valid: true}
+		}
+	}
+	if f.Latitude.Valid != f.Longitude.Valid {
+		ve.add("latitude", "incomplete", "give both latitude and longitude")
+	}
+	if in.ServiceRadiusKm.Set {
+		f.ServiceRadiusKm = pgtype.Numeric{}
+		if v := in.ServiceRadiusKm.Value; v != nil {
+			if *v <= 0 || *v > 10000 {
+				ve.add("service_radius_km", "out_of_range", "service_radius_km is 0..10000")
+			} else if err := f.ServiceRadiusKm.Scan(strconv.FormatFloat(*v, 'f', 2, 64)); err != nil {
+				ve.add("service_radius_km", "invalid", "service_radius_km is invalid")
+			}
+		}
+	}
+	if in.MinNoticeMinutes != nil {
+		if *in.MinNoticeMinutes < 0 || *in.MinNoticeMinutes > 10080 {
+			ve.add("min_notice_minutes", "out_of_range", "min_notice_minutes is 0..10080")
+		}
+		f.MinNoticeMinutes = *in.MinNoticeMinutes
+	}
+	if in.DeliveryConditions != nil {
+		v := strings.TrimSpace(*in.DeliveryConditions)
+		if utf8.RuneCountInString(v) > 2000 {
+			ve.add("delivery_conditions", "too_long", "delivery_conditions is at most 2000 characters")
+		}
+		f.DeliveryConditions = v
+	}
+	return ve.orNil()
+}
+
+// mapPoint maps a point with its delivery extra.
+func (s *Service) mapPoint(ctx context.Context, orgID int64, row db.ServicePoint, branchUUID uuid.UUID) model.ServicePoint {
+	p := MapServicePoint(row, branchUUID)
+	if row.DeliveryExtraID.Valid {
+		if e, err := s.repo.DeliveryExtraByID(ctx, orgID, row.DeliveryExtraID.Int64); err == nil {
+			p.DeliveryExtra = &model.ExtraRef{UUID: e.UUID, Name: e.Name}
+		}
+	}
+	return p
+}
+
 // MapServicePoint converts a row to the API shape.
 func MapServicePoint(row db.ServicePoint, branchUUID uuid.UUID) model.ServicePoint {
 	p := model.ServicePoint{
 		UUID: row.Uuid, BranchUUID: branchUUID, Type: row.Type, Name: row.Name, Description: row.Description,
 		ExtraFee: FormatMoney(row.ExtraFee), OnlineSelectable: row.OnlineSelectable, IsActive: row.IsActive,
-		CreatedAt: row.CreatedAt.Time.UTC(), UpdatedAt: row.UpdatedAt.Time.UTC(),
+		DeliveryEnabled: row.DeliveryEnabled, ServiceDistricts: row.ServiceDistricts, MinNoticeMinutes: row.MinNoticeMinutes,
+		DeliveryConditions: row.DeliveryConditions, CreatedAt: row.CreatedAt.Time.UTC(), UpdatedAt: row.UpdatedAt.Time.UTC(),
+	}
+	if p.ServiceDistricts == nil {
+		p.ServiceDistricts = []string{}
+	}
+	if row.Latitude.Valid && row.Longitude.Valid {
+		lat, lng := row.Latitude.Float64, row.Longitude.Float64
+		p.Latitude, p.Longitude = &lat, &lng
+	}
+	if row.ServiceRadiusKm.Valid {
+		if f, err := row.ServiceRadiusKm.Float64Value(); err == nil && f.Valid {
+			v := f.Float64
+			p.ServiceRadiusKm = &v
+		}
 	}
 	if len(row.WorkingHours) > 0 && string(row.WorkingHours) != "null" {
 		hours := decodeHours(row.WorkingHours)

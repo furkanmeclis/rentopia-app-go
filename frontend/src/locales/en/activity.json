@@ -308,5 +308,13 @@
   "actions.tolls.settings_updated": "Toll settings updated",
   "actions.vehicles.toll_tag_created": "Toll tag added to the vehicle",
   "actions.vehicles.toll_tag_updated": "Vehicle toll tag updated",
-  "actions.vehicles.toll_tag_deleted": "Vehicle toll tag deleted"
+  "actions.vehicles.toll_tag_deleted": "Vehicle toll tag deleted",
+  "resources.tenant.field_tasks": "Field tasks",
+  "actions.field_tasks.created": "Field task created",
+  "actions.field_tasks.updated": "Field task updated",
+  "actions.field_tasks.assigned": "Field task assigned",
+  "actions.field_tasks.started": "Field task started",
+  "actions.field_tasks.issue_reported": "Field task issue reported",
+  "actions.field_tasks.completed": "Field task completed",
+  "actions.field_tasks.cancelled": "Field task cancelled"
 }

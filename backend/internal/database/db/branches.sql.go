@@ -154,25 +154,36 @@ func (q *Queries) CreateBranch(ctx context.Context, arg CreateBranchParams) (Bra
 const createServicePoint = `-- name: CreateServicePoint :one
 INSERT INTO service_points (
     organization_id, branch_id, type, name, description, extra_fee,
-    working_hours, online_selectable, is_active
+    working_hours, online_selectable, is_active, delivery_enabled, delivery_extra_id,
+    service_districts, latitude, longitude, service_radius_km, min_notice_minutes, delivery_conditions
 ) VALUES (
     $1, $2, $3, $4,
     $5, $6, $7,
-    $8, $9
+    $8, $9, $10, $11,
+    $12::text[], $13, $14, $15,
+    $16, $17
 )
-RETURNING id, uuid, organization_id, branch_id, type, name, description, extra_fee, working_hours, online_selectable, is_active, created_at, updated_at
+RETURNING id, uuid, organization_id, branch_id, type, name, description, extra_fee, working_hours, online_selectable, is_active, created_at, updated_at, delivery_enabled, delivery_extra_id, service_districts, latitude, longitude, service_radius_km, min_notice_minutes, delivery_conditions
 `
 
 type CreateServicePointParams struct {
-	OrganizationID   int64          `json:"organization_id"`
-	BranchID         int64          `json:"branch_id"`
-	Type             string         `json:"type"`
-	Name             string         `json:"name"`
-	Description      string         `json:"description"`
-	ExtraFee         pgtype.Numeric `json:"extra_fee"`
-	WorkingHours     []byte         `json:"working_hours"`
-	OnlineSelectable bool           `json:"online_selectable"`
-	IsActive         bool           `json:"is_active"`
+	OrganizationID     int64          `json:"organization_id"`
+	BranchID           int64          `json:"branch_id"`
+	Type               string         `json:"type"`
+	Name               string         `json:"name"`
+	Description        string         `json:"description"`
+	ExtraFee           pgtype.Numeric `json:"extra_fee"`
+	WorkingHours       []byte         `json:"working_hours"`
+	OnlineSelectable   bool           `json:"online_selectable"`
+	IsActive           bool           `json:"is_active"`
+	DeliveryEnabled    bool           `json:"delivery_enabled"`
+	DeliveryExtraID    pgtype.Int8    `json:"delivery_extra_id"`
+	ServiceDistricts   []string       `json:"service_districts"`
+	Latitude           pgtype.Float8  `json:"latitude"`
+	Longitude          pgtype.Float8  `json:"longitude"`
+	ServiceRadiusKm    pgtype.Numeric `json:"service_radius_km"`
+	MinNoticeMinutes   int32          `json:"min_notice_minutes"`
+	DeliveryConditions string         `json:"delivery_conditions"`
 }
 
 func (q *Queries) CreateServicePoint(ctx context.Context, arg CreateServicePointParams) (ServicePoint, error) {
@@ -186,6 +197,14 @@ func (q *Queries) CreateServicePoint(ctx context.Context, arg CreateServicePoint
 		arg.WorkingHours,
 		arg.OnlineSelectable,
 		arg.IsActive,
+		arg.DeliveryEnabled,
+		arg.DeliveryExtraID,
+		arg.ServiceDistricts,
+		arg.Latitude,
+		arg.Longitude,
+		arg.ServiceRadiusKm,
+		arg.MinNoticeMinutes,
+		arg.DeliveryConditions,
 	)
 	var i ServicePoint
 	err := row.Scan(
@@ -202,6 +221,14 @@ func (q *Queries) CreateServicePoint(ctx context.Context, arg CreateServicePoint
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DeliveryEnabled,
+		&i.DeliveryExtraID,
+		&i.ServiceDistricts,
+		&i.Latitude,
+		&i.Longitude,
+		&i.ServiceRadiusKm,
+		&i.MinNoticeMinutes,
+		&i.DeliveryConditions,
 	)
 	return i, err
 }
@@ -305,6 +332,59 @@ func (q *Queries) GetBranchByUUID(ctx context.Context, arg GetBranchByUUIDParams
 	return i, err
 }
 
+const getBranchDeliveryExtraByID = `-- name: GetBranchDeliveryExtraByID :one
+SELECT e.id, e.uuid, e.name
+FROM extras e
+WHERE e.organization_id = $1
+  AND e.id = $2
+`
+
+type GetBranchDeliveryExtraByIDParams struct {
+	OrganizationID int64 `json:"organization_id"`
+	ID             int64 `json:"id"`
+}
+
+type GetBranchDeliveryExtraByIDRow struct {
+	ID   int64     `json:"id"`
+	Uuid uuid.UUID `json:"uuid"`
+	Name string    `json:"name"`
+}
+
+func (q *Queries) GetBranchDeliveryExtraByID(ctx context.Context, arg GetBranchDeliveryExtraByIDParams) (GetBranchDeliveryExtraByIDRow, error) {
+	row := q.db.QueryRow(ctx, getBranchDeliveryExtraByID, arg.OrganizationID, arg.ID)
+	var i GetBranchDeliveryExtraByIDRow
+	err := row.Scan(&i.ID, &i.Uuid, &i.Name)
+	return i, err
+}
+
+const getBranchDeliveryExtraByUUID = `-- name: GetBranchDeliveryExtraByUUID :one
+SELECT e.id, e.uuid, e.name
+FROM extras e
+WHERE e.organization_id = $1
+  AND e.uuid = $2
+  AND e.extra_type = 'delivery'
+  AND e.deleted_at IS NULL
+`
+
+type GetBranchDeliveryExtraByUUIDParams struct {
+	OrganizationID int64     `json:"organization_id"`
+	Uuid           uuid.UUID `json:"uuid"`
+}
+
+type GetBranchDeliveryExtraByUUIDRow struct {
+	ID   int64     `json:"id"`
+	Uuid uuid.UUID `json:"uuid"`
+	Name string    `json:"name"`
+}
+
+// A delivery extra of the organization (the fee of a delivery point).
+func (q *Queries) GetBranchDeliveryExtraByUUID(ctx context.Context, arg GetBranchDeliveryExtraByUUIDParams) (GetBranchDeliveryExtraByUUIDRow, error) {
+	row := q.db.QueryRow(ctx, getBranchDeliveryExtraByUUID, arg.OrganizationID, arg.Uuid)
+	var i GetBranchDeliveryExtraByUUIDRow
+	err := row.Scan(&i.ID, &i.Uuid, &i.Name)
+	return i, err
+}
+
 const getBranchSearchDocument = `-- name: GetBranchSearchDocument :one
 SELECT b.id, b.uuid, b.code, b.name, b.city, b.district, b.is_active, b.organization_id, o.slug AS organization_slug
 FROM branches b
@@ -349,7 +429,7 @@ func (q *Queries) GetBranchSearchDocument(ctx context.Context, arg GetBranchSear
 }
 
 const getServicePoint = `-- name: GetServicePoint :one
-SELECT id, uuid, organization_id, branch_id, type, name, description, extra_fee, working_hours, online_selectable, is_active, created_at, updated_at FROM service_points
+SELECT id, uuid, organization_id, branch_id, type, name, description, extra_fee, working_hours, online_selectable, is_active, created_at, updated_at, delivery_enabled, delivery_extra_id, service_districts, latitude, longitude, service_radius_km, min_notice_minutes, delivery_conditions FROM service_points
 WHERE organization_id = $1
   AND branch_id = $2
   AND uuid = $3
@@ -378,6 +458,14 @@ func (q *Queries) GetServicePoint(ctx context.Context, arg GetServicePointParams
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DeliveryEnabled,
+		&i.DeliveryExtraID,
+		&i.ServiceDistricts,
+		&i.Latitude,
+		&i.Longitude,
+		&i.ServiceRadiusKm,
+		&i.MinNoticeMinutes,
+		&i.DeliveryConditions,
 	)
 	return i, err
 }
@@ -736,7 +824,7 @@ func (q *Queries) ListBranchesForExport(ctx context.Context, arg ListBranchesFor
 }
 
 const listServicePointsByBranch = `-- name: ListServicePointsByBranch :many
-SELECT id, uuid, organization_id, branch_id, type, name, description, extra_fee, working_hours, online_selectable, is_active, created_at, updated_at FROM service_points
+SELECT id, uuid, organization_id, branch_id, type, name, description, extra_fee, working_hours, online_selectable, is_active, created_at, updated_at, delivery_enabled, delivery_extra_id, service_districts, latitude, longitude, service_radius_km, min_notice_minutes, delivery_conditions FROM service_points
 WHERE organization_id = $1
   AND branch_id = $2
 ORDER BY created_at ASC, id ASC
@@ -770,6 +858,14 @@ func (q *Queries) ListServicePointsByBranch(ctx context.Context, arg ListService
 			&i.IsActive,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.DeliveryEnabled,
+			&i.DeliveryExtraID,
+			&i.ServiceDistricts,
+			&i.Latitude,
+			&i.Longitude,
+			&i.ServiceRadiusKm,
+			&i.MinNoticeMinutes,
+			&i.DeliveryConditions,
 		); err != nil {
 			return nil, err
 		}
@@ -934,24 +1030,40 @@ SET type = $1,
     extra_fee = $4,
     working_hours = $5,
     online_selectable = $6,
-    is_active = $7
-WHERE organization_id = $8
-  AND branch_id = $9
-  AND uuid = $10
-RETURNING id, uuid, organization_id, branch_id, type, name, description, extra_fee, working_hours, online_selectable, is_active, created_at, updated_at
+    is_active = $7,
+    delivery_enabled = $8,
+    delivery_extra_id = $9,
+    service_districts = $10::text[],
+    latitude = $11,
+    longitude = $12,
+    service_radius_km = $13,
+    min_notice_minutes = $14,
+    delivery_conditions = $15
+WHERE organization_id = $16
+  AND branch_id = $17
+  AND uuid = $18
+RETURNING id, uuid, organization_id, branch_id, type, name, description, extra_fee, working_hours, online_selectable, is_active, created_at, updated_at, delivery_enabled, delivery_extra_id, service_districts, latitude, longitude, service_radius_km, min_notice_minutes, delivery_conditions
 `
 
 type UpdateServicePointParams struct {
-	Type             string         `json:"type"`
-	Name             string         `json:"name"`
-	Description      string         `json:"description"`
-	ExtraFee         pgtype.Numeric `json:"extra_fee"`
-	WorkingHours     []byte         `json:"working_hours"`
-	OnlineSelectable bool           `json:"online_selectable"`
-	IsActive         bool           `json:"is_active"`
-	OrganizationID   int64          `json:"organization_id"`
-	BranchID         int64          `json:"branch_id"`
-	Uuid             uuid.UUID      `json:"uuid"`
+	Type               string         `json:"type"`
+	Name               string         `json:"name"`
+	Description        string         `json:"description"`
+	ExtraFee           pgtype.Numeric `json:"extra_fee"`
+	WorkingHours       []byte         `json:"working_hours"`
+	OnlineSelectable   bool           `json:"online_selectable"`
+	IsActive           bool           `json:"is_active"`
+	DeliveryEnabled    bool           `json:"delivery_enabled"`
+	DeliveryExtraID    pgtype.Int8    `json:"delivery_extra_id"`
+	ServiceDistricts   []string       `json:"service_districts"`
+	Latitude           pgtype.Float8  `json:"latitude"`
+	Longitude          pgtype.Float8  `json:"longitude"`
+	ServiceRadiusKm    pgtype.Numeric `json:"service_radius_km"`
+	MinNoticeMinutes   int32          `json:"min_notice_minutes"`
+	DeliveryConditions string         `json:"delivery_conditions"`
+	OrganizationID     int64          `json:"organization_id"`
+	BranchID           int64          `json:"branch_id"`
+	Uuid               uuid.UUID      `json:"uuid"`
 }
 
 func (q *Queries) UpdateServicePoint(ctx context.Context, arg UpdateServicePointParams) (ServicePoint, error) {
@@ -963,6 +1075,14 @@ func (q *Queries) UpdateServicePoint(ctx context.Context, arg UpdateServicePoint
 		arg.WorkingHours,
 		arg.OnlineSelectable,
 		arg.IsActive,
+		arg.DeliveryEnabled,
+		arg.DeliveryExtraID,
+		arg.ServiceDistricts,
+		arg.Latitude,
+		arg.Longitude,
+		arg.ServiceRadiusKm,
+		arg.MinNoticeMinutes,
+		arg.DeliveryConditions,
 		arg.OrganizationID,
 		arg.BranchID,
 		arg.Uuid,
@@ -982,6 +1102,14 @@ func (q *Queries) UpdateServicePoint(ctx context.Context, arg UpdateServicePoint
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DeliveryEnabled,
+		&i.DeliveryExtraID,
+		&i.ServiceDistricts,
+		&i.Latitude,
+		&i.Longitude,
+		&i.ServiceRadiusKm,
+		&i.MinNoticeMinutes,
+		&i.DeliveryConditions,
 	)
 	return i, err
 }

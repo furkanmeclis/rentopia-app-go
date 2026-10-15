@@ -74,6 +74,14 @@ export function PriceLinesTable({
                 </span>
               );
             }
+            if (
+              l.kind === "delivery" &&
+              (l.code === "delivery" || l.code === "collection")
+            ) {
+              // Delivery and collection at the same point read apart.
+              const side = t(`field_tasks.types.${l.code}`);
+              return l.name ? `${side} · ${l.name}` : side;
+            }
             return l.name || l.code || "—";
           },
         }),

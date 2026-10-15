@@ -18,12 +18,14 @@ import {
 } from "@/features/branches/constants";
 import { useSaveServicePoint } from "@/features/branches/hooks/use-branches";
 import {
+  NO_EXTRA,
   createServicePointSchema,
   servicePointFormDefaults,
   servicePointFormToRequest,
   type ServicePointFormValues,
 } from "@/features/branches/schemas/branch-form";
 import type { ServicePoint, WeeklyHours } from "@/features/branches/types";
+import { useExtrasList } from "@/features/extras/hooks/use-extras";
 import { useLocale } from "@/providers/locale-provider";
 
 const FORM_ID = "service-point-form";
@@ -47,6 +49,20 @@ export function ServicePointDialog({
 }: ServicePointDialogProps) {
   const { t } = useLocale();
   const save = useSaveServicePoint(branchUuid);
+  const extras = useExtrasList(
+    { limit: 100, offset: 0, sort: "name", extra_type: "delivery" },
+    open,
+  );
+  const extraOptions = [
+    {
+      value: NO_EXTRA,
+      label: t("branches.service_points.fields.no_delivery_extra"),
+    },
+    ...(extras.data?.items ?? []).map((e) => ({
+      value: e.uuid,
+      label: `${e.code} · ${e.name}`,
+    })),
+  ];
   const schema = useMemo(() => createServicePointSchema(t), [t]);
   const typeOptions = useMemo(
     () =>
@@ -149,6 +165,74 @@ export function ServicePointDialog({
                 <div className="sm:col-span-2">
                   <WeeklyHoursEditor name="working_hours" />
                 </div>
+              ) : null}
+              <AppSwitch
+                name="delivery_enabled"
+                className="sm:col-span-2"
+                label={t("branches.service_points.fields.delivery_enabled")}
+                description={t(
+                  "branches.service_points.fields.delivery_enabled_hint",
+                )}
+              />
+              {form.watch("delivery_enabled") ? (
+                <>
+                  <AppSelect
+                    name="delivery_extra_uuid"
+                    label={t("branches.service_points.fields.delivery_extra")}
+                    description={t(
+                      "branches.service_points.fields.delivery_extra_hint",
+                    )}
+                    options={extraOptions}
+                  />
+                  <AppInput
+                    name="min_notice_minutes"
+                    inputMode="numeric"
+                    label={t("branches.service_points.fields.min_notice")}
+                    description={t(
+                      "branches.service_points.fields.min_notice_hint",
+                    )}
+                  />
+                  {form.watch("type") === "address_zone" ? (
+                    <>
+                      <AppTextarea
+                        name="service_districts"
+                        className="sm:col-span-2"
+                        rows={2}
+                        label={t("branches.service_points.fields.districts")}
+                        description={t(
+                          "branches.service_points.fields.districts_hint",
+                        )}
+                      />
+                      <AppInput
+                        name="latitude"
+                        inputMode="decimal"
+                        label={t("branches.service_points.fields.latitude")}
+                      />
+                      <AppInput
+                        name="longitude"
+                        inputMode="decimal"
+                        label={t("branches.service_points.fields.longitude")}
+                      />
+                      <AppInput
+                        name="service_radius_km"
+                        inputMode="decimal"
+                        label={t("branches.service_points.fields.radius")}
+                        description={t(
+                          "branches.service_points.fields.radius_hint",
+                        )}
+                      />
+                    </>
+                  ) : null}
+                  <AppTextarea
+                    name="delivery_conditions"
+                    className="sm:col-span-2"
+                    rows={2}
+                    label={t("branches.service_points.fields.conditions")}
+                    description={t(
+                      "branches.service_points.fields.conditions_hint",
+                    )}
+                  />
+                </>
               ) : null}
             </>
           )}
