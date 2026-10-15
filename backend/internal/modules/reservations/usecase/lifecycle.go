@@ -132,6 +132,13 @@ func (s *Service) Approve(ctx context.Context, orgID int64, id uuid.UUID) (model
 	if !model.CanAct(c.Status, model.ActionApprove) {
 		return model.Reservation{}, stateErr("invalid_transition", "only a reservation awaiting review can be approved")
 	}
+	if c.Status == model.StatusRequest {
+		// A staff-approved request: capacity at the current price (Accept).
+		if _, err := s.acceptRequest(ctx, orgID, c, model.AcceptInput{}); err != nil {
+			return model.Reservation{}, err
+		}
+		return s.after(ctx, orgID, id)
+	}
 	due := money.FromNumericOrZero(c.PrepaymentAmount).Sub(money.FromNumericOrZero(c.PaidAmount))
 	if !due.IsPositive() {
 		return s.confirm(ctx, orgID, c, model.ActionApprove)

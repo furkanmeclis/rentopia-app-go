@@ -102,8 +102,8 @@ func (a *Adapter) Provider() string { return ProviderCode }
 // Fields implements integrations.Adapter.
 func (a *Adapter) Fields() []integrations.Field {
 	return []integrations.Field{
-		{Key: FieldAPIKey, LabelKey: "integrations.fields.api_key", Secret: true, Required: true},
-		{Key: FieldSecretKey, LabelKey: "integrations.fields.secret_key", Secret: true, Required: true},
+		{Key: FieldAPIKey, LabelKey: "payments.integrations.fields.api_key", Secret: true, Required: true},
+		{Key: FieldSecretKey, LabelKey: "payments.integrations.fields.secret_key", Secret: true, Required: true},
 	}
 }
 

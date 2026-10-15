@@ -426,5 +426,12 @@
   "wizard.steps.product": "Ürün",
   "wizard.steps.search": "Arama",
   "wizard.steps.summary": "Özet",
-  "wizard.title": "Yeni rezervasyon"
+  "wizard.title": "Yeni rezervasyon",
+  "tasks.types.late_payment": "Geç ödeme",
+  "events.reject": "Reddedildi",
+  "events.reinstate": "Geç ödemeyle yeniden onaylandı",
+  "events.late_payment": "Geç ödeme",
+  "events.payment_link_created": "Ödeme linki oluşturuldu",
+  "events.payment_link_cancelled": "Ödeme linki iptal edildi",
+  "events.payment_refunded": "Ödeme iade edildi"
 }
