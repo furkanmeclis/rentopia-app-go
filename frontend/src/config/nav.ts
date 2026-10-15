@@ -53,6 +53,10 @@ import { defineNav } from "@/features/nav-engine";
 import type { NavCatalog } from "@/features/nav-engine";
 import { usersNavItem } from "@/features/users/nav";
 import { customerRequestsNavItem } from "@/features/customer-portal/nav";
+import {
+  ApprovalsNavAdornment,
+  ResolutionTasksNavAdornment,
+} from "@/features/overview/nav";
 
 const integrationReadPermissions = [
   permissions.integrations.google.read,
@@ -353,6 +357,7 @@ export function tenantNav(slug: string): NavCatalog {
             href: routes.tenant.reservations.approvals(slug),
             icon: ListChecks,
             permission: permissions.tenant.reservations.approve,
+            Adornment: ApprovalsNavAdornment,
           },
           {
             id: "reservations-tasks",
@@ -360,6 +365,7 @@ export function tenantNav(slug: string): NavCatalog {
             href: routes.tenant.reservations.tasks(slug),
             icon: ClipboardList,
             permission: permissions.tenant.resolutionTasks.read,
+            Adornment: ResolutionTasksNavAdornment,
           },
           customerRequestsNavItem(slug),
         ],

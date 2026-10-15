@@ -1,8 +1,16 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { Ban, CheckCircle2, ExternalLink, Play, UserCheck } from "lucide-react";
-import { useRouter } from "next/navigation";
+import {
+  Ban,
+  CalendarClock,
+  CheckCircle2,
+  ExternalLink,
+  Play,
+  UserCheck,
+  X,
+} from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { z } from "zod";
 
@@ -12,6 +20,7 @@ import {
   EntityTable,
   EntityToolbar,
   useServerListState,
+  useUrlListDefaults,
 } from "@/components/entity";
 import { AppForm } from "@/components/forms";
 import { createColumn } from "@/components/tables";
@@ -70,15 +79,33 @@ type Pending = { task: OperationTask; action: "complete" | "cancel" } | null;
 export function OperationTasksTable({
   rentalUuid,
   persistKey,
+  fromUrl = false,
 }: {
   rentalUuid?: string;
   persistKey: string;
+  /**
+   * Start from the URL's filters (`status`, `task_type`, `branch`, `sort`)
+   * and due window (`due_from`, `due_to`): the list page, opened from the
+   * operations overview.
+   */
+  fromUrl?: boolean;
 }) {
   const { t, locale } = useLocale();
   const { slug, organization } = useTenant();
   const router = useRouter();
+  const pathname = usePathname();
+  const search = useSearchParams();
+  const urlDefaults = useUrlListDefaults(
+    ["status", "task_type", "branch"],
+    ["due_at", "status", "created_at"],
+  );
+  const dueFrom = fromUrl ? (search.get("due_from") ?? undefined) : undefined;
+  const dueTo = fromUrl ? (search.get("due_to") ?? undefined) : undefined;
   const listState = useServerListState({
-    initialSort: "due_at",
+    initialSort: (fromUrl && urlDefaults.initialSort) || "due_at",
+    initialColumnFilters: fromUrl
+      ? urlDefaults.initialColumnFilters
+      : undefined,
     initialPageSize: 20,
     realtime: tenantLiveList(organization, OPERATION_TASKS_RESOURCE),
   });
@@ -98,8 +125,10 @@ export function OperationTasksTable({
       task_type: joinFilter(column("task_type")),
       branch: joinFilter(column("branch")),
       rental: rentalUuid,
+      due_from: dueFrom,
+      due_to: dueTo,
     };
-  }, [listState.columnFilters, listState.params, rentalUuid]);
+  }, [listState.columnFilters, listState.params, rentalUuid, dueFrom, dueTo]);
   const query = useOperationTasks(params);
   const total = query.data?.total ?? 0;
 
@@ -346,7 +375,35 @@ export function OperationTasksTable({
               void facetsQuery.refetch();
             }}
             refreshDisabled={query.isFetching}
-          />
+          >
+            {dueFrom || dueTo ? (
+              <Badge variant="secondary" className="gap-1.5 pr-1">
+                <CalendarClock className="size-3.5" />
+                {t("rentals.tasks.due_window", {
+                  from: dueFrom
+                    ? datetime(dueFrom, "d MMM HH:mm", locale)
+                    : "…",
+                  to: dueTo ? datetime(dueTo, "d MMM HH:mm", locale) : "…",
+                })}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-5"
+                  aria-label={t("rentals.tasks.due_window_clear")}
+                  onClick={() => {
+                    const next = new URLSearchParams(search.toString());
+                    next.delete("due_from");
+                    next.delete("due_to");
+                    const q = next.toString();
+                    router.replace(q ? `${pathname}?${q}` : pathname);
+                  }}
+                >
+                  <X className="size-3" />
+                </Button>
+              </Badge>
+            ) : null}
+          </EntityToolbar>
         }
       />
       <ReasonDialog

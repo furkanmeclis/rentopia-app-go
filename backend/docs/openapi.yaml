@@ -3542,6 +3542,80 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /v1/tenant/overview:
+    get:
+      tags: [Tenant]
+      operationId: getTenantOverview
+      summary: Operations overview (tenant home page)
+      description: |
+        Requirement §15.1 "Operasyon özeti" (TEC-716). One aggregated answer
+        for the panel home page: KPIs and the sections that need attention
+        today. Any member may call it; each KPI and section is computed only
+        when the caller's tenant role grants the permission behind it and is
+        `null` otherwise (the panel hides it):
+
+        | Field | Permission |
+        |-------|-----------|
+        | `kpis.occupancy` | `tenant.rentals.read` + `tenant.vehicles.read` |
+        | `kpis.active_rentals`, `today_operations`, `overdue_returns` | `tenant.rentals.read` |
+        | `kpis.collections_today` | `tenant.payments.read` |
+        | `approvals` | `tenant.reservations.read` + `tenant.reservations.approve` |
+        | `awaiting_payment` | `tenant.reservations.read` |
+        | `availability_problems` | `tenant.resolution_tasks.read` |
+        | `integration_jobs` | `tenant.integrations.manage` (organization-wide) |
+        | `documents` | `tenant.contracts.read` |
+
+        Every count and row is limited to the caller's branch scope (the
+        visibility rule of the module that owns the data); `branch` narrows
+        it to one branch of the scope. "Today" is the Europe/Istanbul
+        calendar day. Compact sections return at most 5 rows with the full
+        `total`; `today_operations` returns up to 100 rows.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - name: branch
+          in: query
+          description: Branch uuid in the caller's scope. Unknown or out of scope → 400 with a `not_found` detail on `branch`.
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Overview
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeTenantOverview" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /v1/tenant/overview/badges:
+    get:
+      tags: [Tenant]
+      operationId: getTenantOverviewBadges
+      summary: Sidebar badge counts
+      description: |
+        Counts behind the organization sidebar badges, in the caller's branch
+        scope. `approvals` (the approval queue: request + awaiting_review,
+        and how many passed their SLA) needs `tenant.reservations.read` +
+        `tenant.reservations.approve`; `resolution_tasks` (open tasks) needs
+        `tenant.resolution_tasks.read`. A field is `null` without its
+        permission.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Badge counts
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeTenantOverviewBadges" }
+        "400": { $ref: "#/components/responses/OrganizationRequired" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
   /v1/tenant/members/meta:
     get:
       tags: [Tenant]
@@ -24570,6 +24644,293 @@ components:
       properties:
         success: { type: boolean, enum: [true] }
         data: { $ref: "#/components/schemas/OperationTask" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    OverviewBranchRef:
+      type: object
+      required: [uuid, code, name]
+      properties:
+        uuid: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+
+    OverviewWindow:
+      type: object
+      required: [start, end]
+      properties:
+        start: { type: string, format: date-time }
+        end: { type: string, format: date-time, description: Exclusive. }
+
+    OverviewTaskCounts:
+      type: object
+      required: [total, done, open]
+      properties:
+        total: { type: integer, format: int64 }
+        done: { type: integer, format: int64 }
+        open: { type: integer, format: int64, description: Open or in progress. }
+
+    OverviewOperationItem:
+      type: object
+      required: [uuid, task_type, status, due_at, completed_at, branch, rental, reservation_uuid, plate, customer_name]
+      properties:
+        uuid: { type: string, format: uuid, description: Operation task uuid. }
+        task_type: { type: string, enum: [handover, return] }
+        status: { type: string, enum: [open, in_progress, done] }
+        due_at: { type: string, format: date-time }
+        completed_at: { type: [string, "null"], format: date-time }
+        branch: { $ref: "#/components/schemas/OverviewBranchRef" }
+        rental:
+          type: object
+          required: [uuid, reference]
+          properties:
+            uuid: { type: string, format: uuid }
+            reference: { type: string }
+            status: { type: string }
+        reservation_uuid: { type: string, format: uuid }
+        plate: { type: string }
+        customer_name: { type: string }
+
+    OverviewOverdueItem:
+      type: object
+      required: [uuid, reference, reservation_uuid, planned_return_at, overdue_at, late_minutes, return_branch, plate, customer_name]
+      properties:
+        uuid: { type: string, format: uuid, description: Rental uuid. }
+        reference: { type: string }
+        reservation_uuid: { type: string, format: uuid }
+        planned_return_at: { type: string, format: date-time }
+        overdue_at: { type: [string, "null"], format: date-time, description: "Set by the overdue sweep (planned return + grace)." }
+        late_minutes: { type: integer, format: int64 }
+        return_branch: { $ref: "#/components/schemas/OverviewBranchRef" }
+        plate: { type: string }
+        customer_name: { type: string }
+
+    OverviewWaitingItem:
+      type: object
+      required: [uuid, reference, status, channel, starts_at, ends_at, deadline, pickup_branch, customer_name, currency, total_amount, amount_due]
+      properties:
+        uuid: { type: string, format: uuid, description: Reservation uuid. }
+        reference: { type: string }
+        status: { type: string, enum: [request, awaiting_review, awaiting_payment] }
+        channel: { type: string }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+        deadline:
+          type: [string, "null"]
+          format: date-time
+          description: Review deadline (SLA) in the approval queue, payment deadline when awaiting payment.
+        pickup_branch: { $ref: "#/components/schemas/OverviewBranchRef" }
+        customer_name: { type: string }
+        currency: { type: string }
+        total_amount: { type: string, description: "Decimal string (pkg/money), e.g. \"4500.00\"." }
+        amount_due: { type: string, description: "Prepayment still due: prepayment − paid, not below zero." }
+
+    OverviewWaitingSection:
+      type: object
+      required: [total, overdue, items]
+      properties:
+        total: { type: integer, format: int64 }
+        overdue: { type: integer, format: int64, description: Deadline passed. }
+        items: { type: array, items: { $ref: "#/components/schemas/OverviewWaitingItem" } }
+
+    OverviewResolutionItem:
+      type: object
+      required: [uuid, task_type, reason, created_at, reservation, pickup_branch]
+      properties:
+        uuid: { type: string, format: uuid }
+        task_type:
+          type: string
+          enum: [block_conflict, release_conflict, extension_conflict, replan_failed, late_return, late_payment]
+        reason: { type: string }
+        created_at: { type: string, format: date-time }
+        reservation: { $ref: "#/components/schemas/OverviewReservationRef" }
+        pickup_branch: { $ref: "#/components/schemas/OverviewBranchRef" }
+
+    OverviewReservationRef:
+      type: object
+      required: [uuid, reference, starts_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        reference: { type: string }
+        starts_at: { type: string, format: date-time }
+
+    OverviewJobItem:
+      type: object
+      required: [uuid, direction, provider, kind, status, attempts, last_error, ref_type, ref_uuid, account, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        direction: { type: string, enum: [inbound, outbound] }
+        provider: { type: string, description: "iyzico, netgsm, … (KABİS, e-document providers later)" }
+        kind: { type: string, description: "sms.send, payment.webhook, payment.refund, …" }
+        status: { type: string, enum: [failed, needs_verification] }
+        attempts: { type: integer }
+        last_error: { type: string, description: Trimmed to 200 characters. }
+        ref_type: { type: string }
+        ref_uuid: { type: [string, "null"], format: uuid }
+        account:
+          type: [object, "null"]
+          required: [uuid, kind, name]
+          properties:
+            uuid: { type: string, format: uuid }
+            kind: { type: string }
+            name: { type: string }
+        updated_at: { type: string, format: date-time }
+
+    OverviewDocumentItem:
+      type: object
+      required: [reservation, pickup_branch, customer_name, rental, document]
+      properties:
+        reservation: { $ref: "#/components/schemas/OverviewReservationRef" }
+        pickup_branch: { $ref: "#/components/schemas/OverviewBranchRef" }
+        customer_name: { type: string }
+        rental:
+          type: [object, "null"]
+          required: [uuid, reference]
+          properties:
+            uuid: { type: string, format: uuid }
+            reference: { type: string }
+        document:
+          type: [object, "null"]
+          description: The live rental contract; null when none was prepared yet.
+          required: [uuid, status]
+          properties:
+            uuid: { type: string, format: uuid }
+            status: { type: string, enum: [draft] }
+
+    TenantOverview:
+      type: object
+      required:
+        - generated_at
+        - today
+        - branch_scope
+        - branch
+        - branches
+        - kpis
+        - today_operations
+        - overdue_returns
+        - approvals
+        - awaiting_payment
+        - availability_problems
+        - integration_jobs
+        - documents
+      properties:
+        generated_at: { type: string, format: date-time }
+        today: { $ref: "#/components/schemas/OverviewWindow" }
+        branch_scope: { type: string, enum: [all, selected] }
+        branch:
+          oneOf:
+            - { $ref: "#/components/schemas/OverviewBranchRef" }
+            - type: "null"
+          description: The applied branch filter.
+        branches:
+          type: array
+          description: Branches the caller may filter by (their branch scope).
+          items: { $ref: "#/components/schemas/OverviewBranchRef" }
+        kpis:
+          type: object
+          required: [occupancy, active_rentals, collections_today]
+          properties:
+            occupancy:
+              type: [object, "null"]
+              required: [rented, rentable, rate]
+              description: Vehicles out on an active rental ÷ rentable vehicles today.
+              properties:
+                rented: { type: integer, format: int64 }
+                rentable: { type: integer, format: int64 }
+                rate: { type: number, description: "Percent, one decimal." }
+            active_rentals:
+              type: [object, "null"]
+              required: [active, overdue]
+              properties:
+                active: { type: integer, format: int64 }
+                overdue: { type: integer, format: int64 }
+            collections_today:
+              type: [object, "null"]
+              required: [currency, count, amount, refunded, net]
+              properties:
+                currency: { type: string, enum: [TRY] }
+                count: { type: integer, format: int64 }
+                amount: { type: string, description: Payments confirmed today. }
+                refunded: { type: string, description: Refunds that succeeded today. }
+                net: { type: string }
+        today_operations:
+          type: [object, "null"]
+          required: [total, handovers, returns, items]
+          properties:
+            total: { type: integer, format: int64 }
+            handovers: { $ref: "#/components/schemas/OverviewTaskCounts" }
+            returns: { $ref: "#/components/schemas/OverviewTaskCounts" }
+            items: { type: array, items: { $ref: "#/components/schemas/OverviewOperationItem" } }
+        overdue_returns:
+          type: [object, "null"]
+          required: [total, items]
+          properties:
+            total: { type: integer, format: int64 }
+            items: { type: array, items: { $ref: "#/components/schemas/OverviewOverdueItem" } }
+        approvals:
+          oneOf:
+            - { $ref: "#/components/schemas/OverviewWaitingSection" }
+            - type: "null"
+        awaiting_payment:
+          oneOf:
+            - { $ref: "#/components/schemas/OverviewWaitingSection" }
+            - type: "null"
+        availability_problems:
+          type: [object, "null"]
+          required: [total, by_type, items]
+          properties:
+            total: { type: integer, format: int64 }
+            by_type:
+              type: object
+              additionalProperties: { type: integer, format: int64 }
+            items: { type: array, items: { $ref: "#/components/schemas/OverviewResolutionItem" } }
+        integration_jobs:
+          type: [object, "null"]
+          required: [total, items]
+          properties:
+            total: { type: integer, format: int64 }
+            items: { type: array, items: { $ref: "#/components/schemas/OverviewJobItem" } }
+        documents:
+          type: [object, "null"]
+          required: [required, window_hours, window, total, items]
+          properties:
+            required:
+              type: boolean
+              description: False when no rental contract template is active (handovers need no approved contract).
+            window_hours: { type: integer }
+            window: { $ref: "#/components/schemas/OverviewWindow" }
+            total: { type: integer, format: int64 }
+            items: { type: array, items: { $ref: "#/components/schemas/OverviewDocumentItem" } }
+
+    EnvelopeTenantOverview:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/TenantOverview" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    TenantOverviewBadges:
+      type: object
+      required: [approvals, resolution_tasks]
+      properties:
+        approvals:
+          type: [object, "null"]
+          required: [pending, overdue]
+          properties:
+            pending: { type: integer, format: int64 }
+            overdue: { type: integer, format: int64 }
+        resolution_tasks:
+          type: [object, "null"]
+          required: [open]
+          properties:
+            open: { type: integer, format: int64 }
+
+    EnvelopeTenantOverviewBadges:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/TenantOverviewBadges" }
         meta: { $ref: "#/components/schemas/ResponseMeta" }
 
     EnvelopeOperationTaskPage:

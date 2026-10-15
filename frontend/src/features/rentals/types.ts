@@ -61,4 +61,6 @@ export type ListOperationTasksParams = {
   rental?: string;
   vehicle?: string;
   assignee?: string;
+  due_from?: string;
+  due_to?: string;
 };

@@ -255,6 +255,8 @@
   "tasks.complete_cleaning_hint": "Temizlik tamamlanınca araç müsait olur.",
   "tasks.complete_title": "Görevi tamamla",
   "tasks.description": "Şubelerin hazırlık, teslim, iade ve temizlik işleri.",
+  "tasks.due_window": "Vade: {{from}} – {{to}}",
+  "tasks.due_window_clear": "Vade filtresini kaldır",
   "tasks.empty_description": "Kiralama oluşturulduğunda hazırlık ve teslim görevleri açılır.",
   "tasks.empty_title": "Görev yok",
   "tasks.facets.branch": "Şube",

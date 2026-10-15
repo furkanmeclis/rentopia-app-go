@@ -28,7 +28,7 @@ export function OperationTasksPage() {
         { label: t("rentals.tasks.title") },
       ]}
     >
-      <OperationTasksTable persistKey="tenant-operation-tasks-v1" />
+      <OperationTasksTable persistKey="tenant-operation-tasks-v1" fromUrl />
     </EntityPage>
   );
 }

@@ -10,7 +10,6 @@ export {
   TENANT_ACCESS_CODES,
 } from "./components/tenant-route-guard";
 export { OrganizationSwitcher } from "./components/organization-switcher";
-export { TenantOverviewPage } from "./components/tenant-overview-page";
 export { OrganizationPickerPage } from "./components/organization-picker-page";
 export { NoAccessPage } from "./components/no-access-page";
 export { tenantRoleLabel } from "./lib/role-label";

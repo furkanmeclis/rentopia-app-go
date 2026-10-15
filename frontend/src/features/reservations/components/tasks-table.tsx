@@ -12,6 +12,7 @@ import {
   EntityTable,
   EntityToolbar,
   useServerListState,
+  useUrlListDefaults,
 } from "@/components/entity";
 import { AppForm } from "@/components/forms";
 import { createColumn } from "@/components/tables";
@@ -63,15 +64,22 @@ const ASSIGN_FORM_ID = "resolution-task-assign";
 export function TasksTable({
   reservationUuid,
   persistKey,
+  fromUrl = false,
 }: {
   reservationUuid?: string;
   persistKey: string;
+  /** Start from the URL's `status` / `task_type` filters (list page). */
+  fromUrl?: boolean;
 }) {
   const { t, locale } = useLocale();
   const { slug, organization } = useTenant();
   const router = useRouter();
+  const urlDefaults = useUrlListDefaults(["status", "task_type"]);
   const listState = useServerListState({
     initialSort: "-created_at",
+    initialColumnFilters: fromUrl
+      ? urlDefaults.initialColumnFilters
+      : undefined,
     initialPageSize: 20,
     realtime: tenantLiveList(organization, TASKS_RESOURCE),
   });
