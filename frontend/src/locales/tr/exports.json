@@ -78,5 +78,6 @@
   "resources.tenant.customers": "Müşteriler",
   "resources.tenant.extras": "Ek hizmetler",
   "resources.tenant.campaigns": "Kampanyalar",
-  "resources.tenant.reservations": "Rezervasyonlar"
+  "resources.tenant.reservations": "Rezervasyonlar",
+  "resources.tenant.rentals": "Kiralamalar"
 }

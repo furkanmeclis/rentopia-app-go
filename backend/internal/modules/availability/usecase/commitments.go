@@ -350,6 +350,9 @@ func (s *Service) ChangeDates(ctx context.Context, orgID int64, id uuid.UUID, in
 			return replanned{}, err
 		}
 		req.Period, req.End, req.Pickup, req.Return = r.period(), r.end, r.pickup.ID, r.ret.ID
+		if err := rentalGuard(ref, r, only); err != nil {
+			return replanned{}, err
+		}
 		if only != 0 {
 			if !cs.st.Eligible[req.Key][only] {
 				return replanned{}, validation("vehicle_uuid", "not_eligible", "the vehicle does not keep the product's guarantee")
@@ -374,7 +377,19 @@ func (s *Service) changedWhere(ctx context.Context, orgID int64, ref db.GetAlloc
 	}
 	where.Channel = ref.Channel
 	where.FleetPool = ""
-	return s.resolve(ctx, orgID, where)
+	var keep *time.Time
+	if ref.Kind == model.KindRental {
+		// A rental under way keeps the start of its handover (which may be
+		// earlier than the planned pick-up); only its end moves.
+		start := ref.StartsAt.Time
+		keep = &start
+		where.StartsAt = start
+	}
+	r, err := s.resolveKeeping(ctx, orgID, where, keep)
+	if err != nil {
+		return r, err
+	}
+	return r, rentalGuard(ref, r, 0)
 }
 
 // ChangeProduct moves an allocation to another product (an upgrade) and
@@ -395,6 +410,9 @@ func (s *Service) ChangeProduct(ctx context.Context, orgID int64, id, productUUI
 	}
 	key := versionKey(product.ID, product.CurrentVersion)
 	return s.replan(ctx, orgID, id, in.Hook, func(ref db.GetAllocationRefRow, cs *componentState, req *engine.Request) (replanned, error) {
+		if ref.Kind == model.KindRental {
+			return replanned{}, ErrRentalUnderway
+		}
 		if len(cs.st.Eligible[key]) == 0 {
 			return replanned{}, ErrOtherComponent
 		}
@@ -464,6 +482,9 @@ func (s *Service) movePlan(ctx context.Context, orgID int64, id, vehicleUUID uui
 		return model.PlanResult{}, validation("vehicle_uuid", "not_found", "vehicle was not found")
 	}
 	return s.replan(ctx, orgID, id, hook, func(ref db.GetAllocationRefRow, cs *componentState, req *engine.Request) (replanned, error) {
+		if ref.Kind == model.KindRental && ref.VehicleID != v.ID {
+			return replanned{}, ErrRentalUnderway
+		}
 		if ref.PlateFixed && ref.VehicleID != v.ID && !overrideFixed {
 			return replanned{}, validation("vehicle_uuid", "plate_fixed", "the allocation already has another promised plate")
 		}
@@ -701,6 +722,11 @@ func (s *Service) ReleaseWith(ctx context.Context, orgID int64, id uuid.UUID, re
 		}
 		if ref.Status != model.StatusActive {
 			return ErrNotActive
+		}
+		if ref.Kind == model.KindRental {
+			// The vehicle is with the customer: a rental ends with its
+			// return (SetRentalEnd), never with a release.
+			return ErrRentalUnderway
 		}
 		now := s.clock()
 		snap, err := s.snapshot(ctx, orgID)

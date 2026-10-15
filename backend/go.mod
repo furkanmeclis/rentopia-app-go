@@ -8,6 +8,9 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.43.0
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.30
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.106.0
+	github.com/chromedp/cdproto v0.0.0-20260714215040-dc233986426f
+	github.com/chromedp/chromedp v0.16.0
+	github.com/furkanmeclis/go-ubltr/render v0.0.0
 	github.com/getsentry/sentry-go v0.49.0
 	github.com/go-webauthn/webauthn v0.12.3
 	github.com/golang-jwt/jwt/v5 v5.3.1
@@ -17,11 +20,22 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/jung-kurt/gofpdf/v2 v2.17.3
 	github.com/meilisearch/meilisearch-go v0.31.0
+	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/pquerna/otp v1.5.0
 	github.com/redis/go-redis/v9 v9.21.0
 	github.com/xuri/excelize/v2 v2.11.0
 	golang.org/x/crypto v0.54.0
+)
+
+require (
+	github.com/aymerick/douceur v0.2.0 // indirect
+	github.com/chromedp/sysutil v1.1.0 // indirect
+	github.com/go-json-experiment/json v0.0.0-20260623181947-01eb4420fa68 // indirect
+	github.com/gobwas/httphead v0.1.0 // indirect
+	github.com/gobwas/pool v0.2.1 // indirect
+	github.com/gobwas/ws v1.4.0 // indirect
+	github.com/gorilla/css v1.0.1 // indirect
 )
 
 require (
@@ -37,6 +51,7 @@ require (
 	github.com/aws/smithy-go v1.27.3 // indirect
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/furkanmeclis/go-ubltr/render/chromium v0.0.0-20260816110918-5b412e96178d
 	github.com/fxamacker/cbor/v2 v2.8.0 // indirect
 	github.com/go-webauthn/x v0.1.20 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.1 // indirect
@@ -65,3 +80,5 @@ require (
 	golang.org/x/time v0.14.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
+
+replace github.com/furkanmeclis/go-ubltr/render => github.com/furkanmeclis/go-ubltr/render v0.0.0-20260816110918-5b412e96178d

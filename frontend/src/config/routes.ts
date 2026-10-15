@@ -127,6 +127,15 @@ export const routes = {
       approvals: (slug: string) =>
         `/t/${encodeURIComponent(slug)}/reservations/approvals`,
     },
+    /** Rentals ("Kiralamalar"): list and detail. */
+    rentals: {
+      root: (slug: string) => `/t/${encodeURIComponent(slug)}/rentals`,
+      detail: (slug: string, uuid: string) =>
+        `/t/${encodeURIComponent(slug)}/rentals/${uuid}`,
+    },
+    /** Operation tasks of the branches ("Operasyon görevleri"). */
+    operationTasks: (slug: string) =>
+      `/t/${encodeURIComponent(slug)}/operation-tasks`,
     /** Availability search and holds ("Müsaitlik"). */
     availability: (slug: string) =>
       `/t/${encodeURIComponent(slug)}/availability`,
@@ -143,6 +152,15 @@ export const routes = {
           `/t/${encodeURIComponent(slug)}/settings/roles/create`,
         detail: (slug: string, uuid: string) =>
           `/t/${encodeURIComponent(slug)}/settings/roles/${uuid}`,
+      },
+      /** Contract templates ("Sözleşme şablonları"). */
+      contractTemplates: {
+        root: (slug: string) =>
+          `/t/${encodeURIComponent(slug)}/settings/contract-templates`,
+        create: (slug: string) =>
+          `/t/${encodeURIComponent(slug)}/settings/contract-templates/create`,
+        detail: (slug: string, uuid: string) =>
+          `/t/${encodeURIComponent(slug)}/settings/contract-templates/${uuid}`,
       },
     },
   },

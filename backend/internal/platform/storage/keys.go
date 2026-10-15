@@ -92,6 +92,14 @@ func CustomerDocumentObjectKey(orgUUID, customerUUID, documentUUID, fileUUID, ex
 	return fmt.Sprintf("organizations/%s/customers/%s/documents/%s/%s.%s", orgUUID, customerUUID, documentUUID, fileUUID, trimExt(ext))
 }
 
+// DocumentPDFObjectKey builds
+// organizations/{orgUUID}/documents/{documentUUID}/{versionUUID}.pdf for the
+// rendered contract / form PDFs (private: streamed by the API only, behind
+// tenant.document.download). A version is immutable, so is its PDF.
+func DocumentPDFObjectKey(orgUUID, documentUUID, versionUUID string) string {
+	return fmt.Sprintf("%sdocuments/%s/%s.pdf", OrganizationPrefix(orgUUID), documentUUID, versionUUID)
+}
+
 func trimExt(ext string) string {
 	for len(ext) > 0 && ext[0] == '.' {
 		ext = ext[1:]

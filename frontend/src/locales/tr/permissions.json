@@ -162,5 +162,13 @@
   "labels.tenant.payments.create_link": "Ödeme linki oluştur",
   "labels.tenant.reservations.approve": "Rezervasyon taleplerini onayla",
   "groups.tenant_integrations": "Entegrasyonlar",
-  "groups.tenant_payments": "Ödemeler"
+  "groups.tenant_payments": "Ödemeler",
+  "labels.tenant.rentals.read": "Kiralamaları görüntüle",
+  "labels.tenant.rentals.write": "Teslim, iade, uzatma ve araç değişimi yap",
+  "labels.tenant.rentals.close": "İade kontrolünü tamamla, iptal et, ücretlere karar ver",
+  "labels.tenant.contracts.read": "Sözleşme şablonlarını ve belgeleri görüntüle",
+  "labels.tenant.contracts.write": "Şablon düzenle, belge hazırla ve onay kaydet",
+  "labels.tenant.contracts.activate": "Şablon sürümünü aktifleştir",
+  "groups.tenant_rentals": "Kiralamalar",
+  "groups.tenant_contracts": "Sözleşmeler"
 }

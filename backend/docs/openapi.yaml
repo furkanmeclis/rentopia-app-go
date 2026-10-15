@@ -13399,6 +13399,934 @@ paths:
         "403": { $ref: "#/components/responses/TenantForbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/tenant/rentals/meta:
+    get:
+      tags: [Tenant]
+      operationId: getTenantRentalsMeta
+      summary: Rentals table contract
+      description: "`tenant.rentals.read`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Resource meta
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeResourceMeta" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/rentals/facets:
+    get:
+      tags: [Tenant]
+      operationId: getTenantRentalsFacets
+      summary: Rental list facets
+      description: "`tenant.rentals.read`. Status, branch (planned pick-up / return or actual return) and product counts in the caller's branch scope."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Facets
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeRentalFacets" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/rentals:
+    get:
+      tags: [Tenant]
+      operationId: getTenantRentals
+      summary: List rentals
+      description: "`tenant.rentals.read`. Rentals whose planned pick-up, planned return or actual return branch is in the caller's branch scope."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - name: sort
+          in: query
+          description: "`reference`, `status`, `planned_pickup_at`, `planned_return_at` or `created_at`; prefix `-` for descending."
+          schema: { type: string }
+        - { name: status, in: query, schema: { type: string }, description: "preparation, active, return_check, returned, cancelled (comma separated)" }
+        - { name: branch, in: query, schema: { type: string }, description: Branch uuids (planned pick-up / return or actual return) }
+        - { name: product, in: query, schema: { type: string }, description: Rental product uuids }
+        - { name: vehicle, in: query, schema: { type: string }, description: Vehicle uuids }
+        - { name: customer, in: query, schema: { type: string }, description: Customer uuids }
+        - { name: reservation, in: query, schema: { type: string }, description: Reservation uuids }
+        - { name: overdue, in: query, schema: { type: string }, description: "`true` = overdue rentals only" }
+      responses:
+        "200":
+          description: Rental page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeRentalPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantRental
+      summary: Create the rental of a confirmed reservation
+      description: "`tenant.rentals.write`. Fixes the plate (`vehicle_uuid`, or the reservation's current plate) through the reservation; the fixed plate creates the rental (preparation + handover tasks, rental contract draft). Idempotent: the live rental is returned."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RentalCreateRequest" }
+      responses:
+        "201": { $ref: "#/components/responses/RentalOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/rentals/export:
+    post:
+      tags: [Tenant]
+      operationId: postTenantRentalsExport
+      summary: Export rentals
+      description: "`tenant.rentals.read`. `query` honours `q` and the list filters; the job runs with the requester's branch scope."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExportRequest" }
+      responses:
+        "202":
+          description: Export job queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeExportJob" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/rentals/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantRental
+      summary: Rental detail
+      description: "`tenant.rentals.read`. Planned (reservation) and actual facts, vehicle legs, drivers, charges, contract state."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200": { $ref: "#/components/responses/RentalOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/rentals/{uuid}/events:
+    get:
+      tags: [Tenant]
+      operationId: getTenantRentalEvents
+      summary: Rental timeline
+      description: "`tenant.rentals.read`. Newest first."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Event page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeRentalEventPage" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/rentals/{uuid}/handover:
+    post:
+      tags: [Tenant]
+      operationId: postTenantRentalHandover
+      summary: Hand the vehicle over
+      description: "`tenant.rentals.write`. Records km / fuel out, the actual time and place; the reservation allocation becomes a rental allocation; the vehicle is rented. Without an approved rental contract (when a rental contract template is active) `waiver_reason` and `tenant.signature.waive` are required (409 `contract_not_approved` otherwise)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RentalHandoverRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/RentalOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/rentals/{uuid}/return:
+    post:
+      tags: [Tenant]
+      operationId: postTenantRentalReturn
+      summary: Record the return
+      description: "`tenant.rentals.write`. Km / fuel in, actual time and branch (kept next to the planned ones). The engine allocation ends at the actual return at the actual branch (its preparation applies; the vehicle's current branch moves there). Late beyond the policy tolerance proposes the policy late fee; later reservations the return breaks get `late_return` tasks."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RentalReturnRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/RentalOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/rentals/{uuid}/extend:
+    post:
+      tags: [Tenant]
+      operationId: postTenantRentalExtend
+      summary: Extend the rental
+      description: "`tenant.rentals.write`. The reservation's extension rule prices the added days; a collision answers 409 `EXTENSION_CONFLICT` with alternatives. Documents are re-rendered (re-approval)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RentalExtendRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/RentalOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/rentals/{uuid}/swap:
+    post:
+      tags: [Tenant]
+      operationId: postTenantRentalSwap
+      summary: Change the vehicle of a rental under way
+      description: "`tenant.rentals.write`. The current vehicle is returned (km / fuel in, cleaning task) and the new one handed over (km / fuel out) as separate legs of the same rental; the engine moves the rest of the range atomically (the vehicle must keep the sold guarantee; 409 `CAPACITY_UNAVAILABLE` otherwise)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RentalSwapRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/RentalOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/rentals/{uuid}/charges:
+    post:
+      tags: [Tenant]
+      operationId: postTenantRentalCharge
+      summary: Propose a manual charge
+      description: "`tenant.rentals.write`. A proposal until an authorized approval (damage: `tenant.damage.approve`; others: `tenant.rentals.close`)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RentalChargeRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/RentalOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/rentals/{uuid}/complete-return:
+    post:
+      tags: [Tenant]
+      operationId: postTenantRentalCompleteReturn
+      summary: Finish the return check
+      description: "`tenant.rentals.close`. The vehicle goes to cleaning (cleaning task at the actual return branch) or back to available."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RentalCompleteReturnRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/RentalOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/rentals/{uuid}/cancel:
+    post:
+      tags: [Tenant]
+      operationId: postTenantRentalCancel
+      summary: Cancel a rental before the handover
+      description: "`tenant.rentals.close`. The reservation stays as it is; tasks are cancelled and documents voided."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RentalReasonRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/RentalOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/rentals/{uuid}/charges/{chargeUuid}/approve:
+    post:
+      tags: [Tenant]
+      operationId: postTenantRentalChargeApprove
+      summary: Approve a charge
+      description: "`tenant.rentals.read` + damage: `tenant.damage.approve`, others: `tenant.rentals.close` (use case)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - $ref: "#/components/parameters/RentalChargeUUID"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RentalDecisionRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/RentalOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/rentals/{uuid}/charges/{chargeUuid}/waive:
+    post:
+      tags: [Tenant]
+      operationId: postTenantRentalChargeWaive
+      summary: Waive a charge
+      description: "`tenant.rentals.read` + `tenant.rentals.close` (use case); `note` is the reason."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - $ref: "#/components/parameters/RentalChargeUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RentalDecisionRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/RentalOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/operation-tasks/meta:
+    get:
+      tags: [Tenant]
+      operationId: getTenantOperationTasksMeta
+      summary: Operation tasks table contract
+      description: "`tenant.rentals.read`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Resource meta
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeResourceMeta" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/operation-tasks/facets:
+    get:
+      tags: [Tenant]
+      operationId: getTenantOperationTasksFacets
+      summary: Operation task facets
+      description: "`tenant.rentals.read`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Facets
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeOperationTaskFacets" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/operation-tasks:
+    get:
+      tags: [Tenant]
+      operationId: getTenantOperationTasks
+      summary: List operation tasks
+      description: "`tenant.rentals.read`. Tasks of the branches in the caller's scope."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - name: sort
+          in: query
+          description: "`due_at`, `status` or `created_at`; prefix `-` for descending."
+          schema: { type: string }
+        - { name: status, in: query, schema: { type: string }, description: "open, in_progress, done, cancelled" }
+        - { name: task_type, in: query, schema: { type: string }, description: "preparation, handover, return, cleaning" }
+        - { name: branch, in: query, schema: { type: string }, description: Branch uuids }
+        - { name: rental, in: query, schema: { type: string }, description: Rental uuids }
+        - { name: vehicle, in: query, schema: { type: string }, description: Vehicle uuids }
+        - { name: assignee, in: query, schema: { type: string }, description: User uuids }
+        - { name: due_from, in: query, schema: { type: string, format: date-time } }
+        - { name: due_to, in: query, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: Task page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeOperationTaskPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/operation-tasks/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantOperationTask
+      summary: Operation task detail
+      description: "`tenant.rentals.read`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200": { $ref: "#/components/responses/OperationTaskOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/operation-tasks/{uuid}/assign:
+    post:
+      tags: [Tenant]
+      operationId: postTenantOperationTaskAssign
+      summary: Assign an operation task
+      description: "`tenant.rentals.write`. `user_uuid` = a member, or null to clear."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReservationAssignRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/OperationTaskOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/operation-tasks/{uuid}/start:
+    post:
+      tags: [Tenant]
+      operationId: postTenantOperationTaskStart
+      summary: Start an operation task
+      description: "`tenant.rentals.write`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200": { $ref: "#/components/responses/OperationTaskOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/operation-tasks/{uuid}/complete:
+    post:
+      tags: [Tenant]
+      operationId: postTenantOperationTaskComplete
+      summary: Complete an operation task
+      description: "`tenant.rentals.write`. Handover / return tasks complete with the rental's handover / return; a completed cleaning task makes the vehicle available."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OperationTaskNoteRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/OperationTaskOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/operation-tasks/{uuid}/cancel:
+    post:
+      tags: [Tenant]
+      operationId: postTenantOperationTaskCancel
+      summary: Cancel an operation task
+      description: "`tenant.rentals.write`. `note` is the reason."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OperationTaskNoteRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/OperationTaskOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/contract-templates/meta:
+    get:
+      tags: [Tenant]
+      operationId: getTenantContractTemplatesMeta
+      summary: Contract templates table contract
+      description: "`tenant.contracts.read`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Resource meta
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeResourceMeta" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/contract-templates/placeholders:
+    get:
+      tags: [Tenant]
+      operationId: getTenantContractPlaceholders
+      summary: Placeholder catalog
+      description: "`tenant.contracts.read`. Every `{{key}}` a template may use, grouped, with a sample value."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Catalog
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeContractPlaceholders" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/contract-templates:
+    get:
+      tags: [Tenant]
+      operationId: getTenantContractTemplates
+      summary: List contract template versions
+      description: "`tenant.contracts.read`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - name: sort
+          in: query
+          description: "`name`, `version` or `created_at`; prefix `-` for descending."
+          schema: { type: string }
+        - { name: kind, in: query, schema: { type: string }, description: "rental_contract, handover_form, return_form, terms" }
+        - { name: status, in: query, schema: { type: string }, description: "draft, active, archived" }
+      responses:
+        "200":
+          description: Template page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeContractTemplatePage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantContractTemplate
+      summary: Create the next draft version of a kind
+      description: "`tenant.contracts.write`. The body is sanitized; unknown placeholders are refused."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ContractTemplateRequest" }
+      responses:
+        "201": { $ref: "#/components/responses/ContractTemplateOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/contract-templates/preview:
+    post:
+      tags: [Tenant]
+      operationId: postTenantContractTemplatePreview
+      summary: Render a template body
+      description: "`tenant.contracts.read`. Sample data, or the data of `reservation_uuid` (in the caller's branch scope). Nothing is stored."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ContractPreviewRequest" }
+      responses:
+        "200":
+          description: Rendered document
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeContractPreview" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/contract-templates/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantContractTemplate
+      summary: Contract template version
+      description: "`tenant.contracts.read`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200": { $ref: "#/components/responses/ContractTemplateOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantContractTemplate
+      summary: Edit a draft
+      description: "`tenant.contracts.write`. Active / archived versions are immutable (409)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ContractTemplateRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/ContractTemplateOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantContractTemplate
+      summary: Delete a draft
+      description: "`tenant.contracts.write`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/contract-templates/{uuid}/activate:
+    post:
+      tags: [Tenant]
+      operationId: postTenantContractTemplateActivate
+      summary: Activate a draft
+      description: "`tenant.contracts.activate`. The previous active version of the kind is archived; existing document versions keep their template."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200": { $ref: "#/components/responses/ContractTemplateOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/contract-templates/{uuid}/new-version:
+    post:
+      tags: [Tenant]
+      operationId: postTenantContractTemplateNewVersion
+      summary: Copy a version into the next draft
+      description: "`tenant.contracts.write`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "201": { $ref: "#/components/responses/ContractTemplateOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/documents:
+    get:
+      tags: [Tenant]
+      operationId: getTenantDocuments
+      summary: List documents
+      description: "`tenant.contracts.read`. Documents of reservations in the caller's branch scope."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - { name: kind, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string }, description: "draft, approved, void" }
+        - { name: reservation, in: query, schema: { type: string }, description: Reservation uuids }
+        - { name: rental, in: query, schema: { type: string }, description: Rental uuids }
+      responses:
+        "200":
+          description: Document page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeDocumentPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantDocument
+      summary: Prepare a document
+      description: "`tenant.contracts.read` + (`tenant.contracts.write` or `tenant.rentals.write`). Creates the document of the kind from the active template, or renders a new version when its data changed. 409 `NO_ACTIVE_TEMPLATE` without an active template."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DocumentPrepareRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/DocumentPrepareOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/documents/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantDocument
+      summary: Document with versions and approvals
+      description: "`tenant.contracts.read`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200": { $ref: "#/components/responses/DocumentOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/documents/{uuid}/refresh:
+    post:
+      tags: [Tenant]
+      operationId: postTenantDocumentRefresh
+      summary: Re-render a document when its data changed
+      description: "`tenant.contracts.read` + (`tenant.contracts.write` or `tenant.rentals.write`)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200": { $ref: "#/components/responses/DocumentPrepareOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/documents/{uuid}/versions/{documentVersionUuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantDocumentVersion
+      summary: Document version (HTML, hash, data snapshot)
+      description: "`tenant.contracts.read`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - $ref: "#/components/parameters/DocumentVersionUUID"
+      responses:
+        "200":
+          description: Version
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeDocumentVersion" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/documents/{uuid}/versions/{documentVersionUuid}/issue:
+    post:
+      tags: [Tenant]
+      operationId: postTenantDocumentVersionIssue
+      summary: Issue the current draft
+      description: "`tenant.contracts.read` + (`tenant.contracts.write` or `tenant.rentals.write`). Renders the PDF."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - $ref: "#/components/parameters/DocumentVersionUUID"
+      responses:
+        "200": { $ref: "#/components/responses/DocumentOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/documents/{uuid}/versions/{documentVersionUuid}/approve:
+    post:
+      tags: [Tenant]
+      operationId: postTenantDocumentVersionApprove
+      summary: Record the approval of the current version
+      description: "`tenant.contracts.read` + (`tenant.contracts.write` or `tenant.rentals.write`). `content_hash` must be the hash of the content shown (409 `CONTENT_CHANGED` with the current version otherwise). In-person approvals only (signing: TEC-711)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - $ref: "#/components/parameters/DocumentVersionUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DocumentApproveRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/DocumentOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/documents/{uuid}/versions/{documentVersionUuid}/pdf:
+    get:
+      tags: [Tenant]
+      operationId: getTenantDocumentVersionPdf
+      summary: Download the PDF of a version
+      description: "`tenant.contracts.read` + `tenant.document.download`. Streamed by the API (private object); 409 `PDF_NOT_READY` while it renders. Every download is an activity event."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - $ref: "#/components/parameters/DocumentVersionUUID"
+      responses:
+        "200":
+          description: PDF
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -13471,6 +14399,22 @@ components:
       in: path
       required: true
       description: Product version UUID
+      schema:
+        type: string
+        format: uuid
+    DocumentVersionUUID:
+      name: documentVersionUuid
+      in: path
+      required: true
+      description: Document version UUID
+      schema:
+        type: string
+        format: uuid
+    RentalChargeUUID:
+      name: chargeUuid
+      in: path
+      required: true
+      description: Rental charge UUID
       schema:
         type: string
         format: uuid
@@ -13548,6 +14492,36 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/EnvelopeReservationChange"
+    RentalOK:
+      description: Rental
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/EnvelopeRental"
+    OperationTaskOK:
+      description: Operation task
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/EnvelopeOperationTask"
+    ContractTemplateOK:
+      description: Contract template
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/EnvelopeContractTemplate"
+    DocumentOK:
+      description: Document
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/EnvelopeDocument"
+    DocumentPrepareOK:
+      description: Prepared document
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/EnvelopeDocumentPrepare"
     PaymentOK:
       description: Payment
       content:
@@ -21926,6 +22900,725 @@ components:
       properties:
         success: { type: boolean, enum: [true] }
         data: { $ref: "#/components/schemas/PricingPreview" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    RentalRef:
+      type: object
+      required: [uuid, name]
+      properties:
+        uuid: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+
+    RentalPlace:
+      type: object
+      required: [branch, point]
+      properties:
+        branch:
+          oneOf:
+            - $ref: "#/components/schemas/RentalRef"
+            - type: "null"
+        point:
+          oneOf:
+            - $ref: "#/components/schemas/RentalRef"
+            - type: "null"
+
+    RentalVehicleRef:
+      type: object
+      required: [uuid, plate, label]
+      properties:
+        uuid: { type: string, format: uuid }
+        plate: { type: string }
+        label: { type: string }
+
+    RentalCustomerRef:
+      type: object
+      required: [uuid, customer_type, display_name]
+      properties:
+        uuid: { type: string, format: uuid }
+        customer_type: { type: string }
+        display_name: { type: string }
+
+    RentalLeg:
+      type: object
+      required: [uuid, reason, vehicle, out_at, out_branch, out_km, out_fuel, in_at, in_branch, in_km, in_fuel, driven_km, note]
+      properties:
+        uuid: { type: string, format: uuid }
+        reason: { type: string, enum: [handover, swap] }
+        vehicle: { $ref: "#/components/schemas/RentalVehicleRef" }
+        out_at: { type: [string, "null"], format: date-time }
+        out_branch:
+          oneOf:
+            - $ref: "#/components/schemas/RentalRef"
+            - type: "null"
+        out_km: { type: [integer, "null"] }
+        out_fuel: { type: [integer, "null"] }
+        in_at: { type: [string, "null"], format: date-time }
+        in_branch:
+          oneOf:
+            - $ref: "#/components/schemas/RentalRef"
+            - type: "null"
+        in_km: { type: [integer, "null"] }
+        in_fuel: { type: [integer, "null"] }
+        driven_km: { type: [integer, "null"] }
+        note: { type: string }
+
+    RentalDriver:
+      type: object
+      required: [uuid, role, name, licence_hint]
+      properties:
+        uuid: { type: [string, "null"], format: uuid }
+        role: { type: string, enum: [primary, additional] }
+        name: { type: string }
+        licence_hint: { type: string }
+
+    RentalCharge:
+      type: object
+      required: [uuid, kind, source, status, currency, amount, settings_version, calculation, reason, decided_at, decided_by, decision_note, created_by, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        kind: { type: string, enum: [late_return, early_return, damage, fuel, mileage, other] }
+        source: { type: string, enum: [policy, manual] }
+        status: { type: string, enum: [proposed, approved, waived] }
+        currency: { type: string }
+        amount: { type: string, description: Decimal amount }
+        settings_version: { type: integer }
+        calculation: { type: object }
+        reason: { type: string }
+        decided_at: { type: [string, "null"], format: date-time }
+        decided_by:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        decision_note: { type: string }
+        created_by:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        created_at: { type: string, format: date-time }
+
+    RentalPolicy:
+      type: object
+      required: [settings_version, late_return_grace_minutes, extra_hour_fee, early_return, extension, fuel, mileage]
+      properties:
+        settings_version: { type: integer }
+        late_return_grace_minutes: { type: [integer, "null"] }
+        extra_hour_fee: { type: string }
+        early_return: { type: string }
+        extension: { type: string }
+        fuel: { type: string }
+        mileage: { type: string }
+
+    RentalContractState:
+      type: object
+      required: [required, approved, document_uuid]
+      properties:
+        required: { type: boolean }
+        approved: { type: boolean }
+        document_uuid: { type: [string, "null"], format: uuid }
+
+    Rental:
+      type: object
+      required: [uuid, reference, status, reservation, customer, product, vehicle, planned_pickup_at, planned_return_at, planned_pickup, planned_return,
+        actual_pickup_at, actual_return_at, actual_pickup, actual_return, overdue_at, late_minutes, allocation_ends_at, allocation_kind, policy,
+        contract_waiver, contract, legs, drivers, charges, return_note, damage_note, note, cancel_reason, checked_at, cancelled_at, closed_at,
+        created_by, delivered_by, returned_by, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        reference: { type: string }
+        status: { type: string, enum: [preparation, active, return_check, returned, cancelled] }
+        reservation:
+          type: object
+          required: [uuid, reference, status, currency, total_amount, paid_amount, payment_status]
+          properties:
+            uuid: { type: string, format: uuid }
+            reference: { type: string }
+            status: { type: string }
+            currency: { type: string }
+            total_amount: { type: string }
+            paid_amount: { type: string }
+            payment_status: { type: string }
+        customer: { $ref: "#/components/schemas/RentalCustomerRef" }
+        product: { $ref: "#/components/schemas/RentalRef" }
+        vehicle: { $ref: "#/components/schemas/RentalVehicleRef" }
+        planned_pickup_at: { type: string, format: date-time }
+        planned_return_at: { type: string, format: date-time }
+        planned_pickup: { $ref: "#/components/schemas/RentalPlace" }
+        planned_return: { $ref: "#/components/schemas/RentalPlace" }
+        actual_pickup_at: { type: [string, "null"], format: date-time }
+        actual_return_at: { type: [string, "null"], format: date-time }
+        actual_pickup: { $ref: "#/components/schemas/RentalPlace" }
+        actual_return: { $ref: "#/components/schemas/RentalPlace" }
+        overdue_at: { type: [string, "null"], format: date-time }
+        late_minutes: { type: integer }
+        allocation_ends_at: { type: [string, "null"], format: date-time }
+        allocation_kind: { type: string }
+        policy: { $ref: "#/components/schemas/RentalPolicy" }
+        contract_waiver: { type: [object, "null"] }
+        contract: { $ref: "#/components/schemas/RentalContractState" }
+        legs:
+          type: array
+          items: { $ref: "#/components/schemas/RentalLeg" }
+        drivers:
+          type: array
+          items: { $ref: "#/components/schemas/RentalDriver" }
+        charges:
+          type: array
+          items: { $ref: "#/components/schemas/RentalCharge" }
+        return_note: { type: string }
+        damage_note: { type: string }
+        note: { type: string }
+        cancel_reason: { type: string }
+        checked_at: { type: [string, "null"], format: date-time }
+        cancelled_at: { type: [string, "null"], format: date-time }
+        closed_at: { type: [string, "null"], format: date-time }
+        created_by:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        delivered_by:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        returned_by:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    RentalListItem:
+      type: object
+      required: [uuid, reference, status, reservation_uuid, customer, product, vehicle, pickup_branch, return_branch, actual_return_branch,
+        planned_pickup_at, planned_return_at, actual_pickup_at, actual_return_at, overdue_at, late_minutes, open_charges, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        reference: { type: string }
+        status: { type: string, enum: [preparation, active, return_check, returned, cancelled] }
+        reservation_uuid: { type: string, format: uuid }
+        customer: { $ref: "#/components/schemas/RentalCustomerRef" }
+        product: { $ref: "#/components/schemas/RentalRef" }
+        vehicle: { $ref: "#/components/schemas/RentalVehicleRef" }
+        pickup_branch: { $ref: "#/components/schemas/RentalRef" }
+        return_branch: { $ref: "#/components/schemas/RentalRef" }
+        actual_return_branch:
+          oneOf:
+            - $ref: "#/components/schemas/RentalRef"
+            - type: "null"
+        planned_pickup_at: { type: string, format: date-time }
+        planned_return_at: { type: string, format: date-time }
+        actual_pickup_at: { type: [string, "null"], format: date-time }
+        actual_return_at: { type: [string, "null"], format: date-time }
+        overdue_at: { type: [string, "null"], format: date-time }
+        late_minutes: { type: integer }
+        open_charges: { type: integer, format: int64 }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    RentalEvent:
+      type: object
+      required: [uuid, action, from_status, to_status, reason, data, actor, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        action: { type: string }
+        from_status: { type: [string, "null"] }
+        to_status: { type: [string, "null"] }
+        reason: { type: string }
+        data: { type: object }
+        actor:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        created_at: { type: string, format: date-time }
+
+    RentalFacetValue:
+      type: object
+      required: [value, label, count]
+      properties:
+        value: { type: string }
+        label: { type: string }
+        count: { type: integer, format: int64 }
+
+    RentalFacets:
+      type: object
+      required: [status, branch, product]
+      properties:
+        status: { type: array, items: { $ref: "#/components/schemas/RentalFacetValue" } }
+        branch: { type: array, items: { $ref: "#/components/schemas/RentalFacetValue" } }
+        product: { type: array, items: { $ref: "#/components/schemas/RentalFacetValue" } }
+
+    RentalCreateRequest:
+      type: object
+      required: [reservation_uuid]
+      properties:
+        reservation_uuid: { type: string, format: uuid }
+        vehicle_uuid: { type: [string, "null"], format: uuid }
+        note: { type: string }
+
+    RentalHandoverRequest:
+      type: object
+      required: [km, fuel]
+      properties:
+        at: { type: [string, "null"], format: date-time, description: Defaults to now }
+        branch_uuid: { type: [string, "null"], format: uuid, description: Defaults to the planned pick-up }
+        point_uuid: { type: [string, "null"], format: uuid }
+        km: { type: integer }
+        fuel: { type: integer, minimum: 0, maximum: 100 }
+        note: { type: string }
+        waiver_reason: { type: string, description: Handover without an approved contract (tenant.signature.waive) }
+
+    RentalReturnRequest:
+      type: object
+      required: [km, fuel]
+      properties:
+        at: { type: [string, "null"], format: date-time, description: Defaults to now }
+        branch_uuid: { type: [string, "null"], format: uuid, description: Defaults to the planned return }
+        point_uuid: { type: [string, "null"], format: uuid }
+        km: { type: integer }
+        fuel: { type: integer, minimum: 0, maximum: 100 }
+        note: { type: string }
+        damage_note: { type: string }
+
+    RentalCompleteReturnRequest:
+      type: object
+      properties:
+        vehicle_status: { type: string, enum: [cleaning, available] }
+        note: { type: string }
+
+    RentalExtendRequest:
+      type: object
+      required: [ends_at]
+      properties:
+        ends_at: { type: string, format: date-time }
+        reason: { type: string }
+
+    RentalSwapRequest:
+      type: object
+      required: [vehicle_uuid, in_km, in_fuel, out_km, out_fuel, reason]
+      properties:
+        vehicle_uuid: { type: string, format: uuid }
+        at: { type: [string, "null"], format: date-time }
+        branch_uuid: { type: [string, "null"], format: uuid }
+        in_km: { type: integer }
+        in_fuel: { type: integer, minimum: 0, maximum: 100 }
+        out_km: { type: integer }
+        out_fuel: { type: integer, minimum: 0, maximum: 100 }
+        reason: { type: string }
+
+    RentalReasonRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string }
+
+    RentalChargeRequest:
+      type: object
+      required: [kind, amount, reason]
+      properties:
+        kind: { type: string, enum: [late_return, early_return, damage, fuel, mileage, other] }
+        amount: { type: string, description: Decimal amount }
+        reason: { type: string }
+
+    RentalDecisionRequest:
+      type: object
+      properties:
+        note: { type: string }
+
+    EnvelopeRental:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/Rental" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeRentalPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/RentalListItem" } }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeRentalEventPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/RentalEvent" } }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeRentalFacets:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/RentalFacets" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    OperationTask:
+      type: object
+      required: [uuid, task_type, status, branch, rental, vehicle, due_at, note, assignee, started_at, completed_at, completed_by, completion_note, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        task_type: { type: string, enum: [preparation, handover, return, cleaning] }
+        status: { type: string, enum: [open, in_progress, done, cancelled] }
+        branch: { $ref: "#/components/schemas/RentalRef" }
+        rental:
+          oneOf:
+            - type: object
+              required: [uuid, reference, status]
+              properties:
+                uuid: { type: string, format: uuid }
+                reference: { type: string }
+                status: { type: string }
+            - type: "null"
+        vehicle:
+          oneOf:
+            - $ref: "#/components/schemas/RentalVehicleRef"
+            - type: "null"
+        due_at: { type: string, format: date-time }
+        note: { type: string }
+        assignee:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        started_at: { type: [string, "null"], format: date-time }
+        completed_at: { type: [string, "null"], format: date-time }
+        completed_by:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        completion_note: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    OperationTaskNoteRequest:
+      type: object
+      properties:
+        note: { type: string }
+
+    EnvelopeOperationTask:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/OperationTask" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeOperationTaskPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/OperationTask" } }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeOperationTaskFacets:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [status, task_type, branch]
+          properties:
+            status: { type: array, items: { $ref: "#/components/schemas/RentalFacetValue" } }
+            task_type: { type: array, items: { $ref: "#/components/schemas/RentalFacetValue" } }
+            branch: { type: array, items: { $ref: "#/components/schemas/RentalFacetValue" } }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    ContractPlaceholder:
+      type: object
+      required: [key, group, html, sample]
+      properties:
+        key: { type: string }
+        group: { type: string }
+        html: { type: boolean }
+        sample: { type: string }
+
+    ContractTemplate:
+      type: object
+      required: [uuid, kind, name, version, status, placeholders, used_by, activated_at, archived_at, created_by, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        kind: { type: string, enum: [rental_contract, handover_form, return_form, terms] }
+        name: { type: string }
+        version: { type: integer }
+        status: { type: string, enum: [draft, active, archived] }
+        content: { type: object, description: Editor state (detail only) }
+        body_html: { type: string, description: Sanitized HTML (detail only) }
+        placeholders: { type: array, items: { type: string } }
+        used_by: { type: integer, format: int64 }
+        activated_at: { type: [string, "null"], format: date-time }
+        archived_at: { type: [string, "null"], format: date-time }
+        created_by:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        activated_by:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    ContractTemplateRequest:
+      type: object
+      properties:
+        kind: { type: string, enum: [rental_contract, handover_form, return_form, terms] }
+        name: { type: string }
+        content: { type: object }
+        body_html: { type: string }
+
+    ContractPreviewRequest:
+      type: object
+      required: [body_html]
+      properties:
+        kind: { type: string, enum: [rental_contract, handover_form, return_form, terms] }
+        body_html: { type: string }
+        reservation_uuid: { type: [string, "null"], format: uuid }
+
+    ContractPreview:
+      type: object
+      required: [html, unknown, empty]
+      properties:
+        html: { type: string }
+        unknown: { type: array, items: { type: string } }
+        empty: { type: array, items: { type: string } }
+
+    DocumentRef:
+      type: object
+      required: [uuid, reference]
+      properties:
+        uuid: { type: string, format: uuid }
+        reference: { type: string }
+        status: { type: string }
+
+    DocumentVersionInfo:
+      type: object
+      required: [uuid, version, status, template_uuid, template_name, template_version, content_hash, changed_keys, pdf_status, pdf_error,
+        pdf_size_bytes, issued_at, superseded_at, created_by, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        version: { type: integer }
+        status: { type: string, enum: [draft, issued, approved, superseded] }
+        template_uuid: { type: [string, "null"], format: uuid }
+        template_name: { type: string }
+        template_version: { type: integer }
+        content_hash: { type: string, description: SHA-256 of the rendered HTML (hex) }
+        changed_keys: { type: array, items: { type: string } }
+        pdf_status: { type: string, enum: [none, pending, ready, failed] }
+        pdf_error: { type: string }
+        pdf_size_bytes: { type: integer, format: int64 }
+        issued_at: { type: [string, "null"], format: date-time }
+        superseded_at: { type: [string, "null"], format: date-time }
+        created_by:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        created_at: { type: string, format: date-time }
+
+    DocumentVersion:
+      allOf:
+        - $ref: "#/components/schemas/DocumentVersionInfo"
+        - type: object
+          required: [html, data_snapshot, pdf_sha256]
+          properties:
+            html: { type: string }
+            data_snapshot: { type: object }
+            pdf_sha256: { type: string }
+
+    DocumentApproval:
+      type: object
+      required: [uuid, version_uuid, version_number, content_hash, party, method, approver_name, note, approved_at, valid, invalidated_at, invalidated_reason, recorded_by]
+      properties:
+        uuid: { type: string, format: uuid }
+        version_uuid: { type: string, format: uuid }
+        version_number: { type: integer }
+        content_hash: { type: string }
+        party: { type: string, enum: [customer, staff] }
+        method: { type: string, enum: [in_person, click, signature] }
+        approver_name: { type: string }
+        note: { type: string }
+        approved_at: { type: string, format: date-time }
+        valid: { type: boolean }
+        invalidated_at: { type: [string, "null"], format: date-time }
+        invalidated_reason: { type: string }
+        recorded_by:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+
+    Document:
+      type: object
+      required: [uuid, kind, status, reservation, rental, current_version, versions, approvals, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        kind: { type: string, enum: [rental_contract, handover_form, return_form, terms] }
+        status: { type: string, enum: [draft, approved, void] }
+        reservation: { $ref: "#/components/schemas/DocumentRef" }
+        rental:
+          oneOf:
+            - $ref: "#/components/schemas/DocumentRef"
+            - type: "null"
+        current_version:
+          oneOf:
+            - $ref: "#/components/schemas/DocumentVersionInfo"
+            - type: "null"
+        versions: { type: array, items: { $ref: "#/components/schemas/DocumentVersionInfo" } }
+        approvals: { type: array, items: { $ref: "#/components/schemas/DocumentApproval" } }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    DocumentListItem:
+      type: object
+      required: [uuid, kind, status, reservation, rental, version_uuid, version_number, version_status, content_hash, pdf_status, template_name,
+        template_version, version_created_at, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        kind: { type: string, enum: [rental_contract, handover_form, return_form, terms] }
+        status: { type: string, enum: [draft, approved, void] }
+        reservation: { $ref: "#/components/schemas/DocumentRef" }
+        rental:
+          oneOf:
+            - $ref: "#/components/schemas/DocumentRef"
+            - type: "null"
+        version_uuid: { type: [string, "null"], format: uuid }
+        version_number: { type: integer }
+        version_status: { type: string }
+        content_hash: { type: string }
+        pdf_status: { type: string }
+        template_name: { type: string }
+        template_version: { type: integer }
+        version_created_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    DocumentPrepareRequest:
+      type: object
+      required: [kind, reservation_uuid]
+      properties:
+        kind: { type: string, enum: [rental_contract, handover_form, return_form, terms] }
+        reservation_uuid: { type: string, format: uuid }
+
+    DocumentApproveRequest:
+      type: object
+      required: [content_hash, approver_name]
+      properties:
+        content_hash: { type: string }
+        party: { type: string, enum: [customer, staff] }
+        method: { type: string, enum: [in_person] }
+        approver_name: { type: string }
+        note: { type: string }
+
+    EnvelopeContractPlaceholders:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [groups, items]
+          properties:
+            groups: { type: array, items: { type: string } }
+            items: { type: array, items: { $ref: "#/components/schemas/ContractPlaceholder" } }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeContractTemplate:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/ContractTemplate" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeContractTemplatePage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/ContractTemplate" } }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeContractPreview:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/ContractPreview" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeDocument:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/Document" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeDocumentPrepare:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [document, created]
+          properties:
+            document: { $ref: "#/components/schemas/Document" }
+            created: { type: boolean }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeDocumentVersion:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/DocumentVersion" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeDocumentPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/DocumentListItem" } }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
         meta: { $ref: "#/components/schemas/ResponseMeta" }
 
     PaymentActor:

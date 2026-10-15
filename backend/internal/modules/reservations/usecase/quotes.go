@@ -110,7 +110,11 @@ func (s *Service) price(ctx context.Context, orgID int64, spec quoteSpec) (price
 	if err := ve.orNil(); err != nil {
 		return out, err
 	}
-	res, err := s.avail.Search(ctx, orgID, availmodel.SearchInput{Where: spec.where, ProductUUIDs: []uuid.UUID{spec.productUUID}})
+	// An extension keeps the (possibly past) start of a reservation or a
+	// rental under way.
+	res, err := s.avail.Search(ctx, orgID, availmodel.SearchInput{
+		Where: spec.where, ProductUUIDs: []uuid.UUID{spec.productUUID}, KeepStart: spec.purpose == model.PurposeExtension,
+	})
 	if err != nil {
 		return out, mapAvailabilitySearchErr(err)
 	}

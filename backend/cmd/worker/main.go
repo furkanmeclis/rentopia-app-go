@@ -21,6 +21,7 @@ import (
 	campaignsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/campaigns/usecase"
 	catalogrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/repository"
 	catalogusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/usecase"
+	contractsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/contracts/usecase"
 	customeradapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/customers/adapters"
 	customerrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/customers/repository"
 	customerusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/customers/usecase"
@@ -49,6 +50,8 @@ import (
 	pricingadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/adapters"
 	pricingrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/repository"
 	pricingusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/usecase"
+	rentaladapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/rentals/adapters"
+	rentalusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/rentals/usecase"
 	reservationadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/adapters"
 	reservationusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/usecase"
 	smsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/sms"
@@ -73,6 +76,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx/orgcache"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/outbox"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/payments/iyzico"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/pdfrender"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/resourceevents"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/searchengine"
 	searchadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/searchengine/adapters"
@@ -218,6 +222,15 @@ func main() {
 		paymentsusecase.Config{PublicBaseURL: cfg.Auth.FrontendURL}, iyzicoAdapter)
 	paymentsSvc.SetLogger(log)
 	reservationSvc.SetPaymentLinks(paymentsSvc)
+	// Contracts: the PDF render task (headless Chromium). Rentals: export,
+	// the overdue sweep, reservation lifecycle (bulk cancellations).
+	contractsSvc := contractsusecase.New(pool, queries, orgsettingsusecase.New(orgsettingsrepository.NewPostgres(pool, queries)), store)
+	pdfRenderer := pdfrender.NewChromium()
+	defer pdfRenderer.Close()
+	contractsSvc.SetRenderer(pdfRenderer)
+	rentalsSvc := rentalusecase.New(pool, queries, availabilitySvc, rentaladapters.NewReservations(reservationSvc), vehicleSvc)
+	rentalsSvc.SetDocuments(contractsSvc)
+	reservationSvc.SetLifecycleListener(rentalsSvc)
 	// Bulk rental group changes go through the engine like the API.
 	vehicleSvc.SetMembershipGuard(availabilitySvc)
 	availabilitySvc.SetPlanMovedHandler(reservationSvc)
@@ -251,6 +264,7 @@ func main() {
 		extrasadapters.NewIO(extrasSvc),
 		campaignsadapters.NewIO(campaignsSvc),
 		reservationadapters.NewIO(reservationSvc),
+		rentaladapters.NewIO(rentalsSvc),
 		orgadapters.NewIO(jobScopes),
 		customeradapters.NewIO(customerSvc),
 	)
@@ -311,6 +325,8 @@ func main() {
 	reservationSvc.SetResourceEvents(resourceEvents)
 	paymentsSvc.SetResourceEvents(resourceEvents)
 	integrationRunner.SetResourceEvents(resourceEvents)
+	rentalsSvc.SetResourceEvents(resourceEvents)
+	contractsSvc.SetResourceEvents(resourceEvents)
 
 	worker := queue.NewWorker(cfg, log, notifSvc.Deliver).
 		WithExport(exportSvc.ProcessExport).
@@ -340,7 +356,12 @@ func main() {
 			// Pending checkouts (lost webhooks) after the expiries: a late
 			// payment is then re-validated against current capacity.
 			p, err := paymentsSvc.ReconcilePending(ctx)
-			return r + n + m + p, err
+			if err != nil {
+				return r + n + m + p, err
+			}
+			// Late vehicles: keep them busy, re-plan or flag what follows.
+			o, err := rentalsSvc.SweepOverdue(ctx)
+			return r + n + m + p + o, err
 		}).
 		WithIntegrations(func(ctx context.Context, orgID, jobID int64) error {
 			_, err := integrationRunner.Process(ctx, orgID, jobID, integrationjobsusecase.TriggerWorker)
@@ -350,6 +371,7 @@ func main() {
 			}
 			return err
 		}, integrationRunner.RunDue).
+		WithDocumentPDF(contractsSvc.RenderPDF).
 		WithSearch(
 			searchIndexer.ProcessUpsert,
 			searchIndexer.ProcessDelete,
