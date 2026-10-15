@@ -45,6 +45,9 @@ func CalendarLayers(ctx context.Context) []string {
 	if sc.Has(rbac.PermTenantTransfersRead) {
 		layers = append(layers, model.LayerTransfer)
 	}
+	if sc.Has(rbac.PermTenantAvailabilityRead) {
+		layers = append(layers, model.LayerHold, model.LayerReservation)
+	}
 	return append(layers, model.LayerMaintenance)
 }
 
@@ -92,7 +95,7 @@ func (s *Service) Calendar(ctx context.Context, orgID int64, f model.CalendarFil
 
 	kinds := []string{}
 	for _, l := range layers {
-		if l == model.LayerBlock || l == model.LayerTransfer {
+		if l != model.LayerMaintenance {
 			kinds = append(kinds, l)
 		}
 	}
@@ -172,6 +175,19 @@ func CalendarIntervalFromRow(ctx context.Context, row repository.CalendarInterva
 			ToBranch:         branchRef(row.ToBranchUuid, row.ToBranchCode, row.ToBranchName),
 			InScope:          eitherInScope(ctx, row.FromBranchID, row.ToBranchID),
 		}
+	case model.LayerHold, model.LayerReservation:
+		a := &model.CalendarAllocation{
+			PickupBranch: branchRef(row.AllocationPickupUuid, row.AllocationPickupCode, row.AllocationPickupName),
+			ReturnBranch: branchRef(row.AllocationReturnUuid, row.AllocationReturnCode, row.AllocationReturnName),
+			StartsAt:     row.AllocationStartsAt.Time.UTC(), EndsAt: row.AllocationEndsAt.Time.UTC(),
+			ExpiresAt: timePtr(row.AllocationExpiresAt), PlateFixed: row.AllocationPlateFixed, Channel: row.AllocationChannel,
+		}
+		if row.AllocationProductUuid.Valid {
+			a.Product = model.ProductRef{
+				UUID: row.AllocationProductUuid.Bytes, Code: row.AllocationProductCode.String, Title: row.AllocationProductTitle.String,
+			}
+		}
+		item.Allocation = a
 	}
 	return item
 }

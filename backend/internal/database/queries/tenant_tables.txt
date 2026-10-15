@@ -32,3 +32,5 @@ rate_bands
 date_rules
 date_rule_versions
 date_rule_version_targets
+vehicle_allocations
+channel_capacity_rules

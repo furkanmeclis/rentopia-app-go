@@ -198,6 +198,23 @@ type CatalogValuation struct {
 	Value     pgtype.Numeric `json:"value"`
 }
 
+type ChannelCapacityRule struct {
+	ID              int64              `json:"id"`
+	Uuid            uuid.UUID          `json:"uuid"`
+	OrganizationID  int64              `json:"organization_id"`
+	RuleType        string             `json:"rule_type"`
+	Channel         pgtype.Text        `json:"channel"`
+	RentalProductID pgtype.Int8        `json:"rental_product_id"`
+	BranchID        pgtype.Int8        `json:"branch_id"`
+	Quantity        int32              `json:"quantity"`
+	Note            string             `json:"note"`
+	IsActive        bool               `json:"is_active"`
+	CreatedBy       pgtype.Int8        `json:"created_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+}
+
 type DateRule struct {
 	ID             int64              `json:"id"`
 	Uuid           uuid.UUID          `json:"uuid"`
@@ -910,6 +927,38 @@ type Vehicle struct {
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt          pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type VehicleAllocation struct {
+	ID              int64                            `json:"id"`
+	Uuid            uuid.UUID                        `json:"uuid"`
+	OrganizationID  int64                            `json:"organization_id"`
+	VehicleID       int64                            `json:"vehicle_id"`
+	RentalProductID int64                            `json:"rental_product_id"`
+	ProductVersion  int32                            `json:"product_version"`
+	Kind            string                           `json:"kind"`
+	Status          string                           `json:"status"`
+	StartsAt        pgtype.Timestamptz               `json:"starts_at"`
+	EndsAt          pgtype.Timestamptz               `json:"ends_at"`
+	PrepMinutes     int32                            `json:"prep_minutes"`
+	Period          pgtype.Range[pgtype.Timestamptz] `json:"period"`
+	PickupBranchID  int64                            `json:"pickup_branch_id"`
+	ReturnBranchID  int64                            `json:"return_branch_id"`
+	PickupPointID   pgtype.Int8                      `json:"pickup_point_id"`
+	ReturnPointID   pgtype.Int8                      `json:"return_point_id"`
+	FleetPool       string                           `json:"fleet_pool"`
+	Channel         string                           `json:"channel"`
+	PlateFixed      bool                             `json:"plate_fixed"`
+	ExpiresAt       pgtype.Timestamptz               `json:"expires_at"`
+	RefType         pgtype.Text                      `json:"ref_type"`
+	RefUuid         pgtype.UUID                      `json:"ref_uuid"`
+	Note            string                           `json:"note"`
+	CreatedBy       pgtype.Int8                      `json:"created_by"`
+	ReleasedAt      pgtype.Timestamptz               `json:"released_at"`
+	ReleasedBy      pgtype.Int8                      `json:"released_by"`
+	ReleaseReason   string                           `json:"release_reason"`
+	CreatedAt       pgtype.Timestamptz               `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz               `json:"updated_at"`
 }
 
 type VehicleBlock struct {

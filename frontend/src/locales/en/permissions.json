@@ -124,5 +124,11 @@
   "labels.tenant.pricing.read": "View pricing (rate plans, rules, preview)",
   "labels.tenant.pricing.write": "Edit price drafts (plans, matrix, import, rules)",
   "labels.tenant.pricing.activate": "Activate / deactivate prices",
-  "groups.tenant_pricing": "Pricing"
+  "groups.tenant_pricing": "Pricing",
+  "labels.tenant.availability.read": "Search availability",
+  "labels.tenant.availability.hold": "Put, extend and release holds",
+  "labels.tenant.capacity_rules.read": "View channel capacity rules",
+  "labels.tenant.capacity_rules.write": "Manage channel capacity rules",
+  "groups.tenant_availability": "Availability",
+  "groups.tenant_capacity_rules": "Channel capacity rules"
 }

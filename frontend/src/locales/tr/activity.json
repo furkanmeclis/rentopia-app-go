@@ -152,5 +152,13 @@
   "actions.date_rules.activated": "Tarih kuralı aktifleştirildi",
   "actions.date_rules.deactivated": "Tarih kuralı pasifleştirildi",
   "actions.date_rules.draft_discarded": "Tarih kuralı taslağı atıldı",
-  "actions.date_rules.deleted": "Tarih kuralı silindi"
+  "actions.date_rules.deleted": "Tarih kuralı silindi",
+  "resources.tenant.availability_holds": "Opsiyonlar",
+  "resources.tenant.capacity_rules": "Kanal kapasite kuralları",
+  "actions.availability_holds.created": "Opsiyon konuldu",
+  "actions.availability_holds.released": "Opsiyon kaldırıldı",
+  "actions.availability_holds.extended": "Opsiyon uzatıldı",
+  "actions.capacity_rules.created": "Kanal kuralı oluşturuldu",
+  "actions.capacity_rules.updated": "Kanal kuralı güncellendi",
+  "actions.capacity_rules.deleted": "Kanal kuralı silindi"
 }

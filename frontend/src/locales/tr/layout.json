@@ -53,5 +53,7 @@
   "section_pricing": "Fiyatlandırma",
   "nav_pricing_plans": "Tarifeler",
   "nav_pricing_rules": "Tarih kuralları",
-  "nav_pricing_preview": "Fiyat önizleme"
+  "nav_pricing_preview": "Fiyat önizleme",
+  "nav_availability": "Müsaitlik",
+  "nav_fleet_capacity_rules": "Kanal kapasite kuralları"
 }

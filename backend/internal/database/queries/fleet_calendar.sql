@@ -54,9 +54,10 @@ ORDER BY v.plate_key ASC, v.id ASC
 LIMIT sqlc.arg(limit_count) OFFSET sqlc.arg(offset_count);
 
 -- name: ListFleetCalendarIntervals :many
--- Busy intervals (vehicle_busy_intervals: blocks and non-cancelled
--- transfers) of the given vehicles that overlap [from_at, to_at), with the
--- block / transfer details the calendar bars show.
+-- Busy intervals (vehicle_busy_intervals: blocks, non-cancelled transfers
+-- and active allocations - holds / reservations, TEC-697) of the given
+-- vehicles that overlap [from_at, to_at), with the block / transfer /
+-- allocation details the calendar bars show.
 SELECT bi.vehicle_id, bi.kind, bi.ref_uuid,
     lower(bi.during)::timestamptz AS starts_at,
     upper(bi.during)::timestamptz AS ends_at,
@@ -70,7 +71,13 @@ SELECT bi.vehicle_id, bi.kind, bi.ref_uuid,
     COALESCE(tr.from_branch_id, 0)::bigint AS from_branch_id,
     COALESCE(tr.to_branch_id, 0)::bigint AS to_branch_id,
     fb.uuid AS from_branch_uuid, fb.code AS from_branch_code, fb.name AS from_branch_name,
-    tb.uuid AS to_branch_uuid, tb.code AS to_branch_code, tb.name AS to_branch_name
+    tb.uuid AS to_branch_uuid, tb.code AS to_branch_code, tb.name AS to_branch_name,
+    al.starts_at AS allocation_starts_at, al.ends_at AS allocation_ends_at, al.expires_at AS allocation_expires_at,
+    COALESCE(al.plate_fixed, FALSE)::boolean AS allocation_plate_fixed,
+    COALESCE(al.channel, '')::text AS allocation_channel,
+    ap.uuid AS allocation_product_uuid, ap.code AS allocation_product_code, ap.title AS allocation_product_title,
+    apb.uuid AS allocation_pickup_uuid, apb.code AS allocation_pickup_code, apb.name AS allocation_pickup_name,
+    arb.uuid AS allocation_return_uuid, arb.code AS allocation_return_code, arb.name AS allocation_return_name
 FROM vehicle_busy_intervals bi
 LEFT JOIN vehicle_blocks b
     ON bi.kind = 'block' AND b.organization_id = bi.organization_id AND b.uuid = bi.ref_uuid
@@ -78,6 +85,11 @@ LEFT JOIN vehicle_transfers tr
     ON bi.kind = 'transfer' AND tr.organization_id = bi.organization_id AND tr.uuid = bi.ref_uuid
 LEFT JOIN branches fb ON fb.organization_id = tr.organization_id AND fb.id = tr.from_branch_id
 LEFT JOIN branches tb ON tb.organization_id = tr.organization_id AND tb.id = tr.to_branch_id
+LEFT JOIN vehicle_allocations al
+    ON bi.kind IN ('hold', 'reservation', 'rental') AND al.organization_id = bi.organization_id AND al.uuid = bi.ref_uuid
+LEFT JOIN rental_products ap ON ap.organization_id = al.organization_id AND ap.id = al.rental_product_id
+LEFT JOIN branches apb ON apb.organization_id = al.organization_id AND apb.id = al.pickup_branch_id
+LEFT JOIN branches arb ON arb.organization_id = al.organization_id AND arb.id = al.return_branch_id
 WHERE bi.organization_id = sqlc.arg(organization_id)
   AND bi.vehicle_id = ANY(sqlc.arg(vehicle_ids)::bigint[])
   AND NOT isempty(bi.during)

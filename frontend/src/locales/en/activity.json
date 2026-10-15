@@ -152,5 +152,13 @@
   "actions.date_rules.activated": "Date rule activated",
   "actions.date_rules.deactivated": "Date rule deactivated",
   "actions.date_rules.draft_discarded": "Date rule draft discarded",
-  "actions.date_rules.deleted": "Date rule deleted"
+  "actions.date_rules.deleted": "Date rule deleted",
+  "resources.tenant.availability_holds": "Holds",
+  "resources.tenant.capacity_rules": "Channel capacity rules",
+  "actions.availability_holds.created": "Hold placed",
+  "actions.availability_holds.released": "Hold released",
+  "actions.availability_holds.extended": "Hold extended",
+  "actions.capacity_rules.created": "Channel rule created",
+  "actions.capacity_rules.updated": "Channel rule updated",
+  "actions.capacity_rules.deleted": "Channel rule deleted"
 }

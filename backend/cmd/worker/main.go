@@ -11,6 +11,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/config"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/logging"
+	availabilityusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/availability/usecase"
 	branchadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/branches/adapters"
 	branchrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/branches/repository"
 	branchusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/branches/usecase"
@@ -149,6 +150,9 @@ func main() {
 		pricingrepository.NewPostgres(pool, queries),
 		orgsettingsusecase.New(orgsettingsrepository.NewPostgres(pool, queries)),
 	)
+	// Availability engine: the minute hold expiry sweep.
+	availabilitySvc := availabilityusecase.New(pool, queries, vehicleSvc,
+		orgsettingsusecase.New(orgsettingsrepository.NewPostgres(pool, queries)))
 	vehicleBulk := vehicleadapters.NewBulk(vehicleSvc)
 	vehicleBulk.SetMaintenance(fleetopsadapters.NewMaintenance(fleetOpsSvc))
 	// Platform organizations (export, bulk activate / suspend). Status
@@ -234,6 +238,7 @@ func main() {
 		WithMobilePush(notifSvc.SendMobilePush, notifSvc.ProcessPushReceipts).
 		WithCatalogImport(catalogSvc.ProcessImport).
 		WithVehicleReminders(vehicleRecordsSvc.RunReminders).
+		WithExpireHolds(availabilitySvc.ExpireDue).
 		WithSearch(
 			searchIndexer.ProcessUpsert,
 			searchIndexer.ProcessDelete,
@@ -255,6 +260,10 @@ func main() {
 	}
 	if err := queue.RegisterVehicleRemindersSchedule(scheduler); err != nil {
 		log.Error("vehicle_reminders_scheduler_failed", "error", err)
+		exit(1)
+	}
+	if err := queue.RegisterExpireHoldsSchedule(scheduler); err != nil {
+		log.Error("hold_expiry_scheduler_failed", "error", err)
 		exit(1)
 	}
 	go func() {

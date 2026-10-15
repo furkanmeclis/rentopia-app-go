@@ -291,6 +291,14 @@ func (r *Postgres) OverlappingTransfers(ctx context.Context, orgID, vehicleID in
 	})
 }
 
+// AffectedAllocations lists the active holds / reservations of a vehicle
+// that overlap [start, end) (end nil = unbounded).
+func (r *Postgres) AffectedAllocations(ctx context.Context, orgID, vehicleID int64, start time.Time, end *time.Time, now time.Time) ([]db.ListBlockAffectedAllocationsRow, error) {
+	return r.q.ListBlockAffectedAllocations(ctx, db.ListBlockAffectedAllocationsParams{
+		OrganizationID: orgID, VehicleID: vehicleID, StartsAt: ts(start), EndsAt: tsPtr(end), NowAt: ts(now),
+	})
+}
+
 func (r *Postgres) Movements(ctx context.Context, orgID, vehicleID int64) ([]db.ListVehicleMovementsRow, error) {
 	return r.q.ListVehicleMovements(ctx, db.ListVehicleMovementsParams{OrganizationID: orgID, VehicleID: vehicleID})
 }

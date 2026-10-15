@@ -341,10 +341,23 @@ func (s *Service) blockResult(ctx context.Context, orgID, vehicleID int64, vehic
 	return model.BlockResult{Block: block, Affected: affected, VehicleStatus: v.Status, StatusChanged: changed}, nil
 }
 
-// affectedBy lists the open transfers a block overlaps (M2 adds the
-// reservations of the vehicle with kind "reservation").
+// affectedBy lists the open transfers and the active allocations (holds /
+// reservations, kind = allocation kind, label = product code) a block
+// overlaps. Blocks always win: the availability engine never plans on a
+// blocked vehicle, and the overlapped allocations are for a person (or a
+// later re-plan) to move.
 func (s *Service) affectedBy(ctx context.Context, orgID, vehicleID int64, b model.Block) ([]model.Affected, error) {
 	out := []model.Affected{}
+	allocs, err := s.repo.AffectedAllocations(ctx, orgID, vehicleID, b.StartsAt, b.EndsAt, s.clock())
+	if err != nil {
+		return nil, err
+	}
+	for _, a := range allocs {
+		out = append(out, model.Affected{
+			Kind: a.Kind, UUID: a.Uuid, Label: a.ProductCode, Status: "active",
+			StartsAt: a.StartsAt.Time.UTC(), EndsAt: timePtr(a.EndsAt),
+		})
+	}
 	rows, err := s.repo.OverlappingTransfers(ctx, orgID, vehicleID, b.StartsAt, b.EndsAt, 0)
 	if err != nil {
 		return nil, err

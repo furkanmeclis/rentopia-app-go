@@ -8766,6 +8766,328 @@ paths:
         "403": { $ref: "#/components/responses/TenantForbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/tenant/availability/search:
+    post:
+      tags: [Tenant]
+      operationId: postTenantAvailabilitySearch
+      summary: Capacity per rentable product
+      description: |
+        `tenant.availability.read`. Availability engine (TEC-697): how many units of each product
+        on sale (or of `product_uuids`) the channel can sell for this pick-up / return and range,
+        with the breakdown behind each number. A vehicle counts only when it can cover the whole
+        range (continuous availability), is at the pick-up branch at the start (location
+        continuity: one-way returns and transfers move it), has no block / open transfer in the
+        range (plus the return branch's preparation time) and keeps the product's guarantee.
+        `reassignable` units need moving flexible commitments to other vehicles. Channel rules
+        (safety margin, other channels' unused guaranteed quotas, sales limit) are applied on top.
+        A search consumes nothing. Pick-up or return branch must be in the caller's branch scope.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvailabilitySearchRequest"
+      responses:
+        "200":
+          description: Capacity per product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeAvailabilitySearch"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/availability/holds:
+    get:
+      tags: [Tenant]
+      operationId: listTenantAvailabilityHolds
+      summary: Holds (options) in the caller's branch scope
+      description: |
+        `tenant.availability.read`. Newest first; `status` defaults to `active` (unexpired holds
+        only). Visible when the pick-up or return branch is in the caller's branch scope.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0 } }
+        - name: status
+          in: query
+          description: Comma-separated (active, released, expired)
+          schema: { type: string }
+      responses:
+        "200":
+          description: Holds
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeAvailabilityHoldPage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantAvailabilityHold
+      summary: Put a hold (timed option)
+      description: |
+        `tenant.availability.hold`. In one transaction under the lock of the product's
+        eligibility component: plans a vehicle for the whole range (moving flexible commitments
+        when that makes room), applies the channel rules and stores the hold with a provisional
+        plate (`plate_fixed` false; true for `vehicle_uuid` or EXACT_VEHICLE products). The hold
+        consumes capacity until `expires_at` (default: the organization's payment hold minutes,
+        else 30). Without a plan: `409 CAPACITY_UNAVAILABLE` (detail code = reason:
+        `no_vehicle`, `no_eligible_vehicle`, `one_way_not_allowed`, `channel_rules`,
+        `product_not_sellable`) with `data` = alternatives (other products, nearby ranges).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvailabilityHoldRequest"
+      responses:
+        "201":
+          description: Hold
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeAvailabilityPlanResult"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409":
+          description: "`CAPACITY_UNAVAILABLE` with alternatives in `data`"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityCapacityError"
+
+  /v1/tenant/availability/holds/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantAvailabilityHold
+      summary: Get a hold
+      description: |
+        `tenant.availability.read`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Hold
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeAvailabilityHold"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantAvailabilityHold
+      summary: Release a hold
+      description: |
+        `tenant.availability.hold`. Frees the capacity exactly once (`409` `not_active` when the
+        hold was already released or expired). Commitments that relied on its return branch are
+        re-planned; the ones that cannot be are listed in `affected`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Released
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeAvailabilityReleaseResult"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/availability/holds/{uuid}/extend:
+    post:
+      tags: [Tenant]
+      operationId: postTenantAvailabilityHoldExtend
+      summary: Extend a hold
+      description: |
+        `tenant.availability.hold`. `expires_at` becomes now + `minutes` (1-1440). Only an
+        active, unexpired hold (`409` `hold_expired` / `not_active`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [minutes]
+              properties:
+                minutes: { type: integer, minimum: 1, maximum: 1440 }
+      responses:
+        "200":
+          description: Hold
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeAvailabilityHold"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/capacity-rules:
+    get:
+      tags: [Tenant]
+      operationId: listTenantCapacityRules
+      summary: Channel capacity rules
+      description: |
+        `tenant.capacity_rules.read`. Sales limits, guaranteed quotas and safety margins (no rule =
+        every channel sells from the shared pool).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0 } }
+        - { name: q, in: query, schema: { type: string } }
+        - { name: sort, in: query, schema: { type: string }, description: "rule_type, quantity, created_at (prefix - for descending)" }
+        - { name: rule_type, in: query, schema: { type: string }, description: Comma-separated }
+        - { name: channel, in: query, schema: { type: string }, description: Comma-separated }
+      responses:
+        "200":
+          description: Rules
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCapacityRulePage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantCapacityRule
+      summary: Create a channel capacity rule
+      description: |
+        `tenant.capacity_rules.write`. Guaranteed quotas of a product may not exceed its eligible
+        vehicles (`400` `exceeds_capacity`). A rule without a branch needs every branch (`403`).
+        One live rule per type, channel, product and branch (`409` `taken`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CapacityRuleRequest"
+      responses:
+        "201":
+          description: Rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCapacityRule"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/capacity-rules/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantCapacityRule
+      summary: Get a channel capacity rule
+      description: |
+        `tenant.capacity_rules.read`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCapacityRule"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [Tenant]
+      operationId: putTenantCapacityRule
+      summary: Replace a channel capacity rule
+      description: |
+        `tenant.capacity_rules.write`. Full body, same rules as create.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CapacityRuleRequest"
+      responses:
+        "200":
+          description: Rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCapacityRule"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantCapacityRule
+      summary: Delete a channel capacity rule (soft)
+      description: |
+        `tenant.capacity_rules.write`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeStatus"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /v1/tenant/rate-plans/meta:
     get:
       tags: [Tenant]
@@ -9879,6 +10201,332 @@ components:
             $ref: "#/components/schemas/Error"
 
   schemas:
+
+    AvailabilitySearchRequest:
+      type: object
+      additionalProperties: false
+      required: [starts_at, ends_at]
+      properties:
+        pickup_branch_uuid: { type: [string, "null"], format: uuid, description: "Pick-up branch (or give pickup_point_uuid)" }
+        pickup_point_uuid: { type: [string, "null"], format: uuid, description: "Service point; its branch's stock serves it" }
+        return_branch_uuid: { type: [string, "null"], format: uuid, description: "Default: the pick-up place" }
+        return_point_uuid: { type: [string, "null"], format: uuid }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+        channel: { type: string, description: "Sales channel code (active in the organization settings); default branch" }
+        fleet_pool: { type: string, description: "Restrict to one fleet pool; empty = every pool" }
+        product_uuids:
+          type: array
+          items: { type: string, format: uuid }
+          description: Only these products (default every product on sale)
+
+    AvailabilityHoldRequest:
+      type: object
+      additionalProperties: false
+      required: [product_uuid, starts_at, ends_at]
+      properties:
+        pickup_branch_uuid: { type: [string, "null"], format: uuid, description: "Pick-up branch (or give pickup_point_uuid)" }
+        pickup_point_uuid: { type: [string, "null"], format: uuid, description: "Service point; its branch's stock serves it" }
+        return_branch_uuid: { type: [string, "null"], format: uuid, description: "Default: the pick-up place" }
+        return_point_uuid: { type: [string, "null"], format: uuid }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+        channel: { type: string, description: "Sales channel code (active in the organization settings); default branch" }
+        fleet_pool: { type: string, description: "Restrict to one fleet pool; empty = every pool" }
+        product_uuid: { type: string, format: uuid }
+        hold_minutes: { type: [integer, "null"], minimum: 1, maximum: 1440 }
+        note: { type: string }
+        vehicle_uuid: { type: [string, "null"], format: uuid, description: Promise this plate (never reassigned) }
+
+    AvailabilityPointRef:
+      type: object
+      required: [uuid, name]
+      properties:
+        uuid: { type: string, format: uuid }
+        name: { type: string }
+
+    AvailabilityProductRef:
+      type: object
+      required: [uuid, code, title, version]
+      properties:
+        uuid: { type: string, format: uuid }
+        code: { type: string }
+        title: { type: string }
+        guarantee_type: { type: string, enum: [EXACT_VEHICLE, EXACT_VARIANT, GROUP] }
+        version: { type: integer }
+
+    AvailabilityResolvedRequest:
+      type: object
+      required: [pickup_branch, return_branch, pickup_point, return_point, starts_at, ends_at, ready_at, prep_minutes, channel, fleet_pool]
+      properties:
+        pickup_branch: { $ref: "#/components/schemas/VehicleBranchRef" }
+        return_branch: { $ref: "#/components/schemas/VehicleBranchRef" }
+        pickup_point:
+          oneOf:
+            - $ref: "#/components/schemas/AvailabilityPointRef"
+            - type: "null"
+        return_point:
+          oneOf:
+            - $ref: "#/components/schemas/AvailabilityPointRef"
+            - type: "null"
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+        ready_at: { type: string, format: date-time, description: ends_at + preparation of the return branch }
+        prep_minutes: { type: integer }
+        channel: { type: string }
+        fleet_pool: { type: string }
+
+    AvailabilityBreakdown:
+      type: object
+      description: |
+        Every eligible vehicle is counted once, in the first matching bucket: out_of_service,
+        blocked, reserved, held, elsewhere, free. physical = free + reassignable.
+      required: [eligible, out_of_service, blocked, reserved, held, elsewhere, free, reassignable, physical,
+        safety_margin, reserved_for_other_channels, own_quota_remaining, channel_limit_remaining, sellable]
+      properties:
+        eligible: { type: integer }
+        out_of_service: { type: integer }
+        blocked: { type: integer }
+        reserved: { type: integer, description: Confirmed reservations / rentals overlap }
+        held: { type: integer, description: Only holds (options) overlap }
+        elsewhere: { type: integer, description: Free in time but not at the pick-up branch }
+        free: { type: integer }
+        reassignable: { type: integer, description: Extra units by moving flexible commitments }
+        physical: { type: integer }
+        safety_margin: { type: integer }
+        reserved_for_other_channels: { type: integer }
+        own_quota_remaining: { type: [integer, "null"] }
+        channel_limit_remaining: { type: [integer, "null"] }
+        sellable: { type: integer }
+
+    AvailabilityProduct:
+      type: object
+      required: [product, breakdown, sellable, reasons]
+      properties:
+        product: { $ref: "#/components/schemas/AvailabilityProductRef" }
+        breakdown: { $ref: "#/components/schemas/AvailabilityBreakdown" }
+        sellable: { type: integer }
+        reasons:
+          type: array
+          items: { type: string, enum: [one_way_not_allowed, no_eligible_vehicle] }
+
+    AvailabilitySearchResult:
+      type: object
+      required: [request, items]
+      properties:
+        request: { $ref: "#/components/schemas/AvailabilityResolvedRequest" }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/AvailabilityProduct" }
+
+    EnvelopeAvailabilitySearch:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/AvailabilitySearchResult" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    AvailabilityHold:
+      type: object
+      required: [uuid, kind, status, product, vehicle, plate_fixed, pickup_branch, return_branch, pickup_point, return_point,
+        starts_at, ends_at, ready_at, prep_minutes, expires_at, channel, fleet_pool, note, ref_type, ref_uuid, released_at,
+        release_reason, created_by, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        kind: { type: string, enum: [hold, reservation, rental] }
+        status: { type: string, enum: [active, released, expired] }
+        product: { $ref: "#/components/schemas/AvailabilityProductRef" }
+        vehicle: { $ref: "#/components/schemas/TransferVehicleRef" }
+        plate_fixed: { type: boolean, description: "false = provisional plate plan (may be reassigned)" }
+        pickup_branch: { $ref: "#/components/schemas/VehicleBranchRef" }
+        return_branch: { $ref: "#/components/schemas/VehicleBranchRef" }
+        pickup_point:
+          oneOf:
+            - $ref: "#/components/schemas/AvailabilityPointRef"
+            - type: "null"
+        return_point:
+          oneOf:
+            - $ref: "#/components/schemas/AvailabilityPointRef"
+            - type: "null"
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+        ready_at: { type: string, format: date-time }
+        prep_minutes: { type: integer }
+        expires_at: { type: [string, "null"], format: date-time }
+        channel: { type: string }
+        fleet_pool: { type: string }
+        note: { type: string }
+        ref_type: { type: string }
+        ref_uuid: { type: [string, "null"], format: uuid }
+        released_at: { type: [string, "null"], format: date-time }
+        release_reason: { type: string }
+        created_by:
+          oneOf:
+            - $ref: "#/components/schemas/FleetActor"
+            - type: "null"
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    EnvelopeAvailabilityHold:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/AvailabilityHold" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    AvailabilityHoldPage:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/AvailabilityHold" }
+        total: { type: integer, format: int64 }
+        limit: { type: integer }
+        offset: { type: integer }
+
+    EnvelopeAvailabilityHoldPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/AvailabilityHoldPage" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    AvailabilityPlanResult:
+      type: object
+      required: [allocation, reassigned]
+      properties:
+        allocation: { $ref: "#/components/schemas/AvailabilityHold" }
+        reassigned: { type: integer, description: Other commitments the plan moved to another vehicle }
+
+    EnvelopeAvailabilityPlanResult:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/AvailabilityPlanResult" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    AvailabilityReleaseResult:
+      type: object
+      required: [allocation, reassigned, affected]
+      properties:
+        allocation: { $ref: "#/components/schemas/AvailabilityHold" }
+        reassigned: { type: integer }
+        affected:
+          type: array
+          items:
+            type: object
+            required: [kind, uuid]
+            properties:
+              kind: { type: string, enum: [hold, reservation, rental, transfer] }
+              uuid: { type: string, format: uuid }
+
+    EnvelopeAvailabilityReleaseResult:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/AvailabilityReleaseResult" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    AvailabilityAlternatives:
+      type: object
+      required: [products, times]
+      properties:
+        products:
+          type: array
+          items:
+            type: object
+            required: [product, sellable]
+            properties:
+              product: { $ref: "#/components/schemas/AvailabilityProductRef" }
+              sellable: { type: integer }
+        times:
+          type: array
+          items:
+            type: object
+            required: [starts_at, ends_at, sellable]
+            properties:
+              starts_at: { type: string, format: date-time }
+              ends_at: { type: string, format: date-time }
+              sellable: { type: integer }
+
+    AvailabilityCapacityError:
+      type: object
+      required: [success, error, meta]
+      properties:
+        success: { type: boolean, enum: [false] }
+        data:
+          oneOf:
+            - $ref: "#/components/schemas/AvailabilityAlternatives"
+            - type: "null"
+        error: { $ref: "#/components/schemas/ErrorBody" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    CapacityRuleRequest:
+      type: object
+      additionalProperties: false
+      required: [rule_type, quantity]
+      properties:
+        rule_type: { type: string, enum: [sales_limit, guaranteed_quota, safety_margin] }
+        channel: { type: [string, "null"], description: "Required for sales_limit / guaranteed_quota; null margin = every channel" }
+        product_uuid: { type: [string, "null"], format: uuid, description: "null = every product (each separately)" }
+        branch_uuid: { type: [string, "null"], format: uuid, description: "Pick-up branch; null = every branch" }
+        quantity: { type: integer, minimum: 0, maximum: 10000 }
+        note: { type: string }
+        is_active: { type: [boolean, "null"] }
+
+    CapacityRule:
+      type: object
+      required: [uuid, rule_type, channel, product, branch, quantity, note, is_active, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        rule_type: { type: string, enum: [sales_limit, guaranteed_quota, safety_margin] }
+        channel: { type: [string, "null"] }
+        product:
+          oneOf:
+            - $ref: "#/components/schemas/AvailabilityProductRef"
+            - type: "null"
+        branch:
+          oneOf:
+            - $ref: "#/components/schemas/VehicleBranchRef"
+            - type: "null"
+        quantity: { type: integer }
+        note: { type: string }
+        is_active: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    EnvelopeCapacityRule:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/CapacityRule" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    CapacityRulePage:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/CapacityRule" }
+        total: { type: integer, format: int64 }
+        limit: { type: integer }
+        offset: { type: integer }
+
+    EnvelopeCapacityRulePage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/CapacityRulePage" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
 
     OwnerRef:
       type: object
@@ -13087,7 +13735,10 @@ components:
       type: object
       required: [kind, uuid, label, status, starts_at, ends_at]
       properties:
-        kind: { type: string, enum: [transfer], description: "M2 adds `reservation`" }
+        kind:
+          type: string
+          enum: [transfer, hold, reservation]
+          description: "An open transfer, or an active allocation of the availability engine (label = product code)"
         uuid: { type: string, format: uuid }
         label: { type: string, example: "Merkez → İstanbul" }
         status: { type: string }
@@ -13393,10 +14044,10 @@ components:
 
     FleetCalendarInterval:
       type: object
-      required: [kind, uuid, starts_at, ends_at, clip_start, clip_end, continues_before, continues_after, block, transfer]
+      required: [kind, uuid, starts_at, ends_at, clip_start, clip_end, continues_before, continues_after, block, transfer, allocation]
       properties:
-        kind: { type: string, enum: [block, transfer], description: "M2 adds reservation" }
-        uuid: { type: string, format: uuid, description: Block or transfer uuid }
+        kind: { type: string, enum: [block, transfer, hold, reservation] }
+        uuid: { type: string, format: uuid, description: "Block, transfer or allocation uuid" }
         starts_at: { type: string, format: date-time }
         ends_at: { type: [string, "null"], format: date-time, description: "null = open-ended block" }
         clip_start: { type: string, format: date-time, description: starts_at clipped to the window }
@@ -13411,6 +14062,26 @@ components:
           oneOf:
             - $ref: "#/components/schemas/FleetCalendarTransfer"
             - type: "null"
+        allocation:
+          oneOf:
+            - $ref: "#/components/schemas/FleetCalendarAllocation"
+            - type: "null"
+
+    FleetCalendarAllocation:
+      type: object
+      description: |
+        A hold ("opsiyon") or reservation bar (TEC-697). The bar spans the period with the
+        preparation buffer of the return branch; `starts_at` / `ends_at` are the customer range.
+      required: [product, pickup_branch, return_branch, starts_at, ends_at, expires_at, plate_fixed, channel]
+      properties:
+        product: { $ref: "#/components/schemas/OneWayRuleProductRef" }
+        pickup_branch: { $ref: "#/components/schemas/VehicleBranchRef" }
+        return_branch: { $ref: "#/components/schemas/VehicleBranchRef" }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+        expires_at: { type: [string, "null"], format: date-time, description: Holds only }
+        plate_fixed: { type: boolean }
+        channel: { type: string }
 
     FleetCalendarMaintenance:
       type: object
@@ -13452,7 +14123,7 @@ components:
         offset: { type: integer }
         layers:
           type: array
-          items: { type: string, enum: [block, transfer, maintenance] }
+          items: { type: string, enum: [block, transfer, hold, reservation, maintenance] }
 
     EnvelopeFleetCalendar:
       type: object

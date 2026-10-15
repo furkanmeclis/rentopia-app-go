@@ -124,5 +124,11 @@
   "labels.tenant.pricing.read": "Fiyatlandırmayı görüntüle (tarifeler, kurallar, önizleme)",
   "labels.tenant.pricing.write": "Fiyat taslaklarını düzenle (tarife, matris, içe aktarma, kural)",
   "labels.tenant.pricing.activate": "Fiyatları aktifleştir / pasifleştir",
-  "groups.tenant_pricing": "Fiyatlandırma"
+  "groups.tenant_pricing": "Fiyatlandırma",
+  "labels.tenant.availability.read": "Müsaitliği sorgula",
+  "labels.tenant.availability.hold": "Opsiyon koy, uzat, kaldır",
+  "labels.tenant.capacity_rules.read": "Kanal kapasite kurallarını görüntüle",
+  "labels.tenant.capacity_rules.write": "Kanal kapasite kurallarını yönet",
+  "groups.tenant_availability": "Müsaitlik",
+  "groups.tenant_capacity_rules": "Kanal kapasite kuralları"
 }

@@ -70,9 +70,13 @@ var TransferStatuses = []string{TransferPlanned, TransferInTransit, TransferComp
 // ArrivalStatuses are the vehicle statuses a completed transfer may leave.
 var ArrivalStatuses = []string{"available", "preparing"}
 
-// Affected kinds (items a block change touches). Reservations join in M2.
+// Affected kinds (items a block change touches): open transfers and the
+// active allocations of the availability engine (TEC-697), whose kind is
+// the allocation kind.
 const (
-	AffectedTransfer = "transfer"
+	AffectedTransfer    = "transfer"
+	AffectedHold        = "hold"
+	AffectedReservation = "reservation"
 )
 
 // Actor is a user embedded in a record.
@@ -122,8 +126,8 @@ type Block struct {
 	UpdatedAt   time.Time  `json:"updated_at"`
 }
 
-// Affected is an item a block overlaps (kind transfer today; M2 adds
-// reservation). The caller decides what to do with it.
+// Affected is an item a block overlaps (transfer, hold or reservation).
+// The caller decides what to do with it.
 type Affected struct {
 	Kind     string     `json:"kind"`
 	UUID     uuid.UUID  `json:"uuid"`
@@ -136,8 +140,8 @@ type Affected struct {
 // BlockResult is the answer of every block mutation.
 type BlockResult struct {
 	Block Block `json:"block"`
-	// Affected lists the open transfers (later: reservations) the block
-	// now overlaps.
+	// Affected lists the open transfers and the active holds /
+	// reservations the block now overlaps.
 	Affected []Affected `json:"affected"`
 	// VehicleStatus is the vehicle status after the change; StatusChanged
 	// tells whether the call changed it (sync_status).

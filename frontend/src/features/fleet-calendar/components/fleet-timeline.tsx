@@ -16,6 +16,7 @@ import {
   MaintenanceDetails,
 } from "@/features/fleet-calendar/components/bar-details";
 import {
+  ALLOCATION_BAR_CLASSES,
   BLOCK_BAR_CLASSES,
   MAINTENANCE_MARKER_CLASSES,
   MAINTENANCE_STATE_LABEL_KEYS,
@@ -60,10 +61,11 @@ const MIN_BAR_WIDTH = 8;
 const MARKER_SIZE = 22;
 
 /**
- * Drag & drop extension point. Reservations (M2) will be draggable onto
- * another vehicle row ("plaka değişimi"); blocks, transfers and maintenance
- * never are. Until then no bar passes `canDragBar`, so the timeline renders
- * the affordance disabled and `onBarDrop` is never called.
+ * Drag & drop extension point. Reservations (TEC-706) will be draggable onto
+ * another vehicle row ("plaka değişimi" = the availability engine's
+ * AssignPlate); blocks, transfers, holds and maintenance never are. Until
+ * the reservation API exists no bar passes `canDragBar`, so the timeline
+ * renders the affordance disabled and `onBarDrop` is never called.
  */
 export type TimelineDragProps = {
   canDragBar?: (bar: FleetCalendarInterval) => boolean;
@@ -98,6 +100,9 @@ function useNow(intervalMs = 60_000) {
 function barClasses(interval: FleetCalendarInterval) {
   if (interval.block) return BLOCK_BAR_CLASSES[interval.block.kind];
   if (interval.transfer) return TRANSFER_BAR_CLASSES[interval.transfer.status];
+  if (interval.kind === "hold") return ALLOCATION_BAR_CLASSES.hold;
+  if (interval.kind === "reservation")
+    return ALLOCATION_BAR_CLASSES.reservation;
   return "bg-muted text-foreground border-border";
 }
 
@@ -107,8 +112,9 @@ type Lane =
 
 /**
  * Vehicles × time grid: sticky vehicle column and time header, horizontal
- * scroll, a "now" line, bars for blocks and transfers (planned range as a
- * dashed ghost behind the actual one) and maintenance day markers. Every
+ * scroll, a "now" line, bars for blocks, transfers (planned range as a
+ * dashed ghost behind the actual one), holds and reservations (with the
+ * preparation buffer) and maintenance day markers. Every
  * bar is a button: Tab reaches it, Enter / Space open its popover.
  */
 export function FleetTimeline({
@@ -165,6 +171,13 @@ export function FleetTimeline({
     if (interval.transfer) {
       return `${t("fleet_calendar.bar.transfer")} ${interval.transfer.from_branch.code} → ${interval.transfer.to_branch.code} · ${t(TRANSFER_STATUS_LABEL_KEYS[interval.transfer.status])} · ${range}`;
     }
+    if (interval.allocation) {
+      const label =
+        interval.kind === "hold"
+          ? t("fleet_calendar.bar.hold")
+          : t("fleet_calendar.bar.reservation");
+      return `${label} ${interval.allocation.product.code} · ${interval.allocation.pickup_branch.code} → ${interval.allocation.return_branch.code} · ${range}`;
+    }
     return range;
   };
 
@@ -176,6 +189,9 @@ export function FleetTimeline({
     }
     if (interval.transfer) {
       return `${interval.transfer.from_branch.code} → ${interval.transfer.to_branch.code}`;
+    }
+    if (interval.allocation) {
+      return interval.allocation.product.code;
     }
     return "";
   };

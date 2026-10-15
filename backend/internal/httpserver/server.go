@@ -27,6 +27,9 @@ import (
 	authsettingsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/authsettings"
 	authsettingshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/authsettings/handler"
 	authsettingsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/authsettings/usecase"
+	availabilitymodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/availability"
+	availabilityhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/availability/handler"
+	availabilityusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/availability/usecase"
 	branchesmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/branches"
 	branchadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/branches/adapters"
 	branchhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/branches/handler"
@@ -357,6 +360,8 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	// Pricing (TEC-700 / TEC-701): rate plans, date rules, preview.
 	pricingSvc := pricingusecase.New(pricingrepository.NewPostgres(deps.DB, deps.Queries), orgSettingsSvc)
 	pricingSvc.SetOneWayResolver(pricingadapters.NewOneWay(fleetOpsSvc))
+	// Availability engine (TEC-697): capacity search, holds, channel rules.
+	availabilitySvc := availabilityusecase.New(deps.DB, deps.Queries, vehicleSvc, orgSettingsSvc)
 
 	// Live lists of tenant resources: org:{org_uuid}:resource:{name}, open to
 	// members whose tenant role grants the resource's read permission.
@@ -367,6 +372,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	vehiclesmodule.RegisterLiveResources(tenantLive)
 	fleetopsmodule.RegisterLiveResources(tenantLive)
 	pricingmodule.RegisterLiveResources(tenantLive)
+	availabilitymodule.RegisterLiveResources(tenantLive)
 	resourceEvents.AddResolver(tenantmodule.ChannelResolver(tenantmodule.QueriesLookup(deps.Queries)))
 	uc.AddChannelRules(tenantmodule.ChannelRule(tenantLive, tenantResolver))
 	catalogmodule.RegisterLiveResources(liveResources)
@@ -524,6 +530,9 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		SamplePlans: importH.TenantSample(pricingmodule.ResourceRatePlans),
 		ExportRules: exportH.TenantExport(pricingmodule.ResourceDateRules, pricingmodule.DateRuleExportKeys...),
 	}, tokens, loader, tenantResolver)
+	availabilityH := availabilityhandler.New(availabilitySvc, activityRec)
+	availabilityH.SetResourceEvents(resourceEvents)
+	availabilitymodule.RegisterRoutes(mux, availabilityH, tokens, loader, tenantResolver)
 	settingsmodule.RegisterRoutes(mux, settingshandler.New(
 		settingsusecase.New(deps.Queries),
 		deps.Storage,

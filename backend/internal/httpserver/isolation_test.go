@@ -314,6 +314,18 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			"product_scope": "segments", "segment_uuids": []string{ids["segment"]},
 			"all_branches": false, "branch_uuids": []string{ids["branch"]},
 		}), http.StatusCreated, "create date rule"), "uuid")
+		// Availability (TEC-697): the published product gets a hold at the
+		// transfer's destination (the vehicle is there from day 2) and a
+		// channel capacity rule.
+		must(call(o, http.MethodPatch, "/v1/tenant/products/"+ids["product"], map[string]any{"status": "published"}),
+			http.StatusOK, "publish product")
+		ids["hold"] = str(must(call(o, http.MethodPost, "/v1/tenant/availability/holds", map[string]any{
+			"product_uuid": ids["product"], "pickup_branch_uuid": ids["branch"], "starts_at": day(4), "ends_at": day(5),
+			"hold_minutes": 600, "note": m,
+		}), http.StatusCreated, "create hold"), "allocation", "uuid")
+		ids["capacityRule"] = str(must(call(o, http.MethodPost, "/v1/tenant/capacity-rules", map[string]any{
+			"rule_type": "safety_margin", "quantity": 0, "product_uuid": ids["product"], "note": m,
+		}), http.StatusCreated, "create capacity rule"), "uuid")
 		ids["role"] = str(must(call(o, http.MethodPost, "/v1/tenant/roles", map[string]any{
 			"key": "iso_role", "name": m + " Rol", "permissions": []string{rbac.PermTenantMembersRead},
 		}), http.StatusCreated, "create role"), "uuid")
@@ -606,6 +618,23 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			"date_rule_draft": map[string]any{"start_date": date(1), "end_date": date(3), "kind": "percent", "value": 10,
 				"product_scope": "segments", "segment_uuids": []string{orgB.ids["segment"]}},
 		}), reject},
+		// Availability: search / hold / capacity rule bodies naming B's records.
+		{"POST /v1/tenant/availability/search", map[string]any{"pickup_branch_uuid": orgB.ids["branch"],
+			"starts_at": day(20), "ends_at": day(21)}, reject},
+		{"POST /v1/tenant/availability/search", map[string]any{"pickup_branch_uuid": orgA.ids["branch"],
+			"starts_at": day(20), "ends_at": day(21), "product_uuids": []string{orgB.ids["product"]}}, reject},
+		{"POST /v1/tenant/availability/search", map[string]any{"pickup_point_uuid": orgB.ids["point"],
+			"starts_at": day(20), "ends_at": day(21)}, reject},
+		{"POST /v1/tenant/availability/holds", map[string]any{"product_uuid": orgB.ids["product"],
+			"pickup_branch_uuid": orgA.ids["branch"], "starts_at": day(20), "ends_at": day(21)}, reject},
+		{"POST /v1/tenant/availability/holds", map[string]any{"product_uuid": orgA.ids["product"],
+			"pickup_branch_uuid": orgA.ids["branch"], "return_branch_uuid": orgB.ids["branch"], "starts_at": day(20), "ends_at": day(21)}, reject},
+		{"POST /v1/tenant/availability/holds", map[string]any{"product_uuid": orgA.ids["product"],
+			"pickup_branch_uuid": orgA.ids["branch"], "starts_at": day(20), "ends_at": day(21), "vehicle_uuid": orgB.ids["vehicle"]}, reject},
+		{"POST /v1/tenant/capacity-rules", map[string]any{"rule_type": "safety_margin", "quantity": 1,
+			"product_uuid": orgB.ids["product"]}, reject},
+		{"POST /v1/tenant/capacity-rules", map[string]any{"rule_type": "safety_margin", "quantity": 1,
+			"branch_uuid": orgB.ids["branch"]}, reject},
 		// Action parameters naming B's records, on A's vehicle.
 		{"POST /v1/tenant/vehicles/bulk", map[string]any{"action": "move_branch", "params": map[string]any{"branch_uuid": orgB.ids["branch"]},
 			"target": map[string]any{"scope": "ids", "ids": []string{orgA.ids["vehicle"]}}}, reject},
@@ -642,6 +671,8 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		{"PUT /v1/tenant/products/" + orgA.ids["product"] + "/images/order", map[string]any{"image_uuids": []string{orgB.ids["image"]}}, reject},
 		{"PATCH /v1/tenant/date-rules/" + orgA.ids["dateRule"], map[string]any{"segment_uuids": []string{orgB.ids["segment"]}}, reject},
 		{"PATCH /v1/tenant/date-rules/" + orgA.ids["dateRule"], map[string]any{"all_branches": false, "branch_uuids": []string{orgB.ids["home"]}}, reject},
+		{"PUT /v1/tenant/capacity-rules/" + orgA.ids["capacityRule"], map[string]any{"rule_type": "safety_margin", "quantity": 1,
+			"product_uuid": orgB.ids["product"]}, reject},
 	}
 	for _, c := range ownCases {
 		method, path, _ := strings.Cut(c.route, " ")
@@ -826,6 +857,10 @@ func paramKey(prev, name string) string {
 		return "importJob"
 	case "bulk/uuid":
 		return "bulkJob"
+	case "holds/uuid":
+		return "hold"
+	case "capacity-rules/uuid":
+		return "capacityRule"
 	case "versions/version":
 		return "version"
 	case "rate-plans/uuid":

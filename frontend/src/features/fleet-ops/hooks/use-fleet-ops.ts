@@ -65,7 +65,7 @@ function useInvalidateFleetOps() {
     ]);
 }
 
-/** Warns about the open transfers (later: reservations) a block overlaps. */
+/** Warns about the open transfers, holds and reservations a block overlaps. */
 function useAffectedToast() {
   const { t } = useLocale();
   return (result: VehicleBlockResult) => {

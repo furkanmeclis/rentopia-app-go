@@ -53,5 +53,7 @@
   "section_pricing": "Pricing",
   "nav_pricing_plans": "Rate plans",
   "nav_pricing_rules": "Date rules",
-  "nav_pricing_preview": "Price preview"
+  "nav_pricing_preview": "Price preview",
+  "nav_availability": "Availability",
+  "nav_fleet_capacity_rules": "Channel capacity rules"
 }

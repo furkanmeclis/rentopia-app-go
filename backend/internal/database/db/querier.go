@@ -33,6 +33,9 @@ type Querier interface {
 	ClearAppSettingsLogo(ctx context.Context) (AppSetting, error)
 	ClearVehicleRentalGroups(ctx context.Context, arg ClearVehicleRentalGroupsParams) error
 	CompleteVehicleTransfer(ctx context.Context, arg CompleteVehicleTransferParams) (int64, error)
+	// Hold -> confirmed reservation (TEC-706): same row, so capacity is never
+	// consumed twice.
+	ConfirmAllocation(ctx context.Context, arg ConfirmAllocationParams) (int64, error)
 	ConfirmUserTOTP(ctx context.Context, arg ConfirmUserTOTPParams) (UserTotp, error)
 	ConsumeOTP(ctx context.Context, id int64) (int64, error)
 	CopyDateRuleTargets(ctx context.Context, arg CopyDateRuleTargetsParams) error
@@ -94,6 +97,7 @@ type Querier interface {
 	// Every query filters by organization_id (see docs/design/tenant-core.md §8).
 	CreateBranch(ctx context.Context, arg CreateBranchParams) (Branch, error)
 	CreateBulkJob(ctx context.Context, arg CreateBulkJobParams) (BulkJob, error)
+	CreateCapacityRule(ctx context.Context, arg CreateCapacityRuleParams) (uuid.UUID, error)
 	CreateCatalogDisplayBrand(ctx context.Context, arg CreateCatalogDisplayBrandParams) (CatalogDisplayBrand, error)
 	CreateCatalogImport(ctx context.Context, arg CreateCatalogImportParams) (CatalogImport, error)
 	CreateCatalogModel(ctx context.Context, arg CreateCatalogModelParams) (CatalogModel, error)
@@ -204,6 +208,7 @@ type Querier interface {
 	// First device registration opts the user into push (the OS permission
 	// prompt is the consent). An existing preference row is left untouched.
 	EnsureNotificationPreferencesPushDefault(ctx context.Context, userID int64) error
+	ExtendHold(ctx context.Context, arg ExtendHoldParams) (int64, error)
 	ExtensionExists(ctx context.Context, extname string) (bool, error)
 	// Import: catalog types with a TSB type code (codes are unique per TSB
 	// brand only, so several may match).
@@ -226,14 +231,30 @@ type Querier interface {
 	// clients) a TSB brand uuid mapped to its display brand.
 	GetActiveCatalogDisplayBrandForTenant(ctx context.Context, ref uuid.UUID) (GetActiveCatalogDisplayBrandForTenantRow, error)
 	GetActiveOTPByEmailType(ctx context.Context, arg GetActiveOTPByEmailTypeParams) (OtpCode, error)
+	GetAllocation(ctx context.Context, arg GetAllocationParams) (GetAllocationRow, error)
+	// The planning facts of one allocation by uuid.
+	GetAllocationRef(ctx context.Context, arg GetAllocationRefParams) (GetAllocationRefRow, error)
 	GetAppLogByUUID(ctx context.Context, argUuid uuid.UUID) (AppLog, error)
 	GetAppSettings(ctx context.Context) (AppSetting, error)
 	GetAuthSettings(ctx context.Context) (GetAuthSettingsRow, error)
+	GetAvailabilityBranch(ctx context.Context, arg GetAvailabilityBranchParams) (GetAvailabilityBranchRow, error)
+	// Availability engine (TEC-697, docs/design/availability-engine.md). Every
+	// query filters by organization_id (docs/design/tenant-core.md §8). The
+	// engine reads vehicles, blocks, transfers and allocations of one
+	// eligibility component inside its advisory lock and writes the plan back
+	// in the same transaction.
+	// Changes whenever the inputs of the cached eligibility graph change
+	// (vehicles, products, versions, rental groups and their criteria).
+	GetAvailabilityFingerprint(ctx context.Context, organizationID int64) (string, error)
+	GetAvailabilityProduct(ctx context.Context, arg GetAvailabilityProductParams) (GetAvailabilityProductRow, error)
+	GetAvailabilityServicePoint(ctx context.Context, arg GetAvailabilityServicePointParams) (GetAvailabilityServicePointRow, error)
+	GetAvailabilityVehicle(ctx context.Context, arg GetAvailabilityVehicleParams) (GetAvailabilityVehicleRow, error)
 	GetBranchByCode(ctx context.Context, arg GetBranchByCodeParams) (Branch, error)
 	GetBranchByUUID(ctx context.Context, arg GetBranchByUUIDParams) (Branch, error)
 	GetBranchSearchDocument(ctx context.Context, arg GetBranchSearchDocumentParams) (GetBranchSearchDocumentRow, error)
 	GetBulkJobByID(ctx context.Context, id int64) (BulkJob, error)
 	GetBulkJobByUUID(ctx context.Context, argUuid uuid.UUID) (BulkJob, error)
+	GetCapacityRule(ctx context.Context, arg GetCapacityRuleParams) (GetCapacityRuleRow, error)
 	GetCatalogBrandByUUID(ctx context.Context, argUuid uuid.UUID) (GetCatalogBrandByUUIDRow, error)
 	GetCatalogDisplayBrandByName(ctx context.Context, name string) (CatalogDisplayBrand, error)
 	GetCatalogDisplayBrandByUUID(ctx context.Context, argUuid uuid.UUID) (GetCatalogDisplayBrandByUUIDRow, error)
@@ -340,6 +361,7 @@ type Querier interface {
 	HasActivePushDevices(ctx context.Context, userID int64) (bool, error)
 	IncrementOTPAttempts(ctx context.Context, id int64) (OtpCode, error)
 	InsertActivityEvent(ctx context.Context, arg InsertActivityEventParams) (ActivityEvent, error)
+	InsertAllocation(ctx context.Context, arg InsertAllocationParams) (InsertAllocationRow, error)
 	InsertAppLog(ctx context.Context, arg InsertAppLogParams) error
 	InsertBulkChange(ctx context.Context, arg InsertBulkChangeParams) (BulkChange, error)
 	InsertDateRuleTarget(ctx context.Context, arg InsertDateRuleTargetParams) error
@@ -361,6 +383,8 @@ type Querier interface {
 	InsertVehicleEvent(ctx context.Context, arg InsertVehicleEventParams) (VehicleEvent, error)
 	InvalidateActiveOTPs(ctx context.Context, arg InvalidateActiveOTPsParams) error
 	LatestOrganizationSettingsVersion(ctx context.Context, organizationID int64) (int32, error)
+	// ------------------------------------------------- channel capacity rules
+	ListActiveCapacityRules(ctx context.Context, organizationID int64) ([]ListActiveCapacityRulesRow, error)
 	// Active versions of active rules whose range overlaps [date_from, date_to)
 	// (NULL bounds = unbounded): engine candidates and activation overlaps.
 	ListActiveDateRuleVersions(ctx context.Context, arg ListActiveDateRuleVersionsParams) ([]ListActiveDateRuleVersionsRow, error)
@@ -378,8 +402,27 @@ type Querier interface {
 	ListAllExportJobs(ctx context.Context, arg ListAllExportJobsParams) ([]ExportJob, error)
 	ListAllImportJobs(ctx context.Context, arg ListAllImportJobsParams) ([]ImportJob, error)
 	ListAllPermissionSlugs(ctx context.Context) ([]string, error)
+	// One page of allocations (newest first) in the caller's branch scope
+	// (pick-up OR return branch); the caller hydrates each with GetAllocation.
+	ListAllocationUUIDs(ctx context.Context, arg ListAllocationUUIDsParams) ([]ListAllocationUUIDsRow, error)
 	ListAppLogSources(ctx context.Context) ([]string, error)
 	ListAppLogs(ctx context.Context, arg ListAppLogsParams) ([]AppLog, error)
+	// Active allocations of the vehicles that end after now. Holds past their
+	// expiry are returned too (due = true): the caller expires them first.
+	ListAvailabilityAllocations(ctx context.Context, arg ListAvailabilityAllocationsParams) ([]ListAvailabilityAllocationsRow, error)
+	ListAvailabilityBranchesByIDs(ctx context.Context, arg ListAvailabilityBranchesByIDsParams) ([]ListAvailabilityBranchesByIDsRow, error)
+	// Every version of every product of the organization (live or not: active
+	// allocations keep the version they were sold with), with the product.
+	ListAvailabilityProductVersions(ctx context.Context, organizationID int64) ([]ListAvailabilityProductVersionsRow, error)
+	// Blocks and open transfers of the vehicles that end after now (completed
+	// transfers are already reflected in current_branch_id).
+	ListAvailabilitySegments(ctx context.Context, arg ListAvailabilitySegmentsParams) ([]ListAvailabilitySegmentsRow, error)
+	// Fresh location / liveness of the component's vehicles (inside the lock).
+	ListAvailabilityVehicleStates(ctx context.Context, arg ListAvailabilityVehicleStatesParams) ([]ListAvailabilityVehicleStatesRow, error)
+	// Active, unexpired allocations (holds / reservations, TEC-697) of a vehicle
+	// that overlap [starts_at, ends_at) (NULL end = unbounded): the commitments a
+	// block now makes impossible on this vehicle (affected[]).
+	ListBlockAffectedAllocations(ctx context.Context, arg ListBlockAffectedAllocationsParams) ([]ListBlockAffectedAllocationsRow, error)
 	ListBranchCityFacets(ctx context.Context, arg ListBranchCityFacetsParams) ([]ListBranchCityFacetsRow, error)
 	ListBranchIDsByUUIDs(ctx context.Context, arg ListBranchIDsByUUIDsParams) ([]ListBranchIDsByUUIDsRow, error)
 	ListBranchSearchDocuments(ctx context.Context, organizationID int64) ([]ListBranchSearchDocumentsRow, error)
@@ -388,6 +431,7 @@ type Querier interface {
 	ListBranchesForExport(ctx context.Context, arg ListBranchesForExportParams) ([]Branch, error)
 	ListBulkChangesForJob(ctx context.Context, jobID int64) ([]BulkChange, error)
 	ListBulkJobsForActor(ctx context.Context, arg ListBulkJobsForActorParams) ([]BulkJob, error)
+	ListCapacityRules(ctx context.Context, arg ListCapacityRulesParams) ([]ListCapacityRulesRow, error)
 	// Platform vehicle catalog (TSB kasko list).
 	ListCatalogBrands(ctx context.Context, arg ListCatalogBrandsParams) ([]ListCatalogBrandsRow, error)
 	ListCatalogBrandsAll(ctx context.Context) ([]CatalogBrand, error)
@@ -418,12 +462,16 @@ type Querier interface {
 	// effective range [start, end) overlaps [date_from, date_to].
 	ListDateRules(ctx context.Context, arg ListDateRulesParams) ([]ListDateRulesRow, error)
 	ListDateRulesForExport(ctx context.Context, arg ListDateRulesForExportParams) ([]ListDateRulesForExportRow, error)
+	// Organizations with active holds past their expiry (expiry sweep).
+	ListDueHoldOrganizations(ctx context.Context, nowAt pgtype.Timestamptz) ([]int64, error)
+	ListDueHolds(ctx context.Context, arg ListDueHoldsParams) ([]ListDueHoldsRow, error)
 	ListDuePushTickets(ctx context.Context, arg ListDuePushTicketsParams) ([]ListDuePushTicketsRow, error)
 	ListEnabledLogPurgeRules(ctx context.Context) ([]LogPurgeRule, error)
 	ListExportJobsForActor(ctx context.Context, arg ListExportJobsForActorParams) ([]ExportJob, error)
-	// Busy intervals (vehicle_busy_intervals: blocks and non-cancelled
-	// transfers) of the given vehicles that overlap [from_at, to_at), with the
-	// block / transfer details the calendar bars show.
+	// Busy intervals (vehicle_busy_intervals: blocks, non-cancelled transfers
+	// and active allocations - holds / reservations, TEC-697) of the given
+	// vehicles that overlap [from_at, to_at), with the block / transfer /
+	// allocation details the calendar bars show.
 	ListFleetCalendarIntervals(ctx context.Context, arg ListFleetCalendarIntervalsParams) ([]ListFleetCalendarIntervalsRow, error)
 	// Maintenance of the given vehicles on a day in [from_day, to_day): open
 	// plans by their planned date, done items by their done date. Plans with a
@@ -501,6 +549,9 @@ type Querier interface {
 	ListPricingProducts(ctx context.Context, organizationID int64) ([]ListPricingProductsRow, error)
 	ListPricingProductsByUUIDs(ctx context.Context, arg ListPricingProductsByUUIDsParams) ([]ListPricingProductsByUUIDsRow, error)
 	ListPricingSegmentsByUUIDs(ctx context.Context, arg ListPricingSegmentsByUUIDsParams) ([]ListPricingSegmentsByUUIDsRow, error)
+	// Active, unexpired allocations of a product whose customer range overlaps
+	// [from_at, to_at): channel rule accounting.
+	ListProductCommitments(ctx context.Context, arg ListProductCommitmentsParams) ([]ListProductCommitmentsRow, error)
 	ListPushSubscriptionsByUser(ctx context.Context, userID int64) ([]PushSubscription, error)
 	ListRateBandsByVersions(ctx context.Context, arg ListRateBandsByVersionsParams) ([]ListRateBandsByVersionsRow, error)
 	// facet: rental_product | branch | scope | channel | status, in the caller's
@@ -601,6 +652,8 @@ type Querier interface {
 	ListVehicles(ctx context.Context, arg ListVehiclesParams) ([]ListVehiclesRow, error)
 	ListWebAuthnCredentialsByUserID(ctx context.Context, userID int64) ([]WebauthnCredential, error)
 	ListWebAuthnCredentialsForUserIDs(ctx context.Context, userIds []int64) ([]WebauthnCredential, error)
+	// Serialises the planners of one eligibility component (transaction-scoped).
+	LockAvailabilityComponent(ctx context.Context, lockKey int64) error
 	LockDateRule(ctx context.Context, arg LockDateRuleParams) (int64, error)
 	LockInvitationByTokenHash(ctx context.Context, tokenHash string) (OrganizationInvitation, error)
 	LockOrganizationRow(ctx context.Context, id int64) (Organization, error)
@@ -632,6 +685,9 @@ type Querier interface {
 	MarkOutboxRetry(ctx context.Context, arg MarkOutboxRetryParams) error
 	// OAuth sign-up stores a random hash; the user never chose a password.
 	MarkUserPasswordUnset(ctx context.Context, id int64) error
+	// A reassignment step; matches only when the row is still where the plan
+	// found it (optimistic check: 0 rows = the plan is stale, retry).
+	MoveAllocation(ctx context.Context, arg MoveAllocationParams) (int64, error)
 	MoveCatalogBrandsDisplayBrand(ctx context.Context, arg MoveCatalogBrandsDisplayBrandParams) (int64, error)
 	// Another live rule with the same route and product (NULL = generic).
 	OneWayRouteTaken(ctx context.Context, arg OneWayRouteTakenParams) (bool, error)
@@ -639,6 +695,8 @@ type Querier interface {
 	QueueImportJob(ctx context.Context, argUuid uuid.UUID) (ImportJob, error)
 	ReassignCatalogModelRules(ctx context.Context, arg ReassignCatalogModelRulesParams) (int64, error)
 	ReassignCatalogTypesModel(ctx context.Context, arg ReassignCatalogTypesModelParams) (int64, error)
+	// Cancel / release: leaves "active" exactly once.
+	ReleaseAllocation(ctx context.Context, arg ReleaseAllocationParams) (int64, error)
 	// "Engeli kapat": the block ends at released_at.
 	ReleaseVehicleBlock(ctx context.Context, arg ReleaseVehicleBlockParams) (int64, error)
 	RemoveUserRoleBySlug(ctx context.Context, arg RemoveUserRoleBySlugParams) error
@@ -646,6 +704,8 @@ type Querier interface {
 	RentalGroupCodeTaken(ctx context.Context, arg RentalGroupCodeTakenParams) (bool, error)
 	RentalProductCodeTaken(ctx context.Context, arg RentalProductCodeTakenParams) (bool, error)
 	ReplaceUserRoles(ctx context.Context, userID int64) error
+	// Date change / plate assignment of one allocation (same optimistic check).
+	ReplanAllocation(ctx context.Context, arg ReplanAllocationParams) (int64, error)
 	ResolveOrganizationScopeBySlug(ctx context.Context, arg ResolveOrganizationScopeBySlugParams) (ResolveOrganizationScopeBySlugRow, error)
 	ResolveOrganizationScopeByUUID(ctx context.Context, arg ResolveOrganizationScopeByUUIDParams) (ResolveOrganizationScopeByUUIDRow, error)
 	RevokeAllRefreshTokensForUser(ctx context.Context, userID int64) error
@@ -687,6 +747,7 @@ type Querier interface {
 	SetVehicleTransferCost(ctx context.Context, arg SetVehicleTransferCostParams) (int64, error)
 	SlugExists(ctx context.Context, slug string) (bool, error)
 	SoftDeleteBranch(ctx context.Context, arg SoftDeleteBranchParams) (int64, error)
+	SoftDeleteCapacityRule(ctx context.Context, arg SoftDeleteCapacityRuleParams) (int64, error)
 	SoftDeleteDateRule(ctx context.Context, arg SoftDeleteDateRuleParams) (int64, error)
 	SoftDeleteOneWayRule(ctx context.Context, arg SoftDeleteOneWayRuleParams) (int64, error)
 	SoftDeleteOrganization(ctx context.Context, argUuid uuid.UUID) (Organization, error)
@@ -719,6 +780,7 @@ type Querier interface {
 	UpdateAppSettings(ctx context.Context, arg UpdateAppSettingsParams) (AppSetting, error)
 	UpdateAuthSettings(ctx context.Context, arg UpdateAuthSettingsParams) (AuthSetting, error)
 	UpdateBranch(ctx context.Context, arg UpdateBranchParams) (Branch, error)
+	UpdateCapacityRule(ctx context.Context, arg UpdateCapacityRuleParams) (int64, error)
 	UpdateCatalogBrand(ctx context.Context, arg UpdateCatalogBrandParams) (CatalogBrand, error)
 	UpdateCatalogDisplayBrand(ctx context.Context, arg UpdateCatalogDisplayBrandParams) (CatalogDisplayBrand, error)
 	UpdateCatalogImportState(ctx context.Context, arg UpdateCatalogImportStateParams) (CatalogImport, error)
