@@ -113,7 +113,27 @@ func (s *Service) CreateBlock(ctx context.Context, orgID int64, vehicleUUID uuid
 	if err != nil {
 		return model.BlockResult{}, s.blockWriteErr(ctx, orgID, v.ID, fields, 0, err)
 	}
-	return s.blockResult(ctx, orgID, v.ID, v.Uuid, id, changed)
+	return s.reactToAffected(ctx, orgID, v.ID, v.Uuid, id, changed)
+}
+
+// reactToAffected hands the allocations a block overlaps to the affected
+// handler (re-plan / resolution tasks) and answers the state after it.
+func (s *Service) reactToAffected(ctx context.Context, orgID, vehicleID int64, vehicleUUID, blockUUID uuid.UUID, changed bool) (model.BlockResult, error) {
+	res, err := s.blockResult(ctx, orgID, vehicleID, vehicleUUID, blockUUID, changed)
+	if err != nil || s.affected == nil {
+		return res, err
+	}
+	allocs := []uuid.UUID{}
+	for _, a := range res.Affected {
+		if a.Kind == model.AffectedHold || a.Kind == model.AffectedReservation {
+			allocs = append(allocs, a.UUID)
+		}
+	}
+	if len(allocs) == 0 {
+		return res, nil
+	}
+	s.affected.AllocationsAffected(ctx, orgID, "block", blockUUID, allocs)
+	return s.blockResult(ctx, orgID, vehicleID, vehicleUUID, blockUUID, changed)
 }
 
 // PatchBlock changes the kind, range or reason of a block ("süreyi uzat"
@@ -147,7 +167,7 @@ func (s *Service) PatchBlock(ctx context.Context, orgID int64, vehicleUUID, bloc
 		}
 		return model.BlockResult{}, s.blockWriteErr(ctx, orgID, v.ID, fields, row.ID, err)
 	}
-	return s.blockResult(ctx, orgID, v.ID, v.Uuid, blockUUID, false)
+	return s.reactToAffected(ctx, orgID, v.ID, v.Uuid, blockUUID, false)
 }
 
 // ReleaseBlock is "Engeli kapat": an active block ends now. With

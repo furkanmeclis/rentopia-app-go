@@ -45,6 +45,8 @@ import (
 	pricingadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/adapters"
 	pricingrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/repository"
 	pricingusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/usecase"
+	reservationadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/adapters"
+	reservationusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/usecase"
 	tenantmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tenant"
 	vehiclerecordsadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehiclerecords/adapters"
 	vehiclerecordsrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehiclerecords/repository"
@@ -172,6 +174,13 @@ func main() {
 	// bulk).
 	extrasSvc := extrasusecase.New(pool, queries)
 	campaignsSvc := campaignsusecase.New(pool, queries)
+	// Reservations: export, bulk cancel / assign, the review / payment
+	// window sweep; blocks created by jobs re-plan affected reservations.
+	reservationSvc := reservationusecase.New(pool, queries, availabilitySvc, pricingSvc,
+		orgsettingsusecase.New(orgsettingsrepository.NewPostgres(pool, queries)))
+	reservationSvc.SetEquipment(reservationadapters.NewEquipment(extrasSvc))
+	reservationSvc.SetCoupons(reservationadapters.NewCoupons(campaignsSvc))
+	fleetOpsSvc.SetAffectedHandler(reservationadapters.NewAffected(reservationSvc))
 	vehicleBulk := vehicleadapters.NewBulk(vehicleSvc)
 	vehicleBulk.SetMaintenance(fleetopsadapters.NewMaintenance(fleetOpsSvc))
 	// Platform organizations (export, bulk activate / suspend). Status
@@ -201,6 +210,7 @@ func main() {
 		pricingadapters.NewDateRulesIO(pricingSvc),
 		extrasadapters.NewIO(extrasSvc),
 		campaignsadapters.NewIO(campaignsSvc),
+		reservationadapters.NewIO(reservationSvc),
 		orgadapters.NewIO(jobScopes),
 		customeradapters.NewIO(customerSvc),
 	)
@@ -216,6 +226,7 @@ func main() {
 		fleetopsadapters.NewOneWayBulk(fleetOpsSvc),
 		extrasadapters.NewBulk(extrasSvc),
 		campaignsadapters.NewBulk(campaignsSvc),
+		reservationadapters.NewBulk(reservationSvc),
 		orgadapters.NewBulk(jobScopes),
 		customeradapters.NewBulk(customerSvc),
 	)
@@ -256,6 +267,7 @@ func main() {
 	catalogSvc.SetResourceEvents(resourceEvents)
 	importSvc.SetResourceEvents(resourceEvents)
 	bulkSvc.SetResourceEvents(resourceEvents)
+	reservationSvc.SetResourceEvents(resourceEvents)
 
 	worker := queue.NewWorker(cfg, log, notifSvc.Deliver).
 		WithExport(exportSvc.ProcessExport).
@@ -266,14 +278,20 @@ func main() {
 		WithCatalogImport(catalogSvc.ProcessImport).
 		WithVehicleReminders(vehicleRecordsSvc.RunReminders).
 		WithExpireHolds(func(ctx context.Context) (int, error) {
-			// Vehicle holds first (their equipment expires with them via
-			// the database trigger), then standalone equipment holds.
+			// Reservations whose review / payment window elapsed first
+			// (each releases its option once), then vehicle holds (their
+			// equipment expires with them via the database trigger), then
+			// standalone equipment holds.
+			r, err := reservationSvc.ExpireDue(ctx)
+			if err != nil {
+				return r, err
+			}
 			n, err := availabilitySvc.ExpireDue(ctx)
 			if err != nil {
-				return n, err
+				return r + n, err
 			}
 			m, err := extrasSvc.ExpireDue(ctx)
-			return n + m, err
+			return r + n + m, err
 		}).
 		WithSearch(
 			searchIndexer.ProcessUpsert,

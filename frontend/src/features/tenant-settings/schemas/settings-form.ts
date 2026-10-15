@@ -92,6 +92,14 @@ export function createSettingsSchema(t: Translate) {
         payment_hold_minutes: minutesField(t, 1, 10080),
         quote_validity_minutes: minutesField(t, 1, 43200),
         max_online_rental_days: daysField(t, 1, 365),
+        reference_prefix: z
+          .string()
+          .trim()
+          .toUpperCase()
+          .regex(
+            /^([A-Z][A-Z0-9]{1,5})?$/,
+            t("tenant_settings.validation.reference_prefix"),
+          ),
       }),
       payment: z.object({
         prepayment_rule: z.enum(["none", "fixed", "percent"]),
@@ -177,6 +185,7 @@ export function settingsToForm(s: OrganizationSettings): SettingsFormValues {
       max_online_rental_days: minutesToField(
         s.reservation.max_online_rental_days,
       ),
+      reference_prefix: s.reservation.reference_prefix ?? "",
     },
     payment: { ...s.payment },
     policies: {
@@ -230,6 +239,9 @@ export function formToSaveRequest(
         max_online_rental_days: fieldToMinutes(
           values.reservation.max_online_rental_days,
         ),
+        reference_prefix: values.reservation.reference_prefix
+          .trim()
+          .toUpperCase(),
       },
       payment: {
         ...values.payment,

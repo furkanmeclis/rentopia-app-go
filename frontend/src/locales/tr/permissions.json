@@ -143,5 +143,18 @@
   "groups.tenant_extras": "Ek hizmetler",
   "labels.tenant.campaigns.read": "Kampanyaları görüntüle",
   "labels.tenant.campaigns.write": "Kampanyaları ve kupon kodlarını yönet",
-  "groups.tenant_campaigns": "Kampanyalar"
+  "groups.tenant_campaigns": "Kampanyalar",
+  "labels.tenant.reservations.read": "Rezervasyonları görüntüle",
+  "labels.tenant.reservations.write": "Rezervasyon oluştur ve değiştir",
+  "labels.tenant.reservations.cancel": "Rezervasyon iptal et",
+  "labels.tenant.reservations.confirm": "Rezervasyon onayla",
+  "labels.tenant.reservations.export": "Rezervasyonları dışa aktar",
+  "labels.tenant.reservations.override_eligibility": "Sürücü uygunluk kuralını gerekçeyle aş",
+  "groups.tenant_reservations": "Rezervasyonlar",
+  "labels.tenant.quotes.read": "Teklifleri görüntüle",
+  "labels.tenant.quotes.write": "Teklif oluştur",
+  "groups.tenant_quotes": "Teklifler",
+  "labels.tenant.resolution_tasks.read": "Çözüm görevlerini görüntüle",
+  "labels.tenant.resolution_tasks.write": "Çözüm görevlerini yönet",
+  "groups.tenant_resolution_tasks": "Çözüm görevleri"
 }

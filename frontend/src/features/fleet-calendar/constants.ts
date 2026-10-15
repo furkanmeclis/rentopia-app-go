@@ -10,6 +10,7 @@ export const CALENDAR_LIVE_RESOURCES = [
   "tenant.transfers",
   "tenant.vehicle_blocks",
   "tenant.availability_holds",
+  "tenant.reservations",
 ] as const;
 
 /** Vehicles per calendar page (the API default). */
@@ -154,7 +155,6 @@ export const LEGEND_ENTRIES: LegendEntry[] = [
     id: "reservation",
     labelKey: "fleet_calendar.legend.reservation",
     swatch: ALLOCATION_BAR_CLASSES.reservation,
-    milestone: "M2",
   },
   {
     id: "rental",

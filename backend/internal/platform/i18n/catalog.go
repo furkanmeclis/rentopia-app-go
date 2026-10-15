@@ -202,6 +202,17 @@ var trCatalog = map[string]string{
 	"customers.anonymized": "Anonimleştirildi", "customers.note": "Not", "customers.created_at": "Oluşturulma",
 	"export.title.tenant.customers": "Müşteriler dışa aktarma",
 	"resources.tenant.customers":    "Müşteriler",
+	"reservations.reference":        "Rezervasyon no", "reservations.status": "Durum", "reservations.payment_status": "Ödeme durumu",
+	"reservations.capacity_commitment": "Kapasite", "reservations.pickup_branch": "Alış şubesi",
+	"reservations.return_branch": "İade şubesi", "reservations.starts_at": "Alış", "reservations.ends_at": "İade",
+	"reservations.product": "Ürün", "reservations.customer": "Müşteri", "reservations.channel": "Kanal",
+	"reservations.external_reference": "Kanal rezervasyon no", "reservations.total_amount": "Toplam",
+	"reservations.paid_amount": "Ödenen", "reservations.plate": "Plaka", "reservations.plate_fixed": "Plaka sabit",
+	"reservations.assigned_user": "Sorumlu", "reservations.uuid": "UUID", "reservations.created_at": "Oluşturulma",
+	"export.title.tenant.reservations":  "Rezervasyonlar dışa aktarma",
+	"resources.tenant.reservations":     "Rezervasyonlar",
+	"resources.tenant.quotes":           "Teklifler",
+	"resources.tenant.resolution_tasks": "Çözüm görevleri",
 }
 
 var enCatalog = map[string]string{
@@ -368,4 +379,15 @@ var enCatalog = map[string]string{
 	"customers.anonymized": "Anonymized", "customers.note": "Note", "customers.created_at": "Created",
 	"export.title.tenant.customers": "Customers export",
 	"resources.tenant.customers":    "Customers",
+	"reservations.reference":        "Reservation no", "reservations.status": "Status", "reservations.payment_status": "Payment status",
+	"reservations.capacity_commitment": "Capacity", "reservations.pickup_branch": "Pick-up branch",
+	"reservations.return_branch": "Return branch", "reservations.starts_at": "Pick-up", "reservations.ends_at": "Return",
+	"reservations.product": "Product", "reservations.customer": "Customer", "reservations.channel": "Channel",
+	"reservations.external_reference": "Channel reservation no", "reservations.total_amount": "Total",
+	"reservations.paid_amount": "Paid", "reservations.plate": "Plate", "reservations.plate_fixed": "Plate fixed",
+	"reservations.assigned_user": "Assignee", "reservations.uuid": "UUID", "reservations.created_at": "Created",
+	"export.title.tenant.reservations":  "Reservations export",
+	"resources.tenant.reservations":     "Reservations",
+	"resources.tenant.quotes":           "Quotes",
+	"resources.tenant.resolution_tasks": "Resolution tasks",
 }

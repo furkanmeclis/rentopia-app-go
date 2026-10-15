@@ -39,6 +39,14 @@ customer_contacts
 customer_marketing_consents
 drivers
 customer_documents
+quotes
+quote_lines
+reservation_sequences
+reservations
+reservation_drivers
+reservation_events
+reservation_vehicle_assignments
+resolution_tasks
 extras
 extra_prices
 extra_branch_stock

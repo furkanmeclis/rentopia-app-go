@@ -25,7 +25,9 @@ export function createQueryClient() {
       },
     }),
     mutationCache: new MutationCache({
-      onError: (error) => {
+      // `meta: { silent: true }`: the screen renders the error itself.
+      onError: (error, _variables, _context, mutation) => {
+        if (mutation.meta?.silent) return;
         if (error instanceof ApiError) emitApiError(error);
       },
     }),

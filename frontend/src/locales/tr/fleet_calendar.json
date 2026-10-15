@@ -35,7 +35,7 @@
   "legend.coming_m2": "M2 ile gelecek",
   "legend.coming_m3": "M3 ile gelecek",
   "legend.drag": "Sürükle-bırak",
-  "legend.drag_hint": "Rezervasyonu başka bir aracın satırına sürükleyerek plaka değişimi rezervasyonlarla (TEC-706) gelecek. Engeller, transferler ve opsiyonlar sürüklenmez.",
+  "legend.drag_hint": "Plakası sabitlenmemiş bir rezervasyonu başka bir aracın satırına sürükleyerek plaka değiştirin; motor tüm planı yeniden doğrular. Engeller, transferler ve opsiyonlar sürüklenmez.",
   "filters.plate": "Plaka ara",
   "filters.status": "Durum",
   "filters.segment": "Segment",
@@ -70,5 +70,7 @@
   "details.channel": "Kanal",
   "details.plate_fixed": "Plaka sabit",
   "details.plate_provisional": "Geçici plaka (sistem başka uygun araca taşıyabilir)",
-  "details.open_availability": "Müsaitlik sayfasını aç"
+  "details.open_availability": "Müsaitlik sayfasını aç",
+  "details.reservation": "Rezervasyon",
+  "details.open_reservation": "Rezervasyonu aç"
 }

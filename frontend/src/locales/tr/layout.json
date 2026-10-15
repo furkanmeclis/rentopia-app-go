@@ -59,5 +59,10 @@
   "section_customers": "Müşteriler",
   "nav_customers": "Müşteriler",
   "nav_pricing_extras": "Ek hizmetler",
-  "nav_pricing_campaigns": "Kampanyalar"
+  "nav_pricing_campaigns": "Kampanyalar",
+  "section_reservations": "Rezervasyonlar",
+  "nav_reservations": "Rezervasyonlar",
+  "nav_reservations_create": "Yeni rezervasyon",
+  "nav_reservations_quotes": "Teklifler",
+  "nav_reservations_tasks": "Çözüm görevleri"
 }

@@ -9898,6 +9898,806 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
 
+  /v1/tenant/reservations/meta:
+    get:
+      tags: [Tenant]
+      operationId: getTenantReservationsMeta
+      summary: Reservations table contract
+      description: "`tenant.reservations.read`. Columns, filters, sortable fields, capabilities and bulk actions."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Resource meta
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeResourceMeta"
+        "400": { $ref: "#/components/responses/OrganizationRequired" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/reservations/facets:
+    get:
+      tags: [Tenant]
+      operationId: getTenantReservationsFacets
+      summary: Reservation list facets
+      description: "`tenant.reservations.read`. Counts per status, payment status, channel, product, branch (pick-up or return) and customer inside the caller's branch scope."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Facets
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeReservationFacets"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/reservations:
+    get:
+      tags: [Tenant]
+      operationId: getTenantReservations
+      summary: List reservations
+      description: |
+        `tenant.reservations.read`. Reservations whose pick-up OR return branch is in the caller's
+        branch scope. `q` matches the reference, the channel's reservation number, the customer name
+        and the planned plate. Multi-value filters are comma-separated.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - name: sort
+          in: query
+          description: "One of `reference`, `status`, `starts_at`, `ends_at`, `total_amount`, `created_at`; prefix `-` for descending. Default `-created_at`."
+          schema: { type: string }
+        - { name: status, in: query, schema: { type: string }, description: "request, awaiting_review, awaiting_payment, confirmed, cancelled, expired, no_show" }
+        - { name: payment_status, in: query, schema: { type: string }, description: "unpaid, partially_paid, paid, refunded" }
+        - { name: channel, in: query, schema: { type: string } }
+        - { name: product, in: query, schema: { type: string }, description: Rental product uuids }
+        - { name: customer, in: query, schema: { type: string }, description: Customer uuids }
+        - { name: branch, in: query, schema: { type: string }, description: Branch uuids (pick-up or return) }
+        - { name: assigned_user, in: query, schema: { type: string }, description: User uuids }
+        - { name: starts_from, in: query, schema: { type: string }, description: "Pick-up from (RFC 3339 or yyyy-MM-dd)" }
+        - { name: starts_to, in: query, schema: { type: string }, description: "Pick-up until (RFC 3339 or yyyy-MM-dd, day included)" }
+      responses:
+        "200":
+          description: Reservation page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeReservationPage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantReservation
+      summary: Create a reservation from a quote
+      description: |
+        `tenant.reservations.write`. The quote is re-validated server-side: open and not expired
+        (`409 QUOTE_EXPIRED` / `QUOTE_USED`), same product version and total now (`409
+        QUOTE_PRICE_CHANGED`, `data` = the fresh quote that superseded it), capacity still there
+        (`409 CAPACITY_UNAVAILABLE` with alternatives). Drivers are checked against the sold
+        version's conditions on the pick-up day (`422 DRIVER_NOT_ELIGIBLE`, `data` = drivers with
+        reasons); `eligibility_override` needs `tenant.reservations.override_eligibility` and a
+        reason. Status by the settings: staff approval → `awaiting_review` (option until the review
+        window), auto approval with a prepayment → `awaiting_payment` (option until the payment
+        window), else `confirmed` (firm commitment). `request_only` records a request without
+        capacity; `confirm_now` (needs `tenant.reservations.confirm`) confirms at once. The quote
+        breakdown and the policy (settings) version are copied as an immutable snapshot. A coupon
+        is redeemed, physical extras are held (`409 EQUIPMENT_UNAVAILABLE`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReservationCreateRequest"
+      responses:
+        "201":
+          description: Reservation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeReservation"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenant/reservations/export:
+    post:
+      tags: [Tenant]
+      operationId: postTenantReservationsExport
+      summary: Export reservations
+      description: "`tenant.reservations.export`. `query` honours `q` and the list filters; the job runs with the requester's branch scope."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportRequest"
+      responses:
+        "202":
+          description: Export job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeExportJob"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/reservations/bulk:
+    post:
+      tags: [Tenant]
+      operationId: postTenantReservationsBulk
+      summary: Bulk reservation actions
+      description: |
+        `cancel` (`tenant.reservations.cancel`, `params.reason` 3-500 characters; releases capacity,
+        not reversible) and `assign_staff` (`tenant.reservations.write`, `params.user_uuid` a member
+        or empty to clear; reversible).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkExecuteRequest"
+      responses:
+        "200":
+          description: Synchronous result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeBulkSyncResult"
+        "202":
+          description: Bulk job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeBulkJob"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/reservations/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantReservation
+      summary: Reservation detail
+      description: "`tenant.reservations.read`. Price snapshot, vehicle plan (sold product / planned / promised plate, history), customer and drivers (masked), allowed actions."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Reservation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeReservation"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/reservations/{uuid}/events:
+    get:
+      tags: [Tenant]
+      operationId: getTenantReservationEvents
+      summary: Reservation timeline
+      description: "`tenant.reservations.read`. Every transition and change (who, when, from, to, reason, data), newest first."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeReservationEventPage"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/reservations/{uuid}/submit:
+    post:
+      tags: [Tenant]
+      operationId: postTenantReservationSubmit
+      summary: Submit a request
+      description: "`tenant.reservations.write`. request → awaiting_review / awaiting_payment / confirmed by the settings; capacity is reserved now (`409 CAPACITY_UNAVAILABLE`)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200": { $ref: "#/components/responses/ReservationOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/reservations/{uuid}/approve:
+    post:
+      tags: [Tenant]
+      operationId: postTenantReservationApprove
+      summary: Approve (staff review)
+      description: "`tenant.reservations.confirm`. awaiting_review → awaiting_payment (prepayment due; the option moves to the payment window) or confirmed."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200": { $ref: "#/components/responses/ReservationOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/reservations/{uuid}/confirm:
+    post:
+      tags: [Tenant]
+      operationId: postTenantReservationConfirm
+      summary: Confirm
+      description: "`tenant.reservations.confirm`. awaiting_review / awaiting_payment → confirmed: the option becomes a firm commitment on the same allocation. A lapsed option expires the reservation (`409 INVALID_STATE` `hold_expired`)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200": { $ref: "#/components/responses/ReservationOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/reservations/{uuid}/cancel:
+    post:
+      tags: [Tenant]
+      operationId: postTenantReservationCancel
+      summary: Cancel
+      description: "`tenant.reservations.cancel`. Releases the capacity exactly once (dependents re-planned; what cannot be kept valid opens resolution tasks) and gives a campaign use back."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReservationReasonRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/ReservationOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/reservations/{uuid}/no-show:
+    post:
+      tags: [Tenant]
+      operationId: postTenantReservationNoShow
+      summary: Mark as no-show
+      description: "`tenant.reservations.cancel`. Confirmed reservations after their pick-up time (`409` `not_started` before); capacity released."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReservationReasonRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/ReservationOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/reservations/{uuid}/quotes:
+    post:
+      tags: [Tenant]
+      operationId: postTenantReservationQuote
+      summary: Quote a change, extension or upgrade
+      description: |
+        `tenant.reservations.write` + `tenant.quotes.write`. Missing fields keep the reservation's
+        values. Moving only the return later is an `extension`: past lines stay as sold and the
+        added days are priced with the band of the NEW total length (`total` = the extension
+        charge); a product change is an `upgrade` (with the condition difference); anything else a
+        `change`. `difference` = what the change adds to the current total.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReservationChangeQuoteRequest" }
+      responses:
+        "201":
+          description: Quote
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeQuote" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenant/reservations/{uuid}/change:
+    post:
+      tags: [Tenant]
+      operationId: postTenantReservationChange
+      summary: Apply a change / extension / upgrade quote
+      description: |
+        `tenant.reservations.write`. The quote is re-validated (open, not expired, same price now).
+        Capacity moves atomically with the engine (the old plan stays when no new one exists:
+        `409 CAPACITY_UNAVAILABLE`). A refused extension answers `409 EXTENSION_CONFLICT` with
+        alternatives (another vehicle for the whole range, other products) and difference quotes
+        (RT-A31). `keep_price` (free upgrade) needs `tenant.price.override`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReservationApplyChangeRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/ReservationChangeOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/ExtensionConflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenant/reservations/{uuid}/extend:
+    post:
+      tags: [Tenant]
+      operationId: postTenantReservationExtend
+      summary: Extend
+      description: |
+        `tenant.reservations.write`. Quotes and applies an extension in one call. A collision with
+        the next commitment answers `409 EXTENSION_CONFLICT` (`data` = alternatives with difference
+        quotes, applied through `/change`); the reservation stays as it was and an
+        `extension_conflict` resolution task is opened.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReservationExtendRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/ReservationChangeOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/ExtensionConflict" }
+
+  /v1/tenant/reservations/{uuid}/plate-candidates:
+    get:
+      tags: [Tenant]
+      operationId: getTenantReservationPlateCandidates
+      summary: Vehicles the plan can move to
+      description: |
+        `tenant.reservations.write`. Up to 25 vehicles (other than the planned one) that keep the sold
+        guarantee and can carry the reservation as it is, each checked with the planner (read-only;
+        nothing is written). `409 INVALID_STATE` when the reservation holds no capacity.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Candidate vehicles
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success: { type: boolean, enum: [true] }
+                  data:
+                    type: object
+                    required: [items]
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: "#/components/schemas/ReservationVehicleRef" }
+                  meta: { $ref: "#/components/schemas/ResponseMeta" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/reservations/{uuid}/plate:
+    post:
+      tags: [Tenant]
+      operationId: postTenantReservationPlate
+      summary: Change / fix the plate
+      description: |
+        `tenant.reservations.write`. `fix` promises the plate; without it the vehicle becomes the new
+        provisional plate (calendar drag, `source` = `drag`). The engine re-validates the whole plan:
+        the vehicle must keep the sold guarantee (`400 not_eligible`: use an upgrade) and later
+        commitments are moved or the change is refused (`409 CAPACITY_UNAVAILABLE`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReservationPlateRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/ReservationChangeOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/reservations/{uuid}/drivers:
+    put:
+      tags: [Tenant]
+      operationId: putTenantReservationDrivers
+      summary: Replace the drivers
+      description: "`tenant.reservations.write`. Checked against the current product version's conditions (`422 DRIVER_NOT_ELIGIBLE`; override with permission + reason)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReservationDriversRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/ReservationOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenant/reservations/{uuid}/assign:
+    post:
+      tags: [Tenant]
+      operationId: postTenantReservationAssign
+      summary: Assign a staff member
+      description: "`tenant.reservations.write`. `user_uuid` = a member of the organization, or null to clear."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReservationAssignRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/ReservationOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/quotes/meta:
+    get:
+      tags: [Tenant]
+      operationId: getTenantQuotesMeta
+      summary: Quotes table contract
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Resource meta
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeResourceMeta"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/quotes:
+    get:
+      tags: [Tenant]
+      operationId: getTenantQuotes
+      summary: List quotes
+      description: "`tenant.quotes.read`. Quotes whose pick-up OR return branch is in the caller's branch scope."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - name: sort
+          in: query
+          description: "One of `total`, `starts_at`, `valid_until`, `created_at`; prefix `-` for descending."
+          schema: { type: string }
+        - { name: purpose, in: query, schema: { type: string }, description: "new, change, extension, upgrade" }
+        - { name: status, in: query, schema: { type: string }, description: "open, used, superseded" }
+        - { name: channel, in: query, schema: { type: string } }
+        - { name: product, in: query, schema: { type: string }, description: Rental product uuids }
+        - { name: reservation, in: query, schema: { type: string }, description: Reservation uuids }
+      responses:
+        "200":
+          description: Quote page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeQuotePage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantQuote
+      summary: Create a quote
+      description: |
+        `tenant.quotes.write`. Prices one product for the search (availability answer included,
+        nothing consumed) and stores the quote until `valid_until` (settings quote validity, default
+        30 minutes). Extras and a coupon are priced by the pricing engine; a manual discount needs
+        `tenant.discount.apply` and a reason. `422 PRICING_UNAVAILABLE` when no rate plan prices it.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/QuoteRequest" }
+      responses:
+        "201":
+          description: Quote
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeQuote" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenant/quotes/search:
+    post:
+      tags: [Tenant]
+      operationId: postTenantQuoteSearch
+      summary: Price every product for a search
+      description: "`tenant.quotes.read`. Availability breakdown and price per product on sale (or the given ones); nothing is stored."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/QuoteSearchRequest" }
+      responses:
+        "200":
+          description: Products with availability and price
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeQuoteSearch" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/quotes/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantQuote
+      summary: Quote detail
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Quote
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeQuote" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/resolution-tasks/meta:
+    get:
+      tags: [Tenant]
+      operationId: getTenantResolutionTasksMeta
+      summary: Resolution tasks table contract
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Resource meta
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeResourceMeta"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/resolution-tasks:
+    get:
+      tags: [Tenant]
+      operationId: getTenantResolutionTasks
+      summary: List resolution tasks
+      description: "`tenant.resolution_tasks.read`. Tasks of reservations in the caller's branch scope."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - name: sort
+          in: query
+          description: "`created_at` or `starts_at`; prefix `-` for descending."
+          schema: { type: string }
+        - { name: status, in: query, schema: { type: string }, description: "open, resolved" }
+        - { name: task_type, in: query, schema: { type: string } }
+        - { name: reservation, in: query, schema: { type: string }, description: Reservation uuids }
+        - { name: assignee, in: query, schema: { type: string }, description: User uuids }
+      responses:
+        "200":
+          description: Task page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeResolutionTaskPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/resolution-tasks/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantResolutionTask
+      summary: Resolution task detail
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200": { $ref: "#/components/responses/ResolutionTaskOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/resolution-tasks/{uuid}/resolve:
+    post:
+      tags: [Tenant]
+      operationId: postTenantResolutionTaskResolve
+      summary: Resolve a task
+      description: "`tenant.resolution_tasks.write`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                note: { type: string, maxLength: 1000 }
+      responses:
+        "200": { $ref: "#/components/responses/ResolutionTaskOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/resolution-tasks/{uuid}/assign:
+    post:
+      tags: [Tenant]
+      operationId: postTenantResolutionTaskAssign
+      summary: Assign a task
+      description: "`tenant.resolution_tasks.write`. `user_uuid` = a member, or null to clear."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReservationAssignRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/ResolutionTaskOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/resolution-tasks/{uuid}/replan:
+    post:
+      tags: [Tenant]
+      operationId: postTenantResolutionTaskReplan
+      summary: Retry the engine re-plan
+      description: "`tenant.resolution_tasks.write`. Re-plans the reservation's allocation as it is; success resolves the task."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Re-plan result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeResolutionTaskReplan" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
   /v1/tenant/capacity-rules:
     get:
       tags: [Tenant]
@@ -11943,6 +12743,36 @@ components:
       schema: { type: integer, minimum: 1950, maximum: 2100 }
 
   responses:
+    UnprocessableEntity:
+      description: "`PRICING_UNAVAILABLE` (no rate plan / band prices it) or `DRIVER_NOT_ELIGIBLE` (`data` = drivers with reasons)"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    ExtensionConflict:
+      description: "`EXTENSION_CONFLICT` (`data` = alternatives with difference quotes, RT-A31), `CAPACITY_UNAVAILABLE`, `QUOTE_*` or `INVALID_STATE`"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ReservationExtensionConflictError"
+    ReservationOK:
+      description: Reservation
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/EnvelopeReservation"
+    ReservationChangeOK:
+      description: Changed reservation
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/EnvelopeReservationChange"
+    ResolutionTaskOK:
+      description: Resolution task
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/EnvelopeResolutionTask"
     BadRequest:
       description: Validation or malformed request
       content:
@@ -14936,6 +15766,10 @@ components:
           minimum: 1
           maximum: 365
           description: "Longest rental online channels sell; rate plans that price online sales must cover 1 day up to it without gaps (null = 30)"
+        reference_prefix:
+          type: string
+          pattern: "^([A-Z][A-Z0-9]{1,5})?$"
+          description: "Prefix of reservation references (IDS-2026-000123); empty = derived from the organization slug"
 
     OrganizationPaymentSettings:
       type: object
@@ -16358,6 +17192,16 @@ components:
         expires_at: { type: [string, "null"], format: date-time, description: Holds only }
         plate_fixed: { type: boolean }
         channel: { type: string }
+        reservation:
+          description: |
+            Reservation of the allocation (TEC-706); null for a plain hold. Its bar can be dropped on
+            another vehicle row while `plate_fixed` is false (`POST /v1/tenant/reservations/{uuid}/plate`).
+          type: [object, "null"]
+          required: [uuid, reference, status]
+          properties:
+            uuid: { type: string, format: uuid }
+            reference: { type: string }
+            status: { type: string }
 
     FleetCalendarMaintenance:
       type: object
@@ -17935,6 +18779,906 @@ components:
         meta: { $ref: "#/components/schemas/ResponseMeta" }
 
     # ------------------------------------------------------------ pricing
+
+    ReservationBranchRef:
+      type: object
+      required: [uuid, code, name]
+      properties:
+        uuid: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+
+    ReservationPointRef:
+      type: object
+      required: [uuid, name]
+      properties:
+        uuid: { type: string, format: uuid }
+        name: { type: string }
+
+    ReservationProductRef:
+      type: object
+      required: [uuid, code, title, version]
+      properties:
+        uuid: { type: string, format: uuid }
+        code: { type: string }
+        title: { type: string }
+        version: { type: integer }
+
+    ReservationCustomerRef:
+      type: object
+      description: Customer with masked identity / contact values (reveal through the customers API)
+      required: [uuid, customer_type, display_name, identity_masked, phone_masked, email_masked]
+      properties:
+        uuid: { type: string, format: uuid }
+        customer_type: { type: string }
+        display_name: { type: string }
+        identity_masked: { type: string }
+        phone_masked: { type: string }
+        email_masked: { type: string }
+
+    ReservationVehicleRef:
+      type: object
+      required: [uuid, plate, label]
+      properties:
+        uuid: { type: string, format: uuid }
+        plate: { type: string }
+        label: { type: string }
+
+    ReservationActor:
+      type: object
+      required: [uuid, name, surname, email]
+      properties:
+        uuid: { type: string, format: uuid }
+        name: { type: string }
+        surname: { type: string }
+        email: { type: string }
+
+    ReservationRef:
+      type: object
+      required: [uuid, reference]
+      properties:
+        uuid: { type: string, format: uuid }
+        reference: { type: string }
+
+    ExtraSelection:
+      type: object
+      required: [extra_uuid, quantity]
+      properties:
+        extra_uuid: { type: string, format: uuid }
+        quantity: { type: integer, minimum: 1 }
+
+    ManualDiscount:
+      type: object
+      required: [kind, value, reason]
+      properties:
+        kind: { type: string, enum: [percent, amount] }
+        value: { type: string, description: Percentage (0-100) or amount }
+        reason: { type: string }
+
+    QuoteRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        pickup_branch_uuid: { type: [string, "null"], format: uuid }
+        pickup_point_uuid: { type: [string, "null"], format: uuid }
+        return_branch_uuid: { type: [string, "null"], format: uuid }
+        return_point_uuid: { type: [string, "null"], format: uuid }
+        starts_at: { type: [string, "null"], format: date-time }
+        ends_at: { type: [string, "null"], format: date-time }
+        channel: { type: string, description: Sales channel code (default branch) }
+        product_uuid: { type: [string, "null"], format: uuid }
+        customer_uuid: { type: [string, "null"], format: uuid }
+        extras:
+          type: array
+          items: { $ref: "#/components/schemas/ExtraSelection" }
+        coupon_code: { type: string }
+        manual_discount:
+          oneOf:
+            - $ref: "#/components/schemas/ManualDiscount"
+            - type: "null"
+        delivery_fee: { type: string }
+
+    QuoteSearchRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        pickup_branch_uuid: { type: [string, "null"], format: uuid }
+        pickup_point_uuid: { type: [string, "null"], format: uuid }
+        return_branch_uuid: { type: [string, "null"], format: uuid }
+        return_point_uuid: { type: [string, "null"], format: uuid }
+        starts_at: { type: [string, "null"], format: date-time }
+        ends_at: { type: [string, "null"], format: date-time }
+        channel: { type: string }
+        product_uuids:
+          type: array
+          items: { type: string, format: uuid }
+
+    QuoteSearchItem:
+      type: object
+      required: [product, availability, sellable, reasons, price, price_error]
+      properties:
+        product: { $ref: "#/components/schemas/AvailabilityProductRef" }
+        availability: { $ref: "#/components/schemas/AvailabilityBreakdown" }
+        sellable: { type: integer }
+        reasons:
+          type: array
+          items: { type: string }
+        price:
+          type: [object, "null"]
+          required: [currency, billing_days, daily_average, total, prepayment]
+          properties:
+            currency: { type: string }
+            billing_days: { type: integer }
+            daily_average: { type: string }
+            total: { type: string }
+            prepayment: { type: string }
+        price_error:
+          type: [object, "null"]
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+
+    QuoteSearchResult:
+      type: object
+      required: [request, items, warnings]
+      properties:
+        request: { $ref: "#/components/schemas/AvailabilityResolvedRequest" }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/QuoteSearchItem" }
+        warnings:
+          type: array
+          items: { type: string }
+
+    EnvelopeQuoteSearch:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/QuoteSearchResult" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    QuoteLine:
+      type: object
+      required: [position, kind, day_index, day_date, date_rule_version_uuid, date_rule_name, code, name, quantity, unit_price, adjustment, amount]
+      properties:
+        position: { type: integer }
+        kind: { type: string, enum: [day, extra, one_way, delivery, discount] }
+        day_index: { type: [integer, "null"] }
+        day_date: { type: [string, "null"], format: date }
+        date_rule_version_uuid: { type: [string, "null"], format: uuid }
+        date_rule_name: { type: string }
+        code: { type: string }
+        name: { type: string }
+        quantity: { type: integer }
+        unit_price: { type: string }
+        adjustment: { type: string }
+        amount: { type: string }
+
+    QuoteExtension:
+      type: object
+      description: The added period of an extension; the band of the NEW total length prices the added days.
+      required: [previous_ends_at, ends_at, previous_billing_days, billing_days, added_days, band, days, rental_amount, extras_amount, amount, base, vat]
+      properties:
+        previous_ends_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+        previous_billing_days: { type: integer }
+        billing_days: { type: integer }
+        added_days: { type: integer }
+        band: { $ref: "#/components/schemas/RateBand" }
+        days:
+          type: array
+          items: { type: object }
+        rental_amount: { type: string }
+        extras_amount: { type: string }
+        amount: { type: string }
+        base: { type: string }
+        vat: { type: string }
+
+    ReservationConditions:
+      type: object
+      required: [guarantee_type, guarantee_label, min_driver_age, min_license_years, deposit_amount, included_km_per_day, extra_km_fee, fuel_policy, product_uuid, product_code, product_title, version]
+      properties:
+        guarantee_type: { type: string }
+        guarantee_label: { type: string }
+        min_driver_age: { type: integer }
+        min_license_years: { type: integer }
+        deposit_amount: { type: string }
+        included_km_per_day: { type: [integer, "null"] }
+        extra_km_fee: { type: string }
+        fuel_policy: { type: string }
+        product_uuid: { type: string }
+        product_code: { type: string }
+        product_title: { type: string }
+        version: { type: integer }
+        version_uuid: { type: string }
+
+    QuoteBreakdown:
+      type: object
+      required: [pricing, extension, conditions, previous_conditions, warnings]
+      properties:
+        pricing:
+          oneOf:
+            - $ref: "#/components/schemas/PricingBreakdown"
+            - type: "null"
+        extension:
+          oneOf:
+            - $ref: "#/components/schemas/QuoteExtension"
+            - type: "null"
+        conditions:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationConditions"
+            - type: "null"
+        previous_conditions:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationConditions"
+            - type: "null"
+        warnings:
+          type: array
+          items: { type: string }
+
+    Quote:
+      type: object
+      required: [uuid, purpose, status, expired, reservation, customer, product, pickup_branch, return_branch, pickup_point, return_point, starts_at, ends_at, channel, billing_days, currency, rental_subtotal, discount_total, rental_total, extras_total, one_way_fee, delivery_fee, base_total, vat_total, total, prepayment, prepayment_rule, vat_rate, difference, rate_plan_version_uuid, rate_plan_version, settings_version, extras, coupon_code, manual_discount, breakdown, lines, vehicle, availability, valid_until, used_at, created_by, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        purpose: { type: string, enum: [new, change, extension, upgrade] }
+        status: { type: string, enum: [open, used, superseded] }
+        expired: { type: boolean }
+        reservation:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationRef"
+            - type: "null"
+        customer:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationCustomerRef"
+            - type: "null"
+        product: { $ref: "#/components/schemas/ReservationProductRef" }
+        pickup_branch: { $ref: "#/components/schemas/ReservationBranchRef" }
+        return_branch: { $ref: "#/components/schemas/ReservationBranchRef" }
+        pickup_point:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationPointRef"
+            - type: "null"
+        return_point:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationPointRef"
+            - type: "null"
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+        channel: { type: string }
+        billing_days: { type: integer }
+        currency: { type: string }
+        rental_subtotal: { type: string }
+        discount_total: { type: string }
+        rental_total: { type: string }
+        extras_total: { type: string }
+        one_way_fee: { type: string }
+        delivery_fee: { type: string }
+        base_total: { type: string }
+        vat_total: { type: string }
+        total: { type: string, description: "New / change / upgrade: the whole price. Extension: the extension charge." }
+        prepayment: { type: string }
+        prepayment_rule: { type: string }
+        vat_rate: { type: [string, "null"] }
+        difference: { type: [string, "null"], description: "Change quotes: what the change adds to the reservation's current total" }
+        rate_plan_version_uuid: { type: [string, "null"], format: uuid }
+        rate_plan_version: { type: [integer, "null"] }
+        settings_version: { type: integer }
+        extras:
+          type: array
+          items: { $ref: "#/components/schemas/ExtraSelection" }
+        coupon_code: { type: [string, "null"] }
+        manual_discount:
+          oneOf:
+            - $ref: "#/components/schemas/ManualDiscount"
+            - type: "null"
+        breakdown: { $ref: "#/components/schemas/QuoteBreakdown" }
+        lines:
+          type: array
+          items: { $ref: "#/components/schemas/QuoteLine" }
+        vehicle:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationVehicleRef"
+            - type: "null"
+        availability:
+          type: [object, "null"]
+          required: [sellable, breakdown, reasons]
+          properties:
+            sellable: { type: integer }
+            breakdown: { $ref: "#/components/schemas/AvailabilityBreakdown" }
+            reasons:
+              type: array
+              items: { type: string }
+        valid_until: { type: string, format: date-time }
+        used_at: { type: [string, "null"], format: date-time }
+        created_by:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        created_at: { type: string, format: date-time }
+
+    EnvelopeQuote:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/Quote" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    QuoteListItem:
+      type: object
+      required: [uuid, purpose, status, expired, product, pickup_branch, return_branch, customer, reservation, starts_at, ends_at, channel, billing_days, currency, total, difference, valid_until, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        purpose: { type: string, enum: [new, change, extension, upgrade] }
+        status: { type: string, enum: [open, used, superseded] }
+        expired: { type: boolean }
+        product: { $ref: "#/components/schemas/ReservationProductRef" }
+        pickup_branch: { $ref: "#/components/schemas/ReservationBranchRef" }
+        return_branch: { $ref: "#/components/schemas/ReservationBranchRef" }
+        customer:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationCustomerRef"
+            - type: "null"
+        reservation:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationRef"
+            - type: "null"
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+        channel: { type: string }
+        billing_days: { type: integer }
+        currency: { type: string }
+        total: { type: string }
+        difference: { type: [string, "null"] }
+        valid_until: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+
+    EnvelopeQuotePage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/QuoteListItem" }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    ReservationDriverInput:
+      type: object
+      required: [driver_uuid]
+      properties:
+        driver_uuid: { type: string, format: uuid }
+        role: { type: string, enum: [primary, additional] }
+
+    ReservationOverride:
+      type: [object, "null"]
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 3, maxLength: 500 }
+
+    ReservationCreateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        quote_uuid: { type: [string, "null"], format: uuid }
+        customer_uuid: { type: [string, "null"], format: uuid }
+        invoice_customer_uuid: { type: [string, "null"], format: uuid }
+        drivers:
+          type: array
+          items: { $ref: "#/components/schemas/ReservationDriverInput" }
+        eligibility_override: { $ref: "#/components/schemas/ReservationOverride" }
+        external_reference: { type: string, maxLength: 64 }
+        collecting_party: { type: string, enum: [us, channel] }
+        commission_amount: { type: string }
+        note: { type: string, maxLength: 2000 }
+        request_only: { type: boolean }
+        confirm_now: { type: boolean }
+
+    ReservationReasonRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reason: { type: string, minLength: 3, maxLength: 500 }
+
+    ReservationChangeQuoteRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        pickup_branch_uuid: { type: [string, "null"], format: uuid }
+        pickup_point_uuid: { type: [string, "null"], format: uuid }
+        return_branch_uuid: { type: [string, "null"], format: uuid }
+        return_point_uuid: { type: [string, "null"], format: uuid }
+        starts_at: { type: [string, "null"], format: date-time }
+        ends_at: { type: [string, "null"], format: date-time }
+        product_uuid: { type: [string, "null"], format: uuid }
+        extras:
+          type: [array, "null"]
+          items: { $ref: "#/components/schemas/ExtraSelection" }
+        manual_discount:
+          oneOf:
+            - $ref: "#/components/schemas/ManualDiscount"
+            - type: "null"
+
+    ReservationApplyChangeRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        quote_uuid: { type: [string, "null"], format: uuid }
+        reason: { type: string, maxLength: 500 }
+        keep_price: { type: boolean }
+
+    ReservationExtendRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        ends_at: { type: [string, "null"], format: date-time }
+        reason: { type: string, maxLength: 500 }
+
+    ReservationPlateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        vehicle_uuid: { type: [string, "null"], format: uuid }
+        fix: { type: boolean }
+        reason: { type: string, maxLength: 500 }
+        source: { type: string, enum: [staff, drag] }
+
+    ReservationDriversRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        drivers:
+          type: array
+          items: { $ref: "#/components/schemas/ReservationDriverInput" }
+        eligibility_override: { $ref: "#/components/schemas/ReservationOverride" }
+
+    ReservationAssignRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        user_uuid: { type: [string, "null"], format: uuid }
+
+    ReservationDriver:
+      type: object
+      required: [driver_uuid, customer_uuid, name, licence_masked, licence_class, role, eligible, reasons, override_reason]
+      properties:
+        driver_uuid: { type: [string, "null"], format: uuid }
+        customer_uuid: { type: [string, "null"], format: uuid }
+        name: { type: string }
+        licence_masked: { type: string }
+        licence_class: { type: string }
+        role: { type: string, enum: [primary, additional] }
+        eligible: { type: boolean }
+        reasons:
+          type: array
+          items: { type: string }
+        override_reason: { type: string }
+
+    ReservationAssignment:
+      type: object
+      required: [kind, source, note, vehicle, product, actor, started_at, ended_at]
+      properties:
+        kind: { type: string, enum: [planned, fixed] }
+        source: { type: string, enum: [engine, staff, drag, replan, upgrade, extension] }
+        note: { type: string }
+        vehicle:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationVehicleRef"
+            - type: "null"
+        product: { $ref: "#/components/schemas/ReservationProductRef" }
+        actor:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        started_at: { type: string, format: date-time }
+        ended_at: { type: [string, "null"], format: date-time }
+
+    ReservationPlan:
+      type: object
+      description: Sold product / guarantee next to the planned (provisional) and assigned (promised) vehicle.
+      required: [sold_product, sold_conditions, product, conditions, guarantee_type, allocation_uuid, allocation_kind, allocation_status, hold_expires_at, planned_vehicle, assigned_vehicle, plate_fixed, history]
+      properties:
+        sold_product: { $ref: "#/components/schemas/ReservationProductRef" }
+        sold_conditions: { $ref: "#/components/schemas/ReservationConditions" }
+        product: { $ref: "#/components/schemas/ReservationProductRef" }
+        conditions: { $ref: "#/components/schemas/ReservationConditions" }
+        guarantee_type: { type: string }
+        allocation_uuid: { type: [string, "null"], format: uuid }
+        allocation_kind: { type: string }
+        allocation_status: { type: string }
+        hold_expires_at: { type: [string, "null"], format: date-time }
+        planned_vehicle:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationVehicleRef"
+            - type: "null"
+        assigned_vehicle:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationVehicleRef"
+            - type: "null"
+        plate_fixed: { type: boolean }
+        history:
+          type: array
+          items: { $ref: "#/components/schemas/ReservationAssignment" }
+
+    ReservationPriceSnapshot:
+      type: object
+      required: [quote_uuid, purpose, currency, pricing, lines, extras, coupon_code, manual_discount, extensions, base_total, vat_total, total, prepayment, settings_version, kept_price]
+      properties:
+        quote_uuid: { type: string, format: uuid }
+        purpose: { type: string }
+        currency: { type: string }
+        pricing:
+          oneOf:
+            - $ref: "#/components/schemas/PricingBreakdown"
+            - type: "null"
+        lines:
+          type: array
+          items: { $ref: "#/components/schemas/QuoteLine" }
+        extras:
+          type: array
+          items: { $ref: "#/components/schemas/ExtraSelection" }
+        coupon_code: { type: [string, "null"] }
+        manual_discount:
+          oneOf:
+            - $ref: "#/components/schemas/ManualDiscount"
+            - type: "null"
+        extensions:
+          type: array
+          items: { $ref: "#/components/schemas/QuoteExtension" }
+        base_total: { type: string }
+        vat_total: { type: string }
+        total: { type: string }
+        prepayment: { type: string }
+        settings_version: { type: integer }
+        kept_price: { type: boolean }
+
+    ReservationActions:
+      type: object
+      required: [submit, approve, confirm, cancel, no_show, change, extend, plate]
+      properties:
+        submit: { type: boolean }
+        approve: { type: boolean }
+        confirm: { type: boolean }
+        cancel: { type: boolean }
+        no_show: { type: boolean }
+        change: { type: boolean }
+        extend: { type: boolean }
+        plate: { type: boolean }
+
+    Reservation:
+      type: object
+      required: [uuid, reference, status, payment_status, capacity_commitment, pickup_branch, return_branch, pickup_point, return_point, starts_at, ends_at, billing_days, customer, invoice_customer, drivers, channel, external_reference, collecting_party, price, quote_uuid, settings_version, policy, plan, review_deadline, payment_deadline, assigned_user, note, eligibility_override, open_tasks, actions, confirmed_at, cancelled_at, cancel_reason, created_by, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        reference: { type: string, example: IDS-2026-000123 }
+        status: { type: string, enum: [request, awaiting_review, awaiting_payment, confirmed, cancelled, expired, no_show] }
+        payment_status: { type: string, enum: [unpaid, partially_paid, paid, refunded] }
+        capacity_commitment: { type: string, enum: [none, hold, firm] }
+        pickup_branch: { $ref: "#/components/schemas/ReservationBranchRef" }
+        return_branch: { $ref: "#/components/schemas/ReservationBranchRef" }
+        pickup_point:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationPointRef"
+            - type: "null"
+        return_point:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationPointRef"
+            - type: "null"
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+        billing_days: { type: integer }
+        customer: { $ref: "#/components/schemas/ReservationCustomerRef" }
+        invoice_customer:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationCustomerRef"
+            - type: "null"
+        drivers:
+          type: array
+          items: { $ref: "#/components/schemas/ReservationDriver" }
+        channel: { type: string }
+        external_reference: { type: [string, "null"] }
+        collecting_party: { type: string, enum: [us, channel] }
+        price:
+          type: object
+          required: [currency, total, prepayment, paid, balance, commission, net_receivable, snapshot]
+          properties:
+            currency: { type: string }
+            total: { type: string }
+            prepayment: { type: string }
+            paid: { type: string }
+            balance: { type: string }
+            commission: { type: string }
+            net_receivable: { type: string }
+            snapshot: { $ref: "#/components/schemas/ReservationPriceSnapshot" }
+        quote_uuid: { type: [string, "null"], format: uuid }
+        settings_version: { type: integer }
+        policy: { type: object, description: Policy part of the settings version sold under }
+        plan: { $ref: "#/components/schemas/ReservationPlan" }
+        review_deadline: { type: [string, "null"], format: date-time }
+        payment_deadline: { type: [string, "null"], format: date-time }
+        assigned_user:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        note: { type: string }
+        eligibility_override: { type: [object, "null"] }
+        open_tasks: { type: integer, format: int64 }
+        actions: { $ref: "#/components/schemas/ReservationActions" }
+        confirmed_at: { type: [string, "null"], format: date-time }
+        cancelled_at: { type: [string, "null"], format: date-time }
+        cancel_reason: { type: string }
+        created_by:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    EnvelopeReservation:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/Reservation" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    ReservationChangeResult:
+      type: object
+      required: [reservation, reassigned, difference, warnings]
+      properties:
+        reservation: { $ref: "#/components/schemas/Reservation" }
+        reassigned: { type: integer, description: Other reservations the plan moved }
+        difference: { type: [string, "null"] }
+        warnings:
+          type: array
+          items: { type: string }
+
+    EnvelopeReservationChange:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/ReservationChangeResult" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    ReservationExtensionConflictError:
+      type: object
+      required: [success, error, meta]
+      properties:
+        success: { type: boolean, enum: [false] }
+        error: { $ref: "#/components/schemas/ErrorBody" }
+        data:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationExtensionAlternatives"
+            - type: "null"
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    ReservationExtensionAlternatives:
+      type: object
+      description: "`data` of `409 EXTENSION_CONFLICT` (RT-A31)"
+      required: [reason, extension_quote, vehicles, products]
+      properties:
+        reason: { type: string }
+        extension_quote:
+          oneOf:
+            - $ref: "#/components/schemas/Quote"
+            - type: "null"
+        vehicles:
+          type: array
+          items:
+            type: object
+            required: [vehicle, quote]
+            properties:
+              vehicle: { $ref: "#/components/schemas/ReservationVehicleRef" }
+              quote: { $ref: "#/components/schemas/Quote" }
+        products:
+          type: array
+          items:
+            type: object
+            required: [product, sellable, quote]
+            properties:
+              product: { $ref: "#/components/schemas/AvailabilityProductRef" }
+              sellable: { type: integer }
+              quote: { $ref: "#/components/schemas/Quote" }
+
+    ReservationListItem:
+      type: object
+      required: [uuid, reference, status, payment_status, capacity_commitment, pickup_branch, return_branch, starts_at, ends_at, product, customer, channel, external_reference, currency, total_amount, paid_amount, vehicle, plate_fixed, assigned_user, open_tasks, deadline, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        reference: { type: string }
+        status: { type: string, enum: [request, awaiting_review, awaiting_payment, confirmed, cancelled, expired, no_show] }
+        payment_status: { type: string, enum: [unpaid, partially_paid, paid, refunded] }
+        capacity_commitment: { type: string, enum: [none, hold, firm] }
+        pickup_branch: { $ref: "#/components/schemas/ReservationBranchRef" }
+        return_branch: { $ref: "#/components/schemas/ReservationBranchRef" }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+        product: { $ref: "#/components/schemas/ReservationProductRef" }
+        customer: { $ref: "#/components/schemas/ReservationCustomerRef" }
+        channel: { type: string }
+        external_reference: { type: [string, "null"] }
+        currency: { type: string }
+        total_amount: { type: string }
+        paid_amount: { type: string }
+        vehicle:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationVehicleRef"
+            - type: "null"
+        plate_fixed: { type: boolean }
+        assigned_user:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        open_tasks: { type: integer, format: int64 }
+        deadline: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    EnvelopeReservationPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/ReservationListItem" }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    ReservationFacet:
+      type: object
+      required: [value, count]
+      properties:
+        value: { type: string }
+        label: { type: string }
+        count: { type: integer, format: int64 }
+
+    EnvelopeReservationFacets:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [status, payment_status, channel, product, branch, customer]
+          properties:
+            status: { type: array, items: { $ref: "#/components/schemas/ReservationFacet" } }
+            payment_status: { type: array, items: { $ref: "#/components/schemas/ReservationFacet" } }
+            channel: { type: array, items: { $ref: "#/components/schemas/ReservationFacet" } }
+            product: { type: array, items: { $ref: "#/components/schemas/ReservationFacet" } }
+            branch: { type: array, items: { $ref: "#/components/schemas/ReservationFacet" } }
+            customer: { type: array, items: { $ref: "#/components/schemas/ReservationFacet" } }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    ReservationEvent:
+      type: object
+      required: [uuid, action, from_status, to_status, reason, data, actor, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        action: { type: string }
+        from_status: { type: [string, "null"] }
+        to_status: { type: [string, "null"] }
+        reason: { type: string }
+        data: { type: object }
+        actor:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        created_at: { type: string, format: date-time }
+
+    EnvelopeReservationEventPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/ReservationEvent" }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    ResolutionTask:
+      type: object
+      required: [uuid, task_type, status, reason, source_type, source_uuid, data, reservation, assignee, resolved_at, resolved_by, resolution_note, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        task_type: { type: string, enum: [block_conflict, release_conflict, extension_conflict, replan_failed, late_return] }
+        status: { type: string, enum: [open, resolved] }
+        reason: { type: string }
+        source_type: { type: string }
+        source_uuid: { type: [string, "null"], format: uuid }
+        data: { type: object }
+        reservation:
+          type: object
+          required: [uuid, reference, status, starts_at, ends_at]
+          properties:
+            uuid: { type: string, format: uuid }
+            reference: { type: string }
+            status: { type: string }
+            starts_at: { type: string, format: date-time }
+            ends_at: { type: string, format: date-time }
+            pickup_branch:
+              oneOf:
+                - $ref: "#/components/schemas/ReservationBranchRef"
+                - type: "null"
+        assignee:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        resolved_at: { type: [string, "null"], format: date-time }
+        resolved_by:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        resolution_note: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    EnvelopeResolutionTask:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/ResolutionTask" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeResolutionTaskPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/ResolutionTask" }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeResolutionTaskReplan:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [task, replanned, vehicle, reassigned]
+          properties:
+            task: { $ref: "#/components/schemas/ResolutionTask" }
+            replanned: { type: boolean }
+            vehicle:
+              oneOf:
+                - $ref: "#/components/schemas/ReservationVehicleRef"
+                - type: "null"
+            reassigned: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
 
     PricingActor:
       type: object
