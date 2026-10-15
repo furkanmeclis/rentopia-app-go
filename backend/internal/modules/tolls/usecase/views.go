@@ -155,6 +155,10 @@ func (s *Service) Get(ctx context.Context, orgID int64, id uuid.UUID) (model.Pas
 	if r.AccountUuid.Valid {
 		out.Account = &model.AccountRef{UUID: r.AccountUuid.Bytes, DisplayName: r.AccountName.String}
 	}
+	if r.FeeAmount.Valid {
+		fee := money.FromNumericOrZero(r.FeeAmount)
+		out.FeeAmount = &fee
+	}
 	revs, err := s.q.ListTollPassRevisions(ctx, db.ListTollPassRevisionsParams{OrganizationID: orgID, TollPassID: r.ID})
 	if err != nil {
 		return model.PassDetail{}, err

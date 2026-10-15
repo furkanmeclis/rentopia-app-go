@@ -69,12 +69,15 @@ export function RentalTollCharges({
           gridPrimary: true,
           cell: ({ row }) => {
             const c = calcOf(row.original);
+            const station = c.exit_station
+              ? `${c.station} → ${c.exit_station}`
+              : (c.station ?? "");
             const label =
               row.original.kind === "toll"
-                ? c.exit_station
-                  ? `${c.station} → ${c.exit_station}`
-                  : (c.station ?? "—")
-                : t(TOLL_CHARGE_KIND_LABEL_KEYS.toll_fee);
+                ? station || "—"
+                : station
+                  ? `${t(TOLL_CHARGE_KIND_LABEL_KEYS.toll_fee)} · ${station}`
+                  : t(TOLL_CHARGE_KIND_LABEL_KEYS.toll_fee);
             return (
               <span className="flex flex-wrap items-center gap-1.5">
                 {canRead && row.original.toll_pass_uuid ? (

@@ -270,7 +270,9 @@ func (s *Service) charge(ctx context.Context, q *db.Queries, tx pgx.Tx, orgID in
 	calc["toll_pass_uuid"] = p.Uuid
 	calc["revision"] = p.Revision
 	if kind == model.ChargeTollFee {
-		calc = map[string]any{"toll_pass_uuid": p.Uuid, "external_id": p.ExternalID, "processing_fee": amount.String()}
+		// The fee line names its pass (station, time) so it reads on its own.
+		calc["processing_fee"] = amount.String()
+		delete(calc, "amount")
 	}
 	note := "toll pass " + p.ExternalID
 	row, err := q.InsertTollCharge(ctx, db.InsertTollChargeParams{

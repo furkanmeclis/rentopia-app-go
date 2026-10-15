@@ -19,10 +19,12 @@ import { useLocale } from "@/providers/locale-provider";
 export function TollStatusChip({ status }: { status: TollStatus }) {
   const { t } = useLocale();
   return (
-    <StatusChip
-      label={t(TOLL_STATUS_LABEL_KEYS[status])}
-      tone={TOLL_STATUS_TONES[status]}
-    />
+    <span className="whitespace-nowrap">
+      <StatusChip
+        label={t(TOLL_STATUS_LABEL_KEYS[status])}
+        tone={TOLL_STATUS_TONES[status]}
+      />
+    </span>
   );
 }
 

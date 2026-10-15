@@ -219,13 +219,14 @@ SELECT tp.id, tp.uuid, tp.provider, tp.external_id, tp.source, tp.passed_at, tp.
     r.uuid AS rental_uuid, r.reference AS rental_reference, r.status AS rental_status,
     res.pickup_branch_id AS rental_pickup_branch_id, res.return_branch_id AS rental_return_branch_id,
     r.actual_return_branch_id AS rental_actual_return_branch_id,
-    a.uuid AS account_uuid, a.display_name AS account_name,
+    a.uuid AS account_uuid, a.display_name AS account_name, fc.amount AS fee_amount,
     du.uuid AS decided_by_uuid, du.name AS decided_by_name, du.surname AS decided_by_surname, du.email AS decided_by_email
 FROM toll_passes tp
 LEFT JOIN vehicles v ON v.organization_id = tp.organization_id AND v.id = tp.vehicle_id
 LEFT JOIN rentals r ON r.organization_id = tp.organization_id AND r.id = tp.rental_id
 LEFT JOIN reservations res ON res.organization_id = r.organization_id AND res.id = r.reservation_id
 LEFT JOIN integration_accounts a ON a.organization_id = tp.organization_id AND a.id = tp.integration_account_id
+LEFT JOIN rental_charges fc ON fc.organization_id = tp.organization_id AND fc.id = tp.fee_charge_id
 LEFT JOIN users du ON du.id = tp.decided_by
 WHERE tp.organization_id = $1
   AND tp.uuid = $2
@@ -276,6 +277,7 @@ type GetTollPassRow struct {
 	RentalActualReturnBranchID pgtype.Int8        `json:"rental_actual_return_branch_id"`
 	AccountUuid                pgtype.UUID        `json:"account_uuid"`
 	AccountName                pgtype.Text        `json:"account_name"`
+	FeeAmount                  pgtype.Numeric     `json:"fee_amount"`
 	DecidedByUuid              pgtype.UUID        `json:"decided_by_uuid"`
 	DecidedByName              pgtype.Text        `json:"decided_by_name"`
 	DecidedBySurname           pgtype.Text        `json:"decided_by_surname"`
@@ -326,6 +328,7 @@ func (q *Queries) GetTollPass(ctx context.Context, arg GetTollPassParams) (GetTo
 		&i.RentalActualReturnBranchID,
 		&i.AccountUuid,
 		&i.AccountName,
+		&i.FeeAmount,
 		&i.DecidedByUuid,
 		&i.DecidedByName,
 		&i.DecidedBySurname,
