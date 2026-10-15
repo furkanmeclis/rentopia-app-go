@@ -74,6 +74,9 @@ import (
 	importmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/imports"
 	importhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/imports/handler"
 	importusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/imports/usecase"
+	inspectionsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/inspections"
+	inspectionshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/inspections/handler"
+	inspectionsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/inspections/usecase"
 	integrationaccountsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/accounts"
 	integrationaccountshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/accounts/handler"
 	integrationaccountsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/accounts/usecase"
@@ -455,6 +458,13 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	rentalsSvc.SetDocuments(contractsSvc)
 	rentalsSvc.SetResourceEvents(resourceEvents)
 	reservationSvc.SetLifecycleListener(rentalsSvc)
+	// Inspections (TEC-712 / 713 / 714): mobile handover / return forms on
+	// the rentals use cases, evidence in private storage behind signed
+	// short-lived media links, signatures linked to contract approvals.
+	inspectionsSvc := inspectionsusecase.New(deps.DB, deps.Queries, rentalsSvc, deps.Storage, inspectionsusecase.NewMediaSigner(cfg.JWT.AccessSecret))
+	inspectionsSvc.SetContracts(contractsSvc)
+	inspectionsSvc.SetResourceEvents(resourceEvents)
+	inspectionsSvc.SetLogger(log)
 	// Rental group membership removals re-plan the commitments that relied
 	// on them (or are refused); moved reservations record plan_moved.
 	vehicleSvc.SetMembershipGuard(availabilitySvc)
@@ -476,6 +486,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	reservationsmodule.RegisterLiveResources(tenantLive)
 	paymentsmodule.RegisterLiveResources(tenantLive)
 	rentalsmodule.RegisterLiveResources(tenantLive)
+	inspectionsmodule.RegisterLiveResources(tenantLive)
 	contractsmodule.RegisterLiveResources(tenantLive)
 	resourceEvents.AddResolver(tenantmodule.ChannelResolver(tenantmodule.QueriesLookup(deps.Queries)))
 	uc.AddChannelRules(tenantmodule.ChannelRule(tenantLive, tenantResolver))
@@ -678,6 +689,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		Export: exportH.TenantExport(rentalsmodule.Resource, rentalsmodule.ExportQueryKeys...),
 	}, tokens, loader, tenantResolver)
 	contractsmodule.RegisterRoutes(mux, contractshandler.New(contractsSvc, activityRec), tokens, loader, tenantResolver)
+	inspectionsmodule.RegisterRoutes(mux, inspectionshandler.New(inspectionsSvc, activityRec), tokens, loader, tenantResolver)
 	settingsmodule.RegisterRoutes(mux, settingshandler.New(
 		settingsusecase.New(deps.Queries),
 		deps.Storage,

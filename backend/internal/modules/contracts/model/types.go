@@ -211,6 +211,10 @@ type Approval struct {
 	InvalidatedAt     *time.Time `json:"invalidated_at"`
 	InvalidatedReason string     `json:"invalidated_reason"`
 	RecordedBy        *Actor     `json:"recorded_by"`
+	// SignatureUUID / SignatureInspectionUUID: the approval was given
+	// with the tablet signature of a handover / return form (TEC-712).
+	SignatureUUID           *uuid.UUID `json:"signature_uuid"`
+	SignatureInspectionUUID *uuid.UUID `json:"signature_inspection_uuid"`
 }
 
 // DocumentListItem is a row of the documents list.

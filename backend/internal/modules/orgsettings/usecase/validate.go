@@ -161,6 +161,10 @@ func Normalize(in model.Settings) (model.Settings, error) {
 	if pol.ExtraHourFee != "" && !moneyRE.MatchString(pol.ExtraHourFee) {
 		ve.add("policies.extra_hour_fee", "invalid", "extra hour fee must be an amount with at most 2 decimals")
 	}
+	pol.FuelFeePerPercent = strings.TrimSpace(pol.FuelFeePerPercent)
+	if pol.FuelFeePerPercent != "" && !moneyRE.MatchString(pol.FuelFeePerPercent) {
+		ve.add("policies.fuel_fee_per_percent", "invalid", "fuel fee must be an amount with at most 2 decimals")
+	}
 
 	// --- sales channels: every known channel exactly once, in order.
 	active := map[string]bool{}

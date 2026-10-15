@@ -16,6 +16,12 @@ func TestOrganizationKeys(t *testing.T) {
 	if got := storage.OrganizationImportSourceObjectKey(org, "job", "xlsx"); got != "organizations/"+org+"/imports/job/source.xlsx" {
 		t.Fatalf("import key = %s", got)
 	}
+	if got := storage.InspectionPhotoObjectKey(org, "r", "i", "p", ".jpg"); got != "organizations/"+org+"/rentals/r/inspections/i/photos/p.jpg" {
+		t.Fatalf("inspection photo key = %s", got)
+	}
+	if got := storage.InspectionSignatureObjectKey(org, "r", "i", "s"); got != "organizations/"+org+"/rentals/r/inspections/i/signatures/s.png" {
+		t.Fatalf("inspection signature key = %s", got)
+	}
 	cases := []struct {
 		key, org string
 		want     bool
@@ -23,6 +29,8 @@ func TestOrganizationKeys(t *testing.T) {
 		{storage.OrganizationExportObjectKey(org, "job", "csv"), org, true},
 		{storage.VehicleDocumentObjectKey(org, "v", "d", "f", "pdf"), org, true},
 		{storage.RentalProductImageObjectKey(org, "p", "i", "png"), org, true},
+		{storage.InspectionPhotoObjectKey(org, "r", "i", "p", "jpg"), org, true},
+		{storage.InspectionPhotoObjectKey(other, "r", "i", "p", "jpg"), org, false},
 		{storage.VehicleDocumentObjectKey(other, "v", "d", "f", "pdf"), org, false},
 		{"organizations/" + org + "/../" + other + "/x.pdf", org, false},
 		{"organizations/" + org + "x/doc.pdf", org, false},

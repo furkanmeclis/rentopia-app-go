@@ -154,13 +154,24 @@ func (s *Service) Get(ctx context.Context, orgID int64, id uuid.UUID) (model.Ren
 		out.Drivers = append(out.Drivers, dr)
 	}
 	for _, ch := range charges {
-		out.Charges = append(out.Charges, model.Charge{
+		item := model.Charge{
 			UUID: ch.Uuid, Kind: ch.Kind, Source: ch.Source, Status: ch.Status, Currency: strings.TrimSpace(ch.Currency),
 			Amount: money.FromNumericOrZero(ch.Amount), SettingsVersion: ch.SettingsVersion, Calculation: json.RawMessage(ch.Calculation),
 			Reason: ch.Reason, DecidedAt: timePtr(ch.DecidedAt), DecisionNote: ch.DecisionNote, CreatedAt: ch.CreatedAt.Time.UTC(),
 			DecidedBy: actorOf(ch.DecidedByUuid, ch.DecidedByName, ch.DecidedBySurname, ch.DecidedByEmail),
 			CreatedBy: actorOf(ch.CreatedByUuid, ch.CreatedByName, ch.CreatedBySurname, ch.CreatedByEmail),
-		})
+			Disputed:  ch.Disputed, OverrideReason: ch.OverrideReason, OverriddenAt: timePtr(ch.OverriddenAt),
+			OverriddenBy: actorOf(ch.OverriddenByUuid, ch.OverriddenByName, ch.OverriddenBySurname, ch.OverriddenByEmail),
+		}
+		if ch.InspectionUuid.Valid {
+			id := uuid.UUID(ch.InspectionUuid.Bytes)
+			item.InspectionUUID = &id
+		}
+		if ch.OriginalAmount.Valid {
+			orig := money.FromNumericOrZero(ch.OriginalAmount)
+			item.OriginalAmount = &orig
+		}
+		out.Charges = append(out.Charges, item)
 	}
 	resID, _ := s.reservationID(ctx, orgID, row.ReservationUuid)
 	if state, err := s.documents.ContractState(unscoped(ctx), orgID, resID); err == nil {

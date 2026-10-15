@@ -266,10 +266,11 @@ WHERE organization_id = sqlc.arg(organization_id)
 -- name: InsertDocumentApproval :one
 INSERT INTO document_approvals (
     organization_id, document_version_id, content_hash, party, method, approver_name, customer_id, note, recorded_by,
-    approved_at
+    approved_at, signature_id
 ) VALUES (
     sqlc.arg(organization_id), sqlc.arg(document_version_id), sqlc.arg(content_hash), sqlc.arg(party), sqlc.arg(method),
-    sqlc.arg(approver_name), sqlc.narg(customer_id), sqlc.arg(note), sqlc.narg(recorded_by), sqlc.arg(approved_at)
+    sqlc.arg(approver_name), sqlc.narg(customer_id), sqlc.arg(note), sqlc.narg(recorded_by), sqlc.arg(approved_at),
+    sqlc.narg(signature_id)
 )
 RETURNING uuid;
 
@@ -283,10 +284,13 @@ WHERE organization_id = sqlc.arg(organization_id)
 -- name: ListDocumentApprovals :many
 SELECT a.uuid, a.content_hash, a.party, a.method, a.approver_name, a.note, a.approved_at, a.invalidated_at,
     a.invalidated_reason, v.uuid AS version_uuid, v.version AS version_number,
-    ru.uuid AS recorded_by_uuid, ru.name AS recorded_by_name, ru.surname AS recorded_by_surname, ru.email AS recorded_by_email
+    ru.uuid AS recorded_by_uuid, ru.name AS recorded_by_name, ru.surname AS recorded_by_surname, ru.email AS recorded_by_email,
+    sig.uuid AS signature_uuid, ins.uuid AS signature_inspection_uuid
 FROM document_approvals a
 JOIN document_versions v ON v.organization_id = a.organization_id AND v.id = a.document_version_id
 LEFT JOIN users ru ON ru.id = a.recorded_by
+LEFT JOIN inspection_signatures sig ON sig.organization_id = a.organization_id AND sig.id = a.signature_id
+LEFT JOIN inspections ins ON ins.organization_id = sig.organization_id AND ins.id = sig.inspection_id
 WHERE a.organization_id = sqlc.arg(organization_id)
   AND v.organization_id = sqlc.arg(organization_id)
   AND v.document_id = sqlc.arg(document_id)

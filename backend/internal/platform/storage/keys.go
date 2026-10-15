@@ -100,6 +100,21 @@ func DocumentPDFObjectKey(orgUUID, documentUUID, versionUUID string) string {
 	return fmt.Sprintf("%sdocuments/%s/%s.pdf", OrganizationPrefix(orgUUID), documentUUID, versionUUID)
 }
 
+// InspectionPhotoObjectKey builds
+// organizations/{orgUUID}/rentals/{rentalUUID}/inspections/{inspectionUUID}/photos/{photoUUID}.{ext}
+// for handover / return evidence photos (private: streamed by the API
+// only, through short-lived media links).
+func InspectionPhotoObjectKey(orgUUID, rentalUUID, inspectionUUID, photoUUID, ext string) string {
+	return fmt.Sprintf("%srentals/%s/inspections/%s/photos/%s.%s", OrganizationPrefix(orgUUID), rentalUUID, inspectionUUID, photoUUID, trimExt(ext))
+}
+
+// InspectionSignatureObjectKey builds
+// organizations/{orgUUID}/rentals/{rentalUUID}/inspections/{inspectionUUID}/signatures/{signatureUUID}.png
+// for the signature canvas PNG of a handover / return form (private).
+func InspectionSignatureObjectKey(orgUUID, rentalUUID, inspectionUUID, signatureUUID string) string {
+	return fmt.Sprintf("%srentals/%s/inspections/%s/signatures/%s.png", OrganizationPrefix(orgUUID), rentalUUID, inspectionUUID, signatureUUID)
+}
+
 func trimExt(ext string) string {
 	for len(ext) > 0 && ext[0] == '.' {
 		ext = ext[1:]
