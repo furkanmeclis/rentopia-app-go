@@ -438,7 +438,7 @@ func Calculate(in Input) (Breakdown, error) {
 
 	rental := subtotal
 	if d := in.Discount; d != nil {
-		amount := money.Zero()
+		var amount money.Money
 		dl := &DiscountLine{Code: d.Code, Name: d.Name, Kind: d.Kind}
 		switch d.Kind {
 		case KindPercent:
