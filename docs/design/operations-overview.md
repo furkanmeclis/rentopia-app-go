@@ -55,7 +55,7 @@ Integration jobs belong to no branch. They are organization-wide, like `/v1/tena
 - **Overdue.** Active, and `overdue_at` is set or the planned return passed. The panel shows rentals that are late but still inside the grace period too. The full list link opens the rentals list on `status=active` sorted by planned return.
 - **"Süresi yaklaşan belgeler".** Contracts have no expiry. A handover with an active rental contract template needs an approved contract (rentals `ContractState`), so the deadline that matters is the handover. The card lists handovers in the next 48 hours whose contract is not approved, with a countdown to the pick-up. Two states are shown: "Onay bekliyor" (a draft document exists) and "Hazırlanmadı" (no document yet). Without an active template nothing is required: `documents.required = false` and the card says so. Remote approval links that expire (TEC-711) are not listed. Their expiry is short and they are visible in the document dialog.
 
-### Indexes (migration 000092)
+### Indexes (migration 000090)
 
 Two partial indexes back the queries that no module index served:
 - `idx_payments_organization_verified_collected (organization_id, verified_at)` where the status is succeeded / partially_refunded / refunded
