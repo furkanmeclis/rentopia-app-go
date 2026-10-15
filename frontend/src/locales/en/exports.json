@@ -79,5 +79,6 @@
   "resources.tenant.extras": "Extras",
   "resources.tenant.campaigns": "Campaigns",
   "resources.tenant.reservations": "Reservations",
-  "resources.tenant.rentals": "Rentals"
+  "resources.tenant.rentals": "Rentals",
+  "resources.tenant.toll_passes": "Toll passes"
 }

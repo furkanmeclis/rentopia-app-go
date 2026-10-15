@@ -113,12 +113,14 @@ export const INTEGRATION_FIELD_LABEL_KEYS: Record<string, string> = {
   usercode: "payments.integrations.fields.usercode",
   password: "payments.integrations.fields.password",
   msgheader: "payments.integrations.fields.msgheader",
+  customer_no: "payments.integrations.fields.customer_no",
 };
 
 export const INTEGRATION_PROVIDER_LABEL_KEYS: Record<string, string> = {
   iyzico: "payments.integrations.providers.iyzico",
   netgsm: "payments.integrations.providers.netgsm",
   log: "payments.integrations.providers.log",
+  hgs_fake: "payments.integrations.providers.hgs_fake",
 };
 
 /** Connect form hint per provider (where the organization finds its keys). */
@@ -126,6 +128,7 @@ export const INTEGRATION_PROVIDER_HINT_KEYS: Record<string, string> = {
   iyzico: "payments.integrations.provider_hints.iyzico",
   netgsm: "payments.integrations.provider_hints.netgsm",
   log: "payments.integrations.provider_hints.log",
+  hgs_fake: "payments.integrations.provider_hints.hgs_fake",
 };
 
 /** Live list resource of integration jobs (backend jobs usecase). */
@@ -169,6 +172,7 @@ export const INTEGRATION_JOB_KIND_LABEL_KEYS: Record<string, string> = {
   "sms.send": "payments.integrations.jobs.kinds.sms_send",
   "payment.refund": "payments.integrations.jobs.kinds.payment_refund",
   "payment.webhook": "payments.integrations.jobs.kinds.payment_webhook",
+  "toll.fetch": "payments.integrations.jobs.kinds.toll_fetch",
 };
 
 export const ATTEMPT_OPERATION_LABEL_KEYS: Record<string, string> = {

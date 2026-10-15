@@ -39,6 +39,7 @@ const EXPORT_PERM: Partial<Record<IoResource, string>> = {
   "tenant.reservations": permissions.tenant.reservations.export,
   // Rental exports need read access only (no separate export slug).
   "tenant.rentals": permissions.tenant.rentals.read,
+  "tenant.toll_passes": permissions.tenant.tolls.export,
 };
 
 const IMPORT_PERM: Partial<Record<IoResource, string>> = {
@@ -49,6 +50,7 @@ const IMPORT_PERM: Partial<Record<IoResource, string>> = {
   // The price list import only writes drafts.
   "tenant.rate_plans": permissions.tenant.pricing.write,
   "tenant.customers": permissions.tenant.customers.import,
+  "tenant.toll_passes": permissions.tenant.tolls.import,
 };
 
 export function ResourceIOToolbar({

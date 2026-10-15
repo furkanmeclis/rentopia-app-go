@@ -18437,9 +18437,9 @@ export interface components {
         };
         IntegrationProvider: {
             /** @enum {string} */
-            kind: "payment" | "sms";
+            kind: "payment" | "sms" | "toll";
             /** @enum {string} */
-            provider: "iyzico" | "netgsm" | "log";
+            provider: "iyzico" | "netgsm" | "log" | "hgs_fake";
             fields: components["schemas"]["IntegrationField"][];
             modes: ("sandbox" | "live")[];
         };
@@ -18456,9 +18456,9 @@ export interface components {
             /** Format: uuid */
             uuid: string;
             /** @enum {string} */
-            kind: "payment" | "sms";
+            kind: "payment" | "sms" | "toll";
             /** @enum {string} */
-            provider: "iyzico" | "netgsm" | "log";
+            provider: "iyzico" | "netgsm" | "log" | "hgs_fake";
             display_name: string;
             /** @enum {string} */
             mode: "sandbox" | "live";
@@ -32778,7 +32778,7 @@ export interface operations {
                 status?: string;
                 /** @description payment, sms */
                 kind?: string;
-                /** @description iyzico, netgsm, log */
+                /** @description iyzico, netgsm, log, hgs_fake */
                 provider?: string;
             };
             header: {
@@ -32827,13 +32827,13 @@ export interface operations {
                      * @description Defaults to the provider's kind.
                      * @enum {string}
                      */
-                    kind?: "payment" | "sms";
+                    kind?: "payment" | "sms" | "toll";
                     /** @enum {string} */
-                    provider: "iyzico" | "netgsm" | "log";
+                    provider: "iyzico" | "netgsm" | "log" | "hgs_fake";
                     display_name: string;
                     /** @enum {string} */
                     mode?: "sandbox" | "live";
-                    /** @description iyzico: `api_key`, `secret_key`; netgsm: `usercode`, `password`, `msgheader`; log (development only): `msgheader` */
+                    /** @description iyzico: `api_key`, `secret_key`; netgsm: `usercode`, `password`, `msgheader`; log (development only): `msgheader`; hgs_fake (toll passes, development only): `api_key`, `customer_no` */
                     credentials: {
                         [key: string]: string;
                     };

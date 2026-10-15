@@ -14,6 +14,8 @@ export type RentalDriver = Schemas["RentalDriver"];
 export type RentalCharge = Schemas["RentalCharge"];
 export type RentalStatus = Rental["status"];
 export type ChargeKind = RentalCharge["kind"];
+/** Kinds of a manual charge proposal (toll charges are recorded by tolls). */
+export type ManualChargeKind = Schemas["RentalChargeRequest"]["kind"];
 export type ChargeStatus = RentalCharge["status"];
 
 export type RentalCreateRequest = Schemas["RentalCreateRequest"];

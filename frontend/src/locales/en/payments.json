@@ -283,5 +283,9 @@
   "integrations.jobs.toast.unverified": "The provider could not confirm the state; nothing was sent again. Check the provider's panel.",
   "integrations.jobs.toast.busy": "The job is being processed; try again shortly.",
   "integrations.jobs.toast.not_retryable": "This job cannot be retried.",
-  "integrations.jobs.toast.retry_failed": "Retry failed"
+  "integrations.jobs.toast.retry_failed": "Retry failed",
+  "integrations.providers.hgs_fake": "HGS test provider (development)",
+  "integrations.provider_hints.hgs_fake": "Development and tests only: generates sample toll passes for the vehicle tags. Enter any API key.",
+  "integrations.fields.customer_no": "Customer no",
+  "integrations.jobs.kinds.toll_fetch": "Toll pass fetch"
 }

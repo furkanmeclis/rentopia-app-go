@@ -11194,7 +11194,7 @@ paths:
           schema: { type: string }
         - { name: status, in: query, schema: { type: string }, description: "active, disabled" }
         - { name: kind, in: query, schema: { type: string }, description: "payment, sms" }
-        - { name: provider, in: query, schema: { type: string }, description: "iyzico, netgsm, log" }
+        - { name: provider, in: query, schema: { type: string }, description: "iyzico, netgsm, log, hgs_fake" }
       responses:
         "200":
           description: Account page
@@ -11225,14 +11225,14 @@ paths:
               additionalProperties: false
               required: [provider, display_name, credentials]
               properties:
-                kind: { type: string, enum: [payment, sms], description: "Defaults to the provider's kind." }
-                provider: { type: string, enum: [iyzico, netgsm, log] }
+                kind: { type: string, enum: [payment, sms, toll], description: "Defaults to the provider's kind." }
+                provider: { type: string, enum: [iyzico, netgsm, log, hgs_fake] }
                 display_name: { type: string, maxLength: 120 }
                 mode: { type: string, enum: [sandbox, live] }
                 credentials:
                   type: object
                   additionalProperties: { type: string }
-                  description: "iyzico: `api_key`, `secret_key`; netgsm: `usercode`, `password`, `msgheader`; log (development only): `msgheader`"
+                  description: "iyzico: `api_key`, `secret_key`; netgsm: `usercode`, `password`, `msgheader`; log (development only): `msgheader`; hgs_fake (toll passes, development only): `api_key`, `customer_no`"
       responses:
         "201": { $ref: "#/components/responses/IntegrationAccountOK" }
         "400": { $ref: "#/components/responses/BadRequest" }
@@ -26069,8 +26069,8 @@ components:
       type: object
       required: [kind, provider, fields, modes]
       properties:
-        kind: { type: string, enum: [payment, sms] }
-        provider: { type: string, enum: [iyzico, netgsm, log] }
+        kind: { type: string, enum: [payment, sms, toll] }
+        provider: { type: string, enum: [iyzico, netgsm, log, hgs_fake] }
         fields:
           type: array
           items: { $ref: "#/components/schemas/IntegrationField" }
@@ -26098,8 +26098,8 @@ components:
       required: [uuid, kind, provider, display_name, mode, status, credentials_hint, last_checked_at, last_check_status, last_check_error, created_at, updated_at]
       properties:
         uuid: { type: string, format: uuid }
-        kind: { type: string, enum: [payment, sms] }
-        provider: { type: string, enum: [iyzico, netgsm, log] }
+        kind: { type: string, enum: [payment, sms, toll] }
+        provider: { type: string, enum: [iyzico, netgsm, log, hgs_fake] }
         display_name: { type: string }
         mode: { type: string, enum: [sandbox, live] }
         status: { type: string, enum: [active, disabled] }

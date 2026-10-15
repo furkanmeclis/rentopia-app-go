@@ -115,5 +115,6 @@
   "resources.tenant.date_rules": "Date rules",
   "resources.tenant.customers": "Customers",
   "resources.tenant.extras": "Extras",
-  "resources.tenant.campaigns": "Campaigns"
+  "resources.tenant.campaigns": "Campaigns",
+  "resources.tenant.toll_passes": "Toll passes"
 }

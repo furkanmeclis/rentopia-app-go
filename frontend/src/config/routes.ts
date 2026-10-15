@@ -136,6 +136,13 @@ export const routes = {
       detail: (slug: string, uuid: string) =>
         `/t/${encodeURIComponent(slug)}/rentals/${uuid}`,
     },
+    /** HGS / OGS toll passes and their review queue (TEC-725). */
+    tolls: {
+      root: (slug: string) => `/t/${encodeURIComponent(slug)}/tolls`,
+      review: (slug: string) => `/t/${encodeURIComponent(slug)}/tolls/review`,
+      detail: (slug: string, uuid: string) =>
+        `/t/${encodeURIComponent(slug)}/tolls/${uuid}`,
+    },
     /** Mobile handover / return ("Saha görevleri", TEC-712 / TEC-713). */
     field: {
       root: (slug: string) => `/t/${encodeURIComponent(slug)}/field`,

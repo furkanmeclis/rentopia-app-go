@@ -51,6 +51,7 @@ import enVehicles from "@/locales/en/vehicles.json";
 import enCustomers from "@/locales/en/customers.json";
 import enReservations from "@/locales/en/reservations.json";
 import enRentals from "@/locales/en/rentals.json";
+import enTolls from "@/locales/en/tolls.json";
 import enContracts from "@/locales/en/contracts.json";
 import enInspections from "@/locales/en/inspections.json";
 import enCustomerPortal from "@/locales/en/customer_portal.json";
@@ -105,6 +106,7 @@ import trVehicles from "@/locales/tr/vehicles.json";
 import trCustomers from "@/locales/tr/customers.json";
 import trReservations from "@/locales/tr/reservations.json";
 import trRentals from "@/locales/tr/rentals.json";
+import trTolls from "@/locales/tr/tolls.json";
 import trContracts from "@/locales/tr/contracts.json";
 import trInspections from "@/locales/tr/inspections.json";
 import trCustomerPortal from "@/locales/tr/customer_portal.json";
@@ -135,6 +137,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     customers: trCustomers,
     reservations: trReservations,
     rentals: trRentals,
+    tolls: trTolls,
     contracts: trContracts,
     inspections: trInspections,
     customer_portal: trCustomerPortal,
@@ -191,6 +194,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     customers: enCustomers,
     reservations: enReservations,
     rentals: enRentals,
+    tolls: enTolls,
     contracts: enContracts,
     inspections: enInspections,
     customer_portal: enCustomerPortal,

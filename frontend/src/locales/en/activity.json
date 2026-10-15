@@ -298,5 +298,15 @@
   "actions.customer_portal.payment_link_reused": "Customer sent to the existing payment link",
   "actions.customer_portal.request_created": "Customer request created",
   "actions.customer_requests.resolved": "Customer request resolved",
-  "actions.customer_requests.rejected": "Customer request rejected"
+  "actions.customer_requests.rejected": "Customer request rejected",
+  "resources.tenant.toll_passes": "Toll passes",
+  "actions.tolls.assigned": "Toll pass assigned to a rental",
+  "actions.tolls.unassigned": "Toll pass assignment removed",
+  "actions.tolls.ignored": "Toll pass ignored",
+  "actions.tolls.rematched": "Toll pass matched again",
+  "actions.tolls.fetch_requested": "Toll pass fetch requested",
+  "actions.tolls.settings_updated": "Toll settings updated",
+  "actions.vehicles.toll_tag_created": "Toll tag added to the vehicle",
+  "actions.vehicles.toll_tag_updated": "Vehicle toll tag updated",
+  "actions.vehicles.toll_tag_deleted": "Vehicle toll tag deleted"
 }

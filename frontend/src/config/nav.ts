@@ -37,6 +37,7 @@ import {
   ScrollText,
   Settings2,
   Share2,
+  ScanLine,
   Shield,
   SlidersHorizontal,
   Sparkles,
@@ -53,6 +54,7 @@ import { defineNav } from "@/features/nav-engine";
 import type { NavCatalog } from "@/features/nav-engine";
 import { usersNavItem } from "@/features/users/nav";
 import { customerRequestsNavItem } from "@/features/customer-portal/nav";
+import { TollReviewNavAdornment } from "@/features/tolls/nav";
 import {
   ApprovalsNavAdornment,
   ResolutionTasksNavAdornment,
@@ -403,6 +405,21 @@ export function tenantNav(slug: string): NavCatalog {
             href: routes.tenant.inspections.root(slug),
             icon: ScanSearch,
             permission: permissions.tenant.rentals.read,
+          },
+          {
+            id: "tolls",
+            titleKey: "layout.nav_tolls",
+            href: routes.tenant.tolls.root(slug),
+            icon: Route,
+            permission: permissions.tenant.tolls.read,
+          },
+          {
+            id: "tolls-review",
+            titleKey: "layout.nav_tolls_review",
+            href: routes.tenant.tolls.review(slug),
+            icon: ScanLine,
+            permission: permissions.tenant.tolls.read,
+            Adornment: TollReviewNavAdornment,
           },
         ],
       },

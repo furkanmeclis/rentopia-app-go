@@ -123,6 +123,10 @@ export const Permission = {
   TenantPaymentsRead: "tenant.payments.read",
   TenantPaymentsCreateLink: "tenant.payments.create_link",
   TenantReservationsApprove: "tenant.reservations.approve",
+  TenantTollsRead: "tenant.tolls.read",
+  TenantTollsExport: "tenant.tolls.export",
+  TenantTollsImport: "tenant.tolls.import",
+  TenantTollsReview: "tenant.tolls.review",
 } as const;
 
 export type PermissionSlug = (typeof Permission)[keyof typeof Permission];
@@ -387,6 +391,18 @@ export const permissions = {
     /** Provider accounts (iyzico …): connect, test, disable (TEC-676). */
     integrations: {
       manage: Permission.TenantIntegrationsManage,
+    },
+    /**
+     * HGS / OGS toll passes (TEC-725): list and review queue (`read`),
+     * export, file import and "fetch now" (`import`), assign / unassign /
+     * ignore / rematch with a reason (`review`). Vehicle tags need
+     * `vehicles.write`, the processing fee `settings.write`.
+     */
+    tolls: {
+      read: Permission.TenantTollsRead,
+      export: Permission.TenantTollsExport,
+      import: Permission.TenantTollsImport,
+      review: Permission.TenantTollsReview,
     },
     damage: {
       approve: Permission.TenantDamageApprove,
