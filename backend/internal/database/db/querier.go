@@ -49,6 +49,7 @@ type Querier interface {
 	ClaimVehicleReminder(ctx context.Context, arg ClaimVehicleReminderParams) (int64, error)
 	ClearAppSettingsLogo(ctx context.Context) (AppSetting, error)
 	ClearPrimaryCustomerContact(ctx context.Context, arg ClearPrimaryCustomerContactParams) error
+	ClearSMSPayload(ctx context.Context, arg ClearSMSPayloadParams) error
 	ClearVehicleRentalGroups(ctx context.Context, arg ClearVehicleRentalGroupsParams) error
 	// Ends the row that is effective at from_at (a price change from from_at).
 	CloseExtraPrice(ctx context.Context, arg CloseExtraPriceParams) (int64, error)
@@ -94,6 +95,7 @@ type Querier interface {
 	CountImportJobsForActor(ctx context.Context, actorID int64) (int64, error)
 	CountInvitations(ctx context.Context, arg CountInvitationsParams) (int64, error)
 	CountNotificationsForUser(ctx context.Context, arg CountNotificationsForUserParams) (int64, error)
+	CountOTPChallengesSince(ctx context.Context, arg CountOTPChallengesSinceParams) (int64, error)
 	CountOneWayRules(ctx context.Context, arg CountOneWayRulesParams) (int64, error)
 	CountOrganizationMembersByOrg(ctx context.Context, arg CountOrganizationMembersByOrgParams) (int64, error)
 	// Members holding the template owner role (any of their roles).
@@ -114,6 +116,8 @@ type Querier interface {
 	CountRentalProducts(ctx context.Context, arg CountRentalProductsParams) (int64, error)
 	CountReservationEvents(ctx context.Context, arg CountReservationEventsParams) (int64, error)
 	CountRoles(ctx context.Context, q_ pgtype.Text) (int64, error)
+	// Sends of the organization (optionally to one number) since a time.
+	CountSMSMessagesSince(ctx context.Context, arg CountSMSMessagesSinceParams) (int64, error)
 	CountStorageActivity(ctx context.Context, objectKey string) (int64, error)
 	CountStorageTrash(ctx context.Context) (int64, error)
 	CountTenantMembers(ctx context.Context, arg CountTenantMembersParams) (int64, error)
@@ -229,6 +233,8 @@ type Querier interface {
 	// caller's scope (branch_ids NULL = every branch).
 	CreateVehicleTransfer(ctx context.Context, arg CreateVehicleTransferParams) (uuid.UUID, error)
 	CreateWebAuthnCredential(ctx context.Context, arg CreateWebAuthnCredentialParams) (WebauthnCredential, error)
+	// An open İYS SMS consent of the customer (informational sends).
+	CustomerHasSMSConsent(ctx context.Context, arg CustomerHasSMSConsentParams) (bool, error)
 	CustomerIdentityTaken(ctx context.Context, arg CustomerIdentityTakenParams) (bool, error)
 	DateRuleNameTaken(ctx context.Context, arg DateRuleNameTakenParams) (bool, error)
 	// Self-service account deletion: keep every row, mark the user disabled.
@@ -282,12 +288,18 @@ type Querier interface {
 	DisablePushDevice(ctx context.Context, arg DisablePushDeviceParams) error
 	DriverLicenceTaken(ctx context.Context, arg DriverLicenceTakenParams) (bool, error)
 	EndVehicleAssignments(ctx context.Context, arg EndVehicleAssignmentsParams) error
+	// Generic runner (TEC-751). Every query names the organization scope; the
+	// worker carries the job's organization in the task payload.
+	// Creates a runner job once per provider and idempotency key; a repeated
+	// key returns the existing row (inserted = false) and sends nothing again.
+	EnqueueIntegrationJob(ctx context.Context, arg EnqueueIntegrationJobParams) (EnqueueIntegrationJobRow, error)
 	// Creates a zero stock row so the reserve path always has a row to lock.
 	EnsureExtraStockRow(ctx context.Context, arg EnsureExtraStockRowParams) error
 	// First device registration opts the user into push (the OS permission
 	// prompt is the consent). An existing preference row is left untouched.
 	EnsureNotificationPreferencesPushDefault(ctx context.Context, userID int64) error
 	ExpireDueEquipment(ctx context.Context, arg ExpireDueEquipmentParams) (int64, error)
+	ExpireOTPChallenge(ctx context.Context, arg ExpireOTPChallengeParams) error
 	ExpirePaymentLink(ctx context.Context, arg ExpirePaymentLinkParams) (int64, error)
 	ExtendHold(ctx context.Context, arg ExtendHoldParams) (int64, error)
 	ExtensionExists(ctx context.Context, extname string) (bool, error)
@@ -369,6 +381,7 @@ type Querier interface {
 	GetCustomerContact(ctx context.Context, arg GetCustomerContactParams) (CustomerContact, error)
 	GetCustomerDocument(ctx context.Context, arg GetCustomerDocumentParams) (GetCustomerDocumentRow, error)
 	GetCustomerDriver(ctx context.Context, arg GetCustomerDriverParams) (Driver, error)
+	GetCustomerIDByUUID(ctx context.Context, arg GetCustomerIDByUUIDParams) (int64, error)
 	GetCustomerSearchDocument(ctx context.Context, arg GetCustomerSearchDocumentParams) (GetCustomerSearchDocumentRow, error)
 	GetDateRule(ctx context.Context, arg GetDateRuleParams) (GetDateRuleRow, error)
 	GetDateRuleVersionByStatus(ctx context.Context, arg GetDateRuleVersionByStatusParams) (GetDateRuleVersionByStatusRow, error)
@@ -413,6 +426,7 @@ type Querier interface {
 	GetOAuthAccountByUserProvider(ctx context.Context, arg GetOAuthAccountByUserProviderParams) (GetOAuthAccountByUserProviderRow, error)
 	GetOAuthProviderSettings(ctx context.Context, provider string) (OauthProviderSetting, error)
 	GetOneWayRule(ctx context.Context, arg GetOneWayRuleParams) (GetOneWayRuleRow, error)
+	GetOpenOTPChallengeForUpdate(ctx context.Context, arg GetOpenOTPChallengeForUpdateParams) (GetOpenOTPChallengeForUpdateRow, error)
 	GetOrganizationByID(ctx context.Context, id int64) (Organization, error)
 	GetOrganizationBySlug(ctx context.Context, slug string) (Organization, error)
 	GetOrganizationByUUID(ctx context.Context, argUuid uuid.UUID) (Organization, error)
@@ -477,6 +491,11 @@ type Querier interface {
 	GetRoleByID(ctx context.Context, id int64) (Role, error)
 	GetRoleBySlug(ctx context.Context, slug string) (Role, error)
 	GetRoleByUUID(ctx context.Context, argUuid uuid.UUID) (Role, error)
+	GetRunnerJob(ctx context.Context, arg GetRunnerJobParams) (GetRunnerJobRow, error)
+	GetRunnerJobByUUID(ctx context.Context, arg GetRunnerJobByUUIDParams) (GetRunnerJobByUUIDRow, error)
+	GetSMSMessage(ctx context.Context, arg GetSMSMessageParams) (GetSMSMessageRow, error)
+	// The sealed payload of a send job's message.
+	GetSMSMessageForSend(ctx context.Context, arg GetSMSMessageForSendParams) (GetSMSMessageForSendRow, error)
 	GetServicePoint(ctx context.Context, arg GetServicePointParams) (ServicePoint, error)
 	GetStepupSettings(ctx context.Context) (StepupSetting, error)
 	GetStorageLinkBySlug(ctx context.Context, slug pgtype.Text) (StorageLink, error)
@@ -530,7 +549,9 @@ type Querier interface {
 	// (every query filters by organization_id); jobs are mixed scope
 	// (organization_id NULL = platform job) and every query names the scope.
 	InsertIntegrationAccount(ctx context.Context, arg InsertIntegrationAccountParams) (int64, error)
+	InsertIntegrationAttempt(ctx context.Context, arg InsertIntegrationAttemptParams) (InsertIntegrationAttemptRow, error)
 	InsertNotificationHistory(ctx context.Context, arg InsertNotificationHistoryParams) (NotificationHistory, error)
+	InsertOTPChallenge(ctx context.Context, arg InsertOTPChallengeParams) (int64, error)
 	InsertOrganizationSettingsVersion(ctx context.Context, arg InsertOrganizationSettingsVersionParams) (OrganizationSettingsVersion, error)
 	InsertOutboxEvent(ctx context.Context, arg InsertOutboxEventParams) (OutboxEvent, error)
 	InsertPayment(ctx context.Context, arg InsertPaymentParams) (int64, error)
@@ -560,6 +581,9 @@ type Querier interface {
 	// the partial unique index returns nothing).
 	InsertResolutionTask(ctx context.Context, arg InsertResolutionTaskParams) (uuid.UUID, error)
 	InsertRolePermission(ctx context.Context, arg InsertRolePermissionParams) error
+	// SMS send log and OTP challenges (TEC-734). Both tables are
+	// organization-owned: every query filters by organization_id.
+	InsertSMSMessage(ctx context.Context, arg InsertSMSMessageParams) (InsertSMSMessageRow, error)
 	InsertStorageActivity(ctx context.Context, arg InsertStorageActivityParams) (StorageActivity, error)
 	InsertStorageLink(ctx context.Context, arg InsertStorageLinkParams) (StorageLink, error)
 	InsertStorageShare(ctx context.Context, arg InsertStorageShareParams) (StorageShare, error)
@@ -569,6 +593,8 @@ type Querier interface {
 	InsertVehicleAssignment(ctx context.Context, arg InsertVehicleAssignmentParams) error
 	InsertVehicleEvent(ctx context.Context, arg InsertVehicleEventParams) (VehicleEvent, error)
 	InvalidateActiveOTPs(ctx context.Context, arg InvalidateActiveOTPsParams) error
+	// The newest challenge of a purpose and subject (resend cooldown).
+	LatestOTPChallenge(ctx context.Context, arg LatestOTPChallengeParams) (LatestOTPChallengeRow, error)
 	LatestOrganizationSettingsVersion(ctx context.Context, organizationID int64) (int32, error)
 	// ------------------------------------------------- channel capacity rules
 	ListActiveCapacityRules(ctx context.Context, organizationID int64) ([]ListActiveCapacityRulesRow, error)
@@ -681,6 +707,9 @@ type Querier interface {
 	// Organizations with waiting reservations past their deadline (sweep).
 	ListDueReservationOrganizations(ctx context.Context, nowAt pgtype.Timestamptz) ([]int64, error)
 	ListDueReservations(ctx context.Context, arg ListDueReservationsParams) ([]uuid.UUID, error)
+	// The sweep: runner jobs whose next call is due, across organizations
+	// (each row carries its organization_id; the runner re-scopes from it).
+	ListDueRunnerJobs(ctx context.Context, limitCount int32) ([]ListDueRunnerJobsRow, error)
 	ListEnabledLogPurgeRules(ctx context.Context) ([]LogPurgeRule, error)
 	ListEquipmentAllocations(ctx context.Context, arg ListEquipmentAllocationsParams) ([]ListEquipmentAllocationsRow, error)
 	ListExportJobsForActor(ctx context.Context, arg ListExportJobsForActorParams) ([]ExportJob, error)
@@ -721,6 +750,7 @@ type Querier interface {
 	ListImportChangesForJob(ctx context.Context, jobID int64) ([]ImportChange, error)
 	ListImportJobsForActor(ctx context.Context, arg ListImportJobsForActorParams) ([]ImportJob, error)
 	ListIntegrationAccounts(ctx context.Context, arg ListIntegrationAccountsParams) ([]ListIntegrationAccountsRow, error)
+	ListIntegrationAttempts(ctx context.Context, arg ListIntegrationAttemptsParams) ([]ListIntegrationAttemptsRow, error)
 	ListIntegrationJobs(ctx context.Context, arg ListIntegrationJobsParams) ([]ListIntegrationJobsRow, error)
 	ListInvitationBranches(ctx context.Context, arg ListInvitationBranchesParams) ([]ListInvitationBranchesRow, error)
 	ListInvitationRoles(ctx context.Context, arg ListInvitationRolesParams) ([]ListInvitationRolesRow, error)
@@ -932,6 +962,9 @@ type Querier interface {
 	// Row lock of a transition (serialises concurrent actions on one
 	// reservation inside the caller's transaction).
 	LockReservation(ctx context.Context, arg LockReservationParams) (LockReservationRow, error)
+	// Claims a job for one provider call (one worker at a time; an expired
+	// claim of a crashed worker is free again).
+	LockRunnerJob(ctx context.Context, arg LockRunnerJobParams) (int64, error)
 	MarkAllNotificationsReadForUser(ctx context.Context, arg MarkAllNotificationsReadForUserParams) (int64, error)
 	MarkBulkJobCompleted(ctx context.Context, arg MarkBulkJobCompletedParams) (BulkJob, error)
 	MarkBulkJobFailed(ctx context.Context, arg MarkBulkJobFailedParams) (BulkJob, error)
@@ -983,6 +1016,7 @@ type Querier interface {
 	QueueImportJob(ctx context.Context, argUuid uuid.UUID) (ImportJob, error)
 	ReassignCatalogModelRules(ctx context.Context, arg ReassignCatalogModelRulesParams) (int64, error)
 	ReassignCatalogTypesModel(ctx context.Context, arg ReassignCatalogTypesModelParams) (int64, error)
+	RecordOTPAttempt(ctx context.Context, arg RecordOTPAttemptParams) error
 	// A late payment re-secured capacity for an expired reservation (TEC-708):
 	// expired → confirmed on the new firm allocation; the cancellation facts
 	// of the expiry are cleared (the timeline keeps them).
@@ -1027,6 +1061,8 @@ type Querier interface {
 	RevokeStorageLink(ctx context.Context, argUuid uuid.UUID) (StorageLink, error)
 	// Resend: a new token (the old link stops working) and a fresh expiry.
 	RotateInvitationToken(ctx context.Context, arg RotateInvitationTokenParams) (OrganizationInvitation, error)
+	// Stores the outcome of a provider call and releases the claim.
+	SaveRunnerJob(ctx context.Context, arg SaveRunnerJobParams) error
 	SetAppSettingsLogo(ctx context.Context, logoObjectKey pgtype.Text) (AppSetting, error)
 	SetBranchActive(ctx context.Context, arg SetBranchActiveParams) (Branch, error)
 	SetCampaignActive(ctx context.Context, arg SetCampaignActiveParams) (int64, error)
@@ -1046,6 +1082,7 @@ type Querier interface {
 	SetIntegrationAccountStatus(ctx context.Context, arg SetIntegrationAccountStatusParams) (int64, error)
 	SetMemberBranchScope(ctx context.Context, arg SetMemberBranchScopeParams) error
 	SetMemberPrimaryRole(ctx context.Context, arg SetMemberPrimaryRoleParams) error
+	SetOTPChallengeMessage(ctx context.Context, arg SetOTPChallengeMessageParams) error
 	SetOneWayRuleActive(ctx context.Context, arg SetOneWayRuleActiveParams) (int64, error)
 	SetOrganizationAccessWindow(ctx context.Context, arg SetOrganizationAccessWindowParams) (Organization, error)
 	SetOrganizationLogo(ctx context.Context, arg SetOrganizationLogoParams) (Organization, error)
@@ -1060,6 +1097,7 @@ type Querier interface {
 	// Payment progress (M3 payments call it through PaymentStatusSetter).
 	SetReservationPayment(ctx context.Context, arg SetReservationPaymentParams) (int64, error)
 	SetRolePermissions(ctx context.Context, roleID int64) error
+	SetSMSMessageJob(ctx context.Context, arg SetSMSMessageJobParams) error
 	SetUserEmailVerified(ctx context.Context, id int64) (User, error)
 	SetVehicleActive(ctx context.Context, arg SetVehicleActiveParams) (Vehicle, error)
 	SetVehicleCurrentBranch(ctx context.Context, arg SetVehicleCurrentBranchParams) (Vehicle, error)
@@ -1089,6 +1127,7 @@ type Querier interface {
 	// their refunds, and the refunded total.
 	SumReservationPayments(ctx context.Context, arg SumReservationPaymentsParams) (SumReservationPaymentsRow, error)
 	SupersedeDateRuleVersion(ctx context.Context, arg SupersedeDateRuleVersionParams) (int64, error)
+	SupersedeOpenOTPChallenges(ctx context.Context, arg SupersedeOpenOTPChallengesParams) error
 	SupersedeRatePlanVersion(ctx context.Context, arg SupersedeRatePlanVersionParams) (int64, error)
 	SyncCatalogBrandsDisplayName(ctx context.Context, displayBrandID int64) (int64, error)
 	TenantCountCatalogBrands(ctx context.Context, arg TenantCountCatalogBrandsParams) (int64, error)
@@ -1107,6 +1146,7 @@ type Querier interface {
 	TouchRentalProduct(ctx context.Context, arg TouchRentalProductParams) error
 	// Moves the status (optimistic: only from the expected status).
 	TransitionReservation(ctx context.Context, arg TransitionReservationParams) (int64, error)
+	UnlockRunnerJob(ctx context.Context, arg UnlockRunnerJobParams) error
 	UpdateAppSettings(ctx context.Context, arg UpdateAppSettingsParams) (AppSetting, error)
 	UpdateAuthSettings(ctx context.Context, arg UpdateAuthSettingsParams) (AuthSetting, error)
 	UpdateBranch(ctx context.Context, arg UpdateBranchParams) (Branch, error)
@@ -1143,6 +1183,9 @@ type Querier interface {
 	// upgrade (the sold product columns never change).
 	UpdateReservationPlan(ctx context.Context, arg UpdateReservationPlanParams) (int64, error)
 	UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, error)
+	// The runner's outcome for the message's send job (submit / delivery
+	// report); clear_payload drops the sealed number and text once final.
+	UpdateSMSMessageStatus(ctx context.Context, arg UpdateSMSMessageStatusParams) error
 	UpdateServicePoint(ctx context.Context, arg UpdateServicePointParams) (ServicePoint, error)
 	UpdateStepupSettings(ctx context.Context, arg UpdateStepupSettingsParams) (StepupSetting, error)
 	UpdateTenantRole(ctx context.Context, arg UpdateTenantRoleParams) (int64, error)

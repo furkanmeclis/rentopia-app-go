@@ -1,4 +1,5 @@
 import type {
+  IntegrationJobStatus,
   PaymentLinkStatus,
   PaymentMethod,
   PaymentStatus,
@@ -109,10 +110,97 @@ export const PUBLIC_RESULT_KEYS: Record<string, string> = {
 export const INTEGRATION_FIELD_LABEL_KEYS: Record<string, string> = {
   api_key: "payments.integrations.fields.api_key",
   secret_key: "payments.integrations.fields.secret_key",
+  usercode: "payments.integrations.fields.usercode",
+  password: "payments.integrations.fields.password",
+  msgheader: "payments.integrations.fields.msgheader",
 };
 
 export const INTEGRATION_PROVIDER_LABEL_KEYS: Record<string, string> = {
   iyzico: "payments.integrations.providers.iyzico",
+  netgsm: "payments.integrations.providers.netgsm",
+  log: "payments.integrations.providers.log",
+};
+
+/** Connect form hint per provider (where the organization finds its keys). */
+export const INTEGRATION_PROVIDER_HINT_KEYS: Record<string, string> = {
+  iyzico: "payments.integrations.provider_hints.iyzico",
+  netgsm: "payments.integrations.provider_hints.netgsm",
+  log: "payments.integrations.provider_hints.log",
+};
+
+/** Live list resource of integration jobs (backend jobs usecase). */
+export const INTEGRATION_JOBS_RESOURCE = "tenant.integration_jobs" as const;
+
+export const INTEGRATION_JOB_STATUSES: IntegrationJobStatus[] = [
+  "pending",
+  "processing",
+  "submitted",
+  "succeeded",
+  "failed",
+  "needs_verification",
+  "ignored",
+];
+
+export const INTEGRATION_JOB_STATUS_LABEL_KEYS: Record<
+  IntegrationJobStatus,
+  string
+> = {
+  pending: "payments.integrations.jobs.statuses.pending",
+  processing: "payments.integrations.jobs.statuses.processing",
+  submitted: "payments.integrations.jobs.statuses.submitted",
+  succeeded: "payments.integrations.jobs.statuses.succeeded",
+  failed: "payments.integrations.jobs.statuses.failed",
+  needs_verification: "payments.integrations.jobs.statuses.needs_verification",
+  ignored: "payments.integrations.jobs.statuses.ignored",
+};
+
+export const INTEGRATION_JOB_STATUS_TONES: Record<IntegrationJobStatus, Tone> =
+  {
+    pending: "warning",
+    processing: "warning",
+    submitted: "warning",
+    succeeded: "success",
+    failed: "danger",
+    needs_verification: "danger",
+    ignored: "default",
+  };
+
+export const INTEGRATION_JOB_KIND_LABEL_KEYS: Record<string, string> = {
+  "sms.send": "payments.integrations.jobs.kinds.sms_send",
+  "payment.refund": "payments.integrations.jobs.kinds.payment_refund",
+  "payment.webhook": "payments.integrations.jobs.kinds.payment_webhook",
+};
+
+export const ATTEMPT_OPERATION_LABEL_KEYS: Record<string, string> = {
+  submit: "payments.integrations.jobs.operations.submit",
+  check_status: "payments.integrations.jobs.operations.check_status",
+};
+
+export const ATTEMPT_TRIGGER_LABEL_KEYS: Record<string, string> = {
+  worker: "payments.integrations.jobs.triggers.worker",
+  sweep: "payments.integrations.jobs.triggers.sweep",
+  retry: "payments.integrations.jobs.triggers.retry",
+  inline: "payments.integrations.jobs.triggers.inline",
+};
+
+export const ATTEMPT_OUTCOME_LABEL_KEYS: Record<string, string> = {
+  succeeded: "payments.integrations.jobs.outcomes.succeeded",
+  accepted: "payments.integrations.jobs.outcomes.accepted",
+  pending: "payments.integrations.jobs.outcomes.pending",
+  failed: "payments.integrations.jobs.outcomes.failed",
+  not_found: "payments.integrations.jobs.outcomes.not_found",
+  uncertain: "payments.integrations.jobs.outcomes.uncertain",
+  unsupported: "payments.integrations.jobs.outcomes.unsupported",
+};
+
+export const ATTEMPT_OUTCOME_TONES: Record<string, Tone> = {
+  succeeded: "success",
+  accepted: "success",
+  pending: "warning",
+  failed: "danger",
+  not_found: "default",
+  uncertain: "danger",
+  unsupported: "danger",
 };
 
 export const CHECK_STATUS_LABEL_KEYS: Record<string, string> = {

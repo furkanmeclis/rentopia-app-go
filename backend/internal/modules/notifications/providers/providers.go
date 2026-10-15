@@ -109,7 +109,11 @@ func (p RealtimeProvider) Deliver(ctx context.Context, n db.Notification, userUU
 	return DeliveryResult{Status: model.StatusSent, Provider: "centrifugo"}, nil
 }
 
-// NoopProvider logs and marks sms/push as sent.
+// NoopProvider logs and marks sms/push as sent. User notifications have no
+// SMS sender: organization SMS (OTP, transactional, informational) goes
+// through the sms.Provider interface in internal/platform/sms and the
+// tenant SMS module (sms_messages, integration job runner; TEC-734), which
+// needs an organization's SMS account and a send class this channel lacks.
 type NoopProvider struct {
 	Name string
 	Log  *slog.Logger

@@ -17,14 +17,22 @@ export type IntegrationAccountPage =
 export type IntegrationProvider = Schemas["IntegrationProvider"];
 export type IntegrationsMeta = Schemas["EnvelopeIntegrationsMeta"]["data"];
 export type IntegrationJobPage = Schemas["EnvelopeIntegrationJobPage"]["data"];
+export type IntegrationJob = Schemas["IntegrationJob"];
+export type IntegrationJobStatus = Schemas["IntegrationJobStatus"];
+export type IntegrationJobDetail = Schemas["IntegrationJobDetail"];
+export type IntegrationAttempt = Schemas["IntegrationAttempt"];
+export type IntegrationJobRetry =
+  Schemas["EnvelopeIntegrationJobRetry"]["data"];
+export type SmsSent = Schemas["SmsSent"];
+export type IntegrationProviderCode = IntegrationAccount["provider"];
 
 export type ReservationAcceptResult = Schemas["ReservationAcceptResult"];
 export type PublicPayLink = Schemas["PublicPayLink"];
 export type PublicPayState = PublicPayLink["state"];
 
 export type ConnectIntegrationRequest = {
-  kind?: "payment";
-  provider: "iyzico";
+  kind?: "payment" | "sms";
+  provider: IntegrationProviderCode;
   display_name: string;
   mode: "sandbox" | "live";
   credentials: Record<string, string>;
@@ -51,6 +59,14 @@ export type ListLinksParams = {
   offset: number;
   status?: string;
   reservation?: string;
+};
+
+export type ListIntegrationJobsParams = {
+  limit: number;
+  offset: number;
+  sort?: string;
+  status?: string;
+  kind?: string;
 };
 
 export type ListIntegrationsParams = {

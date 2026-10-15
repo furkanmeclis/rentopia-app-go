@@ -1,8 +1,15 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { Pencil, PlugZap, Power, PowerOff } from "lucide-react";
-import { useMemo, useState } from "react";
+import {
+  ListChecks,
+  MessageSquare,
+  Pencil,
+  PlugZap,
+  Power,
+  PowerOff,
+} from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
 
 import { ErrorState } from "@/components/common/error-state";
 import { StatusChip } from "@/components/common/status-chip";
@@ -27,7 +34,12 @@ import {
 import {
   ConnectIntegrationDialog,
   EditIntegrationDialog,
+  TestSmsDialog,
 } from "@/features/payments/components/integration-dialogs";
+import {
+  IntegrationJobDrawer,
+  IntegrationJobsSection,
+} from "@/features/payments/components/integration-jobs";
 import {
   useIntegrations,
   useSetIntegrationStatus,
@@ -40,9 +52,12 @@ import { datetime } from "@/lib/utils/format";
 import { useLocale } from "@/providers/locale-provider";
 
 /**
- * Settings → Entegrasyonlar (TEC-676): the organization's provider accounts
- * (iyzico now). Connect with the organization's own keys, test the
- * connection, rotate keys, disable. Secrets are never shown again.
+ * Settings → Entegrasyonlar (TEC-676 / TEC-734 / TEC-751): the
+ * organization's provider accounts (iyzico payments, Netgsm SMS). Connect
+ * with the organization's own keys, test the connection (and send a test
+ * SMS), rotate keys, disable. Secrets are never shown again. "İşler" lists an
+ * account's integration jobs; a job opens a drawer with its attempts and
+ * the retry.
  */
 export function IntegrationsPage() {
   const { t, locale } = useLocale();
@@ -57,6 +72,12 @@ export function IntegrationsPage() {
   const [disableTarget, setDisableTarget] = useState<IntegrationAccount | null>(
     null,
   );
+  const [smsTarget, setSmsTarget] = useState<IntegrationAccount | null>(null);
+  const [jobsAccount, setJobsAccount] = useState<IntegrationAccount | null>(
+    null,
+  );
+  const [jobUuid, setJobUuid] = useState<string | null>(null);
+  const openJob = useCallback((uuid: string) => setJobUuid(uuid), []);
   const query = useIntegrations(listState.params);
   const test = useTestIntegration();
   const setStatus = useSetIntegrationStatus();
@@ -196,6 +217,24 @@ export function IntegrationsPage() {
                     onSelect: () => test.mutate(a.uuid),
                   },
                   {
+                    id: "jobs",
+                    label: t("payments.integrations.actions.jobs"),
+                    icon: ListChecks,
+                    permission: manage,
+                    onSelect: () => setJobsAccount(a),
+                  },
+                  ...(a.kind === "sms"
+                    ? [
+                        {
+                          id: "test_sms",
+                          label: t("payments.integrations.actions.test_sms"),
+                          icon: MessageSquare,
+                          permission: manage,
+                          onSelect: () => setSmsTarget(a),
+                        },
+                      ]
+                    : []),
+                  {
                     id: "edit",
                     label: t("payments.integrations.actions.edit"),
                     icon: Pencil,
@@ -280,6 +319,16 @@ export function IntegrationsPage() {
           />
         }
       />
+      {jobsAccount ? (
+        <div className="mt-6">
+          <IntegrationJobsSection account={jobsAccount} onOpenJob={openJob} />
+        </div>
+      ) : null}
+      <IntegrationJobDrawer
+        jobUuid={jobUuid}
+        onClose={() => setJobUuid(null)}
+      />
+      <TestSmsDialog account={smsTarget} onClose={() => setSmsTarget(null)} />
       <ConnectIntegrationDialog
         open={connectOpen}
         onClose={() => setConnectOpen(false)}

@@ -6,6 +6,7 @@ import { PAYMENT_STATUS_LABEL_KEYS } from "@/features/payments/constants";
 import { paymentsService } from "@/features/payments/services/payments.service";
 import type {
   ConnectIntegrationRequest,
+  ListIntegrationJobsParams,
   ListIntegrationsParams,
   ListLinksParams,
   ListPaymentsParams,
@@ -14,6 +15,7 @@ import type {
 import { useInvalidateReservations } from "@/features/reservations/hooks/use-reservations";
 import { useTenant } from "@/features/tenant/components/tenant-provider";
 import { useLocale } from "@/providers/locale-provider";
+import { ApiError } from "@/lib/api";
 import { appToast } from "@/providers/toast-provider";
 
 /** Query keys carry the organization slug. */
@@ -27,6 +29,13 @@ export const paymentKeys = {
     [...paymentKeys.all(slug), "integrations", params] as const,
   integrationsMeta: (slug: string) =>
     [...paymentKeys.all(slug), "integrations-meta"] as const,
+  integrationJobs: (
+    slug: string,
+    account: string,
+    params: Record<string, unknown>,
+  ) => [...paymentKeys.all(slug), "integration-jobs", account, params] as const,
+  integrationJob: (slug: string, uuid: string) =>
+    [...paymentKeys.all(slug), "integration-job", uuid] as const,
 };
 
 /** Payments touch reservations (paid amount, status) and vice versa. */
@@ -274,6 +283,97 @@ export function useSetIntegrationStatus() {
         ),
       );
       void queryClient.invalidateQueries({ queryKey: paymentKeys.all(slug) });
+    },
+  });
+}
+
+export function useIntegrationJobs(
+  accountUuid: string | null,
+  params: ListIntegrationJobsParams,
+) {
+  const { slug } = useTenant();
+  return useQuery({
+    queryKey: paymentKeys.integrationJobs(slug, accountUuid ?? "", params),
+    queryFn: () =>
+      paymentsService.integrationJobs(slug, accountUuid ?? "", params),
+    placeholderData: (previous) => previous,
+    enabled: Boolean(accountUuid),
+  });
+}
+
+export function useIntegrationJob(uuid: string | null) {
+  const { slug } = useTenant();
+  return useQuery({
+    queryKey: paymentKeys.integrationJob(slug, uuid ?? ""),
+    queryFn: () => paymentsService.integrationJob(slug, uuid ?? ""),
+    enabled: Boolean(uuid),
+  });
+}
+
+/** "Yeniden dene": the backend checks the provider first and only resends work that was not done. */
+export function useRetryIntegrationJob() {
+  const { slug } = useTenant();
+  const { t } = useLocale();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (uuid: string) =>
+      paymentsService.retryIntegrationJob(slug, uuid),
+    meta: { silent: true },
+    onSuccess: (result) => {
+      const key =
+        result.action === "already_done"
+          ? "payments.integrations.jobs.toast.already_done"
+          : result.action === "in_progress"
+            ? "payments.integrations.jobs.toast.in_progress"
+            : "payments.integrations.jobs.toast.resubmitted";
+      appToast.success(t(key));
+    },
+    onError: (error) => {
+      const code = error instanceof ApiError ? error.code : "";
+      appToast.error(
+        t(
+          code === "INTEGRATION_JOB_UNVERIFIED"
+            ? "payments.integrations.jobs.toast.unverified"
+            : code === "INTEGRATION_JOB_BUSY"
+              ? "payments.integrations.jobs.toast.busy"
+              : code === "INTEGRATION_JOB_NOT_RETRYABLE"
+                ? "payments.integrations.jobs.toast.not_retryable"
+                : "payments.integrations.jobs.toast.retry_failed",
+        ),
+      );
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: paymentKeys.all(slug) });
+    },
+  });
+}
+
+export function useTestSms() {
+  const { slug } = useTenant();
+  const { t } = useLocale();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ uuid, phone }: { uuid: string; phone: string }) =>
+      paymentsService.testSms(slug, uuid, phone),
+    meta: { silent: true },
+    onSuccess: (sent) => {
+      appToast.success(
+        t("payments.integrations.sms.toast.sent", {
+          phone: sent.phone_masked,
+        }),
+      );
+      void queryClient.invalidateQueries({ queryKey: paymentKeys.all(slug) });
+    },
+    onError: (error) => {
+      const code = error instanceof ApiError ? error.code : "";
+      if (error instanceof ApiError && error.isValidation) return;
+      appToast.error(
+        t(
+          code === "SMS_RATE_LIMITED"
+            ? "payments.integrations.sms.toast.rate_limited"
+            : "payments.integrations.sms.toast.failed",
+        ),
+      );
     },
   });
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -34,6 +35,7 @@ import (
 	fleetopsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleetops/usecase"
 	importusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/imports/usecase"
 	integrationaccountsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/accounts/usecase"
+	integrationjobsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/jobs/usecase"
 	logsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/logs/usecase"
 	notifmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications/providers"
@@ -49,6 +51,8 @@ import (
 	pricingusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/usecase"
 	reservationadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/adapters"
 	reservationusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/usecase"
+	smsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/sms"
+	smsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/sms/usecase"
 	tenantmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tenant"
 	vehiclerecordsadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehiclerecords/adapters"
 	vehiclerecordsrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehiclerecords/repository"
@@ -195,7 +199,21 @@ func main() {
 	iyzicoAdapter := iyzico.New(iyzico.Config{
 		SandboxBaseURL: cfg.Payments.IyzicoSandboxBaseURL, LiveBaseURL: cfg.Payments.IyzicoLiveBaseURL,
 	})
-	integrationAccountsSvc := integrationaccountsusecase.New(queries, integrationVault, integrations.NewRegistry(iyzicoAdapter))
+	// SMS (TEC-734) and the integration job runner (TEC-751): the worker
+	// runs the steps of the integrations queues and the minute sweep.
+	smsProviders := smsmodule.Providers(cfg.SMS, cfg.App.Env, log)
+	integrationAccountsSvc := integrationaccountsusecase.New(queries, integrationVault,
+		integrations.NewRegistry(append([]integrations.Adapter{iyzicoAdapter}, smsmodule.Adapters(smsProviders)...)...))
+	integrationOps := integrations.NewOperationRegistry()
+	integrationRunner := integrationjobsusecase.NewRunner(queries, integrationAccountsSvc, integrationOps)
+	integrationRunner.SetLogger(log)
+	smsSvc, err := smsusecase.New(pool, queries, fieldCipher, integrationAccountsSvc, integrationRunner, integrationOps, smsProviders...)
+	if err != nil {
+		log.Error("sms_init_failed", "error", err)
+		exit(1)
+	}
+	smsSvc.SetActivity(activityRec)
+	smsSvc.SetLogger(log)
 	paymentsSvc := paymentsusecase.New(pool, queries, integrationAccountsSvc, reservationSvc,
 		paymentsusecase.Config{PublicBaseURL: cfg.Auth.FrontendURL}, iyzicoAdapter)
 	paymentsSvc.SetLogger(log)
@@ -278,6 +296,7 @@ func main() {
 	queueClient := queue.NewClient(cfg.Redis)
 	defer func() { _ = queueClient.Close() }()
 	notifSvc.WithPushQueue(queueClient)
+	integrationRunner.SetDispatcher(queue.IntegrationDispatcher{Client: queueClient})
 	persist := logging.Attach(log, logsSvc)
 	log = persist.Logger()
 	defer persist.Close()
@@ -291,6 +310,7 @@ func main() {
 	bulkSvc.SetResourceEvents(resourceEvents)
 	reservationSvc.SetResourceEvents(resourceEvents)
 	paymentsSvc.SetResourceEvents(resourceEvents)
+	integrationRunner.SetResourceEvents(resourceEvents)
 
 	worker := queue.NewWorker(cfg, log, notifSvc.Deliver).
 		WithExport(exportSvc.ProcessExport).
@@ -322,6 +342,14 @@ func main() {
 			p, err := paymentsSvc.ReconcilePending(ctx)
 			return r + n + m + p, err
 		}).
+		WithIntegrations(func(ctx context.Context, orgID, jobID int64) error {
+			_, err := integrationRunner.Process(ctx, orgID, jobID, integrationjobsusecase.TriggerWorker)
+			if errors.Is(err, integrationjobsusecase.ErrNotFound) || errors.Is(err, integrationjobsusecase.ErrBusy) {
+				// Deleted with its organization / another step holds it.
+				return nil
+			}
+			return err
+		}, integrationRunner.RunDue).
 		WithSearch(
 			searchIndexer.ProcessUpsert,
 			searchIndexer.ProcessDelete,
@@ -343,6 +371,10 @@ func main() {
 	}
 	if err := queue.RegisterVehicleRemindersSchedule(scheduler); err != nil {
 		log.Error("vehicle_reminders_scheduler_failed", "error", err)
+		exit(1)
+	}
+	if err := queue.RegisterIntegrationSweepSchedule(scheduler); err != nil {
+		log.Error("integration_sweep_scheduler_failed", "error", err)
 		exit(1)
 	}
 	if err := queue.RegisterExpireHoldsSchedule(scheduler); err != nil {

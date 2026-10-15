@@ -226,5 +226,17 @@
   "actions.reservations.rejected": "Rezervasyon talebi reddedildi",
   "resources.tenant.integrations": "Entegrasyonlar",
   "resources.tenant.payments": "Ödemeler",
-  "resources.tenant.payment_links": "Ödeme linkleri"
+  "resources.tenant.payment_links": "Ödeme linkleri",
+  "actions.integrations.job_retried": "Entegrasyon işi yeniden denendi",
+  "actions.integrations.sms_test_sent": "Test SMS gönderildi",
+  "actions.sms.otp.issued": "SMS doğrulama kodu gönderildi",
+  "actions.sms.otp.verified": "SMS doğrulama kodu doğrulandı",
+  "actions.sms.otp.verify_failed": "Hatalı SMS doğrulama kodu",
+  "actions.sms.otp.locked": "SMS doğrulama kilitlendi (çok fazla hatalı kod)",
+  "actions.sms.otp.expired": "SMS doğrulama kodunun süresi doldu",
+  "actions.sms.otp.rate_limited": "SMS doğrulama kodu sınırı aşıldı",
+  "actions.sms.otp.send_failed": "SMS doğrulama kodu gönderilemedi",
+  "resources.tenant.integration_jobs": "Entegrasyon işleri",
+  "resources.tenant.sms": "SMS",
+  "resources.tenant.sms_otp": "SMS doğrulama"
 }

@@ -58,3 +58,5 @@ integration_accounts
 payment_links
 payments
 payment_refunds
+sms_messages
+sms_otp_challenges

@@ -11115,8 +11115,8 @@ paths:
           description: "`display_name` or `created_at`; prefix `-` for descending."
           schema: { type: string }
         - { name: status, in: query, schema: { type: string }, description: "active, disabled" }
-        - { name: kind, in: query, schema: { type: string }, description: payment }
-        - { name: provider, in: query, schema: { type: string }, description: iyzico }
+        - { name: kind, in: query, schema: { type: string }, description: "payment, sms" }
+        - { name: provider, in: query, schema: { type: string }, description: "iyzico, netgsm, log" }
       responses:
         "200":
           description: Account page
@@ -11147,14 +11147,14 @@ paths:
               additionalProperties: false
               required: [provider, display_name, credentials]
               properties:
-                kind: { type: string, enum: [payment] }
-                provider: { type: string, enum: [iyzico] }
+                kind: { type: string, enum: [payment, sms], description: "Defaults to the provider's kind." }
+                provider: { type: string, enum: [iyzico, netgsm, log] }
                 display_name: { type: string, maxLength: 120 }
                 mode: { type: string, enum: [sandbox, live] }
                 credentials:
                   type: object
                   additionalProperties: { type: string }
-                  description: "iyzico: `api_key`, `secret_key`"
+                  description: "iyzico: `api_key`, `secret_key`; netgsm: `usercode`, `password`, `msgheader`; log (development only): `msgheader`"
       responses:
         "201": { $ref: "#/components/responses/IntegrationAccountOK" }
         "400": { $ref: "#/components/responses/BadRequest" }
@@ -11266,7 +11266,9 @@ paths:
       tags: [Tenant]
       operationId: getTenantIntegrationJobs
       summary: Integration jobs of an account
-      description: "`tenant.integrations.manage`. Outbound calls and inbound notifications (idempotency key, attempts, deliveries, status)."
+      description: |
+        `tenant.integrations.manage`. Outbound calls and inbound notifications (idempotency key, attempts,
+        deliveries, status). Live list resource `tenant.integration_jobs`.
       security:
         - bearerAuth: []
       parameters:
@@ -11274,15 +11276,114 @@ paths:
         - $ref: "#/components/parameters/ResourceUUID"
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
+        - name: sort
+          in: query
+          description: "`created_at` or `updated_at`; prefix `-` for descending (default `-created_at`)."
+          schema: { type: string }
+        - { name: status, in: query, schema: { type: string }, description: "Comma-separated job statuses" }
+        - { name: kind, in: query, schema: { type: string }, description: "Comma-separated job kinds (sms.send, payment.refund …)" }
       responses:
         "200":
           description: Job page
           content:
             application/json:
               schema: { $ref: "#/components/schemas/EnvelopeIntegrationJobPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/TenantForbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/integrations/{uuid}/test-sms:
+    post:
+      tags: [Tenant]
+      operationId: postTenantIntegrationTestSms
+      summary: Send a test SMS through an SMS account
+      description: |
+        `tenant.integrations.manage`. Queues a short transactional SMS to `phone` through this account (any
+        status) via the integration job runner. Answers the masked number, the message and its job
+        (`job_status` is the state after the first step when no queue is configured). No İYS consent is
+        needed (transactional). `422 SMS_NO_ACCOUNT` when the account's provider is not available,
+        `429 SMS_RATE_LIMITED` at the organization's hourly SMS limit.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [phone]
+              properties:
+                phone: { type: string, description: "Any common format; Turkish national numbers get +90." }
+      responses:
+        "202":
+          description: Queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSmsSent" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/tenant/integration-jobs/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantIntegrationJob
+      summary: An integration job with its attempts
+      description: |
+        `tenant.integrations.manage`. Every provider call (submit / check_status) with its outcome, a short
+        request / response summary (references only: no secrets, codes or full numbers), the error and
+        timings.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Job
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeIntegrationJobDetail" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/integration-jobs/{uuid}/retry:
+    post:
+      tags: [Tenant]
+      operationId: postTenantIntegrationJobRetry
+      summary: Retry a job ("Yeniden dene")
+      description: |
+        `tenant.integrations.manage`. Asks the provider for the job's status first (CheckStatus); the work
+        is submitted again only when the provider confirms it was not done (`action: resubmitted`). Done
+        → `already_done`, still in progress → `in_progress`. When the status cannot be confirmed (unknown
+        or unsupported) nothing is sent and the answer is `409 INTEGRATION_JOB_UNVERIFIED` with the job in
+        `data`. Succeeded jobs, inbound notifications and payment refunds answer
+        `409 INTEGRATION_JOB_NOT_RETRYABLE`; a job held by a worker `409 INTEGRATION_JOB_BUSY`. No tenant
+        step-up policy exists yet (docs/design/integration-jobs.md).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Retried
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeIntegrationJobRetry" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
 
   /v1/public/pay/{token}:
     get:
@@ -22009,8 +22110,8 @@ components:
       type: object
       required: [kind, provider, fields, modes]
       properties:
-        kind: { type: string, enum: [payment] }
-        provider: { type: string, enum: [iyzico] }
+        kind: { type: string, enum: [payment, sms] }
+        provider: { type: string, enum: [iyzico, netgsm, log] }
         fields:
           type: array
           items: { $ref: "#/components/schemas/IntegrationField" }
@@ -22038,8 +22139,8 @@ components:
       required: [uuid, kind, provider, display_name, mode, status, credentials_hint, last_checked_at, last_check_status, last_check_error, created_at, updated_at]
       properties:
         uuid: { type: string, format: uuid }
-        kind: { type: string, enum: [payment] }
-        provider: { type: string, enum: [iyzico] }
+        kind: { type: string, enum: [payment, sms] }
+        provider: { type: string, enum: [iyzico, netgsm, log] }
         display_name: { type: string }
         mode: { type: string, enum: [sandbox, live] }
         status: { type: string, enum: [active, disabled] }
@@ -22084,22 +22185,120 @@ components:
             offset: { type: integer }
         meta: { $ref: "#/components/schemas/ResponseMeta" }
 
+    IntegrationJobStatus:
+      type: string
+      description: |
+        `pending` = pending_submit, `submitted` = accepted by the provider (final state from CheckStatus),
+        `needs_verification` = outcome unknown (only CheckStatus moves it on), `processing` = held by a
+        worker (payments), `ignored` = a notification that needs no action.
+      enum: [pending, processing, submitted, succeeded, failed, ignored, needs_verification]
+
     IntegrationJob:
       type: object
-      required: [uuid, direction, provider, kind, status, attempts, deliveries, last_error, ref_type, ref_uuid, completed_at, created_at]
+      required: [uuid, direction, provider, kind, status, priority, attempts, max_attempts, deliveries, last_error, ref_type, ref_uuid, next_attempt_at, submitted_at, completed_at, created_at, updated_at]
       properties:
         uuid: { type: string, format: uuid }
         direction: { type: string, enum: [inbound, outbound] }
         provider: { type: string }
         kind: { type: string }
-        status: { type: string, enum: [pending, processing, succeeded, failed, ignored] }
+        status: { $ref: "#/components/schemas/IntegrationJobStatus" }
+        priority: { type: string, enum: [critical, normal] }
         attempts: { type: integer }
+        max_attempts: { type: integer }
         deliveries: { type: integer }
         last_error: { type: string }
         ref_type: { type: string }
         ref_uuid: { type: [string, "null"], format: uuid }
+        next_attempt_at: { type: [string, "null"], format: date-time }
+        submitted_at: { type: [string, "null"], format: date-time }
         completed_at: { type: [string, "null"], format: date-time }
         created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    IntegrationAttempt:
+      type: object
+      required: [uuid, attempt_no, operation, trigger, outcome, request_summary, response_summary, error, started_at, finished_at, duration_ms]
+      properties:
+        uuid: { type: string, format: uuid }
+        attempt_no: { type: integer }
+        operation: { type: string, enum: [submit, check_status] }
+        trigger: { type: string, enum: [worker, sweep, retry, inline] }
+        outcome: { type: string, enum: [succeeded, accepted, pending, failed, not_found, uncertain, unsupported] }
+        request_summary: { type: object, additionalProperties: true }
+        response_summary: { type: object, additionalProperties: true }
+        error: { type: string }
+        started_at: { type: string, format: date-time }
+        finished_at: { type: string, format: date-time }
+        duration_ms: { type: integer }
+
+    IntegrationJobDetail:
+      type: object
+      required: [uuid, account_uuid, direction, provider, kind, status, priority, attempts, max_attempts, deliveries, last_error, provider_ref, payload, result, ref_type, ref_uuid, next_attempt_at, submitted_at, completed_at, created_at, updated_at, retryable, attempt_log]
+      properties:
+        uuid: { type: string, format: uuid }
+        account_uuid: { type: [string, "null"], format: uuid }
+        direction: { type: string, enum: [inbound, outbound] }
+        provider: { type: string }
+        kind: { type: string }
+        status: { $ref: "#/components/schemas/IntegrationJobStatus" }
+        priority: { type: string, enum: [critical, normal] }
+        attempts: { type: integer }
+        max_attempts: { type: integer }
+        deliveries: { type: integer }
+        last_error: { type: string }
+        provider_ref: { type: string }
+        payload: { type: object, additionalProperties: true, description: "References and non-secret facts only." }
+        result: { type: object, additionalProperties: true }
+        ref_type: { type: string }
+        ref_uuid: { type: [string, "null"], format: uuid }
+        next_attempt_at: { type: [string, "null"], format: date-time }
+        submitted_at: { type: [string, "null"], format: date-time }
+        completed_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        retryable: { type: boolean, description: "A staff retry applies (outbound, not a payment refund, not succeeded)." }
+        attempt_log:
+          type: array
+          items: { $ref: "#/components/schemas/IntegrationAttempt" }
+
+    EnvelopeIntegrationJobDetail:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/IntegrationJobDetail" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeIntegrationJobRetry:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [action, job]
+          properties:
+            action: { type: string, enum: [already_done, in_progress, resubmitted] }
+            job: { $ref: "#/components/schemas/IntegrationJobDetail" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    SmsSent:
+      type: object
+      required: [message_uuid, job_uuid, status, job_status, phone_masked]
+      properties:
+        message_uuid: { type: string, format: uuid }
+        job_uuid: { type: string, format: uuid }
+        status: { type: string, enum: [queued, submitted, delivered, undelivered, failed, unknown, blocked] }
+        job_status: { $ref: "#/components/schemas/IntegrationJobStatus" }
+        phone_masked: { type: string }
+
+    EnvelopeSmsSent:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/SmsSent" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
 
     EnvelopeIntegrationJobPage:
       type: object
