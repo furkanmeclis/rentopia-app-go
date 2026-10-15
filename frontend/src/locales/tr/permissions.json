@@ -156,5 +156,13 @@
   "groups.tenant_quotes": "Teklifler",
   "labels.tenant.resolution_tasks.read": "Çözüm görevlerini görüntüle",
   "labels.tenant.resolution_tasks.write": "Çözüm görevlerini yönet",
-  "groups.tenant_resolution_tasks": "Çözüm görevleri"
+  "groups.tenant_resolution_tasks": "Çözüm görevleri",
+  "labels.tenant.rentals.read": "Kiralamaları görüntüle",
+  "labels.tenant.rentals.write": "Teslim, iade, uzatma ve araç değişimi yap",
+  "labels.tenant.rentals.close": "İade kontrolünü tamamla, iptal et, ücretlere karar ver",
+  "labels.tenant.contracts.read": "Sözleşme şablonlarını ve belgeleri görüntüle",
+  "labels.tenant.contracts.write": "Şablon düzenle, belge hazırla ve onay kaydet",
+  "labels.tenant.contracts.activate": "Şablon sürümünü aktifleştir",
+  "groups.tenant_rentals": "Kiralamalar",
+  "groups.tenant_contracts": "Sözleşmeler"
 }

@@ -156,5 +156,13 @@
   "groups.tenant_quotes": "Quotes",
   "labels.tenant.resolution_tasks.read": "View resolution tasks",
   "labels.tenant.resolution_tasks.write": "Manage resolution tasks",
-  "groups.tenant_resolution_tasks": "Resolution tasks"
+  "groups.tenant_resolution_tasks": "Resolution tasks",
+  "labels.tenant.rentals.read": "View rentals",
+  "labels.tenant.rentals.write": "Hand over, return, extend and swap vehicles",
+  "labels.tenant.rentals.close": "Complete return checks, cancel and decide charges",
+  "labels.tenant.contracts.read": "View contract templates and documents",
+  "labels.tenant.contracts.write": "Edit templates, prepare documents and record approvals",
+  "labels.tenant.contracts.activate": "Activate a template version",
+  "groups.tenant_rentals": "Rentals",
+  "groups.tenant_contracts": "Contracts"
 }

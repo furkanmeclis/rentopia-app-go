@@ -64,5 +64,9 @@
   "nav_reservations": "Rezervasyonlar",
   "nav_reservations_create": "Yeni rezervasyon",
   "nav_reservations_quotes": "Teklifler",
-  "nav_reservations_tasks": "Çözüm görevleri"
+  "nav_reservations_tasks": "Çözüm görevleri",
+  "section_rentals": "Kiralamalar",
+  "nav_rentals": "Kiralamalar",
+  "nav_operation_tasks": "Operasyon görevleri",
+  "nav_tenant_settings_contract_templates": "Sözleşme şablonları"
 }

@@ -48,6 +48,8 @@ import enVehicleBlocks from "@/locales/en/vehicle_blocks.json";
 import enVehicles from "@/locales/en/vehicles.json";
 import enCustomers from "@/locales/en/customers.json";
 import enReservations from "@/locales/en/reservations.json";
+import enRentals from "@/locales/en/rentals.json";
+import enContracts from "@/locales/en/contracts.json";
 import trAccess from "@/locales/tr/access.json";
 import trActivity from "@/locales/tr/activity.json";
 import trAuth from "@/locales/tr/auth.json";
@@ -96,6 +98,8 @@ import trVehicleBlocks from "@/locales/tr/vehicle_blocks.json";
 import trVehicles from "@/locales/tr/vehicles.json";
 import trCustomers from "@/locales/tr/customers.json";
 import trReservations from "@/locales/tr/reservations.json";
+import trRentals from "@/locales/tr/rentals.json";
+import trContracts from "@/locales/tr/contracts.json";
 
 export type MessageDictionary = Record<string, string>;
 
@@ -122,6 +126,8 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     vehicles: trVehicles,
     customers: trCustomers,
     reservations: trReservations,
+    rentals: trRentals,
+    contracts: trContracts,
     vehicle_records: trVehicleRecords,
     vehicle_blocks: trVehicleBlocks,
     transfers: trTransfers,
@@ -172,6 +178,8 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     vehicles: enVehicles,
     customers: enCustomers,
     reservations: enReservations,
+    rentals: enRentals,
+    contracts: enContracts,
     vehicle_records: enVehicleRecords,
     vehicle_blocks: enVehicleBlocks,
     transfers: enTransfers,

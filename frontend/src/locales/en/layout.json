@@ -64,5 +64,9 @@
   "nav_reservations": "Reservations",
   "nav_reservations_create": "New reservation",
   "nav_reservations_quotes": "Quotes",
-  "nav_reservations_tasks": "Resolution tasks"
+  "nav_reservations_tasks": "Resolution tasks",
+  "section_rentals": "Rentals",
+  "nav_rentals": "Rentals",
+  "nav_operation_tasks": "Operation tasks",
+  "nav_tenant_settings_contract_templates": "Contract templates"
 }
