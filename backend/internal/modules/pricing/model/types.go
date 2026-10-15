@@ -455,6 +455,9 @@ type PreviewInput struct {
 	StartAt           *time.Time      `json:"start_at"`
 	EndAt             *time.Time      `json:"end_at"`
 	DeliveryFee       *Decimal        `json:"delivery_fee"`
+	// Deliveries are the service point delivery / collection fees a quote
+	// resolved (TEC-724; set by reservations, not part of the HTTP body).
+	Deliveries []pricing.DeliveryFee `json:"-"`
 	Discount          *DiscountInput  `json:"discount"`
 	RatePlanUUID      *uuid.UUID      `json:"rate_plan_uuid"`
 	RatePlanDraft     *PlanDraftInput `json:"rate_plan_draft"`

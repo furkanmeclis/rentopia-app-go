@@ -4,6 +4,7 @@ package model
 
 import (
 	"encoding/json"
+	fieldmodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fieldtasks/model"
 	"strings"
 	"time"
 
@@ -172,14 +173,19 @@ type ReservationRef struct {
 
 // --------------------------------------------------------------- quotes
 
-// Where is the pick-up / return place and the range of a quote.
+// Where is the pick-up / return place and the range of a quote. A
+// delivery point (airport, hotel, address zone) can carry the delivery
+// details of that side: the address (required by an address zone), the
+// contact, the flight number and a meeting note (TEC-724).
 type Where struct {
-	PickupBranchUUID *uuid.UUID `json:"pickup_branch_uuid"`
-	PickupPointUUID  *uuid.UUID `json:"pickup_point_uuid"`
-	ReturnBranchUUID *uuid.UUID `json:"return_branch_uuid"`
-	ReturnPointUUID  *uuid.UUID `json:"return_point_uuid"`
-	StartsAt         *time.Time `json:"starts_at"`
-	EndsAt           *time.Time `json:"ends_at"`
+	PickupBranchUUID *uuid.UUID           `json:"pickup_branch_uuid"`
+	PickupPointUUID  *uuid.UUID           `json:"pickup_point_uuid"`
+	ReturnBranchUUID *uuid.UUID           `json:"return_branch_uuid"`
+	ReturnPointUUID  *uuid.UUID           `json:"return_point_uuid"`
+	StartsAt         *time.Time           `json:"starts_at"`
+	EndsAt           *time.Time           `json:"ends_at"`
+	PickupDelivery   *fieldmodel.Delivery `json:"pickup_delivery"`
+	ReturnDelivery   *fieldmodel.Delivery `json:"return_delivery"`
 }
 
 // ManualDiscountInput is a staff discount (needs tenant.discount.apply).
@@ -323,49 +329,51 @@ type QuoteAvailability struct {
 
 // Quote is a quote as the API shows it.
 type Quote struct {
-	UUID                uuid.UUID           `json:"uuid"`
-	Purpose             string              `json:"purpose"`
-	Status              string              `json:"status"`
-	Expired             bool                `json:"expired"`
-	Reservation         *ReservationRef     `json:"reservation"`
-	Customer            *CustomerRef        `json:"customer"`
-	Product             ProductRef          `json:"product"`
-	PickupBranch        BranchRef           `json:"pickup_branch"`
-	ReturnBranch        BranchRef           `json:"return_branch"`
-	PickupPoint         *PointRef           `json:"pickup_point"`
-	ReturnPoint         *PointRef           `json:"return_point"`
-	StartsAt            time.Time           `json:"starts_at"`
-	EndsAt              time.Time           `json:"ends_at"`
-	Channel             string              `json:"channel"`
-	BillingDays         int                 `json:"billing_days"`
-	Currency            string              `json:"currency"`
-	RentalSubtotal      money.Money         `json:"rental_subtotal"`
-	DiscountTotal       money.Money         `json:"discount_total"`
-	RentalTotal         money.Money         `json:"rental_total"`
-	ExtrasTotal         money.Money         `json:"extras_total"`
-	OneWayFee           money.Money         `json:"one_way_fee"`
-	DeliveryFee         money.Money         `json:"delivery_fee"`
-	BaseTotal           money.Money         `json:"base_total"`
-	VATTotal            money.Money         `json:"vat_total"`
-	Total               money.Money         `json:"total"`
-	Prepayment          money.Money         `json:"prepayment"`
-	PrepaymentRule      string              `json:"prepayment_rule"`
-	VATRate             *money.Rate         `json:"vat_rate"`
-	Difference          *money.Money        `json:"difference"`
-	RatePlanVersionUUID *uuid.UUID          `json:"rate_plan_version_uuid"`
-	RatePlanVersion     *int32              `json:"rate_plan_version"`
-	SettingsVersion     int32               `json:"settings_version"`
-	Extras              []ExtraRequest      `json:"extras"`
-	CouponCode          *string             `json:"coupon_code"`
-	ManualDiscount      *ManualDiscountView `json:"manual_discount"`
-	Breakdown           QuoteBreakdown      `json:"breakdown"`
-	Lines               []QuoteLine         `json:"lines"`
-	Vehicle             *VehicleRef         `json:"vehicle"`
-	Availability        *QuoteAvailability  `json:"availability"`
-	ValidUntil          time.Time           `json:"valid_until"`
-	UsedAt              *time.Time          `json:"used_at"`
-	CreatedBy           *Actor              `json:"created_by"`
-	CreatedAt           time.Time           `json:"created_at"`
+	UUID                uuid.UUID            `json:"uuid"`
+	Purpose             string               `json:"purpose"`
+	Status              string               `json:"status"`
+	Expired             bool                 `json:"expired"`
+	Reservation         *ReservationRef      `json:"reservation"`
+	Customer            *CustomerRef         `json:"customer"`
+	Product             ProductRef           `json:"product"`
+	PickupBranch        BranchRef            `json:"pickup_branch"`
+	ReturnBranch        BranchRef            `json:"return_branch"`
+	PickupPoint         *PointRef            `json:"pickup_point"`
+	ReturnPoint         *PointRef            `json:"return_point"`
+	PickupDelivery      *fieldmodel.Delivery `json:"pickup_delivery"`
+	ReturnDelivery      *fieldmodel.Delivery `json:"return_delivery"`
+	StartsAt            time.Time            `json:"starts_at"`
+	EndsAt              time.Time            `json:"ends_at"`
+	Channel             string               `json:"channel"`
+	BillingDays         int                  `json:"billing_days"`
+	Currency            string               `json:"currency"`
+	RentalSubtotal      money.Money          `json:"rental_subtotal"`
+	DiscountTotal       money.Money          `json:"discount_total"`
+	RentalTotal         money.Money          `json:"rental_total"`
+	ExtrasTotal         money.Money          `json:"extras_total"`
+	OneWayFee           money.Money          `json:"one_way_fee"`
+	DeliveryFee         money.Money          `json:"delivery_fee"`
+	BaseTotal           money.Money          `json:"base_total"`
+	VATTotal            money.Money          `json:"vat_total"`
+	Total               money.Money          `json:"total"`
+	Prepayment          money.Money          `json:"prepayment"`
+	PrepaymentRule      string               `json:"prepayment_rule"`
+	VATRate             *money.Rate          `json:"vat_rate"`
+	Difference          *money.Money         `json:"difference"`
+	RatePlanVersionUUID *uuid.UUID           `json:"rate_plan_version_uuid"`
+	RatePlanVersion     *int32               `json:"rate_plan_version"`
+	SettingsVersion     int32                `json:"settings_version"`
+	Extras              []ExtraRequest       `json:"extras"`
+	CouponCode          *string              `json:"coupon_code"`
+	ManualDiscount      *ManualDiscountView  `json:"manual_discount"`
+	Breakdown           QuoteBreakdown       `json:"breakdown"`
+	Lines               []QuoteLine          `json:"lines"`
+	Vehicle             *VehicleRef          `json:"vehicle"`
+	Availability        *QuoteAvailability   `json:"availability"`
+	ValidUntil          time.Time            `json:"valid_until"`
+	UsedAt              *time.Time           `json:"used_at"`
+	CreatedBy           *Actor               `json:"created_by"`
+	CreatedAt           time.Time            `json:"created_at"`
 }
 
 // QuoteListItem is a row of the quotes list.
@@ -598,43 +606,45 @@ type Actions struct {
 
 // Reservation is a reservation as the detail API shows it.
 type Reservation struct {
-	UUID                uuid.UUID           `json:"uuid"`
-	Reference           string              `json:"reference"`
-	Status              string              `json:"status"`
-	PaymentStatus       string              `json:"payment_status"`
-	CapacityCommitment  string              `json:"capacity_commitment"`
-	PickupBranch        BranchRef           `json:"pickup_branch"`
-	ReturnBranch        BranchRef           `json:"return_branch"`
-	PickupPoint         *PointRef           `json:"pickup_point"`
-	ReturnPoint         *PointRef           `json:"return_point"`
-	StartsAt            time.Time           `json:"starts_at"`
-	EndsAt              time.Time           `json:"ends_at"`
-	BillingDays         int                 `json:"billing_days"`
-	Customer            CustomerRef         `json:"customer"`
-	InvoiceCustomer     *CustomerRef        `json:"invoice_customer"`
-	Drivers             []ReservationDriver `json:"drivers"`
-	Channel             string              `json:"channel"`
-	ApprovalProtocol    string              `json:"approval_protocol"`
-	ExternalReference   *string             `json:"external_reference"`
-	CollectingParty     string              `json:"collecting_party"`
-	Price               Price               `json:"price"`
-	QuoteUUID           *uuid.UUID          `json:"quote_uuid"`
-	SettingsVersion     int32               `json:"settings_version"`
-	Policy              json.RawMessage     `json:"policy"`
-	Plan                VehiclePlan         `json:"plan"`
-	ReviewDeadline      *time.Time          `json:"review_deadline"`
-	PaymentDeadline     *time.Time          `json:"payment_deadline"`
-	AssignedUser        *Actor              `json:"assigned_user"`
-	Note                string              `json:"note"`
-	EligibilityOverride json.RawMessage     `json:"eligibility_override"`
-	OpenTasks           int64               `json:"open_tasks"`
-	Actions             Actions             `json:"actions"`
-	ConfirmedAt         *time.Time          `json:"confirmed_at"`
-	CancelledAt         *time.Time          `json:"cancelled_at"`
-	CancelReason        string              `json:"cancel_reason"`
-	CreatedBy           *Actor              `json:"created_by"`
-	CreatedAt           time.Time           `json:"created_at"`
-	UpdatedAt           time.Time           `json:"updated_at"`
+	UUID                uuid.UUID            `json:"uuid"`
+	Reference           string               `json:"reference"`
+	Status              string               `json:"status"`
+	PaymentStatus       string               `json:"payment_status"`
+	CapacityCommitment  string               `json:"capacity_commitment"`
+	PickupBranch        BranchRef            `json:"pickup_branch"`
+	ReturnBranch        BranchRef            `json:"return_branch"`
+	PickupPoint         *PointRef            `json:"pickup_point"`
+	ReturnPoint         *PointRef            `json:"return_point"`
+	PickupDelivery      *fieldmodel.Delivery `json:"pickup_delivery"`
+	ReturnDelivery      *fieldmodel.Delivery `json:"return_delivery"`
+	StartsAt            time.Time            `json:"starts_at"`
+	EndsAt              time.Time            `json:"ends_at"`
+	BillingDays         int                  `json:"billing_days"`
+	Customer            CustomerRef          `json:"customer"`
+	InvoiceCustomer     *CustomerRef         `json:"invoice_customer"`
+	Drivers             []ReservationDriver  `json:"drivers"`
+	Channel             string               `json:"channel"`
+	ApprovalProtocol    string               `json:"approval_protocol"`
+	ExternalReference   *string              `json:"external_reference"`
+	CollectingParty     string               `json:"collecting_party"`
+	Price               Price                `json:"price"`
+	QuoteUUID           *uuid.UUID           `json:"quote_uuid"`
+	SettingsVersion     int32                `json:"settings_version"`
+	Policy              json.RawMessage      `json:"policy"`
+	Plan                VehiclePlan          `json:"plan"`
+	ReviewDeadline      *time.Time           `json:"review_deadline"`
+	PaymentDeadline     *time.Time           `json:"payment_deadline"`
+	AssignedUser        *Actor               `json:"assigned_user"`
+	Note                string               `json:"note"`
+	EligibilityOverride json.RawMessage      `json:"eligibility_override"`
+	OpenTasks           int64                `json:"open_tasks"`
+	Actions             Actions              `json:"actions"`
+	ConfirmedAt         *time.Time           `json:"confirmed_at"`
+	CancelledAt         *time.Time           `json:"cancelled_at"`
+	CancelReason        string               `json:"cancel_reason"`
+	CreatedBy           *Actor               `json:"created_by"`
+	CreatedAt           time.Time            `json:"created_at"`
+	UpdatedAt           time.Time            `json:"updated_at"`
 }
 
 // ListItem is a row of the reservations list.
