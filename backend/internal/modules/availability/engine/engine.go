@@ -495,7 +495,6 @@ type candidate struct {
 	vehicle   int64
 	conflicts []*Commitment
 	flex      int
-	stays     bool
 }
 
 // candidates lists the vehicles that can take c in time (eligible, pool,

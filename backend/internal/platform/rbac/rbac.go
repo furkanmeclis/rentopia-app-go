@@ -80,6 +80,10 @@ const (
 	PermTenantTransfersWrite              = "tenant.transfers.write"
 	PermTenantOneWayRead                  = "tenant.one_way.read"
 	PermTenantOneWayWrite                 = "tenant.one_way.write"
+	PermTenantAvailabilityRead            = "tenant.availability.read"
+	PermTenantAvailabilityHold            = "tenant.availability.hold"
+	PermTenantCapacityRulesRead           = "tenant.capacity_rules.read"
+	PermTenantCapacityRulesWrite          = "tenant.capacity_rules.write"
 	// Sensitive actions of later tenant modules (TEC-689), separate from the
 	// resource read/write slugs so roles can grant them one by one.
 	PermTenantPriceOverride    = "tenant.price.override"

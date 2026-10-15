@@ -174,8 +174,7 @@ func (s *Service) buildSnapshot(ctx context.Context, orgID int64, fp string) (*f
 	}
 	// Union-find over vehicles: a guarantee links all the vehicles it accepts.
 	parent := map[int64]int64{}
-	var find func(int64) int64
-	find = func(x int64) int64 {
+	find := func(x int64) int64 {
 		for parent[x] != x {
 			parent[x] = parent[parent[x]]
 			x = parent[x]

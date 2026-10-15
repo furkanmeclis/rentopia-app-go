@@ -177,10 +177,9 @@ func (s *Service) checkChannel(ctx context.Context, q *db.Queries, orgID int64, 
 	return nil
 }
 
-// target loads an allocation for a commitment call and its component.
+// target is an allocation loaded for a commitment call.
 type target struct {
-	ref  db.GetAllocationRefRow
-	comp int64
+	ref db.GetAllocationRefRow
 }
 
 func (s *Service) target(ctx context.Context, orgID int64, id uuid.UUID) (target, error) {
@@ -365,7 +364,7 @@ func (s *Service) currentResolved(ctx context.Context, orgID int64, ref db.GetAl
 	}
 	r := resolved{start: ref.StartsAt.Time, end: ref.EndsAt.Time, channel: ref.Channel}
 	for _, b := range rows {
-		row := db.GetAvailabilityBranchRow{ID: b.ID, Uuid: b.Uuid, Code: b.Code, Name: b.Name, PrepMinutes: b.PrepMinutes, IsActive: b.IsActive}
+		row := db.GetAvailabilityBranchRow(b)
 		if b.ID == ref.PickupBranchID {
 			r.pickup = row
 		}
@@ -421,12 +420,12 @@ func (s *Service) whyNot(ref db.GetAllocationRefRow) error {
 // ExtendHold moves the expiry of an active, unexpired hold to now + minutes
 // (capacity is already held; nothing is re-planned).
 func (s *Service) ExtendHold(ctx context.Context, orgID int64, id uuid.UUID, minutes int) (model.Allocation, error) {
-	if minutes < 1 || minutes > model.MaxHoldMinutes {
-		return model.Allocation{}, validation("minutes", "out_of_range", "minutes must be between 1 and 1440")
-	}
 	t, err := s.target(ctx, orgID, id)
 	if err != nil {
 		return model.Allocation{}, err
+	}
+	if minutes < 1 || minutes > model.MaxHoldMinutes {
+		return model.Allocation{}, validation("minutes", "out_of_range", "minutes must be between 1 and 1440")
 	}
 	now := s.clock()
 	n, err := s.q.ExtendHold(ctx, db.ExtendHoldParams{

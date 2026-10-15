@@ -2,7 +2,6 @@ package usecase_test
 
 import (
 	"context"
-	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -325,5 +324,3 @@ func itoa(n int) string {
 	}
 	return s
 }
-
-var errAny = errors.New("any")

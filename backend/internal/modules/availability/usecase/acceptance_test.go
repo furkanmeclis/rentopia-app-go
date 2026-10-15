@@ -322,8 +322,10 @@ func TestHoldLifecycle(t *testing.T) {
 	p := f.product("EKO", "GROUP")
 	w := where(mrk, mrk, f.at(0), f.at(10))
 	sellable := func() int { return f.search(w, p)[p.uuid].Sellable }
-	if sellable() != 2 || sellable() != 2 {
-		t.Fatal("a quote consumed capacity")
+	for i := 0; i < 3; i++ {
+		if sellable() != 2 {
+			t.Fatal("a quote consumed capacity")
+		}
 	}
 	minutes := 5
 	h, err := f.svc.Reserve(f.ctx, f.org, model.ReserveInput{Where: w, ProductUUID: p.uuid, Kind: model.KindHold, HoldMinutes: &minutes})

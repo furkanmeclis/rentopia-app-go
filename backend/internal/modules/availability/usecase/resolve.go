@@ -196,8 +196,7 @@ func (s *Service) branchByID(ctx context.Context, orgID, id int64) (db.GetAvaila
 	if len(rows) == 0 {
 		return db.GetAvailabilityBranchRow{}, pgx.ErrNoRows
 	}
-	r := rows[0]
-	return db.GetAvailabilityBranchRow{ID: r.ID, Uuid: r.Uuid, Code: r.Code, Name: r.Name, PrepMinutes: r.PrepMinutes, IsActive: r.IsActive}, nil
+	return db.GetAvailabilityBranchRow(rows[0]), nil
 }
 
 // oneWayAllowed applies the one-way rules (fleetops) to a product.

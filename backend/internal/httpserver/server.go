@@ -27,6 +27,9 @@ import (
 	authsettingsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/authsettings"
 	authsettingshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/authsettings/handler"
 	authsettingsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/authsettings/usecase"
+	availabilitymodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/availability"
+	availabilityhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/availability/handler"
+	availabilityusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/availability/usecase"
 	branchesmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/branches"
 	branchadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/branches/adapters"
 	branchhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/branches/handler"
@@ -347,9 +350,10 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	}
 	tenantmodule.RegisterRoutes(mux, tokens, loader, tenantResolver)
 	organizationsmodule.RegisterTenantRoutes(mux, orgH, tokens, loader, tenantResolver)
-	orgsettingsmodule.RegisterRoutes(mux, orgsettingshandler.New(
-		orgsettingsusecase.New(orgsettingsrepository.NewPostgres(deps.DB, deps.Queries)), activityRec,
-	), tokens, loader, tenantResolver)
+	orgSettingsSvc := orgsettingsusecase.New(orgsettingsrepository.NewPostgres(deps.DB, deps.Queries))
+	orgsettingsmodule.RegisterRoutes(mux, orgsettingshandler.New(orgSettingsSvc, activityRec), tokens, loader, tenantResolver)
+	// Availability engine (TEC-697): capacity search, holds, channel rules.
+	availabilitySvc := availabilityusecase.New(deps.DB, deps.Queries, vehicleSvc, orgSettingsSvc)
 
 	// Live lists of tenant resources: org:{org_uuid}:resource:{name}, open to
 	// members whose tenant role grants the resource's read permission.
@@ -359,6 +363,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	organizationsmodule.RegisterLiveResources(tenantLive)
 	vehiclesmodule.RegisterLiveResources(tenantLive)
 	fleetopsmodule.RegisterLiveResources(tenantLive)
+	availabilitymodule.RegisterLiveResources(tenantLive)
 	resourceEvents.AddResolver(tenantmodule.ChannelResolver(tenantmodule.QueriesLookup(deps.Queries)))
 	uc.AddChannelRules(tenantmodule.ChannelRule(tenantLive, tenantResolver))
 	catalogmodule.RegisterLiveResources(liveResources)
@@ -506,6 +511,9 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		ExportOneWay:    exportH.TenantExport(fleetopsmodule.ResourceOneWayRules, fleetopsmodule.OneWayExportKeys...),
 		BulkOneWay:      bulkH.TenantExecute(fleetopsmodule.ResourceOneWayRules),
 	}, tokens, loader, tenantResolver)
+	availabilityH := availabilityhandler.New(availabilitySvc, activityRec)
+	availabilityH.SetResourceEvents(resourceEvents)
+	availabilitymodule.RegisterRoutes(mux, availabilityH, tokens, loader, tenantResolver)
 	settingsmodule.RegisterRoutes(mux, settingshandler.New(
 		settingsusecase.New(deps.Queries),
 		deps.Storage,

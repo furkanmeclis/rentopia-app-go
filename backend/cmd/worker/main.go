@@ -11,6 +11,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/config"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/logging"
+	availabilityusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/availability/usecase"
 	branchadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/branches/adapters"
 	branchrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/branches/repository"
 	branchusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/branches/usecase"
@@ -32,6 +33,8 @@ import (
 	orgadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/adapters"
 	orgrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/repository"
 	orgusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/usecase"
+	orgsettingsrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/repository"
+	orgsettingsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/usecase"
 	tenantmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tenant"
 	vehiclerecordsadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehiclerecords/adapters"
 	vehiclerecordsrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehiclerecords/repository"
@@ -140,6 +143,9 @@ func main() {
 		vehiclerecordsrepository.NewPostgres(queries), vehicleSvc, store, notifSvc, log,
 	)
 	fleetOpsSvc := fleetopsusecase.New(fleetopsrepository.NewPostgres(pool, queries), vehicleSvc)
+	// Availability engine: the minute hold expiry sweep.
+	availabilitySvc := availabilityusecase.New(pool, queries, vehicleSvc,
+		orgsettingsusecase.New(orgsettingsrepository.NewPostgres(pool, queries)))
 	vehicleBulk := vehicleadapters.NewBulk(vehicleSvc)
 	vehicleBulk.SetMaintenance(fleetopsadapters.NewMaintenance(fleetOpsSvc))
 	// Platform organizations (export, bulk activate / suspend). Status
@@ -223,6 +229,7 @@ func main() {
 		WithMobilePush(notifSvc.SendMobilePush, notifSvc.ProcessPushReceipts).
 		WithCatalogImport(catalogSvc.ProcessImport).
 		WithVehicleReminders(vehicleRecordsSvc.RunReminders).
+		WithExpireHolds(availabilitySvc.ExpireDue).
 		WithSearch(
 			searchIndexer.ProcessUpsert,
 			searchIndexer.ProcessDelete,
@@ -244,6 +251,10 @@ func main() {
 	}
 	if err := queue.RegisterVehicleRemindersSchedule(scheduler); err != nil {
 		log.Error("vehicle_reminders_scheduler_failed", "error", err)
+		exit(1)
+	}
+	if err := queue.RegisterExpireHoldsSchedule(scheduler); err != nil {
+		log.Error("hold_expiry_scheduler_failed", "error", err)
 		exit(1)
 	}
 	go func() {
