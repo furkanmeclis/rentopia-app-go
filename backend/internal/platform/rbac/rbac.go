@@ -119,6 +119,12 @@ const (
 	PermTenantContractsRead     = "tenant.contracts.read"
 	PermTenantContractsWrite    = "tenant.contracts.write"
 	PermTenantContractsActivate = "tenant.contracts.activate"
+	// Field tasks (TEC-724): read = the assignment board; assign = plan,
+	// assign (bulk), re-plan and cancel; execute = "my tasks" (start,
+	// report an issue, complete the caller's own tasks).
+	PermTenantFieldTasksRead    = "tenant.field_tasks.read"
+	PermTenantFieldTasksAssign  = "tenant.field_tasks.assign"
+	PermTenantFieldTasksExecute = "tenant.field_tasks.execute"
 	// Extras catalog, prices and branch stock (TEC-702). Equipment holds
 	// use PermTenantAvailabilityHold.
 	PermTenantExtrasRead  = "tenant.extras.read"

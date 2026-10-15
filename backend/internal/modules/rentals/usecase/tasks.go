@@ -160,7 +160,7 @@ func (s *Service) AssignTask(ctx context.Context, orgID int64, id uuid.UUID, use
 		}
 		assignee = pgtype.Int8{Int64: u.ID, Valid: true}
 	}
-	n, err := s.q.AssignOperationTask(ctx, db.AssignOperationTaskParams{OrganizationID: orgID, ID: row.ID, AssigneeID: assignee})
+	n, err := s.q.AssignOperationTask(ctx, db.AssignOperationTaskParams{OrganizationID: orgID, ID: row.ID, AssigneeID: assignee, ActorID: int8Ptr(actorID(ctx))})
 	if err != nil {
 		return model.Task{}, err
 	}
@@ -200,7 +200,7 @@ func (s *Service) FinishTask(ctx context.Context, orgID int64, id uuid.UUID, don
 	if len(note) > 1000 {
 		return model.Task{}, validation("note", "too_long", "note is at most 1000 characters")
 	}
-	status := model.TaskDone
+	status := model.TaskCompleted
 	if !done {
 		status = model.TaskCancelled
 		if _, err := requireReason("note", note); err != nil {

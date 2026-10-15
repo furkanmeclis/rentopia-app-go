@@ -23,7 +23,7 @@ INSERT INTO reservations (
     customer_id, invoice_customer_id, channel, external_reference, collecting_party, commission_amount,
     net_receivable, currency, total_amount, prepayment_amount, quote_id, quote_snapshot,
     settings_version, policy_snapshot, review_deadline, payment_deadline, note, eligibility_override,
-    confirmed_at, created_by, approval_protocol
+    confirmed_at, created_by, approval_protocol, pickup_delivery, return_delivery
 ) VALUES (
     sqlc.arg(uuid), sqlc.arg(organization_id), sqlc.arg(reference), sqlc.arg(status), 'unpaid',
     sqlc.arg(capacity_commitment), sqlc.narg(allocation_id),
@@ -36,7 +36,7 @@ INSERT INTO reservations (
     sqlc.arg(total_amount), sqlc.arg(prepayment_amount), sqlc.narg(quote_id), sqlc.arg(quote_snapshot),
     sqlc.arg(settings_version), sqlc.arg(policy_snapshot), sqlc.narg(review_deadline), sqlc.narg(payment_deadline),
     sqlc.arg(note), sqlc.narg(eligibility_override), sqlc.narg(confirmed_at), sqlc.narg(created_by),
-    sqlc.arg(approval_protocol)
+    sqlc.arg(approval_protocol), sqlc.narg(pickup_delivery), sqlc.narg(return_delivery)
 )
 RETURNING id;
 
@@ -48,6 +48,7 @@ SELECT r.id, r.uuid, r.reference, r.status, r.payment_status, r.capacity_commitm
     r.customer_id, r.channel, r.total_amount, r.prepayment_amount, r.paid_amount, r.commission_amount,
     r.collecting_party, r.quote_id, r.quote_snapshot, r.settings_version, r.review_deadline, r.payment_deadline,
     r.assigned_user_id, r.currency, r.product_snapshot, r.equipment_allocations, r.approval_protocol,
+    r.pickup_delivery, r.return_delivery,
     a.uuid AS allocation_uuid, a.status AS allocation_status, a.kind AS allocation_kind,
     a.vehicle_id AS allocation_vehicle_id, a.plate_fixed AS allocation_plate_fixed, a.expires_at AS allocation_expires_at,
     p.uuid AS product_uuid
@@ -90,6 +91,7 @@ SELECT r.id, r.uuid, r.reference, r.status, r.payment_status, r.capacity_commitm
     r.currency, r.total_amount, r.prepayment_amount, r.paid_amount, r.quote_snapshot,
     r.settings_version, r.policy_snapshot, r.review_deadline, r.payment_deadline, r.note, r.eligibility_override,
     r.confirmed_at, r.cancelled_at, r.cancel_reason, r.created_at, r.updated_at, r.approval_protocol,
+    r.pickup_delivery, r.return_delivery,
     pb.uuid AS pickup_branch_uuid, pb.code AS pickup_branch_code, pb.name AS pickup_branch_name,
     rb.uuid AS return_branch_uuid, rb.code AS return_branch_code, rb.name AS return_branch_name,
     pp.uuid AS pickup_point_uuid, pp.name AS pickup_point_name,
@@ -276,6 +278,8 @@ SET allocation_id = sqlc.narg(allocation_id),
     return_branch_id = sqlc.arg(return_branch_id),
     pickup_point_id = sqlc.narg(pickup_point_id),
     return_point_id = sqlc.narg(return_point_id),
+    pickup_delivery = sqlc.narg(pickup_delivery),
+    return_delivery = sqlc.narg(return_delivery),
     rental_product_id = sqlc.arg(rental_product_id),
     product_version = sqlc.arg(product_version),
     guarantee_type = sqlc.arg(guarantee_type),

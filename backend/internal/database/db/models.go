@@ -1047,24 +1047,58 @@ type OneWayRule struct {
 }
 
 type OperationTask struct {
+	ID              int64              `json:"id"`
+	Uuid            uuid.UUID          `json:"uuid"`
+	OrganizationID  int64              `json:"organization_id"`
+	TaskType        string             `json:"task_type"`
+	Status          string             `json:"status"`
+	BranchID        int64              `json:"branch_id"`
+	RentalID        pgtype.Int8        `json:"rental_id"`
+	VehicleID       pgtype.Int8        `json:"vehicle_id"`
+	DueAt           pgtype.Timestamptz `json:"due_at"`
+	AssigneeID      pgtype.Int8        `json:"assignee_id"`
+	Note            string             `json:"note"`
+	StartedAt       pgtype.Timestamptz `json:"started_at"`
+	CompletedAt     pgtype.Timestamptz `json:"completed_at"`
+	CompletedBy     pgtype.Int8        `json:"completed_by"`
+	CompletionNote  string             `json:"completion_note"`
+	CreatedBy       pgtype.Int8        `json:"created_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	ReservationID   pgtype.Int8        `json:"reservation_id"`
+	Origin          string             `json:"origin"`
+	LocationKind    string             `json:"location_kind"`
+	PointID         pgtype.Int8        `json:"point_id"`
+	Address         string             `json:"address"`
+	District        string             `json:"district"`
+	City            string             `json:"city"`
+	Latitude        pgtype.Float8      `json:"latitude"`
+	Longitude       pgtype.Float8      `json:"longitude"`
+	ContactName     string             `json:"contact_name"`
+	ContactPhone    string             `json:"contact_phone"`
+	FlightNumber    string             `json:"flight_number"`
+	MeetingNote     string             `json:"meeting_note"`
+	PlannedMinutes  int32              `json:"planned_minutes"`
+	ToBranchID      pgtype.Int8        `json:"to_branch_id"`
+	TransferID      pgtype.Int8        `json:"transfer_id"`
+	AssignedAt      pgtype.Timestamptz `json:"assigned_at"`
+	IssueNote       string             `json:"issue_note"`
+	IssueReportedAt pgtype.Timestamptz `json:"issue_reported_at"`
+	UpdatedBy       pgtype.Int8        `json:"updated_by"`
+}
+
+type OperationTaskEvent struct {
 	ID             int64              `json:"id"`
 	Uuid           uuid.UUID          `json:"uuid"`
 	OrganizationID int64              `json:"organization_id"`
-	TaskType       string             `json:"task_type"`
-	Status         string             `json:"status"`
-	BranchID       int64              `json:"branch_id"`
-	RentalID       pgtype.Int8        `json:"rental_id"`
-	VehicleID      pgtype.Int8        `json:"vehicle_id"`
-	DueAt          pgtype.Timestamptz `json:"due_at"`
-	AssigneeID     pgtype.Int8        `json:"assignee_id"`
+	TaskID         int64              `json:"task_id"`
+	Action         string             `json:"action"`
+	FromStatus     pgtype.Text        `json:"from_status"`
+	ToStatus       pgtype.Text        `json:"to_status"`
 	Note           string             `json:"note"`
-	StartedAt      pgtype.Timestamptz `json:"started_at"`
-	CompletedAt    pgtype.Timestamptz `json:"completed_at"`
-	CompletedBy    pgtype.Int8        `json:"completed_by"`
-	CompletionNote string             `json:"completion_note"`
-	CreatedBy      pgtype.Int8        `json:"created_by"`
+	Data           []byte             `json:"data"`
+	ActorID        pgtype.Int8        `json:"actor_id"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Organization struct {
@@ -1336,6 +1370,9 @@ type Quote struct {
 	CreatedBy           pgtype.Int8        `json:"created_by"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	PickupDelivery      []byte             `json:"pickup_delivery"`
+	ReturnDelivery      []byte             `json:"return_delivery"`
+	DeliveryOverride    pgtype.Numeric     `json:"delivery_override"`
 }
 
 type QuoteLine struct {
@@ -1659,6 +1696,8 @@ type Reservation struct {
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 	ApprovalProtocol     string             `json:"approval_protocol"`
+	PickupDelivery       []byte             `json:"pickup_delivery"`
+	ReturnDelivery       []byte             `json:"return_delivery"`
 }
 
 type ReservationDriver struct {
@@ -1748,19 +1787,27 @@ type RolePermission struct {
 }
 
 type ServicePoint struct {
-	ID               int64              `json:"id"`
-	Uuid             uuid.UUID          `json:"uuid"`
-	OrganizationID   int64              `json:"organization_id"`
-	BranchID         int64              `json:"branch_id"`
-	Type             string             `json:"type"`
-	Name             string             `json:"name"`
-	Description      string             `json:"description"`
-	ExtraFee         pgtype.Numeric     `json:"extra_fee"`
-	WorkingHours     []byte             `json:"working_hours"`
-	OnlineSelectable bool               `json:"online_selectable"`
-	IsActive         bool               `json:"is_active"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	ID                 int64              `json:"id"`
+	Uuid               uuid.UUID          `json:"uuid"`
+	OrganizationID     int64              `json:"organization_id"`
+	BranchID           int64              `json:"branch_id"`
+	Type               string             `json:"type"`
+	Name               string             `json:"name"`
+	Description        string             `json:"description"`
+	ExtraFee           pgtype.Numeric     `json:"extra_fee"`
+	WorkingHours       []byte             `json:"working_hours"`
+	OnlineSelectable   bool               `json:"online_selectable"`
+	IsActive           bool               `json:"is_active"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	DeliveryEnabled    bool               `json:"delivery_enabled"`
+	DeliveryExtraID    pgtype.Int8        `json:"delivery_extra_id"`
+	ServiceDistricts   []string           `json:"service_districts"`
+	Latitude           pgtype.Float8      `json:"latitude"`
+	Longitude          pgtype.Float8      `json:"longitude"`
+	ServiceRadiusKm    pgtype.Numeric     `json:"service_radius_km"`
+	MinNoticeMinutes   int32              `json:"min_notice_minutes"`
+	DeliveryConditions string             `json:"delivery_conditions"`
 }
 
 type SmsMessage struct {

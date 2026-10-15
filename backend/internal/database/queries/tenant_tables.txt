@@ -66,6 +66,7 @@ rental_drivers
 rental_events
 rental_charges
 operation_tasks
+operation_task_events
 contract_templates
 documents
 document_versions

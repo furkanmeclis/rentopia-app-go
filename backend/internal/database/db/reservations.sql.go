@@ -195,6 +195,7 @@ SELECT r.id, r.uuid, r.reference, r.status, r.payment_status, r.capacity_commitm
     r.customer_id, r.channel, r.total_amount, r.prepayment_amount, r.paid_amount, r.commission_amount,
     r.collecting_party, r.quote_id, r.quote_snapshot, r.settings_version, r.review_deadline, r.payment_deadline,
     r.assigned_user_id, r.currency, r.product_snapshot, r.equipment_allocations, r.approval_protocol,
+    r.pickup_delivery, r.return_delivery,
     a.uuid AS allocation_uuid, a.status AS allocation_status, a.kind AS allocation_kind,
     a.vehicle_id AS allocation_vehicle_id, a.plate_fixed AS allocation_plate_fixed, a.expires_at AS allocation_expires_at,
     p.uuid AS product_uuid
@@ -247,6 +248,8 @@ type GetReservationCoreRow struct {
 	ProductSnapshot      []byte             `json:"product_snapshot"`
 	EquipmentAllocations []uuid.UUID        `json:"equipment_allocations"`
 	ApprovalProtocol     string             `json:"approval_protocol"`
+	PickupDelivery       []byte             `json:"pickup_delivery"`
+	ReturnDelivery       []byte             `json:"return_delivery"`
 	AllocationUuid       pgtype.UUID        `json:"allocation_uuid"`
 	AllocationStatus     pgtype.Text        `json:"allocation_status"`
 	AllocationKind       pgtype.Text        `json:"allocation_kind"`
@@ -296,6 +299,8 @@ func (q *Queries) GetReservationCore(ctx context.Context, arg GetReservationCore
 		&i.ProductSnapshot,
 		&i.EquipmentAllocations,
 		&i.ApprovalProtocol,
+		&i.PickupDelivery,
+		&i.ReturnDelivery,
 		&i.AllocationUuid,
 		&i.AllocationStatus,
 		&i.AllocationKind,
@@ -660,6 +665,7 @@ SELECT r.id, r.uuid, r.reference, r.status, r.payment_status, r.capacity_commitm
     r.currency, r.total_amount, r.prepayment_amount, r.paid_amount, r.quote_snapshot,
     r.settings_version, r.policy_snapshot, r.review_deadline, r.payment_deadline, r.note, r.eligibility_override,
     r.confirmed_at, r.cancelled_at, r.cancel_reason, r.created_at, r.updated_at, r.approval_protocol,
+    r.pickup_delivery, r.return_delivery,
     pb.uuid AS pickup_branch_uuid, pb.code AS pickup_branch_code, pb.name AS pickup_branch_name,
     rb.uuid AS return_branch_uuid, rb.code AS return_branch_code, rb.name AS return_branch_name,
     pp.uuid AS pickup_point_uuid, pp.name AS pickup_point_name,
@@ -750,6 +756,8 @@ type GetReservationViewRow struct {
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 	ApprovalProtocol     string             `json:"approval_protocol"`
+	PickupDelivery       []byte             `json:"pickup_delivery"`
+	ReturnDelivery       []byte             `json:"return_delivery"`
 	PickupBranchUuid     uuid.UUID          `json:"pickup_branch_uuid"`
 	PickupBranchCode     string             `json:"pickup_branch_code"`
 	PickupBranchName     string             `json:"pickup_branch_name"`
@@ -841,6 +849,8 @@ func (q *Queries) GetReservationView(ctx context.Context, arg GetReservationView
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ApprovalProtocol,
+		&i.PickupDelivery,
+		&i.ReturnDelivery,
 		&i.PickupBranchUuid,
 		&i.PickupBranchCode,
 		&i.PickupBranchName,
@@ -901,7 +911,7 @@ INSERT INTO reservations (
     customer_id, invoice_customer_id, channel, external_reference, collecting_party, commission_amount,
     net_receivable, currency, total_amount, prepayment_amount, quote_id, quote_snapshot,
     settings_version, policy_snapshot, review_deadline, payment_deadline, note, eligibility_override,
-    confirmed_at, created_by, approval_protocol
+    confirmed_at, created_by, approval_protocol, pickup_delivery, return_delivery
 ) VALUES (
     $1, $2, $3, $4, 'unpaid',
     $5, $6,
@@ -914,7 +924,7 @@ INSERT INTO reservations (
     $25, $26, $27, $28,
     $29, $30, $31, $32,
     $33, $34, $35, $36,
-    $37
+    $37, $38, $39
 )
 RETURNING id
 `
@@ -957,6 +967,8 @@ type InsertReservationParams struct {
 	ConfirmedAt         pgtype.Timestamptz `json:"confirmed_at"`
 	CreatedBy           pgtype.Int8        `json:"created_by"`
 	ApprovalProtocol    string             `json:"approval_protocol"`
+	PickupDelivery      []byte             `json:"pickup_delivery"`
+	ReturnDelivery      []byte             `json:"return_delivery"`
 }
 
 func (q *Queries) InsertReservation(ctx context.Context, arg InsertReservationParams) (int64, error) {
@@ -998,6 +1010,8 @@ func (q *Queries) InsertReservation(ctx context.Context, arg InsertReservationPa
 		arg.ConfirmedAt,
 		arg.CreatedBy,
 		arg.ApprovalProtocol,
+		arg.PickupDelivery,
+		arg.ReturnDelivery,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -2024,17 +2038,19 @@ SET allocation_id = $1,
     return_branch_id = $5,
     pickup_point_id = $6,
     return_point_id = $7,
-    rental_product_id = $8,
-    product_version = $9,
-    guarantee_type = $10,
-    product_snapshot = $11,
-    total_amount = $12,
-    prepayment_amount = $13,
-    net_receivable = $14,
-    quote_id = $15,
-    quote_snapshot = $16
-WHERE organization_id = $17
-  AND id = $18
+    pickup_delivery = $8,
+    return_delivery = $9,
+    rental_product_id = $10,
+    product_version = $11,
+    guarantee_type = $12,
+    product_snapshot = $13,
+    total_amount = $14,
+    prepayment_amount = $15,
+    net_receivable = $16,
+    quote_id = $17,
+    quote_snapshot = $18
+WHERE organization_id = $19
+  AND id = $20
 `
 
 type UpdateReservationPlanParams struct {
@@ -2045,6 +2061,8 @@ type UpdateReservationPlanParams struct {
 	ReturnBranchID   int64              `json:"return_branch_id"`
 	PickupPointID    pgtype.Int8        `json:"pickup_point_id"`
 	ReturnPointID    pgtype.Int8        `json:"return_point_id"`
+	PickupDelivery   []byte             `json:"pickup_delivery"`
+	ReturnDelivery   []byte             `json:"return_delivery"`
 	RentalProductID  int64              `json:"rental_product_id"`
 	ProductVersion   int32              `json:"product_version"`
 	GuaranteeType    string             `json:"guarantee_type"`
@@ -2069,6 +2087,8 @@ func (q *Queries) UpdateReservationPlan(ctx context.Context, arg UpdateReservati
 		arg.ReturnBranchID,
 		arg.PickupPointID,
 		arg.ReturnPointID,
+		arg.PickupDelivery,
+		arg.ReturnDelivery,
 		arg.RentalProductID,
 		arg.ProductVersion,
 		arg.GuaranteeType,

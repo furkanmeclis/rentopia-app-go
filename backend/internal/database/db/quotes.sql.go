@@ -19,6 +19,7 @@ SELECT q.id, q.uuid, q.purpose, q.status, q.reservation_id, q.customer_id, q.ren
     q.one_way_fee, q.delivery_fee, q.base_total, q.vat_total, q.total, q.prepayment, q.prepayment_rule,
     q.vat_rate_bp, q.difference, q.rate_plan_version_uuid, q.rate_plan_version, q.settings_version, q.extras,
     q.coupon_code, q.manual_discount, q.breakdown, q.vehicle_id, q.valid_until, q.used_at, q.created_at,
+    q.pickup_delivery, q.return_delivery, q.delivery_override,
     p.uuid AS product_uuid, p.code AS product_code, p.title AS product_title,
     pb.uuid AS pickup_branch_uuid, pb.code AS pickup_branch_code, pb.name AS pickup_branch_name,
     rb.uuid AS return_branch_uuid, rb.code AS return_branch_code, rb.name AS return_branch_name,
@@ -94,6 +95,9 @@ type GetQuoteRow struct {
 	ValidUntil           pgtype.Timestamptz `json:"valid_until"`
 	UsedAt               pgtype.Timestamptz `json:"used_at"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	PickupDelivery       []byte             `json:"pickup_delivery"`
+	ReturnDelivery       []byte             `json:"return_delivery"`
+	DeliveryOverride     pgtype.Numeric     `json:"delivery_override"`
 	ProductUuid          uuid.UUID          `json:"product_uuid"`
 	ProductCode          string             `json:"product_code"`
 	ProductTitle         string             `json:"product_title"`
@@ -167,6 +171,9 @@ func (q *Queries) GetQuote(ctx context.Context, arg GetQuoteParams) (GetQuoteRow
 		&i.ValidUntil,
 		&i.UsedAt,
 		&i.CreatedAt,
+		&i.PickupDelivery,
+		&i.ReturnDelivery,
+		&i.DeliveryOverride,
 		&i.ProductUuid,
 		&i.ProductCode,
 		&i.ProductTitle,
@@ -205,7 +212,7 @@ INSERT INTO quotes (
     currency, rental_subtotal, discount_total, rental_total, extras_total, one_way_fee, delivery_fee,
     base_total, vat_total, total, prepayment, prepayment_rule, vat_rate_bp, difference,
     rate_plan_version_uuid, rate_plan_version, settings_version, extras, coupon_code, manual_discount,
-    breakdown, vehicle_id, valid_until, created_by
+    breakdown, vehicle_id, valid_until, created_by, pickup_delivery, return_delivery, delivery_override
 ) VALUES (
     $1, $2, $3, $4,
     $5, $6,
@@ -217,7 +224,8 @@ INSERT INTO quotes (
     $27, $28,
     $29, $30, $31,
     $32, $33, $34,
-    $35, $36, $37, $38
+    $35, $36, $37, $38,
+    $39, $40, $41
 )
 RETURNING id, uuid
 `
@@ -261,6 +269,9 @@ type InsertQuoteParams struct {
 	VehicleID           pgtype.Int8        `json:"vehicle_id"`
 	ValidUntil          pgtype.Timestamptz `json:"valid_until"`
 	CreatedBy           pgtype.Int8        `json:"created_by"`
+	PickupDelivery      []byte             `json:"pickup_delivery"`
+	ReturnDelivery      []byte             `json:"return_delivery"`
+	DeliveryOverride    pgtype.Numeric     `json:"delivery_override"`
 }
 
 type InsertQuoteRow struct {
@@ -311,6 +322,9 @@ func (q *Queries) InsertQuote(ctx context.Context, arg InsertQuoteParams) (Inser
 		arg.VehicleID,
 		arg.ValidUntil,
 		arg.CreatedBy,
+		arg.PickupDelivery,
+		arg.ReturnDelivery,
+		arg.DeliveryOverride,
 	)
 	var i InsertQuoteRow
 	err := row.Scan(&i.ID, &i.Uuid)
