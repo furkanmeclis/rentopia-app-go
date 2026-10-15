@@ -307,6 +307,21 @@ export function tenantNav(slug: string): NavCatalog {
         ],
       },
       {
+        id: "customers",
+        labelKey: "layout.section_customers",
+        icon: Users,
+        defaultOpen: true,
+        items: [
+          {
+            id: "customers",
+            titleKey: "layout.nav_customers",
+            href: routes.tenant.customers.root(slug),
+            icon: Users,
+            permission: permissions.tenant.customers.read,
+          },
+        ],
+      },
+      {
         id: "fleet",
         labelKey: "layout.section_fleet",
         icon: CarFront,

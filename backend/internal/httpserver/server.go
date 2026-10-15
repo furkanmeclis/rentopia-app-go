@@ -42,6 +42,11 @@ import (
 	cataloghandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/handler"
 	catalogrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/repository"
 	catalogusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/usecase"
+	customersmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/customers"
+	customeradapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/customers/adapters"
+	customerhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/customers/handler"
+	customerrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/customers/repository"
+	customerusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/customers/usecase"
 	exportmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/exports"
 	exporthandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/exports/handler"
 	exportusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/exports/usecase"
@@ -233,6 +238,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		branchadapters.NewSearch(deps.Queries),
 		fleetadapters.NewProductsSearch(deps.Queries),
 		vehicleadapters.NewSearch(deps.Queries),
+		customeradapters.NewSearch(deps.Queries),
 	)
 	searchClient := searchengine.NewClient(cfg.Search, log)
 	searchIndexer := searchengine.NewIndexer(searchClient, searchReg, deps.Queue, log)
@@ -277,6 +283,12 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	secretBox, err := crypto.NewSecretBox(cfg.Encryption.Key)
 	if err != nil {
 		return nil, fmt.Errorf("httpserver: encryption: %w", err)
+	}
+	// Column-level encryption of personal data (customers, drivers): keys
+	// derived from APP_ENCRYPTION_KEY, separate from the SecretBox key.
+	fieldCipher, err := crypto.NewFieldCipher(cfg.Encryption.Key)
+	if err != nil {
+		return nil, fmt.Errorf("httpserver: field encryption: %w", err)
 	}
 	stepUpSvc := stepup.NewService(deps.Queries, stepUpStore, stepUpWebAuthn, repo)
 	stepUpSvc.SetSecretBox(secretBox)
@@ -326,6 +338,10 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	vehicleRecordsSvc := vehiclerecordsusecase.New(
 		vehiclerecordsrepository.NewPostgres(deps.Queries), vehicleSvc, deps.Storage, notifSvc, log,
 	)
+	// Customers and drivers (TEC-705): encrypted identity / licence values.
+	customerSvc := customerusecase.New(
+		customerrepository.NewPostgres(deps.DB, deps.Queries), fieldCipher, deps.Storage, searchIndexer, log,
+	)
 	// Fleet operations: vehicle blocks, transfers, one-way rules.
 	fleetOpsSvc := fleetopsusecase.New(fleetopsrepository.NewPostgres(deps.DB, deps.Queries), vehicleSvc)
 	orgSvc := orgusecase.New(
@@ -373,6 +389,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	fleetopsmodule.RegisterLiveResources(tenantLive)
 	pricingmodule.RegisterLiveResources(tenantLive)
 	availabilitymodule.RegisterLiveResources(tenantLive)
+	customersmodule.RegisterLiveResources(tenantLive)
 	resourceEvents.AddResolver(tenantmodule.ChannelResolver(tenantmodule.QueriesLookup(deps.Queries)))
 	uc.AddChannelRules(tenantmodule.ChannelRule(tenantLive, tenantResolver))
 	catalogmodule.RegisterLiveResources(liveResources)
@@ -423,6 +440,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		pricingadapters.NewRatePlansIO(pricingSvc),
 		pricingadapters.NewDateRulesIO(pricingSvc),
 		orgadapters.NewIO(orgSvc),
+		customeradapters.NewIO(customerSvc),
 	)
 	exportSvc := exportusecase.New(deps.Queries, deps.Storage, ioReg, jobQueue, notifSvc, activityRec, log)
 	importSvc := importusecase.New(deps.Queries, deps.Storage, ioReg, jobQueue, notifSvc, activityRec, log)
@@ -438,6 +456,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		vehicleBulk,
 		fleetopsadapters.NewOneWayBulk(fleetOpsSvc),
 		orgadapters.NewBulk(orgSvc),
+		customeradapters.NewBulk(customerSvc),
 	)
 	bulkSvc := bulkusecase.New(deps.Queries, bulkReg, jobQueue, notifSvc, activityRec, cfg.Bulk, log)
 	// Tenant jobs run with the requester's current membership (permissions
@@ -529,6 +548,14 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		ImportPlans: importH.TenantUpload(pricingmodule.ResourceRatePlans),
 		SamplePlans: importH.TenantSample(pricingmodule.ResourceRatePlans),
 		ExportRules: exportH.TenantExport(pricingmodule.ResourceDateRules, pricingmodule.DateRuleExportKeys...),
+	}, tokens, loader, tenantResolver)
+	customerH := customerhandler.New(customerSvc, activityRec)
+	customerH.SetResourceEvents(resourceEvents)
+	customersmodule.RegisterRoutes(mux, customerH, customersmodule.EngineHandlers{
+		Export: exportH.TenantExport(customersmodule.Resource, customersmodule.ExportQueryKeys...),
+		Import: importH.TenantUpload(customersmodule.Resource),
+		Sample: importH.TenantSample(customersmodule.Resource),
+		Bulk:   bulkH.TenantExecute(customersmodule.Resource),
 	}, tokens, loader, tenantResolver)
 	availabilityH := availabilityhandler.New(availabilitySvc, activityRec)
 	availabilityH.SetResourceEvents(resourceEvents)

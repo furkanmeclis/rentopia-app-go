@@ -4135,6 +4135,489 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenant/customers/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Customers list metadata
+         * @description Table contract of `GET /v1/tenant/customers` (`tenant.customers.read`).
+         */
+        get: operations["getTenantCustomersMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/customers/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Customers faceted filter options
+         * @description Values with row counts: `customer_type`, `nationality` (ISO code),
+         *     `tag`, `consent` (channels with an open marketing consent, plus
+         *     `none`).
+         */
+        get: operations["getTenantCustomersFacets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List customers of the organization
+         * @description Customers of the `X-Organization` organization (`tenant.customers.read`).
+         *     Customers are organization-wide: branch-restricted members see every
+         *     customer (the counter must find returning customers). Identity,
+         *     phone and e-mail are always masked (`identity_masked`,
+         *     `phone_masked`, `email_masked`); plaintext only comes from
+         *     `POST /v1/tenant/customers/{uuid}/reveal`. `q` matches names, the
+         *     company title and the e-mail (substring), phone digits (`0532 12`),
+         *     and a full TCKN / VKN / passport number exactly (keyed blind index;
+         *     partial identity numbers match nothing).
+         */
+        get: operations["getTenantCustomers"];
+        put?: never;
+        /**
+         * Create a customer
+         * @description `tenant.customers.write`. Individual customers need `first_name` /
+         *     `last_name` and take `tckn` or `passport` (passport needs
+         *     `nationality`); corporate customers need `company_title` and take
+         *     `vkn` (or the owner's `tckn`). TCKN / VKN checksums are validated
+         *     (`400` `invalid_checksum`). The identity number is encrypted at rest
+         *     and must be unique among live customers of the organization (`409`
+         *     with an `identity_number` detail). Phone numbers are normalized
+         *     (`0532 …` → `+90532…`). Sensitive values are write-only: the answer is
+         *     masked.
+         */
+        post: operations["postTenantCustomer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/customers/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export customers
+         * @description Queues an export (`tenant.customers.export`). `query` honours `q` and
+         *     the list filters. Identity, phone and e-mail columns are masked unless
+         *     `query.include_sensitive` = `"true"`, which also needs
+         *     `tenant.customers.reveal` (`403` otherwise) and is recorded as a
+         *     `customers.sensitive_export_requested` activity event.
+         */
+        post: operations["postTenantCustomersExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/customers/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload a customers import file
+         * @description Creates an import job (`tenant.customers.import`) for an İdes customer
+         *     list XLSX or the export format: müşteri tipi, ad, soyad, unvan, TC
+         *     kimlik, vergi no, pasaport, uyruk, telefon, e-posta, vergi dairesi,
+         *     adres, il, ilçe, etiketler, not. A row updates the customer whose
+         *     identity number matches (blind index, inside the organization only),
+         *     otherwise it creates one. `/preview` returns a dry-run diff (`op` and
+         *     masked `changes`). Continue with `/v1/tenant/imports/{uuid}/mapping`,
+         *     `/preview` and `/confirm`; rollback restores updated customers from
+         *     snapshots that keep identity numbers encrypted.
+         */
+        post: operations["postTenantCustomersImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/customers/import/sample": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download a customers import sample */
+        get: operations["getTenantCustomersImportSample"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/customers/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a bulk action on customers
+         * @description `tenant.customers.write`; both actions are reversible.
+         *     `target.params`: `add_tag` / `remove_tag` {`tag`}. Targets are
+         *     resolved inside the organization; `scope=query` honours the list
+         *     filters. Anonymized customers fail one by one.
+         */
+        post: operations["postTenantCustomersBulk"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/customers/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a customer (masked)
+         * @description A uuid of another organization answers `404`.
+         */
+        get: operations["getTenantCustomer"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a customer (soft)
+         * @description `tenant.customers.write`. The identity number becomes free for a new customer.
+         */
+        delete: operations["deleteTenantCustomer"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a customer
+         * @description `tenant.customers.write`. Omitted fields are unchanged. An empty
+         *     `identity_number` clears the identity; changing `identity_type`
+         *     needs a new `identity_number`. An anonymized customer answers `409`
+         *     `ANONYMIZED`.
+         */
+        patch: operations["patchTenantCustomer"];
+        trace?: never;
+    };
+    "/v1/tenant/customers/{uuid}/reveal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reveal the sensitive values of a customer
+         * @description `tenant.customers.read` + `tenant.customers.reveal`. Returns the
+         *     plaintext identity number, phone and e-mail of the customer, the
+         *     phone / e-mail of its contacts and the identity / licence / contact
+         *     values of its drivers. `reason` (3–500 characters) is required and
+         *     stored in the `customers.revealed` activity event; values are never
+         *     logged. The answer is `Cache-Control: no-store`; the UI masks the
+         *     values again after `display_seconds`. No step-up is required yet (the
+         *     step-up policy is platform-only).
+         */
+        post: operations["postTenantCustomerReveal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/customers/{uuid}/anonymize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Anonymize a customer (data subject request)
+         * @description `tenant.customers.anonymize`; irreversible. Wipes the names, identity,
+         *     contact, billing data, note and tags of the customer, deletes its
+         *     contacts, wipes and removes its drivers, deletes its document files
+         *     and withdraws open marketing consents (the consent history stays as
+         *     proof). The row stays for references (reservations, invoices) and
+         *     reads `anonymized: true`. `reason` is required and recorded.
+         */
+        post: operations["postTenantCustomerAnonymize"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/customers/{uuid}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Activity of a customer
+         * @description Mutations, reveals, document downloads and consent changes. Payloads never hold personal values.
+         */
+        get: operations["getTenantCustomerActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/customers/{uuid}/contacts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Contacts of a corporate customer (masked) */
+        get: operations["getTenantCustomerContacts"];
+        put?: never;
+        /**
+         * Add a contact to a corporate customer
+         * @description `tenant.customers.write`. Individual customers answer `400` `not_corporate`. A primary contact clears the previous one.
+         */
+        post: operations["postTenantCustomerContact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/customers/{uuid}/contacts/{contactUuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a contact */
+        delete: operations["deleteTenantCustomerContact"];
+        options?: never;
+        head?: never;
+        /** Update a contact */
+        patch: operations["patchTenantCustomerContact"];
+        trace?: never;
+    };
+    "/v1/tenant/customers/{uuid}/consents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Marketing consents of a customer
+         * @description Current state per channel and the full grant / withdrawal history (newest first).
+         */
+        get: operations["getTenantCustomerConsents"];
+        put?: never;
+        /**
+         * Grant or withdraw a marketing consent
+         * @description `tenant.customers.write`. `grant` opens a consent of the channel
+         *     (`text_version` required; an open grant answers `400`
+         *     `already_granted`); `withdraw` closes the open one (`400`
+         *     `not_granted` without one). `at` back-dates the record (not in the
+         *     future). Every change is an activity event.
+         */
+        post: operations["postTenantCustomerConsent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/customers/{uuid}/drivers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Drivers of a customer (masked) */
+        get: operations["getTenantCustomerDrivers"];
+        put?: never;
+        /**
+         * Add a driver to a customer
+         * @description `tenant.customers.write`. `copy_from_customer` = true ("customer is
+         *     also driver", individual customers only) copies the name, identity,
+         *     nationality, phone and e-mail. The licence number is encrypted and
+         *     unique among the customer's live drivers (`409` with a
+         *     `licence_number` detail). Reservations reference the customer
+         *     (contract party / invoice addressee) and the driver (actual driver)
+         *     separately.
+         */
+        post: operations["postTenantCustomerDriver"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/customers/{uuid}/drivers/{driverUuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a driver (masked) */
+        get: operations["getTenantCustomerDriver"];
+        put?: never;
+        post?: never;
+        /** Delete a driver (soft) */
+        delete: operations["deleteTenantCustomerDriver"];
+        options?: never;
+        head?: never;
+        /** Update a driver */
+        patch: operations["patchTenantCustomerDriver"];
+        trace?: never;
+    };
+    "/v1/tenant/customers/{uuid}/drivers/{driverUuid}/eligibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check a driver against rental conditions
+         * @description The rental condition check (product version conditions
+         *     `min_driver_age` / `min_license_years`) at a time (`at`, default
+         *     now), computed on Europe/Istanbul calendar days. Reasons:
+         *     `birth_date_missing`, `under_min_age`, `licence_missing`,
+         *     `licence_issue_date_missing`, `under_min_licence_years`,
+         *     `licence_expired`. Reservations call the same helper in Go
+         *     (`model.EligibleForConditions`).
+         */
+        get: operations["getTenantCustomerDriverEligibility"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/customers/{uuid}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Documents of a customer */
+        get: operations["getTenantCustomerDocuments"];
+        put?: never;
+        /**
+         * Record a customer document
+         * @description `tenant.customers.write`. `driver_uuid` must be a driver of the same customer. Upload the file with `PUT …/file`.
+         */
+        post: operations["postTenantCustomerDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/customers/{uuid}/documents/{docUuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a customer document (soft) */
+        delete: operations["deleteTenantCustomerDocument"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/customers/{uuid}/documents/{docUuid}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download the file of a customer document
+         * @description `tenant.customers.read`, `tenant.document.download` and
+         *     `tenant.customers.reveal`. Streamed by the API (`Content-Disposition:
+         *     attachment`, `no-store`); every download is a
+         *     `customers.document_downloaded` activity event.
+         */
+        get: operations["getTenantCustomerDocumentFile"];
+        /**
+         * Upload or replace the file of a customer document
+         * @description `tenant.customers.write`. Multipart field `file`: PDF, JPEG, PNG or
+         *     WebP (sniffed from the bytes), at most 10 MiB, stored in private
+         *     object storage under the organization prefix.
+         */
+        put: operations["putTenantCustomerDocumentFile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenant/vehicles/meta": {
         parameters: {
             query?: never;
@@ -7549,6 +8032,443 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+        };
+        CustomerBilling: {
+            address: string;
+            city: string;
+            district: string;
+            postal_code: string;
+            /** @example TR */
+            country: string | null;
+            e_invoice: boolean;
+        };
+        /** @description A customer with masked sensitive values. */
+        Customer: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            customer_type: "individual" | "corporate";
+            /** @example Ayşe Yılmaz */
+            display_name: string;
+            first_name: string;
+            last_name: string;
+            company_title: string;
+            /** @enum {string|null} */
+            identity_type: "tckn" | "vkn" | "passport" | null;
+            /** @example 123******45 */
+            identity_masked: string;
+            /** @example TR */
+            nationality: string | null;
+            tax_office: string;
+            /** @example +90 5** *** ** 12 */
+            phone_masked: string;
+            /** @example a***@d***.com */
+            email_masked: string;
+            billing: components["schemas"]["CustomerBilling"];
+            note: string;
+            tags: string[];
+            /** @description Channels with an open marketing consent */
+            consent_channels: ("sms" | "email" | "call" | "whatsapp")[];
+            /** Format: int64 */
+            drivers_count: number;
+            anonymized: boolean;
+            /** Format: date-time */
+            anonymized_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        CustomerPatchRequest: {
+            /** @enum {string} */
+            customer_type?: "individual" | "corporate";
+            first_name?: string;
+            last_name?: string;
+            company_title?: string;
+            /** @enum {string|null} */
+            identity_type?: "tckn" | "vkn" | "passport" | null;
+            /** @description Write-only plaintext; empty clears the identity */
+            identity_number?: string;
+            /** @description ISO 3166-1 alpha-2 */
+            nationality?: string | null;
+            tax_office?: string;
+            /** @description Write-only; normalized to +<digits> */
+            phone?: string;
+            /**
+             * Format: email
+             * @description Write-only
+             */
+            email?: string;
+            billing_address?: string;
+            billing_city?: string;
+            billing_district?: string;
+            billing_postal_code?: string;
+            billing_country?: string | null;
+            e_invoice?: boolean;
+            note?: string;
+            tags?: string[];
+        };
+        CustomerCreateRequest: {
+            /** @enum {string} */
+            customer_type: "individual" | "corporate";
+            first_name?: string;
+            last_name?: string;
+            company_title?: string;
+            /** @enum {string|null} */
+            identity_type?: "tckn" | "vkn" | "passport" | null;
+            /** @description Write-only plaintext; empty clears the identity */
+            identity_number?: string;
+            /** @description ISO 3166-1 alpha-2 */
+            nationality?: string | null;
+            tax_office?: string;
+            /** @description Write-only; normalized to +<digits> */
+            phone?: string;
+            /**
+             * Format: email
+             * @description Write-only
+             */
+            email?: string;
+            billing_address?: string;
+            billing_city?: string;
+            billing_district?: string;
+            billing_postal_code?: string;
+            billing_country?: string | null;
+            e_invoice?: boolean;
+            note?: string;
+            tags?: string[];
+        };
+        CustomerReasonRequest: {
+            reason: string;
+        };
+        CustomerRevealedContact: {
+            /** Format: uuid */
+            uuid: string;
+            phone: string;
+            email: string;
+        };
+        CustomerRevealedDriver: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string|null} */
+            identity_type: "tckn" | "passport" | null;
+            identity_number: string;
+            licence_number: string;
+            phone: string;
+            email: string;
+        };
+        CustomerRevealed: {
+            /** Format: uuid */
+            customer_uuid: string;
+            /** @enum {string|null} */
+            identity_type: "tckn" | "vkn" | "passport" | null;
+            identity_number: string;
+            phone: string;
+            email: string;
+            contacts: components["schemas"]["CustomerRevealedContact"][];
+            drivers: components["schemas"]["CustomerRevealedDriver"][];
+            /** Format: date-time */
+            revealed_at: string;
+            /** @example 120 */
+            display_seconds: number;
+        };
+        CustomerContact: {
+            /** Format: uuid */
+            uuid: string;
+            full_name: string;
+            title: string;
+            phone_masked: string;
+            email_masked: string;
+            is_primary: boolean;
+            note: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        CustomerContactPatchRequest: {
+            full_name?: string;
+            title?: string;
+            phone?: string;
+            /** Format: email */
+            email?: string;
+            is_primary?: boolean;
+            note?: string;
+        };
+        CustomerContactCreateRequest: {
+            full_name: string;
+            title?: string;
+            phone?: string;
+            /** Format: email */
+            email?: string;
+            is_primary?: boolean;
+            note?: string;
+        };
+        CustomerActor: {
+            /** Format: uuid */
+            uuid: string;
+            name: string;
+            surname: string;
+        };
+        CustomerConsent: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            channel: "sms" | "email" | "call" | "whatsapp";
+            active: boolean;
+            /** Format: date-time */
+            granted_at: string;
+            /** Format: date-time */
+            withdrawn_at: string | null;
+            /** @enum {string} */
+            source: "counter" | "web" | "phone" | "import" | "other";
+            /** @enum {string|null} */
+            withdrawal_source: "counter" | "web" | "phone" | "import" | "other" | null;
+            text_version: string;
+            note: string;
+            recorded_by: components["schemas"]["CustomerActor"] | null;
+            withdrawn_by: components["schemas"]["CustomerActor"] | null;
+        };
+        CustomerConsentState: {
+            /** @enum {string} */
+            channel: "sms" | "email" | "call" | "whatsapp";
+            granted: boolean;
+            /** Format: date-time */
+            since: string | null;
+            text_version: string;
+        };
+        CustomerConsents: {
+            current: components["schemas"]["CustomerConsentState"][];
+            items: components["schemas"]["CustomerConsent"][];
+        };
+        CustomerConsentRequest: {
+            /** @enum {string} */
+            channel: "sms" | "email" | "call" | "whatsapp";
+            /** @enum {string} */
+            action: "grant" | "withdraw";
+            /**
+             * @default counter
+             * @enum {string}
+             */
+            source: "counter" | "web" | "phone" | "import" | "other";
+            /** @description Required to grant */
+            text_version?: string;
+            note?: string;
+            /** Format: date-time */
+            at?: string | null;
+        };
+        /** @description A driver with masked identity / licence / contact values. */
+        CustomerDriver: {
+            /** Format: uuid */
+            uuid: string;
+            /** Format: uuid */
+            customer_uuid: string;
+            is_customer_self: boolean;
+            first_name: string;
+            last_name: string;
+            full_name: string;
+            /** Format: date */
+            birth_date: string | null;
+            age: number | null;
+            phone_masked: string;
+            email_masked: string;
+            /** @enum {string|null} */
+            identity_type: "tckn" | "passport" | null;
+            identity_masked: string;
+            nationality: string | null;
+            /** @example ****456 */
+            licence_masked: string;
+            /** @example B */
+            licence_class: string;
+            /** Format: date */
+            licence_issued_on: string | null;
+            /** Format: date */
+            licence_expires_on: string | null;
+            licence_years: number | null;
+            licence_country: string | null;
+            foreign_licence: boolean;
+            licence_expired: boolean;
+            note: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        CustomerDriverPatchRequest: {
+            /** @description Create only: copy the person of an individual customer */
+            copy_from_customer?: boolean;
+            first_name?: string;
+            last_name?: string;
+            /** Format: date */
+            birth_date?: string | null;
+            phone?: string;
+            /** Format: email */
+            email?: string;
+            /** @enum {string|null} */
+            identity_type?: "tckn" | "passport" | null;
+            /** @description Write-only; empty clears */
+            identity_number?: string;
+            nationality?: string | null;
+            /** @description Write-only; empty clears */
+            licence_number?: string;
+            licence_class?: string;
+            /** Format: date */
+            licence_issued_on?: string | null;
+            /** Format: date */
+            licence_expires_on?: string | null;
+            licence_country?: string | null;
+            note?: string;
+        };
+        CustomerDriverCreateRequest: {
+            /** @description Create only: copy the person of an individual customer */
+            copy_from_customer?: boolean;
+            first_name?: string;
+            last_name?: string;
+            /** Format: date */
+            birth_date?: string | null;
+            phone?: string;
+            /** Format: email */
+            email?: string;
+            /** @enum {string|null} */
+            identity_type?: "tckn" | "passport" | null;
+            /** @description Write-only; empty clears */
+            identity_number?: string;
+            nationality?: string | null;
+            /** @description Write-only; empty clears */
+            licence_number?: string;
+            licence_class?: string;
+            /** Format: date */
+            licence_issued_on?: string | null;
+            /** Format: date */
+            licence_expires_on?: string | null;
+            licence_country?: string | null;
+            note?: string;
+        };
+        DriverEligibility: {
+            eligible: boolean;
+            reasons: ("birth_date_missing" | "under_min_age" | "licence_missing" | "licence_issue_date_missing" | "under_min_licence_years" | "licence_expired")[];
+            age: number | null;
+            licence_years: number | null;
+            /** Format: date */
+            at: string;
+        };
+        CustomerDocument: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            doc_type: "identity" | "passport" | "driving_licence" | "tax_certificate" | "signature_circular" | "contract" | "other";
+            driver: {
+                /** Format: uuid */
+                uuid: string;
+                full_name: string;
+            } | null;
+            /** Format: date */
+            valid_until: string | null;
+            has_file: boolean;
+            file_name: string;
+            content_type: string;
+            /** Format: int64 */
+            size_bytes: number;
+            note: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        CustomerDocumentCreateRequest: {
+            /** @enum {string} */
+            doc_type: "identity" | "passport" | "driving_licence" | "tax_certificate" | "signature_circular" | "contract" | "other";
+            /** Format: uuid */
+            driver_uuid?: string | null;
+            /** Format: date */
+            valid_until?: string | null;
+            note?: string;
+        };
+        CustomerPage: {
+            items: components["schemas"]["Customer"][];
+            /** Format: int64 */
+            total: number;
+            limit: number;
+            offset: number;
+        };
+        CustomerFacets: {
+            customer_type: components["schemas"]["FleetFacet"][];
+            nationality: components["schemas"]["FleetFacet"][];
+            tag: components["schemas"]["FleetFacet"][];
+            consent: components["schemas"]["FleetFacet"][];
+        };
+        EnvelopeCustomer: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["Customer"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCustomerPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["CustomerPage"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCustomerFacets: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["CustomerFacets"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCustomerRevealed: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["CustomerRevealed"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCustomerContact: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["CustomerContact"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCustomerContactList: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["CustomerContact"][];
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCustomerConsents: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["CustomerConsents"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCustomerDriver: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["CustomerDriver"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCustomerDriverList: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["CustomerDriver"][];
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeDriverEligibility: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["DriverEligibility"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCustomerDocument: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["CustomerDocument"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCustomerDocumentList: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["CustomerDocument"][];
+            };
+            meta: components["schemas"]["ResponseMeta"];
         };
         VehiclePatchRequest: {
             plate?: string;
@@ -18675,6 +19595,1124 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             500: components["responses"]["InternalError"];
+        };
+    };
+    getTenantCustomersMeta: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource meta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            400: components["responses"]["OrganizationRequired"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantCustomersFacets: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Facets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerFacets"];
+                };
+            };
+            400: components["responses"]["OrganizationRequired"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getTenantCustomers: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description One of `display_name`, `customer_type`, `nationality`, `created_at`, `updated_at`; prefix `-` for descending. Default `-created_at`. */
+                sort?: string;
+                /** @description `individual`, `corporate`; comma-separated */
+                customer_type?: string;
+                /** @description ISO 3166-1 alpha-2 codes; comma-separated */
+                nationality?: string;
+                /** @description Tags (any of); comma-separated */
+                tag?: string;
+                /** @description Open marketing consent on any of the channels (`sms`, `email`, `call`, `whatsapp`) or `none`; comma-separated */
+                consent?: string;
+                anonymized?: boolean;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Customer page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    postTenantCustomer: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Created customer */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomer"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    postTenantCustomersExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Export job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantCustomersImport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ImportUploadForm"];
+            };
+        };
+        responses: {
+            /** @description Import job */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeImportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantCustomersImportSample: {
+        parameters: {
+            query?: {
+                format?: "json" | "xlsx" | "csv" | "tsv";
+                locale?: "tr" | "en";
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sample file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantCustomersBulk: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkExecuteRequest"];
+            };
+        };
+        responses: {
+            /** @description Sync bulk result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeBulkSyncResult"];
+                };
+            };
+            /** @description Async bulk job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeBulkJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantCustomer: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Customer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomer"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteTenantCustomer: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeStatus"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchTenantCustomer: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerPatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated customer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomer"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantCustomerReveal: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description Revealed values */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerRevealed"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantCustomerAnonymize: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description Anonymized customer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomer"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantCustomerActivity: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Activity page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFleetActivityPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantCustomerContacts: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contacts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerContactList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantCustomerContact: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerContactCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Contact */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerContact"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteTenantCustomerContact: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                contactUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeStatus"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchTenantCustomerContact: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                contactUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerContactPatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Contact */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerContact"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantCustomerConsents: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Consents */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerConsents"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantCustomerConsent: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerConsentRequest"];
+            };
+        };
+        responses: {
+            /** @description Consents after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerConsents"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantCustomerDrivers: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Drivers */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerDriverList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantCustomerDriver: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerDriverCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Driver */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerDriver"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantCustomerDriver: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                driverUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Driver */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerDriver"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteTenantCustomerDriver: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                driverUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeStatus"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchTenantCustomerDriver: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                driverUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerDriverPatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Driver */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerDriver"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantCustomerDriverEligibility: {
+        parameters: {
+            query?: {
+                min_driver_age?: number;
+                min_license_years?: number;
+                at?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                driverUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Eligibility */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeDriverEligibility"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantCustomerDocuments: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Documents */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerDocumentList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantCustomerDocument: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerDocumentCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Document */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerDocument"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteTenantCustomerDocument: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                docUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeStatus"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantCustomerDocumentFile: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                docUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description File bytes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                    "image/jpeg": string;
+                    "image/png": string;
+                    "image/webp": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putTenantCustomerDocumentFile: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                docUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Document with its file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerDocument"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Object storage is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     getTenantVehiclesMeta: {

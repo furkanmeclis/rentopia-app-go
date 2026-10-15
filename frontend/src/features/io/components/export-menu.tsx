@@ -44,7 +44,7 @@ const POLL_ATTEMPTS = 80;
  * Organization exports have no jobs page: wait for the job, then download.
  * Resolves false when the job failed or did not finish in time.
  */
-async function waitAndDownload(job: ExportJob, scope: ApiScope) {
+export async function waitAndDownload(job: ExportJob, scope: ApiScope) {
   let current = job;
   for (let i = 0; i < POLL_ATTEMPTS; i += 1) {
     if (current.status === "completed") {

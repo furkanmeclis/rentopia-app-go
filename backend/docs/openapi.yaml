@@ -6739,6 +6739,949 @@ paths:
         "409": { $ref: "#/components/responses/Conflict" }
         "500": { $ref: "#/components/responses/InternalError" }
 
+  /v1/tenant/customers/meta:
+    get:
+      tags: [Tenant]
+      operationId: getTenantCustomersMeta
+      summary: Customers list metadata
+      description: Table contract of `GET /v1/tenant/customers` (`tenant.customers.read`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Resource meta
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeResourceMeta"
+        "400": { $ref: "#/components/responses/OrganizationRequired" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/customers/facets:
+    get:
+      tags: [Tenant]
+      operationId: getTenantCustomersFacets
+      summary: Customers faceted filter options
+      description: |
+        Values with row counts: `customer_type`, `nationality` (ISO code),
+        `tag`, `consent` (channels with an open marketing consent, plus
+        `none`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Facets
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCustomerFacets"
+        "400": { $ref: "#/components/responses/OrganizationRequired" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /v1/tenant/customers:
+    get:
+      tags: [Tenant]
+      operationId: getTenantCustomers
+      summary: List customers of the organization
+      description: |
+        Customers of the `X-Organization` organization (`tenant.customers.read`).
+        Customers are organization-wide: branch-restricted members see every
+        customer (the counter must find returning customers). Identity,
+        phone and e-mail are always masked (`identity_masked`,
+        `phone_masked`, `email_masked`); plaintext only comes from
+        `POST /v1/tenant/customers/{uuid}/reveal`. `q` matches names, the
+        company title and the e-mail (substring), phone digits (`0532 12`),
+        and a full TCKN / VKN / passport number exactly (keyed blind index;
+        partial identity numbers match nothing).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - name: sort
+          in: query
+          description: "One of `display_name`, `customer_type`, `nationality`, `created_at`, `updated_at`; prefix `-` for descending. Default `-created_at`."
+          schema: { type: string, example: "display_name" }
+        - name: customer_type
+          in: query
+          description: "`individual`, `corporate`; comma-separated"
+          schema: { type: string }
+        - name: nationality
+          in: query
+          description: ISO 3166-1 alpha-2 codes; comma-separated
+          schema: { type: string, example: "TR,DE" }
+        - name: tag
+          in: query
+          description: Tags (any of); comma-separated
+          schema: { type: string }
+        - name: consent
+          in: query
+          description: "Open marketing consent on any of the channels (`sms`, `email`, `call`, `whatsapp`) or `none`; comma-separated"
+          schema: { type: string }
+        - name: anonymized
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Customer page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCustomerPage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantCustomer
+      summary: Create a customer
+      description: |
+        `tenant.customers.write`. Individual customers need `first_name` /
+        `last_name` and take `tckn` or `passport` (passport needs
+        `nationality`); corporate customers need `company_title` and take
+        `vkn` (or the owner's `tckn`). TCKN / VKN checksums are validated
+        (`400` `invalid_checksum`). The identity number is encrypted at rest
+        and must be unique among live customers of the organization (`409`
+        with an `identity_number` detail). Phone numbers are normalized
+        (`0532 …` → `+90532…`). Sensitive values are write-only: the answer is
+        masked.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerCreateRequest"
+      responses:
+        "201":
+          description: Created customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCustomer"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /v1/tenant/customers/export:
+    post:
+      tags: [Tenant]
+      operationId: postTenantCustomersExport
+      summary: Export customers
+      description: |
+        Queues an export (`tenant.customers.export`). `query` honours `q` and
+        the list filters. Identity, phone and e-mail columns are masked unless
+        `query.include_sensitive` = `"true"`, which also needs
+        `tenant.customers.reveal` (`403` otherwise) and is recorded as a
+        `customers.sensitive_export_requested` activity event.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportRequest"
+      responses:
+        "202":
+          description: Export job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeExportJob"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/customers/import:
+    post:
+      tags: [Tenant]
+      operationId: postTenantCustomersImport
+      summary: Upload a customers import file
+      description: |
+        Creates an import job (`tenant.customers.import`) for an İdes customer
+        list XLSX or the export format: müşteri tipi, ad, soyad, unvan, TC
+        kimlik, vergi no, pasaport, uyruk, telefon, e-posta, vergi dairesi,
+        adres, il, ilçe, etiketler, not. A row updates the customer whose
+        identity number matches (blind index, inside the organization only),
+        otherwise it creates one. `/preview` returns a dry-run diff (`op` and
+        masked `changes`). Continue with `/v1/tenant/imports/{uuid}/mapping`,
+        `/preview` and `/confirm`; rollback restores updated customers from
+        snapshots that keep identity numbers encrypted.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/ImportUploadForm"
+      responses:
+        "201":
+          description: Import job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeImportJob"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/customers/import/sample:
+    get:
+      tags: [Tenant]
+      operationId: getTenantCustomersImportSample
+      summary: Download a customers import sample
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - name: format
+          in: query
+          schema: { type: string, enum: [json, xlsx, csv, tsv], default: xlsx }
+        - name: locale
+          in: query
+          schema: { type: string, enum: [tr, en], default: tr }
+      responses:
+        "200":
+          description: Sample file
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/customers/bulk:
+    post:
+      tags: [Tenant]
+      operationId: postTenantCustomersBulk
+      summary: Run a bulk action on customers
+      description: |
+        `tenant.customers.write`; both actions are reversible.
+        `target.params`: `add_tag` / `remove_tag` {`tag`}. Targets are
+        resolved inside the organization; `scope=query` honours the list
+        filters. Anonymized customers fail one by one.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkExecuteRequest"
+      responses:
+        "200":
+          description: Sync bulk result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeBulkSyncResult"
+        "202":
+          description: Async bulk job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeBulkJob"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/customers/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantCustomer
+      summary: Get a customer (masked)
+      description: A uuid of another organization answers `404`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCustomer"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantCustomer
+      summary: Update a customer
+      description: |
+        `tenant.customers.write`. Omitted fields are unchanged. An empty
+        `identity_number` clears the identity; changing `identity_type`
+        needs a new `identity_number`. An anonymized customer answers `409`
+        `ANONYMIZED`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerPatchRequest"
+      responses:
+        "200":
+          description: Updated customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCustomer"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantCustomer
+      summary: Delete a customer (soft)
+      description: "`tenant.customers.write`. The identity number becomes free for a new customer."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeStatus"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/customers/{uuid}/reveal:
+    post:
+      tags: [Tenant]
+      operationId: postTenantCustomerReveal
+      summary: Reveal the sensitive values of a customer
+      description: |
+        `tenant.customers.read` + `tenant.customers.reveal`. Returns the
+        plaintext identity number, phone and e-mail of the customer, the
+        phone / e-mail of its contacts and the identity / licence / contact
+        values of its drivers. `reason` (3–500 characters) is required and
+        stored in the `customers.revealed` activity event; values are never
+        logged. The answer is `Cache-Control: no-store`; the UI masks the
+        values again after `display_seconds`. No step-up is required yet (the
+        step-up policy is platform-only).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerReasonRequest"
+      responses:
+        "200":
+          description: Revealed values
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCustomerRevealed"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/customers/{uuid}/anonymize:
+    post:
+      tags: [Tenant]
+      operationId: postTenantCustomerAnonymize
+      summary: Anonymize a customer (data subject request)
+      description: |
+        `tenant.customers.anonymize`; irreversible. Wipes the names, identity,
+        contact, billing data, note and tags of the customer, deletes its
+        contacts, wipes and removes its drivers, deletes its document files
+        and withdraws open marketing consents (the consent history stays as
+        proof). The row stays for references (reservations, invoices) and
+        reads `anonymized: true`. `reason` is required and recorded.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerReasonRequest"
+      responses:
+        "200":
+          description: Anonymized customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCustomer"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/customers/{uuid}/activity:
+    get:
+      tags: [Tenant]
+      operationId: getTenantCustomerActivity
+      summary: Activity of a customer
+      description: Mutations, reveals, document downloads and consent changes. Payloads never hold personal values.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Activity page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeFleetActivityPage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/customers/{uuid}/contacts:
+    get:
+      tags: [Tenant]
+      operationId: getTenantCustomerContacts
+      summary: Contacts of a corporate customer (masked)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Contacts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCustomerContactList"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantCustomerContact
+      summary: Add a contact to a corporate customer
+      description: "`tenant.customers.write`. Individual customers answer `400` `not_corporate`. A primary contact clears the previous one."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerContactCreateRequest"
+      responses:
+        "201":
+          description: Contact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCustomerContact"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/customers/{uuid}/contacts/{contactUuid}:
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantCustomerContact
+      summary: Update a contact
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - name: contactUuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerContactPatchRequest"
+      responses:
+        "200":
+          description: Contact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCustomerContact"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantCustomerContact
+      summary: Delete a contact
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - name: contactUuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeStatus"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/customers/{uuid}/consents:
+    get:
+      tags: [Tenant]
+      operationId: getTenantCustomerConsents
+      summary: Marketing consents of a customer
+      description: Current state per channel and the full grant / withdrawal history (newest first).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Consents
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCustomerConsents"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantCustomerConsent
+      summary: Grant or withdraw a marketing consent
+      description: |
+        `tenant.customers.write`. `grant` opens a consent of the channel
+        (`text_version` required; an open grant answers `400`
+        `already_granted`); `withdraw` closes the open one (`400`
+        `not_granted` without one). `at` back-dates the record (not in the
+        future). Every change is an activity event.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerConsentRequest"
+      responses:
+        "200":
+          description: Consents after the change
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCustomerConsents"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/customers/{uuid}/drivers:
+    get:
+      tags: [Tenant]
+      operationId: getTenantCustomerDrivers
+      summary: Drivers of a customer (masked)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Drivers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCustomerDriverList"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantCustomerDriver
+      summary: Add a driver to a customer
+      description: |
+        `tenant.customers.write`. `copy_from_customer` = true ("customer is
+        also driver", individual customers only) copies the name, identity,
+        nationality, phone and e-mail. The licence number is encrypted and
+        unique among the customer's live drivers (`409` with a
+        `licence_number` detail). Reservations reference the customer
+        (contract party / invoice addressee) and the driver (actual driver)
+        separately.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerDriverCreateRequest"
+      responses:
+        "201":
+          description: Driver
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCustomerDriver"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/customers/{uuid}/drivers/{driverUuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantCustomerDriver
+      summary: Get a driver (masked)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - name: driverUuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Driver
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCustomerDriver"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantCustomerDriver
+      summary: Update a driver
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - name: driverUuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerDriverPatchRequest"
+      responses:
+        "200":
+          description: Driver
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCustomerDriver"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantCustomerDriver
+      summary: Delete a driver (soft)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - name: driverUuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeStatus"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/customers/{uuid}/drivers/{driverUuid}/eligibility:
+    get:
+      tags: [Tenant]
+      operationId: getTenantCustomerDriverEligibility
+      summary: Check a driver against rental conditions
+      description: |
+        The rental condition check (product version conditions
+        `min_driver_age` / `min_license_years`) at a time (`at`, default
+        now), computed on Europe/Istanbul calendar days. Reasons:
+        `birth_date_missing`, `under_min_age`, `licence_missing`,
+        `licence_issue_date_missing`, `under_min_licence_years`,
+        `licence_expired`. Reservations call the same helper in Go
+        (`model.EligibleForConditions`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - name: driverUuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: min_driver_age
+          in: query
+          schema: { type: integer, minimum: 0, maximum: 120 }
+        - name: min_license_years
+          in: query
+          schema: { type: integer, minimum: 0, maximum: 120 }
+        - name: at
+          in: query
+          schema: { type: string, format: date-time }
+      responses:
+        "200":
+          description: Eligibility
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeDriverEligibility"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/customers/{uuid}/documents:
+    get:
+      tags: [Tenant]
+      operationId: getTenantCustomerDocuments
+      summary: Documents of a customer
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Documents
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCustomerDocumentList"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantCustomerDocument
+      summary: Record a customer document
+      description: "`tenant.customers.write`. `driver_uuid` must be a driver of the same customer. Upload the file with `PUT …/file`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerDocumentCreateRequest"
+      responses:
+        "201":
+          description: Document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCustomerDocument"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/customers/{uuid}/documents/{docUuid}:
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantCustomerDocument
+      summary: Delete a customer document (soft)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - name: docUuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeStatus"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/customers/{uuid}/documents/{docUuid}/file:
+    put:
+      tags: [Tenant]
+      operationId: putTenantCustomerDocumentFile
+      summary: Upload or replace the file of a customer document
+      description: |
+        `tenant.customers.write`. Multipart field `file`: PDF, JPEG, PNG or
+        WebP (sniffed from the bytes), at most 10 MiB, stored in private
+        object storage under the organization prefix.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - name: docUuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "200":
+          description: Document with its file
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeCustomerDocument"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503":
+          description: Object storage is not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    get:
+      tags: [Tenant]
+      operationId: getTenantCustomerDocumentFile
+      summary: Download the file of a customer document
+      description: |
+        `tenant.customers.read`, `tenant.document.download` and
+        `tenant.customers.reveal`. Streamed by the API (`Content-Disposition:
+        attachment`, `no-store`); every download is a
+        `customers.document_downloaded` activity event.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - name: docUuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: File bytes
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+            image/jpeg:
+              schema: { type: string, format: binary }
+            image/png:
+              schema: { type: string, format: binary }
+            image/webp:
+              schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /v1/tenant/vehicles/meta:
     get:
       tags: [Tenant]
@@ -11955,6 +12898,468 @@ components:
         is_active: { type: boolean }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+
+    CustomerBilling:
+      type: object
+      required: [address, city, district, postal_code, country, e_invoice]
+      properties:
+        address: { type: string }
+        city: { type: string }
+        district: { type: string }
+        postal_code: { type: string }
+        country: { type: [string, "null"], example: TR }
+        e_invoice: { type: boolean }
+
+    Customer:
+      type: object
+      description: A customer with masked sensitive values.
+      required: [uuid, customer_type, display_name, first_name, last_name, company_title, identity_type, identity_masked,
+        nationality, tax_office, phone_masked, email_masked, billing, note, tags, consent_channels, drivers_count,
+        anonymized, anonymized_at, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        customer_type: { type: string, enum: [individual, corporate] }
+        display_name: { type: string, example: Ayşe Yılmaz }
+        first_name: { type: string }
+        last_name: { type: string }
+        company_title: { type: string }
+        identity_type: { type: [string, "null"], enum: [tckn, vkn, passport, null] }
+        identity_masked: { type: string, example: "123******45" }
+        nationality: { type: [string, "null"], example: TR }
+        tax_office: { type: string }
+        phone_masked: { type: string, example: "+90 5** *** ** 12" }
+        email_masked: { type: string, example: "a***@d***.com" }
+        billing: { $ref: "#/components/schemas/CustomerBilling" }
+        note: { type: string }
+        tags:
+          type: array
+          items: { type: string }
+        consent_channels:
+          type: array
+          description: Channels with an open marketing consent
+          items: { type: string, enum: [sms, email, call, whatsapp] }
+        drivers_count: { type: integer, format: int64 }
+        anonymized: { type: boolean }
+        anonymized_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    CustomerPatchRequest:
+      type: object
+      additionalProperties: false
+      properties: &customerWriteProperties
+        customer_type: { type: string, enum: [individual, corporate] }
+        first_name: { type: string, maxLength: 128 }
+        last_name: { type: string, maxLength: 128 }
+        company_title: { type: string, maxLength: 255 }
+        identity_type: { type: [string, "null"], enum: [tckn, vkn, passport, null] }
+        identity_number: { type: string, description: "Write-only plaintext; empty clears the identity" }
+        nationality: { type: [string, "null"], description: ISO 3166-1 alpha-2 }
+        tax_office: { type: string, maxLength: 128 }
+        phone: { type: string, description: "Write-only; normalized to +<digits>" }
+        email: { type: string, format: email, description: Write-only }
+        billing_address: { type: string, maxLength: 1000 }
+        billing_city: { type: string, maxLength: 128 }
+        billing_district: { type: string, maxLength: 128 }
+        billing_postal_code: { type: string, maxLength: 16 }
+        billing_country: { type: [string, "null"] }
+        e_invoice: { type: boolean }
+        note: { type: string, maxLength: 5000 }
+        tags:
+          type: array
+          maxItems: 20
+          items: { type: string, maxLength: 40 }
+
+    CustomerCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [customer_type]
+      properties: *customerWriteProperties
+
+    CustomerReasonRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 3, maxLength: 500 }
+
+    CustomerRevealedContact:
+      type: object
+      required: [uuid, phone, email]
+      properties:
+        uuid: { type: string, format: uuid }
+        phone: { type: string }
+        email: { type: string }
+
+    CustomerRevealedDriver:
+      type: object
+      required: [uuid, identity_type, identity_number, licence_number, phone, email]
+      properties:
+        uuid: { type: string, format: uuid }
+        identity_type: { type: [string, "null"], enum: [tckn, passport, null] }
+        identity_number: { type: string }
+        licence_number: { type: string }
+        phone: { type: string }
+        email: { type: string }
+
+    CustomerRevealed:
+      type: object
+      required: [customer_uuid, identity_type, identity_number, phone, email, contacts, drivers, revealed_at, display_seconds]
+      properties:
+        customer_uuid: { type: string, format: uuid }
+        identity_type: { type: [string, "null"], enum: [tckn, vkn, passport, null] }
+        identity_number: { type: string }
+        phone: { type: string }
+        email: { type: string }
+        contacts:
+          type: array
+          items: { $ref: "#/components/schemas/CustomerRevealedContact" }
+        drivers:
+          type: array
+          items: { $ref: "#/components/schemas/CustomerRevealedDriver" }
+        revealed_at: { type: string, format: date-time }
+        display_seconds: { type: integer, example: 120 }
+
+    CustomerContact:
+      type: object
+      required: [uuid, full_name, title, phone_masked, email_masked, is_primary, note, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        full_name: { type: string }
+        title: { type: string }
+        phone_masked: { type: string }
+        email_masked: { type: string }
+        is_primary: { type: boolean }
+        note: { type: string }
+        created_at: { type: string, format: date-time }
+
+    CustomerContactPatchRequest:
+      type: object
+      additionalProperties: false
+      properties: &customerContactProperties
+        full_name: { type: string, maxLength: 255 }
+        title: { type: string, maxLength: 128 }
+        phone: { type: string }
+        email: { type: string, format: email }
+        is_primary: { type: boolean }
+        note: { type: string, maxLength: 2000 }
+
+    CustomerContactCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [full_name]
+      properties: *customerContactProperties
+
+    CustomerActor:
+      type: object
+      required: [uuid, name, surname]
+      properties:
+        uuid: { type: string, format: uuid }
+        name: { type: string }
+        surname: { type: string }
+
+    CustomerConsent:
+      type: object
+      required: [uuid, channel, active, granted_at, withdrawn_at, source, withdrawal_source, text_version, note, recorded_by, withdrawn_by]
+      properties:
+        uuid: { type: string, format: uuid }
+        channel: { type: string, enum: [sms, email, call, whatsapp] }
+        active: { type: boolean }
+        granted_at: { type: string, format: date-time }
+        withdrawn_at: { type: [string, "null"], format: date-time }
+        source: { type: string, enum: [counter, web, phone, import, other] }
+        withdrawal_source: { type: [string, "null"], enum: [counter, web, phone, import, other, null] }
+        text_version: { type: string }
+        note: { type: string }
+        recorded_by:
+          oneOf:
+            - $ref: "#/components/schemas/CustomerActor"
+            - type: "null"
+        withdrawn_by:
+          oneOf:
+            - $ref: "#/components/schemas/CustomerActor"
+            - type: "null"
+
+    CustomerConsentState:
+      type: object
+      required: [channel, granted, since, text_version]
+      properties:
+        channel: { type: string, enum: [sms, email, call, whatsapp] }
+        granted: { type: boolean }
+        since: { type: [string, "null"], format: date-time }
+        text_version: { type: string }
+
+    CustomerConsents:
+      type: object
+      required: [current, items]
+      properties:
+        current:
+          type: array
+          items: { $ref: "#/components/schemas/CustomerConsentState" }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/CustomerConsent" }
+
+    CustomerConsentRequest:
+      type: object
+      additionalProperties: false
+      required: [channel, action]
+      properties:
+        channel: { type: string, enum: [sms, email, call, whatsapp] }
+        action: { type: string, enum: [grant, withdraw] }
+        source: { type: string, enum: [counter, web, phone, import, other], default: counter }
+        text_version: { type: string, maxLength: 64, description: Required to grant }
+        note: { type: string, maxLength: 2000 }
+        at: { type: [string, "null"], format: date-time }
+
+    CustomerDriver:
+      type: object
+      description: A driver with masked identity / licence / contact values.
+      required: [uuid, customer_uuid, is_customer_self, first_name, last_name, full_name, birth_date, age, phone_masked,
+        email_masked, identity_type, identity_masked, nationality, licence_masked, licence_class, licence_issued_on,
+        licence_expires_on, licence_years, licence_country, foreign_licence, licence_expired, note, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        customer_uuid: { type: string, format: uuid }
+        is_customer_self: { type: boolean }
+        first_name: { type: string }
+        last_name: { type: string }
+        full_name: { type: string }
+        birth_date: { type: [string, "null"], format: date }
+        age: { type: [integer, "null"] }
+        phone_masked: { type: string }
+        email_masked: { type: string }
+        identity_type: { type: [string, "null"], enum: [tckn, passport, null] }
+        identity_masked: { type: string }
+        nationality: { type: [string, "null"] }
+        licence_masked: { type: string, example: "****456" }
+        licence_class: { type: string, example: B }
+        licence_issued_on: { type: [string, "null"], format: date }
+        licence_expires_on: { type: [string, "null"], format: date }
+        licence_years: { type: [integer, "null"] }
+        licence_country: { type: [string, "null"] }
+        foreign_licence: { type: boolean }
+        licence_expired: { type: boolean }
+        note: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    CustomerDriverPatchRequest:
+      type: object
+      additionalProperties: false
+      properties: &customerDriverProperties
+        copy_from_customer: { type: boolean, description: "Create only: copy the person of an individual customer" }
+        first_name: { type: string, maxLength: 128 }
+        last_name: { type: string, maxLength: 128 }
+        birth_date: { type: [string, "null"], format: date }
+        phone: { type: string }
+        email: { type: string, format: email }
+        identity_type: { type: [string, "null"], enum: [tckn, passport, null] }
+        identity_number: { type: string, description: "Write-only; empty clears" }
+        nationality: { type: [string, "null"] }
+        licence_number: { type: string, description: "Write-only; empty clears" }
+        licence_class: { type: string, maxLength: 32 }
+        licence_issued_on: { type: [string, "null"], format: date }
+        licence_expires_on: { type: [string, "null"], format: date }
+        licence_country: { type: [string, "null"] }
+        note: { type: string, maxLength: 2000 }
+
+    CustomerDriverCreateRequest:
+      type: object
+      additionalProperties: false
+      properties: *customerDriverProperties
+
+    DriverEligibility:
+      type: object
+      required: [eligible, reasons, age, licence_years, at]
+      properties:
+        eligible: { type: boolean }
+        reasons:
+          type: array
+          items:
+            type: string
+            enum: [birth_date_missing, under_min_age, licence_missing, licence_issue_date_missing, under_min_licence_years, licence_expired]
+        age: { type: [integer, "null"] }
+        licence_years: { type: [integer, "null"] }
+        at: { type: string, format: date }
+
+    CustomerDocument:
+      type: object
+      required: [uuid, doc_type, driver, valid_until, has_file, file_name, content_type, size_bytes, note, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        doc_type:
+          type: string
+          enum: [identity, passport, driving_licence, tax_certificate, signature_circular, contract, other]
+        driver:
+          oneOf:
+            - type: object
+              required: [uuid, full_name]
+              properties:
+                uuid: { type: string, format: uuid }
+                full_name: { type: string }
+            - type: "null"
+        valid_until: { type: [string, "null"], format: date }
+        has_file: { type: boolean }
+        file_name: { type: string }
+        content_type: { type: string }
+        size_bytes: { type: integer, format: int64 }
+        note: { type: string }
+        created_at: { type: string, format: date-time }
+
+    CustomerDocumentCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [doc_type]
+      properties:
+        doc_type:
+          type: string
+          enum: [identity, passport, driving_licence, tax_certificate, signature_circular, contract, other]
+        driver_uuid: { type: [string, "null"], format: uuid }
+        valid_until: { type: [string, "null"], format: date }
+        note: { type: string, maxLength: 2000 }
+
+    CustomerPage:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Customer" }
+        total: { type: integer, format: int64 }
+        limit: { type: integer }
+        offset: { type: integer }
+
+    CustomerFacets:
+      type: object
+      required: [customer_type, nationality, tag, consent]
+      properties:
+        customer_type:
+          type: array
+          items: { $ref: "#/components/schemas/FleetFacet" }
+        nationality:
+          type: array
+          items: { $ref: "#/components/schemas/FleetFacet" }
+        tag:
+          type: array
+          items: { $ref: "#/components/schemas/FleetFacet" }
+        consent:
+          type: array
+          items: { $ref: "#/components/schemas/FleetFacet" }
+
+    EnvelopeCustomer:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/Customer" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeCustomerPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/CustomerPage" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeCustomerFacets:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/CustomerFacets" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeCustomerRevealed:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/CustomerRevealed" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeCustomerContact:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/CustomerContact" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeCustomerContactList:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/CustomerContact" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeCustomerConsents:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/CustomerConsents" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeCustomerDriver:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/CustomerDriver" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeCustomerDriverList:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/CustomerDriver" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeDriverEligibility:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/DriverEligibility" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeCustomerDocument:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/CustomerDocument" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeCustomerDocumentList:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/CustomerDocument" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
 
     VehiclePatchRequest:
       type: object

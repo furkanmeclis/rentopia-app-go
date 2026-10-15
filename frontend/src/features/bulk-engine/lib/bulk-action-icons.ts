@@ -8,6 +8,8 @@ import {
   Trash2,
   UserCheck,
   UserX,
+  Tag,
+  Tags as TagsIcon,
   Wrench,
   type LucideIcon,
 } from "lucide-react";
@@ -57,6 +59,10 @@ const bulkActionIconCatalog: Record<
   "tenant.one_way_rules": {
     activate: CircleCheck,
     deactivate: CircleOff,
+  },
+  "tenant.customers": {
+    add_tag: Tag,
+    remove_tag: TagsIcon,
   },
 };
 

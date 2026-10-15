@@ -130,5 +130,12 @@
   "labels.tenant.capacity_rules.read": "View channel capacity rules",
   "labels.tenant.capacity_rules.write": "Manage channel capacity rules",
   "groups.tenant_availability": "Availability",
-  "groups.tenant_capacity_rules": "Channel capacity rules"
+  "groups.tenant_capacity_rules": "Channel capacity rules",
+  "labels.tenant.customers.read": "View customers and drivers (masked)",
+  "labels.tenant.customers.write": "Manage customers and drivers",
+  "labels.tenant.customers.reveal": "Reveal identity and contact data",
+  "labels.tenant.customers.export": "Export customers",
+  "labels.tenant.customers.import": "Import customers",
+  "labels.tenant.customers.anonymize": "Anonymize customers (data requests)",
+  "groups.tenant_customers": "Customers"
 }

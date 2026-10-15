@@ -73,6 +73,8 @@ var isolationAllowlist = map[string]string{
 	"PUT /v1/tenant/organization/logo":       "logo of the caller's organization; the key is built from the scope (storage prefix check)",
 	"DELETE /v1/tenant/organization/logo":    "logo of the caller's organization; no ids",
 	"POST /v1/tenant/rate-plans/import":      "price list rows match product / branch codes inside the organization (pricing usecase tests); the job is the {uuid} cases",
+	"POST /v1/tenant/customers":              "body has no foreign references (names, identity, contact values)",
+	"POST /v1/tenant/customers/import":       "rows match identity blind indexes keyed by the organization (customers usecase tests); the job is the {uuid} cases",
 }
 
 type isoOrg struct {
@@ -337,6 +339,27 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		doc := settings.data.(map[string]any)["settings"].(map[string]any)
 		doc["company"] = map[string]any{"legal_name": m + " A.Ş.", "tax_number": "4540536920", "tax_office": "Kadıköy", "address": "", "phone": "", "email": "info@iso.test"}
 		must(call(o, http.MethodPut, "/v1/tenant/settings", map[string]any{"settings": doc, "base_version": 0}), http.StatusOK, "settings v1")
+		// Customers (TEC-705): a corporate customer with a contact, a consent,
+		// a driver and a licence scan.
+		ids["customer"] = str(must(call(o, http.MethodPost, "/v1/tenant/customers", map[string]any{
+			"customer_type": "corporate", "company_title": m + " Lojistik", "identity_type": "vkn",
+			"identity_number": "4540536920", "phone": "0532 111 22 33", "email": "filo@iso.test", "tags": []string{m},
+		}), http.StatusCreated, "create customer"), "uuid")
+		c := "/v1/tenant/customers/" + ids["customer"]
+		ids["contact"] = str(must(call(o, http.MethodPost, c+"/contacts", map[string]any{
+			"full_name": m + " Kişi", "phone": "0532 444 55 66",
+		}), http.StatusCreated, "create contact"), "uuid")
+		must(call(o, http.MethodPost, c+"/consents", map[string]any{"channel": "sms", "action": "grant", "text_version": "v1"}),
+			http.StatusOK, "grant consent")
+		ids["driver"] = str(must(call(o, http.MethodPost, c+"/drivers", map[string]any{
+			"first_name": m, "last_name": "Sürücü", "birth_date": "1990-01-01", "licence_number": "B123456",
+			"licence_issued_on": "2010-01-01",
+		}), http.StatusCreated, "create driver"), "uuid")
+		ids["customerDocument"] = str(must(call(o, http.MethodPost, c+"/documents", map[string]any{
+			"doc_type": "driving_licence", "driver_uuid": ids["driver"],
+		}), http.StatusCreated, "create customer document"), "uuid")
+		must(upload(o, http.MethodPut, c+"/documents/"+ids["customerDocument"]+"/file", "file", "ehliyet.png", png, nil),
+			http.StatusOK, "upload customer document file")
 		ids["exportJob"] = str(must(call(o, http.MethodPost, "/v1/tenant/branches/export", map[string]any{"format": "csv"}),
 			http.StatusAccepted, "export"), "uuid")
 		ids["importJob"] = str(must(upload(o, http.MethodPost, "/v1/tenant/branches/import", "file", "branches.csv",
@@ -522,6 +545,7 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		"GET /v1/tenant/rental-groups": {"?segment=" + b["segment"]},
 		"GET /v1/tenant/fleet/alerts":  {"?vehicle=" + b["vehicle"]},
 		"GET /v1/tenant/search":        {"?q=" + orgB.marker},
+		"GET /v1/tenant/customers":     {"?q=" + orgB.marker, "?tag=" + orgB.marker, "?q=4540536920"},
 		"GET /v1/tenant/rate-plans":    {"?rental_product=" + b["product"], "?branch=" + b["branch"]},
 		"GET /v1/tenant/rate-plans/matrix": {
 			"?scope=branch&branch=" + b["branch"],
@@ -587,6 +611,8 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		{"POST /v1/tenant/vehicles/bulk", map[string]any{"action": "set_status", "params": map[string]any{"status": "maintenance"},
 			"target": map[string]any{"scope": "ids", "ids": []string{orgB.ids["vehicle"]}}}, nil},
 		{"POST /v1/tenant/one-way-rules/bulk", bulkIDs("rule"), nil},
+		{"POST /v1/tenant/customers/bulk", map[string]any{"action": "add_tag", "params": map[string]any{"tag": "x"},
+			"target": map[string]any{"scope": "ids", "ids": []string{orgB.ids["customer"]}}}, nil},
 		{"POST /v1/tenant/invitations", map[string]any{"email": "x1@iso.test", "role_uuids": []string{orgB.ids["role"]}, "branch_scope": "all"}, reject},
 		{"POST /v1/tenant/invitations", map[string]any{"email": "x2@iso.test", "role_uuids": []string{orgA.ids["role"]},
 			"branch_scope": "selected", "branch_uuids": []string{orgB.ids["branch"]}}, reject},
@@ -662,6 +688,7 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		{"PATCH /v1/tenant/rental-groups/" + orgA.ids["group"], map[string]any{"segment_uuid": orgB.ids["segment"]}, reject},
 		{"PATCH /v1/tenant/products/" + orgA.ids["product"], map[string]any{"segment_uuid": orgB.ids["segment"]}, reject},
 		{"PATCH /v1/tenant/vehicles/" + orgA.ids["vehicle"], map[string]any{"home_branch_uuid": orgB.ids["home"]}, reject},
+		{"POST /v1/tenant/customers/" + orgA.ids["customer"] + "/documents", map[string]any{"doc_type": "other", "driver_uuid": orgB.ids["driver"]}, reject},
 		{"POST /v1/tenant/vehicles/" + orgA.ids["vehicle"] + "/rental-groups", map[string]any{"rental_group_uuid": orgB.ids["group"]}, reject},
 		{"PATCH /v1/tenant/transfers/" + orgA.ids["transfer"], map[string]any{"to_branch_uuid": orgB.ids["branch"]}, reject},
 		{"PATCH /v1/tenant/transfers/" + orgA.ids["transfer"], map[string]any{"responsible_user_uuid": carol.Uuid}, reject},
@@ -867,6 +894,14 @@ func paramKey(prev, name string) string {
 		return "ratePlan"
 	case "date-rules/uuid":
 		return "dateRule"
+	case "customers/uuid":
+		return "customer"
+	case "contacts/contactUuid":
+		return "contact"
+	case "drivers/driverUuid":
+		return "driver"
+	case "documents/docUuid":
+		return "customerDocument"
 	}
 	return ""
 }

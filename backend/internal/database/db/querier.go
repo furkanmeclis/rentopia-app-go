@@ -20,6 +20,11 @@ type Querier interface {
 	AddMemberRole(ctx context.Context, arg AddMemberRoleParams) error
 	AddOrganizationMember(ctx context.Context, arg AddOrganizationMemberParams) (OrganizationMember, error)
 	AddVehicleRentalGroup(ctx context.Context, arg AddVehicleRentalGroupParams) error
+	// Data subject request: wipes every personal value and keeps the row
+	// (references from reservations / invoices stay valid).
+	AnonymizeCustomer(ctx context.Context, arg AnonymizeCustomerParams) (int64, error)
+	// Data subject request: wipes the drivers of a customer and soft-deletes them.
+	AnonymizeCustomerDrivers(ctx context.Context, arg AnonymizeCustomerDriversParams) error
 	AssignUserRoleBySlug(ctx context.Context, arg AssignUserRoleBySlugParams) error
 	BranchCodeTaken(ctx context.Context, arg BranchCodeTakenParams) (bool, error)
 	CancelVehicleTransfer(ctx context.Context, arg CancelVehicleTransferParams) (int64, error)
@@ -31,6 +36,7 @@ type Querier interface {
 	// Idempotency: 1 when this subject was not reminded yet today.
 	ClaimVehicleReminder(ctx context.Context, arg ClaimVehicleReminderParams) (int64, error)
 	ClearAppSettingsLogo(ctx context.Context) (AppSetting, error)
+	ClearPrimaryCustomerContact(ctx context.Context, arg ClearPrimaryCustomerContactParams) error
 	ClearVehicleRentalGroups(ctx context.Context, arg ClearVehicleRentalGroupsParams) error
 	CompleteVehicleTransfer(ctx context.Context, arg CompleteVehicleTransferParams) (int64, error)
 	// Hold -> confirmed reservation (TEC-706): same row, so capacity is never
@@ -55,6 +61,7 @@ type Querier interface {
 	CountCatalogImports(ctx context.Context, arg CountCatalogImportsParams) (int64, error)
 	CountCatalogModels(ctx context.Context, arg CountCatalogModelsParams) (int64, error)
 	CountCatalogTypes(ctx context.Context, arg CountCatalogTypesParams) (int64, error)
+	CountCustomers(ctx context.Context, arg CountCustomersParams) (int64, error)
 	CountDateRules(ctx context.Context, arg CountDateRulesParams) (int64, error)
 	CountExportJobsForActor(ctx context.Context, actorID int64) (int64, error)
 	CountImportJobsForActor(ctx context.Context, actorID int64) (int64, error)
@@ -101,9 +108,19 @@ type Querier interface {
 	CreateCatalogDisplayBrand(ctx context.Context, arg CreateCatalogDisplayBrandParams) (CatalogDisplayBrand, error)
 	CreateCatalogImport(ctx context.Context, arg CreateCatalogImportParams) (CatalogImport, error)
 	CreateCatalogModel(ctx context.Context, arg CreateCatalogModelParams) (CatalogModel, error)
+	// Tenant resource: customers, corporate contacts, marketing consents,
+	// drivers and customer documents (TEC-705).
+	// Every query filters by organization_id (docs/design/tenant-core.md §8).
+	// Customers are organization-wide (no branch scope). Identity / licence
+	// numbers are ciphertext (*_enc) with a blind index (*_bidx) and a masked
+	// hint (*_hint); the plaintext never reaches SQL.
+	CreateCustomer(ctx context.Context, arg CreateCustomerParams) (Customer, error)
+	CreateCustomerContact(ctx context.Context, arg CreateCustomerContactParams) (CustomerContact, error)
+	CreateCustomerDocument(ctx context.Context, arg CreateCustomerDocumentParams) (CustomerDocument, error)
 	// --------------------------------------------------------------- date rules
 	CreateDateRule(ctx context.Context, arg CreateDateRuleParams) (CreateDateRuleRow, error)
 	CreateDateRuleVersion(ctx context.Context, arg CreateDateRuleVersionParams) (CreateDateRuleVersionRow, error)
+	CreateDriver(ctx context.Context, arg CreateDriverParams) (Driver, error)
 	CreateExportJob(ctx context.Context, arg CreateExportJobParams) (ExportJob, error)
 	CreateImportJob(ctx context.Context, arg CreateImportJobParams) (ImportJob, error)
 	// Staff invitations (TEC-671). Organization-side queries are scoped by
@@ -170,6 +187,7 @@ type Querier interface {
 	// caller's scope (branch_ids NULL = every branch).
 	CreateVehicleTransfer(ctx context.Context, arg CreateVehicleTransferParams) (uuid.UUID, error)
 	CreateWebAuthnCredential(ctx context.Context, arg CreateWebAuthnCredentialParams) (WebauthnCredential, error)
+	CustomerIdentityTaken(ctx context.Context, arg CustomerIdentityTakenParams) (bool, error)
 	DateRuleNameTaken(ctx context.Context, arg DateRuleNameTakenParams) (bool, error)
 	// Self-service account deletion: keep every row, mark the user disabled.
 	DeactivateUser(ctx context.Context, id int64) (User, error)
@@ -178,8 +196,13 @@ type Querier interface {
 	DeleteAppLogsMatching(ctx context.Context, arg DeleteAppLogsMatchingParams) (int64, error)
 	DeleteCatalogDisplayBrand(ctx context.Context, id int64) (int64, error)
 	DeleteCatalogModel(ctx context.Context, id int64) (int64, error)
+	DeleteCustomer(ctx context.Context, arg DeleteCustomerParams) (int64, error)
+	DeleteCustomerContact(ctx context.Context, arg DeleteCustomerContactParams) (int64, error)
+	DeleteCustomerContacts(ctx context.Context, arg DeleteCustomerContactsParams) error
+	DeleteCustomerDocument(ctx context.Context, arg DeleteCustomerDocumentParams) (int64, error)
 	DeleteDateRuleDraft(ctx context.Context, arg DeleteDateRuleDraftParams) (int64, error)
 	DeleteDateRuleTargets(ctx context.Context, arg DeleteDateRuleTargetsParams) error
+	DeleteDriver(ctx context.Context, arg DeleteDriverParams) (int64, error)
 	DeleteLogPurgeRule(ctx context.Context, argUuid uuid.UUID) (int64, error)
 	DeleteMemberBranches(ctx context.Context, arg DeleteMemberBranchesParams) error
 	DeleteMemberRoles(ctx context.Context, arg DeleteMemberRolesParams) error
@@ -205,6 +228,7 @@ type Querier interface {
 	DeleteWebAuthnCredentialByCredentialID(ctx context.Context, credentialID string) error
 	DeleteWebAuthnCredentialByUUID(ctx context.Context, arg DeleteWebAuthnCredentialByUUIDParams) error
 	DisablePushDevice(ctx context.Context, arg DisablePushDeviceParams) error
+	DriverLicenceTaken(ctx context.Context, arg DriverLicenceTakenParams) (bool, error)
 	// First device registration opts the user into push (the OS permission
 	// prompt is the consent). An existing preference row is left untouched.
 	EnsureNotificationPreferencesPushDefault(ctx context.Context, userID int64) error
@@ -270,8 +294,16 @@ type Querier interface {
 	// Versioned organization settings. Rows are immutable; the current settings
 	// are the highest version of the organization.
 	GetCurrentOrganizationSettings(ctx context.Context, organizationID int64) (GetCurrentOrganizationSettingsRow, error)
+	GetCustomer(ctx context.Context, arg GetCustomerParams) (Customer, error)
+	GetCustomerByIdentityIndex(ctx context.Context, arg GetCustomerByIdentityIndexParams) (Customer, error)
+	GetCustomerContact(ctx context.Context, arg GetCustomerContactParams) (CustomerContact, error)
+	GetCustomerDocument(ctx context.Context, arg GetCustomerDocumentParams) (GetCustomerDocumentRow, error)
+	GetCustomerDriver(ctx context.Context, arg GetCustomerDriverParams) (Driver, error)
+	GetCustomerSearchDocument(ctx context.Context, arg GetCustomerSearchDocumentParams) (GetCustomerSearchDocumentRow, error)
 	GetDateRule(ctx context.Context, arg GetDateRuleParams) (GetDateRuleRow, error)
 	GetDateRuleVersionByStatus(ctx context.Context, arg GetDateRuleVersionByStatusParams) (GetDateRuleVersionByStatusRow, error)
+	// Reservations resolve a driver_uuid of the organization (customer joined).
+	GetDriverByUUID(ctx context.Context, arg GetDriverByUUIDParams) (GetDriverByUUIDRow, error)
 	GetExportJobByID(ctx context.Context, id int64) (ExportJob, error)
 	GetExportJobByUUID(ctx context.Context, argUuid uuid.UUID) (ExportJob, error)
 	// Tenant resource: vehicle usage blocks (TEC-694). Every query filters by
@@ -358,6 +390,7 @@ type Querier interface {
 	GetVehicleTransfer(ctx context.Context, arg GetVehicleTransferParams) (GetVehicleTransferRow, error)
 	GetWebAuthnCredentialByCredentialID(ctx context.Context, credentialID string) (WebauthnCredential, error)
 	GetWebAuthnCredentialByUUID(ctx context.Context, arg GetWebAuthnCredentialByUUIDParams) (WebauthnCredential, error)
+	GrantCustomerConsent(ctx context.Context, arg GrantCustomerConsentParams) (CustomerMarketingConsent, error)
 	HasActivePushDevices(ctx context.Context, userID int64) (bool, error)
 	IncrementOTPAttempts(ctx context.Context, id int64) (OtpCode, error)
 	InsertActivityEvent(ctx context.Context, arg InsertActivityEventParams) (ActivityEvent, error)
@@ -455,6 +488,22 @@ type Querier interface {
 	// Platform catalog: kasko value history of one type and model year.
 	ListCatalogValuationsForVehicle(ctx context.Context, arg ListCatalogValuationsForVehicleParams) ([]ListCatalogValuationsForVehicleRow, error)
 	ListCurrentRentalProductVersions(ctx context.Context, arg ListCurrentRentalProductVersionsParams) ([]RentalProductVersion, error)
+	// --- marketing consents -----------------------------------------------------------
+	ListCustomerConsents(ctx context.Context, arg ListCustomerConsentsParams) ([]ListCustomerConsentsRow, error)
+	// --- contacts ------------------------------------------------------------------
+	ListCustomerContacts(ctx context.Context, arg ListCustomerContactsParams) ([]CustomerContact, error)
+	// Every stored file of a customer (live or soft-deleted), for anonymization.
+	ListCustomerDocumentKeys(ctx context.Context, arg ListCustomerDocumentKeysParams) ([]string, error)
+	// --- documents --------------------------------------------------------------------
+	ListCustomerDocuments(ctx context.Context, arg ListCustomerDocumentsParams) ([]ListCustomerDocumentsRow, error)
+	// --- drivers ----------------------------------------------------------------------
+	ListCustomerDrivers(ctx context.Context, arg ListCustomerDriversParams) ([]Driver, error)
+	// Dynamic filter options. facet: customer_type | nationality | tag | consent.
+	ListCustomerFacets(ctx context.Context, organizationID int64) ([]ListCustomerFacetsRow, error)
+	ListCustomerSearchDocuments(ctx context.Context, organizationID int64) ([]ListCustomerSearchDocumentsRow, error)
+	// Bulk "all matching" scope (same filters as ListCustomers, no paging).
+	ListCustomerUUIDs(ctx context.Context, arg ListCustomerUUIDsParams) ([]uuid.UUID, error)
+	ListCustomers(ctx context.Context, arg ListCustomersParams) ([]ListCustomersRow, error)
 	ListDateRuleFacets(ctx context.Context, organizationID int64) ([]ListDateRuleFacetsRow, error)
 	ListDateRuleTargets(ctx context.Context, arg ListDateRuleTargetsParams) ([]ListDateRuleTargetsRow, error)
 	ListDateRuleVersions(ctx context.Context, arg ListDateRuleVersionsParams) ([]ListDateRuleVersionsRow, error)
@@ -692,6 +741,7 @@ type Querier interface {
 	// Another live rule with the same route and product (NULL = generic).
 	OneWayRouteTaken(ctx context.Context, arg OneWayRouteTakenParams) (bool, error)
 	PingDB(ctx context.Context) (int32, error)
+	PurgeCustomerDocuments(ctx context.Context, arg PurgeCustomerDocumentsParams) error
 	QueueImportJob(ctx context.Context, argUuid uuid.UUID) (ImportJob, error)
 	ReassignCatalogModelRules(ctx context.Context, arg ReassignCatalogModelRulesParams) (int64, error)
 	ReassignCatalogTypesModel(ctx context.Context, arg ReassignCatalogTypesModelParams) (int64, error)
@@ -725,6 +775,8 @@ type Querier interface {
 	SetCatalogDisplayBrandLogo(ctx context.Context, arg SetCatalogDisplayBrandLogoParams) (CatalogDisplayBrand, error)
 	SetCatalogImportFileKey(ctx context.Context, arg SetCatalogImportFileKeyParams) (CatalogImport, error)
 	SetCatalogTypesModel(ctx context.Context, arg SetCatalogTypesModelParams) (int64, error)
+	SetCustomerDocumentFile(ctx context.Context, arg SetCustomerDocumentFileParams) (CustomerDocument, error)
+	SetCustomerTags(ctx context.Context, arg SetCustomerTagsParams) (Customer, error)
 	SetDateRuleState(ctx context.Context, arg SetDateRuleStateParams) (int64, error)
 	SetMemberBranchScope(ctx context.Context, arg SetMemberBranchScopeParams) error
 	SetMemberPrimaryRole(ctx context.Context, arg SetMemberPrimaryRoleParams) error
@@ -786,8 +838,11 @@ type Querier interface {
 	UpdateCatalogImportState(ctx context.Context, arg UpdateCatalogImportStateParams) (CatalogImport, error)
 	UpdateCatalogModel(ctx context.Context, arg UpdateCatalogModelParams) (CatalogModel, error)
 	UpdateCatalogType(ctx context.Context, arg UpdateCatalogTypeParams) (int64, error)
+	UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) (Customer, error)
+	UpdateCustomerContact(ctx context.Context, arg UpdateCustomerContactParams) (CustomerContact, error)
 	UpdateDateRuleDraft(ctx context.Context, arg UpdateDateRuleDraftParams) (int64, error)
 	UpdateDateRuleName(ctx context.Context, arg UpdateDateRuleNameParams) (int64, error)
+	UpdateDriver(ctx context.Context, arg UpdateDriverParams) (Driver, error)
 	UpdateGitHubAppSettings(ctx context.Context, arg UpdateGitHubAppSettingsParams) (GithubAppSetting, error)
 	UpdateImportJobFileKey(ctx context.Context, arg UpdateImportJobFileKeyParams) (ImportJob, error)
 	UpdateImportJobMapping(ctx context.Context, arg UpdateImportJobMappingParams) (ImportJob, error)
@@ -842,6 +897,8 @@ type Querier interface {
 	// live, active vehicles.
 	VehiclePlateTaken(ctx context.Context, arg VehiclePlateTakenParams) (bool, error)
 	VehicleSegmentCodeTaken(ctx context.Context, arg VehicleSegmentCodeTakenParams) (bool, error)
+	WithdrawAllCustomerConsents(ctx context.Context, arg WithdrawAllCustomerConsentsParams) error
+	WithdrawCustomerConsent(ctx context.Context, arg WithdrawCustomerConsentParams) (int64, error)
 }
 
 var _ Querier = (*Queries)(nil)
