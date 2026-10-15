@@ -21,5 +21,7 @@
   "specs_rental_products": "Products",
   "prefix_rental_products": "product",
   "specs_vehicles": "Vehicles",
-  "prefix_vehicles": "vehicle"
+  "prefix_vehicles": "vehicle",
+  "specs_customers": "Customers",
+  "prefix_customers": "customer"
 }

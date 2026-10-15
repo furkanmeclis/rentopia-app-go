@@ -130,5 +130,12 @@
   "labels.tenant.capacity_rules.read": "Kanal kapasite kurallarını görüntüle",
   "labels.tenant.capacity_rules.write": "Kanal kapasite kurallarını yönet",
   "groups.tenant_availability": "Müsaitlik",
-  "groups.tenant_capacity_rules": "Kanal kapasite kuralları"
+  "groups.tenant_capacity_rules": "Kanal kapasite kuralları",
+  "labels.tenant.customers.read": "Müşterileri ve sürücüleri görüntüle (maskeli)",
+  "labels.tenant.customers.write": "Müşterileri ve sürücüleri yönet",
+  "labels.tenant.customers.reveal": "Kimlik ve iletişim bilgilerini açık göster",
+  "labels.tenant.customers.export": "Müşterileri dışa aktar",
+  "labels.tenant.customers.import": "Müşterileri içe aktar",
+  "labels.tenant.customers.anonymize": "Müşterileri anonimleştir (KVKK)",
+  "groups.tenant_customers": "Müşteriler"
 }
