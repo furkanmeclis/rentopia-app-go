@@ -133,6 +133,20 @@ export const routes = {
       detail: (slug: string, uuid: string) =>
         `/t/${encodeURIComponent(slug)}/rentals/${uuid}`,
     },
+    /** Mobile handover / return ("Saha görevleri", TEC-712 / TEC-713). */
+    field: {
+      root: (slug: string) => `/t/${encodeURIComponent(slug)}/field`,
+      handover: (slug: string, rentalUuid: string) =>
+        `/t/${encodeURIComponent(slug)}/field/handover/${rentalUuid}`,
+      return: (slug: string, rentalUuid: string) =>
+        `/t/${encodeURIComponent(slug)}/field/return/${rentalUuid}`,
+    },
+    /** Handover / return forms and the review queue. */
+    inspections: {
+      root: (slug: string) => `/t/${encodeURIComponent(slug)}/inspections`,
+      detail: (slug: string, uuid: string) =>
+        `/t/${encodeURIComponent(slug)}/inspections/${uuid}`,
+    },
     /** Operation tasks of the branches ("Operasyon görevleri"). */
     operationTasks: (slug: string) =>
       `/t/${encodeURIComponent(slug)}/operation-tasks`,
@@ -153,6 +167,9 @@ export const routes = {
         detail: (slug: string, uuid: string) =>
           `/t/${encodeURIComponent(slug)}/settings/roles/${uuid}`,
       },
+      /** Inspection templates ("Teslim / iade formları"). */
+      inspectionTemplates: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/settings/inspection-templates`,
       /** Contract templates ("Sözleşme şablonları"). */
       contractTemplates: {
         root: (slug: string) =>

@@ -14014,7 +14014,7 @@ paths:
           description: "`due_at`, `status` or `created_at`; prefix `-` for descending."
           schema: { type: string }
         - { name: status, in: query, schema: { type: string }, description: "open, in_progress, done, cancelled" }
-        - { name: task_type, in: query, schema: { type: string }, description: "preparation, handover, return, cleaning" }
+        - { name: task_type, in: query, schema: { type: string }, description: "preparation, handover, return, cleaning, maintenance, deposit" }
         - { name: branch, in: query, schema: { type: string }, description: Branch uuids }
         - { name: rental, in: query, schema: { type: string }, description: Rental uuids }
         - { name: vehicle, in: query, schema: { type: string }, description: Vehicle uuids }
@@ -14657,6 +14657,564 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
 
+  /v1/tenant/rentals/{uuid}/charges/{chargeUuid}:
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantRentalCharge
+      summary: Change the amount of a proposed charge
+      description: |
+        `tenant.rentals.write`. A computed charge (source `policy`: late return, km overage, fuel, missing
+        equipment) or one changed before needs `tenant.price.override`; the computed amount stays in
+        `original_amount`. A reason is required.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - $ref: "#/components/parameters/RentalChargeUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RentalChargeOverrideRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/RentalOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/inspection-templates:
+    get:
+      tags: [Tenant]
+      operationId: listTenantInspectionTemplates
+      summary: Inspection template versions
+      description: "`tenant.rentals.read`. The default template (six photos, standard equipment) is created on first use."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - { name: sort, in: query, schema: { type: string }, description: "`version` or `created_at`; prefix `-` for descending." }
+        - { name: status, in: query, schema: { type: string }, description: "active, archived" }
+      responses:
+        "200":
+          description: Template versions
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeInspectionTemplatePage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantInspectionTemplate
+      summary: Save a new template version
+      description: "`tenant.rentals.close`. The new version becomes the active one; the previous is archived (forms keep the version they used)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InspectionTemplateRequest" }
+      responses:
+        "201":
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeInspectionTemplate" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/inspection-templates/active:
+    get:
+      tags: [Tenant]
+      operationId: getTenantActiveInspectionTemplate
+      summary: The active inspection template
+      description: "`tenant.rentals.read`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Template
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeInspectionTemplate" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/inspection-templates/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantInspectionTemplate
+      summary: One template version
+      description: "`tenant.rentals.read`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Template
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeInspectionTemplate" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/inspections/facets:
+    get:
+      tags: [Tenant]
+      operationId: getTenantInspectionFacets
+      summary: Inspection list facets
+      description: "`tenant.rentals.read`. Counts over the caller's branch scope."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Facets
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeInspectionFacets" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/inspections:
+    get:
+      tags: [Tenant]
+      operationId: listTenantInspections
+      summary: Handover / return forms (review queue)
+      description: "`tenant.rentals.read`. The authorized review queue is `review_status=pending`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - { name: sort, in: query, schema: { type: string }, description: "`created_at`, `finalized_at` or `kind`; prefix `-` for descending." }
+        - { name: kind, in: query, schema: { type: string }, description: "handover, return" }
+        - { name: status, in: query, schema: { type: string }, description: "draft, finalized, superseded" }
+        - { name: review_status, in: query, schema: { type: string }, description: "none, pending, resolved" }
+        - { name: rental, in: query, schema: { type: string }, description: Rental uuids }
+        - { name: disputed, in: query, schema: { type: string, enum: ["true", "false"] } }
+      responses:
+        "200":
+          description: Page of forms
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeInspectionPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantInspection
+      summary: Start (or resume) the handover / return form of a rental
+      description: "`tenant.rentals.write`. A handover form needs a rental in preparation, a return form a rental under way. The live form is returned (200) when it exists."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InspectionStartRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/InspectionOK" }
+        "201": { $ref: "#/components/responses/InspectionOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/inspections/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantInspection
+      summary: One form with its evidence
+      description: "`tenant.rentals.read`. A return form carries the finalized handover record (`baseline`) for the side-by-side comparison."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200": { $ref: "#/components/responses/InspectionOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantInspection
+      summary: Update a draft
+      description: "`tenant.rentals.write`. Omitted fields keep their value. Changing a computed charge amount needs `tenant.price.override`. A finalized form answers 409."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InspectionDraftRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/InspectionOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/inspections/{uuid}/charges:
+    get:
+      tags: [Tenant]
+      operationId: getTenantInspectionCharges
+      summary: Charge proposal of a return form
+      description: "`tenant.rentals.read`. Late return, km overage, fuel difference and missing equipment from the reservation's policy snapshot and product conditions, plus damage amounts staff entered. Nothing is stored before the completion; a handover form answers no lines."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Charge proposal
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeInspectionChargePreview" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/inspections/{uuid}/media-links:
+    post:
+      tags: [Tenant]
+      operationId: postTenantInspectionMediaLinks
+      summary: Short-lived links to the evidence
+      description: "`tenant.rentals.read`. Signed links (10 minutes) under `/v1/public/media/inspections/{token}` for completed photos (all, or `photo_uuids`) and the signature. The browser never sees an object key."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InspectionMediaLinksRequest" }
+      responses:
+        "200":
+          description: Links
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeInspectionMediaLinks" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/inspections/{uuid}/damages:
+    post:
+      tags: [Tenant]
+      operationId: postTenantInspectionDamage
+      summary: Mark a damage on the vehicle diagram
+      description: "`tenant.rentals.write`. Draft only. A return damage is new by default."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InspectionDamageRequest" }
+      responses:
+        "201": { $ref: "#/components/responses/InspectionOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/inspections/{uuid}/damages/{damageUuid}:
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantInspectionDamage
+      summary: Replace a damage
+      description: "`tenant.rentals.write`. Draft only."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - $ref: "#/components/parameters/InspectionDamageUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InspectionDamageRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/InspectionOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantInspectionDamage
+      summary: Remove a damage (and its photos)
+      description: "`tenant.rentals.write`. Draft only."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - $ref: "#/components/parameters/InspectionDamageUUID"
+      responses:
+        "200": { $ref: "#/components/responses/InspectionOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/inspections/{uuid}/photos:
+    post:
+      tags: [Tenant]
+      operationId: postTenantInspectionPhoto
+      summary: Announce a photo and get its upload address
+      description: |
+        `tenant.rentals.write`. Draft only. Images only (`image/jpeg`, `image/png`, `image/webp`, `image/heic`,
+        `image/heif`), at most 15 MiB. Answers the API-issued upload address (`PUT` multipart, field `file`);
+        a repeated `client_ref` (the device's upload queue retrying) answers the same photo (200).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InspectionPhotoRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/InspectionPhotoUploadOK" }
+        "201": { $ref: "#/components/responses/InspectionPhotoUploadOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/inspections/{uuid}/photos/{photoUuid}:
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantInspectionPhoto
+      summary: Remove a photo (retake)
+      description: "`tenant.rentals.write`. Draft only."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - $ref: "#/components/parameters/InspectionPhotoUUID"
+      responses:
+        "200": { $ref: "#/components/responses/InspectionOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/inspections/{uuid}/photos/{photoUuid}/file:
+    put:
+      tags: [Tenant]
+      operationId: putTenantInspectionPhotoFile
+      summary: Upload the bytes of a photo
+      description: "`tenant.rentals.write`. Multipart field `file`. The type is sniffed from the bytes and must match the announced one. The photo is `uploaded` until the completion step."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - $ref: "#/components/parameters/InspectionPhotoUUID"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "200": { $ref: "#/components/responses/InspectionPhotoOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/inspections/{uuid}/photos/{photoUuid}/complete:
+    post:
+      tags: [Tenant]
+      operationId: postTenantInspectionPhotoComplete
+      summary: Verify and hash an uploaded photo
+      description: "`tenant.rentals.write`. Checks that the object exists, computes its SHA-256 on the server, reads the EXIF time / GPS (kept apart) and records the server upload time. The optional malware scan runs here."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - $ref: "#/components/parameters/InspectionPhotoUUID"
+      responses:
+        "200": { $ref: "#/components/responses/InspectionPhotoOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/inspections/{uuid}/signature:
+    post:
+      tags: [Tenant]
+      operationId: postTenantInspectionSignature
+      summary: Record the signature canvas
+      description: |
+        `tenant.rentals.write`. After the customer review. Stores the strokes (x, y, pressure, t) and the PNG
+        (server SHA-256 and time). With `contract`, the same signature records the customer approval of that
+        rental contract version (bound to its content hash; `409 CONTENT_CHANGED` when it changed).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InspectionSignatureRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/InspectionOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/inspections/{uuid}/complete:
+    post:
+      tags: [Tenant]
+      operationId: postTenantInspectionComplete
+      summary: Finalize the form
+      description: |
+        `tenant.rentals.write`. RT-A17: refused with `409 INSPECTION_INCOMPLETE` (data = readiness) while a photo
+        is not uploaded and completed, a required slot or a damage has no photo, or a field is missing.
+        Handover: runs the rentals handover (actual time, km, fuel; rental active) in the same transaction;
+        without a signature it needs `no_signature_reason` and `tenant.signature.waive`. Return: runs the rentals
+        return, proposes the charges, opens the deposit task; a signed, undisputed return finishes the return
+        check, otherwise the form waits in the review queue.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InspectionCompleteRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/InspectionOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/inspections/{uuid}/revise:
+    post:
+      tags: [Tenant]
+      operationId: postTenantInspectionRevise
+      summary: New version of a finalized form
+      description: "`tenant.rentals.close`. The finalized version becomes superseded (it stays immutable); the draft copies its facts and evidence; a reason is required."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RentalReasonRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/InspectionOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/inspections/{uuid}/review:
+    post:
+      tags: [Tenant]
+      operationId: postTenantInspectionReview
+      summary: Resolve the review of a disputed or unsigned return
+      description: |
+        `tenant.rentals.close`; an unsigned return also needs `tenant.signature.waive`. Never decides a charge:
+        disputed charges stay proposed until `tenant.damage.approve` approves them one by one. Finishes the
+        return check (`vehicle_status`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InspectionReviewRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/InspectionOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/public/media/inspections/{token}:
+    get:
+      tags: [Tenant]
+      operationId: getPublicInspectionMedia
+      summary: Evidence object of a signed media link
+      description: "No auth: the signed token (10 minutes) names the organization and the record. Streams the photo or signature PNG (`Cache-Control: private`)."
+      security: []
+      parameters:
+        - { name: token, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Image
+          content:
+            image/*:
+              schema: { type: string, format: binary }
+        "404": { $ref: "#/components/responses/NotFound" }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -14771,6 +15329,22 @@ components:
       schema:
         type: string
         format: uuid
+    InspectionDamageUUID:
+      name: damageUuid
+      in: path
+      required: true
+      description: Inspection damage UUID
+      schema:
+        type: string
+        format: uuid
+    InspectionPhotoUUID:
+      name: photoUuid
+      in: path
+      required: true
+      description: Inspection photo UUID
+      schema:
+        type: string
+        format: uuid
     ImageUUID:
       name: imageUuid
       in: path
@@ -14845,6 +15419,24 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/EnvelopeReservationChange"
+    InspectionOK:
+      description: Inspection form
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/EnvelopeInspection"
+    InspectionPhotoOK:
+      description: Inspection photo
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/EnvelopeInspectionPhoto"
+    InspectionPhotoUploadOK:
+      description: Photo with its upload address
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/EnvelopeInspectionPhotoUpload"
     RentalOK:
       description: Rental
       content:
@@ -18003,6 +18595,7 @@ components:
         extension: { type: string }
         late_return_grace_minutes: { type: [integer, "null"], minimum: 0, maximum: 1440 }
         extra_hour_fee: { type: string, description: "Decimal amount; empty = not charged", example: "150.00" }
+        fuel_fee_per_percent: { type: string, description: "Refuelling fee per missing tank percent at the return; empty = not charged", example: "12.50" }
         fuel: { type: string }
         mileage: { type: string }
 
@@ -23327,10 +23920,11 @@ components:
 
     RentalCharge:
       type: object
-      required: [uuid, kind, source, status, currency, amount, settings_version, calculation, reason, decided_at, decided_by, decision_note, created_by, created_at]
+      required: [uuid, kind, source, status, currency, amount, settings_version, calculation, reason, decided_at, decided_by, decision_note, created_by, created_at,
+        disputed, inspection_uuid, original_amount, override_reason, overridden_at, overridden_by]
       properties:
         uuid: { type: string, format: uuid }
-        kind: { type: string, enum: [late_return, early_return, damage, fuel, mileage, other] }
+        kind: { type: string, enum: [late_return, early_return, damage, fuel, mileage, equipment, other] }
         source: { type: string, enum: [policy, manual] }
         status: { type: string, enum: [proposed, approved, waived] }
         currency: { type: string }
@@ -23349,13 +23943,23 @@ components:
             - $ref: "#/components/schemas/ReservationActor"
             - type: "null"
         created_at: { type: string, format: date-time }
+        disputed: { type: boolean, description: "Disputed at the return: approving it needs `tenant.damage.approve` and a note" }
+        inspection_uuid: { type: [string, "null"], format: uuid }
+        original_amount: { type: [string, "null"], description: Computed amount before a person changed it }
+        override_reason: { type: string }
+        overridden_at: { type: [string, "null"], format: date-time }
+        overridden_by:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
 
     RentalPolicy:
       type: object
-      required: [settings_version, late_return_grace_minutes, extra_hour_fee, early_return, extension, fuel, mileage]
+      required: [settings_version, late_return_grace_minutes, extra_hour_fee, early_return, extension, fuel, mileage, fuel_fee_per_percent]
       properties:
         settings_version: { type: integer }
         late_return_grace_minutes: { type: [integer, "null"] }
+        fuel_fee_per_percent: { type: string }
         extra_hour_fee: { type: string }
         early_return: { type: string }
         extension: { type: string }
@@ -23535,8 +24139,9 @@ components:
     RentalCompleteReturnRequest:
       type: object
       properties:
-        vehicle_status: { type: string, enum: [cleaning, available] }
+        vehicle_status: { type: string, enum: [cleaning, available, maintenance, preparing] }
         note: { type: string }
+        deposit_task: { type: boolean, description: Open the deposit / provision resolution task }
 
     RentalExtendRequest:
       type: object
@@ -23568,7 +24173,7 @@ components:
       type: object
       required: [kind, amount, reason]
       properties:
-        kind: { type: string, enum: [late_return, early_return, damage, fuel, mileage, other] }
+        kind: { type: string, enum: [late_return, early_return, damage, fuel, mileage, equipment, other] }
         amount: { type: string, description: Decimal amount }
         reason: { type: string }
 
@@ -23628,7 +24233,7 @@ components:
       required: [uuid, task_type, status, branch, rental, vehicle, due_at, note, assignee, started_at, completed_at, completed_by, completion_note, created_at, updated_at]
       properties:
         uuid: { type: string, format: uuid }
-        task_type: { type: string, enum: [preparation, handover, return, cleaning] }
+        task_type: { type: string, enum: [preparation, handover, return, cleaning, maintenance, deposit] }
         status: { type: string, enum: [open, in_progress, done, cancelled] }
         branch: { $ref: "#/components/schemas/RentalRef" }
         rental:
@@ -24093,7 +24698,7 @@ components:
     DocumentApproval:
       type: object
       required: [uuid, version_uuid, version_number, content_hash, party, method, approver_name, note, approved_at, valid, invalidated_at, invalidated_reason, recorded_by,
-        verified_phone_masked, signer_role, link_uuid, ip_address, user_agent]
+        verified_phone_masked, signer_role, link_uuid, ip_address, user_agent, signature_uuid, signature_inspection_uuid]
       properties:
         uuid: { type: string, format: uuid }
         version_uuid: { type: string, format: uuid }
@@ -24116,6 +24721,8 @@ components:
         link_uuid: { type: [string, "null"], format: uuid }
         ip_address: { type: string }
         user_agent: { type: string }
+        signature_uuid: { type: [string, "null"], format: uuid, description: Tablet signature of a handover / return form that gave the approval }
+        signature_inspection_uuid: { type: [string, "null"], format: uuid }
 
     Document:
       type: object
@@ -24870,4 +25477,572 @@ components:
           properties:
             duplicate: { type: boolean }
             status: { type: string }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    RentalChargeOverrideRequest:
+      type: object
+      required: [amount, reason]
+      properties:
+        amount: { type: string, description: Decimal amount (0 or more) }
+        reason: { type: string }
+
+    InspectionTemplateSlot:
+      type: object
+      required: [key, label, required]
+      properties:
+        key: { type: string, example: front }
+        label: { type: string, example: Ön }
+        required: { type: boolean }
+
+    InspectionTemplateItem:
+      type: object
+      required: [key, label, required, price]
+      properties:
+        key: { type: string, example: jack }
+        label: { type: string, example: Kriko }
+        required: { type: boolean }
+        price: { type: string, description: "Decimal amount charged when missing at the return; empty = none" }
+
+    InspectionTemplate:
+      type: object
+      required: [uuid, name, version, status, photo_slots, checklist, inspections, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        name: { type: string }
+        version: { type: integer }
+        status: { type: string, enum: [active, archived] }
+        photo_slots: { type: array, items: { $ref: "#/components/schemas/InspectionTemplateSlot" } }
+        checklist: { type: array, items: { $ref: "#/components/schemas/InspectionTemplateItem" } }
+        inspections: { type: integer, format: int64 }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    InspectionTemplateRequest:
+      type: object
+      required: [name, photo_slots, checklist]
+      properties:
+        name: { type: string }
+        photo_slots: { type: array, items: { $ref: "#/components/schemas/InspectionTemplateSlot" } }
+        checklist: { type: array, items: { $ref: "#/components/schemas/InspectionTemplateItem" } }
+
+    InspectionTemplateSnapshot:
+      type: object
+      required: [uuid, name, version, photo_slots, checklist]
+      properties:
+        uuid: { type: string, format: uuid }
+        name: { type: string }
+        version: { type: integer }
+        photo_slots: { type: array, items: { $ref: "#/components/schemas/InspectionTemplateSlot" } }
+        checklist: { type: array, items: { $ref: "#/components/schemas/InspectionTemplateItem" } }
+
+    InspectionVerification:
+      type: object
+      required: [plate_confirmed, vehicle_ok, driver_uuid, licence_checked, identity_checked]
+      properties:
+        plate_confirmed: { type: boolean }
+        vehicle_ok: { type: boolean }
+        driver_uuid: { type: [string, "null"], format: uuid }
+        licence_checked: { type: boolean }
+        identity_checked: { type: boolean }
+
+    InspectionChargeOverride:
+      type: object
+      required: [key, amount, reason]
+      properties:
+        key: { type: string, description: "late_return, mileage, fuel, equipment:<item>, damage:<damage uuid>" }
+        amount: { type: string, description: Decimal amount }
+        reason: { type: string }
+
+    InspectionDamage:
+      type: object
+      required: [uuid, zone, pos_x, pos_y, damage_type, severity, description, is_new, disputed, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        zone: { type: string }
+        pos_x: { type: [number, "null"] }
+        pos_y: { type: [number, "null"] }
+        damage_type: { type: string, enum: [scratch, dent, crack, broken, missing, stain, other] }
+        severity: { type: string, enum: [minor, moderate, major] }
+        description: { type: string }
+        is_new: { type: boolean }
+        disputed: { type: boolean }
+        created_at: { type: string, format: date-time }
+
+    InspectionPhotoExif:
+      type: object
+      required: [taken_at, taken_local, gps_lat, gps_lng, make, model]
+      properties:
+        taken_at: { type: [string, "null"], format: date-time, description: Device EXIF capture time (with an offset) }
+        taken_local: { type: string, description: Raw EXIF local time without an offset }
+        gps_lat: { type: [number, "null"] }
+        gps_lng: { type: [number, "null"] }
+        make: { type: string }
+        model: { type: string }
+
+    InspectionPhoto:
+      type: object
+      required: [uuid, slot, damage_uuid, client_ref, status, content_type, declared_size_bytes, size_bytes, sha256, inspection_version,
+        uploaded_at, uploaded_by, device_captured_at, exif, scan_status, copied, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        slot: { type: string }
+        damage_uuid: { type: [string, "null"], format: uuid }
+        client_ref: { type: string }
+        status: { type: string, enum: [pending, uploaded, completed] }
+        content_type: { type: string }
+        declared_size_bytes: { type: integer, format: int64 }
+        size_bytes: { type: integer, format: int64 }
+        sha256: { type: string, description: Server-computed SHA-256 (hex) }
+        inspection_version: { type: integer }
+        uploaded_at: { type: [string, "null"], format: date-time, description: Server time of the completion }
+        uploaded_by:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        device_captured_at: { type: [string, "null"], format: date-time }
+        exif: { $ref: "#/components/schemas/InspectionPhotoExif" }
+        scan_status: { type: string, enum: [skipped, clean, infected] }
+        copied: { type: boolean }
+        created_at: { type: string, format: date-time }
+
+    InspectionUploadTarget:
+      type: object
+      required: [method, path, field, max_bytes]
+      properties:
+        method: { type: string, enum: [PUT] }
+        path: { type: string, description: API path (same origin through the BFF) }
+        field: { type: string }
+        max_bytes: { type: integer, format: int64 }
+
+    InspectionPhotoUpload:
+      type: object
+      required: [photo, upload]
+      properties:
+        photo: { $ref: "#/components/schemas/InspectionPhoto" }
+        upload: { $ref: "#/components/schemas/InspectionUploadTarget" }
+
+    InspectionContractApproval:
+      type: object
+      required: [approval_uuid, document_uuid, version_uuid, content_hash]
+      properties:
+        approval_uuid: { type: string, format: uuid }
+        document_uuid: { type: string, format: uuid }
+        version_uuid: { type: string, format: uuid }
+        content_hash: { type: string }
+
+    InspectionSignature:
+      type: object
+      required: [uuid, signer_name, signer_role, sha256, size_bytes, point_count, signed_at, device_signed_at, contract_approval]
+      properties:
+        uuid: { type: string, format: uuid }
+        signer_name: { type: string }
+        signer_role: { type: string, enum: [customer, driver] }
+        sha256: { type: string }
+        size_bytes: { type: integer, format: int64 }
+        point_count: { type: integer }
+        signed_at: { type: string, format: date-time }
+        device_signed_at: { type: [string, "null"], format: date-time }
+        contract_approval:
+          oneOf:
+            - $ref: "#/components/schemas/InspectionContractApproval"
+            - type: "null"
+
+    InspectionReadiness:
+      type: object
+      required: [required_slots, missing_slots, damages_without_photo, incomplete_photos, missing_fields, photos_ready, can_complete]
+      properties:
+        required_slots: { type: array, items: { type: string } }
+        missing_slots: { type: array, items: { type: string } }
+        damages_without_photo: { type: array, items: { type: string, format: uuid } }
+        incomplete_photos: { type: integer }
+        missing_fields: { type: array, items: { type: string } }
+        photos_ready: { type: boolean }
+        can_complete: { type: boolean }
+
+    InspectionAmounts:
+      type: object
+      required: [currency, total, paid, balance, payment_status, deposit_amount, deposit_status]
+      properties:
+        currency: { type: string }
+        total: { type: string }
+        paid: { type: string }
+        balance: { type: string }
+        payment_status: { type: string }
+        deposit_amount: { type: string }
+        deposit_status: { type: string, enum: [not_tracked] }
+
+    InspectionRentalSummary:
+      type: object
+      required: [uuid, reference, status, customer, vehicle, product, drivers, planned_pickup_at, planned_return_at, planned_pickup,
+        planned_return, actual_pickup_at, actual_return_at, contract, amounts, legs]
+      properties:
+        uuid: { type: string, format: uuid }
+        reference: { type: string }
+        status: { type: string, enum: [preparation, active, return_check, returned, cancelled] }
+        customer: { $ref: "#/components/schemas/RentalCustomerRef" }
+        vehicle: { $ref: "#/components/schemas/RentalVehicleRef" }
+        product: { $ref: "#/components/schemas/RentalRef" }
+        drivers: { type: array, items: { $ref: "#/components/schemas/RentalDriver" } }
+        planned_pickup_at: { type: string, format: date-time }
+        planned_return_at: { type: string, format: date-time }
+        planned_pickup: { $ref: "#/components/schemas/RentalPlace" }
+        planned_return: { $ref: "#/components/schemas/RentalPlace" }
+        actual_pickup_at: { type: [string, "null"], format: date-time }
+        actual_return_at: { type: [string, "null"], format: date-time }
+        contract: { $ref: "#/components/schemas/RentalContractState" }
+        amounts: { $ref: "#/components/schemas/InspectionAmounts" }
+        legs: { type: array, items: { $ref: "#/components/schemas/RentalLeg" } }
+
+    InspectionBaseline:
+      type: object
+      required: [uuid, version, occurred_at, km, fuel, equipment, damages, photos]
+      properties:
+        uuid: { type: string, format: uuid }
+        version: { type: integer }
+        occurred_at: { type: [string, "null"], format: date-time }
+        km: { type: [integer, "null"] }
+        fuel: { type: [integer, "null"] }
+        equipment: { type: object, additionalProperties: { type: boolean } }
+        damages: { type: array, items: { $ref: "#/components/schemas/InspectionDamage" } }
+        photos: { type: array, items: { $ref: "#/components/schemas/InspectionPhoto" } }
+
+    InspectionVersionRef:
+      type: object
+      required: [uuid, version, status, finalized_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        version: { type: integer }
+        status: { type: string, enum: [draft, finalized, superseded] }
+        finalized_at: { type: [string, "null"], format: date-time }
+
+    Inspection:
+      type: object
+      required: [uuid, kind, version, status, rental, template, previous_uuid, revision_reason, occurred_at, branch, point, km, fuel,
+        equipment, verification, note, customer_statement, customer_reviewed_at, charge_overrides, vehicle_status_after,
+        signature_status, signature_note, signature, disputed, dispute_note, review_status, reviewed_at, reviewed_by, review_note,
+        finalized_at, finalized_by, created_by, created_at, updated_at, damages, photos, readiness, baseline, versions]
+      properties:
+        uuid: { type: string, format: uuid }
+        kind: { type: string, enum: [handover, return] }
+        version: { type: integer }
+        status: { type: string, enum: [draft, finalized, superseded] }
+        rental: { $ref: "#/components/schemas/InspectionRentalSummary" }
+        template: { $ref: "#/components/schemas/InspectionTemplateSnapshot" }
+        previous_uuid: { type: [string, "null"], format: uuid }
+        revision_reason: { type: string }
+        occurred_at: { type: [string, "null"], format: date-time }
+        branch:
+          oneOf:
+            - $ref: "#/components/schemas/RentalRef"
+            - type: "null"
+        point:
+          oneOf:
+            - $ref: "#/components/schemas/RentalRef"
+            - type: "null"
+        km: { type: [integer, "null"] }
+        fuel: { type: [integer, "null"] }
+        equipment: { type: object, additionalProperties: { type: boolean } }
+        verification: { $ref: "#/components/schemas/InspectionVerification" }
+        note: { type: string }
+        customer_statement: { type: string }
+        customer_reviewed_at: { type: [string, "null"], format: date-time }
+        charge_overrides: { type: array, items: { $ref: "#/components/schemas/InspectionChargeOverride" } }
+        vehicle_status_after: { type: [string, "null"], enum: [cleaning, available, maintenance, preparing, null] }
+        signature_status: { type: string, enum: [pending, signed, refused, waived] }
+        signature_note: { type: string }
+        signature:
+          oneOf:
+            - $ref: "#/components/schemas/InspectionSignature"
+            - type: "null"
+        disputed: { type: boolean }
+        dispute_note: { type: string }
+        review_status: { type: string, enum: [none, pending, resolved] }
+        reviewed_at: { type: [string, "null"], format: date-time }
+        reviewed_by:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        review_note: { type: string }
+        finalized_at: { type: [string, "null"], format: date-time }
+        finalized_by:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        created_by:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        damages: { type: array, items: { $ref: "#/components/schemas/InspectionDamage" } }
+        photos: { type: array, items: { $ref: "#/components/schemas/InspectionPhoto" } }
+        readiness: { $ref: "#/components/schemas/InspectionReadiness" }
+        baseline:
+          oneOf:
+            - $ref: "#/components/schemas/InspectionBaseline"
+            - type: "null"
+        versions: { type: array, items: { $ref: "#/components/schemas/InspectionVersionRef" } }
+
+    InspectionListItem:
+      type: object
+      required: [uuid, kind, version, status, signature_status, disputed, review_status, km, fuel, photos, damages, rental, vehicle,
+        customer, occurred_at, finalized_at, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        kind: { type: string, enum: [handover, return] }
+        version: { type: integer }
+        status: { type: string, enum: [draft, finalized, superseded] }
+        signature_status: { type: string, enum: [pending, signed, refused, waived] }
+        disputed: { type: boolean }
+        review_status: { type: string, enum: [none, pending, resolved] }
+        km: { type: [integer, "null"] }
+        fuel: { type: [integer, "null"] }
+        photos: { type: integer, format: int64 }
+        damages: { type: integer, format: int64 }
+        rental:
+          type: object
+          required: [uuid, reference, status]
+          properties:
+            uuid: { type: string, format: uuid }
+            reference: { type: string }
+            status: { type: string }
+        vehicle: { $ref: "#/components/schemas/RentalVehicleRef" }
+        customer: { $ref: "#/components/schemas/RentalCustomerRef" }
+        occurred_at: { type: [string, "null"], format: date-time }
+        finalized_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    InspectionFacetValue:
+      type: object
+      required: [value, count]
+      properties:
+        value: { type: string }
+        count: { type: integer, format: int64 }
+
+    InspectionFacets:
+      type: object
+      required: [kind, status, review_status]
+      properties:
+        kind: { type: array, items: { $ref: "#/components/schemas/InspectionFacetValue" } }
+        status: { type: array, items: { $ref: "#/components/schemas/InspectionFacetValue" } }
+        review_status: { type: array, items: { $ref: "#/components/schemas/InspectionFacetValue" } }
+
+    InspectionChargeLine:
+      type: object
+      required: [key, kind, source, currency, amount, computed, overridden, reason, calculation, disputed]
+      properties:
+        key: { type: string }
+        kind: { type: string, enum: [late_return, early_return, damage, fuel, mileage, equipment, other] }
+        source: { type: string, enum: [policy, manual] }
+        currency: { type: string }
+        amount: { type: string }
+        computed: { type: [string, "null"] }
+        overridden: { type: boolean }
+        reason: { type: string }
+        calculation: { type: object }
+        disputed: { type: boolean }
+
+    InspectionChargePreview:
+      type: object
+      required: [currency, settings_version, late_minutes, driven_km, lines, total]
+      properties:
+        currency: { type: string }
+        settings_version: { type: integer }
+        late_minutes: { type: integer }
+        driven_km: { type: integer, format: int64 }
+        lines: { type: array, items: { $ref: "#/components/schemas/InspectionChargeLine" } }
+        total: { type: string }
+
+    InspectionStartRequest:
+      type: object
+      required: [rental_uuid, kind]
+      properties:
+        rental_uuid: { type: string, format: uuid }
+        kind: { type: string, enum: [handover, return] }
+
+    InspectionDraftRequest:
+      type: object
+      properties:
+        occurred_at: { type: string, format: date-time }
+        branch_uuid: { type: string, format: uuid }
+        point_uuid: { type: string, format: uuid }
+        km: { type: integer }
+        fuel: { type: integer, minimum: 0, maximum: 100 }
+        equipment: { type: object, additionalProperties: { type: boolean } }
+        verification: { $ref: "#/components/schemas/InspectionVerification" }
+        note: { type: string }
+        customer_statement: { type: string }
+        customer_reviewed: { type: boolean }
+        charge_overrides: { type: array, items: { $ref: "#/components/schemas/InspectionChargeOverride" } }
+        vehicle_status_after: { type: string, enum: [cleaning, available, maintenance, preparing] }
+        disputed: { type: boolean }
+        dispute_note: { type: string }
+
+    InspectionDamageRequest:
+      type: object
+      required: [zone]
+      properties:
+        zone: { type: string }
+        pos_x: { type: [number, "null"] }
+        pos_y: { type: [number, "null"] }
+        damage_type: { type: string, enum: [scratch, dent, crack, broken, missing, stain, other] }
+        severity: { type: string, enum: [minor, moderate, major] }
+        description: { type: string }
+        is_new: { type: boolean }
+        disputed: { type: boolean }
+
+    InspectionPhotoRequest:
+      type: object
+      required: [slot, content_type, size_bytes]
+      properties:
+        slot: { type: string, description: "A template slot key, `damage` (with damage_uuid) or `extra`" }
+        damage_uuid: { type: string, format: uuid }
+        client_ref: { type: string, description: Idempotency key of the device upload queue }
+        content_type: { type: string, enum: [image/jpeg, image/png, image/webp, image/heic, image/heif] }
+        size_bytes: { type: integer, format: int64 }
+        device_captured_at: { type: string, format: date-time }
+
+    InspectionSignatureRequest:
+      type: object
+      required: [signer_name, png_base64, strokes]
+      properties:
+        signer_name: { type: string }
+        signer_role: { type: string, enum: [customer, driver] }
+        png_base64: { type: string }
+        strokes:
+          type: object
+          required: [width, height, strokes]
+          properties:
+            width: { type: number }
+            height: { type: number }
+            strokes:
+              type: array
+              description: Strokes of points [x, y, pressure, t_ms]
+              items: { type: array, items: { type: array, items: { type: number } } }
+        device_signed_at: { type: string, format: date-time }
+        contract:
+          type: object
+          required: [document_uuid, version_uuid, content_hash]
+          properties:
+            document_uuid: { type: string, format: uuid }
+            version_uuid: { type: string, format: uuid }
+            content_hash: { type: string }
+
+    InspectionCompleteRequest:
+      type: object
+      properties:
+        no_signature_reason: { type: string }
+        contract_waiver_reason: { type: string }
+
+    InspectionReviewRequest:
+      type: object
+      required: [note]
+      properties:
+        note: { type: string }
+        vehicle_status: { type: string, enum: [cleaning, available, maintenance, preparing] }
+
+    InspectionMediaLinksRequest:
+      type: object
+      properties:
+        photo_uuids: { type: array, items: { type: string, format: uuid } }
+        signature: { type: boolean }
+
+    InspectionMediaLink:
+      type: object
+      required: [uuid, kind, url, expires_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        kind: { type: string, enum: [photo, signature] }
+        url: { type: string }
+        expires_at: { type: string, format: date-time }
+
+    EnvelopeInspection:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/Inspection" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeInspectionPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/InspectionListItem" } }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeInspectionFacets:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/InspectionFacets" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeInspectionTemplate:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/InspectionTemplate" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeInspectionTemplatePage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/InspectionTemplate" } }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeInspectionPhoto:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/InspectionPhoto" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeInspectionPhotoUpload:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/InspectionPhotoUpload" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeInspectionChargePreview:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/InspectionChargePreview" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeInspectionMediaLinks:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/InspectionMediaLink" } }
         meta: { $ref: "#/components/schemas/ResponseMeta" }

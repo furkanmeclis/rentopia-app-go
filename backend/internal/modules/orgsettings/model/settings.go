@@ -131,6 +131,9 @@ type Policies struct {
 	ExtraHourFee string `json:"extra_hour_fee"`
 	Fuel         string `json:"fuel"`
 	Mileage      string `json:"mileage"`
+	// FuelFeePerPercent is the refuelling fee per missing tank percent at
+	// the return (TEC-713); empty = no fuel charge is computed.
+	FuelFeePerPercent string `json:"fuel_fee_per_percent"`
 }
 
 // SalesChannel switches one channel on or off and names its approval

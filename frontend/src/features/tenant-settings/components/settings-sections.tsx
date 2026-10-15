@@ -218,6 +218,13 @@ export function PoliciesSection({ disabled }: SectionProps) {
           description={t("tenant_settings.fields.extra_hour_fee_hint")}
           disabled={disabled}
         />
+        <AppInput
+          name="policies.fuel_fee_per_percent"
+          inputMode="decimal"
+          label={t("tenant_settings.fields.fuel_fee_per_percent")}
+          description={t("tenant_settings.fields.fuel_fee_per_percent_hint")}
+          disabled={disabled}
+        />
       </FormSection>
       <FormSection
         title={t("tenant_settings.sections.policies")}

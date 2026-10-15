@@ -70,6 +70,8 @@ func RegisterRoutes(mux *http.ServeMux, h *handler.Handler, engines EngineHandle
 	route("POST /v1/tenant/rentals/{uuid}/complete-return", h.CompleteReturn, closePerm)
 	route("POST /v1/tenant/rentals/{uuid}/cancel", h.Cancel, closePerm)
 	// Approve / waive check close or damage.approve in the use case.
+	// Changing a computed amount needs tenant.price.override (use case).
+	route("PATCH /v1/tenant/rentals/{uuid}/charges/{chargeUuid}", h.OverrideCharge, write)
 	route("POST /v1/tenant/rentals/{uuid}/charges/{chargeUuid}/approve", h.ApproveCharge, read)
 	route("POST /v1/tenant/rentals/{uuid}/charges/{chargeUuid}/waive", h.WaiveCharge, read)
 

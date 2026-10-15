@@ -78,6 +78,7 @@ var isolationAllowlist = map[string]string{
 	"POST /v1/tenant/extras":                 "body has no foreign references (code, name, enums, channel codes, default price)",
 	"POST /v1/tenant/integrations":           "body has no foreign references (provider code, display name, mode, the organization's own credentials)",
 	"POST /v1/tenant/contract-templates":     "body has no foreign references (kind, name, editor content, body with placeholders)",
+	"POST /v1/tenant/inspection-templates":   "body has no foreign references (name, photo slots, checklist items)",
 }
 
 type isoOrg struct {
@@ -454,6 +455,24 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		}
 		ids["operationTask"] = opItems[0].(map[string]any)["uuid"].(string)
 		ids["charge"] = uuid.NewString()
+		// Inspections (TEC-712 / TEC-714): the handover form of the rental
+		// with a damage and an uploaded photo; its template is the default
+		// one created on first use.
+		insp := must(call(o, http.MethodPost, "/v1/tenant/inspections", map[string]any{
+			"rental_uuid": ids["rental"], "kind": "handover",
+		}), http.StatusCreated, "start inspection")
+		ids["inspection"] = str(insp, "uuid")
+		ids["inspectionTemplate"] = str(insp, "template", "uuid")
+		withDamage := must(call(o, http.MethodPost, "/v1/tenant/inspections/"+ids["inspection"]+"/damages", map[string]any{
+			"zone": "hood", "description": m,
+		}), http.StatusCreated, "inspection damage")
+		ids["inspectionDamage"] = asMap(asMap(withDamage.data)["damages"].([]any)[0])["uuid"].(string)
+		photo := must(call(o, http.MethodPost, "/v1/tenant/inspections/"+ids["inspection"]+"/photos", map[string]any{
+			"slot": "front", "content_type": "image/png", "size_bytes": len(png),
+		}), http.StatusCreated, "inspection photo")
+		ids["inspectionPhoto"] = str(photo, "photo", "uuid")
+		must(upload(o, http.MethodPut, "/v1/tenant/inspections/"+ids["inspection"]+"/photos/"+ids["inspectionPhoto"]+"/file", "file", "front.png", png, nil),
+			http.StatusOK, "upload inspection photo")
 		docResp := must(call(o, http.MethodPost, "/v1/tenant/documents", map[string]any{
 			"kind": "terms", "reservation_uuid": ids["rentalReservation"],
 		}), http.StatusOK, "prepare document")
@@ -677,11 +696,12 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		"GET /v1/tenant/operation-tasks": {
 			"?rental=" + b["rental"], "?vehicle=" + b["vehicle"], "?branch=" + b["branch"], "?assignee=" + bob.Uuid.String(),
 		},
-		"GET /v1/tenant/documents":          {"?reservation=" + b["rentalReservation"], "?rental=" + b["rental"]},
+		"GET /v1/tenant/documents":   {"?reservation=" + b["rentalReservation"], "?rental=" + b["rental"]},
+		"GET /v1/tenant/inspections": {"?rental=" + b["rental"]},
 		// Operations overview (TEC-716): B's branches as the filter are
 		// unknown in A (not_found); the plain call and the badges are
 		// leak-scanned.
-		"GET /v1/tenant/overview": {"?branch=" + b["branch"], "?branch=" + b["home"]},
+		"GET /v1/tenant/overview":           {"?branch=" + b["branch"], "?branch=" + b["home"]},
 		"GET /v1/tenant/contract-templates": {"?q=" + orgB.marker},
 		"GET /v1/tenant/rate-plans/matrix": {
 			"?scope=branch&branch=" + b["branch"],
@@ -773,6 +793,7 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		{"POST /v1/tenant/rentals", map[string]any{"reservation_uuid": orgB.ids["rentalReservation"]}, reject},
 		{"POST /v1/tenant/rentals", map[string]any{"reservation_uuid": orgA.ids["rentalReservation"], "vehicle_uuid": orgB.ids["vehicle"]}, reject},
 		{"POST /v1/tenant/documents", map[string]any{"kind": "terms", "reservation_uuid": orgB.ids["rentalReservation"]}, reject},
+		{"POST /v1/tenant/inspections", map[string]any{"kind": "handover", "rental_uuid": orgB.ids["rental"]}, reject},
 		{"POST /v1/tenant/contract-templates/preview", map[string]any{"kind": "terms", "body_html": "<p>x</p>",
 			"reservation_uuid": orgB.ids["rentalReservation"]}, reject},
 		{"POST /v1/tenant/invitations", map[string]any{"email": "x1@iso.test", "role_uuids": []string{orgB.ids["role"]}, "branch_scope": "all"}, reject},
@@ -877,6 +898,11 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		{"POST /v1/tenant/rentals/" + orgA.ids["rental"] + "/handover", map[string]any{"km": 100, "fuel": 50, "branch_uuid": orgB.ids["branch"]}, reject},
 		{"POST /v1/tenant/rentals/" + orgA.ids["rental"] + "/handover", map[string]any{"km": 100, "fuel": 50,
 			"branch_uuid": orgA.ids["branch"], "point_uuid": orgB.ids["point"]}, reject},
+		{"PATCH /v1/tenant/inspections/" + orgA.ids["inspection"], map[string]any{"branch_uuid": orgB.ids["branch"]}, reject},
+		{"PATCH /v1/tenant/inspections/" + orgA.ids["inspection"], map[string]any{"verification": map[string]any{"driver_uuid": orgB.ids["driver"]}}, reject},
+		{"POST /v1/tenant/inspections/" + orgA.ids["inspection"] + "/photos", map[string]any{"slot": "damage", "damage_uuid": orgB.ids["inspectionDamage"],
+			"content_type": "image/png", "size_bytes": 10}, reject},
+		{"POST /v1/tenant/inspections/" + orgA.ids["inspection"] + "/media-links", map[string]any{"photo_uuids": []string{orgB.ids["inspectionPhoto"]}}, []int{http.StatusOK}},
 		{"PATCH /v1/tenant/rental-groups/" + orgA.ids["group"], map[string]any{"segment_uuid": orgB.ids["segment"]}, reject},
 		{"PATCH /v1/tenant/products/" + orgA.ids["product"], map[string]any{"segment_uuid": orgB.ids["segment"]}, reject},
 		{"PATCH /v1/tenant/vehicles/" + orgA.ids["vehicle"], map[string]any{"home_branch_uuid": orgB.ids["home"]}, reject},
@@ -1140,6 +1166,14 @@ func paramKey(prev, name string) string {
 		return "contractDocument"
 	case "versions/documentVersionUuid":
 		return "documentVersion"
+	case "inspections/uuid":
+		return "inspection"
+	case "inspection-templates/uuid":
+		return "inspectionTemplate"
+	case "damages/damageUuid":
+		return "inspectionDamage"
+	case "photos/photoUuid":
+		return "inspectionPhoto"
 	case "approval-links/linkUuid":
 		return "approvalLink"
 	case "approvals/approvalUuid":
