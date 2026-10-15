@@ -31,6 +31,8 @@ import { RichTextExtension } from "@lexical/rich-text";
 import { TableCellNode, TableNode, TableRowNode } from "@lexical/table";
 import {
   $getRoot,
+  $getSelection,
+  $isRangeSelection,
   configExtension,
   defineExtension,
   type EditorState,
@@ -40,7 +42,14 @@ import {
   $convertToMarkdownString,
 } from "@lexical/markdown";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+  type Ref,
+} from "react";
 
 import { ContentEditable } from "@/components/editor/editor-ui/content-editable";
 import { DateTimeExtension } from "@/components/editor/extensions/date-time-extension";
@@ -124,11 +133,29 @@ export const EDITOR_X_MARKDOWN_TRANSFORMERS = [
   ...TEXT_MATCH_TRANSFORMERS,
 ];
 
+/** Imperative handle of the editor (e.g. a placeholder picker). */
+export type EditorXHandle = {
+  /** Inserts plain text at the caret (end of the document without one). */
+  insertText: (text: string) => void;
+};
+
+/** Serialized editor state plus the rendered HTML of the document. */
+export type EditorXContent = { json: string; html: string };
+
 type EditorXProps = {
   /** Markdown / plain text initial content (composer remounts on key change). */
   initialMarkdown?: string;
+  /**
+   * Serialized Lexical editor state (JSON); wins over `initialMarkdown`.
+   * The composer remounts on key change.
+   */
+  initialJson?: string;
   /** Emits markdown whenever the document changes. */
   onMarkdownChange?: (markdown: string) => void;
+  /** Emits the editor state (JSON) and its HTML whenever it changes. */
+  onContentChange?: (content: EditorXContent) => void;
+  /** Imperative handle (insert text at the caret). */
+  editorRef?: Ref<EditorXHandle>;
   editable?: boolean;
   placeholder?: string;
   className?: string;
@@ -172,13 +199,59 @@ function MarkdownChangePlugin({
   );
 }
 
+function ContentChangePlugin({
+  onContentChange,
+}: {
+  onContentChange?: (content: EditorXContent) => void;
+}) {
+  const [editor] = useLexicalComposerContext();
+  return (
+    <OnChangePlugin
+      ignoreSelectionChange
+      onChange={(editorState: EditorState) => {
+        if (!onContentChange) return;
+        const json = JSON.stringify(editorState.toJSON());
+        const html = editor.getRootElement()?.innerHTML ?? "";
+        onContentChange({ json, html });
+      }}
+    />
+  );
+}
+
+function HandlePlugin({ editorRef }: { editorRef?: Ref<EditorXHandle> }) {
+  const [editor] = useLexicalComposerContext();
+  useImperativeHandle(
+    editorRef,
+    () => ({
+      insertText(text: string) {
+        editor.update(() => {
+          let selection = $getSelection();
+          if (!$isRangeSelection(selection)) {
+            $getRoot().selectEnd();
+            selection = $getSelection();
+          }
+          if ($isRangeSelection(selection)) selection.insertText(text);
+        });
+        editor.focus();
+      },
+    }),
+    [editor],
+  );
+  return null;
+}
+
 /**
  * Shadcn Editor X — Lexical rich text editor for knowledge document bodies.
- * Persists as markdown string (API plain-text body).
+ * Persists as markdown string (API plain-text body), or as a serialized
+ * editor state plus HTML (`initialJson` / `onContentChange`, contract
+ * templates).
  */
 export function EditorX({
   initialMarkdown = "",
+  initialJson,
   onMarkdownChange,
+  onContentChange,
+  editorRef,
   editable = true,
   placeholder,
   className,
@@ -235,16 +308,18 @@ export function EditorX({
           LayoutContainerNode,
           LayoutItemNode,
         ],
-        $initialEditorState() {
-          const root = $getRoot();
-          if (root.getFirstChild() !== null) return;
-          $convertFromMarkdownString(
-            initialMarkdown,
-            EDITOR_X_MARKDOWN_TRANSFORMERS,
-            undefined,
-            true,
-          );
-        },
+        $initialEditorState: initialJson
+          ? initialJson
+          : () => {
+              const root = $getRoot();
+              if (root.getFirstChild() !== null) return;
+              $convertFromMarkdownString(
+                initialMarkdown,
+                EDITOR_X_MARKDOWN_TRANSFORMERS,
+                undefined,
+                true,
+              );
+            },
         theme: editorTheme,
       }),
     // Remount via `key` when initialMarkdown identity changes.
@@ -390,6 +465,8 @@ export function EditorX({
 
           <EditablePlugin editable={editable} />
           <MarkdownChangePlugin onMarkdownChange={onMarkdownChange} />
+          <ContentChangePlugin onContentChange={onContentChange} />
+          <HandlePlugin editorRef={editorRef} />
         </TooltipProvider>
       </LexicalExtensionComposer>
     </div>
