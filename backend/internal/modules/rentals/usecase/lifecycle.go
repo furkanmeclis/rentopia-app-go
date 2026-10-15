@@ -134,7 +134,7 @@ func (s *Service) Handover(ctx context.Context, orgID int64, id uuid.UUID, in mo
 	if err != nil {
 		ve.add("at", "in_future", "the time cannot be in the future")
 	}
-	checkReading(ve, "", in.Km, in.Fuel, 0)
+	checkReading(ve, "", in.Km, in.Fuel, c.VehicleOdometerKm)
 	if len(in.Note) > 2000 {
 		ve.add("note", "too_long", "note is at most 2000 characters")
 	}
@@ -665,7 +665,7 @@ func (s *Service) Swap(ctx context.Context, orgID int64, id uuid.UUID, in model.
 			}
 			if err := q.InsertReservationEvent(hctx, db.InsertReservationEventParams{
 				OrganizationID: orgID, ReservationID: c.ReservationID, Action: "plate_changed", Reason: reason,
-				Data: mustJSON(map[string]any{"from_plate": c.VehiclePlate, "to_plate": target.Plate, "fixed": true, "source": "rental_swap"}),
+				Data:    mustJSON(map[string]any{"from_plate": c.VehiclePlate, "to_plate": target.Plate, "fixed": true, "source": "rental_swap"}),
 				ActorID: int8Ptr(actorID(ctx)),
 			}); err != nil {
 				return err

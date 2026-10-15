@@ -332,4 +332,3 @@ func openTask(ctx context.Context, q *db.Queries, orgID int64, typ string, branc
 	}
 	return id, true, nil
 }
-

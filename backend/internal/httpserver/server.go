@@ -46,6 +46,9 @@ import (
 	cataloghandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/handler"
 	catalogrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/repository"
 	catalogusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/usecase"
+	contractsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/contracts"
+	contractshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/contracts/handler"
+	contractsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/contracts/usecase"
 	customersmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/customers"
 	customeradapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/customers/adapters"
 	customerhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/customers/handler"
@@ -99,6 +102,10 @@ import (
 	pricingrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/repository"
 	pricingusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/qrlogin"
+	rentalsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/rentals"
+	rentaladapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/rentals/adapters"
+	rentalhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/rentals/handler"
+	rentalusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/rentals/usecase"
 	reservationsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations"
 	reservationadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/adapters"
 	reservationhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/handler"
@@ -137,6 +144,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx/orgcache"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/outbox"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/pdfrender"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/ratelimit"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/resourceevents"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/searchengine"
@@ -405,6 +413,21 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	reservationSvc.SetCoupons(reservationadapters.NewCoupons(campaignsSvc))
 	reservationSvc.SetResourceEvents(resourceEvents)
 	fleetOpsSvc.SetAffectedHandler(reservationadapters.NewAffected(reservationSvc))
+	// Contracts (TEC-710): templates, rendered / hashed document versions,
+	// PDFs (headless Chromium; in the worker when a queue is wired).
+	contractsSvc := contractsusecase.New(deps.DB, deps.Queries, orgSettingsSvc, deps.Storage)
+	contractsSvc.SetRenderer(pdfrender.NewChromium())
+	if deps.Queue != nil {
+		contractsSvc.SetQueue(deps.Queue)
+	}
+	contractsSvc.SetResourceEvents(resourceEvents)
+	// Rentals (TEC-709): born from confirmed reservations with a fixed
+	// plate (reservation lifecycle listener), handover / return on the
+	// engine, operation tasks; documents through contracts.
+	rentalsSvc := rentalusecase.New(deps.DB, deps.Queries, availabilitySvc, rentaladapters.NewReservations(reservationSvc), vehicleSvc)
+	rentalsSvc.SetDocuments(contractsSvc)
+	rentalsSvc.SetResourceEvents(resourceEvents)
+	reservationSvc.SetLifecycleListener(rentalsSvc)
 	// Rental group membership removals re-plan the commitments that relied
 	// on them (or are refused); moved reservations record plan_moved.
 	vehicleSvc.SetMembershipGuard(availabilitySvc)
@@ -424,6 +447,8 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	extrasmodule.RegisterLiveResources(tenantLive)
 	campaignsmodule.RegisterLiveResources(tenantLive)
 	reservationsmodule.RegisterLiveResources(tenantLive)
+	rentalsmodule.RegisterLiveResources(tenantLive)
+	contractsmodule.RegisterLiveResources(tenantLive)
 	resourceEvents.AddResolver(tenantmodule.ChannelResolver(tenantmodule.QueriesLookup(deps.Queries)))
 	uc.AddChannelRules(tenantmodule.ChannelRule(tenantLive, tenantResolver))
 	catalogmodule.RegisterLiveResources(liveResources)
@@ -476,6 +501,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		extrasadapters.NewIO(extrasSvc),
 		campaignsadapters.NewIO(campaignsSvc),
 		reservationadapters.NewIO(reservationSvc),
+		rentaladapters.NewIO(rentalsSvc),
 		orgadapters.NewIO(orgSvc),
 		customeradapters.NewIO(customerSvc),
 	)
@@ -616,6 +642,10 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		Export: exportH.TenantExport(reservationsmodule.Resource, reservationsmodule.ExportQueryKeys...),
 		Bulk:   bulkH.TenantExecute(reservationsmodule.Resource),
 	}, tokens, loader, tenantResolver)
+	rentalsmodule.RegisterRoutes(mux, rentalhandler.New(rentalsSvc, activityRec), rentalsmodule.EngineHandlers{
+		Export: exportH.TenantExport(rentalsmodule.Resource, rentalsmodule.ExportQueryKeys...),
+	}, tokens, loader, tenantResolver)
+	contractsmodule.RegisterRoutes(mux, contractshandler.New(contractsSvc, activityRec), tokens, loader, tenantResolver)
 	settingsmodule.RegisterRoutes(mux, settingshandler.New(
 		settingsusecase.New(deps.Queries),
 		deps.Storage,

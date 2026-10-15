@@ -243,4 +243,3 @@ func (s *Service) afterTask(ctx context.Context, orgID int64, id uuid.UUID) (mod
 	s.publish(ctx, model.ResourceOperationTasks, "updated", id)
 	return s.GetTask(ctx, orgID, id)
 }
-
