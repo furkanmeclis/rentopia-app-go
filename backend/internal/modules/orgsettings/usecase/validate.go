@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/model"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/pii"
 )
 
 // Detail is one field-level validation problem (dot path of the form field).
@@ -37,7 +38,6 @@ func (e *ValidationError) add(field, code, msg string) {
 }
 
 var (
-	digitsRE  = regexp.MustCompile(`^[0-9]+$`)
 	phoneRE   = regexp.MustCompile(`^\+?[0-9 ()\-]{7,32}$`)
 	moneyRE   = regexp.MustCompile(`^[0-9]{1,12}(\.[0-9]{1,2})?$`)
 	percentRE = regexp.MustCompile(`^[0-9]{1,3}(\.[0-9]{1,2})?$`)
@@ -53,50 +53,12 @@ const (
 )
 
 // ValidVKN reports whether v is a valid Turkish tax identification number
-// (Vergi Kimlik Numarası, 10 digits, GİB checksum).
-func ValidVKN(v string) bool {
-	if len(v) != 10 || !digitsRE.MatchString(v) {
-		return false
-	}
-	sum := 0
-	for i := 0; i < 9; i++ {
-		d := int(v[i] - '0')
-		tmp := (d + 9 - i) % 10
-		if tmp == 0 {
-			continue
-		}
-		p := (tmp * (1 << (9 - i))) % 9
-		if p == 0 {
-			p = 9
-		}
-		sum += p
-	}
-	check := (10 - sum%10) % 10
-	return check == int(v[9]-'0')
-}
+// (Vergi Kimlik Numarası, 10 digits, GİB checksum). See pii.ValidVKN.
+func ValidVKN(v string) bool { return pii.ValidVKN(v) }
 
 // ValidTCKN reports whether v is a valid Turkish national identity number
-// (T.C. Kimlik No, 11 digits, first digit not zero, two check digits).
-func ValidTCKN(v string) bool {
-	if len(v) != 11 || !digitsRE.MatchString(v) || v[0] == '0' {
-		return false
-	}
-	d := make([]int, 11)
-	for i := range v {
-		d[i] = int(v[i] - '0')
-	}
-	odd := d[0] + d[2] + d[4] + d[6] + d[8]
-	even := d[1] + d[3] + d[5] + d[7]
-	d10 := ((odd*7-even)%10 + 10) % 10
-	if d10 != d[9] {
-		return false
-	}
-	total := 0
-	for i := 0; i < 10; i++ {
-		total += d[i]
-	}
-	return total%10 == d[10]
-}
+// (T.C. Kimlik No, 11 digits, two check digits). See pii.ValidTCKN.
+func ValidTCKN(v string) bool { return pii.ValidTCKN(v) }
 
 // Normalize trims the document, fills missing channels / mappings and
 // validates it. It returns the normalized settings or a *ValidationError.
