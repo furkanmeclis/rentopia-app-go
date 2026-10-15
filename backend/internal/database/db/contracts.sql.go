@@ -356,6 +356,39 @@ func (q *Queries) GetDocumentRentalFacts(ctx context.Context, arg GetDocumentRen
 	return i, err
 }
 
+const getDocumentReservationByID = `-- name: GetDocumentReservationByID :one
+SELECT res.id, res.uuid, res.reference, res.pickup_branch_id, res.return_branch_id
+FROM reservations res
+WHERE res.organization_id = $1
+  AND res.id = $2
+`
+
+type GetDocumentReservationByIDParams struct {
+	OrganizationID int64 `json:"organization_id"`
+	ID             int64 `json:"id"`
+}
+
+type GetDocumentReservationByIDRow struct {
+	ID             int64     `json:"id"`
+	Uuid           uuid.UUID `json:"uuid"`
+	Reference      string    `json:"reference"`
+	PickupBranchID int64     `json:"pickup_branch_id"`
+	ReturnBranchID int64     `json:"return_branch_id"`
+}
+
+func (q *Queries) GetDocumentReservationByID(ctx context.Context, arg GetDocumentReservationByIDParams) (GetDocumentReservationByIDRow, error) {
+	row := q.db.QueryRow(ctx, getDocumentReservationByID, arg.OrganizationID, arg.ID)
+	var i GetDocumentReservationByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.Uuid,
+		&i.Reference,
+		&i.PickupBranchID,
+		&i.ReturnBranchID,
+	)
+	return i, err
+}
+
 const getDocumentReservationRef = `-- name: GetDocumentReservationRef :one
 SELECT res.id, res.uuid, res.reference, res.pickup_branch_id, res.return_branch_id
 FROM reservations res
@@ -387,6 +420,25 @@ func (q *Queries) GetDocumentReservationRef(ctx context.Context, arg GetDocument
 		&i.ReturnBranchID,
 	)
 	return i, err
+}
+
+const getDocumentUUIDByID = `-- name: GetDocumentUUIDByID :one
+SELECT d.uuid
+FROM documents d
+WHERE d.organization_id = $1
+  AND d.id = $2
+`
+
+type GetDocumentUUIDByIDParams struct {
+	OrganizationID int64 `json:"organization_id"`
+	ID             int64 `json:"id"`
+}
+
+func (q *Queries) GetDocumentUUIDByID(ctx context.Context, arg GetDocumentUUIDByIDParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, getDocumentUUIDByID, arg.OrganizationID, arg.ID)
+	var uuid uuid.UUID
+	err := row.Scan(&uuid)
+	return uuid, err
 }
 
 const getDocumentVersion = `-- name: GetDocumentVersion :one
@@ -579,10 +631,10 @@ func (q *Queries) GetLiveDocument(ctx context.Context, arg GetLiveDocumentParams
 const insertContractTemplate = `-- name: InsertContractTemplate :one
 
 INSERT INTO contract_templates (organization_id, kind, name, version, status, content, body_html, placeholders, created_by)
-SELECT $1, $2, $3,
+SELECT $1::bigint, $2::text, $3::text,
     COALESCE((SELECT MAX(t.version) FROM contract_templates t
-        WHERE t.organization_id = $1 AND t.kind = $2), 0) + 1,
-    'draft', $4, $5, $6, $7
+        WHERE t.organization_id = $1::bigint AND t.kind = $2::text), 0) + 1,
+    'draft', $4::jsonb, $5::text, $6::text[], $7::bigint
 RETURNING id, uuid, version
 `
 
@@ -703,11 +755,11 @@ INSERT INTO document_versions (
     organization_id, document_id, version, status, template_id, template_version, html, content_hash, data_snapshot,
     changed_keys, created_by
 )
-SELECT $1, $2,
+SELECT $1::bigint, $2::bigint,
     COALESCE((SELECT MAX(x.version) FROM document_versions x
-        WHERE x.organization_id = $1 AND x.document_id = $2), 0) + 1,
-    'draft', $3, $4, $5, $6,
-    $7, $8, $9
+        WHERE x.organization_id = $1::bigint AND x.document_id = $2::bigint), 0) + 1,
+    'draft', $3::bigint, $4::int, $5::text, $6::text,
+    $7::jsonb, $8::text[], $9::bigint
 RETURNING id, uuid, version
 `
 

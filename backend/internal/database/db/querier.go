@@ -381,7 +381,9 @@ type Querier interface {
 	GetDocumentOrganization(ctx context.Context, organizationID int64) (GetDocumentOrganizationRow, error)
 	// The live rental of a reservation as documents render it.
 	GetDocumentRentalFacts(ctx context.Context, arg GetDocumentRentalFactsParams) (GetDocumentRentalFactsRow, error)
+	GetDocumentReservationByID(ctx context.Context, arg GetDocumentReservationByIDParams) (GetDocumentReservationByIDRow, error)
 	GetDocumentReservationRef(ctx context.Context, arg GetDocumentReservationRefParams) (GetDocumentReservationRefRow, error)
+	GetDocumentUUIDByID(ctx context.Context, arg GetDocumentUUIDByIDParams) (uuid.UUID, error)
 	GetDocumentVersion(ctx context.Context, arg GetDocumentVersionParams) (GetDocumentVersionRow, error)
 	GetDocumentVersionByID(ctx context.Context, arg GetDocumentVersionByIDParams) (GetDocumentVersionByIDRow, error)
 	// Reservations resolve a driver_uuid of the organization (customer joined).

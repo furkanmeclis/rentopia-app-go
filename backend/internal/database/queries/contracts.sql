@@ -8,10 +8,10 @@
 -- concurrent insert of the same kind hits the unique (kind, version) and
 -- retries.
 INSERT INTO contract_templates (organization_id, kind, name, version, status, content, body_html, placeholders, created_by)
-SELECT sqlc.arg(organization_id), sqlc.arg(kind), sqlc.arg(name),
+SELECT sqlc.arg(organization_id)::bigint, sqlc.arg(kind)::text, sqlc.arg(name)::text,
     COALESCE((SELECT MAX(t.version) FROM contract_templates t
-        WHERE t.organization_id = sqlc.arg(organization_id) AND t.kind = sqlc.arg(kind)), 0) + 1,
-    'draft', sqlc.arg(content), sqlc.arg(body_html), sqlc.arg(placeholders), sqlc.narg(created_by)
+        WHERE t.organization_id = sqlc.arg(organization_id)::bigint AND t.kind = sqlc.arg(kind)::text), 0) + 1,
+    'draft', sqlc.arg(content)::jsonb, sqlc.arg(body_html)::text, sqlc.arg(placeholders)::text[], sqlc.narg(created_by)::bigint
 RETURNING id, uuid, version;
 
 -- name: GetContractTemplate :one
@@ -177,11 +177,11 @@ INSERT INTO document_versions (
     organization_id, document_id, version, status, template_id, template_version, html, content_hash, data_snapshot,
     changed_keys, created_by
 )
-SELECT sqlc.arg(organization_id), sqlc.arg(document_id),
+SELECT sqlc.arg(organization_id)::bigint, sqlc.arg(document_id)::bigint,
     COALESCE((SELECT MAX(x.version) FROM document_versions x
-        WHERE x.organization_id = sqlc.arg(organization_id) AND x.document_id = sqlc.arg(document_id)), 0) + 1,
-    'draft', sqlc.arg(template_id), sqlc.arg(template_version), sqlc.arg(html), sqlc.arg(content_hash),
-    sqlc.arg(data_snapshot), sqlc.arg(changed_keys), sqlc.narg(created_by)
+        WHERE x.organization_id = sqlc.arg(organization_id)::bigint AND x.document_id = sqlc.arg(document_id)::bigint), 0) + 1,
+    'draft', sqlc.arg(template_id)::bigint, sqlc.arg(template_version)::int, sqlc.arg(html)::text, sqlc.arg(content_hash)::text,
+    sqlc.arg(data_snapshot)::jsonb, sqlc.arg(changed_keys)::text[], sqlc.narg(created_by)::bigint
 RETURNING id, uuid, version;
 
 -- name: GetDocumentVersionByID :one
@@ -308,3 +308,15 @@ SELECT res.id, res.uuid, res.reference, res.pickup_branch_id, res.return_branch_
 FROM reservations res
 WHERE res.organization_id = sqlc.arg(organization_id)
   AND res.uuid = sqlc.arg(uuid);
+
+-- name: GetDocumentReservationByID :one
+SELECT res.id, res.uuid, res.reference, res.pickup_branch_id, res.return_branch_id
+FROM reservations res
+WHERE res.organization_id = sqlc.arg(organization_id)
+  AND res.id = sqlc.arg(id);
+
+-- name: GetDocumentUUIDByID :one
+SELECT d.uuid
+FROM documents d
+WHERE d.organization_id = sqlc.arg(organization_id)
+  AND d.id = sqlc.arg(id);
