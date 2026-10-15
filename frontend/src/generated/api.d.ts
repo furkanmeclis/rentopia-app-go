@@ -20316,6 +20316,10 @@ export interface components {
             pay_link_url?: string;
             /** Format: uuid */
             pay_link_uuid?: string;
+            /** @description Decimal amount (2 decimals) */
+            pay_link_amount?: string;
+            /** Format: date-time */
+            pay_link_expires_at?: string;
         };
         FinanceRentalLedger: {
             /** Format: uuid */

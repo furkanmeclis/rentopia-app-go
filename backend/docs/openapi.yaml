@@ -28397,6 +28397,8 @@ components:
         balance: { type: string, description: "Decimal amount (2 decimals)" }
         pay_link_url: { type: string }
         pay_link_uuid: { type: string, format: uuid }
+        pay_link_amount: { type: string, description: "Decimal amount (2 decimals)" }
+        pay_link_expires_at: { type: string, format: date-time }
 
     FinanceRentalLedger:
       type: object

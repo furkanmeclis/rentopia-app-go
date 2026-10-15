@@ -378,4 +378,7 @@ type StatementSent struct {
 	Balance     money.Money `json:"balance"`
 	PayLinkURL  string      `json:"pay_link_url,omitempty"`
 	PayLinkUUID *uuid.UUID  `json:"pay_link_uuid,omitempty"`
+	// PayLinkAmount / PayLinkExpiresAt describe the link that was sent.
+	PayLinkAmount    *money.Money `json:"pay_link_amount,omitempty"`
+	PayLinkExpiresAt *time.Time   `json:"pay_link_expires_at,omitempty"`
 }

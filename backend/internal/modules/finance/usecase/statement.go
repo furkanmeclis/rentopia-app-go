@@ -85,6 +85,8 @@ func (s *Service) SendStatement(ctx context.Context, orgID int64, id uuid.UUID, 
 		}
 		out.PayLinkURL = link.URL
 		out.PayLinkUUID = &link.UUID
+		out.PayLinkAmount = &link.Amount
+		out.PayLinkExpiresAt = &link.ExpiresAt
 		body = append(body, "Ödeme ("+FormatTRY(link.Amount)+" "+link.Currency+"): "+link.URL)
 		redacted += " Ödeme (" + FormatTRY(link.Amount) + " " + link.Currency + "): [ödeme bağlantısı]"
 	}
