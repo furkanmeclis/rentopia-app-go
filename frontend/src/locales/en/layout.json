@@ -57,5 +57,7 @@
   "nav_availability": "Availability",
   "nav_fleet_capacity_rules": "Channel capacity rules",
   "section_customers": "Customers",
-  "nav_customers": "Customers"
+  "nav_customers": "Customers",
+  "nav_pricing_extras": "Extras",
+  "nav_pricing_campaigns": "Campaigns"
 }

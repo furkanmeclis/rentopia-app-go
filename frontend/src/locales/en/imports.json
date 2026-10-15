@@ -113,5 +113,7 @@
   "resources.platform.organizations": "Organizations",
   "resources.tenant.rate_plans": "Rate plans (price list)",
   "resources.tenant.date_rules": "Date rules",
-  "resources.tenant.customers": "Customers"
+  "resources.tenant.customers": "Customers",
+  "resources.tenant.extras": "Extras",
+  "resources.tenant.campaigns": "Campaigns"
 }

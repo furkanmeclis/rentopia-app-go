@@ -97,6 +97,13 @@ const (
 	PermTenantCustomersExport    = "tenant.customers.export"
 	PermTenantCustomersImport    = "tenant.customers.import"
 	PermTenantCustomersAnonymize = "tenant.customers.anonymize"
+	// Extras catalog, prices and branch stock (TEC-702). Equipment holds
+	// use PermTenantAvailabilityHold.
+	PermTenantExtrasRead  = "tenant.extras.read"
+	PermTenantExtrasWrite = "tenant.extras.write"
+	// Campaigns and coupons (TEC-703).
+	PermTenantCampaignsRead  = "tenant.campaigns.read"
+	PermTenantCampaignsWrite = "tenant.campaigns.write"
 	// Sensitive actions of later tenant modules (TEC-689), separate from the
 	// resource read/write slugs so roles can grant them one by one.
 	PermTenantPriceOverride    = "tenant.price.override"

@@ -179,5 +179,19 @@
   "actions.customers.document_deleted": "Customer document deleted",
   "actions.customers.document_file_uploaded": "File uploaded to a customer document",
   "actions.customers.document_downloaded": "Customer document downloaded",
-  "resources.tenant.customers": "Customers"
+  "resources.tenant.customers": "Customers",
+  "resources.tenant.extras": "Extras",
+  "resources.tenant.campaigns": "Campaigns",
+  "resources.tenant.equipment_allocations": "Equipment allocations",
+  "actions.extras.created": "Extra created",
+  "actions.extras.updated": "Extra updated",
+  "actions.extras.deleted": "Extra deleted",
+  "actions.extras.prices_updated": "Extra prices updated",
+  "actions.extras.stock_updated": "Branch stock updated",
+  "actions.extras.allocation_created": "Equipment reserved",
+  "actions.extras.allocation_confirmed": "Equipment hold confirmed",
+  "actions.extras.allocation_released": "Equipment allocation released",
+  "actions.campaigns.created": "Campaign created",
+  "actions.campaigns.updated": "Campaign updated",
+  "actions.campaigns.deleted": "Campaign deleted"
 }

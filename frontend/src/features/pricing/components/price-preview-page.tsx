@@ -37,6 +37,11 @@ import {
   dateRuleDefaults,
   type DateRuleValues,
 } from "@/features/pricing/components/date-rule-form";
+import {
+  CouponResultAlert,
+  PreviewExtrasEditor,
+  type PreviewExtraRow,
+} from "@/features/pricing/components/preview-extras";
 import { VersionBadge } from "@/features/pricing/components/pricing-shared";
 import {
   LINE_LABEL_KEYS,
@@ -87,6 +92,8 @@ type Values = DateRuleValues & {
   mode: Mode;
   rate_plan_uuid: string;
   date_rule_uuid: string;
+  extras: PreviewExtraRow[];
+  coupon_code: string;
 };
 
 const SAME_BRANCH = "same";
@@ -202,6 +209,7 @@ function SideCard({
       className={cn(highlight && "ring-primary/40 ring-2")}
     >
       <div className="space-y-4">
+        {side.coupon ? <CouponResultAlert coupon={side.coupon} /> : null}
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <span
             className="font-display text-3xl font-semibold tabular-nums"
@@ -249,8 +257,22 @@ function SideCard({
                   ? [
                       {
                         key: "discount",
-                        label: t("pricing.preview.discount"),
-                        value: `−${moneyText(b.discount.amount, locale)}`,
+                        label: b.discount.code
+                          ? t("pricing.preview.discount_code", {
+                              code: b.discount.code,
+                            })
+                          : t("pricing.preview.discount"),
+                        value: (
+                          <span className="flex flex-wrap items-center gap-1">
+                            {`−${moneyText(b.discount.amount, locale)}`}
+                            {b.discount.capped ? (
+                              <StatusChip
+                                label={t("pricing.preview.capped")}
+                                tone="warning"
+                              />
+                            ) : null}
+                          </span>
+                        ),
                       },
                     ]
                   : []),
@@ -258,10 +280,27 @@ function SideCard({
                   .filter((l) => l.kind !== "rental")
                   .map((l, i) => ({
                     key: `line-${i}`,
-                    label: t(
-                      LINE_LABEL_KEYS[l.kind] ?? "pricing.preview.lines.extra",
+                    label:
+                      l.kind === "extra" && l.name
+                        ? t("pricing.preview.extra_line", {
+                            name: l.name,
+                            quantity: l.quantity,
+                          })
+                        : t(
+                            LINE_LABEL_KEYS[l.kind] ??
+                              "pricing.preview.lines.extra",
+                          ),
+                    value: (
+                      <span className="flex flex-wrap items-center gap-1">
+                        {moneyText(l.gross, locale)}
+                        {l.capped ? (
+                          <StatusChip
+                            label={t("pricing.preview.capped")}
+                            tone="warning"
+                          />
+                        ) : null}
+                      </span>
                     ),
-                    value: moneyText(l.gross, locale),
                   })),
                 {
                   key: "base",
@@ -352,6 +391,19 @@ export function PricePreviewPage() {
               (v) => v.trim() === "" || isAmount(v),
               t("pricing.validation.price"),
             ),
+          extras: z.array(
+            z.object({
+              extra_uuid: z.string().min(1, t("pricing.validation.extra")),
+              quantity: z
+                .string()
+                .trim()
+                .refine(
+                  (v) => /^\d{1,3}$/.test(v) && Number(v) >= 1,
+                  t("pricing.validation.extra_quantity"),
+                ),
+            }),
+          ),
+          coupon_code: z.string().max(64),
           mode: z.enum(["none", "plan", "rule", "new_rule"]),
           rate_plan_uuid: z.string(),
           date_rule_uuid: z.string(),
@@ -427,6 +479,8 @@ export function PricePreviewPage() {
             mode: initialPlan ? "plan" : initialRule ? "rule" : "none",
             rate_plan_uuid: initialPlan,
             date_rule_uuid: initialRule,
+            extras: [],
+            coupon_code: "",
           }}
           onSubmit={async (values) => {
             const body: PricingPreviewRequest = {
@@ -443,6 +497,15 @@ export function PricePreviewPage() {
                 ? normalizeAmount(values.delivery_fee)
                 : null,
             };
+            if (values.extras.length) {
+              body.extras = values.extras.map((e) => ({
+                extra_uuid: e.extra_uuid,
+                quantity: Number(e.quantity),
+              }));
+            }
+            if (values.coupon_code.trim()) {
+              body.coupon_code = values.coupon_code.trim();
+            }
             if (values.mode === "plan")
               body.rate_plan_uuid = values.rate_plan_uuid;
             if (values.mode === "rule")
@@ -520,6 +583,15 @@ export function PricePreviewPage() {
                     inputMode="decimal"
                     label={t("pricing.preview.delivery_fee")}
                     placeholder="0,00"
+                  />
+                </FormSection>
+                <FormSection title={t("pricing.preview.section_extras")}>
+                  <PreviewExtrasEditor />
+                  <AppInput
+                    name="coupon_code"
+                    label={t("pricing.preview.coupon_code")}
+                    description={t("pricing.preview.coupon_code_hint")}
+                    placeholder="YAZ20"
                   />
                 </FormSection>
                 <FormSection title={t("pricing.preview.section_change")}>

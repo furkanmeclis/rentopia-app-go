@@ -292,5 +292,22 @@
   "version_status.superseded": "Superseded",
   "versions.empty": "No versions",
   "versions.help": "Activated versions never change; reservations are bound to the version they were priced with.",
-  "versions.title": "Versions"
+  "versions.title": "Versions",
+  "preview.section_extras": "Extras and coupon",
+  "preview.extra": "Extra",
+  "preview.extra_placeholder": "Choose an extra",
+  "preview.extra_quantity": "Qty",
+  "preview.add_extra": "Add extra",
+  "preview.remove_extra": "Remove extra",
+  "preview.extra_line": "{{name}} (×{{quantity}})",
+  "preview.coupon_code": "Coupon code",
+  "preview.coupon_code_hint": "One discount on the rental subtotal; not combined with a manual discount.",
+  "preview.coupon_applied": "{{code}} applied · {{name}}",
+  "preview.coupon_auto": "Campaign applied · {{name}}",
+  "preview.coupon_rejected": "{{code}} not applied",
+  "preview.discount_code": "Discount ({{code}})",
+  "preview.capped": "Capped",
+  "preview.warnings.coupons_unavailable": "Campaigns cannot be evaluated right now.",
+  "validation.extra": "Choose an extra.",
+  "validation.extra_quantity": "Enter a valid quantity."
 }

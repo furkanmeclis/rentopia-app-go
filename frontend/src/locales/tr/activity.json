@@ -179,5 +179,19 @@
   "actions.customers.document_deleted": "Müşteri belgesi silindi",
   "actions.customers.document_file_uploaded": "Müşteri belgesine dosya yüklendi",
   "actions.customers.document_downloaded": "Müşteri belgesi indirildi",
-  "resources.tenant.customers": "Müşteriler"
+  "resources.tenant.customers": "Müşteriler",
+  "resources.tenant.extras": "Ek hizmetler",
+  "resources.tenant.campaigns": "Kampanyalar",
+  "resources.tenant.equipment_allocations": "Ekipman ayırmaları",
+  "actions.extras.created": "Ek hizmet eklendi",
+  "actions.extras.updated": "Ek hizmet güncellendi",
+  "actions.extras.deleted": "Ek hizmet silindi",
+  "actions.extras.prices_updated": "Ek hizmet fiyatları güncellendi",
+  "actions.extras.stock_updated": "Şube stoku güncellendi",
+  "actions.extras.allocation_created": "Ekipman ayrıldı",
+  "actions.extras.allocation_confirmed": "Ekipman opsiyonu rezervasyona çevrildi",
+  "actions.extras.allocation_released": "Ekipman ayırması bırakıldı",
+  "actions.campaigns.created": "Kampanya oluşturuldu",
+  "actions.campaigns.updated": "Kampanya güncellendi",
+  "actions.campaigns.deleted": "Kampanya silindi"
 }
