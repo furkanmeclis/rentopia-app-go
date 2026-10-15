@@ -125,5 +125,17 @@
   "actions.transfers.cancelled": "Transfer cancelled",
   "actions.one_way_rules.created": "One-way rule added",
   "actions.one_way_rules.updated": "One-way rule updated",
-  "actions.one_way_rules.deleted": "One-way rule deleted"
+  "actions.one_way_rules.deleted": "One-way rule deleted",
+  "resources.tenant.invitations": "Organization invitations",
+  "resources.tenant.organization": "Organization profile",
+  "actions.organizations.invitation_created": "Organization invitation sent",
+  "actions.organizations.invitation_revoked": "Organization invitation revoked",
+  "actions.organizations.invitation_resent": "Organization invitation resent",
+  "actions.invitations.created": "Invitation sent",
+  "actions.invitations.revoked": "Invitation revoked",
+  "actions.invitations.resent": "Invitation resent",
+  "actions.invitations.accepted": "Invitation accepted",
+  "actions.organization.updated": "Organization name updated",
+  "actions.organization.logo_updated": "Organization logo updated",
+  "actions.organization.logo_removed": "Organization logo removed"
 }

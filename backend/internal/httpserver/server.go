@@ -69,6 +69,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications/providers"
 	notifusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications/usecase"
 	organizationsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations"
+	orgadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/adapters"
 	orghandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/handler"
 	orgrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/repository"
 	orgusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/usecase"
@@ -324,9 +325,20 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		branchusecase.NewOrganizationHooks(searchIndexer),
 	)
 	uc.SetOrganizationsLister(orgSvc)
+	// Staff invitations, organization logo and the platform management views.
+	orgMgmt := orgusecase.NewManagement(orgSvc, orgrepository.NewPostgres(deps.DB, deps.Queries), orgusecase.ManagementConfig{
+		FrontendURL: cfg.Auth.FrontendURL,
+	})
+	orgMgmt.SetNotifier(notifSvc)
+	orgMgmt.SetAccounts(uc)
+	orgMgmt.SetRateLimiter(ratelimit.New(deps.Redis, cfg.App.Env))
+	orgMgmt.SetLogger(log)
 	orgH := orghandler.New(orgSvc, activityRec)
+	orgH.SetManagement(orgMgmt)
+	orgH.SetStorage(deps.Storage)
+	orgH.SetRegistrationLimiter(ratelimit.New(deps.Redis, cfg.App.Env))
 	orgH.SetResourceEvents(resourceEvents)
-	organizationsmodule.RegisterRoutes(mux, orgH, tokens, loader)
+	organizationsmodule.RegisterPlatformLiveResources(liveResources)
 	var tenantResolver orgctx.Resolver
 	if cfg.Tenancy.Enabled {
 		orgCache := orgcache.New(orgSvc, deps.Redis, cfg.Tenancy.CacheTTL, cfg.App.Env)
@@ -394,6 +406,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		vehiclerecordsadapters.NewMaintenanceIO(vehicleRecordsSvc),
 		fleetopsadapters.NewTransfersIO(fleetOpsSvc),
 		fleetopsadapters.NewOneWayIO(fleetOpsSvc),
+		orgadapters.NewIO(orgSvc),
 	)
 	exportSvc := exportusecase.New(deps.Queries, deps.Storage, ioReg, jobQueue, notifSvc, activityRec, log)
 	importSvc := importusecase.New(deps.Queries, deps.Storage, ioReg, jobQueue, notifSvc, activityRec, log)
@@ -408,6 +421,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		fleetadapters.NewProductsBulk(fleetSvc),
 		vehicleBulk,
 		fleetopsadapters.NewOneWayBulk(fleetOpsSvc),
+		orgadapters.NewBulk(orgSvc),
 	)
 	bulkSvc := bulkusecase.New(deps.Queries, bulkReg, jobQueue, notifSvc, activityRec, cfg.Bulk, log)
 	// Tenant jobs run with the requester's current membership (permissions
@@ -437,6 +451,11 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	exportH := exporthandler.New(exportSvc)
 	importH := importhandler.New(importSvc)
 	bulkH := bulkhandler.New(bulkSvc)
+	organizationsmodule.RegisterRoutes(mux, orgH, organizationsmodule.PlatformEngineHandlers{
+		Export: exportH.PlatformExport(orgadapters.Resource, orgadapters.ExportQueryKeys...),
+		Bulk:   bulkH.Execute(orgadapters.Resource),
+		StepUp: middleware.RequireStepUp(stepUpSvc),
+	}, tokens, loader)
 	exportmodule.RegisterRoutes(mux, exportH, tokens, loader, stepUpSvc)
 	importmodule.RegisterRoutes(mux, importH, tokens, loader)
 	bulkmodule.RegisterRoutes(mux, bulkH, tokens, loader)

@@ -20,10 +20,10 @@ func TestLogoMIMEAndKeys(t *testing.T) {
 		t.Fatal("oversized must fail")
 	}
 	org := uuid.MustParse("11111111-1111-1111-1111-111111111111")
-	if got := storage.OrganizationLogoObjectKey(org, ".jpg"); got != "organizations/11111111-1111-1111-1111-111111111111/branding/logo.jpg" {
+	if got := storage.OrganizationLogoObjectKey(org.String(), "v1", ".jpg"); got != "organizations/11111111-1111-1111-1111-111111111111/branding/logo-v1.jpg" {
 		t.Fatalf("organization key=%s", got)
 	}
-	if !storage.OrganizationOwnsKey(storage.OrganizationLogoObjectKey(org, "png"), org.String()) {
+	if !storage.OrganizationOwnsKey(storage.OrganizationLogoObjectKey(org.String(), "v1", "png"), org.String()) {
 		t.Fatal("organization logo must lie under the organization prefix")
 	}
 	if storage.MIMEFromLogoKey("organizations/x/branding/logo.png") != "image/png" {

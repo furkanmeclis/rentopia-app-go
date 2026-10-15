@@ -36,5 +36,8 @@
   "actions.vehicles.start_maintenance": "Send to maintenance",
   "actions.one_way_rules.activate": "Activate rules",
   "actions.one_way_rules.deactivate": "Deactivate rules",
-  "confirm.one_way_rules.deactivate": "Deactivate {{count}} selected rules? One-way returns on these routes close."
+  "confirm.one_way_rules.deactivate": "Deactivate {{count}} selected rules? One-way returns on these routes close.",
+  "actions.organizations.activate": "Activate organizations",
+  "actions.organizations.suspend": "Suspend organizations",
+  "confirm.organizations.suspend": "Suspend {{count}} selected organizations? Their members lose access immediately."
 }

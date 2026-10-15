@@ -36,5 +36,8 @@
   "actions.vehicles.start_maintenance": "Bakıma al",
   "actions.one_way_rules.activate": "Kuralları aktifleştir",
   "actions.one_way_rules.deactivate": "Kuralları pasifleştir",
-  "confirm.one_way_rules.deactivate": "Seçili {{count}} kural pasifleştirilsin mi? Bu güzergâhlarda tek yön iade kapanır."
+  "confirm.one_way_rules.deactivate": "Seçili {{count}} kural pasifleştirilsin mi? Bu güzergâhlarda tek yön iade kapanır.",
+  "actions.organizations.activate": "Firmaları etkinleştir",
+  "actions.organizations.suspend": "Firmaları askıya al",
+  "confirm.organizations.suspend": "Seçili {{count}} firma askıya alınsın mı? Üyelerin erişimi hemen kapanır."
 }

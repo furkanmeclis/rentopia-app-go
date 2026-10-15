@@ -221,6 +221,13 @@ export const platformNav = defineNav({
       icon: Shield,
       defaultOpen: true,
       items: [
+        {
+          id: "organizations",
+          titleKey: "layout.nav_organizations",
+          href: routes.platform.organizations.root,
+          icon: Building2,
+          permission: permissions.organizations.read,
+        },
         usersNavItem,
         {
           id: "catalog",

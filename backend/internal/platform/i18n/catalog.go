@@ -156,6 +156,12 @@ var trCatalog = map[string]string{
 	"one_way_rules.is_active": "Aktif", "one_way_rules.created_at": "Oluşturulma",
 	"export.title.tenant.one_way_rules": "Tek yön kuralları dışa aktarma",
 	"resources.tenant.one_way_rules":    "Tek yön kuralları",
+	"organizations.owner_email":         "Sahip e-postası", "organizations.owner_name": "Sahip",
+	"organizations.member_count": "Üye sayısı", "organizations.branch_count": "Şube sayısı",
+	"organizations.vehicle_count": "Araç sayısı", "organizations.access_state": "Erişim durumu",
+	"organizations.access_starts_at":      "Erişim başlangıcı",
+	"export.title.platform.organizations": "Organizasyonlar dışa aktarma",
+	"resources.platform.organizations":    "Organizasyonlar",
 }
 
 var enCatalog = map[string]string{
@@ -276,4 +282,10 @@ var enCatalog = map[string]string{
 	"one_way_rules.is_active": "Active", "one_way_rules.created_at": "Created",
 	"export.title.tenant.one_way_rules": "One-way rules export",
 	"resources.tenant.one_way_rules":    "One-way rules",
+	"organizations.owner_email":         "Owner e-mail", "organizations.owner_name": "Owner",
+	"organizations.member_count": "Members", "organizations.branch_count": "Branches",
+	"organizations.vehicle_count": "Vehicles", "organizations.access_state": "Access state",
+	"organizations.access_starts_at":      "Access starts",
+	"export.title.platform.organizations": "Organizations export",
+	"resources.platform.organizations":    "Organizations",
 }

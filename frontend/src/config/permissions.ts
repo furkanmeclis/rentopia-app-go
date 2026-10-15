@@ -12,6 +12,9 @@ export const Permission = {
   PlatformRolesImport: "platform.roles.import",
   PlatformOrganizationsRead: "platform.organizations.read",
   PlatformOrganizationsWrite: "platform.organizations.write",
+  PlatformOrganizationsExport: "platform.organizations.export",
+  PlatformOrganizationsBulkActivate: "platform.organizations.bulk.activate",
+  PlatformOrganizationsBulkSuspend: "platform.organizations.bulk.suspend",
   PlatformCatalogRead: "platform.catalog.read",
   PlatformCatalogWrite: "platform.catalog.write",
   PlatformNotificationsRead: "platform.notifications.read",
@@ -116,6 +119,9 @@ export const permissions = {
   organizations: {
     read: Permission.PlatformOrganizationsRead,
     write: Permission.PlatformOrganizationsWrite,
+    export: Permission.PlatformOrganizationsExport,
+    bulkActivate: Permission.PlatformOrganizationsBulkActivate,
+    bulkSuspend: Permission.PlatformOrganizationsBulkSuspend,
   },
   catalog: {
     read: Permission.PlatformCatalogRead,
