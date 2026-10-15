@@ -137,5 +137,11 @@
   "labels.tenant.customers.export": "Müşterileri dışa aktar",
   "labels.tenant.customers.import": "Müşterileri içe aktar",
   "labels.tenant.customers.anonymize": "Müşterileri anonimleştir (KVKK)",
-  "groups.tenant_customers": "Müşteriler"
+  "groups.tenant_customers": "Müşteriler",
+  "labels.tenant.extras.read": "Ek hizmetleri görüntüle (fiyat, stok, ayırma)",
+  "labels.tenant.extras.write": "Ek hizmetleri, fiyatlarını ve şube stokunu yönet",
+  "groups.tenant_extras": "Ek hizmetler",
+  "labels.tenant.campaigns.read": "Kampanyaları görüntüle",
+  "labels.tenant.campaigns.write": "Kampanyaları ve kupon kodlarını yönet",
+  "groups.tenant_campaigns": "Kampanyalar"
 }

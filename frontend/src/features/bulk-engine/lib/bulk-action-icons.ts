@@ -1,4 +1,5 @@
 import {
+  Archive,
   ArrowRightLeft,
   CircleCheck,
   CircleOff,
@@ -63,6 +64,14 @@ const bulkActionIconCatalog: Record<
   "tenant.customers": {
     add_tag: Tag,
     remove_tag: TagsIcon,
+  },
+  "tenant.extras": {
+    publish: CircleCheck,
+    archive: Archive,
+  },
+  "tenant.campaigns": {
+    activate: CircleCheck,
+    deactivate: CircleOff,
   },
 };
 

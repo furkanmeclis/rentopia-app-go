@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/model"
@@ -60,21 +61,6 @@ func samePlanTarget(a, b pricing.Plan) bool {
 // Preview prices one rental twice: with the active plans and rules
 // (current) and with the given draft applied (proposed).
 func (s *Service) Preview(ctx context.Context, orgID int64, in model.PreviewInput) (model.Preview, error) {
-	current, proposed, warnings, err := s.previewInputs(ctx, orgID, in)
-	if err != nil {
-		return model.Preview{}, err
-	}
-	out := model.Preview{Current: side(current), Proposed: side(proposed), Warnings: warnings}
-	if out.Current.Breakdown != nil && out.Proposed.Breakdown != nil {
-		d := out.Proposed.Breakdown.Total.Sub(out.Current.Breakdown.Total)
-		out.Difference = &d
-	}
-	return out, nil
-}
-
-// previewInputs validates a preview request and resolves the engine inputs
-// of both sides (current: active plans and rules; proposed: with the draft).
-func (s *Service) previewInputs(ctx context.Context, orgID int64, in model.PreviewInput) (pricing.Input, pricing.Input, []string, error) {
 	q := s.repo.Q()
 	ve := &ValidationError{}
 	var product db.GetPricingProductByUUIDRow
@@ -144,6 +130,28 @@ func (s *Service) previewInputs(ctx context.Context, orgID int64, in model.Previ
 			ve.add("discount.kind", "invalid", "kind must be percent or amount")
 		}
 	}
+	if strings.TrimSpace(in.CouponCode) != "" && in.Discount != nil {
+		ve.add("coupon_code", "not_allowed", "send a coupon code or a manual discount, not both")
+	}
+	if len([]rune(in.CouponCode)) > 64 {
+		ve.add("coupon_code", "too_long", "coupon_code is too long")
+	}
+	var extras []pricing.Extra
+	if len(in.Extras) > 0 {
+		switch {
+		case len(in.Extras) > 50:
+			ve.add("extras", "too_many", "at most 50 extras")
+		case s.extras == nil:
+			ve.add("extras", "unavailable", "extras are not available")
+		case product.ID != 0:
+			lines, details, err := s.extras.ResolveExtras(ctx, orgID, product.ID, in.Channel, in.Extras, s.clock())
+			if err != nil {
+				return model.Preview{}, err
+			}
+			ve.Details = append(ve.Details, details...)
+			extras = lines
+		}
+	}
 	if in.RatePlanUUID != nil && in.RatePlanDraft != nil {
 		ve.add("rate_plan_draft", "not_allowed", "send rate_plan_uuid or rate_plan_draft, not both")
 	}
@@ -160,18 +168,18 @@ func (s *Service) previewInputs(ctx context.Context, orgID int64, in model.Previ
 		case errors.Is(err, ErrPlanNotFound):
 			ve.add("rate_plan_uuid", "not_found", "rate plan was not found")
 		case err != nil:
-			return pricing.Input{}, pricing.Input{}, nil, err
+			return model.Preview{}, err
 		case row.RentalProductID != product.ID && product.ID != 0:
 			ve.add("rate_plan_uuid", "other_product", "the rate plan belongs to another rental product")
 		default:
 			v, _, err := planVersion(ctx, q, orgID, row.ID, model.VersionDraft)
 			if err != nil {
-				return pricing.Input{}, pricing.Input{}, nil, err
+				return model.Preview{}, err
 			}
 			if v == nil {
 				v, _, err = planVersion(ctx, q, orgID, row.ID, model.VersionActive)
 				if err != nil {
-					return pricing.Input{}, pricing.Input{}, nil, err
+					return model.Preview{}, err
 				}
 			}
 			if v != nil {
@@ -210,21 +218,21 @@ func (s *Service) previewInputs(ctx context.Context, orgID int64, in model.Previ
 		case errors.Is(err, ErrRuleNotFound):
 			ve.add("date_rule_uuid", "not_found", "date rule was not found")
 		case err != nil:
-			return pricing.Input{}, pricing.Input{}, nil, err
+			return model.Preview{}, err
 		default:
 			_, v, err := ruleVersion(ctx, q, orgID, row.ID, model.VersionDraft)
 			if err != nil {
-				return pricing.Input{}, pricing.Input{}, nil, err
+				return model.Preview{}, err
 			}
 			if v == nil {
 				if _, v, err = ruleVersion(ctx, q, orgID, row.ID, model.VersionActive); err != nil {
-					return pricing.Input{}, pricing.Input{}, nil, err
+					return model.Preview{}, err
 				}
 			}
 			if v != nil {
 				targets, err := ruleTargets(ctx, q, orgID, []int64{v.ID})
 				if err != nil {
-					return pricing.Input{}, pricing.Input{}, nil, err
+					return model.Preview{}, err
 				}
 				r := engineRule(row.Uuid, row.Name, v.Uuid, v.Version, stateFromVersion(*v, targets[v.ID]))
 				ruleOverride, replaceRuleID = &r, r.ID
@@ -243,28 +251,37 @@ func (s *Service) previewInputs(ctx context.Context, orgID int64, in model.Previ
 		ruleOverride = &r
 	}
 	if err := ve.orNil(); err != nil {
-		return pricing.Input{}, pricing.Input{}, nil, err
+		return model.Preview{}, err
 	}
 
 	cfg, warnings, err := s.orgPricing(ctx, orgID)
 	if err != nil {
-		return pricing.Input{}, pricing.Input{}, nil, err
+		return model.Preview{}, err
 	}
 	plans, err := activeEnginePlans(ctx, q, orgID, product.ID)
 	if err != nil {
-		return pricing.Input{}, pricing.Input{}, nil, err
+		return model.Preview{}, err
 	}
 	days := rng.BillingDayDates()
 	from, to := days[0], days[len(days)-1].AddDays(1)
 	rules, err := activeEngineRules(ctx, q, orgID, &from, &to)
 	if err != nil {
-		return pricing.Input{}, pricing.Input{}, nil, err
+		return model.Preview{}, err
 	}
 	base := pricing.Input{
 		Start: rng.Start, End: rng.End,
 		Product:  pricing.Product{ID: product.Uuid.String(), SegmentID: product.SegmentUuid.String()},
 		BranchID: branch.Uuid.String(), Channel: in.Channel, Discount: discount, DeliveryFee: delivery,
-		VATRate: cfg.VAT, Prepayment: cfg.Prepayment,
+		Extras: extras, VATRate: cfg.VAT, Prepayment: cfg.Prepayment,
+	}
+	var coupon *CouponQuery
+	if s.coupons != nil && in.Discount == nil && (strings.TrimSpace(in.CouponCode) != "" || in.CustomerUUID != nil) {
+		coupon = &CouponQuery{
+			Code: strings.TrimSpace(in.CouponCode), ProductID: product.ID, SegmentID: product.SegmentID,
+			Channel: in.Channel, CustomerUUID: in.CustomerUUID, At: s.clock(),
+		}
+	} else if s.coupons == nil && strings.TrimSpace(in.CouponCode) != "" {
+		warnings = append(warnings, "coupons_unavailable")
 	}
 	if returnBranch != nil && returnBranch.ID != branch.ID {
 		if s.oneWay == nil {
@@ -272,7 +289,7 @@ func (s *Service) previewInputs(ctx context.Context, orgID int64, in model.Previ
 		} else {
 			allowed, fee, err := s.oneWay.ResolveOneWayFee(ctx, orgID, branch.Uuid, returnBranch.Uuid, product.Uuid)
 			if err != nil {
-				return pricing.Input{}, pricing.Input{}, nil, err
+				return model.Preview{}, err
 			}
 			if !allowed {
 				warnings = append(warnings, "one_way_not_allowed")
@@ -308,10 +325,50 @@ func (s *Service) previewInputs(ctx context.Context, orgID int64, in model.Previ
 	if planOverride == nil && ruleOverride == nil {
 		warnings = append(warnings, "no_changes")
 	}
-	return current, proposed, warnings, nil
+	cur, err := s.side(ctx, orgID, current, coupon)
+	if err != nil {
+		return model.Preview{}, err
+	}
+	prop, err := s.side(ctx, orgID, proposed, coupon)
+	if err != nil {
+		return model.Preview{}, err
+	}
+	out := model.Preview{Current: cur, Proposed: prop, Warnings: warnings}
+	if out.Current.Breakdown != nil && out.Proposed.Breakdown != nil {
+		d := out.Proposed.Breakdown.Total.Sub(out.Current.Breakdown.Total)
+		out.Difference = &d
+	}
+	return out, nil
 }
 
-func side(in pricing.Input) model.PreviewSide {
+// side prices one variant. With a coupon query the rental subtotal of a
+// first pass decides the campaign (minimum amount, percent base); the
+// applied campaign is the single discount of the second pass.
+func (s *Service) side(ctx context.Context, orgID int64, in pricing.Input, coupon *CouponQuery) (model.PreviewSide, error) {
+	if coupon == nil {
+		return calculateSide(in), nil
+	}
+	first := calculateSide(in)
+	if first.Breakdown == nil {
+		return first, nil
+	}
+	q := *coupon
+	q.Subtotal = first.Breakdown.RentalSubtotal
+	discount, result, err := s.coupons.EvaluateCoupon(ctx, orgID, q)
+	if err != nil {
+		return model.PreviewSide{}, err
+	}
+	if discount == nil {
+		first.Coupon = result
+		return first, nil
+	}
+	in.Discount = discount
+	out := calculateSide(in)
+	out.Coupon = result
+	return out, nil
+}
+
+func calculateSide(in pricing.Input) model.PreviewSide {
 	b, err := pricing.Calculate(in)
 	if err != nil {
 		pe := &model.PreviewError{Code: pricing.Code(err), Message: err.Error(), Refs: []string{}}
@@ -336,24 +393,4 @@ func (s *Service) Quote(ctx context.Context, orgID int64, in model.PreviewInput)
 		return model.PreviewSide{}, err
 	}
 	return p.Current, nil
-}
-
-// QuoteInput resolves the engine input of a rental with the active plans
-// and rules (reservations, TEC-704): the caller adds extras / a discount and
-// calls pricing.Calculate itself (extension quotes price a longer range and
-// keep only the added days). Warnings are the preview's (vat_rate_missing,
-// one_way_not_allowed …), without "no_changes".
-func (s *Service) QuoteInput(ctx context.Context, orgID int64, in model.PreviewInput) (pricing.Input, []string, error) {
-	in.RatePlanUUID, in.RatePlanDraft, in.DateRuleUUID, in.DateRuleDraft = nil, nil, nil, nil
-	current, _, warnings, err := s.previewInputs(ctx, orgID, in)
-	if err != nil {
-		return pricing.Input{}, nil, err
-	}
-	out := make([]string, 0, len(warnings))
-	for _, w := range warnings {
-		if w != "no_changes" {
-			out = append(out, w)
-		}
-	}
-	return current, out, nil
 }

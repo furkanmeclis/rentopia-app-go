@@ -123,13 +123,46 @@ type OneWayResolver interface {
 	ResolveOneWayFee(ctx context.Context, orgID int64, from, to, product uuid.UUID) (allowed bool, fee money.Money, err error)
 }
 
+// ExtrasResolver turns selected extras into engine lines (TEC-702,
+// extras module): the price of the product effective at the quote
+// instant, the charge type, the quantity bounds and the line cap. Problems
+// with a selection come back as details on "extras.N.*".
+type ExtrasResolver interface {
+	ResolveExtras(ctx context.Context, orgID, productID int64, channel string, items []model.PreviewExtraInput, at time.Time) ([]pricing.Extra, []Detail, error)
+}
+
+// CouponQuery is what a campaign is checked against.
+type CouponQuery struct {
+	Code                 string
+	ProductID, SegmentID int64
+	Channel              string
+	Subtotal             money.Money
+	CustomerUUID         *uuid.UUID
+	At                   time.Time
+}
+
+// CouponEvaluator checks a coupon code / automatic campaign (TEC-703,
+// campaigns module) without consuming it. discount nil = nothing to apply
+// (result says why when a code was given).
+type CouponEvaluator interface {
+	EvaluateCoupon(ctx context.Context, orgID int64, q CouponQuery) (*pricing.Discount, *model.CouponResult, error)
+}
+
 // Service implements the pricing use cases.
 type Service struct {
 	repo     *repository.Postgres
 	settings SettingsReader
 	oneWay   OneWayResolver
+	extras   ExtrasResolver
+	coupons  CouponEvaluator
 	now      func() time.Time
 }
+
+// SetExtrasResolver plugs the extras catalog into the preview / quote.
+func (s *Service) SetExtrasResolver(r ExtrasResolver) { s.extras = r }
+
+// SetCouponEvaluator plugs the campaigns into the preview / quote.
+func (s *Service) SetCouponEvaluator(c CouponEvaluator) { s.coupons = c }
 
 // New builds the service. settings may be nil (defaults: no VAT split,
 // no prepayment, every channel inactive except branch).

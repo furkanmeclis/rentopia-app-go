@@ -47,3 +47,10 @@ reservation_drivers
 reservation_events
 reservation_vehicle_assignments
 resolution_tasks
+extras
+extra_prices
+extra_branch_stock
+equipment_allocations
+campaigns
+campaign_targets
+campaign_redemptions

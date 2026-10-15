@@ -114,6 +114,63 @@ type BulkJob struct {
 	OrganizationID pgtype.Int8        `json:"organization_id"`
 }
 
+type Campaign struct {
+	ID                  int64              `json:"id"`
+	Uuid                uuid.UUID          `json:"uuid"`
+	OrganizationID      int64              `json:"organization_id"`
+	Name                string             `json:"name"`
+	Description         string             `json:"description"`
+	CampaignType        string             `json:"campaign_type"`
+	Code                pgtype.Text        `json:"code"`
+	DiscountKind        string             `json:"discount_kind"`
+	DiscountValue       pgtype.Numeric     `json:"discount_value"`
+	MaxDiscount         pgtype.Numeric     `json:"max_discount"`
+	MinSubtotal         pgtype.Numeric     `json:"min_subtotal"`
+	StartDate           pgtype.Date        `json:"start_date"`
+	EndDate             pgtype.Date        `json:"end_date"`
+	Channels            []string           `json:"channels"`
+	ProductScope        string             `json:"product_scope"`
+	CustomerUuids       []uuid.UUID        `json:"customer_uuids"`
+	UsageLimit          pgtype.Int4        `json:"usage_limit"`
+	PerCustomerLimit    pgtype.Int4        `json:"per_customer_limit"`
+	UsedCount           int32              `json:"used_count"`
+	MinCompletedRentals int32              `json:"min_completed_rentals"`
+	ReleaseOnCancel     bool               `json:"release_on_cancel"`
+	CorporateEligible   bool               `json:"corporate_eligible"`
+	IsActive            bool               `json:"is_active"`
+	CreatedBy           pgtype.Int8        `json:"created_by"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt           pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type CampaignRedemption struct {
+	ID              int64              `json:"id"`
+	Uuid            uuid.UUID          `json:"uuid"`
+	OrganizationID  int64              `json:"organization_id"`
+	CampaignID      int64              `json:"campaign_id"`
+	ReservationUuid uuid.UUID          `json:"reservation_uuid"`
+	CustomerUuid    pgtype.UUID        `json:"customer_uuid"`
+	Code            pgtype.Text        `json:"code"`
+	Subtotal        pgtype.Numeric     `json:"subtotal"`
+	DiscountAmount  pgtype.Numeric     `json:"discount_amount"`
+	Status          string             `json:"status"`
+	ReleaseReason   string             `json:"release_reason"`
+	UsageReturned   bool               `json:"usage_returned"`
+	CreatedBy       pgtype.Int8        `json:"created_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	ConsumedAt      pgtype.Timestamptz `json:"consumed_at"`
+	ReleasedAt      pgtype.Timestamptz `json:"released_at"`
+}
+
+type CampaignTarget struct {
+	ID              int64       `json:"id"`
+	OrganizationID  int64       `json:"organization_id"`
+	CampaignID      int64       `json:"campaign_id"`
+	RentalProductID pgtype.Int8 `json:"rental_product_id"`
+	SegmentID       pgtype.Int8 `json:"segment_id"`
+}
+
 type CatalogBrand struct {
 	ID             int64              `json:"id"`
 	Uuid           uuid.UUID          `json:"uuid"`
@@ -373,6 +430,31 @@ type Driver struct {
 	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
 }
 
+type EquipmentAllocation struct {
+	ID                  int64                            `json:"id"`
+	Uuid                uuid.UUID                        `json:"uuid"`
+	OrganizationID      int64                            `json:"organization_id"`
+	ExtraID             int64                            `json:"extra_id"`
+	BranchID            int64                            `json:"branch_id"`
+	Quantity            int32                            `json:"quantity"`
+	Kind                string                           `json:"kind"`
+	Status              string                           `json:"status"`
+	StartsAt            pgtype.Timestamptz               `json:"starts_at"`
+	EndsAt              pgtype.Timestamptz               `json:"ends_at"`
+	Period              pgtype.Range[pgtype.Timestamptz] `json:"period"`
+	ExpiresAt           pgtype.Timestamptz               `json:"expires_at"`
+	VehicleAllocationID pgtype.Int8                      `json:"vehicle_allocation_id"`
+	RefType             pgtype.Text                      `json:"ref_type"`
+	RefUuid             pgtype.UUID                      `json:"ref_uuid"`
+	Note                string                           `json:"note"`
+	CreatedBy           pgtype.Int8                      `json:"created_by"`
+	ReleasedAt          pgtype.Timestamptz               `json:"released_at"`
+	ReleasedBy          pgtype.Int8                      `json:"released_by"`
+	ReleaseReason       string                           `json:"release_reason"`
+	CreatedAt           pgtype.Timestamptz               `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz               `json:"updated_at"`
+}
+
 type ExportJob struct {
 	ID             int64              `json:"id"`
 	Uuid           uuid.UUID          `json:"uuid"`
@@ -389,6 +471,50 @@ type ExportJob struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 	OrganizationID pgtype.Int8        `json:"organization_id"`
+}
+
+type Extra struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	Code           string             `json:"code"`
+	Name           string             `json:"name"`
+	Description    string             `json:"description"`
+	ExtraType      string             `json:"extra_type"`
+	ChargeType     string             `json:"charge_type"`
+	MinQuantity    int32              `json:"min_quantity"`
+	MaxQuantity    int32              `json:"max_quantity"`
+	MaxTotal       pgtype.Numeric     `json:"max_total"`
+	Channels       []string           `json:"channels"`
+	Status         string             `json:"status"`
+	IsPhysical     bool               `json:"is_physical"`
+	SortOrder      int32              `json:"sort_order"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt      pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type ExtraBranchStock struct {
+	ID             int64              `json:"id"`
+	OrganizationID int64              `json:"organization_id"`
+	ExtraID        int64              `json:"extra_id"`
+	BranchID       int64              `json:"branch_id"`
+	Quantity       int32              `json:"quantity"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ExtraPrice struct {
+	ID              int64              `json:"id"`
+	Uuid            uuid.UUID          `json:"uuid"`
+	OrganizationID  int64              `json:"organization_id"`
+	ExtraID         int64              `json:"extra_id"`
+	RentalProductID pgtype.Int8        `json:"rental_product_id"`
+	Price           pgtype.Numeric     `json:"price"`
+	ValidFrom       pgtype.Timestamptz `json:"valid_from"`
+	ValidTo         pgtype.Timestamptz `json:"valid_to"`
+	CreatedBy       pgtype.Int8        `json:"created_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 }
 
 type GithubAppSetting struct {
