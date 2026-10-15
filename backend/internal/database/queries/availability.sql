@@ -6,7 +6,9 @@
 
 -- name: GetAvailabilityFingerprint :one
 -- Changes whenever the inputs of the cached eligibility graph change
--- (vehicles, products, versions, rental groups and their criteria).
+-- (vehicles, products, versions, rental groups, their criteria and their
+-- member vehicles). Memberships are hashed as a set: a removal followed by
+-- an addition changes it even when the row count stays the same.
 SELECT md5(concat_ws('|',
     (SELECT count(*)::text || ':' || COALESCE(max(v.updated_at)::text, '')
         FROM vehicles v WHERE v.organization_id = sqlc.arg(organization_id)),
@@ -19,8 +21,19 @@ SELECT md5(concat_ws('|',
     (SELECT count(*)::text || ':' || COALESCE(max(gm.created_at)::text, '')
         FROM rental_group_catalog_models gm WHERE gm.organization_id = sqlc.arg(organization_id)),
     (SELECT count(*)::text || ':' || COALESCE(max(gt.created_at)::text, '')
-        FROM rental_group_catalog_types gt WHERE gt.organization_id = sqlc.arg(organization_id))
+        FROM rental_group_catalog_types gt WHERE gt.organization_id = sqlc.arg(organization_id)),
+    (SELECT count(*)::text || ':' || md5(COALESCE(string_agg(vg.vehicle_id::text || '/' || vg.rental_group_id::text, ','
+            ORDER BY vg.vehicle_id, vg.rental_group_id), ''))
+        FROM vehicle_rental_groups vg WHERE vg.organization_id = sqlc.arg(organization_id))
 ))::text AS fingerprint;
+
+-- name: ListAllocationReservations :many
+-- The reservations (reference) of the given allocations; plain holds have
+-- none.
+SELECT r.allocation_id, r.uuid, r.reference
+FROM reservations r
+WHERE r.organization_id = sqlc.arg(organization_id)
+  AND r.allocation_id = ANY(sqlc.arg(allocation_ids)::bigint[]);
 
 -- name: ListAvailabilityProductVersions :many
 -- Every version of every product of the organization (live or not: active

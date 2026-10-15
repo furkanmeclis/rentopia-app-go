@@ -493,6 +493,14 @@ func TestProductEligibleVehicles(t *testing.T) {
 		}
 		return ids
 	}
+	// Membership is explicit: a group nobody was put in keeps no promise,
+	// even for vehicles that match its criteria.
+	if got := uuids(group); len(got) != 0 {
+		t.Errorf("group guarantee without members = %v", got)
+	}
+	if _, err := f.svc.AddGroup(f.ctx, f.orgA, automatic.UUID, auto); err != nil {
+		t.Fatal(err)
+	}
 	if got := uuids(group); !slices.Equal(got, []uuid.UUID{automatic.UUID}) {
 		t.Errorf("group guarantee = %v", got)
 	}
@@ -513,6 +521,82 @@ func TestProductEligibleVehicles(t *testing.T) {
 	scoped := orgctx.WithScope(f.ctx, orgctx.Scope{ID: f.orgA, Slug: "a", BranchIDs: []int64{f.branchA2.ID}})
 	if out, err := f.svc.ProductVehicles(scoped, f.orgA, byModel, 50, 0); err != nil || out.Total != 0 {
 		t.Errorf("scoped = %d %v", out.Total, err)
+	}
+	// A member whose attributes no longer match (stale) stops counting.
+	if _, err := f.svc.Patch(f.ctx, f.orgA, automatic.UUID, model.VehicleInput{Transmission: model.String("manual")}); err != nil {
+		t.Fatal(err)
+	}
+	if got := uuids(group); len(got) != 0 {
+		t.Errorf("stale member still keeps the group guarantee: %v", got)
+	}
+}
+
+// TestGroupMembersAndAddEligible: the group member list flags stale
+// members and counts candidates; "add all eligible vehicles" adds exactly
+// the active matching non-members in the caller's scope.
+func TestGroupMembersAndAddEligible(t *testing.T) {
+	f := newFixture(t)
+	autoIn := f.input("34 GRP 1")
+	autoIn.Transmission = model.String("automatic")
+	a1 := f.create(t, f.orgA, autoIn)
+	autoIn.Plate = ptr("34 GRP 2")
+	a2 := f.create(t, f.orgA, autoIn)
+	f.create(t, f.orgA, f.input("34 GRP 3")) // manual: not eligible
+	inactive := f.input("34 GRP 4")
+	inactive.Transmission = model.String("automatic")
+	inactive.IsActive = ptr(false)
+	f.create(t, f.orgA, inactive)
+	auto := f.group(t, "AUTO", `, transmission) VALUES ($1, $2, $3, 'Otomatik', 'automatic') RETURNING uuid`)
+
+	view, err := f.svc.GroupMembers(f.ctx, f.orgA, auto, 50, 0)
+	if err != nil || view.Total != 0 || view.CandidatesTotal != 2 {
+		t.Fatalf("empty group = %+v %v", view, err)
+	}
+	if _, err := f.svc.AddGroup(f.ctx, f.orgA, a1.UUID, auto); err != nil {
+		t.Fatal(err)
+	}
+	added, err := f.svc.AddEligibleMembers(f.ctx, f.orgA, auto)
+	if err != nil || added.Added != 1 || added.VehicleUUIDs[0] != a2.UUID {
+		t.Fatalf("add eligible = %+v %v", added, err)
+	}
+	if again, err := f.svc.AddEligibleMembers(f.ctx, f.orgA, auto); err != nil || again.Added != 0 {
+		t.Fatalf("add eligible twice = %+v %v", again, err)
+	}
+	// a2 changes and becomes a stale member.
+	if _, err := f.svc.Patch(f.ctx, f.orgA, a2.UUID, model.VehicleInput{Transmission: model.String("manual")}); err != nil {
+		t.Fatal(err)
+	}
+	view, err = f.svc.GroupMembers(f.ctx, f.orgA, auto, 50, 0)
+	if err != nil || view.Total != 2 || view.EligibleTotal != 1 || view.CandidatesTotal != 0 || len(view.Items) != 2 {
+		t.Fatalf("members = %+v %v", view, err)
+	}
+	for _, m := range view.Items {
+		switch m.Vehicle.UUID {
+		case a1.UUID:
+			if !m.Eligible || m.AddedAt.IsZero() {
+				t.Errorf("a1 = %+v", m)
+			}
+		case a2.UUID:
+			if m.Eligible || !slices.Contains(m.Reasons, eligibility.ReasonTransmission) {
+				t.Errorf("a2 = %+v", m)
+			}
+		}
+	}
+	// Pagination keeps the counts.
+	if page, err := f.svc.GroupMembers(f.ctx, f.orgA, auto, 1, 1); err != nil || len(page.Items) != 1 || page.Total != 2 {
+		t.Fatalf("page = %+v %v", page, err)
+	}
+	// Branch scope: a member of branch A2 sees no member and adds nothing.
+	scoped := orgctx.WithScope(f.ctx, orgctx.Scope{ID: f.orgA, Slug: "a", BranchIDs: []int64{f.branchA2.ID}})
+	if out, err := f.svc.GroupMembers(scoped, f.orgA, auto, 50, 0); err != nil || out.Total != 0 {
+		t.Fatalf("scoped = %+v %v", out, err)
+	}
+	// Another organization's group reads as not found.
+	if _, err := f.svc.GroupMembers(f.ctx, f.orgB, auto, 50, 0); !errors.Is(err, ErrGroupNotFound) {
+		t.Fatalf("cross-org members: %v", err)
+	}
+	if _, err := f.svc.AddEligibleMembers(f.ctx, f.orgB, auto); !errors.Is(err, ErrGroupNotFound) {
+		t.Fatalf("cross-org add eligible: %v", err)
 	}
 }
 

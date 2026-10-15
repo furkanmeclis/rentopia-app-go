@@ -109,6 +109,9 @@ type Service struct {
 	noLock bool
 	// maxAttempts bounds the retries of a stale plan.
 	maxAttempts int
+	// planMoved records reassignments made outside a reservation flow
+	// (rental group membership removals) on the reservations they moved.
+	planMoved PlanMovedHandler
 }
 
 // New builds the service.
@@ -197,6 +200,26 @@ func (s *Service) lock(ctx context.Context, q *db.Queries, orgID, component int6
 		return nil
 	}
 	return q.LockAvailabilityComponent(ctx, lockKey(orgID, component))
+}
+
+// lockFresh takes the component lock and checks, inside it, that the
+// eligibility graph the plan uses is still current. A fleet change (a
+// rental group membership removed, a vehicle edited) committed between
+// reading the snapshot and taking the lock makes the plan stale: the
+// writer retries with a fresh graph, so a new plan never lands on a
+// vehicle that has just left a guarantee.
+func (s *Service) lockFresh(ctx context.Context, q *db.Queries, orgID int64, snap *fleetSnapshot, component int64) error {
+	if err := s.lock(ctx, q, orgID, component); err != nil {
+		return err
+	}
+	fp, err := q.GetAvailabilityFingerprint(ctx, orgID)
+	if err != nil {
+		return err
+	}
+	if fp != snap.fingerprint {
+		return errStale
+	}
+	return nil
 }
 
 // deferExclusion makes the overlap constraint checked at commit, so a

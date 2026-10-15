@@ -124,7 +124,16 @@ func TestSatisfiesGuarantee(t *testing.T) {
 	exactType := Guarantee{Type: "EXACT_VARIANT", VariantLevel: "type", CatalogModelID: modelEgeaCross, CatalogTypeID: typeEgeaCross14Fire}
 	exactModel := Guarantee{Type: "EXACT_VARIANT", VariantLevel: "model", CatalogModelID: modelEgeaCross}
 	group := ecoHatchGroup()
-	orSimilar := Guarantee{Type: "GROUP", Group: &group}
+	member := clio()
+	outsider := clio() // matches the criteria, never added to the group
+	// A member whose attributes changed after it was added (stale).
+	stale := clio()
+	stale.Transmission = "automatic"
+	orSimilar := Guarantee{Type: "GROUP", Group: &group, Members: map[uuid.UUID]bool{
+		member.ID: true, stale.ID: true, egeaCross14.ID: true,
+	}}
+	noMembers := Guarantee{Type: "GROUP", Group: &GroupCriteria{}}
+	openMembers := Guarantee{Type: "GROUP", Group: &GroupCriteria{}, Members: map[uuid.UUID]bool{member.ID: true}}
 	thisCar := egeaCross14.ID
 	exactVehicle := Guarantee{Type: "EXACT_VEHICLE", VehicleID: &thisCar}
 
@@ -140,8 +149,13 @@ func TestSatisfiesGuarantee(t *testing.T) {
 		{"any Egea Cross keeps the model guarantee", egeaCross16, exactModel, true, []string{}},
 		{"Egea sedan breaks the Egea Cross model guarantee", egeaSedan, exactModel, false, []string{ReasonModelMismatch}},
 		{"variant level without a reference", egeaCross14, Guarantee{Type: "EXACT_VARIANT", VariantLevel: "type"}, false, []string{ReasonVariantUnset}},
-		{"Clio keeps Clio/Corsa/i20 veya benzeri", clio(), orSimilar, true, []string{}},
-		{"Egea Cross does not keep Clio/Corsa/i20 veya benzeri", egeaCross14, orSimilar, false, []string{ReasonBodyType, ReasonCatalogNotAllowed}},
+		{"member Clio keeps Clio/Corsa/i20 veya benzeri", member, orSimilar, true, []string{}},
+		{"matching Clio outside the group does not", outsider, orSimilar, false, []string{ReasonNotGroupMember}},
+		{"stale member does not", stale, orSimilar, false, []string{ReasonTransmission}},
+		{"Egea Cross member does not keep Clio/Corsa/i20 veya benzeri", egeaCross14, orSimilar, false, []string{ReasonBodyType, ReasonCatalogNotAllowed}},
+		{"Egea Cross outside the group lists every reason", egeaCross16, orSimilar, false, []string{ReasonNotGroupMember, ReasonFuel, ReasonBodyType, ReasonCatalogNotAllowed}},
+		{"group without criteria and members accepts nobody", clio(), noMembers, false, []string{ReasonNotGroupMember}},
+		{"group without criteria accepts its members", member, openMembers, true, []string{}},
 		{"group guarantee without criteria", clio(), Guarantee{Type: "GROUP"}, false, []string{ReasonGroupCriteriaUnset}},
 		{"the guaranteed vehicle", egeaCross14, exactVehicle, true, []string{}},
 		{"another vehicle of the same type", egeaCross16, exactVehicle, false, []string{ReasonVehicleMismatch}},

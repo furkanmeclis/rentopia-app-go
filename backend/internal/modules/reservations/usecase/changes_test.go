@@ -13,6 +13,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/adapters"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/usecase"
+	vehicleusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/rbac"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/pkg/money"
 	"github.com/google/uuid"
@@ -423,6 +424,48 @@ func TestLastCarConcurrency(t *testing.T) {
 	_ = f.pool.QueryRow(f.ctx, `SELECT count(*) FROM reservations WHERE organization_id = $1`, f.org).Scan(&count)
 	if count != 1 {
 		t.Fatalf("%d reservations, want 1", count)
+	}
+}
+
+// Taking the planned vehicle out of the product's rental group re-plans the
+// reservation onto another member (plan_moved, cause
+// rental_group_membership); when no member is left the removal is refused
+// with the reservation listed.
+func TestGroupMembershipRemovalReplansReservation(t *testing.T) {
+	f := newFx(t)
+	f.vehicles.SetMembershipGuard(f.avail)
+	f.avail.SetPlanMovedHandler(f.svc)
+	p := f.product("EKO", 21)
+	v1 := f.vehicle(f.mrk)
+	v2 := f.vehicle(f.mrk)
+	c, d := f.customer(30, 5)
+	r1 := f.reserve(p, c, d, f.at(0), f.at(24))
+	var group uuid.UUID
+	if err := f.pool.QueryRow(f.ctx, `SELECT uuid FROM rental_groups WHERE organization_id = $1 AND code = 'GEKO'`, f.org).Scan(&group); err != nil {
+		t.Fatal(err)
+	}
+	_, _, planned := f.allocation(r1.UUID)
+	leaving, staying := v1, v2
+	if planned == v2.id {
+		leaving, staying = v2, v1
+	}
+	if err := f.vehicles.RemoveGroup(f.ctx, f.org, leaving.uuid, group); err != nil {
+		t.Fatalf("remove: %v", err)
+	}
+	if _, _, now := f.allocation(r1.UUID); now != staying.id {
+		t.Fatalf("re-plan: on %d, want %d", now, staying.id)
+	}
+	if ev := f.events(r1.UUID); ev[len(ev)-1] != usecase.EventPlanMoved {
+		t.Fatalf("events %v", ev)
+	}
+	err := f.vehicles.RemoveGroup(f.ctx, f.org, staying.uuid, group)
+	var inUse *vehicleusecase.MembershipInUseError
+	if !errors.As(err, &inUse) || len(inUse.Allocations) != 1 || inUse.Allocations[0].Reservation == nil ||
+		inUse.Allocations[0].Reservation.UUID != r1.UUID || inUse.Allocations[0].Reservation.Reference != r1.Reference {
+		t.Fatalf("remove last member = %v", err)
+	}
+	if _, _, now := f.allocation(r1.UUID); now != staying.id {
+		t.Fatal("a refused removal moved the reservation")
 	}
 }
 

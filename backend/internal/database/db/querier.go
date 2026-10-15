@@ -313,7 +313,9 @@ type Querier interface {
 	// eligibility component inside its advisory lock and writes the plan back
 	// in the same transaction.
 	// Changes whenever the inputs of the cached eligibility graph change
-	// (vehicles, products, versions, rental groups and their criteria).
+	// (vehicles, products, versions, rental groups, their criteria and their
+	// member vehicles). Memberships are hashed as a set: a removal followed by
+	// an addition changes it even when the row count stays the same.
 	GetAvailabilityFingerprint(ctx context.Context, organizationID int64) (string, error)
 	GetAvailabilityProduct(ctx context.Context, arg GetAvailabilityProductParams) (GetAvailabilityProductRow, error)
 	GetAvailabilityServicePoint(ctx context.Context, arg GetAvailabilityServicePointParams) (GetAvailabilityServicePointRow, error)
@@ -545,6 +547,9 @@ type Querier interface {
 	ListAllExportJobs(ctx context.Context, arg ListAllExportJobsParams) ([]ExportJob, error)
 	ListAllImportJobs(ctx context.Context, arg ListAllImportJobsParams) ([]ImportJob, error)
 	ListAllPermissionSlugs(ctx context.Context) ([]string, error)
+	// The reservations (reference) of the given allocations; plain holds have
+	// none.
+	ListAllocationReservations(ctx context.Context, arg ListAllocationReservationsParams) ([]ListAllocationReservationsRow, error)
 	// One page of allocations (newest first) in the caller's branch scope
 	// (pick-up OR return branch); the caller hydrates each with GetAllocation.
 	ListAllocationUUIDs(ctx context.Context, arg ListAllocationUUIDsParams) ([]ListAllocationUUIDsRow, error)
@@ -761,6 +766,9 @@ type Querier interface {
 	ListRentalGroupAttributeFacets(ctx context.Context, organizationID int64) ([]ListRentalGroupAttributeFacetsRow, error)
 	ListRentalGroupCatalogModelIDs(ctx context.Context, arg ListRentalGroupCatalogModelIDsParams) ([]ListRentalGroupCatalogModelIDsRow, error)
 	ListRentalGroupCatalogTypeIDs(ctx context.Context, arg ListRentalGroupCatalogTypeIDsParams) ([]ListRentalGroupCatalogTypeIDsRow, error)
+	// Member vehicles (live) of the given rental groups: the explicit side of a
+	// GROUP guarantee (fleet/eligibility).
+	ListRentalGroupMemberVehicles(ctx context.Context, arg ListRentalGroupMemberVehiclesParams) ([]ListRentalGroupMemberVehiclesRow, error)
 	ListRentalGroupSegmentFacets(ctx context.Context, organizationID int64) ([]ListRentalGroupSegmentFacetsRow, error)
 	ListRentalGroups(ctx context.Context, arg ListRentalGroupsParams) ([]RentalGroup, error)
 	ListRentalGroupsByIDs(ctx context.Context, arg ListRentalGroupsByIDsParams) ([]RentalGroup, error)
