@@ -100,6 +100,8 @@ export const FIELD_LABEL_KEYS: Record<string, string> = {
   "policies.late_return_grace_minutes":
     "tenant_settings.fields.late_return_grace_minutes",
   "policies.extra_hour_fee": "tenant_settings.fields.extra_hour_fee",
+  "policies.fuel_fee_per_percent":
+    "tenant_settings.fields.fuel_fee_per_percent",
   "policies.fuel": "tenant_settings.fields.fuel",
   "policies.mileage": "tenant_settings.fields.mileage",
   "tax.default_vat_rate": "tenant_settings.fields.default_vat_rate",

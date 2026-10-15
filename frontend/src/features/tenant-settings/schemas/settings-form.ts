@@ -119,6 +119,13 @@ export function createSettingsSchema(t: Translate) {
             (v) => v === "" || MONEY.test(v),
             t("tenant_settings.validation.money"),
           ),
+        fuel_fee_per_percent: z
+          .string()
+          .trim()
+          .refine(
+            (v) => v === "" || MONEY.test(v),
+            t("tenant_settings.validation.money"),
+          ),
         fuel: z.string().max(5000),
         mileage: z.string().max(5000),
       }),
@@ -194,6 +201,7 @@ export function settingsToForm(s: OrganizationSettings): SettingsFormValues {
     payment: { ...s.payment },
     policies: {
       ...s.policies,
+      fuel_fee_per_percent: s.policies.fuel_fee_per_percent ?? "",
       late_return_grace_minutes: minutesToField(
         s.policies.late_return_grace_minutes,
       ),

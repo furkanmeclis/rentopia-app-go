@@ -24,6 +24,8 @@ export type RentalCompleteReturnRequest =
 export type RentalExtendRequest = Schemas["RentalExtendRequest"];
 export type RentalSwapRequest = Schemas["RentalSwapRequest"];
 export type RentalChargeRequest = Schemas["RentalChargeRequest"];
+export type RentalChargeOverrideRequest =
+  Schemas["RentalChargeOverrideRequest"];
 
 export type OperationTask = Schemas["OperationTask"];
 export type OperationTaskPage = Schemas["EnvelopeOperationTaskPage"]["data"];

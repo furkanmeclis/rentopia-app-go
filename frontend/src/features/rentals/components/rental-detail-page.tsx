@@ -8,15 +8,20 @@ import {
   ClipboardCheck,
   KeyRound,
   MoreHorizontal,
+  Pencil,
   Plus,
   Repeat,
+  Smartphone,
   Undo2,
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { z } from "zod";
 
 import { ErrorState } from "@/components/common/error-state";
+import { AppDialog } from "@/components/dialogs/app-dialog";
+import { AppForm, AppInput, AppTextarea } from "@/components/forms";
 import { Loading } from "@/components/common/loading";
 import {
   EntityActions,
@@ -63,6 +68,7 @@ import {
 import {
   useCancelRental,
   useDecideCharge,
+  useOverrideCharge,
   useRental,
   useRentalEvents,
 } from "@/features/rentals/hooks/use-rentals";
@@ -297,6 +303,11 @@ function PolicyCard({ rental }: { rental: Rental }) {
                 value: p.extra_hour_fee || "—",
               },
               {
+                key: "fuel_fee_per_percent",
+                label: t("rentals.policy.fuel_fee_per_percent"),
+                value: p.fuel_fee_per_percent || "—",
+              },
+              {
                 key: "early_return",
                 label: t("rentals.policy.early_return"),
                 value: p.early_return || "—",
@@ -512,6 +523,9 @@ function ChargesCard({
   const [pending, setPending] = useState<Decision>(null);
   const closePerm = can(permissions.tenant.rentals.close);
   const damagePerm = can(permissions.tenant.damage.approve);
+  const writePerm = can(permissions.tenant.rentals.write);
+  const overridePerm = can(permissions.tenant.price.override);
+  const [override, setOverride] = useState<RentalCharge | null>(null);
   const columns = useMemo(
     () =>
       [
@@ -532,6 +546,11 @@ function ChargesCard({
                   })}
                 </Badge>
               ) : null}
+              {row.original.disputed ? (
+                <Badge variant="danger" className="px-1 py-0 text-[10px]">
+                  {t("rentals.charges.disputed_badge")}
+                </Badge>
+              ) : null}
             </span>
           ),
         }),
@@ -546,8 +565,21 @@ function ChargesCard({
           labelKey: "rentals.charges.columns.amount",
           enableSorting: false,
           cell: ({ row }) => (
-            <span className="tabular-nums">
-              {money(row.original.amount, row.original.currency, locale)}
+            <span className="flex flex-col tabular-nums">
+              <span>
+                {money(row.original.amount, row.original.currency, locale)}
+              </span>
+              {row.original.original_amount ? (
+                <span className="text-muted-foreground text-xs">
+                  {t("rentals.charges.original_amount", {
+                    amount: money(
+                      row.original.original_amount,
+                      row.original.currency,
+                      locale,
+                    ),
+                  })}
+                </span>
+              ) : null}
             </span>
           ),
         }),
@@ -588,11 +620,28 @@ function ChargesCard({
           cell: ({ row }) => {
             const charge = row.original;
             if (charge.status !== "proposed") return null;
-            const canApprove =
-              closePerm || (charge.kind === "damage" && damagePerm);
+            // A disputed charge is approved only by the damage approver.
+            const canApprove = charge.disputed
+              ? damagePerm
+              : closePerm || (charge.kind === "damage" && damagePerm);
+            const canOverride =
+              writePerm &&
+              (charge.source !== "policy" && !charge.original_amount
+                ? true
+                : overridePerm);
             return (
               <EntityRowActions
                 actions={[
+                  ...(canOverride
+                    ? [
+                        {
+                          id: "override",
+                          label: t("rentals.charges.actions.override"),
+                          icon: Pencil,
+                          onSelect: () => setOverride(charge),
+                        },
+                      ]
+                    : []),
                   ...(canApprove
                     ? [
                         {
@@ -622,7 +671,7 @@ function ChargesCard({
           },
         }),
       ] as ColumnDef<RentalCharge, unknown>[],
-    [closePerm, damagePerm, locale, t],
+    [closePerm, damagePerm, locale, overridePerm, t, writePerm],
   );
   return (
     <EntitySectionCard
@@ -660,7 +709,7 @@ function ChargesCard({
         }
         description={
           pending
-            ? `${t(CHARGE_KIND_LABEL_KEYS[pending.charge.kind])} · ${money(pending.charge.amount, pending.charge.currency, locale)}`
+            ? `${t(CHARGE_KIND_LABEL_KEYS[pending.charge.kind])} · ${money(pending.charge.amount, pending.charge.currency, locale)}${pending.charge.disputed ? ` — ${t("rentals.charges.disputed_hint")}` : ""}`
             : undefined
         }
         label={t("rentals.charges.decision_note")}
@@ -670,7 +719,9 @@ function ChargesCard({
             : t("rentals.charges.actions.approve")
         }
         destructive={pending?.decision === "waive"}
-        required={pending?.decision === "waive"}
+        required={
+          pending?.decision === "waive" || Boolean(pending?.charge.disputed)
+        }
         pending={decide.isPending}
         onCancel={() => setPending(null)}
         onConfirm={(note) => {
@@ -685,7 +736,95 @@ function ChargesCard({
           );
         }}
       />
+      <ChargeOverrideDialog
+        rentalUuid={rental.uuid}
+        charge={override}
+        onClose={() => setOverride(null)}
+      />
     </EntitySectionCard>
+  );
+}
+
+const OVERRIDE_FORM_ID = "rental-charge-override";
+
+/** Changes the amount of a proposed charge with a reason. */
+function ChargeOverrideDialog({
+  rentalUuid,
+  charge,
+  onClose,
+}: {
+  rentalUuid: string;
+  charge: RentalCharge | null;
+  onClose: () => void;
+}) {
+  const { t, locale } = useLocale();
+  const override = useOverrideCharge(rentalUuid);
+  return (
+    <AppDialog
+      open={Boolean(charge)}
+      onOpenChange={(next) => {
+        if (!next && !override.isPending) onClose();
+      }}
+      title={t("rentals.charges.override_title")}
+      description={
+        charge
+          ? `${t(CHARGE_KIND_LABEL_KEYS[charge.kind])} · ${money(charge.original_amount ?? charge.amount, charge.currency, locale)} — ${t("rentals.charges.override_description")}`
+          : undefined
+      }
+      className="sm:max-w-md"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose}>
+            {t("form.cancel")}
+          </Button>
+          <Button
+            type="submit"
+            form={OVERRIDE_FORM_ID}
+            disabled={override.isPending}
+          >
+            {t("rentals.actions.save")}
+          </Button>
+        </>
+      }
+    >
+      {charge ? (
+        <AppForm<{ amount: string; reason: string }>
+          id={OVERRIDE_FORM_ID}
+          className="grid gap-4"
+          schema={z.object({
+            amount: z
+              .string()
+              .trim()
+              .regex(/^\d+([.,]\d{1,2})?$/, t("rentals.validation.amount")),
+            reason: z
+              .string()
+              .trim()
+              .min(3, t("reservations.validation.reason"))
+              .max(500, t("reservations.validation.reason")),
+          })}
+          defaultValues={{ amount: charge.amount, reason: "" }}
+          onSubmit={async (values) => {
+            await override.mutateAsync({
+              charge: charge.uuid,
+              amount: values.amount.replace(",", "."),
+              reason: values.reason,
+            });
+            onClose();
+          }}
+        >
+          <AppInput
+            name="amount"
+            inputMode="decimal"
+            label={t("rentals.charges.override_amount")}
+          />
+          <AppTextarea
+            name="reason"
+            rows={2}
+            label={t("rentals.charges.override_reason")}
+          />
+        </AppForm>
+      ) : null}
+    </AppDialog>
   );
 }
 
@@ -819,9 +958,25 @@ export function RentalDetailPage({ uuid }: { uuid: string }) {
         r ? (
           <EntityActions>
             {status === "preparation" && write ? (
+              <Button asChild type="button" size="sm" variant="outline">
+                <Link href={routes.tenant.field.handover(slug, uuid)}>
+                  <Smartphone className="size-4" />
+                  {t("rentals.actions.mobile_handover")}
+                </Link>
+              </Button>
+            ) : null}
+            {status === "preparation" && write ? (
               <Button type="button" size="sm" onClick={open("handover")}>
                 <KeyRound className="size-4" />
                 {t("rentals.actions.handover")}
+              </Button>
+            ) : null}
+            {underway && write ? (
+              <Button asChild type="button" size="sm" variant="outline">
+                <Link href={routes.tenant.field.return(slug, uuid)}>
+                  <Smartphone className="size-4" />
+                  {t("rentals.actions.mobile_return")}
+                </Link>
               </Button>
             ) : null}
             {underway && write ? (

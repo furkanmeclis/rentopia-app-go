@@ -266,5 +266,17 @@
   "actions.sms.otp.send_failed": "SMS doğrulama kodu gönderilemedi",
   "resources.tenant.integration_jobs": "Entegrasyon işleri",
   "resources.tenant.sms": "SMS",
-  "resources.tenant.sms_otp": "SMS doğrulama"
+  "resources.tenant.sms_otp": "SMS doğrulama",
+  "actions.inspections.started": "Teslim / iade formu başlatıldı",
+  "actions.inspections.finalized": "Teslim / iade formu tamamlandı",
+  "actions.inspections.revised": "Formun yeni sürümü açıldı",
+  "actions.inspections.reviewed": "İtirazlı iade incelendi",
+  "actions.inspections.signed": "Form müşteri tarafından imzalandı",
+  "actions.inspections.damage_added": "Forma hasar eklendi",
+  "actions.inspections.damage_removed": "Formdan hasar kaldırıldı",
+  "actions.inspections.photo_completed": "Form fotoğrafı yüklendi ve doğrulandı",
+  "actions.inspection_templates.saved": "Teslim / iade şablonu kaydedildi",
+  "actions.rentals.charge_overridden": "Kiralama ücreti tutarı değiştirildi",
+  "resources.tenant.inspections": "Teslim / iade formları",
+  "resources.tenant.inspection_templates": "Teslim / iade şablonları"
 }

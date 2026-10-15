@@ -157,5 +157,7 @@
   "approval_protocols.org": "Firma onay modu",
   "approval_protocols.auto": "Otomatik (ödemeyle)",
   "approval_protocols.staff": "Personel onayı",
-  "approval_protocols.channel": "Kanal onaylar"
+  "approval_protocols.channel": "Kanal onaylar",
+  "fields.fuel_fee_per_percent": "Eksik yakıt ücreti (% başına, ₺)",
+  "fields.fuel_fee_per_percent_hint": "İadede eksik her yakıt yüzdesi için. Boş bırakılırsa yakıt ücreti hesaplanmaz."
 }
