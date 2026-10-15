@@ -143,6 +143,25 @@ const (
 	PermTenantPaymentsRead        = "tenant.payments.read"
 	PermTenantPaymentsCreateLink  = "tenant.payments.create_link"
 	PermTenantReservationsApprove = "tenant.reservations.approve"
+	// Finance (TEC-717 / TEC-720, migration 000202): customer / supplier
+	// accounts and their ledger, cash / bank accounts, expenses, reports.
+	// Recording a collection / refund on an account also needs
+	// PermTenantPaymentCollect / PermTenantPaymentRefund.
+	PermTenantFinanceAccountsRead            = "tenant.finance.accounts.read"
+	PermTenantFinanceAccountsWrite           = "tenant.finance.accounts.write"
+	PermTenantFinanceAccountsExport          = "tenant.finance.accounts.export"
+	PermTenantFinanceLedgerAdjust            = "tenant.finance.ledger.adjust"
+	PermTenantFinanceCashRead                = "tenant.finance.cash.read"
+	PermTenantFinanceCashWrite               = "tenant.finance.cash.write"
+	PermTenantFinanceCashExport              = "tenant.finance.cash.export"
+	PermTenantFinanceCashImport              = "tenant.finance.cash.import"
+	PermTenantFinanceCashBulkSetCategory     = "tenant.finance.cash.bulk.set_category"
+	PermTenantFinanceExpensesRead            = "tenant.finance.expenses.read"
+	PermTenantFinanceExpensesWrite           = "tenant.finance.expenses.write"
+	PermTenantFinanceExpensesExport          = "tenant.finance.expenses.export"
+	PermTenantFinanceExpensesImport          = "tenant.finance.expenses.import"
+	PermTenantFinanceExpensesBulkSetCategory = "tenant.finance.expenses.bulk.set_category"
+	PermTenantFinanceReportsRead             = "tenant.finance.reports.read"
 )
 
 // Tenant template role keys seeded by migrations 000030 and 000041.

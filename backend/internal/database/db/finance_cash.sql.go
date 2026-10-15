@@ -579,6 +579,51 @@ func (q *Queries) GetLedgerEntryForDeposit(ctx context.Context, arg GetLedgerEnt
 	return i, err
 }
 
+const getMovementByEntry = `-- name: GetMovementByEntry :one
+SELECT m.id, m.uuid, m.cash_account_id, m.direction, m.amount, m.currency, m.branch_id, m.description
+FROM cash_movements m
+WHERE m.organization_id = $1
+  AND m.ledger_entry_id = $2
+  AND m.kind IN ('collection', 'refund')
+  AND NOT EXISTS (
+    SELECT 1 FROM cash_movements r
+    WHERE r.organization_id = m.organization_id AND r.reverses_movement_id = m.id
+  )
+`
+
+type GetMovementByEntryParams struct {
+	OrganizationID int64       `json:"organization_id"`
+	LedgerEntryID  pgtype.Int8 `json:"ledger_entry_id"`
+}
+
+type GetMovementByEntryRow struct {
+	ID            int64          `json:"id"`
+	Uuid          uuid.UUID      `json:"uuid"`
+	CashAccountID int64          `json:"cash_account_id"`
+	Direction     string         `json:"direction"`
+	Amount        pgtype.Numeric `json:"amount"`
+	Currency      string         `json:"currency"`
+	BranchID      pgtype.Int8    `json:"branch_id"`
+	Description   string         `json:"description"`
+}
+
+// The movement that settled a ledger entry (reversed with it).
+func (q *Queries) GetMovementByEntry(ctx context.Context, arg GetMovementByEntryParams) (GetMovementByEntryRow, error) {
+	row := q.db.QueryRow(ctx, getMovementByEntry, arg.OrganizationID, arg.LedgerEntryID)
+	var i GetMovementByEntryRow
+	err := row.Scan(
+		&i.ID,
+		&i.Uuid,
+		&i.CashAccountID,
+		&i.Direction,
+		&i.Amount,
+		&i.Currency,
+		&i.BranchID,
+		&i.Description,
+	)
+	return i, err
+}
+
 const getOrganizationUUIDForFinance = `-- name: GetOrganizationUUIDForFinance :one
 SELECT o.uuid FROM organizations o WHERE o.id = $1
 `

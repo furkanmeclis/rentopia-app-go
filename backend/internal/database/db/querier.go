@@ -534,6 +534,8 @@ type Querier interface {
 	GetLiveRentalGroupForVehicles(ctx context.Context, arg GetLiveRentalGroupForVehiclesParams) (GetLiveRentalGroupForVehiclesRow, error)
 	GetLiveRentalUUIDByReservation(ctx context.Context, arg GetLiveRentalUUIDByReservationParams) (uuid.UUID, error)
 	GetLogPurgeRuleByUUID(ctx context.Context, argUuid uuid.UUID) (LogPurgeRule, error)
+	// The movement that settled a ledger entry (reversed with it).
+	GetMovementByEntry(ctx context.Context, arg GetMovementByEntryParams) (GetMovementByEntryRow, error)
 	GetNotificationByID(ctx context.Context, id int64) (Notification, error)
 	GetNotificationByUUID(ctx context.Context, argUuid uuid.UUID) (Notification, error)
 	GetNotificationPreferences(ctx context.Context, userID int64) (NotificationPreference, error)
@@ -1254,6 +1256,9 @@ type Querier interface {
 	// The serialisation point of every writer of one extra at one branch.
 	LockExtraStock(ctx context.Context, arg LockExtraStockParams) (int32, error)
 	LockInvitationByTokenHash(ctx context.Context, tokenHash string) (OrganizationInvitation, error)
+	// Serialises opening accounts of one organization (per-organization code
+	// sequence) for the rest of the transaction.
+	LockOrganizationAccountCodes(ctx context.Context, organizationID int64) error
 	LockOrganizationRow(ctx context.Context, id int64) (Organization, error)
 	// Serialises draft edits and activation of one plan.
 	LockRatePlan(ctx context.Context, arg LockRatePlanParams) (int64, error)

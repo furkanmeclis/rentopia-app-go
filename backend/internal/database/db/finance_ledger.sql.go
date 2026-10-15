@@ -1705,6 +1705,17 @@ func (q *Queries) LockAccount(ctx context.Context, arg LockAccountParams) (int64
 	return id, err
 }
 
+const lockOrganizationAccountCodes = `-- name: LockOrganizationAccountCodes :exec
+SELECT pg_advisory_xact_lock(hashtextextended('finance.accounts:' || $1::bigint::text, 0))
+`
+
+// Serialises opening accounts of one organization (per-organization code
+// sequence) for the rest of the transaction.
+func (q *Queries) LockOrganizationAccountCodes(ctx context.Context, organizationID int64) error {
+	_, err := q.db.Exec(ctx, lockOrganizationAccountCodes, organizationID)
+	return err
+}
+
 const openReservationBalances = `-- name: OpenReservationBalances :many
 SELECT res.uuid, res.reference, res.status,
     (COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'debit'), 0)

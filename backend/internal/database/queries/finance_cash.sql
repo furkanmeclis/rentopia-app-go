@@ -129,6 +129,18 @@ FROM cash_movements m
 WHERE m.organization_id = sqlc.arg(organization_id)
   AND m.uuid = sqlc.arg(uuid);
 
+-- name: GetMovementByEntry :one
+-- The movement that settled a ledger entry (reversed with it).
+SELECT m.id, m.uuid, m.cash_account_id, m.direction, m.amount, m.currency, m.branch_id, m.description
+FROM cash_movements m
+WHERE m.organization_id = sqlc.arg(organization_id)
+  AND m.ledger_entry_id = sqlc.arg(ledger_entry_id)
+  AND m.kind IN ('collection', 'refund')
+  AND NOT EXISTS (
+    SELECT 1 FROM cash_movements r
+    WHERE r.organization_id = m.organization_id AND r.reverses_movement_id = m.id
+  );
+
 -- name: ListTransferPair :many
 SELECT m.id, m.uuid, m.cash_account_id, m.direction, m.amount, m.currency, m.branch_id
 FROM cash_movements m

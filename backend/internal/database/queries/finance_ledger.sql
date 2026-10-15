@@ -21,6 +21,11 @@ ON CONFLICT (organization_id, customer_id) WHERE customer_id IS NOT NULL
 DO UPDATE SET name = CASE WHEN EXCLUDED.name <> '' THEN EXCLUDED.name ELSE accounts.name END
 RETURNING id, uuid, code, branch_id, currency, payment_term_days;
 
+-- name: LockOrganizationAccountCodes :exec
+-- Serialises opening accounts of one organization (per-organization code
+-- sequence) for the rest of the transaction.
+SELECT pg_advisory_xact_lock(hashtextextended('finance.accounts:' || sqlc.arg(organization_id)::bigint::text, 0));
+
 -- name: GetCustomerDisplay :one
 SELECT c.id, c.uuid, c.customer_type, c.first_name, c.last_name, c.company_title, c.phone, c.anonymized_at
 FROM customers c
