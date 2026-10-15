@@ -562,6 +562,17 @@ DELETE FROM vehicle_rental_groups
 WHERE organization_id = sqlc.arg(organization_id)
   AND vehicle_id = sqlc.arg(vehicle_id);
 
+-- name: ListRentalGroupMemberVehicles :many
+-- Member vehicles (live) of the given rental groups: the explicit side of a
+-- GROUP guarantee (fleet/eligibility).
+SELECT vg.rental_group_id, v.uuid AS vehicle_uuid
+FROM vehicle_rental_groups vg
+JOIN vehicles v ON v.organization_id = vg.organization_id AND v.id = vg.vehicle_id
+WHERE vg.organization_id = sqlc.arg(organization_id)
+  AND vg.rental_group_id = ANY(sqlc.arg(group_ids)::bigint[])
+  AND v.deleted_at IS NULL
+ORDER BY vg.rental_group_id, v.id;
+
 -- name: ListLiveRentalGroupsForVehicles :many
 -- Every live rental group of the organization (eligibility candidates).
 SELECT g.*, s.uuid AS segment_uuid, s.code AS segment_code, s.name AS segment_name

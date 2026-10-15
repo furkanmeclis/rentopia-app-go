@@ -290,6 +290,25 @@ func (r *Postgres) ClearMemberships(ctx context.Context, orgID, vehicleID int64)
 	return r.q.ClearVehicleRentalGroups(ctx, db.ClearVehicleRentalGroupsParams{OrganizationID: orgID, VehicleID: vehicleID})
 }
 
+// GroupMembers returns the live member vehicles (by uuid) of each group.
+func (r *Postgres) GroupMembers(ctx context.Context, orgID int64, groupIDs []int64) (map[int64]map[uuid.UUID]bool, error) {
+	out := map[int64]map[uuid.UUID]bool{}
+	if len(groupIDs) == 0 {
+		return out, nil
+	}
+	rows, err := r.q.ListRentalGroupMemberVehicles(ctx, db.ListRentalGroupMemberVehiclesParams{OrganizationID: orgID, GroupIds: groupIDs})
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		if out[row.RentalGroupID] == nil {
+			out[row.RentalGroupID] = map[uuid.UUID]bool{}
+		}
+		out[row.RentalGroupID][row.VehicleUuid] = true
+	}
+	return out, nil
+}
+
 // LiveGroups lists every live rental group of the organization.
 func (r *Postgres) LiveGroups(ctx context.Context, orgID int64) ([]GroupRow, error) {
 	return r.q.ListLiveRentalGroupsForVehicles(ctx, orgID)

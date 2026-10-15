@@ -162,12 +162,27 @@ func (f *fx) vehicle(at ref) ref {
 		f.org, fmt.Sprintf("34 RS %d", f.plate), at.id).Scan(&r.id, &r.uuid); err != nil {
 		f.t.Fatal(err)
 	}
+	f.syncMembers()
 	return r
 }
 
+// syncMembers makes every live vehicle a member of every rental group of
+// the organization (membership is explicit; the fixtures' groups have no
+// criteria, so staff would add every vehicle).
+func (f *fx) syncMembers() {
+	f.t.Helper()
+	if _, err := f.pool.Exec(context.Background(), `INSERT INTO vehicle_rental_groups (organization_id, vehicle_id, rental_group_id)
+		SELECT v.organization_id, v.id, g.id FROM vehicles v
+		JOIN rental_groups g ON g.organization_id = v.organization_id
+		WHERE v.organization_id = $1 AND v.deleted_at IS NULL
+		ON CONFLICT DO NOTHING`, f.org); err != nil {
+		f.t.Fatal(err)
+	}
+}
+
 // product creates a published GROUP product whose group has no criteria
-// (every vehicle keeps it) with the given minimum driver age, and an
-// active common rate plan with bands 1-3 / 4-7 / 8+ days.
+// and every vehicle as a member (syncMembers) with the given minimum driver
+// age, and an active common rate plan with bands 1-3 / 4-7 / 8+ days.
 func (f *fx) product(code string, minAge int, prices ...string) ref {
 	f.t.Helper()
 	ctx := context.Background()
@@ -185,6 +200,7 @@ func (f *fx) product(code string, minAge int, prices ...string) ref {
 		VALUES ($1, $2, 1, 'GROUP', $3, $4, 1)`, f.org, p.id, group, minAge); err != nil {
 		f.t.Fatal(err)
 	}
+	f.syncMembers()
 	if len(prices) == 0 {
 		prices = []string{"1500", "1300", "1000"}
 	}

@@ -108,6 +108,7 @@ type Service struct {
 	repo    *repository.Postgres
 	indexer SearchIndexer
 	now     func() time.Time
+	guard   MembershipGuard
 }
 
 // New builds the service. indexer may be nil.
