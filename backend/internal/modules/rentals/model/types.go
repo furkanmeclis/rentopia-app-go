@@ -11,6 +11,7 @@ import (
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/pkg/money"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 // Live list / activity resources.
@@ -48,6 +49,10 @@ const (
 	EventChargeProposed      = "charge_proposed"
 	EventChargeApproved      = "charge_approved"
 	EventChargeWaived        = "charge_waived"
+	EventChargeOverridden    = "charge_overridden"
+	EventInspection          = "inspection_finalized"
+	EventInspectionRevised   = "inspection_revised"
+	EventInspectionReviewed  = "inspection_reviewed"
 	EventContractWaived      = "contract_waived"
 	EventEarlyReturn         = "early_return"
 	EventReservationChanged  = "reservation_changed"
@@ -65,6 +70,7 @@ const (
 	ChargeDamage      = "damage"
 	ChargeFuel        = "fuel"
 	ChargeMileage     = "mileage"
+	ChargeEquipment   = "equipment"
 	ChargeOther       = "other"
 
 	SourcePolicy = "policy"
@@ -77,7 +83,7 @@ const (
 
 // ChargeKinds lists the manual charge kinds (late_return policy fees are
 // computed, a manual late fee is allowed too).
-var ChargeKinds = []string{ChargeLateReturn, ChargeEarlyReturn, ChargeDamage, ChargeFuel, ChargeMileage, ChargeOther}
+var ChargeKinds = []string{ChargeLateReturn, ChargeEarlyReturn, ChargeDamage, ChargeFuel, ChargeMileage, ChargeEquipment, ChargeOther}
 
 // Operation task types and statuses.
 const (
@@ -85,6 +91,10 @@ const (
 	TaskHandover    = "handover"
 	TaskReturn      = "return"
 	TaskCleaning    = "cleaning"
+	// TaskMaintenance / TaskDeposit follow a return (TEC-713): the vehicle
+	// goes to maintenance, the deposit / provision has to be resolved.
+	TaskMaintenance = "maintenance"
+	TaskDeposit     = "deposit"
 
 	TaskOpen       = "open"
 	TaskInProgress = "in_progress"
@@ -94,7 +104,7 @@ const (
 
 // TaskTypes / TaskStatuses in display order.
 var (
-	TaskTypes    = []string{TaskPreparation, TaskHandover, TaskReturn, TaskCleaning}
+	TaskTypes    = []string{TaskPreparation, TaskHandover, TaskReturn, TaskCleaning, TaskMaintenance, TaskDeposit}
 	TaskStatuses = []string{TaskOpen, TaskInProgress, TaskDone, TaskCancelled}
 )
 
@@ -179,6 +189,17 @@ type Charge struct {
 	DecisionNote    string          `json:"decision_note"`
 	CreatedBy       *Actor          `json:"created_by"`
 	CreatedAt       time.Time       `json:"created_at"`
+	// Disputed: the customer disputes it (return form exception path); it
+	// never becomes final without an authorized approval.
+	Disputed bool `json:"disputed"`
+	// InspectionUUID is the return form the charge was computed from.
+	InspectionUUID *uuid.UUID `json:"inspection_uuid"`
+	// OriginalAmount is the computed amount when a person changed it
+	// (tenant.price.override).
+	OriginalAmount *money.Money `json:"original_amount"`
+	OverrideReason string       `json:"override_reason"`
+	OverriddenAt   *time.Time   `json:"overridden_at"`
+	OverriddenBy   *Actor       `json:"overridden_by"`
 }
 
 // Policy is the policy part of the reservation's settings version that
@@ -191,6 +212,9 @@ type Policy struct {
 	Extension              string `json:"extension"`
 	Fuel                   string `json:"fuel"`
 	Mileage                string `json:"mileage"`
+	// FuelFeePerPercent is the refuelling fee per missing percent of the
+	// tank ("" = no fuel charge is computed).
+	FuelFeePerPercent string `json:"fuel_fee_per_percent"`
 }
 
 // PolicyFromSnapshot reads the reservation policy snapshot
@@ -205,6 +229,7 @@ func PolicyFromSnapshot(raw []byte) Policy {
 			ExtraHourFee           string `json:"extra_hour_fee"`
 			Fuel                   string `json:"fuel"`
 			Mileage                string `json:"mileage"`
+			FuelFeePerPercent      string `json:"fuel_fee_per_percent"`
 		} `json:"policies"`
 	}
 	_ = json.Unmarshal(raw, &snap)
@@ -212,6 +237,7 @@ func PolicyFromSnapshot(raw []byte) Policy {
 		SettingsVersion: snap.SettingsVersion, LateReturnGraceMinutes: snap.Policies.LateReturnGraceMinutes,
 		ExtraHourFee: strings.TrimSpace(snap.Policies.ExtraHourFee), EarlyReturn: snap.Policies.EarlyReturn,
 		Extension: snap.Policies.Extension, Fuel: snap.Policies.Fuel, Mileage: snap.Policies.Mileage,
+		FuelFeePerPercent: strings.TrimSpace(snap.Policies.FuelFeePerPercent),
 	}
 }
 
@@ -399,7 +425,15 @@ type HandoverInput struct {
 	// WaiverReason hands over without an approved rental contract
 	// (tenant.signature.waive).
 	WaiverReason string `json:"waiver_reason"`
+	// Finalize runs inside the handover transaction after the leg is
+	// written (the mobile handover form finalizes itself there, so the
+	// rental and the form commit together). Not part of the HTTP body.
+	Finalize LegHook `json:"-"`
 }
+
+// LegHook runs inside a handover / return transaction with the id of the
+// leg the action opened or closed.
+type LegHook func(ctx context.Context, tx pgx.Tx, legID int64) error
 
 // ReturnInput records the vehicle coming back.
 type ReturnInput struct {
@@ -410,15 +444,26 @@ type ReturnInput struct {
 	Fuel       *int16     `json:"fuel"`
 	Note       string     `json:"note"`
 	DamageNote string     `json:"damage_note"`
+	// Finalize runs inside the return transaction after the leg is closed
+	// and the policy late fee is proposed (the mobile return form). Not
+	// part of the HTTP body.
+	Finalize LegHook `json:"-"`
 }
 
 // CompleteReturnInput finishes the return check.
 type CompleteReturnInput struct {
 	// VehicleStatus after the check: cleaning (default, opens a cleaning
-	// task) or available.
+	// task), maintenance (opens a maintenance task), preparing (opens a
+	// preparation task) or available.
 	VehicleStatus string `json:"vehicle_status"`
 	Note          string `json:"note"`
+	// DepositTask opens the deposit / provision resolution task (the
+	// mobile return flow always does).
+	DepositTask bool `json:"deposit_task"`
 }
+
+// ReturnVehicleStatuses are the statuses a return check may leave.
+var ReturnVehicleStatuses = []string{"cleaning", "available", "maintenance", "preparing"}
 
 // ExtendInput extends a rental under way (the reservation's extension
 // rule prices the added days).
@@ -449,6 +494,13 @@ type ReasonInput struct {
 // ChargeInput proposes a manual charge.
 type ChargeInput struct {
 	Kind   string       `json:"kind"`
+	Amount *money.Money `json:"amount"`
+	Reason string       `json:"reason"`
+}
+
+// ChargeOverrideInput changes the amount of a proposed charge
+// (tenant.price.override for computed / policy charges).
+type ChargeOverrideInput struct {
 	Amount *money.Money `json:"amount"`
 	Reason string       `json:"reason"`
 }

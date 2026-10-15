@@ -226,6 +226,28 @@ export function useDecideCharge(uuid: string) {
   });
 }
 
+/** Changes a proposed charge amount (computed ones: `price.override`). */
+export function useOverrideCharge(uuid: string) {
+  const { slug } = useTenant();
+  const { t } = useLocale();
+  const invalidate = useInvalidateRentals();
+  return useMutation({
+    mutationFn: ({
+      charge,
+      amount,
+      reason,
+    }: {
+      charge: string;
+      amount: string;
+      reason: string;
+    }) => rentalsService.overrideCharge(slug, uuid, charge, { amount, reason }),
+    onSuccess: () => {
+      appToast.success(t("rentals.toast.charge_overridden"));
+      void invalidate();
+    },
+  });
+}
+
 // ------------------------------------------------------------ tasks
 
 const TASK_TOAST_KEYS = {

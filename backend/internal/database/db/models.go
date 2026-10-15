@@ -458,6 +458,7 @@ type DocumentApproval struct {
 	PdfObjectKey        pgtype.Text        `json:"pdf_object_key"`
 	PdfSizeBytes        int64              `json:"pdf_size_bytes"`
 	PdfSha256           pgtype.Text        `json:"pdf_sha256"`
+	SignatureID         pgtype.Int8        `json:"signature_id"`
 }
 
 type DocumentApprovalLink struct {
@@ -675,6 +676,130 @@ type ImportJob struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 	OrganizationID pgtype.Int8        `json:"organization_id"`
+}
+
+type Inspection struct {
+	ID                 int64              `json:"id"`
+	Uuid               uuid.UUID          `json:"uuid"`
+	OrganizationID     int64              `json:"organization_id"`
+	RentalID           int64              `json:"rental_id"`
+	VehicleID          int64              `json:"vehicle_id"`
+	RentalVehicleID    pgtype.Int8        `json:"rental_vehicle_id"`
+	Kind               string             `json:"kind"`
+	Version            int32              `json:"version"`
+	Status             string             `json:"status"`
+	PreviousID         pgtype.Int8        `json:"previous_id"`
+	RevisionReason     string             `json:"revision_reason"`
+	TemplateID         int64              `json:"template_id"`
+	TemplateSnapshot   []byte             `json:"template_snapshot"`
+	OccurredAt         pgtype.Timestamptz `json:"occurred_at"`
+	BranchID           pgtype.Int8        `json:"branch_id"`
+	PointID            pgtype.Int8        `json:"point_id"`
+	Km                 pgtype.Int4        `json:"km"`
+	Fuel               pgtype.Int2        `json:"fuel"`
+	Equipment          []byte             `json:"equipment"`
+	Verification       []byte             `json:"verification"`
+	Note               string             `json:"note"`
+	CustomerStatement  string             `json:"customer_statement"`
+	CustomerReviewedAt pgtype.Timestamptz `json:"customer_reviewed_at"`
+	ChargeOverrides    []byte             `json:"charge_overrides"`
+	VehicleStatusAfter pgtype.Text        `json:"vehicle_status_after"`
+	SignatureStatus    string             `json:"signature_status"`
+	SignatureNote      string             `json:"signature_note"`
+	Disputed           bool               `json:"disputed"`
+	DisputeNote        string             `json:"dispute_note"`
+	ReviewStatus       string             `json:"review_status"`
+	ReviewedBy         pgtype.Int8        `json:"reviewed_by"`
+	ReviewedAt         pgtype.Timestamptz `json:"reviewed_at"`
+	ReviewNote         string             `json:"review_note"`
+	FinalizedAt        pgtype.Timestamptz `json:"finalized_at"`
+	FinalizedBy        pgtype.Int8        `json:"finalized_by"`
+	CreatedBy          pgtype.Int8        `json:"created_by"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+type InspectionDamage struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	InspectionID   int64              `json:"inspection_id"`
+	Zone           string             `json:"zone"`
+	PosX           pgtype.Numeric     `json:"pos_x"`
+	PosY           pgtype.Numeric     `json:"pos_y"`
+	DamageType     string             `json:"damage_type"`
+	Severity       string             `json:"severity"`
+	Description    string             `json:"description"`
+	IsNew          bool               `json:"is_new"`
+	Disputed       bool               `json:"disputed"`
+	CopiedFromID   pgtype.Int8        `json:"copied_from_id"`
+	CreatedBy      pgtype.Int8        `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type InspectionPhoto struct {
+	ID                int64              `json:"id"`
+	Uuid              uuid.UUID          `json:"uuid"`
+	OrganizationID    int64              `json:"organization_id"`
+	InspectionID      int64              `json:"inspection_id"`
+	RentalID          int64              `json:"rental_id"`
+	InspectionVersion int32              `json:"inspection_version"`
+	Slot              string             `json:"slot"`
+	DamageID          pgtype.Int8        `json:"damage_id"`
+	ClientRef         pgtype.Text        `json:"client_ref"`
+	Status            string             `json:"status"`
+	ObjectKey         string             `json:"object_key"`
+	ContentType       string             `json:"content_type"`
+	DeclaredSizeBytes int64              `json:"declared_size_bytes"`
+	SizeBytes         int64              `json:"size_bytes"`
+	Sha256            pgtype.Text        `json:"sha256"`
+	UploadedAt        pgtype.Timestamptz `json:"uploaded_at"`
+	UploadedBy        pgtype.Int8        `json:"uploaded_by"`
+	DeviceCapturedAt  pgtype.Timestamptz `json:"device_captured_at"`
+	ExifTakenAt       pgtype.Timestamptz `json:"exif_taken_at"`
+	ExifTakenLocal    string             `json:"exif_taken_local"`
+	ExifGpsLat        pgtype.Numeric     `json:"exif_gps_lat"`
+	ExifGpsLng        pgtype.Numeric     `json:"exif_gps_lng"`
+	Exif              []byte             `json:"exif"`
+	ScanStatus        string             `json:"scan_status"`
+	CopiedFromID      pgtype.Int8        `json:"copied_from_id"`
+	CreatedBy         pgtype.Int8        `json:"created_by"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type InspectionSignature struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	InspectionID   int64              `json:"inspection_id"`
+	RentalID       int64              `json:"rental_id"`
+	SignerName     string             `json:"signer_name"`
+	SignerRole     string             `json:"signer_role"`
+	ObjectKey      string             `json:"object_key"`
+	Sha256         string             `json:"sha256"`
+	SizeBytes      int64              `json:"size_bytes"`
+	Strokes        []byte             `json:"strokes"`
+	PointCount     int32              `json:"point_count"`
+	SignedAt       pgtype.Timestamptz `json:"signed_at"`
+	DeviceSignedAt pgtype.Timestamptz `json:"device_signed_at"`
+	CreatedBy      pgtype.Int8        `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type InspectionTemplate struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	Name           string             `json:"name"`
+	Version        int32              `json:"version"`
+	Status         string             `json:"status"`
+	PhotoSlots     []byte             `json:"photo_slots"`
+	Checklist      []byte             `json:"checklist"`
+	CreatedBy      pgtype.Int8        `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 type IntegrationAccount struct {
@@ -1294,6 +1419,12 @@ type RentalCharge struct {
 	DecisionNote    string             `json:"decision_note"`
 	CreatedBy       pgtype.Int8        `json:"created_by"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	InspectionID    pgtype.Int8        `json:"inspection_id"`
+	Disputed        bool               `json:"disputed"`
+	OriginalAmount  pgtype.Numeric     `json:"original_amount"`
+	OverrideReason  string             `json:"override_reason"`
+	OverriddenBy    pgtype.Int8        `json:"overridden_by"`
+	OverriddenAt    pgtype.Timestamptz `json:"overridden_at"`
 }
 
 type RentalDriver struct {

@@ -157,5 +157,7 @@
   "approval_protocols.org": "Organization approval mode",
   "approval_protocols.auto": "Automatic (on payment)",
   "approval_protocols.staff": "Staff approval",
-  "approval_protocols.channel": "The channel confirms"
+  "approval_protocols.channel": "The channel confirms",
+  "fields.fuel_fee_per_percent": "Missing fuel fee (per percent, ₺)",
+  "fields.fuel_fee_per_percent_hint": "For each missing tank percent at the return. Leave empty to compute no fuel charge."
 }

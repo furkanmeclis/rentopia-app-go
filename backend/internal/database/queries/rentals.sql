@@ -396,18 +396,23 @@ WHERE ch.organization_id = sqlc.arg(organization_id)
 
 -- name: ListRentalCharges :many
 SELECT ch.uuid, ch.kind, ch.source, ch.status, ch.currency, ch.amount, ch.settings_version, ch.calculation,
-    ch.reason, ch.decided_at, ch.decision_note, ch.created_at,
+    ch.reason, ch.decided_at, ch.decision_note, ch.created_at, ch.disputed, ch.original_amount, ch.override_reason,
+    ch.overridden_at,
+    ins.uuid AS inspection_uuid,
     du.uuid AS decided_by_uuid, du.name AS decided_by_name, du.surname AS decided_by_surname, du.email AS decided_by_email,
-    cu.uuid AS created_by_uuid, cu.name AS created_by_name, cu.surname AS created_by_surname, cu.email AS created_by_email
+    cu.uuid AS created_by_uuid, cu.name AS created_by_name, cu.surname AS created_by_surname, cu.email AS created_by_email,
+    ou.uuid AS overridden_by_uuid, ou.name AS overridden_by_name, ou.surname AS overridden_by_surname, ou.email AS overridden_by_email
 FROM rental_charges ch
+LEFT JOIN inspections ins ON ins.organization_id = ch.organization_id AND ins.id = ch.inspection_id
 LEFT JOIN users du ON du.id = ch.decided_by
 LEFT JOIN users cu ON cu.id = ch.created_by
+LEFT JOIN users ou ON ou.id = ch.overridden_by
 WHERE ch.organization_id = sqlc.arg(organization_id)
   AND ch.rental_id = sqlc.arg(rental_id)
 ORDER BY ch.created_at, ch.id;
 
 -- name: GetRentalCharge :one
-SELECT ch.id, ch.uuid, ch.kind, ch.status, ch.amount
+SELECT ch.id, ch.uuid, ch.kind, ch.source, ch.status, ch.amount, ch.disputed, ch.original_amount, ch.inspection_id
 FROM rental_charges ch
 WHERE ch.organization_id = sqlc.arg(organization_id)
   AND ch.rental_id = sqlc.arg(rental_id)
@@ -420,6 +425,27 @@ SET status = sqlc.arg(status), decided_by = sqlc.narg(decided_by), decided_at = 
 WHERE organization_id = sqlc.arg(organization_id)
   AND id = sqlc.arg(id)
   AND status = 'proposed';
+
+-- name: OverrideRentalCharge :execrows
+-- A changed amount of a proposed charge; the first override keeps the
+-- computed amount in original_amount.
+UPDATE rental_charges
+SET original_amount = COALESCE(original_amount, amount), amount = sqlc.arg(amount),
+    override_reason = sqlc.arg(override_reason), overridden_by = sqlc.narg(overridden_by),
+    overridden_at = sqlc.arg(overridden_at)
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND status = 'proposed';
+
+-- name: CountPendingInspectionReviews :one
+-- Return forms of the rental that wait for an authorized review (dispute
+-- or missing signature): the return check cannot finish before.
+SELECT COUNT(*)::bigint
+FROM inspections i
+WHERE i.organization_id = sqlc.arg(organization_id)
+  AND i.rental_id = sqlc.arg(rental_id)
+  AND i.review_status = 'pending'
+  AND i.status = 'finalized';
 
 -- name: ListOverdueRentalOrganizations :many
 -- Organizations with active rentals whose vehicle should be back by now

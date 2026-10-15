@@ -7,6 +7,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/rentals/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/rbac"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/pkg/money"
 	"github.com/google/uuid"
 )
 
@@ -75,7 +76,9 @@ func (s *Service) DecideCharge(ctx context.Context, orgID int64, id, chargeID uu
 		return model.Rental{}, err
 	}
 	switch {
-	case approve && ch.Kind == model.ChargeDamage:
+	case approve && (ch.Kind == model.ChargeDamage || ch.Disputed):
+		// A disputed charge (the customer disputed the return findings or
+		// did not sign) never becomes final without the damage approver.
 		if !has(ctx, rbac.PermTenantDamageApprove) {
 			return model.Rental{}, ErrForbidden
 		}
@@ -85,6 +88,11 @@ func (s *Service) DecideCharge(ctx context.Context, orgID int64, id, chargeID uu
 	note = strings.TrimSpace(note)
 	if len(note) > 500 {
 		return model.Rental{}, validation("note", "too_long", "note is at most 500 characters")
+	}
+	if approve && ch.Disputed {
+		if _, err := requireReason("note", note); err != nil {
+			return model.Rental{}, err
+		}
 	}
 	status, action := model.ChargeApproved, model.EventChargeApproved
 	if !approve {
@@ -107,6 +115,61 @@ func (s *Service) DecideCharge(ctx context.Context, orgID int64, id, chargeID uu
 			return ErrConcurrent
 		}
 		return event(ctx, q, orgID, c.ID, action, "", "", note, map[string]any{"charge_uuid": ch.Uuid, "kind": ch.Kind})
+	})
+	if err != nil {
+		return model.Rental{}, err
+	}
+	return s.after(ctx, orgID, id)
+}
+
+// OverrideCharge changes the amount of a proposed charge. A computed
+// charge (source policy: late return, km overage, fuel, missing equipment)
+// keeps its computed amount in original_amount, and changing it needs
+// tenant.price.override; every change needs a reason.
+func (s *Service) OverrideCharge(ctx context.Context, orgID int64, id, chargeID uuid.UUID, in model.ChargeOverrideInput) (model.Rental, error) {
+	c, err := s.core(ctx, orgID, id)
+	if err != nil {
+		return model.Rental{}, err
+	}
+	ch, err := s.q.GetRentalCharge(ctx, db.GetRentalChargeParams{OrganizationID: orgID, RentalID: c.ID, Uuid: chargeID})
+	if notFound(err) {
+		return model.Rental{}, ErrChargeNotFound
+	}
+	if err != nil {
+		return model.Rental{}, err
+	}
+	if (ch.Source == model.SourcePolicy || ch.OriginalAmount.Valid) && !has(ctx, rbac.PermTenantPriceOverride) {
+		return model.Rental{}, ErrForbidden
+	}
+	ve := &ValidationError{}
+	if in.Amount == nil || in.Amount.IsNegative() {
+		ve.add("amount", "invalid", "amount must be zero or positive")
+	}
+	reason, rerr := requireReason("reason", in.Reason)
+	if rerr != nil {
+		ve.add("reason", "required", "a reason is required (3-500 characters)")
+	}
+	if err := ve.orNil(); err != nil {
+		return model.Rental{}, err
+	}
+	if ch.Status != model.ChargeProposed {
+		return model.Rental{}, stateErr("already_decided", "the charge was already decided")
+	}
+	from := money.FromNumericOrZero(ch.Amount)
+	err = s.tx(ctx, func(q *db.Queries) error {
+		n, err := q.OverrideRentalCharge(ctx, db.OverrideRentalChargeParams{
+			OrganizationID: orgID, ID: ch.ID, Amount: in.Amount.Numeric(), OverrideReason: reason,
+			OverriddenBy: int8Ptr(actorID(ctx)), OverriddenAt: ts(s.clock()),
+		})
+		if err != nil {
+			return err
+		}
+		if n != 1 {
+			return ErrConcurrent
+		}
+		return event(ctx, q, orgID, c.ID, model.EventChargeOverridden, "", "", reason, map[string]any{
+			"charge_uuid": ch.Uuid, "kind": ch.Kind, "from": from.String(), "to": in.Amount.String(),
+		})
 	})
 	if err != nil {
 		return model.Rental{}, err

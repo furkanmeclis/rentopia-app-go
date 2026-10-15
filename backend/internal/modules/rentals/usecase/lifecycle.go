@@ -13,7 +13,6 @@ import (
 	vehiclemodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/model"
 	vehicleusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/rbac"
-	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/pkg/money"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -181,10 +180,11 @@ func (s *Service) Handover(ctx context.Context, orgID int64, id uuid.UUID, in mo
 			if n != 1 {
 				return ErrConcurrent
 			}
-			if _, err := q.InsertRentalVehicle(hctx, db.InsertRentalVehicleParams{
+			leg, err := q.InsertRentalVehicle(hctx, db.InsertRentalVehicleParams{
 				OrganizationID: orgID, RentalID: c.ID, VehicleID: c.VehicleID, AllocationID: c.AllocationID, Reason: "handover",
 				OutAt: ts(at), OutBranchID: int8Of(branch.ID), OutKm: int4Ptr(in.Km), OutFuel: int2Ptr(in.Fuel), Note: strings.TrimSpace(in.Note),
-			}); err != nil {
+			})
+			if err != nil {
 				return err
 			}
 			if err := s.vehicleChange(ctx, q, orgID, c.VehicleUuid, vehicleusecase.OperationalChange{
@@ -218,7 +218,13 @@ func (s *Service) Handover(ctx context.Context, orgID int64, id uuid.UUID, in mo
 			}
 			t, err := s.reservations.RecordPlanEffects(hctx, tx, orgID, r, "rental", c.Uuid)
 			touched = t
-			return err
+			if err != nil {
+				return err
+			}
+			if in.Finalize != nil {
+				return in.Finalize(hctx, tx, leg.ID)
+			}
+			return nil
 		}))
 	if err != nil {
 		return model.Rental{}, mapEngineErr(err)
@@ -332,7 +338,17 @@ func (s *Service) Return(ctx context.Context, orgID int64, id uuid.UUID, in mode
 			tasks = append(tasks, closed...)
 			t, err := s.reservations.RecordPlanEffects(hctx, tx, orgID, r, "rental", c.Uuid)
 			touched = t
-			return err
+			if err != nil {
+				return err
+			}
+			if in.Finalize != nil {
+				leg, err := q.GetRentalLegForInspection(hctx, db.GetRentalLegForInspectionParams{OrganizationID: orgID, RentalID: c.ID, VehicleID: c.VehicleID})
+				if err != nil {
+					return err
+				}
+				return in.Finalize(hctx, tx, leg)
+			}
+			return nil
 		}),
 	})
 	if err != nil {
@@ -350,11 +366,8 @@ func (s *Service) Return(ctx context.Context, orgID int64, id uuid.UUID, in mode
 // return costs the policy's extra hour fee. No fee is computed without a
 // defined fee (a person may still propose a manual charge).
 func (s *Service) proposeLateFee(ctx context.Context, q *db.Queries, orgID int64, c db.GetRentalCoreRow, p model.Policy, late int32, at time.Time) error {
-	if late <= int32(p.Grace()) || p.ExtraHourFee == "" {
-		return nil
-	}
-	fee, err := money.Parse(p.ExtraHourFee)
-	if err != nil || !fee.IsPositive() {
+	fee, ok := model.LateFee(p, late, c.PlannedReturnAt.Time, at)
+	if !ok {
 		return nil
 	}
 	if err := q.DeleteProposedPolicyLateCharge(ctx, db.DeleteProposedPolicyLateChargeParams{OrganizationID: orgID, RentalID: c.ID}); err != nil {
@@ -363,27 +376,20 @@ func (s *Service) proposeLateFee(ctx context.Context, q *db.Queries, orgID int64
 	if n, err := q.CountLivePolicyLateCharges(ctx, db.CountLivePolicyLateChargesParams{OrganizationID: orgID, RentalID: c.ID}); err != nil || n > 0 {
 		return err // an approved policy fee exists already
 	}
-	hours := int64((late + 59) / 60)
-	amount := fee.Mul(hours)
-	calc := map[string]any{
-		"late_minutes": late, "grace_minutes": p.Grace(), "hours": hours, "extra_hour_fee": fee.String(),
-		"settings_version": p.SettingsVersion, "planned_return_at": c.PlannedReturnAt.Time.UTC(), "actual_return_at": at,
-		"rule": "every started hour after the planned return, when the delay exceeds the tolerance",
-	}
 	currency := strings.TrimSpace(c.Currency)
 	if currency == "" {
 		currency = "TRY"
 	}
 	chargeID, err := q.InsertRentalCharge(ctx, db.InsertRentalChargeParams{
 		OrganizationID: orgID, RentalID: c.ID, Kind: model.ChargeLateReturn, Source: model.SourcePolicy, Currency: currency,
-		Amount: amount.Numeric(), SettingsVersion: int32(p.SettingsVersion), Calculation: mustJSON(calc),
+		Amount: fee.Amount.Numeric(), SettingsVersion: int32(p.SettingsVersion), Calculation: mustJSON(fee.Calculation),
 		Reason: "late return", CreatedBy: int8Ptr(actorID(ctx)),
 	})
 	if err != nil {
 		return err
 	}
 	return event(ctx, q, orgID, c.ID, model.EventChargeProposed, "", "", "", map[string]any{
-		"charge_uuid": chargeID, "kind": model.ChargeLateReturn, "amount": amount.String(), "source": model.SourcePolicy,
+		"charge_uuid": chargeID, "kind": model.ChargeLateReturn, "amount": fee.Amount.String(), "source": model.SourcePolicy,
 	})
 }
 
@@ -423,8 +429,15 @@ func (s *Service) CompleteReturn(ctx context.Context, orgID int64, id uuid.UUID,
 	if status == "" {
 		status = vehiclemodel.StatusCleaning
 	}
-	if status != vehiclemodel.StatusCleaning && status != vehiclemodel.StatusAvailable {
-		return model.Rental{}, validation("vehicle_status", "invalid", "vehicle_status must be cleaning or available")
+	if !model.Contains(model.ReturnVehicleStatuses, status) {
+		return model.Rental{}, validation("vehicle_status", "invalid", "vehicle_status must be cleaning, available, maintenance or preparing")
+	}
+	// A disputed or unsigned return form waits for an authorized review
+	// (TEC-713, RT-A19) before the return check can finish.
+	if n, err := s.q.CountPendingInspectionReviews(ctx, db.CountPendingInspectionReviewsParams{OrganizationID: orgID, RentalID: c.ID}); err != nil {
+		return model.Rental{}, err
+	} else if n > 0 {
+		return model.Rental{}, stateErr("review_pending", "the return form waits for an authorized review")
 	}
 	if len(in.Note) > 2000 {
 		return model.Rental{}, validation("note", "too_long", "note is at most 2000 characters")
@@ -441,13 +454,28 @@ func (s *Service) CompleteReturn(ctx context.Context, orgID int64, id uuid.UUID,
 		if err := s.vehicleChange(ctx, q, orgID, c.VehicleUuid, vehicleusecase.OperationalChange{Status: status, Note: "rental " + c.Reference + " checked"}); err != nil {
 			return err
 		}
-		if status == vehiclemodel.StatusCleaning {
-			branchID := c.ActualReturnBranchID.Int64
-			prep := 60
-			if b, err := q.GetRentalBranchByID(ctx, db.GetRentalBranchByIDParams{OrganizationID: orgID, ID: branchID}); err == nil && b.PrepMinutes > 0 {
-				prep = int(b.PrepMinutes)
+		branchID := c.ActualReturnBranchID.Int64
+		prep := 60
+		if b, err := q.GetRentalBranchByID(ctx, db.GetRentalBranchByIDParams{OrganizationID: orgID, ID: branchID}); err == nil && b.PrepMinutes > 0 {
+			prep = int(b.PrepMinutes)
+		}
+		// The vehicle's next step is an operation task of the return branch;
+		// finishing it makes the vehicle available.
+		taskType := map[string]string{
+			vehiclemodel.StatusCleaning: model.TaskCleaning, vehiclemodel.StatusMaintenance: model.TaskMaintenance,
+			vehiclemodel.StatusPreparing: model.TaskPreparation,
+		}[status]
+		if taskType != "" {
+			tid, ok, err := openTask(ctx, q, orgID, taskType, branchID, c.ID, c.VehicleID, s.clock().Add(time.Duration(prep)*time.Minute), "")
+			if err != nil {
+				return err
 			}
-			tid, ok, err := openTask(ctx, q, orgID, model.TaskCleaning, branchID, c.ID, c.VehicleID, s.clock().Add(time.Duration(prep)*time.Minute), "")
+			if ok {
+				tasks = append(tasks, tid)
+			}
+		}
+		if in.DepositTask {
+			tid, ok, err := openTask(ctx, q, orgID, model.TaskDeposit, branchID, c.ID, c.VehicleID, s.clock().Add(24*time.Hour), "")
 			if err != nil {
 				return err
 			}
