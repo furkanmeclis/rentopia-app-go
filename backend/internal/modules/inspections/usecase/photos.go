@@ -223,7 +223,8 @@ func (s *Service) UploadPhoto(ctx context.Context, orgID int64, id, photo uuid.U
 	if !ok {
 		return model.Photo{}, validation("file", "invalid_type", "images only: JPEG, PNG, WebP or HEIC")
 	}
-	if !strings.HasSuffix(p.ObjectKey, "."+ext) && !(ext == "heif" && strings.HasSuffix(p.ObjectKey, ".heic")) && !(ext == "heic" && strings.HasSuffix(p.ObjectKey, ".heif")) {
+	heicFamily := (ext == "heif" || ext == "heic") && (strings.HasSuffix(p.ObjectKey, ".heic") || strings.HasSuffix(p.ObjectKey, ".heif"))
+	if !strings.HasSuffix(p.ObjectKey, "."+ext) && !heicFamily {
 		return model.Photo{}, validation("file", "type_mismatch", "the file is not the announced image type")
 	}
 	if err := s.store.Upload(ctx, storage.File{

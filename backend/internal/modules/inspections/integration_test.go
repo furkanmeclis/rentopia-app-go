@@ -46,27 +46,26 @@ import (
 // 5 TRY per extra km), settings (late fee 150 / hour after 30 min, fuel
 // 10 TRY per missing percent) and a customer, removed when the test ends.
 type fx struct {
-	t           *testing.T
-	ctx         context.Context
-	pool        *pgxpool.Pool
-	q           *db.Queries
-	res         *resusecase.Service
-	rentals     *rentalusecase.Service
-	contracts   *contractsusecase.Service
-	svc         *usecase.Service
-	store       *storage.Memory
-	org         int64
-	orgUUID     uuid.UUID
-	suffix      string
-	segment     int64
-	branch      ref
-	product     ref
-	customer    ref
-	driver      ref
-	plate       int
-	clockMu     sync.Mutex
-	shift       time.Duration
-	permissions []string
+	t         *testing.T
+	ctx       context.Context
+	pool      *pgxpool.Pool
+	q         *db.Queries
+	res       *resusecase.Service
+	rentals   *rentalusecase.Service
+	contracts *contractsusecase.Service
+	svc       *usecase.Service
+	store     *storage.Memory
+	org       int64
+	orgUUID   uuid.UUID
+	suffix    string
+	segment   int64
+	branch    ref
+	product   ref
+	customer  ref
+	driver    ref
+	plate     int
+	clockMu   sync.Mutex
+	shift     time.Duration
 }
 
 type ref struct {
