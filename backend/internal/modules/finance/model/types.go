@@ -95,6 +95,8 @@ const (
 	ReasonNoLongerDue     = "system:no_longer_due"
 	ReasonAccountChanged  = "system:account_changed"
 	ReasonRentalCancelled = "system:rental_cancelled"
+	// ReasonChargeReversed: the rental charge was reversed (toll charges).
+	ReasonChargeReversed = "system:charge_reversed"
 )
 
 // Document link types.

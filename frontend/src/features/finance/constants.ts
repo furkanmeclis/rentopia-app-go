@@ -134,6 +134,7 @@ export const SYSTEM_REASON_LABEL_KEYS: Record<string, string> = {
   "system:no_longer_due": "finance.reason.no_longer_due",
   "system:account_changed": "finance.reason.account_changed",
   "system:rental_cancelled": "finance.reason.rental_cancelled",
+  "system:charge_reversed": "finance.reason.charge_reversed",
 };
 
 export const COLLECTION_METHODS = [

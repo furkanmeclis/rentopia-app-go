@@ -249,6 +249,7 @@
   "purpose.rent": "Rent",
   "reason.account_changed": "Billing account changed",
   "reason.amount_changed": "Amount changed",
+  "reason.charge_reversed": "Charge reversed",
   "reason.no_longer_due": "No longer due",
   "reason.rental_cancelled": "Rental cancelled",
   "refund.description": "Debits the customer's account with a refund paid out.",

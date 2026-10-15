@@ -93,8 +93,15 @@ func (s *Service) SyncRental(ctx context.Context, q *db.Queries, orgID, rentalID
 	if err != nil {
 		return err
 	}
+	reversedCharges := map[int64]bool{}
 	for _, ch := range charges {
-		if ch.Status != "approved" || !m(ch.Amount).IsPositive() {
+		// A reversal row (negative amount, reversal_of_id: toll charges)
+		// is never accrued itself; the charge it reverses stops being due,
+		// so its live accrual is reversed below. One accrual per charge.
+		if ch.Reversed {
+			reversedCharges[ch.ID] = true
+		}
+		if ch.Status != "approved" || ch.ReversalOfID.Valid || ch.Reversed || !m(ch.Amount).IsPositive() {
 			continue
 		}
 		desired[ChargeKey(ch.ID)] = want{amount: m(ch.Amount), purpose: model.PurposeCharge, chargeID: ch.ID, desc: f.Reference + " · " + ch.Kind}
@@ -133,6 +140,8 @@ func (s *Service) SyncRental(ctx context.Context, q *db.Queries, orgID, rentalID
 		switch {
 		case !ok && f.Status == "cancelled":
 			reason = model.ReasonRentalCancelled
+		case !ok && reversedCharges[l.RentalChargeID.Int64]:
+			reason = model.ReasonChargeReversed
 		case !ok:
 			reason = model.ReasonNoLongerDue
 		case l.AccountID != acc.ID:

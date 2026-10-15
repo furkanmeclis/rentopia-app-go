@@ -256,7 +256,12 @@ WHERE r.organization_id = sqlc.arg(organization_id)
   AND r.id = sqlc.arg(id);
 
 -- name: ListRentalChargesForLedger :many
-SELECT ch.id, ch.uuid, ch.kind, ch.status, ch.amount, ch.currency, ch.disputed, ch.decided_at
+SELECT ch.id, ch.uuid, ch.kind, ch.status, ch.amount, ch.currency, ch.disputed, ch.decided_at,
+    ch.reversal_of_id,
+    EXISTS (
+        SELECT 1 FROM rental_charges rv
+        WHERE rv.organization_id = ch.organization_id AND rv.reversal_of_id = ch.id
+    ) AS reversed
 FROM rental_charges ch
 WHERE ch.organization_id = sqlc.arg(organization_id)
   AND ch.rental_id = sqlc.arg(rental_id)

@@ -249,6 +249,7 @@
   "purpose.rent": "Kira",
   "reason.account_changed": "Fatura hesabı değişti",
   "reason.amount_changed": "Tutar değişti",
+  "reason.charge_reversed": "Masraf geri alındı",
   "reason.no_longer_due": "Artık tahakkuk etmiyor",
   "reason.rental_cancelled": "Kiralama iptal edildi",
   "refund.description": "Müşteriye yapılan iadeyi cariye borç olarak işler.",

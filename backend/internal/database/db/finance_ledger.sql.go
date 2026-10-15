@@ -1558,7 +1558,12 @@ func (q *Queries) ListRentalBalances(ctx context.Context, arg ListRentalBalances
 }
 
 const listRentalChargesForLedger = `-- name: ListRentalChargesForLedger :many
-SELECT ch.id, ch.uuid, ch.kind, ch.status, ch.amount, ch.currency, ch.disputed, ch.decided_at
+SELECT ch.id, ch.uuid, ch.kind, ch.status, ch.amount, ch.currency, ch.disputed, ch.decided_at,
+    ch.reversal_of_id,
+    EXISTS (
+        SELECT 1 FROM rental_charges rv
+        WHERE rv.organization_id = ch.organization_id AND rv.reversal_of_id = ch.id
+    ) AS reversed
 FROM rental_charges ch
 WHERE ch.organization_id = $1
   AND ch.rental_id = $2
@@ -1571,14 +1576,16 @@ type ListRentalChargesForLedgerParams struct {
 }
 
 type ListRentalChargesForLedgerRow struct {
-	ID        int64              `json:"id"`
-	Uuid      uuid.UUID          `json:"uuid"`
-	Kind      string             `json:"kind"`
-	Status    string             `json:"status"`
-	Amount    pgtype.Numeric     `json:"amount"`
-	Currency  string             `json:"currency"`
-	Disputed  bool               `json:"disputed"`
-	DecidedAt pgtype.Timestamptz `json:"decided_at"`
+	ID           int64              `json:"id"`
+	Uuid         uuid.UUID          `json:"uuid"`
+	Kind         string             `json:"kind"`
+	Status       string             `json:"status"`
+	Amount       pgtype.Numeric     `json:"amount"`
+	Currency     string             `json:"currency"`
+	Disputed     bool               `json:"disputed"`
+	DecidedAt    pgtype.Timestamptz `json:"decided_at"`
+	ReversalOfID pgtype.Int8        `json:"reversal_of_id"`
+	Reversed     bool               `json:"reversed"`
 }
 
 func (q *Queries) ListRentalChargesForLedger(ctx context.Context, arg ListRentalChargesForLedgerParams) ([]ListRentalChargesForLedgerRow, error) {
@@ -1599,6 +1606,8 @@ func (q *Queries) ListRentalChargesForLedger(ctx context.Context, arg ListRental
 			&i.Currency,
 			&i.Disputed,
 			&i.DecidedAt,
+			&i.ReversalOfID,
+			&i.Reversed,
 		); err != nil {
 			return nil, err
 		}
