@@ -57,6 +57,9 @@ import (
 	smsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/sms"
 	smsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/sms/usecase"
 	tenantmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tenant"
+	tollsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tolls"
+	tollsadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tolls/adapters"
+	tollsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tolls/usecase"
 	vehiclerecordsadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehiclerecords/adapters"
 	vehiclerecordsrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehiclerecords/repository"
 	vehiclerecordsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehiclerecords/usecase"
@@ -206,8 +209,12 @@ func main() {
 	// SMS (TEC-734) and the integration job runner (TEC-751): the worker
 	// runs the steps of the integrations queues and the minute sweep.
 	smsProviders := smsmodule.Providers(cfg.SMS, cfg.App.Env, log)
+	// Toll providers (TEC-725): the fake outside production only.
+	tollProviders := tollsmodule.Providers(cfg.App.Env, log)
+	integrationAdapters := append([]integrations.Adapter{iyzicoAdapter}, smsmodule.Adapters(smsProviders)...)
+	integrationAdapters = append(integrationAdapters, tollsmodule.Adapters(tollProviders)...)
 	integrationAccountsSvc := integrationaccountsusecase.New(queries, integrationVault,
-		integrations.NewRegistry(append([]integrations.Adapter{iyzicoAdapter}, smsmodule.Adapters(smsProviders)...)...))
+		integrations.NewRegistry(integrationAdapters...))
 	integrationOps := integrations.NewOperationRegistry()
 	integrationRunner := integrationjobsusecase.NewRunner(queries, integrationAccountsSvc, integrationOps)
 	integrationRunner.SetLogger(log)
@@ -231,6 +238,10 @@ func main() {
 	rentalsSvc := rentalusecase.New(pool, queries, availabilitySvc, rentaladapters.NewReservations(reservationSvc), vehicleSvc)
 	rentalsSvc.SetDocuments(contractsSvc)
 	reservationSvc.SetLifecycleListener(rentalsSvc)
+	// Toll passes (TEC-725): fetch steps (runner operations), the hourly
+	// fetch schedule and re-match, file imports.
+	tollsSvc := tollsusecase.New(pool, queries, integrationAccountsSvc, integrationRunner, integrationOps, tollProviders...)
+	tollsSvc.SetLogger(log)
 	// Bulk rental group changes go through the engine like the API.
 	vehicleSvc.SetMembershipGuard(availabilitySvc)
 	availabilitySvc.SetPlanMovedHandler(reservationSvc)
@@ -265,6 +276,7 @@ func main() {
 		campaignsadapters.NewIO(campaignsSvc),
 		reservationadapters.NewIO(reservationSvc),
 		rentaladapters.NewIO(rentalsSvc),
+		tollsadapters.NewIO(tollsSvc),
 		orgadapters.NewIO(jobScopes),
 		customeradapters.NewIO(customerSvc),
 	)
@@ -327,6 +339,7 @@ func main() {
 	integrationRunner.SetResourceEvents(resourceEvents)
 	rentalsSvc.SetResourceEvents(resourceEvents)
 	contractsSvc.SetResourceEvents(resourceEvents)
+	tollsSvc.SetResourceEvents(resourceEvents)
 
 	worker := queue.NewWorker(cfg, log, notifSvc.Deliver).
 		WithExport(exportSvc.ProcessExport).
@@ -371,6 +384,7 @@ func main() {
 			}
 			return err
 		}, integrationRunner.RunDue).
+		WithTolls(tollsSvc.ScheduleFetches, tollsSvc.RematchDue).
 		WithDocumentPDF(contractsSvc.RenderPDF).
 		WithSearch(
 			searchIndexer.ProcessUpsert,
@@ -397,6 +411,10 @@ func main() {
 	}
 	if err := queue.RegisterIntegrationSweepSchedule(scheduler); err != nil {
 		log.Error("integration_sweep_scheduler_failed", "error", err)
+		exit(1)
+	}
+	if err := queue.RegisterTollsSchedule(scheduler); err != nil {
+		log.Error("toll_fetch_scheduler_failed", "error", err)
 		exit(1)
 	}
 	if err := queue.RegisterExpireHoldsSchedule(scheduler); err != nil {
