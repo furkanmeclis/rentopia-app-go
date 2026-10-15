@@ -137,5 +137,11 @@
   "labels.tenant.customers.export": "Export customers",
   "labels.tenant.customers.import": "Import customers",
   "labels.tenant.customers.anonymize": "Anonymize customers (data requests)",
-  "groups.tenant_customers": "Customers"
+  "groups.tenant_customers": "Customers",
+  "labels.tenant.extras.read": "View extras (prices, stock, allocations)",
+  "labels.tenant.extras.write": "Manage extras, their prices and branch stock",
+  "groups.tenant_extras": "Extras",
+  "labels.tenant.campaigns.read": "View campaigns",
+  "labels.tenant.campaigns.write": "Manage campaigns and coupon codes",
+  "groups.tenant_campaigns": "Campaigns"
 }

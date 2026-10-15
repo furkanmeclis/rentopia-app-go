@@ -292,5 +292,22 @@
   "version_status.superseded": "Arşiv",
   "versions.empty": "Sürüm yok",
   "versions.help": "Aktifleşen sürümler değişmez; rezervasyonlar fiyatlandıkları sürüme bağlıdır.",
-  "versions.title": "Sürümler"
+  "versions.title": "Sürümler",
+  "preview.section_extras": "Ek hizmetler ve kupon",
+  "preview.extra": "Ek hizmet",
+  "preview.extra_placeholder": "Ek hizmet seçin",
+  "preview.extra_quantity": "Adet",
+  "preview.add_extra": "Ek hizmet ekle",
+  "preview.remove_extra": "Ek hizmeti kaldır",
+  "preview.extra_line": "{{name}} ({{quantity}} adet)",
+  "preview.coupon_code": "Kupon kodu",
+  "preview.coupon_code_hint": "Kiralama ara toplamına tek indirim; elle indirimle birlikte kullanılamaz.",
+  "preview.coupon_applied": "{{code}} uygulandı · {{name}}",
+  "preview.coupon_auto": "Kampanya uygulandı · {{name}}",
+  "preview.coupon_rejected": "{{code}} uygulanamadı",
+  "preview.discount_code": "İndirim ({{code}})",
+  "preview.capped": "Üst limit",
+  "preview.warnings.coupons_unavailable": "Kampanyalar şu an değerlendirilemiyor.",
+  "validation.extra": "Ek hizmet seçin.",
+  "validation.extra_quantity": "Geçerli bir adet girin."
 }

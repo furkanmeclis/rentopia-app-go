@@ -432,3 +432,42 @@ func TestRulesOverlap(t *testing.T) {
 		t.Fatal("product / segment intersection")
 	}
 }
+
+// TEC-702 / TEC-703 hooks: the extra line cap and the discount cap.
+func TestExtraCapAndDiscountCap(t *testing.T) {
+	start := istanbul(2026, 3, 2, 10, 0)
+	plan := Plan{ID: "p", VersionID: "pv", Version: 1, Scope: ScopeCommon, Bands: []Band{{MinDays: 1, DailyPrice: m("1000")}}}
+	limit := m("1000")
+	seat := Extra{Code: "SEAT", UnitPrice: m("150"), Quantity: 2, PerDay: true, MaxTotal: &limit, ExtraID: "x1", PriceID: "pr1"}
+	b := calc(t, Input{Start: start, End: start.Add(5 * rentaltime.Day), Plans: []Plan{plan}, Extras: []Extra{seat}})
+	// 150 x 2 x 5 = 1500, capped at 1000.
+	line := b.Lines[1]
+	if line.Gross.String() != "1000.00" || !line.Capped || line.PriceID != "pr1" || line.UnitPrice.String() != "150.00" {
+		t.Fatalf("capped extra = %+v", line)
+	}
+	if b.Total.String() != "6000.00" {
+		t.Fatalf("total = %s", b.Total)
+	}
+	// Below the cap: untouched.
+	b = calc(t, Input{Start: start, End: start.Add(2 * rentaltime.Day), Plans: []Plan{plan}, Extras: []Extra{seat}})
+	if b.Lines[1].Gross.String() != "600.00" || b.Lines[1].Capped {
+		t.Fatalf("uncapped extra = %+v", b.Lines[1])
+	}
+
+	maxD := m("300")
+	d := &Discount{CampaignID: "c1", Code: "YAZ20", Kind: KindPercent, Percent: money.Percent(20), MaxAmount: &maxD}
+	b = calc(t, Input{Start: start, End: start.Add(5 * rentaltime.Day), Plans: []Plan{plan}, Discount: d})
+	if b.Discount.Amount.String() != "300.00" || !b.Discount.Capped || b.Discount.CampaignID != "c1" || b.RentalTotal.String() != "4700.00" {
+		t.Fatalf("capped discount = %+v %s", b.Discount, b.RentalTotal)
+	}
+	b = calc(t, Input{Start: start, End: start.Add(1 * rentaltime.Day), Plans: []Plan{plan}, Discount: d})
+	if b.Discount.Amount.String() != "200.00" || b.Discount.Capped {
+		t.Fatalf("uncapped discount = %+v", b.Discount)
+	}
+	// Never negative: an amount discount above the subtotal stops at 0.
+	big := &Discount{Code: "BIG", Kind: KindAmount, Amount: m("5000"), MaxAmount: &limit}
+	b = calc(t, Input{Start: start, End: start.Add(1 * rentaltime.Day), Plans: []Plan{plan}, Discount: big})
+	if !b.RentalTotal.IsZero() || b.Discount.Amount.String() != "1000.00" {
+		t.Fatalf("discount floor = %+v %s", b.Discount, b.RentalTotal)
+	}
+}

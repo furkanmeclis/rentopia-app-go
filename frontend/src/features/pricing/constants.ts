@@ -118,6 +118,7 @@ export const PREVIEW_WARNING_KEYS: Record<string, string> = {
   one_way_not_allowed: "pricing.preview.warnings.one_way_not_allowed",
   one_way_unavailable: "pricing.preview.warnings.one_way_unavailable",
   no_changes: "pricing.preview.warnings.no_changes",
+  coupons_unavailable: "pricing.preview.warnings.coupons_unavailable",
 };
 
 export const LINE_LABEL_KEYS: Record<string, string> = {

@@ -90,6 +90,10 @@ export const Permission = {
   TenantCustomersExport: "tenant.customers.export",
   TenantCustomersImport: "tenant.customers.import",
   TenantCustomersAnonymize: "tenant.customers.anonymize",
+  TenantExtrasRead: "tenant.extras.read",
+  TenantExtrasWrite: "tenant.extras.write",
+  TenantCampaignsRead: "tenant.campaigns.read",
+  TenantCampaignsWrite: "tenant.campaigns.write",
   TenantPriceOverride: "tenant.price.override",
   TenantDiscountApply: "tenant.discount.apply",
   TenantPaymentCollect: "tenant.payment.collect",
@@ -281,6 +285,19 @@ export const permissions = {
       export: Permission.TenantCustomersExport,
       import: Permission.TenantCustomersImport,
       anonymize: Permission.TenantCustomersAnonymize,
+    },
+    /**
+     * Extras catalog, per-product prices and branch stock. Equipment holds
+     * use `availability.hold`.
+     */
+    extras: {
+      read: Permission.TenantExtrasRead,
+      write: Permission.TenantExtrasWrite,
+    },
+    /** Campaigns and coupon codes; using a code at sale time needs none. */
+    campaigns: {
+      read: Permission.TenantCampaignsRead,
+      write: Permission.TenantCampaignsWrite,
     },
     price: {
       override: Permission.TenantPriceOverride,

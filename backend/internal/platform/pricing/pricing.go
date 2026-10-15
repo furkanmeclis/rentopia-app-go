@@ -245,11 +245,15 @@ type Product struct {
 
 // Discount is the single campaign / coupon on the rental subtotal.
 type Discount struct {
-	Code    string      `json:"code"`
-	Name    string      `json:"name"`
-	Kind    string      `json:"kind"`
-	Percent money.Rate  `json:"percent"`
-	Amount  money.Money `json:"amount"`
+	// CampaignID is the campaign uuid (empty for a manual discount).
+	CampaignID string      `json:"campaign_id,omitempty"`
+	Code       string      `json:"code"`
+	Name       string      `json:"name"`
+	Kind       string      `json:"kind"`
+	Percent    money.Rate  `json:"percent"`
+	Amount     money.Money `json:"amount"`
+	// MaxAmount caps the discount (nil = no cap besides the subtotal).
+	MaxAmount *money.Money `json:"max_amount,omitempty"`
 }
 
 // Extra is an extra service line (child seat, additional driver …).
@@ -260,6 +264,12 @@ type Extra struct {
 	Quantity  int         `json:"quantity"`
 	// PerDay multiplies by the billing days.
 	PerDay bool `json:"per_day"`
+	// MaxTotal caps the line total (nil = no cap).
+	MaxTotal *money.Money `json:"max_total,omitempty"`
+	// ExtraID / PriceID name the catalog extra and the effective-dated
+	// price row used (a quote snapshots them).
+	ExtraID string `json:"extra_id,omitempty"`
+	PriceID string `json:"price_id,omitempty"`
 }
 
 // Prepayment is the organization's prepayment rule.
@@ -330,6 +340,9 @@ type DayLine struct {
 
 // DiscountLine is the applied discount.
 type DiscountLine struct {
+	CampaignID string `json:"campaign_id,omitempty"`
+	// Capped is true when MaxAmount limited the discount.
+	Capped  bool        `json:"capped,omitempty"`
 	Code    string      `json:"code"`
 	Name    string      `json:"name"`
 	Kind    string      `json:"kind"`
@@ -339,13 +352,19 @@ type DiscountLine struct {
 
 // Line is one VAT-split line of the breakdown.
 type Line struct {
-	Kind     string      `json:"kind"`
-	Code     string      `json:"code,omitempty"`
-	Name     string      `json:"name,omitempty"`
-	Quantity int         `json:"quantity"`
-	Gross    money.Money `json:"gross"`
-	Base     money.Money `json:"base"`
-	VAT      money.Money `json:"vat"`
+	Kind     string `json:"kind"`
+	Code     string `json:"code,omitempty"`
+	Name     string `json:"name,omitempty"`
+	Quantity int    `json:"quantity"`
+	// UnitPrice is the unit price of an extra line.
+	UnitPrice *money.Money `json:"unit_price,omitempty"`
+	// Capped is true when the extra's MaxTotal limited the line.
+	Capped  bool        `json:"capped,omitempty"`
+	ExtraID string      `json:"extra_id,omitempty"`
+	PriceID string      `json:"price_id,omitempty"`
+	Gross   money.Money `json:"gross"`
+	Base    money.Money `json:"base"`
+	VAT     money.Money `json:"vat"`
 }
 
 // Breakdown is the full, explainable result.
@@ -439,7 +458,7 @@ func Calculate(in Input) (Breakdown, error) {
 	rental := subtotal
 	if d := in.Discount; d != nil {
 		var amount money.Money
-		dl := &DiscountLine{Code: d.Code, Name: d.Name, Kind: d.Kind}
+		dl := &DiscountLine{CampaignID: d.CampaignID, Code: d.Code, Name: d.Name, Kind: d.Kind}
 		switch d.Kind {
 		case KindPercent:
 			pct := d.Percent
@@ -452,6 +471,14 @@ func Calculate(in Input) (Breakdown, error) {
 		}
 		if amount.IsNegative() {
 			return Breakdown{}, fail(ErrInvalidInput, "discount must not be negative")
+		}
+		if d.MaxAmount != nil {
+			if d.MaxAmount.IsNegative() {
+				return Breakdown{}, fail(ErrInvalidInput, "discount cap must not be negative")
+			}
+			if amount.Cmp(*d.MaxAmount) > 0 {
+				amount, dl.Capped = *d.MaxAmount, true
+			}
 		}
 		amount = amount.Min(subtotal)
 		dl.Amount = amount
@@ -474,7 +501,18 @@ func Calculate(in Input) (Breakdown, error) {
 		if e.PerDay {
 			gross = gross.Mul(int64(days))
 		}
-		addLine(Line{Kind: LineExtra, Code: e.Code, Name: e.Name, Quantity: e.Quantity, Gross: gross})
+		unit := e.UnitPrice
+		line := Line{Kind: LineExtra, Code: e.Code, Name: e.Name, Quantity: e.Quantity, UnitPrice: &unit, ExtraID: e.ExtraID, PriceID: e.PriceID}
+		if e.MaxTotal != nil {
+			if e.MaxTotal.IsNegative() {
+				return Breakdown{}, fail(ErrInvalidInput, fmt.Sprintf("extra %q needs a non-negative cap", e.Code))
+			}
+			if gross.Cmp(*e.MaxTotal) > 0 {
+				gross, line.Capped = *e.MaxTotal, true
+			}
+		}
+		line.Gross = gross
+		addLine(line)
 	}
 	if in.OneWayFee != nil && !in.OneWayFee.IsZero() {
 		if in.OneWayFee.IsNegative() {

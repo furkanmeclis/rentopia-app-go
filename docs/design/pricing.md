@@ -72,10 +72,14 @@ access, no clock and no context. The caller loads the active candidates.
 4. For each day, the single highest-priority rule that matches by date,
    product / segment, branch and channel is applied: `±%` or `±₺` on the unit
    price. A tie returns `ErrAmbiguousRule`. A day price is clamped at 0.
-5. One discount (campaign / coupon hook for TEC-703) applies to the rental
-   subtotal. It is capped, so the rental total never goes negative.
-6. Extras, the one-way fee (resolved from fleetops one-way rules) and the
-   delivery fee are added as lines.
+5. One discount (campaign / coupon, TEC-703) applies to the rental
+   subtotal, capped by the campaign's maximum discount (`MaxAmount`) and by
+   the subtotal, so the rental total never goes negative
+   ([campaigns.md](./campaigns.md)).
+6. Extras (TEC-702, with the per-line fee cap `MaxTotal` and the price row
+   uuid `PriceID` for the quote snapshot, [extras.md](./extras.md)), the
+   one-way fee (resolved from fleetops one-way rules) and the delivery fee
+   are added as lines.
 7. **VAT:** prices include VAT. Each line (rental, each extra, each fee) is
    split as `base = round(gross / (1 + rate))` and `VAT = gross − base`. The
    totals are the sums of the lines, so `base_total + vat_total = total` to the
@@ -157,5 +161,7 @@ inside the organization.
 
 - Reservations bind to `rate_plan_versions.uuid` / `date_rule_versions.uuid`
   (M3). `Service.Quote` is the entry point.
-- Coupons (TEC-703) plug into `Input.Discount`. Extras catalog: `Input.Extras`.
+- Coupons (TEC-703) plug into `Input.Discount` and the extras catalog
+  (TEC-702) into `Input.Extras`; the preview accepts `coupon_code`,
+  `customer_uuid` and `extras` (see campaigns.md, extras.md).
 - The input parsers of older modules still parse money themselves (see above).

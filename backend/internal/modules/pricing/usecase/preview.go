@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/model"
@@ -129,6 +130,28 @@ func (s *Service) Preview(ctx context.Context, orgID int64, in model.PreviewInpu
 			ve.add("discount.kind", "invalid", "kind must be percent or amount")
 		}
 	}
+	if strings.TrimSpace(in.CouponCode) != "" && in.Discount != nil {
+		ve.add("coupon_code", "not_allowed", "send a coupon code or a manual discount, not both")
+	}
+	if len([]rune(in.CouponCode)) > 64 {
+		ve.add("coupon_code", "too_long", "coupon_code is too long")
+	}
+	var extras []pricing.Extra
+	if len(in.Extras) > 0 {
+		switch {
+		case len(in.Extras) > 50:
+			ve.add("extras", "too_many", "at most 50 extras")
+		case s.extras == nil:
+			ve.add("extras", "unavailable", "extras are not available")
+		case product.ID != 0:
+			lines, details, err := s.extras.ResolveExtras(ctx, orgID, product.ID, in.Channel, in.Extras, s.clock())
+			if err != nil {
+				return model.Preview{}, err
+			}
+			ve.Details = append(ve.Details, details...)
+			extras = lines
+		}
+	}
 	if in.RatePlanUUID != nil && in.RatePlanDraft != nil {
 		ve.add("rate_plan_draft", "not_allowed", "send rate_plan_uuid or rate_plan_draft, not both")
 	}
@@ -249,7 +272,16 @@ func (s *Service) Preview(ctx context.Context, orgID int64, in model.PreviewInpu
 		Start: rng.Start, End: rng.End,
 		Product:  pricing.Product{ID: product.Uuid.String(), SegmentID: product.SegmentUuid.String()},
 		BranchID: branch.Uuid.String(), Channel: in.Channel, Discount: discount, DeliveryFee: delivery,
-		VATRate: cfg.VAT, Prepayment: cfg.Prepayment,
+		Extras: extras, VATRate: cfg.VAT, Prepayment: cfg.Prepayment,
+	}
+	var coupon *CouponQuery
+	if s.coupons != nil && in.Discount == nil && (strings.TrimSpace(in.CouponCode) != "" || in.CustomerUUID != nil) {
+		coupon = &CouponQuery{
+			Code: strings.TrimSpace(in.CouponCode), ProductID: product.ID, SegmentID: product.SegmentID,
+			Channel: in.Channel, CustomerUUID: in.CustomerUUID, At: s.clock(),
+		}
+	} else if s.coupons == nil && strings.TrimSpace(in.CouponCode) != "" {
+		warnings = append(warnings, "coupons_unavailable")
 	}
 	if returnBranch != nil && returnBranch.ID != branch.ID {
 		if s.oneWay == nil {
@@ -293,7 +325,15 @@ func (s *Service) Preview(ctx context.Context, orgID int64, in model.PreviewInpu
 	if planOverride == nil && ruleOverride == nil {
 		warnings = append(warnings, "no_changes")
 	}
-	out := model.Preview{Current: side(current), Proposed: side(proposed), Warnings: warnings}
+	cur, err := s.side(ctx, orgID, current, coupon)
+	if err != nil {
+		return model.Preview{}, err
+	}
+	prop, err := s.side(ctx, orgID, proposed, coupon)
+	if err != nil {
+		return model.Preview{}, err
+	}
+	out := model.Preview{Current: cur, Proposed: prop, Warnings: warnings}
 	if out.Current.Breakdown != nil && out.Proposed.Breakdown != nil {
 		d := out.Proposed.Breakdown.Total.Sub(out.Current.Breakdown.Total)
 		out.Difference = &d
@@ -301,7 +341,34 @@ func (s *Service) Preview(ctx context.Context, orgID int64, in model.PreviewInpu
 	return out, nil
 }
 
-func side(in pricing.Input) model.PreviewSide {
+// side prices one variant. With a coupon query the rental subtotal of a
+// first pass decides the campaign (minimum amount, percent base); the
+// applied campaign is the single discount of the second pass.
+func (s *Service) side(ctx context.Context, orgID int64, in pricing.Input, coupon *CouponQuery) (model.PreviewSide, error) {
+	if coupon == nil {
+		return calculateSide(in), nil
+	}
+	first := calculateSide(in)
+	if first.Breakdown == nil {
+		return first, nil
+	}
+	q := *coupon
+	q.Subtotal = first.Breakdown.RentalSubtotal
+	discount, result, err := s.coupons.EvaluateCoupon(ctx, orgID, q)
+	if err != nil {
+		return model.PreviewSide{}, err
+	}
+	if discount == nil {
+		first.Coupon = result
+		return first, nil
+	}
+	in.Discount = discount
+	out := calculateSide(in)
+	out.Coupon = result
+	return out, nil
+}
+
+func calculateSide(in pricing.Input) model.PreviewSide {
 	b, err := pricing.Calculate(in)
 	if err != nil {
 		pe := &model.PreviewError{Code: pricing.Code(err), Message: err.Error(), Refs: []string{}}
