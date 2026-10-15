@@ -215,6 +215,13 @@ type Approval struct {
 	// with the tablet signature of a handover / return form (TEC-712).
 	SignatureUUID           *uuid.UUID `json:"signature_uuid"`
 	SignatureInspectionUUID *uuid.UUID `json:"signature_inspection_uuid"`
+	// Remote approvals (method remote_sms): the verified number (masked),
+	// the signer role, the link and the device evidence.
+	VerifiedPhoneMasked string     `json:"verified_phone_masked"`
+	SignerRole          string     `json:"signer_role"`
+	LinkUUID            *uuid.UUID `json:"link_uuid"`
+	IPAddress           string     `json:"ip_address"`
+	UserAgent           string     `json:"user_agent"`
 }
 
 // DocumentListItem is a row of the documents list.
@@ -232,8 +239,11 @@ type DocumentListItem struct {
 	TemplateName     string     `json:"template_name"`
 	TemplateVersion  int32      `json:"template_version"`
 	VersionCreatedAt *time.Time `json:"version_created_at"`
-	CreatedAt        time.Time  `json:"created_at"`
-	UpdatedAt        time.Time  `json:"updated_at"`
+	// RemoteLinkStatus is the status of the latest remote approval link
+	// ("" = none).
+	RemoteLinkStatus string    `json:"remote_link_status"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 // DocumentFilter selects a page of documents.

@@ -7,6 +7,7 @@ import {
   Download,
   Eye,
   FilePlus2,
+  Link2,
   RefreshCw,
   Send,
 } from "lucide-react";
@@ -34,10 +35,17 @@ import {
 import { permissions } from "@/config/permissions";
 import { HtmlPreview } from "@/features/contracts/components/html-preview";
 import {
+  CreateLinkDialog,
+  RemoteLinksTable,
+} from "@/features/contracts/components/remote-approval-section";
+import {
+  APPROVAL_METHOD_LABEL_KEYS,
   CONTRACT_KINDS,
   DOCUMENT_STATUS_LABEL_KEYS,
   DOCUMENT_STATUS_TONES,
   KIND_LABEL_KEYS,
+  LINK_STATUS_LABEL_KEYS,
+  LINK_STATUS_TONES,
   PDF_STATUS_LABEL_KEYS,
   VERSION_STATUS_LABEL_KEYS,
   VERSION_STATUS_TONES,
@@ -53,7 +61,9 @@ import {
   usePrepareDocument,
   useRefreshDocument,
 } from "@/features/contracts/hooks/use-contracts";
+import { useDownloadApprovalPdf } from "@/features/contracts/hooks/use-remote-approval";
 import type {
+  ApprovalLinkStatus,
   ContractDocument,
   DocumentApproval,
   DocumentListItem,
@@ -215,10 +225,13 @@ function DocumentDialog({
   documentUuid,
   onClose,
   canWrite,
+  startRemote,
 }: {
   documentUuid: string | null;
   onClose: () => void;
   canWrite: boolean;
+  /** Open the "remote approval link" dialog right away. */
+  startRemote?: boolean;
 }) {
   const { t, locale } = useLocale();
   const { can } = usePermission();
@@ -234,6 +247,9 @@ function DocumentDialog({
   const issue = useIssueVersion();
   const download = useDownloadPdf();
   const [approving, setApproving] = useState(false);
+  const [linking, setLinking] = useState(false);
+  const [remoteHandled, setRemoteHandled] = useState(false);
+  const approvalPdf = useDownloadApprovalPdf();
   const isCurrent = Boolean(
     version && doc?.current_version?.uuid === version.uuid,
   );
@@ -242,6 +258,12 @@ function DocumentDialog({
     isCurrent &&
     doc?.status !== "void" &&
     (version?.status === "draft" || version?.status === "issued");
+  // The row action "remote approval link" opens the dialog on the current
+  // version and the link dialog over it.
+  if (startRemote && !remoteHandled && canApprove) {
+    setRemoteHandled(true);
+    setLinking(true);
+  }
 
   const versionColumns = useMemo(
     () =>
@@ -301,6 +323,24 @@ function DocumentDialog({
           ),
         }),
         createColumn<DocumentApproval>({
+          accessorKey: "method",
+          labelKey: "contracts.approvals.columns.method",
+          enableSorting: false,
+          cell: ({ row }) => {
+            const key = APPROVAL_METHOD_LABEL_KEYS[row.original.method];
+            return (
+              <span className="flex flex-col">
+                <span>{key ? t(key) : row.original.method}</span>
+                {row.original.verified_phone_masked ? (
+                  <span className="text-muted-foreground text-xs tabular-nums">
+                    {row.original.verified_phone_masked}
+                  </span>
+                ) : null}
+              </span>
+            );
+          },
+        }),
+        createColumn<DocumentApproval>({
           accessorKey: "party",
           labelKey: "contracts.approvals.columns.party",
           enableSorting: false,
@@ -346,14 +386,43 @@ function DocumentDialog({
           labelKey: "contracts.approvals.columns.approved_at",
           enableSorting: false,
           cell: ({ row }) =>
-            `${datetime(row.original.approved_at, "d MMM yyyy HH:mm", locale)} · ${actorName(row.original.recorded_by)}`,
+            row.original.method === "remote_sms"
+              ? `${datetime(row.original.approved_at, "d MMM yyyy HH:mm", locale)} · ${row.original.ip_address || "—"}`
+              : `${datetime(row.original.approved_at, "d MMM yyyy HH:mm", locale)} · ${actorName(row.original.recorded_by)}`,
+        }),
+        createColumn<DocumentApproval>({
+          id: "actions",
+          labelKey: "contracts.approvals.columns.actions",
+          enableSorting: false,
+          enableHiding: false,
+          enableResizing: false,
+          cell: ({ row }) => (
+            <EntityRowActions
+              actions={[
+                {
+                  id: "approval_pdf",
+                  label: t("contracts.actions.approval_pdf"),
+                  icon: Download,
+                  permission: permissions.tenant.document.download,
+                  disabled: approvalPdf.isPending,
+                  onSelect: () =>
+                    approvalPdf.mutate({
+                      doc: documentUuid ?? "",
+                      approval: row.original.uuid,
+                      fallbackName: `approval-v${row.original.version_number}.pdf`,
+                    }),
+                },
+              ]}
+            />
+          ),
         }),
       ] as ColumnDef<DocumentApproval, unknown>[],
-    [locale, t],
+    [approvalPdf, documentUuid, locale, t],
   );
 
   const close = () => {
     setSelection({});
+    setRemoteHandled(false);
     onClose();
   };
 
@@ -493,6 +562,30 @@ function DocumentDialog({
                 sorting: false,
               }}
             />
+            {documentUuid ? (
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-sm font-medium">
+                    {t("contracts.remote.title")}
+                  </h3>
+                  {canApprove && isCurrent ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setLinking(true)}
+                    >
+                      <Link2 className="size-4" />
+                      {t("contracts.remote.create_link")}
+                    </Button>
+                  ) : null}
+                </div>
+                <RemoteLinksTable
+                  documentUuid={documentUuid}
+                  canWrite={canWrite}
+                />
+              </div>
+            ) : null}
           </div>
           <div>
             {version ? (
@@ -510,6 +603,14 @@ function DocumentDialog({
           version={version}
           open={approving}
           onOpenChange={setApproving}
+        />
+      ) : null}
+      {doc && version && isCurrent ? (
+        <CreateLinkDialog
+          document={doc}
+          version={version}
+          open={linking}
+          onOpenChange={setLinking}
         />
       ) : null}
     </AppDialog>
@@ -542,6 +643,7 @@ export function DocumentsSection({
   const refresh = useRefreshDocument();
   const download = useDownloadPdf();
   const [openDoc, setOpenDoc] = useState<string | null>(null);
+  const [startRemote, setStartRemote] = useState(false);
   const items = query.data?.items ?? [];
   const total = query.data?.total ?? 0;
   const existing = new Set(
@@ -594,6 +696,21 @@ export function DocumentsSection({
               : "—",
         }),
         createColumn<DocumentListItem>({
+          accessorKey: "remote_link_status",
+          labelKey: "contracts.documents.columns.remote",
+          enableSorting: false,
+          cell: ({ row }) => {
+            const status = row.original.remote_link_status;
+            if (!status) return "—";
+            return (
+              <StatusChip
+                label={t(LINK_STATUS_LABEL_KEYS[status as ApprovalLinkStatus])}
+                tone={LINK_STATUS_TONES[status as ApprovalLinkStatus]}
+              />
+            );
+          },
+        }),
+        createColumn<DocumentListItem>({
           accessorKey: "pdf_status",
           labelKey: "contracts.documents.columns.pdf",
           enableSorting: false,
@@ -629,8 +746,28 @@ export function DocumentsSection({
                     id: "open",
                     label: t("contracts.actions.open"),
                     icon: Eye,
-                    onSelect: () => setOpenDoc(d.uuid),
+                    onSelect: () => {
+                      setStartRemote(false);
+                      setOpenDoc(d.uuid);
+                    },
                   },
+                  ...(canWrite &&
+                  d.status === "draft" &&
+                  d.version_uuid &&
+                  (d.version_status === "draft" ||
+                    d.version_status === "issued")
+                    ? [
+                        {
+                          id: "remote",
+                          label: t("contracts.remote.create_link"),
+                          icon: Link2,
+                          onSelect: () => {
+                            setStartRemote(true);
+                            setOpenDoc(d.uuid);
+                          },
+                        },
+                      ]
+                    : []),
                   ...(canWrite && d.status !== "void"
                     ? [
                         {
@@ -732,7 +869,11 @@ export function DocumentsSection({
       <DocumentDialog
         documentUuid={openDoc}
         canWrite={canWrite}
-        onClose={() => setOpenDoc(null)}
+        startRemote={startRemote}
+        onClose={() => {
+          setOpenDoc(null);
+          setStartRemote(false);
+        }}
       />
     </EntitySectionCard>
   );

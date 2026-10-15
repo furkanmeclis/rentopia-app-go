@@ -434,21 +434,62 @@ type Document struct {
 }
 
 type DocumentApproval struct {
+	ID                  int64              `json:"id"`
+	Uuid                uuid.UUID          `json:"uuid"`
+	OrganizationID      int64              `json:"organization_id"`
+	DocumentVersionID   int64              `json:"document_version_id"`
+	ContentHash         string             `json:"content_hash"`
+	Party               string             `json:"party"`
+	Method              string             `json:"method"`
+	ApproverName        string             `json:"approver_name"`
+	CustomerID          pgtype.Int8        `json:"customer_id"`
+	Note                string             `json:"note"`
+	RecordedBy          pgtype.Int8        `json:"recorded_by"`
+	ApprovedAt          pgtype.Timestamptz `json:"approved_at"`
+	InvalidatedAt       pgtype.Timestamptz `json:"invalidated_at"`
+	InvalidatedReason   string             `json:"invalidated_reason"`
+	DriverID            pgtype.Int8        `json:"driver_id"`
+	LinkID              pgtype.Int8        `json:"link_id"`
+	OtpChallengeUuid    pgtype.UUID        `json:"otp_challenge_uuid"`
+	VerifiedPhoneMasked string             `json:"verified_phone_masked"`
+	VerifiedPhoneHash   string             `json:"verified_phone_hash"`
+	IpAddress           *netip.Addr        `json:"ip_address"`
+	UserAgent           string             `json:"user_agent"`
+	PdfObjectKey        pgtype.Text        `json:"pdf_object_key"`
+	PdfSizeBytes        int64              `json:"pdf_size_bytes"`
+	PdfSha256           pgtype.Text        `json:"pdf_sha256"`
+	SignatureID         pgtype.Int8        `json:"signature_id"`
+}
+
+type DocumentApprovalLink struct {
 	ID                int64              `json:"id"`
 	Uuid              uuid.UUID          `json:"uuid"`
 	OrganizationID    int64              `json:"organization_id"`
+	DocumentID        int64              `json:"document_id"`
 	DocumentVersionID int64              `json:"document_version_id"`
 	ContentHash       string             `json:"content_hash"`
-	Party             string             `json:"party"`
-	Method            string             `json:"method"`
-	ApproverName      string             `json:"approver_name"`
+	TokenHash         string             `json:"token_hash"`
+	TokenCiphertext   string             `json:"token_ciphertext"`
+	SignerRole        string             `json:"signer_role"`
+	SignerName        string             `json:"signer_name"`
 	CustomerID        pgtype.Int8        `json:"customer_id"`
-	Note              string             `json:"note"`
-	RecordedBy        pgtype.Int8        `json:"recorded_by"`
+	DriverID          pgtype.Int8        `json:"driver_id"`
+	PhoneMasked       string             `json:"phone_masked"`
+	PhoneHash         string             `json:"phone_hash"`
+	PhoneCiphertext   string             `json:"phone_ciphertext"`
+	Status            string             `json:"status"`
+	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
+	CodesSent         int32              `json:"codes_sent"`
+	FailedAttempts    int32              `json:"failed_attempts"`
+	SmsSentCount      int32              `json:"sms_sent_count"`
+	LastSmsAt         pgtype.Timestamptz `json:"last_sms_at"`
 	ApprovedAt        pgtype.Timestamptz `json:"approved_at"`
-	InvalidatedAt     pgtype.Timestamptz `json:"invalidated_at"`
-	InvalidatedReason string             `json:"invalidated_reason"`
-	SignatureID       pgtype.Int8        `json:"signature_id"`
+	RevokedAt         pgtype.Timestamptz `json:"revoked_at"`
+	RevokedBy         pgtype.Int8        `json:"revoked_by"`
+	RevokedReason     string             `json:"revoked_reason"`
+	CreatedBy         pgtype.Int8        `json:"created_by"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
 type DocumentVersion struct {

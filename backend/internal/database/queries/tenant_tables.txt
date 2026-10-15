@@ -75,3 +75,4 @@ inspections
 inspection_damages
 inspection_photos
 inspection_signatures
+document_approval_links

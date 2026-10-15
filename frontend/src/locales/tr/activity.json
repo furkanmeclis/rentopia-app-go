@@ -278,5 +278,11 @@
   "actions.inspection_templates.saved": "Teslim / iade şablonu kaydedildi",
   "actions.rentals.charge_overridden": "Kiralama ücreti tutarı değiştirildi",
   "resources.tenant.inspections": "Teslim / iade formları",
-  "resources.tenant.inspection_templates": "Teslim / iade şablonları"
+  "resources.tenant.inspection_templates": "Teslim / iade şablonları",
+  "actions.documents.approval_link_created": "Uzaktan onay linki oluşturuldu",
+  "actions.documents.approval_link_sent": "Uzaktan onay linki SMS ile gönderildi",
+  "actions.documents.approval_link_revoked": "Uzaktan onay linki iptal edildi",
+  "actions.documents.remote_code_sent": "Uzaktan onay kodu gönderildi",
+  "actions.documents.remote_approved": "Belge uzaktan (SMS kodu ile) onaylandı",
+  "actions.documents.remote_approval_failed": "Uzaktan onay kodu doğrulanamadı"
 }

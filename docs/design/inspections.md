@@ -10,7 +10,7 @@ Status: **implemented** (M3: TEC-712 mobile handover, TEC-713 mobile return, TEC
 - Contracts side: `contractsusecase.ApproveWithSignature` (approval with method `signature`).
 - Panel: `frontend/src/features/inspections`, `frontend/src/components/signature`.
 
-## 1. Tables (migration 000088)
+## 1. Tables (migration 000089)
 
 | Table | Notes |
 |-------|-------|

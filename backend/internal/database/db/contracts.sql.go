@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"net/netip"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -951,16 +952,20 @@ func (q *Queries) ListContractTemplates(ctx context.Context, arg ListContractTem
 
 const listDocumentApprovals = `-- name: ListDocumentApprovals :many
 SELECT a.uuid, a.content_hash, a.party, a.method, a.approver_name, a.note, a.approved_at, a.invalidated_at,
-    a.invalidated_reason, v.uuid AS version_uuid, v.version AS version_number,
+    a.invalidated_reason, a.verified_phone_masked, a.ip_address, a.user_agent,
+    v.uuid AS version_uuid, v.version AS version_number,
+    l.uuid AS link_uuid, l.signer_role,
     ru.uuid AS recorded_by_uuid, ru.name AS recorded_by_name, ru.surname AS recorded_by_surname, ru.email AS recorded_by_email,
     sig.uuid AS signature_uuid, ins.uuid AS signature_inspection_uuid
 FROM document_approvals a
 JOIN document_versions v ON v.organization_id = a.organization_id AND v.id = a.document_version_id
+LEFT JOIN document_approval_links l ON l.organization_id = a.organization_id AND l.id = a.link_id
 LEFT JOIN users ru ON ru.id = a.recorded_by
 LEFT JOIN inspection_signatures sig ON sig.organization_id = a.organization_id AND sig.id = a.signature_id
 LEFT JOIN inspections ins ON ins.organization_id = sig.organization_id AND ins.id = sig.inspection_id
 WHERE a.organization_id = $1
   AND v.organization_id = $1
+  AND (l.organization_id IS NULL OR l.organization_id = $1)
   AND v.document_id = $2
 ORDER BY a.approved_at DESC, a.id DESC
 `
@@ -980,8 +985,13 @@ type ListDocumentApprovalsRow struct {
 	ApprovedAt              pgtype.Timestamptz `json:"approved_at"`
 	InvalidatedAt           pgtype.Timestamptz `json:"invalidated_at"`
 	InvalidatedReason       string             `json:"invalidated_reason"`
+	VerifiedPhoneMasked     string             `json:"verified_phone_masked"`
+	IpAddress               *netip.Addr        `json:"ip_address"`
+	UserAgent               string             `json:"user_agent"`
 	VersionUuid             uuid.UUID          `json:"version_uuid"`
 	VersionNumber           int32              `json:"version_number"`
+	LinkUuid                pgtype.UUID        `json:"link_uuid"`
+	SignerRole              pgtype.Text        `json:"signer_role"`
 	RecordedByUuid          pgtype.UUID        `json:"recorded_by_uuid"`
 	RecordedByName          pgtype.Text        `json:"recorded_by_name"`
 	RecordedBySurname       pgtype.Text        `json:"recorded_by_surname"`
@@ -1009,8 +1019,13 @@ func (q *Queries) ListDocumentApprovals(ctx context.Context, arg ListDocumentApp
 			&i.ApprovedAt,
 			&i.InvalidatedAt,
 			&i.InvalidatedReason,
+			&i.VerifiedPhoneMasked,
+			&i.IpAddress,
+			&i.UserAgent,
 			&i.VersionUuid,
 			&i.VersionNumber,
+			&i.LinkUuid,
+			&i.SignerRole,
 			&i.RecordedByUuid,
 			&i.RecordedByName,
 			&i.RecordedBySurname,
@@ -1116,12 +1131,20 @@ SELECT d.uuid, d.kind, d.status, d.created_at, d.updated_at,
     v.uuid AS version_uuid, v.version AS version_number, v.status AS version_status, v.content_hash,
     v.pdf_status, v.created_at AS version_created_at, v.template_version,
     t.name AS template_name,
+    COALESCE(rl.status, '')::text AS remote_link_status, rl.expires_at AS remote_link_expires_at,
     COUNT(*) OVER ()::bigint AS total
 FROM documents d
 JOIN reservations res ON res.organization_id = d.organization_id AND res.id = d.reservation_id
 LEFT JOIN rentals r ON r.organization_id = d.organization_id AND r.id = d.rental_id
 LEFT JOIN document_versions v ON v.organization_id = d.organization_id AND v.id = d.current_version_id
 LEFT JOIN contract_templates t ON t.organization_id = v.organization_id AND t.id = v.template_id
+LEFT JOIN LATERAL (
+    SELECT l.status, l.expires_at
+    FROM document_approval_links l
+    WHERE l.organization_id = d.organization_id AND l.document_id = d.id
+    ORDER BY l.created_at DESC, l.id DESC
+    LIMIT 1
+) rl ON TRUE
 WHERE d.organization_id = $1
   AND res.organization_id = $1
   AND (
@@ -1169,6 +1192,8 @@ type ListDocumentsRow struct {
 	VersionCreatedAt     pgtype.Timestamptz `json:"version_created_at"`
 	TemplateVersion      pgtype.Int4        `json:"template_version"`
 	TemplateName         pgtype.Text        `json:"template_name"`
+	RemoteLinkStatus     string             `json:"remote_link_status"`
+	RemoteLinkExpiresAt  pgtype.Timestamptz `json:"remote_link_expires_at"`
 	Total                int64              `json:"total"`
 }
 
@@ -1209,6 +1234,8 @@ func (q *Queries) ListDocuments(ctx context.Context, arg ListDocumentsParams) ([
 			&i.VersionCreatedAt,
 			&i.TemplateVersion,
 			&i.TemplateName,
+			&i.RemoteLinkStatus,
+			&i.RemoteLinkExpiresAt,
 			&i.Total,
 		); err != nil {
 			return nil, err

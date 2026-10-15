@@ -38,6 +38,7 @@ const (
 type Handler struct {
 	svc      *usecase.Service
 	activity *activity.Recorder
+	limiter  RateLimiter
 }
 
 // New builds the handler. rec may be nil.
@@ -484,6 +485,19 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 		response.NotFound(w, r, "Document was not found")
 	case errors.Is(err, usecase.ErrVersionNotFound):
 		response.NotFound(w, r, "Document version was not found")
+	case errors.Is(err, usecase.ErrLinkNotFound):
+		response.NotFound(w, r, "Approval link was not found")
+	case errors.Is(err, usecase.ErrApprovalNotFound):
+		response.NotFound(w, r, "Approval was not found")
+	case errors.Is(err, usecase.ErrRemoteUnavailable):
+		response.ErrorWithDetails(w, r, http.StatusServiceUnavailable, CodeRemoteDisabled, err.Error(),
+			[]response.Detail{{Code: "remote_approval_unavailable", Message: err.Error()}})
+	case errors.Is(err, usecase.ErrNoSMSAccount):
+		response.ErrorWithDetails(w, r, http.StatusUnprocessableEntity, CodeSMSAccount, err.Error(),
+			[]response.Detail{{Code: "sms_account_required", Message: err.Error()}})
+	case errors.Is(err, usecase.ErrSMSRateLimited):
+		response.ErrorWithDetails(w, r, http.StatusTooManyRequests, CodeRateLimited, err.Error(),
+			[]response.Detail{{Code: "rate_limited", Message: err.Error()}})
 	case errors.Is(err, usecase.ErrForbidden):
 		response.Forbidden(w, r, "Missing permission for this action")
 	case errors.Is(err, usecase.ErrNoTemplate):
