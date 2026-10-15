@@ -1205,6 +1205,62 @@ type Querier interface {
 	// A changed amount of a proposed charge; the first override keeps the
 	// computed amount in original_amount.
 	OverrideRentalCharge(ctx context.Context, arg OverrideRentalChargeParams) (int64, error)
+	// Active rentals and how many of them are late. Rental rule.
+	OverviewActiveRentals(ctx context.Context, arg OverviewActiveRentalsParams) (OverviewActiveRentalsRow, error)
+	// Integration jobs of the organization that failed or need verification
+	// (organization-wide: jobs belong to no branch), most recently changed
+	// first. Generic over provider and kind (SMS, payments; KABİS and
+	// e-documents later).
+	OverviewAttentionJobs(ctx context.Context, arg OverviewAttentionJobsParams) ([]OverviewAttentionJobsRow, error)
+	// Sidebar badges: the approval queue (and how many passed their SLA) and
+	// open resolution tasks. Reservation rule.
+	OverviewBadgeCounts(ctx context.Context, arg OverviewBadgeCountsParams) (OverviewBadgeCountsRow, error)
+	OverviewBranchByUUID(ctx context.Context, arg OverviewBranchByUUIDParams) (OverviewBranchByUUIDRow, error)
+	// Operations overview of the tenant panel home page (TEC-716,
+	// docs/design/operations-overview.md). Read-only aggregates over other
+	// modules' tables. Every query takes the organization and the effective
+	// branch filter (nil = every branch; the caller's branch scope, narrowed
+	// to one branch when the page filters by branch) and applies the
+	// visibility rule of the module that owns the table.
+	// Live branches of the organization in the caller's branch scope (the
+	// page's branch filter).
+	OverviewBranches(ctx context.Context, arg OverviewBranchesParams) ([]OverviewBranchesRow, error)
+	// TRY payments confirmed in [day_start, day_end): provider checkouts and
+	// branch collections. Payment rule: the reservation's pick-up or return
+	// branch in the filter.
+	OverviewCollections(ctx context.Context, arg OverviewCollectionsParams) (OverviewCollectionsRow, error)
+	// An active rental contract template makes an approved contract a
+	// handover requirement (rentals ContractState).
+	OverviewContractRequired(ctx context.Context, organizationID int64) (bool, error)
+	// Rentable vehicles today (live, active, in service, not out of service,
+	// in maintenance or damaged) and how many of them are out on an active
+	// rental. Vehicle rule: home or current branch in the filter.
+	OverviewFleetUtilisation(ctx context.Context, arg OverviewFleetUtilisationParams) (OverviewFleetUtilisationRow, error)
+	// Open resolution tasks (availability problems), newest first.
+	// Reservation rule on the task's reservation.
+	OverviewOpenResolutionTasks(ctx context.Context, arg OverviewOpenResolutionTasksParams) ([]OverviewOpenResolutionTasksRow, error)
+	// Active rentals whose planned return has passed (or that the overdue
+	// sweep marked), oldest first. Rental rule: planned pick-up, planned
+	// return or actual return branch in the filter.
+	OverviewOverdueRentals(ctx context.Context, arg OverviewOverdueRentalsParams) ([]OverviewOverdueRentalsRow, error)
+	// Confirmed reservations picked up in [window_start, window_end) whose
+	// vehicle is not handed over yet and whose rental contract is not
+	// approved (no live document, or one awaiting approval). Reservation rule.
+	OverviewPendingContracts(ctx context.Context, arg OverviewPendingContractsParams) ([]OverviewPendingContractsRow, error)
+	// TRY refunds that succeeded in [day_start, day_end). Payment rule.
+	OverviewRefunds(ctx context.Context, arg OverviewRefundsParams) (OverviewRefundsRow, error)
+	// Open resolution tasks per type.
+	OverviewResolutionTaskCounts(ctx context.Context, arg OverviewResolutionTaskCountsParams) ([]OverviewResolutionTaskCountsRow, error)
+	// (task_type, status, count) of the same window.
+	OverviewTodayOperationCounts(ctx context.Context, arg OverviewTodayOperationCountsParams) ([]OverviewTodayOperationCountsRow, error)
+	// Handover and return tasks due in [day_start, day_end) of the task's
+	// branch (operation task rule), with the rental, plate and customer.
+	OverviewTodayOperations(ctx context.Context, arg OverviewTodayOperationsParams) ([]OverviewTodayOperationsRow, error)
+	// Reservations in the given statuses (approval queue: request,
+	// awaiting_review; waiting for payment: awaiting_payment), soonest
+	// deadline first. Reservation rule: pick-up or return branch in the
+	// filter. overdue = deadline passed.
+	OverviewWaitingReservations(ctx context.Context, arg OverviewWaitingReservationsParams) ([]OverviewWaitingReservationsRow, error)
 	PingDB(ctx context.Context) (int32, error)
 	PurgeCustomerDocuments(ctx context.Context, arg PurgeCustomerDocumentsParams) error
 	QueueImportJob(ctx context.Context, argUuid uuid.UUID) (ImportJob, error)

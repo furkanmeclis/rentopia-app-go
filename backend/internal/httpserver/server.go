@@ -105,6 +105,9 @@ import (
 	orgsettingshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/handler"
 	orgsettingsrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/repository"
 	orgsettingsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/usecase"
+	overviewmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/overview"
+	overviewhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/overview/handler"
+	overviewusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/overview/usecase"
 	paymentsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/payments"
 	paymentshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/payments/handler"
 	paymentsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/payments/usecase"
@@ -723,6 +726,9 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	rentalsmodule.RegisterRoutes(mux, rentalhandler.New(rentalsSvc, activityRec), rentalsmodule.EngineHandlers{
 		Export: exportH.TenantExport(rentalsmodule.Resource, rentalsmodule.ExportQueryKeys...),
 	}, tokens, loader, tenantResolver)
+	// Operations overview (TEC-716): the tenant home page and the sidebar
+	// badge counts, read-only over the modules above.
+	overviewmodule.RegisterRoutes(mux, overviewhandler.New(overviewusecase.New(deps.Queries)), tokens, loader, tenantResolver)
 	contractsH := contractshandler.New(contractsSvc, activityRec)
 	contractsH.SetRateLimiter(contractsmodule.Limiter{L: ratelimit.New(deps.Redis, cfg.App.Env)})
 	contractsmodule.RegisterRoutes(mux, contractsH, tokens, loader, tenantResolver)

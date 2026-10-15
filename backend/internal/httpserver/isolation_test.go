@@ -696,8 +696,12 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		"GET /v1/tenant/operation-tasks": {
 			"?rental=" + b["rental"], "?vehicle=" + b["vehicle"], "?branch=" + b["branch"], "?assignee=" + bob.Uuid.String(),
 		},
-		"GET /v1/tenant/documents":          {"?reservation=" + b["rentalReservation"], "?rental=" + b["rental"]},
-		"GET /v1/tenant/inspections":        {"?rental=" + b["rental"]},
+		"GET /v1/tenant/documents":   {"?reservation=" + b["rentalReservation"], "?rental=" + b["rental"]},
+		"GET /v1/tenant/inspections": {"?rental=" + b["rental"]},
+		// Operations overview (TEC-716): B's branches as the filter are
+		// unknown in A (not_found); the plain call and the badges are
+		// leak-scanned.
+		"GET /v1/tenant/overview":           {"?branch=" + b["branch"], "?branch=" + b["home"]},
 		"GET /v1/tenant/contract-templates": {"?q=" + orgB.marker},
 		"GET /v1/tenant/rate-plans/matrix": {
 			"?scope=branch&branch=" + b["branch"],
