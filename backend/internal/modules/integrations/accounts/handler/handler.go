@@ -29,6 +29,9 @@ const CodeCheckFailed = "INTEGRATION_CHECK_FAILED"
 // Sortable list fields.
 var Sortable = map[string]string{"display_name": "display_name", "created_at": "created_at"}
 
+// JobSortable are the sortable job list fields.
+var JobSortable = map[string]string{"created_at": "created_at", "updated_at": "updated_at"}
+
 // Handler serves the integration accounts.
 type Handler struct {
 	svc      *usecase.Service
@@ -186,8 +189,17 @@ func (h *Handler) Jobs(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	q := apiquery.Parse(r.URL.Query())
-	items, total, err := h.svc.Jobs(r.Context(), orgID(r), id, q.Limit, q.Offset)
+	q, ok := httpkit.ListQuery(w, r, JobSortable)
+	if !ok {
+		return
+	}
+	f := usecase.JobFilter{
+		Statuses: httpkit.Values(r, "status"), Kinds: httpkit.Values(r, "kind"), Limit: q.Limit, Offset: q.Offset,
+	}
+	if len(q.Sort) > 0 {
+		f.SortField, f.SortDesc = q.Sort[0].Field, q.Sort[0].Desc
+	}
+	items, total, err := h.svc.Jobs(r.Context(), orgID(r), id, f)
 	if err != nil {
 		writeError(w, r, err)
 		return

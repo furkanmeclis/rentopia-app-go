@@ -6915,11 +6915,84 @@ export interface paths {
         };
         /**
          * Integration jobs of an account
-         * @description `tenant.integrations.manage`. Outbound calls and inbound notifications (idempotency key, attempts, deliveries, status).
+         * @description `tenant.integrations.manage`. Outbound calls and inbound notifications (idempotency key, attempts,
+         *     deliveries, status). Live list resource `tenant.integration_jobs`.
          */
         get: operations["getTenantIntegrationJobs"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/integrations/{uuid}/test-sms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a test SMS through an SMS account
+         * @description `tenant.integrations.manage`. Queues a short transactional SMS to `phone` through this account (any
+         *     status) via the integration job runner. Answers the masked number, the message and its job
+         *     (`job_status` is the state after the first step when no queue is configured). No İYS consent is
+         *     needed (transactional). `422 SMS_NO_ACCOUNT` when the account's provider is not available,
+         *     `429 SMS_RATE_LIMITED` at the organization's hourly SMS limit.
+         */
+        post: operations["postTenantIntegrationTestSms"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/integration-jobs/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * An integration job with its attempts
+         * @description `tenant.integrations.manage`. Every provider call (submit / check_status) with its outcome, a short
+         *     request / response summary (references only: no secrets, codes or full numbers), the error and
+         *     timings.
+         */
+        get: operations["getTenantIntegrationJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/integration-jobs/{uuid}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry a job ("Yeniden dene")
+         * @description `tenant.integrations.manage`. Asks the provider for the job's status first (CheckStatus); the work
+         *     is submitted again only when the provider confirms it was not done (`action: resubmitted`). Done
+         *     → `already_done`, still in progress → `in_progress`. When the status cannot be confirmed (unknown
+         *     or unsupported) nothing is sent and the answer is `409 INTEGRATION_JOB_UNVERIFIED` with the job in
+         *     `data`. Succeeded jobs, inbound notifications and payment refunds answer
+         *     `409 INTEGRATION_JOB_NOT_RETRYABLE`; a job held by a worker `409 INTEGRATION_JOB_BUSY`. No tenant
+         *     step-up policy exists yet (docs/design/integration-jobs.md).
+         */
+        post: operations["postTenantIntegrationJobRetry"];
         delete?: never;
         options?: never;
         head?: never;
@@ -16540,9 +16613,9 @@ export interface components {
         };
         IntegrationProvider: {
             /** @enum {string} */
-            kind: "payment";
+            kind: "payment" | "sms";
             /** @enum {string} */
-            provider: "iyzico";
+            provider: "iyzico" | "netgsm" | "log";
             fields: components["schemas"]["IntegrationField"][];
             modes: ("sandbox" | "live")[];
         };
@@ -16559,9 +16632,9 @@ export interface components {
             /** Format: uuid */
             uuid: string;
             /** @enum {string} */
-            kind: "payment";
+            kind: "payment" | "sms";
             /** @enum {string} */
-            provider: "iyzico";
+            provider: "iyzico" | "netgsm" | "log";
             display_name: string;
             /** @enum {string} */
             mode: "sandbox" | "live";
@@ -16600,6 +16673,13 @@ export interface components {
             };
             meta: components["schemas"]["ResponseMeta"];
         };
+        /**
+         * @description `pending` = pending_submit, `submitted` = accepted by the provider (final state from CheckStatus),
+         *     `needs_verification` = outcome unknown (only CheckStatus moves it on), `processing` = held by a
+         *     worker (payments), `ignored` = a notification that needs no action.
+         * @enum {string}
+         */
+        IntegrationJobStatus: "pending" | "processing" | "submitted" | "succeeded" | "failed" | "ignored" | "needs_verification";
         IntegrationJob: {
             /** Format: uuid */
             uuid: string;
@@ -16607,18 +16687,122 @@ export interface components {
             direction: "inbound" | "outbound";
             provider: string;
             kind: string;
+            status: components["schemas"]["IntegrationJobStatus"];
             /** @enum {string} */
-            status: "pending" | "processing" | "succeeded" | "failed" | "ignored";
+            priority: "critical" | "normal";
             attempts: number;
+            max_attempts: number;
             deliveries: number;
             last_error: string;
             ref_type: string;
             /** Format: uuid */
             ref_uuid: string | null;
             /** Format: date-time */
+            next_attempt_at: string | null;
+            /** Format: date-time */
+            submitted_at: string | null;
+            /** Format: date-time */
             completed_at: string | null;
             /** Format: date-time */
             created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        IntegrationAttempt: {
+            /** Format: uuid */
+            uuid: string;
+            attempt_no: number;
+            /** @enum {string} */
+            operation: "submit" | "check_status";
+            /** @enum {string} */
+            trigger: "worker" | "sweep" | "retry" | "inline";
+            /** @enum {string} */
+            outcome: "succeeded" | "accepted" | "pending" | "failed" | "not_found" | "uncertain" | "unsupported";
+            request_summary: {
+                [key: string]: unknown;
+            };
+            response_summary: {
+                [key: string]: unknown;
+            };
+            error: string;
+            /** Format: date-time */
+            started_at: string;
+            /** Format: date-time */
+            finished_at: string;
+            duration_ms: number;
+        };
+        IntegrationJobDetail: {
+            /** Format: uuid */
+            uuid: string;
+            /** Format: uuid */
+            account_uuid: string | null;
+            /** @enum {string} */
+            direction: "inbound" | "outbound";
+            provider: string;
+            kind: string;
+            status: components["schemas"]["IntegrationJobStatus"];
+            /** @enum {string} */
+            priority: "critical" | "normal";
+            attempts: number;
+            max_attempts: number;
+            deliveries: number;
+            last_error: string;
+            provider_ref: string;
+            /** @description References and non-secret facts only. */
+            payload: {
+                [key: string]: unknown;
+            };
+            result: {
+                [key: string]: unknown;
+            };
+            ref_type: string;
+            /** Format: uuid */
+            ref_uuid: string | null;
+            /** Format: date-time */
+            next_attempt_at: string | null;
+            /** Format: date-time */
+            submitted_at: string | null;
+            /** Format: date-time */
+            completed_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** @description A staff retry applies (outbound, not a payment refund, not succeeded). */
+            retryable: boolean;
+            attempt_log: components["schemas"]["IntegrationAttempt"][];
+        };
+        EnvelopeIntegrationJobDetail: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["IntegrationJobDetail"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeIntegrationJobRetry: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                /** @enum {string} */
+                action: "already_done" | "in_progress" | "resubmitted";
+                job: components["schemas"]["IntegrationJobDetail"];
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        SmsSent: {
+            /** Format: uuid */
+            message_uuid: string;
+            /** Format: uuid */
+            job_uuid: string;
+            /** @enum {string} */
+            status: "queued" | "submitted" | "delivered" | "undelivered" | "failed" | "unknown" | "blocked";
+            job_status: components["schemas"]["IntegrationJobStatus"];
+            phone_masked: string;
+        };
+        EnvelopeSmsSent: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["SmsSent"];
+            meta: components["schemas"]["ResponseMeta"];
         };
         EnvelopeIntegrationJobPage: {
             /** @enum {boolean} */
@@ -29547,9 +29731,9 @@ export interface operations {
                 sort?: string;
                 /** @description active, disabled */
                 status?: string;
-                /** @description payment */
+                /** @description payment, sms */
                 kind?: string;
-                /** @description iyzico */
+                /** @description iyzico, netgsm, log */
                 provider?: string;
             };
             header: {
@@ -29594,14 +29778,17 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /**
+                     * @description Defaults to the provider's kind.
+                     * @enum {string}
+                     */
+                    kind?: "payment" | "sms";
                     /** @enum {string} */
-                    kind?: "payment";
-                    /** @enum {string} */
-                    provider: "iyzico";
+                    provider: "iyzico" | "netgsm" | "log";
                     display_name: string;
                     /** @enum {string} */
                     mode?: "sandbox" | "live";
-                    /** @description iyzico: `api_key`, `secret_key` */
+                    /** @description iyzico: `api_key`, `secret_key`; netgsm: `usercode`, `password`, `msgheader`; log (development only): `msgheader` */
                     credentials: {
                         [key: string]: string;
                     };
@@ -29755,6 +29942,12 @@ export interface operations {
             query?: {
                 limit?: components["parameters"]["Limit"];
                 offset?: components["parameters"]["Offset"];
+                /** @description `created_at` or `updated_at`; prefix `-` for descending (default `-created_at`). */
+                sort?: string;
+                /** @description Comma-separated job statuses */
+                status?: string;
+                /** @description Comma-separated job kinds (sms.send, payment.refund …) */
+                kind?: string;
             };
             header: {
                 /**
@@ -29780,9 +29973,117 @@ export interface operations {
                     "application/json": components["schemas"]["EnvelopeIntegrationJobPage"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["TenantForbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantIntegrationTestSms: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Any common format; Turkish national numbers get +90. */
+                    phone: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSmsSent"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getTenantIntegrationJob: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Job */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeIntegrationJobDetail"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantIntegrationJobRetry: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Retried */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeIntegrationJobRetry"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     getPublicPayLink: {

@@ -107,6 +107,8 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		Encryption: config.EncryptionConfig{Key: strings.Repeat("k", 32)},
 		Tenancy:    config.TenancyConfig{Enabled: true},
 		Bulk:       config.BulkConfig{SyncMax: 1, RollbackHours: 24},
+		// SMS (TEC-734): the log provider sends without a network.
+		SMS: config.SMSConfig{LogProvider: true},
 	}
 	if host := os.Getenv("TEST_MEILI_HOST"); host != "" {
 		cfg.Search = config.SearchConfig{
@@ -414,6 +416,14 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			"provider": "iyzico", "display_name": m + " iyzico", "mode": "sandbox",
 			"credentials": map[string]any{"api_key": m + "-api-key", "secret_key": m + "-secret-key"},
 		}), http.StatusCreated, "connect integration"), "uuid")
+		// SMS account (log provider) and a test send: its integration job
+		// (TEC-751) is the {uuid} of /v1/tenant/integration-jobs.
+		ids["smsAccount"] = str(must(call(o, http.MethodPost, "/v1/tenant/integrations", map[string]any{
+			"provider": "log", "display_name": m + " sms", "credentials": map[string]any{"msgheader": "RENTOPIA"},
+		}), http.StatusCreated, "connect sms"), "uuid")
+		ids["integrationJob"] = str(must(call(o, http.MethodPost, "/v1/tenant/integrations/"+ids["smsAccount"]+"/test-sms", map[string]any{
+			"phone": "05321234567",
+		}), http.StatusAccepted, "test sms"), "job_uuid")
 		ids["paymentLink"] = str(must(call(o, http.MethodPost, "/v1/tenant/reservations/"+ids["reservation"]+"/payment-links", map[string]any{
 			"amount": "100",
 		}), http.StatusCreated, "payment link"), "uuid")
@@ -1095,6 +1105,8 @@ func paramKey(prev, name string) string {
 		return "task"
 	case "integrations/uuid":
 		return "integrationAccount"
+	case "integration-jobs/uuid":
+		return "integrationJob"
 	case "payments/uuid":
 		return "payment"
 	case "payment-links/uuid":

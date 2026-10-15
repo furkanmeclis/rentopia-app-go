@@ -83,6 +83,9 @@ import (
 	githubmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/github"
 	githubhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/github/handler"
 	githubusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/github/usecase"
+	integrationjobsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/jobs"
+	integrationjobshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/jobs/handler"
+	integrationjobsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/jobs/usecase"
 	oauthprovidermodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/oauthprovider"
 	oauthproviderhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/oauthprovider/handler"
 	oauthproviderusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/oauthprovider/usecase"
@@ -125,6 +128,9 @@ import (
 	settingsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/settings"
 	settingshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/settings/handler"
 	settingsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/settings/usecase"
+	smsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/sms"
+	smshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/sms/handler"
+	smsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/sms/usecase"
 	storagemodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/storage"
 	storagehandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/storage/handler"
 	storageusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/storage/usecase"
@@ -437,7 +443,25 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	iyzicoAdapter := iyzico.New(iyzico.Config{
 		SandboxBaseURL: cfg.Payments.IyzicoSandboxBaseURL, LiveBaseURL: cfg.Payments.IyzicoLiveBaseURL,
 	})
-	integrationAccountsSvc := integrationaccountsusecase.New(deps.Queries, integrationVault, integrations.NewRegistry(iyzicoAdapter))
+	// SMS providers (TEC-734): Netgsm, and the log provider in development.
+	smsProviders := smsmodule.Providers(cfg.SMS, cfg.App.Env, log)
+	integrationAccountsSvc := integrationaccountsusecase.New(deps.Queries, integrationVault,
+		integrations.NewRegistry(append([]integrations.Adapter{iyzicoAdapter}, smsmodule.Adapters(smsProviders)...)...))
+	// Generic integration job runner (TEC-751): steps go to the
+	// integrations queues when a queue is configured.
+	integrationOps := integrations.NewOperationRegistry()
+	integrationRunner := integrationjobsusecase.NewRunner(deps.Queries, integrationAccountsSvc, integrationOps)
+	if deps.Queue != nil {
+		integrationRunner.SetDispatcher(queue.IntegrationDispatcher{Client: deps.Queue})
+	}
+	integrationRunner.SetResourceEvents(resourceEvents)
+	integrationRunner.SetLogger(log)
+	smsSvc, err := smsusecase.New(deps.DB, deps.Queries, fieldCipher, integrationAccountsSvc, integrationRunner, integrationOps, smsProviders...)
+	if err != nil {
+		return nil, fmt.Errorf("httpserver: sms: %w", err)
+	}
+	smsSvc.SetActivity(activity.NewRecorder(deps.Queries, log))
+	smsSvc.SetLogger(log)
 	paymentsSvc := paymentsusecase.New(deps.DB, deps.Queries, integrationAccountsSvc, reservationSvc,
 		paymentsusecase.Config{PublicBaseURL: cfg.Auth.FrontendURL}, iyzicoAdapter)
 	paymentsSvc.SetResourceEvents(resourceEvents)
@@ -485,6 +509,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	campaignsmodule.RegisterLiveResources(tenantLive)
 	reservationsmodule.RegisterLiveResources(tenantLive)
 	paymentsmodule.RegisterLiveResources(tenantLive)
+	integrationjobsmodule.RegisterLiveResources(tenantLive)
 	rentalsmodule.RegisterLiveResources(tenantLive)
 	inspectionsmodule.RegisterLiveResources(tenantLive)
 	contractsmodule.RegisterLiveResources(tenantLive)
@@ -682,6 +707,8 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		Bulk:   bulkH.TenantExecute(reservationsmodule.Resource),
 	}, tokens, loader, tenantResolver)
 	integrationaccountsmodule.RegisterRoutes(mux, integrationaccountshandler.New(integrationAccountsSvc, activityRec), tokens, loader, tenantResolver)
+	integrationjobsmodule.RegisterRoutes(mux, integrationjobshandler.New(integrationRunner, activityRec), tokens, loader, tenantResolver)
+	smsmodule.RegisterRoutes(mux, smshandler.New(smsSvc, activityRec), tokens, loader, tenantResolver)
 	paymentsH := paymentshandler.New(paymentsSvc, activityRec)
 	paymentsH.SetRateLimiter(paymentsmodule.Limiter{L: ratelimit.New(deps.Redis, cfg.App.Env)})
 	paymentsmodule.RegisterRoutes(mux, paymentsH, tokens, loader, tenantResolver)

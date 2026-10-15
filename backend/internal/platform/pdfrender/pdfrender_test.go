@@ -3,12 +3,16 @@ package pdfrender
 import (
 	"bytes"
 	"context"
+	"strings"
 	"testing"
 	"time"
 )
 
 // TestChromiumPrintsA4 prints a Turkish document with a remote image (the
-// load is blocked) when a Chromium is on PATH; CI without one skips.
+// load is blocked) when a usable Chromium is on PATH. Hosts without one, or
+// whose Chromium cannot start its sandbox (GitHub's Ubuntu 24.04 runners
+// restrict user namespaces; the backend image runs it through a launcher
+// instead), skip.
 func TestChromiumPrintsA4(t *testing.T) {
 	if !Available() {
 		t.Skip("no chromium on PATH")
@@ -21,6 +25,9 @@ func TestChromiumPrintsA4(t *testing.T) {
 	defer cancel()
 	for i := 0; i < 2; i++ {
 		out, err := c.RenderPDF(ctx, html)
+		if err != nil && strings.Contains(err.Error(), "No usable sandbox") {
+			t.Skipf("chromium cannot start its sandbox on this host: %v", err)
+		}
 		if err != nil {
 			t.Fatalf("print %d: %v", i, err)
 		}

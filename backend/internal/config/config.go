@@ -33,6 +33,18 @@ type Config struct {
 	Sentry     SentryConfig
 	Tenancy    TenancyConfig
 	Payments   PaymentsConfig
+	SMS        SMSConfig
+}
+
+// SMSConfig holds the SMS provider endpoints (TEC-734). Credentials are per
+// organization (integration accounts). Netgsm has no sandbox: the sandbox
+// URL is empty in production (sandbox accounts refuse to send) and points
+// at cmd/netgsm-fake in development. LogProvider registers the development
+// log provider; it is ignored when APP_ENV is production.
+type SMSConfig struct {
+	NetgsmLiveBaseURL    string
+	NetgsmSandboxBaseURL string
+	LogProvider          bool
 }
 
 // PaymentsConfig holds the provider endpoints (TEC-707). Credentials are
@@ -348,6 +360,11 @@ func Load() (Config, error) {
 		Payments: PaymentsConfig{
 			IyzicoSandboxBaseURL: getEnv("IYZICO_SANDBOX_BASE_URL", "https://sandbox-api.iyzipay.com"),
 			IyzicoLiveBaseURL:    getEnv("IYZICO_LIVE_BASE_URL", "https://api.iyzipay.com"),
+		},
+		SMS: SMSConfig{
+			NetgsmLiveBaseURL:    getEnv("NETGSM_LIVE_BASE_URL", "https://api.netgsm.com.tr"),
+			NetgsmSandboxBaseURL: getEnv("NETGSM_SANDBOX_BASE_URL", ""),
+			LogProvider:          getBool("SMS_LOG_PROVIDER", false),
 		},
 	}
 

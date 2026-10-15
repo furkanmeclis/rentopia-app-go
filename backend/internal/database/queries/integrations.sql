@@ -110,11 +110,119 @@ WHERE organization_id = sqlc.arg(organization_id)
   AND id = sqlc.arg(id);
 
 -- name: ListIntegrationJobs :many
-SELECT j.uuid, j.direction, j.provider, j.kind, j.status, j.attempts, j.deliveries, j.last_error, j.ref_type,
-    j.ref_uuid, j.completed_at, j.created_at, j.updated_at,
+SELECT j.uuid, j.direction, j.provider, j.kind, j.status, j.attempts, j.max_attempts, j.deliveries, j.last_error,
+    j.ref_type, j.ref_uuid, j.priority, j.next_attempt_at, j.submitted_at, j.completed_at, j.created_at, j.updated_at,
     COUNT(*) OVER ()::bigint AS total
 FROM integration_jobs j
 WHERE j.organization_id = sqlc.arg(organization_id)
   AND (sqlc.narg(account_id)::bigint IS NULL OR j.integration_account_id = sqlc.narg(account_id)::bigint)
-ORDER BY j.created_at DESC, j.id DESC
+  AND (sqlc.narg(statuses)::text[] IS NULL OR j.status = ANY(sqlc.narg(statuses)::text[]))
+  AND (sqlc.narg(kinds)::text[] IS NULL OR j.kind = ANY(sqlc.narg(kinds)::text[]))
+ORDER BY
+    CASE WHEN sqlc.arg(sort_field)::text = 'updated_at' AND NOT sqlc.arg(sort_desc)::boolean THEN j.updated_at END ASC,
+    CASE WHEN sqlc.arg(sort_field)::text = 'updated_at' AND sqlc.arg(sort_desc)::boolean THEN j.updated_at END DESC,
+    CASE WHEN sqlc.arg(sort_field)::text = 'created_at' AND NOT sqlc.arg(sort_desc)::boolean THEN j.created_at END ASC,
+    j.created_at DESC, j.id DESC
 LIMIT sqlc.arg(limit_count) OFFSET sqlc.arg(offset_count);
+
+-- Generic runner (TEC-751). Every query names the organization scope; the
+-- worker carries the job's organization in the task payload.
+
+-- name: EnqueueIntegrationJob :one
+-- Creates a runner job once per provider and idempotency key; a repeated
+-- key returns the existing row (inserted = false) and sends nothing again.
+INSERT INTO integration_jobs (
+    organization_id, integration_account_id, direction, provider, kind, idempotency_key, payload, ref_type, ref_uuid,
+    priority, max_attempts, status, next_attempt_at
+) VALUES (
+    sqlc.narg(organization_id), sqlc.narg(integration_account_id), 'outbound', sqlc.arg(provider),
+    sqlc.arg(kind), sqlc.arg(idempotency_key), sqlc.arg(payload), sqlc.arg(ref_type), sqlc.narg(ref_uuid),
+    sqlc.arg(priority), sqlc.arg(max_attempts), 'pending', NOW()
+)
+ON CONFLICT (provider, idempotency_key) DO UPDATE
+SET deliveries = integration_jobs.deliveries + 1
+RETURNING id, uuid, organization_id, status, (xmax = 0)::boolean AS inserted;
+
+-- name: GetRunnerJob :one
+SELECT j.id, j.uuid, j.organization_id, j.integration_account_id, j.direction, j.provider, j.kind, j.idempotency_key,
+    j.status, j.attempts, j.max_attempts, j.deliveries, j.last_error, j.payload, j.result, j.ref_type, j.ref_uuid,
+    j.priority, j.provider_ref, j.next_attempt_at, j.submitted_at, j.locked_until, j.completed_at, j.created_at,
+    j.updated_at, a.uuid AS account_uuid
+FROM integration_jobs j
+LEFT JOIN integration_accounts a ON a.organization_id = j.organization_id AND a.id = j.integration_account_id
+WHERE j.organization_id IS NOT DISTINCT FROM sqlc.narg(organization_id)
+  AND j.id = sqlc.arg(id);
+
+-- name: GetRunnerJobByUUID :one
+SELECT j.id, j.uuid, j.organization_id, j.integration_account_id, j.direction, j.provider, j.kind, j.idempotency_key,
+    j.status, j.attempts, j.max_attempts, j.deliveries, j.last_error, j.payload, j.result, j.ref_type, j.ref_uuid,
+    j.priority, j.provider_ref, j.next_attempt_at, j.submitted_at, j.locked_until, j.completed_at, j.created_at,
+    j.updated_at, a.uuid AS account_uuid
+FROM integration_jobs j
+LEFT JOIN integration_accounts a ON a.organization_id = j.organization_id AND a.id = j.integration_account_id
+WHERE j.organization_id = sqlc.arg(organization_id)
+  AND j.uuid = sqlc.arg(uuid);
+
+-- name: LockRunnerJob :execrows
+-- Claims a job for one provider call (one worker at a time; an expired
+-- claim of a crashed worker is free again).
+UPDATE integration_jobs
+SET locked_until = NOW() + make_interval(secs => sqlc.arg(lease_seconds)::int)
+WHERE organization_id IS NOT DISTINCT FROM sqlc.narg(organization_id)
+  AND id = sqlc.arg(id)
+  AND status = ANY(sqlc.arg(statuses)::text[])
+  AND (locked_until IS NULL OR locked_until < NOW());
+
+-- name: SaveRunnerJob :exec
+-- Stores the outcome of a provider call and releases the claim.
+UPDATE integration_jobs
+SET status = sqlc.arg(status)::text,
+    attempts = sqlc.arg(attempts),
+    max_attempts = sqlc.arg(max_attempts),
+    provider_ref = sqlc.arg(provider_ref),
+    last_error = sqlc.arg(last_error),
+    result = sqlc.arg(result),
+    next_attempt_at = sqlc.narg(next_attempt_at),
+    submitted_at = COALESCE(submitted_at, sqlc.narg(submitted_at)),
+    completed_at = CASE WHEN sqlc.arg(status)::text IN ('succeeded', 'failed') THEN NOW() ELSE NULL END,
+    locked_until = NULL
+WHERE organization_id IS NOT DISTINCT FROM sqlc.narg(organization_id)
+  AND id = sqlc.arg(id);
+
+-- name: UnlockRunnerJob :exec
+UPDATE integration_jobs
+SET locked_until = NULL
+WHERE organization_id IS NOT DISTINCT FROM sqlc.narg(organization_id)
+  AND id = sqlc.arg(id);
+
+-- name: ListDueRunnerJobs :many
+-- The sweep: runner jobs whose next call is due, across organizations
+-- (each row carries its organization_id; the runner re-scopes from it).
+SELECT j.id, j.organization_id, j.priority
+FROM integration_jobs j
+WHERE j.status IN ('pending', 'submitted', 'needs_verification')
+  AND j.next_attempt_at IS NOT NULL
+  AND j.next_attempt_at <= NOW()
+  AND (j.locked_until IS NULL OR j.locked_until < NOW())
+  AND j.attempts < j.max_attempts
+ORDER BY j.priority = 'critical' DESC, j.next_attempt_at
+LIMIT sqlc.arg(limit_count);
+
+-- name: InsertIntegrationAttempt :one
+INSERT INTO integration_attempts (
+    organization_id, integration_job_id, attempt_no, operation, trigger, outcome, request_summary, response_summary,
+    error, started_at, finished_at, duration_ms
+) VALUES (
+    sqlc.narg(organization_id), sqlc.arg(integration_job_id), sqlc.arg(attempt_no), sqlc.arg(operation),
+    sqlc.arg(trigger), sqlc.arg(outcome), sqlc.arg(request_summary), sqlc.arg(response_summary), sqlc.arg(error),
+    sqlc.arg(started_at), sqlc.arg(finished_at), sqlc.arg(duration_ms)
+)
+RETURNING id, uuid;
+
+-- name: ListIntegrationAttempts :many
+SELECT t.uuid, t.attempt_no, t.operation, t.trigger, t.outcome, t.request_summary, t.response_summary, t.error,
+    t.started_at, t.finished_at, t.duration_ms
+FROM integration_attempts t
+WHERE t.organization_id IS NOT DISTINCT FROM sqlc.narg(organization_id)
+  AND t.integration_job_id = sqlc.arg(integration_job_id)
+ORDER BY t.id;

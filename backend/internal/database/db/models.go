@@ -782,6 +782,24 @@ type IntegrationAccount struct {
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
 }
 
+type IntegrationAttempt struct {
+	ID               int64              `json:"id"`
+	Uuid             uuid.UUID          `json:"uuid"`
+	OrganizationID   pgtype.Int8        `json:"organization_id"`
+	IntegrationJobID int64              `json:"integration_job_id"`
+	AttemptNo        int32              `json:"attempt_no"`
+	Operation        string             `json:"operation"`
+	Trigger          string             `json:"trigger"`
+	Outcome          string             `json:"outcome"`
+	RequestSummary   []byte             `json:"request_summary"`
+	ResponseSummary  []byte             `json:"response_summary"`
+	Error            string             `json:"error"`
+	StartedAt        pgtype.Timestamptz `json:"started_at"`
+	FinishedAt       pgtype.Timestamptz `json:"finished_at"`
+	DurationMs       int32              `json:"duration_ms"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
 type IntegrationJob struct {
 	ID                   int64              `json:"id"`
 	Uuid                 uuid.UUID          `json:"uuid"`
@@ -802,6 +820,12 @@ type IntegrationJob struct {
 	CompletedAt          pgtype.Timestamptz `json:"completed_at"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	MaxAttempts          int32              `json:"max_attempts"`
+	NextAttemptAt        pgtype.Timestamptz `json:"next_attempt_at"`
+	ProviderRef          string             `json:"provider_ref"`
+	SubmittedAt          pgtype.Timestamptz `json:"submitted_at"`
+	LockedUntil          pgtype.Timestamptz `json:"locked_until"`
+	Priority             string             `json:"priority"`
 }
 
 type LogPurgeRule struct {
@@ -1649,6 +1673,52 @@ type ServicePoint struct {
 	IsActive         bool               `json:"is_active"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SmsMessage struct {
+	ID                   int64              `json:"id"`
+	Uuid                 uuid.UUID          `json:"uuid"`
+	OrganizationID       int64              `json:"organization_id"`
+	IntegrationAccountID pgtype.Int8        `json:"integration_account_id"`
+	IntegrationJobID     pgtype.Int8        `json:"integration_job_id"`
+	Class                string             `json:"class"`
+	Purpose              string             `json:"purpose"`
+	Provider             string             `json:"provider"`
+	PhoneMasked          string             `json:"phone_masked"`
+	PhoneHash            string             `json:"phone_hash"`
+	BodyRedacted         string             `json:"body_redacted"`
+	BodyHash             string             `json:"body_hash"`
+	PayloadCiphertext    string             `json:"payload_ciphertext"`
+	CustomerID           pgtype.Int8        `json:"customer_id"`
+	Status               string             `json:"status"`
+	ProviderMessageID    string             `json:"provider_message_id"`
+	DlrStatus            string             `json:"dlr_status"`
+	DlrAt                pgtype.Timestamptz `json:"dlr_at"`
+	Error                string             `json:"error"`
+	RefType              string             `json:"ref_type"`
+	RefUuid              pgtype.UUID        `json:"ref_uuid"`
+	CreatedBy            pgtype.Int8        `json:"created_by"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SmsOtpChallenge struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	Purpose        string             `json:"purpose"`
+	SubjectRef     string             `json:"subject_ref"`
+	PhoneMasked    string             `json:"phone_masked"`
+	PhoneHash      string             `json:"phone_hash"`
+	CodeHash       string             `json:"code_hash"`
+	Status         string             `json:"status"`
+	Attempts       int32              `json:"attempts"`
+	MaxAttempts    int32              `json:"max_attempts"`
+	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
+	VerifiedAt     pgtype.Timestamptz `json:"verified_at"`
+	SmsMessageID   pgtype.Int8        `json:"sms_message_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 type StepupSetting struct {

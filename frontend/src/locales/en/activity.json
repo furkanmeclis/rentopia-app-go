@@ -254,5 +254,17 @@
   "actions.documents.refreshed": "Document refreshed",
   "actions.documents.issued": "Document version issued",
   "actions.documents.approved": "Document approval recorded",
-  "actions.documents.downloaded": "Document PDF downloaded"
+  "actions.documents.downloaded": "Document PDF downloaded",
+  "actions.integrations.job_retried": "Integration job retried",
+  "actions.integrations.sms_test_sent": "Test SMS sent",
+  "actions.sms.otp.issued": "SMS verification code sent",
+  "actions.sms.otp.verified": "SMS verification code verified",
+  "actions.sms.otp.verify_failed": "Wrong SMS verification code",
+  "actions.sms.otp.locked": "SMS verification locked (too many wrong codes)",
+  "actions.sms.otp.expired": "SMS verification code expired",
+  "actions.sms.otp.rate_limited": "SMS verification code limit reached",
+  "actions.sms.otp.send_failed": "SMS verification code could not be sent",
+  "resources.tenant.integration_jobs": "Integration jobs",
+  "resources.tenant.sms": "SMS",
+  "resources.tenant.sms_otp": "SMS verification"
 }

@@ -34,6 +34,70 @@ func (q *Queries) ClaimIntegrationJob(ctx context.Context, arg ClaimIntegrationJ
 	return result.RowsAffected(), nil
 }
 
+const enqueueIntegrationJob = `-- name: EnqueueIntegrationJob :one
+
+INSERT INTO integration_jobs (
+    organization_id, integration_account_id, direction, provider, kind, idempotency_key, payload, ref_type, ref_uuid,
+    priority, max_attempts, status, next_attempt_at
+) VALUES (
+    $1, $2, 'outbound', $3,
+    $4, $5, $6, $7, $8,
+    $9, $10, 'pending', NOW()
+)
+ON CONFLICT (provider, idempotency_key) DO UPDATE
+SET deliveries = integration_jobs.deliveries + 1
+RETURNING id, uuid, organization_id, status, (xmax = 0)::boolean AS inserted
+`
+
+type EnqueueIntegrationJobParams struct {
+	OrganizationID       pgtype.Int8 `json:"organization_id"`
+	IntegrationAccountID pgtype.Int8 `json:"integration_account_id"`
+	Provider             string      `json:"provider"`
+	Kind                 string      `json:"kind"`
+	IdempotencyKey       string      `json:"idempotency_key"`
+	Payload              []byte      `json:"payload"`
+	RefType              string      `json:"ref_type"`
+	RefUuid              pgtype.UUID `json:"ref_uuid"`
+	Priority             string      `json:"priority"`
+	MaxAttempts          int32       `json:"max_attempts"`
+}
+
+type EnqueueIntegrationJobRow struct {
+	ID             int64       `json:"id"`
+	Uuid           uuid.UUID   `json:"uuid"`
+	OrganizationID pgtype.Int8 `json:"organization_id"`
+	Status         string      `json:"status"`
+	Inserted       bool        `json:"inserted"`
+}
+
+// Generic runner (TEC-751). Every query names the organization scope; the
+// worker carries the job's organization in the task payload.
+// Creates a runner job once per provider and idempotency key; a repeated
+// key returns the existing row (inserted = false) and sends nothing again.
+func (q *Queries) EnqueueIntegrationJob(ctx context.Context, arg EnqueueIntegrationJobParams) (EnqueueIntegrationJobRow, error) {
+	row := q.db.QueryRow(ctx, enqueueIntegrationJob,
+		arg.OrganizationID,
+		arg.IntegrationAccountID,
+		arg.Provider,
+		arg.Kind,
+		arg.IdempotencyKey,
+		arg.Payload,
+		arg.RefType,
+		arg.RefUuid,
+		arg.Priority,
+		arg.MaxAttempts,
+	)
+	var i EnqueueIntegrationJobRow
+	err := row.Scan(
+		&i.ID,
+		&i.Uuid,
+		&i.OrganizationID,
+		&i.Status,
+		&i.Inserted,
+	)
+	return i, err
+}
+
 const finishIntegrationJob = `-- name: FinishIntegrationJob :exec
 UPDATE integration_jobs
 SET status = $1::text, last_error = $2, result = $3,
@@ -222,6 +286,164 @@ func (q *Queries) GetIntegrationAccountByID(ctx context.Context, arg GetIntegrat
 	return i, err
 }
 
+const getRunnerJob = `-- name: GetRunnerJob :one
+SELECT j.id, j.uuid, j.organization_id, j.integration_account_id, j.direction, j.provider, j.kind, j.idempotency_key,
+    j.status, j.attempts, j.max_attempts, j.deliveries, j.last_error, j.payload, j.result, j.ref_type, j.ref_uuid,
+    j.priority, j.provider_ref, j.next_attempt_at, j.submitted_at, j.locked_until, j.completed_at, j.created_at,
+    j.updated_at, a.uuid AS account_uuid
+FROM integration_jobs j
+LEFT JOIN integration_accounts a ON a.organization_id = j.organization_id AND a.id = j.integration_account_id
+WHERE j.organization_id IS NOT DISTINCT FROM $1
+  AND j.id = $2
+`
+
+type GetRunnerJobParams struct {
+	OrganizationID pgtype.Int8 `json:"organization_id"`
+	ID             int64       `json:"id"`
+}
+
+type GetRunnerJobRow struct {
+	ID                   int64              `json:"id"`
+	Uuid                 uuid.UUID          `json:"uuid"`
+	OrganizationID       pgtype.Int8        `json:"organization_id"`
+	IntegrationAccountID pgtype.Int8        `json:"integration_account_id"`
+	Direction            string             `json:"direction"`
+	Provider             string             `json:"provider"`
+	Kind                 string             `json:"kind"`
+	IdempotencyKey       string             `json:"idempotency_key"`
+	Status               string             `json:"status"`
+	Attempts             int32              `json:"attempts"`
+	MaxAttempts          int32              `json:"max_attempts"`
+	Deliveries           int32              `json:"deliveries"`
+	LastError            string             `json:"last_error"`
+	Payload              []byte             `json:"payload"`
+	Result               []byte             `json:"result"`
+	RefType              string             `json:"ref_type"`
+	RefUuid              pgtype.UUID        `json:"ref_uuid"`
+	Priority             string             `json:"priority"`
+	ProviderRef          string             `json:"provider_ref"`
+	NextAttemptAt        pgtype.Timestamptz `json:"next_attempt_at"`
+	SubmittedAt          pgtype.Timestamptz `json:"submitted_at"`
+	LockedUntil          pgtype.Timestamptz `json:"locked_until"`
+	CompletedAt          pgtype.Timestamptz `json:"completed_at"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	AccountUuid          pgtype.UUID        `json:"account_uuid"`
+}
+
+func (q *Queries) GetRunnerJob(ctx context.Context, arg GetRunnerJobParams) (GetRunnerJobRow, error) {
+	row := q.db.QueryRow(ctx, getRunnerJob, arg.OrganizationID, arg.ID)
+	var i GetRunnerJobRow
+	err := row.Scan(
+		&i.ID,
+		&i.Uuid,
+		&i.OrganizationID,
+		&i.IntegrationAccountID,
+		&i.Direction,
+		&i.Provider,
+		&i.Kind,
+		&i.IdempotencyKey,
+		&i.Status,
+		&i.Attempts,
+		&i.MaxAttempts,
+		&i.Deliveries,
+		&i.LastError,
+		&i.Payload,
+		&i.Result,
+		&i.RefType,
+		&i.RefUuid,
+		&i.Priority,
+		&i.ProviderRef,
+		&i.NextAttemptAt,
+		&i.SubmittedAt,
+		&i.LockedUntil,
+		&i.CompletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.AccountUuid,
+	)
+	return i, err
+}
+
+const getRunnerJobByUUID = `-- name: GetRunnerJobByUUID :one
+SELECT j.id, j.uuid, j.organization_id, j.integration_account_id, j.direction, j.provider, j.kind, j.idempotency_key,
+    j.status, j.attempts, j.max_attempts, j.deliveries, j.last_error, j.payload, j.result, j.ref_type, j.ref_uuid,
+    j.priority, j.provider_ref, j.next_attempt_at, j.submitted_at, j.locked_until, j.completed_at, j.created_at,
+    j.updated_at, a.uuid AS account_uuid
+FROM integration_jobs j
+LEFT JOIN integration_accounts a ON a.organization_id = j.organization_id AND a.id = j.integration_account_id
+WHERE j.organization_id = $1
+  AND j.uuid = $2
+`
+
+type GetRunnerJobByUUIDParams struct {
+	OrganizationID pgtype.Int8 `json:"organization_id"`
+	Uuid           uuid.UUID   `json:"uuid"`
+}
+
+type GetRunnerJobByUUIDRow struct {
+	ID                   int64              `json:"id"`
+	Uuid                 uuid.UUID          `json:"uuid"`
+	OrganizationID       pgtype.Int8        `json:"organization_id"`
+	IntegrationAccountID pgtype.Int8        `json:"integration_account_id"`
+	Direction            string             `json:"direction"`
+	Provider             string             `json:"provider"`
+	Kind                 string             `json:"kind"`
+	IdempotencyKey       string             `json:"idempotency_key"`
+	Status               string             `json:"status"`
+	Attempts             int32              `json:"attempts"`
+	MaxAttempts          int32              `json:"max_attempts"`
+	Deliveries           int32              `json:"deliveries"`
+	LastError            string             `json:"last_error"`
+	Payload              []byte             `json:"payload"`
+	Result               []byte             `json:"result"`
+	RefType              string             `json:"ref_type"`
+	RefUuid              pgtype.UUID        `json:"ref_uuid"`
+	Priority             string             `json:"priority"`
+	ProviderRef          string             `json:"provider_ref"`
+	NextAttemptAt        pgtype.Timestamptz `json:"next_attempt_at"`
+	SubmittedAt          pgtype.Timestamptz `json:"submitted_at"`
+	LockedUntil          pgtype.Timestamptz `json:"locked_until"`
+	CompletedAt          pgtype.Timestamptz `json:"completed_at"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	AccountUuid          pgtype.UUID        `json:"account_uuid"`
+}
+
+func (q *Queries) GetRunnerJobByUUID(ctx context.Context, arg GetRunnerJobByUUIDParams) (GetRunnerJobByUUIDRow, error) {
+	row := q.db.QueryRow(ctx, getRunnerJobByUUID, arg.OrganizationID, arg.Uuid)
+	var i GetRunnerJobByUUIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.Uuid,
+		&i.OrganizationID,
+		&i.IntegrationAccountID,
+		&i.Direction,
+		&i.Provider,
+		&i.Kind,
+		&i.IdempotencyKey,
+		&i.Status,
+		&i.Attempts,
+		&i.MaxAttempts,
+		&i.Deliveries,
+		&i.LastError,
+		&i.Payload,
+		&i.Result,
+		&i.RefType,
+		&i.RefUuid,
+		&i.Priority,
+		&i.ProviderRef,
+		&i.NextAttemptAt,
+		&i.SubmittedAt,
+		&i.LockedUntil,
+		&i.CompletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.AccountUuid,
+	)
+	return i, err
+}
+
 const insertIntegrationAccount = `-- name: InsertIntegrationAccount :one
 
 INSERT INTO integration_accounts (
@@ -267,6 +489,98 @@ func (q *Queries) InsertIntegrationAccount(ctx context.Context, arg InsertIntegr
 	var id int64
 	err := row.Scan(&id)
 	return id, err
+}
+
+const insertIntegrationAttempt = `-- name: InsertIntegrationAttempt :one
+INSERT INTO integration_attempts (
+    organization_id, integration_job_id, attempt_no, operation, trigger, outcome, request_summary, response_summary,
+    error, started_at, finished_at, duration_ms
+) VALUES (
+    $1, $2, $3, $4,
+    $5, $6, $7, $8, $9,
+    $10, $11, $12
+)
+RETURNING id, uuid
+`
+
+type InsertIntegrationAttemptParams struct {
+	OrganizationID   pgtype.Int8        `json:"organization_id"`
+	IntegrationJobID int64              `json:"integration_job_id"`
+	AttemptNo        int32              `json:"attempt_no"`
+	Operation        string             `json:"operation"`
+	Trigger          string             `json:"trigger"`
+	Outcome          string             `json:"outcome"`
+	RequestSummary   []byte             `json:"request_summary"`
+	ResponseSummary  []byte             `json:"response_summary"`
+	Error            string             `json:"error"`
+	StartedAt        pgtype.Timestamptz `json:"started_at"`
+	FinishedAt       pgtype.Timestamptz `json:"finished_at"`
+	DurationMs       int32              `json:"duration_ms"`
+}
+
+type InsertIntegrationAttemptRow struct {
+	ID   int64     `json:"id"`
+	Uuid uuid.UUID `json:"uuid"`
+}
+
+func (q *Queries) InsertIntegrationAttempt(ctx context.Context, arg InsertIntegrationAttemptParams) (InsertIntegrationAttemptRow, error) {
+	row := q.db.QueryRow(ctx, insertIntegrationAttempt,
+		arg.OrganizationID,
+		arg.IntegrationJobID,
+		arg.AttemptNo,
+		arg.Operation,
+		arg.Trigger,
+		arg.Outcome,
+		arg.RequestSummary,
+		arg.ResponseSummary,
+		arg.Error,
+		arg.StartedAt,
+		arg.FinishedAt,
+		arg.DurationMs,
+	)
+	var i InsertIntegrationAttemptRow
+	err := row.Scan(&i.ID, &i.Uuid)
+	return i, err
+}
+
+const listDueRunnerJobs = `-- name: ListDueRunnerJobs :many
+SELECT j.id, j.organization_id, j.priority
+FROM integration_jobs j
+WHERE j.status IN ('pending', 'submitted', 'needs_verification')
+  AND j.next_attempt_at IS NOT NULL
+  AND j.next_attempt_at <= NOW()
+  AND (j.locked_until IS NULL OR j.locked_until < NOW())
+  AND j.attempts < j.max_attempts
+ORDER BY j.priority = 'critical' DESC, j.next_attempt_at
+LIMIT $1
+`
+
+type ListDueRunnerJobsRow struct {
+	ID             int64       `json:"id"`
+	OrganizationID pgtype.Int8 `json:"organization_id"`
+	Priority       string      `json:"priority"`
+}
+
+// The sweep: runner jobs whose next call is due, across organizations
+// (each row carries its organization_id; the runner re-scopes from it).
+func (q *Queries) ListDueRunnerJobs(ctx context.Context, limitCount int32) ([]ListDueRunnerJobsRow, error) {
+	rows, err := q.db.Query(ctx, listDueRunnerJobs, limitCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListDueRunnerJobsRow{}
+	for rows.Next() {
+		var i ListDueRunnerJobsRow
+		if err := rows.Scan(&i.ID, &i.OrganizationID, &i.Priority); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listIntegrationAccounts = `-- name: ListIntegrationAccounts :many
@@ -360,45 +674,123 @@ func (q *Queries) ListIntegrationAccounts(ctx context.Context, arg ListIntegrati
 	return items, nil
 }
 
+const listIntegrationAttempts = `-- name: ListIntegrationAttempts :many
+SELECT t.uuid, t.attempt_no, t.operation, t.trigger, t.outcome, t.request_summary, t.response_summary, t.error,
+    t.started_at, t.finished_at, t.duration_ms
+FROM integration_attempts t
+WHERE t.organization_id IS NOT DISTINCT FROM $1
+  AND t.integration_job_id = $2
+ORDER BY t.id
+`
+
+type ListIntegrationAttemptsParams struct {
+	OrganizationID   pgtype.Int8 `json:"organization_id"`
+	IntegrationJobID int64       `json:"integration_job_id"`
+}
+
+type ListIntegrationAttemptsRow struct {
+	Uuid            uuid.UUID          `json:"uuid"`
+	AttemptNo       int32              `json:"attempt_no"`
+	Operation       string             `json:"operation"`
+	Trigger         string             `json:"trigger"`
+	Outcome         string             `json:"outcome"`
+	RequestSummary  []byte             `json:"request_summary"`
+	ResponseSummary []byte             `json:"response_summary"`
+	Error           string             `json:"error"`
+	StartedAt       pgtype.Timestamptz `json:"started_at"`
+	FinishedAt      pgtype.Timestamptz `json:"finished_at"`
+	DurationMs      int32              `json:"duration_ms"`
+}
+
+func (q *Queries) ListIntegrationAttempts(ctx context.Context, arg ListIntegrationAttemptsParams) ([]ListIntegrationAttemptsRow, error) {
+	rows, err := q.db.Query(ctx, listIntegrationAttempts, arg.OrganizationID, arg.IntegrationJobID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListIntegrationAttemptsRow{}
+	for rows.Next() {
+		var i ListIntegrationAttemptsRow
+		if err := rows.Scan(
+			&i.Uuid,
+			&i.AttemptNo,
+			&i.Operation,
+			&i.Trigger,
+			&i.Outcome,
+			&i.RequestSummary,
+			&i.ResponseSummary,
+			&i.Error,
+			&i.StartedAt,
+			&i.FinishedAt,
+			&i.DurationMs,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listIntegrationJobs = `-- name: ListIntegrationJobs :many
-SELECT j.uuid, j.direction, j.provider, j.kind, j.status, j.attempts, j.deliveries, j.last_error, j.ref_type,
-    j.ref_uuid, j.completed_at, j.created_at, j.updated_at,
+SELECT j.uuid, j.direction, j.provider, j.kind, j.status, j.attempts, j.max_attempts, j.deliveries, j.last_error,
+    j.ref_type, j.ref_uuid, j.priority, j.next_attempt_at, j.submitted_at, j.completed_at, j.created_at, j.updated_at,
     COUNT(*) OVER ()::bigint AS total
 FROM integration_jobs j
 WHERE j.organization_id = $1
   AND ($2::bigint IS NULL OR j.integration_account_id = $2::bigint)
-ORDER BY j.created_at DESC, j.id DESC
-LIMIT $4 OFFSET $3
+  AND ($3::text[] IS NULL OR j.status = ANY($3::text[]))
+  AND ($4::text[] IS NULL OR j.kind = ANY($4::text[]))
+ORDER BY
+    CASE WHEN $5::text = 'updated_at' AND NOT $6::boolean THEN j.updated_at END ASC,
+    CASE WHEN $5::text = 'updated_at' AND $6::boolean THEN j.updated_at END DESC,
+    CASE WHEN $5::text = 'created_at' AND NOT $6::boolean THEN j.created_at END ASC,
+    j.created_at DESC, j.id DESC
+LIMIT $8 OFFSET $7
 `
 
 type ListIntegrationJobsParams struct {
 	OrganizationID pgtype.Int8 `json:"organization_id"`
 	AccountID      pgtype.Int8 `json:"account_id"`
+	Statuses       []string    `json:"statuses"`
+	Kinds          []string    `json:"kinds"`
+	SortField      string      `json:"sort_field"`
+	SortDesc       bool        `json:"sort_desc"`
 	OffsetCount    int32       `json:"offset_count"`
 	LimitCount     int32       `json:"limit_count"`
 }
 
 type ListIntegrationJobsRow struct {
-	Uuid        uuid.UUID          `json:"uuid"`
-	Direction   string             `json:"direction"`
-	Provider    string             `json:"provider"`
-	Kind        string             `json:"kind"`
-	Status      string             `json:"status"`
-	Attempts    int32              `json:"attempts"`
-	Deliveries  int32              `json:"deliveries"`
-	LastError   string             `json:"last_error"`
-	RefType     string             `json:"ref_type"`
-	RefUuid     pgtype.UUID        `json:"ref_uuid"`
-	CompletedAt pgtype.Timestamptz `json:"completed_at"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-	Total       int64              `json:"total"`
+	Uuid          uuid.UUID          `json:"uuid"`
+	Direction     string             `json:"direction"`
+	Provider      string             `json:"provider"`
+	Kind          string             `json:"kind"`
+	Status        string             `json:"status"`
+	Attempts      int32              `json:"attempts"`
+	MaxAttempts   int32              `json:"max_attempts"`
+	Deliveries    int32              `json:"deliveries"`
+	LastError     string             `json:"last_error"`
+	RefType       string             `json:"ref_type"`
+	RefUuid       pgtype.UUID        `json:"ref_uuid"`
+	Priority      string             `json:"priority"`
+	NextAttemptAt pgtype.Timestamptz `json:"next_attempt_at"`
+	SubmittedAt   pgtype.Timestamptz `json:"submitted_at"`
+	CompletedAt   pgtype.Timestamptz `json:"completed_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	Total         int64              `json:"total"`
 }
 
 func (q *Queries) ListIntegrationJobs(ctx context.Context, arg ListIntegrationJobsParams) ([]ListIntegrationJobsRow, error) {
 	rows, err := q.db.Query(ctx, listIntegrationJobs,
 		arg.OrganizationID,
 		arg.AccountID,
+		arg.Statuses,
+		arg.Kinds,
+		arg.SortField,
+		arg.SortDesc,
 		arg.OffsetCount,
 		arg.LimitCount,
 	)
@@ -416,10 +808,14 @@ func (q *Queries) ListIntegrationJobs(ctx context.Context, arg ListIntegrationJo
 			&i.Kind,
 			&i.Status,
 			&i.Attempts,
+			&i.MaxAttempts,
 			&i.Deliveries,
 			&i.LastError,
 			&i.RefType,
 			&i.RefUuid,
+			&i.Priority,
+			&i.NextAttemptAt,
+			&i.SubmittedAt,
 			&i.CompletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -433,6 +829,83 @@ func (q *Queries) ListIntegrationJobs(ctx context.Context, arg ListIntegrationJo
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockRunnerJob = `-- name: LockRunnerJob :execrows
+UPDATE integration_jobs
+SET locked_until = NOW() + make_interval(secs => $1::int)
+WHERE organization_id IS NOT DISTINCT FROM $2
+  AND id = $3
+  AND status = ANY($4::text[])
+  AND (locked_until IS NULL OR locked_until < NOW())
+`
+
+type LockRunnerJobParams struct {
+	LeaseSeconds   int32       `json:"lease_seconds"`
+	OrganizationID pgtype.Int8 `json:"organization_id"`
+	ID             int64       `json:"id"`
+	Statuses       []string    `json:"statuses"`
+}
+
+// Claims a job for one provider call (one worker at a time; an expired
+// claim of a crashed worker is free again).
+func (q *Queries) LockRunnerJob(ctx context.Context, arg LockRunnerJobParams) (int64, error) {
+	result, err := q.db.Exec(ctx, lockRunnerJob,
+		arg.LeaseSeconds,
+		arg.OrganizationID,
+		arg.ID,
+		arg.Statuses,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const saveRunnerJob = `-- name: SaveRunnerJob :exec
+UPDATE integration_jobs
+SET status = $1::text,
+    attempts = $2,
+    max_attempts = $3,
+    provider_ref = $4,
+    last_error = $5,
+    result = $6,
+    next_attempt_at = $7,
+    submitted_at = COALESCE(submitted_at, $8),
+    completed_at = CASE WHEN $1::text IN ('succeeded', 'failed') THEN NOW() ELSE NULL END,
+    locked_until = NULL
+WHERE organization_id IS NOT DISTINCT FROM $9
+  AND id = $10
+`
+
+type SaveRunnerJobParams struct {
+	Status         string             `json:"status"`
+	Attempts       int32              `json:"attempts"`
+	MaxAttempts    int32              `json:"max_attempts"`
+	ProviderRef    string             `json:"provider_ref"`
+	LastError      string             `json:"last_error"`
+	Result         []byte             `json:"result"`
+	NextAttemptAt  pgtype.Timestamptz `json:"next_attempt_at"`
+	SubmittedAt    pgtype.Timestamptz `json:"submitted_at"`
+	OrganizationID pgtype.Int8        `json:"organization_id"`
+	ID             int64              `json:"id"`
+}
+
+// Stores the outcome of a provider call and releases the claim.
+func (q *Queries) SaveRunnerJob(ctx context.Context, arg SaveRunnerJobParams) error {
+	_, err := q.db.Exec(ctx, saveRunnerJob,
+		arg.Status,
+		arg.Attempts,
+		arg.MaxAttempts,
+		arg.ProviderRef,
+		arg.LastError,
+		arg.Result,
+		arg.NextAttemptAt,
+		arg.SubmittedAt,
+		arg.OrganizationID,
+		arg.ID,
+	)
+	return err
 }
 
 const setIntegrationAccountCheck = `-- name: SetIntegrationAccountCheck :exec
@@ -487,6 +960,23 @@ func (q *Queries) SetIntegrationAccountStatus(ctx context.Context, arg SetIntegr
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const unlockRunnerJob = `-- name: UnlockRunnerJob :exec
+UPDATE integration_jobs
+SET locked_until = NULL
+WHERE organization_id IS NOT DISTINCT FROM $1
+  AND id = $2
+`
+
+type UnlockRunnerJobParams struct {
+	OrganizationID pgtype.Int8 `json:"organization_id"`
+	ID             int64       `json:"id"`
+}
+
+func (q *Queries) UnlockRunnerJob(ctx context.Context, arg UnlockRunnerJobParams) error {
+	_, err := q.db.Exec(ctx, unlockRunnerJob, arg.OrganizationID, arg.ID)
+	return err
 }
 
 const updateIntegrationAccount = `-- name: UpdateIntegrationAccount :execrows
