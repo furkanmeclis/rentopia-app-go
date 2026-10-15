@@ -433,5 +433,9 @@
   "events.late_payment": "Late payment",
   "events.payment_link_created": "Payment link created",
   "events.payment_link_cancelled": "Payment link cancelled",
-  "events.payment_refunded": "Payment refunded"
+  "events.payment_refunded": "Payment refunded",
+  "tabs.customer_requests": "Customer requests",
+  "events.customer_request": "Customer request received",
+  "events.customer_request_resolved": "Customer request resolved",
+  "events.customer_request_rejected": "Customer request rejected"
 }

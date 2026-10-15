@@ -52,6 +52,7 @@ import { routes } from "@/config/routes";
 import { defineNav } from "@/features/nav-engine";
 import type { NavCatalog } from "@/features/nav-engine";
 import { usersNavItem } from "@/features/users/nav";
+import { customerRequestsNavItem } from "@/features/customer-portal/nav";
 
 const integrationReadPermissions = [
   permissions.integrations.google.read,
@@ -360,6 +361,7 @@ export function tenantNav(slug: string): NavCatalog {
             icon: ClipboardList,
             permission: permissions.tenant.resolutionTasks.read,
           },
+          customerRequestsNavItem(slug),
         ],
       },
       {

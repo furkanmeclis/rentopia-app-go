@@ -433,5 +433,9 @@
   "events.late_payment": "Geç ödeme",
   "events.payment_link_created": "Ödeme linki oluşturuldu",
   "events.payment_link_cancelled": "Ödeme linki iptal edildi",
-  "events.payment_refunded": "Ödeme iade edildi"
+  "events.payment_refunded": "Ödeme iade edildi",
+  "tabs.customer_requests": "Müşteri talepleri",
+  "events.customer_request": "Müşteri talebi alındı",
+  "events.customer_request_resolved": "Müşteri talebi sonuçlandı",
+  "events.customer_request_rejected": "Müşteri talebi reddedildi"
 }

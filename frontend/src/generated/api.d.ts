@@ -9627,6 +9627,301 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/customer/{orgSlug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Customer portal header
+         * @description No auth. The organization of the portal (from the URL slug) and the channels it can send sign-in codes
+         *     on. Unknown, suspended or out-of-window organizations answer 404. Rate-limited per IP.
+         */
+        get: operations["getCustomerPortal"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/{orgSlug}/auth/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request a sign-in code
+         * @description No auth. A reservation reference plus the phone number or e-mail address on file (the renter's or a
+         *     driver's of that reservation). When both match, a one-time code (purpose `customer_portal`, subject
+         *     `reservation:<uuid>`) goes out by SMS through the organization's SMS account, or by e-mail through the
+         *     platform mailer. The answer is **the same whether they matched or not** (202); a cooldown, a limit or a
+         *     failed send is not reported either. 503 `CODE_UNAVAILABLE` when the organization cannot send on the
+         *     chosen channel at all (checked before any lookup). Rate-limited per IP, per reference and per contact.
+         */
+        post: operations["postCustomerAuthStart"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/{orgSlug}/auth/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify the code and open a customer session
+         * @description No auth. Every failure (unknown reference, other contact, wrong / expired / locked code) answers the same
+         *     400 `OTP_INVALID`. On success the answer carries `session_token` (opaque, 43 characters, stored hashed);
+         *     the BFF moves it into an HttpOnly, Secure, SameSite=Lax cookie and strips it from the browser answer.
+         *     Sessions slide a 30 minute idle expiry inside a 2 hour hard cap. Rate-limited per IP, reference, contact.
+         */
+        post: operations["postCustomerAuthVerify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/{orgSlug}/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sign out (revoke the session) */
+        post: operations["postCustomerAuthLogout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/{orgSlug}/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Current customer session
+         * @description 401 `CUSTOMER_SESSION_REQUIRED` without a live session of this organization (never the staff JWT).
+         */
+        get: operations["getCustomerSession"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/{orgSlug}/reservations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The session's reservations
+         * @description A renter session sees every reservation of that customer in the organization; a driver session only the
+         *     reservations that driver is on.
+         */
+        get: operations["getCustomerReservations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/{orgSlug}/reservations/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One reservation of the session
+         * @description Another customer's or organization's reservation (or a malformed id) answers 404.
+         */
+        get: operations["getCustomerReservation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/{orgSlug}/reservations/{uuid}/documents/{documentUuid}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download a document of the reservation
+         * @description Streams the current version's PDF (rendered on demand; 409 `PDF_NOT_READY` with `Retry-After` while it
+         *     renders). Only documents of the session's own reservations; the browser never sees a storage key.
+         */
+        get: operations["getCustomerReservationDocumentPdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/{orgSlug}/reservations/{uuid}/pay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pay remaining (pay-by-link)
+         * @description The pay page (`/pay/{token}`) for what is due now: the prepayment still due while the reservation waits for
+         *     payment, else the remaining balance of a confirmed reservation. The reservation's active link is reused when
+         *     it is for exactly that amount and valid for 10 more minutes; otherwise the payments service creates one.
+         *     409 `NOTHING_DUE`, `PAYMENT_UNAVAILABLE` (no active payment account) or `INVALID_STATE`.
+         */
+        post: operations["postCustomerReservationPay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/{orgSlug}/reservations/{uuid}/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a change or cancellation request
+         * @description Staff see the request (`/v1/tenant/customer-requests`, reservation timeline). A cancellation stores the
+         *     policy text and fee of the reservation's policy snapshot and cancels at once only when that snapshot
+         *     explicitly allows self-cancellation (`outcome: self_cancelled`). One open request per type
+         *     (409 `REQUEST_EXISTS`); 409 `INVALID_STATE` when the reservation can no longer be changed / cancelled.
+         */
+        post: operations["postCustomerReservationRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/customer-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List customer requests
+         * @description `tenant.reservations.read`. Requests of reservations in the caller's branch scope; live resource `tenant.customer_requests`.
+         */
+        get: operations["getTenantCustomerRequests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/customer-requests/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Open customer requests (nav badge)
+         * @description `tenant.reservations.read`.
+         */
+        get: operations["getTenantCustomerRequestStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/customer-requests/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Customer request detail
+         * @description `tenant.reservations.read`.
+         */
+        get: operations["getTenantCustomerRequest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/customer-requests/{uuid}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve or reject a customer request
+         * @description `tenant.reservations.write`. Closes an open request with a note the customer sees (required to reject).
+         *     Acting on the reservation (change, cancel) stays a separate action with its own permission.
+         */
+        post: operations["postTenantCustomerRequestResolve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -18202,8 +18497,299 @@ export interface components {
             };
             meta: components["schemas"]["ResponseMeta"];
         };
+        CustomerPortalInfo: {
+            organization: components["schemas"]["CustomerPortalOrganization"];
+            channels: {
+                sms: boolean;
+                email: boolean;
+            };
+        };
+        CustomerPortalOrganization: {
+            slug: string;
+            name: string;
+        };
+        EnvelopeCustomerPortalInfo: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["CustomerPortalInfo"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        CustomerAuthStartRequest: {
+            /** @description Reservation reference (case and spaces ignored) */
+            reference: string;
+            /** @description Phone number or e-mail address on the reservation */
+            contact: string;
+        };
+        CustomerAuthStart: {
+            /** @enum {string} */
+            status: "code_sent_if_matched";
+            /** @enum {string} */
+            channel: "sms" | "email";
+            resend_after_seconds: number;
+            code_ttl_seconds: number;
+        };
+        EnvelopeCustomerAuthStart: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["CustomerAuthStart"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        CustomerAuthVerifyRequest: {
+            reference: string;
+            contact: string;
+            /** @description 6 digits */
+            code: string;
+        };
+        CustomerSession: {
+            organization: components["schemas"]["CustomerPortalOrganization"];
+            /** @enum {string} */
+            role: "renter" | "driver";
+            display_name: string;
+            /** @enum {string} */
+            channel: "sms" | "email";
+            contact_masked: string;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            hard_expires_at: string;
+        };
+        CustomerSessionIssued: {
+            /** @description Opaque bearer (BFF only; stripped before the browser answer and kept in an HttpOnly cookie) */
+            session_token?: string;
+            session: components["schemas"]["CustomerSession"];
+        };
+        EnvelopeCustomerSessionIssued: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["CustomerSessionIssued"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCustomerSession: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["CustomerSession"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCustomerSignedOut: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                signed_out: boolean;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        CustomerPrice: {
+            currency: string;
+            /** @description Decimal amount */
+            total: string;
+            prepayment: string;
+            paid: string;
+            prepayment_due: string;
+            balance: string;
+        };
+        CustomerReservationSummary: {
+            /** Format: uuid */
+            uuid: string;
+            reference: string;
+            status: string;
+            payment_status: string;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            pickup_branch: string;
+            return_branch: string;
+            product: string;
+            price: components["schemas"]["CustomerPrice"];
+        };
+        EnvelopeCustomerReservationList: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["CustomerReservationSummary"][];
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        PortalDocument: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            kind: "rental_contract" | "handover_form" | "return_form" | "terms";
+            status: string;
+            version_number: number;
+            pdf_available: boolean;
+            /** @description API path relative to /v1 (the BFF serves it at /api/v1/...) */
+            download_path?: string;
+            /** @description Remote approval page of an open link for the signed-in person */
+            approval_url?: string;
+            /** Format: date-time */
+            approval_due?: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        CustomerRequest: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            type: "change" | "cancel";
+            /** @enum {string} */
+            status: "open" | "resolved" | "rejected";
+            message: string;
+            /** Format: date-time */
+            requested_starts_at?: string | null;
+            /** Format: date-time */
+            requested_ends_at?: string | null;
+            policy_text: string;
+            cancellation_fee?: string | null;
+            currency: string;
+            /** @enum {string} */
+            outcome: "" | "self_cancelled";
+            resolution_note: string;
+            /** Format: date-time */
+            resolved_at?: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        CustomerReservation: components["schemas"]["CustomerReservationSummary"] & {
+            pickup_point: string;
+            return_point: string;
+            /** @description Plate and model once the plate is fixed */
+            vehicle: string;
+            drivers: string[];
+            extras: {
+                name: string;
+                quantity: number;
+                amount: string;
+            }[];
+            /** Format: date-time */
+            payment_deadline?: string | null;
+            policies: {
+                cancellation: string;
+                no_show: string;
+                early_return: string;
+                extension: string;
+                fuel: string;
+                mileage: string;
+            };
+            cancellation: {
+                policy_text: string;
+                fee?: string | null;
+                self_cancel: boolean;
+            };
+            actions: {
+                pay: boolean;
+                pay_amount?: string | null;
+                request_change: boolean;
+                request_cancel: boolean;
+            };
+            documents: components["schemas"]["PortalDocument"][];
+            requests: components["schemas"]["CustomerRequest"][];
+        };
+        EnvelopeCustomerReservation: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["CustomerReservation"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        CustomerPayResult: {
+            /** @description Pay page on the app origin (/pay/{token}) */
+            url: string;
+            amount: string;
+            currency: string;
+            /** Format: date-time */
+            expires_at: string;
+            reused: boolean;
+        };
+        EnvelopeCustomerPayResult: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["CustomerPayResult"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        CustomerRequestCreate: {
+            /** @enum {string} */
+            type: "change" | "cancel";
+            message?: string;
+            /** Format: date-time */
+            requested_starts_at?: string | null;
+            /** Format: date-time */
+            requested_ends_at?: string | null;
+        };
+        EnvelopeCustomerRequest: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["CustomerRequest"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        StaffCustomerRequest: components["schemas"]["CustomerRequest"] & {
+            reservation: {
+                /** Format: uuid */
+                uuid: string;
+                reference: string;
+                status: string;
+                /** Format: date-time */
+                starts_at: string;
+                /** Format: date-time */
+                ends_at: string;
+            };
+            /** Format: uuid */
+            customer_uuid: string;
+            customer_name: string;
+            /** @enum {string} */
+            requester_role: "renter" | "driver";
+            requester_name: string;
+            contact_masked: string;
+            resolved_by?: {
+                /** Format: uuid */
+                uuid: string;
+                name: string;
+                surname: string;
+                email: string;
+            } | null;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        EnvelopeStaffCustomerRequest: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["StaffCustomerRequest"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCustomerRequestPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["StaffCustomerRequest"][];
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCustomerRequestStats: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                open: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        CustomerRequestResolve: {
+            /** @enum {string} */
+            status: "resolved" | "rejected";
+            note?: string;
+        };
     };
     responses: {
+        /** @description `CUSTOMER_SESSION_REQUIRED`: no live customer session of this organization */
+        CustomerSessionRequired: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
         /** @description `PRICING_UNAVAILABLE` (no rate plan / band prices it) or `DRIVER_NOT_ELIGIBLE` (`data` = drivers with reasons) */
         UnprocessableEntity: {
             headers: {
@@ -18453,6 +19039,8 @@ export interface components {
         };
     };
     parameters: {
+        /** @description Organization slug of the customer portal */
+        PortalOrgSlug: string;
         InvitationUUID: string;
         /** @description Raw invitation token from the e-mail link (43 characters, base64url) */
         InvitationToken: string;
@@ -36364,6 +36952,434 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+        };
+    };
+    getCustomerPortal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization slug of the customer portal */
+                orgSlug: components["parameters"]["PortalOrgSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Portal */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerPortalInfo"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    postCustomerAuthStart: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization slug of the customer portal */
+                orgSlug: components["parameters"]["PortalOrgSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerAuthStartRequest"];
+            };
+        };
+        responses: {
+            /** @description Generic answer */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerAuthStart"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+            /** @description `CODE_UNAVAILABLE`: no channel for the organization */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postCustomerAuthVerify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization slug of the customer portal */
+                orgSlug: components["parameters"]["PortalOrgSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerAuthVerifyRequest"];
+            };
+        };
+        responses: {
+            /** @description Session */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerSessionIssued"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    postCustomerAuthLogout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization slug of the customer portal */
+                orgSlug: components["parameters"]["PortalOrgSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed out */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerSignedOut"];
+                };
+            };
+            401: components["responses"]["CustomerSessionRequired"];
+        };
+    };
+    getCustomerSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization slug of the customer portal */
+                orgSlug: components["parameters"]["PortalOrgSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerSession"];
+                };
+            };
+            401: components["responses"]["CustomerSessionRequired"];
+        };
+    };
+    getCustomerReservations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization slug of the customer portal */
+                orgSlug: components["parameters"]["PortalOrgSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reservations */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerReservationList"];
+                };
+            };
+            401: components["responses"]["CustomerSessionRequired"];
+        };
+    };
+    getCustomerReservation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization slug of the customer portal */
+                orgSlug: components["parameters"]["PortalOrgSlug"];
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reservation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerReservation"];
+                };
+            };
+            401: components["responses"]["CustomerSessionRequired"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getCustomerReservationDocumentPdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization slug of the customer portal */
+                orgSlug: components["parameters"]["PortalOrgSlug"];
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                documentUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PDF */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            401: components["responses"]["CustomerSessionRequired"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postCustomerReservationPay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization slug of the customer portal */
+                orgSlug: components["parameters"]["PortalOrgSlug"];
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Pay page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerPayResult"];
+                };
+            };
+            401: components["responses"]["CustomerSessionRequired"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    postCustomerReservationRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization slug of the customer portal */
+                orgSlug: components["parameters"]["PortalOrgSlug"];
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerRequestCreate"];
+            };
+        };
+        responses: {
+            /** @description Request */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerRequest"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["CustomerSessionRequired"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getTenantCustomerRequests: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description `created_at`; prefix `-` for descending (default newest first). */
+                sort?: string;
+                /** @description open, resolved, rejected */
+                status?: string;
+                /** @description change, cancel */
+                request_type?: string;
+                /** @description Reservation uuids */
+                reservation?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Request page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerRequestPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantCustomerRequestStats: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Counts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerRequestStats"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantCustomerRequest: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Request */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeStaffCustomerRequest"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantCustomerRequestResolve: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerRequestResolve"];
+            };
+        };
+        responses: {
+            /** @description Request */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeStaffCustomerRequest"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
 }
