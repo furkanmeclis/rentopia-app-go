@@ -24,7 +24,13 @@ FROM migrate/migrate:v4.19.1 AS migrate
 
 FROM alpine:3.22 AS runtime
 
-RUN apk add --no-cache ca-certificates tzdata \
+# Chromium + DejaVu fonts (Turkish glyphs) print contract PDFs
+# (internal/platform/pdfrender). The launcher on PATH adds the flags a
+# non-root container needs; chromedp finds `chromium` before
+# `chromium-browser`.
+RUN apk add --no-cache ca-certificates tzdata chromium font-dejavu \
+    && printf '#!/bin/sh\nexec /usr/bin/chromium-browser --no-sandbox --disable-dev-shm-usage --disable-gpu "$@"\n' > /usr/local/bin/chromium \
+    && chmod 0755 /usr/local/bin/chromium \
     && adduser -D -H -u 10001 appuser
 
 WORKDIR /app
