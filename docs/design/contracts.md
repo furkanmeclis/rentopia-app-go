@@ -143,7 +143,7 @@ The customer approves the current version of a document from their own phone: a 
 
 Code: `usecase/remote.go` (links, public flow), `usecase/approvalpdf.go` (approval page and PDF), `handler/remote.go`; panel `components/remote-approval-section.tsx`; public page `components/remote-approval-page.tsx` at `/d/[token]`.
 
-### 7.1 Tables (migration 000095)
+### 7.1 Tables (migration 000088)
 
 | Change | Notes |
 |--------|-------|
