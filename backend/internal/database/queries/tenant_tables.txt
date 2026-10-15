@@ -26,3 +26,9 @@ vehicle_busy_intervals
 organization_members
 organization_invitation_roles
 organization_invitation_branches
+rate_plans
+rate_plan_versions
+rate_bands
+date_rules
+date_rule_versions
+date_rule_version_targets

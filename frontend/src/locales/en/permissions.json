@@ -120,5 +120,9 @@
   "labels.tenant.one_way.write": "Manage one-way rules",
   "groups.tenant_blocks": "Vehicle blocks",
   "groups.tenant_transfers": "Transfers",
-  "groups.tenant_one_way": "One-way rules"
+  "groups.tenant_one_way": "One-way rules",
+  "labels.tenant.pricing.read": "View pricing (rate plans, rules, preview)",
+  "labels.tenant.pricing.write": "Edit price drafts (plans, matrix, import, rules)",
+  "labels.tenant.pricing.activate": "Activate / deactivate prices",
+  "groups.tenant_pricing": "Pricing"
 }

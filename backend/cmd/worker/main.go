@@ -32,6 +32,11 @@ import (
 	orgadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/adapters"
 	orgrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/repository"
 	orgusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/usecase"
+	orgsettingsrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/repository"
+	orgsettingsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/usecase"
+	pricingadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/adapters"
+	pricingrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/repository"
+	pricingusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/usecase"
 	tenantmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tenant"
 	vehiclerecordsadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehiclerecords/adapters"
 	vehiclerecordsrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehiclerecords/repository"
@@ -140,6 +145,10 @@ func main() {
 		vehiclerecordsrepository.NewPostgres(queries), vehicleSvc, store, notifSvc, log,
 	)
 	fleetOpsSvc := fleetopsusecase.New(fleetopsrepository.NewPostgres(pool, queries), vehicleSvc)
+	pricingSvc := pricingusecase.New(
+		pricingrepository.NewPostgres(pool, queries),
+		orgsettingsusecase.New(orgsettingsrepository.NewPostgres(pool, queries)),
+	)
 	vehicleBulk := vehicleadapters.NewBulk(vehicleSvc)
 	vehicleBulk.SetMaintenance(fleetopsadapters.NewMaintenance(fleetOpsSvc))
 	// Platform organizations (export, bulk activate / suspend). Status
@@ -165,6 +174,8 @@ func main() {
 		vehiclerecordsadapters.NewMaintenanceIO(vehicleRecordsSvc),
 		fleetopsadapters.NewTransfersIO(fleetOpsSvc),
 		fleetopsadapters.NewOneWayIO(fleetOpsSvc),
+		pricingadapters.NewRatePlansIO(pricingSvc),
+		pricingadapters.NewDateRulesIO(pricingSvc),
 		orgadapters.NewIO(jobScopes),
 	)
 	exportSvc := exportusecase.New(queries, store, ioReg, nil, notifSvc, activityRec, log)

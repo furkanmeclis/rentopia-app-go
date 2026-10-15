@@ -198,6 +198,52 @@ type CatalogValuation struct {
 	Value     pgtype.Numeric `json:"value"`
 }
 
+type DateRule struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	Name           string             `json:"name"`
+	Status         string             `json:"status"`
+	CurrentVersion int32              `json:"current_version"`
+	ActiveVersion  pgtype.Int4        `json:"active_version"`
+	ActivatedAt    pgtype.Timestamptz `json:"activated_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt      pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type DateRuleVersion struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	DateRuleID     int64              `json:"date_rule_id"`
+	Version        int32              `json:"version"`
+	Status         string             `json:"status"`
+	StartDate      pgtype.Date        `json:"start_date"`
+	EndDate        pgtype.Date        `json:"end_date"`
+	ProductScope   string             `json:"product_scope"`
+	AllBranches    bool               `json:"all_branches"`
+	Channels       []string           `json:"channels"`
+	Kind           string             `json:"kind"`
+	Value          pgtype.Numeric     `json:"value"`
+	Priority       int32              `json:"priority"`
+	ChangeNote     string             `json:"change_note"`
+	CreatedBy      pgtype.Int8        `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	ActivatedBy    pgtype.Int8        `json:"activated_by"`
+	ActivatedAt    pgtype.Timestamptz `json:"activated_at"`
+	SupersededAt   pgtype.Timestamptz `json:"superseded_at"`
+}
+
+type DateRuleVersionTarget struct {
+	ID                int64       `json:"id"`
+	OrganizationID    int64       `json:"organization_id"`
+	DateRuleVersionID int64       `json:"date_rule_version_id"`
+	RentalProductID   pgtype.Int8 `json:"rental_product_id"`
+	SegmentID         pgtype.Int8 `json:"segment_id"`
+	BranchID          pgtype.Int8 `json:"branch_id"`
+}
+
 type ExportJob struct {
 	ID             int64              `json:"id"`
 	Uuid           uuid.UUID          `json:"uuid"`
@@ -542,6 +588,50 @@ type PushTicket struct {
 	PushDeviceID   int64              `json:"push_device_id"`
 	NotificationID pgtype.Int8        `json:"notification_id"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type RateBand struct {
+	ID                int64              `json:"id"`
+	OrganizationID    int64              `json:"organization_id"`
+	RatePlanVersionID int64              `json:"rate_plan_version_id"`
+	MinDays           int32              `json:"min_days"`
+	MaxDays           pgtype.Int4        `json:"max_days"`
+	DailyPrice        pgtype.Numeric     `json:"daily_price"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
+type RatePlan struct {
+	ID              int64              `json:"id"`
+	Uuid            uuid.UUID          `json:"uuid"`
+	OrganizationID  int64              `json:"organization_id"`
+	RentalProductID int64              `json:"rental_product_id"`
+	Scope           string             `json:"scope"`
+	BranchID        pgtype.Int8        `json:"branch_id"`
+	Channel         pgtype.Text        `json:"channel"`
+	Name            string             `json:"name"`
+	Status          string             `json:"status"`
+	CurrentVersion  int32              `json:"current_version"`
+	ActiveVersion   pgtype.Int4        `json:"active_version"`
+	ActivatedAt     pgtype.Timestamptz `json:"activated_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type RatePlanVersion struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	RatePlanID     int64              `json:"rate_plan_id"`
+	Version        int32              `json:"version"`
+	Status         string             `json:"status"`
+	Priority       int32              `json:"priority"`
+	ChangeNote     string             `json:"change_note"`
+	CreatedBy      pgtype.Int8        `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	ActivatedBy    pgtype.Int8        `json:"activated_by"`
+	ActivatedAt    pgtype.Timestamptz `json:"activated_at"`
+	SupersededAt   pgtype.Timestamptz `json:"superseded_at"`
 }
 
 type RefreshToken struct {

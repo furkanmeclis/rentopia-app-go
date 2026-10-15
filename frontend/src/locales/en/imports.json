@@ -110,5 +110,7 @@
   "diff.columns.changes": "Fields to change",
   "resources.tenant.transfers": "Transfers",
   "resources.tenant.one_way_rules": "One-way rules",
-  "resources.platform.organizations": "Organizations"
+  "resources.platform.organizations": "Organizations",
+  "resources.tenant.rate_plans": "Rate plans (price list)",
+  "resources.tenant.date_rules": "Date rules"
 }

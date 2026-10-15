@@ -137,5 +137,20 @@
   "actions.invitations.accepted": "Invitation accepted",
   "actions.organization.updated": "Organization name updated",
   "actions.organization.logo_updated": "Organization logo updated",
-  "actions.organization.logo_removed": "Organization logo removed"
+  "actions.organization.logo_removed": "Organization logo removed",
+  "resources.tenant.rate_plans": "Rate plans",
+  "resources.tenant.date_rules": "Date rules",
+  "actions.rate_plans.created": "Rate plan created",
+  "actions.rate_plans.updated": "Rate plan draft updated",
+  "actions.rate_plans.activated": "Rate plan activated",
+  "actions.rate_plans.deactivated": "Rate plan deactivated",
+  "actions.rate_plans.draft_discarded": "Rate plan draft discarded",
+  "actions.rate_plans.matrix_saved": "Draft saved from the price matrix",
+  "actions.rate_plans.deleted": "Rate plan deleted",
+  "actions.date_rules.created": "Date rule created",
+  "actions.date_rules.updated": "Date rule draft updated",
+  "actions.date_rules.activated": "Date rule activated",
+  "actions.date_rules.deactivated": "Date rule deactivated",
+  "actions.date_rules.draft_discarded": "Date rule draft discarded",
+  "actions.date_rules.deleted": "Date rule deleted"
 }

@@ -137,5 +137,20 @@
   "actions.invitations.accepted": "Davet kabul edildi",
   "actions.organization.updated": "Firma adı güncellendi",
   "actions.organization.logo_updated": "Firma logosu güncellendi",
-  "actions.organization.logo_removed": "Firma logosu kaldırıldı"
+  "actions.organization.logo_removed": "Firma logosu kaldırıldı",
+  "resources.tenant.rate_plans": "Tarifeler",
+  "resources.tenant.date_rules": "Tarih kuralları",
+  "actions.rate_plans.created": "Tarife oluşturuldu",
+  "actions.rate_plans.updated": "Tarife taslağı güncellendi",
+  "actions.rate_plans.activated": "Tarife aktifleştirildi",
+  "actions.rate_plans.deactivated": "Tarife pasifleştirildi",
+  "actions.rate_plans.draft_discarded": "Tarife taslağı atıldı",
+  "actions.rate_plans.matrix_saved": "Fiyat matrisinden taslak kaydedildi",
+  "actions.rate_plans.deleted": "Tarife silindi",
+  "actions.date_rules.created": "Tarih kuralı oluşturuldu",
+  "actions.date_rules.updated": "Tarih kuralı taslağı güncellendi",
+  "actions.date_rules.activated": "Tarih kuralı aktifleştirildi",
+  "actions.date_rules.deactivated": "Tarih kuralı pasifleştirildi",
+  "actions.date_rules.draft_discarded": "Tarih kuralı taslağı atıldı",
+  "actions.date_rules.deleted": "Tarih kuralı silindi"
 }

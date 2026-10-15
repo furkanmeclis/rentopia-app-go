@@ -68,6 +68,40 @@ type Reservation struct {
 	StaffReviewWindowMinutes *int   `json:"staff_review_window_minutes"`
 	PaymentHoldMinutes       *int   `json:"payment_hold_minutes"`
 	QuoteValidityMinutes     *int   `json:"quote_validity_minutes"`
+	// MaxOnlineRentalDays is the longest rental online channels sell
+	// (TEC-700): rate plans that price online sales must cover every length
+	// from 1 day up to it without a gap. Nil = DefaultMaxOnlineRentalDays.
+	MaxOnlineRentalDays *int `json:"max_online_rental_days"`
+}
+
+// DefaultMaxOnlineRentalDays applies while max_online_rental_days is unset;
+// MaxOnlineRentalDaysLimit is the largest accepted value.
+const (
+	DefaultMaxOnlineRentalDays = 30
+	MaxOnlineRentalDaysLimit   = 365
+)
+
+// OfflineChannels are the sales channels that are not online (the counter).
+// Every other channel in SalesChannels sells online.
+var OfflineChannels = []string{"branch"}
+
+// IsOnlineChannel reports whether a channel code sells online.
+func IsOnlineChannel(code string) bool {
+	for _, c := range OfflineChannels {
+		if c == code {
+			return false
+		}
+	}
+	return true
+}
+
+// MaxOnlineDays returns the configured max online rental length or the
+// default.
+func (r Reservation) MaxOnlineDays() int {
+	if r.MaxOnlineRentalDays != nil && *r.MaxOnlineRentalDays > 0 {
+		return *r.MaxOnlineRentalDays
+	}
+	return DefaultMaxOnlineRentalDays
 }
 
 // Payment holds the prepayment rule.

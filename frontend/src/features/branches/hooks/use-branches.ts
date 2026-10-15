@@ -15,12 +15,13 @@ import { useTenant } from "@/features/tenant/components/tenant-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { appToast } from "@/providers/toast-provider";
 
-export function useBranchesList(params: ListBranchesParams) {
+export function useBranchesList(params: ListBranchesParams, enabled = true) {
   const { slug } = useTenant();
   return useQuery({
     queryKey: branchesKeys.list(slug, params),
     queryFn: () => branchesService.list(slug, params),
     placeholderData: (previous) => previous,
+    enabled,
   });
 }
 
