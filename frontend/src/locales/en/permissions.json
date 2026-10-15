@@ -120,5 +120,11 @@
   "labels.tenant.one_way.write": "Manage one-way rules",
   "groups.tenant_blocks": "Vehicle blocks",
   "groups.tenant_transfers": "Transfers",
-  "groups.tenant_one_way": "One-way rules"
+  "groups.tenant_one_way": "One-way rules",
+  "labels.tenant.availability.read": "Search availability",
+  "labels.tenant.availability.hold": "Put, extend and release holds",
+  "labels.tenant.capacity_rules.read": "View channel capacity rules",
+  "labels.tenant.capacity_rules.write": "Manage channel capacity rules",
+  "groups.tenant_availability": "Availability",
+  "groups.tenant_capacity_rules": "Channel capacity rules"
 }

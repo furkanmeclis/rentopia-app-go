@@ -3,6 +3,7 @@ import type { AppLocale } from "@/config/i18n";
 import enAccess from "@/locales/en/access.json";
 import enActivity from "@/locales/en/activity.json";
 import enAuth from "@/locales/en/auth.json";
+import enAvailability from "@/locales/en/availability.json";
 import enBranches from "@/locales/en/branches.json";
 import enFleet from "@/locales/en/fleet.json";
 import enBranding from "@/locales/en/branding.json";
@@ -45,6 +46,7 @@ import enVehicles from "@/locales/en/vehicles.json";
 import trAccess from "@/locales/tr/access.json";
 import trActivity from "@/locales/tr/activity.json";
 import trAuth from "@/locales/tr/auth.json";
+import trAvailability from "@/locales/tr/availability.json";
 import trBranches from "@/locales/tr/branches.json";
 import trFleet from "@/locales/tr/fleet.json";
 import trBranding from "@/locales/tr/branding.json";
@@ -96,6 +98,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     form: trForm,
     chart: trChart,
     auth: trAuth,
+    availability: trAvailability,
     branding: trBranding,
     bulk: trBulk,
     catalog: trCatalog,
@@ -140,6 +143,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     form: enForm,
     chart: enChart,
     auth: enAuth,
+    availability: enAvailability,
     branding: enBranding,
     bulk: enBulk,
     catalog: enCatalog,

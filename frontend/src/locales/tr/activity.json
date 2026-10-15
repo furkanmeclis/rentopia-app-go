@@ -137,5 +137,13 @@
   "actions.invitations.accepted": "Davet kabul edildi",
   "actions.organization.updated": "Firma adı güncellendi",
   "actions.organization.logo_updated": "Firma logosu güncellendi",
-  "actions.organization.logo_removed": "Firma logosu kaldırıldı"
+  "actions.organization.logo_removed": "Firma logosu kaldırıldı",
+  "resources.tenant.availability_holds": "Opsiyonlar",
+  "resources.tenant.capacity_rules": "Kanal kapasite kuralları",
+  "actions.availability_holds.created": "Opsiyon konuldu",
+  "actions.availability_holds.released": "Opsiyon kaldırıldı",
+  "actions.availability_holds.extended": "Opsiyon uzatıldı",
+  "actions.capacity_rules.created": "Kanal kuralı oluşturuldu",
+  "actions.capacity_rules.updated": "Kanal kuralı güncellendi",
+  "actions.capacity_rules.deleted": "Kanal kuralı silindi"
 }

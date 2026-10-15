@@ -49,5 +49,6 @@
   "codes.INVITATION_USED": "This invitation was already used.",
   "codes.INVITATION_REVOKED": "This invitation was revoked.",
   "codes.INVITATION_EMAIL_MISMATCH": "This invitation was sent to another e-mail address.",
-  "codes.ACCOUNT_EXISTS": "An account with this e-mail already exists."
+  "codes.ACCOUNT_EXISTS": "An account with this e-mail already exists.",
+  "codes.CAPACITY_UNAVAILABLE": "No vehicle can serve this request for the whole range."
 }

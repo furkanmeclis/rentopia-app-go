@@ -49,5 +49,6 @@
   "codes.INVITATION_USED": "Bu davet zaten kullanıldı.",
   "codes.INVITATION_REVOKED": "Bu davet iptal edildi.",
   "codes.INVITATION_EMAIL_MISMATCH": "Bu davet başka bir e-posta adresine gönderildi.",
-  "codes.ACCOUNT_EXISTS": "Bu e-posta ile bir hesap zaten var."
+  "codes.ACCOUNT_EXISTS": "Bu e-posta ile bir hesap zaten var.",
+  "codes.CAPACITY_UNAVAILABLE": "Bu talep için aralığın tamamını karşılayabilecek araç yok."
 }

@@ -77,6 +77,10 @@ export const Permission = {
   TenantTransfersWrite: "tenant.transfers.write",
   TenantOneWayRead: "tenant.one_way.read",
   TenantOneWayWrite: "tenant.one_way.write",
+  TenantAvailabilityRead: "tenant.availability.read",
+  TenantAvailabilityHold: "tenant.availability.hold",
+  TenantCapacityRulesRead: "tenant.capacity_rules.read",
+  TenantCapacityRulesWrite: "tenant.capacity_rules.write",
   TenantPriceOverride: "tenant.price.override",
   TenantDiscountApply: "tenant.discount.apply",
   TenantPaymentCollect: "tenant.payment.collect",
@@ -235,6 +239,16 @@ export const permissions = {
     oneWay: {
       read: Permission.TenantOneWayRead,
       write: Permission.TenantOneWayWrite,
+    },
+    /** Availability engine: capacity search (read) and holds ("opsiyon"). */
+    availability: {
+      read: Permission.TenantAvailabilityRead,
+      hold: Permission.TenantAvailabilityHold,
+    },
+    /** Channel capacity rules (sales limit, guaranteed quota, safety margin). */
+    capacityRules: {
+      read: Permission.TenantCapacityRulesRead,
+      write: Permission.TenantCapacityRulesWrite,
     },
     price: {
       override: Permission.TenantPriceOverride,

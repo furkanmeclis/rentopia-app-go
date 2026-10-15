@@ -67,7 +67,13 @@ export const routes = {
         `/t/${encodeURIComponent(slug)}/fleet/calendar`,
       transfers: fleetRoutes("transfers"),
       oneWayRules: fleetRoutes("one-way-rules"),
+      /** Channel capacity rules (availability engine). */
+      capacityRules: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/fleet/capacity-rules`,
     },
+    /** Availability search and holds ("Müsaitlik"). */
+    availability: (slug: string) =>
+      `/t/${encodeURIComponent(slug)}/availability`,
     settings: {
       root: (slug: string) => `/t/${encodeURIComponent(slug)}/settings`,
       members: (slug: string) =>

@@ -137,5 +137,13 @@
   "actions.invitations.accepted": "Invitation accepted",
   "actions.organization.updated": "Organization name updated",
   "actions.organization.logo_updated": "Organization logo updated",
-  "actions.organization.logo_removed": "Organization logo removed"
+  "actions.organization.logo_removed": "Organization logo removed",
+  "resources.tenant.availability_holds": "Holds",
+  "resources.tenant.capacity_rules": "Channel capacity rules",
+  "actions.availability_holds.created": "Hold placed",
+  "actions.availability_holds.released": "Hold released",
+  "actions.availability_holds.extended": "Hold extended",
+  "actions.capacity_rules.created": "Channel rule created",
+  "actions.capacity_rules.updated": "Channel rule updated",
+  "actions.capacity_rules.deleted": "Channel rule deleted"
 }

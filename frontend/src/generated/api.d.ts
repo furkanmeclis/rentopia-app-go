@@ -5288,10 +5288,468 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenant/availability/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Capacity per rentable product
+         * @description `tenant.availability.read`. Availability engine (TEC-697): how many units of each product
+         *     on sale (or of `product_uuids`) the channel can sell for this pick-up / return and range,
+         *     with the breakdown behind each number. A vehicle counts only when it can cover the whole
+         *     range (continuous availability), is at the pick-up branch at the start (location
+         *     continuity: one-way returns and transfers move it), has no block / open transfer in the
+         *     range (plus the return branch's preparation time) and keeps the product's guarantee.
+         *     `reassignable` units need moving flexible commitments to other vehicles. Channel rules
+         *     (safety margin, other channels' unused guaranteed quotas, sales limit) are applied on top.
+         *     A search consumes nothing. Pick-up or return branch must be in the caller's branch scope.
+         */
+        post: operations["postTenantAvailabilitySearch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/availability/holds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Holds (options) in the caller's branch scope
+         * @description `tenant.availability.read`. Newest first; `status` defaults to `active` (unexpired holds
+         *     only). Visible when the pick-up or return branch is in the caller's branch scope.
+         */
+        get: operations["listTenantAvailabilityHolds"];
+        put?: never;
+        /**
+         * Put a hold (timed option)
+         * @description `tenant.availability.hold`. In one transaction under the lock of the product's
+         *     eligibility component: plans a vehicle for the whole range (moving flexible commitments
+         *     when that makes room), applies the channel rules and stores the hold with a provisional
+         *     plate (`plate_fixed` false; true for `vehicle_uuid` or EXACT_VEHICLE products). The hold
+         *     consumes capacity until `expires_at` (default: the organization's payment hold minutes,
+         *     else 30). Without a plan: `409 CAPACITY_UNAVAILABLE` (detail code = reason:
+         *     `no_vehicle`, `no_eligible_vehicle`, `one_way_not_allowed`, `channel_rules`,
+         *     `product_not_sellable`) with `data` = alternatives (other products, nearby ranges).
+         */
+        post: operations["postTenantAvailabilityHold"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/availability/holds/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a hold
+         * @description `tenant.availability.read`.
+         */
+        get: operations["getTenantAvailabilityHold"];
+        put?: never;
+        post?: never;
+        /**
+         * Release a hold
+         * @description `tenant.availability.hold`. Frees the capacity exactly once (`409` `not_active` when the
+         *     hold was already released or expired). Commitments that relied on its return branch are
+         *     re-planned; the ones that cannot be are listed in `affected`.
+         */
+        delete: operations["deleteTenantAvailabilityHold"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/availability/holds/{uuid}/extend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extend a hold
+         * @description `tenant.availability.hold`. `expires_at` becomes now + `minutes` (1-1440). Only an
+         *     active, unexpired hold (`409` `hold_expired` / `not_active`).
+         */
+        post: operations["postTenantAvailabilityHoldExtend"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/capacity-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Channel capacity rules
+         * @description `tenant.capacity_rules.read`. Sales limits, guaranteed quotas and safety margins (no rule =
+         *     every channel sells from the shared pool).
+         */
+        get: operations["listTenantCapacityRules"];
+        put?: never;
+        /**
+         * Create a channel capacity rule
+         * @description `tenant.capacity_rules.write`. Guaranteed quotas of a product may not exceed its eligible
+         *     vehicles (`400` `exceeds_capacity`). A rule without a branch needs every branch (`403`).
+         *     One live rule per type, channel, product and branch (`409` `taken`).
+         */
+        post: operations["postTenantCapacityRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/capacity-rules/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a channel capacity rule
+         * @description `tenant.capacity_rules.read`.
+         */
+        get: operations["getTenantCapacityRule"];
+        /**
+         * Replace a channel capacity rule
+         * @description `tenant.capacity_rules.write`. Full body, same rules as create.
+         */
+        put: operations["putTenantCapacityRule"];
+        post?: never;
+        /**
+         * Delete a channel capacity rule (soft)
+         * @description `tenant.capacity_rules.write`.
+         */
+        delete: operations["deleteTenantCapacityRule"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AvailabilitySearchRequest: {
+            /**
+             * Format: uuid
+             * @description Pick-up branch (or give pickup_point_uuid)
+             */
+            pickup_branch_uuid?: string | null;
+            /**
+             * Format: uuid
+             * @description Service point; its branch's stock serves it
+             */
+            pickup_point_uuid?: string | null;
+            /**
+             * Format: uuid
+             * @description Default: the pick-up place
+             */
+            return_branch_uuid?: string | null;
+            /** Format: uuid */
+            return_point_uuid?: string | null;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            /** @description Sales channel code (active in the organization settings); default branch */
+            channel?: string;
+            /** @description Restrict to one fleet pool; empty = every pool */
+            fleet_pool?: string;
+            /** @description Only these products (default every product on sale) */
+            product_uuids?: string[];
+        };
+        AvailabilityHoldRequest: {
+            /**
+             * Format: uuid
+             * @description Pick-up branch (or give pickup_point_uuid)
+             */
+            pickup_branch_uuid?: string | null;
+            /**
+             * Format: uuid
+             * @description Service point; its branch's stock serves it
+             */
+            pickup_point_uuid?: string | null;
+            /**
+             * Format: uuid
+             * @description Default: the pick-up place
+             */
+            return_branch_uuid?: string | null;
+            /** Format: uuid */
+            return_point_uuid?: string | null;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            /** @description Sales channel code (active in the organization settings); default branch */
+            channel?: string;
+            /** @description Restrict to one fleet pool; empty = every pool */
+            fleet_pool?: string;
+            /** Format: uuid */
+            product_uuid: string;
+            hold_minutes?: number | null;
+            note?: string;
+            /**
+             * Format: uuid
+             * @description Promise this plate (never reassigned)
+             */
+            vehicle_uuid?: string | null;
+        };
+        AvailabilityPointRef: {
+            /** Format: uuid */
+            uuid: string;
+            name: string;
+        };
+        AvailabilityProductRef: {
+            /** Format: uuid */
+            uuid: string;
+            code: string;
+            title: string;
+            /** @enum {string} */
+            guarantee_type?: "EXACT_VEHICLE" | "EXACT_VARIANT" | "GROUP";
+            version: number;
+        };
+        AvailabilityResolvedRequest: {
+            pickup_branch: components["schemas"]["VehicleBranchRef"];
+            return_branch: components["schemas"]["VehicleBranchRef"];
+            pickup_point: components["schemas"]["AvailabilityPointRef"] | null;
+            return_point: components["schemas"]["AvailabilityPointRef"] | null;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            /**
+             * Format: date-time
+             * @description ends_at + preparation of the return branch
+             */
+            ready_at: string;
+            prep_minutes: number;
+            channel: string;
+            fleet_pool: string;
+        };
+        /**
+         * @description Every eligible vehicle is counted once, in the first matching bucket: out_of_service,
+         *     blocked, reserved, held, elsewhere, free. physical = free + reassignable.
+         */
+        AvailabilityBreakdown: {
+            eligible: number;
+            out_of_service: number;
+            blocked: number;
+            /** @description Confirmed reservations / rentals overlap */
+            reserved: number;
+            /** @description Only holds (options) overlap */
+            held: number;
+            /** @description Free in time but not at the pick-up branch */
+            elsewhere: number;
+            free: number;
+            /** @description Extra units by moving flexible commitments */
+            reassignable: number;
+            physical: number;
+            safety_margin: number;
+            reserved_for_other_channels: number;
+            own_quota_remaining: number | null;
+            channel_limit_remaining: number | null;
+            sellable: number;
+        };
+        AvailabilityProduct: {
+            product: components["schemas"]["AvailabilityProductRef"];
+            breakdown: components["schemas"]["AvailabilityBreakdown"];
+            sellable: number;
+            reasons: ("one_way_not_allowed" | "no_eligible_vehicle")[];
+        };
+        AvailabilitySearchResult: {
+            request: components["schemas"]["AvailabilityResolvedRequest"];
+            items: components["schemas"]["AvailabilityProduct"][];
+        };
+        EnvelopeAvailabilitySearch: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["AvailabilitySearchResult"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        AvailabilityHold: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            kind: "hold" | "reservation" | "rental";
+            /** @enum {string} */
+            status: "active" | "released" | "expired";
+            product: components["schemas"]["AvailabilityProductRef"];
+            vehicle: components["schemas"]["TransferVehicleRef"];
+            /** @description false = provisional plate plan (may be reassigned) */
+            plate_fixed: boolean;
+            pickup_branch: components["schemas"]["VehicleBranchRef"];
+            return_branch: components["schemas"]["VehicleBranchRef"];
+            pickup_point: components["schemas"]["AvailabilityPointRef"] | null;
+            return_point: components["schemas"]["AvailabilityPointRef"] | null;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            /** Format: date-time */
+            ready_at: string;
+            prep_minutes: number;
+            /** Format: date-time */
+            expires_at: string | null;
+            channel: string;
+            fleet_pool: string;
+            note: string;
+            ref_type: string;
+            /** Format: uuid */
+            ref_uuid: string | null;
+            /** Format: date-time */
+            released_at: string | null;
+            release_reason: string;
+            created_by: components["schemas"]["FleetActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        EnvelopeAvailabilityHold: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["AvailabilityHold"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        AvailabilityHoldPage: {
+            items: components["schemas"]["AvailabilityHold"][];
+            /** Format: int64 */
+            total: number;
+            limit: number;
+            offset: number;
+        };
+        EnvelopeAvailabilityHoldPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["AvailabilityHoldPage"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        AvailabilityPlanResult: {
+            allocation: components["schemas"]["AvailabilityHold"];
+            /** @description Other commitments the plan moved to another vehicle */
+            reassigned: number;
+        };
+        EnvelopeAvailabilityPlanResult: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["AvailabilityPlanResult"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        AvailabilityReleaseResult: {
+            allocation: components["schemas"]["AvailabilityHold"];
+            reassigned: number;
+            affected: {
+                /** @enum {string} */
+                kind: "hold" | "reservation" | "rental" | "transfer";
+                /** Format: uuid */
+                uuid: string;
+            }[];
+        };
+        EnvelopeAvailabilityReleaseResult: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["AvailabilityReleaseResult"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        AvailabilityAlternatives: {
+            products: {
+                product: components["schemas"]["AvailabilityProductRef"];
+                sellable: number;
+            }[];
+            times: {
+                /** Format: date-time */
+                starts_at: string;
+                /** Format: date-time */
+                ends_at: string;
+                sellable: number;
+            }[];
+        };
+        AvailabilityCapacityError: {
+            /** @enum {boolean} */
+            success: false;
+            data?: components["schemas"]["AvailabilityAlternatives"] | null;
+            error: components["schemas"]["ErrorBody"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        CapacityRuleRequest: {
+            /** @enum {string} */
+            rule_type: "sales_limit" | "guaranteed_quota" | "safety_margin";
+            /** @description Required for sales_limit / guaranteed_quota; null margin = every channel */
+            channel?: string | null;
+            /**
+             * Format: uuid
+             * @description null = every product (each separately)
+             */
+            product_uuid?: string | null;
+            /**
+             * Format: uuid
+             * @description Pick-up branch; null = every branch
+             */
+            branch_uuid?: string | null;
+            quantity: number;
+            note?: string;
+            is_active?: boolean | null;
+        };
+        CapacityRule: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            rule_type: "sales_limit" | "guaranteed_quota" | "safety_margin";
+            channel: string | null;
+            product: components["schemas"]["AvailabilityProductRef"] | null;
+            branch: components["schemas"]["VehicleBranchRef"] | null;
+            quantity: number;
+            note: string;
+            is_active: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        EnvelopeCapacityRule: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["CapacityRule"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        CapacityRulePage: {
+            items: components["schemas"]["CapacityRule"][];
+            /** Format: int64 */
+            total: number;
+            limit: number;
+            offset: number;
+        };
+        EnvelopeCapacityRulePage: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["CapacityRulePage"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
         OwnerRef: {
             /** Format: uuid */
             uuid: string;
@@ -7895,10 +8353,10 @@ export interface components {
         };
         VehicleBlockAffected: {
             /**
-             * @description M2 adds `reservation`
+             * @description An open transfer, or an active allocation of the availability engine (label = product code)
              * @enum {string}
              */
-            kind: "transfer";
+            kind: "transfer" | "hold" | "reservation";
             /** Format: uuid */
             uuid: string;
             /** @example Merkez → İstanbul */
@@ -8197,14 +8655,11 @@ export interface components {
             in_scope: boolean;
         };
         FleetCalendarInterval: {
-            /**
-             * @description M2 adds reservation
-             * @enum {string}
-             */
-            kind: "block" | "transfer";
+            /** @enum {string} */
+            kind: "block" | "transfer" | "hold" | "reservation";
             /**
              * Format: uuid
-             * @description Block or transfer uuid
+             * @description Block, transfer or allocation uuid
              */
             uuid: string;
             /** Format: date-time */
@@ -8228,6 +8683,27 @@ export interface components {
             continues_after: boolean;
             block: components["schemas"]["FleetCalendarBlock"] | null;
             transfer: components["schemas"]["FleetCalendarTransfer"] | null;
+            allocation: components["schemas"]["FleetCalendarAllocation"] | null;
+        };
+        /**
+         * @description A hold ("opsiyon") or reservation bar (TEC-697). The bar spans the period with the
+         *     preparation buffer of the return branch; `starts_at` / `ends_at` are the customer range.
+         */
+        FleetCalendarAllocation: {
+            product: components["schemas"]["OneWayRuleProductRef"];
+            pickup_branch: components["schemas"]["VehicleBranchRef"];
+            return_branch: components["schemas"]["VehicleBranchRef"];
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            /**
+             * Format: date-time
+             * @description Holds only
+             */
+            expires_at: string | null;
+            plate_fixed: boolean;
+            channel: string;
         };
         FleetCalendarMaintenance: {
             /** Format: uuid */
@@ -8260,7 +8736,7 @@ export interface components {
             total: number;
             limit: number;
             offset: number;
-            layers: ("block" | "transfer" | "maintenance")[];
+            layers: ("block" | "transfer" | "hold" | "reservation" | "maintenance")[];
         };
         EnvelopeFleetCalendar: {
             /** @enum {boolean} */
@@ -19349,6 +19825,399 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EnvelopeFleetActivityPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantAvailabilitySearch: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AvailabilitySearchRequest"];
+            };
+        };
+        responses: {
+            /** @description Capacity per product */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeAvailabilitySearch"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    listTenantAvailabilityHolds: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                /** @description Comma-separated (active, released, expired) */
+                status?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Holds */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeAvailabilityHoldPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantAvailabilityHold: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AvailabilityHoldRequest"];
+            };
+        };
+        responses: {
+            /** @description Hold */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeAvailabilityPlanResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            /** @description `CAPACITY_UNAVAILABLE` with alternatives in `data` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvailabilityCapacityError"];
+                };
+            };
+        };
+    };
+    getTenantAvailabilityHold: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Hold */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeAvailabilityHold"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteTenantAvailabilityHold: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Released */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeAvailabilityReleaseResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantAvailabilityHoldExtend: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    minutes: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Hold */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeAvailabilityHold"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listTenantCapacityRules: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                q?: string;
+                /** @description rule_type, quantity, created_at (prefix - for descending) */
+                sort?: string;
+                /** @description Comma-separated */
+                rule_type?: string;
+                /** @description Comma-separated */
+                channel?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rules */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCapacityRulePage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantCapacityRule: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CapacityRuleRequest"];
+            };
+        };
+        responses: {
+            /** @description Rule */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCapacityRule"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantCapacityRule: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rule */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCapacityRule"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putTenantCapacityRule: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CapacityRuleRequest"];
+            };
+        };
+        responses: {
+            /** @description Rule */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCapacityRule"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteTenantCapacityRule: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeStatus"];
                 };
             };
             400: components["responses"]["BadRequest"];
