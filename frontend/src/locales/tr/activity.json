@@ -266,5 +266,11 @@
   "actions.sms.otp.send_failed": "SMS doğrulama kodu gönderilemedi",
   "resources.tenant.integration_jobs": "Entegrasyon işleri",
   "resources.tenant.sms": "SMS",
-  "resources.tenant.sms_otp": "SMS doğrulama"
+  "resources.tenant.sms_otp": "SMS doğrulama",
+  "actions.documents.approval_link_created": "Uzaktan onay linki oluşturuldu",
+  "actions.documents.approval_link_sent": "Uzaktan onay linki SMS ile gönderildi",
+  "actions.documents.approval_link_revoked": "Uzaktan onay linki iptal edildi",
+  "actions.documents.remote_code_sent": "Uzaktan onay kodu gönderildi",
+  "actions.documents.remote_approved": "Belge uzaktan (SMS kodu ile) onaylandı",
+  "actions.documents.remote_approval_failed": "Uzaktan onay kodu doğrulanamadı"
 }

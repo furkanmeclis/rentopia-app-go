@@ -252,10 +252,12 @@ func (s *Service) Send(ctx context.Context, orgID int64, in SendInput) (Sent, er
 		return Sent{}, &ValidationError{Field: "body", Code: "invalid", Message: "the text is required (at most 900 characters)"}
 	}
 	redacted := body
-	if in.Class == sms.ClassOTP {
+	// An OTP always keeps a redacted body in the log; other classes may
+	// redact too (a message carrying a bearer link, TEC-711).
+	if in.Class == sms.ClassOTP || strings.TrimSpace(in.RedactedBody) != "" {
 		redacted = strings.TrimSpace(in.RedactedBody)
 		if redacted == "" || strings.Contains(redacted, body) {
-			return Sent{}, errors.New("sms: an OTP needs a redacted body")
+			return Sent{}, errors.New("sms: a redacted body must not contain the text")
 		}
 	}
 	var acc integrations.Account
@@ -346,6 +348,17 @@ func (s *Service) Send(ctx context.Context, orgID int64, in SendInput) (Sent, er
 		out.Status = m.Status
 	}
 	return out, nil
+}
+
+// HasActiveAccount reports whether the organization has an active SMS
+// account of a registered provider (messages can be sent).
+func (s *Service) HasActiveAccount(ctx context.Context, orgID int64) bool {
+	acc, err := s.accounts.ActiveAccount(ctx, orgID, integrations.KindSMS)
+	if err != nil {
+		return false
+	}
+	_, ok := s.providers[acc.Provider]
+	return ok
 }
 
 // AccountExists reports ErrAccountNotFound for an unknown account.

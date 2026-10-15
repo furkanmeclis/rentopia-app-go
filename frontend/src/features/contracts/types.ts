@@ -26,6 +26,20 @@ export type DocumentApproveRequest = Schemas["DocumentApproveRequest"];
 export type DocumentStatus = ContractDocument["status"];
 export type VersionStatus = DocumentVersionInfo["status"];
 
+// Remote approval (TEC-711).
+export type DocumentSigner = Schemas["DocumentSigner"];
+export type DocumentSigners = Schemas["EnvelopeDocumentSigners"]["data"];
+export type ApprovalLink = Schemas["DocumentApprovalLink"];
+export type ApprovalLinkStatus = ApprovalLink["status"];
+export type ApprovalLinkCreateRequest =
+  Schemas["DocumentApprovalLinkCreateRequest"];
+export type ApprovalLinkCreated =
+  Schemas["EnvelopeDocumentApprovalLinkCreated"]["data"];
+export type ApprovalLinkSMS = Schemas["DocumentApprovalLinkSMS"];
+export type PublicDocument = Schemas["PublicDocument"];
+export type PublicDocumentState = PublicDocument["state"];
+export type PublicDocumentCode = Schemas["PublicDocumentCode"];
+
 /** List query of `GET /v1/tenant/contract-templates`. */
 export type ListTemplatesParams = {
   limit: number;

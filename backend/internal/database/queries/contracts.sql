@@ -150,12 +150,20 @@ SELECT d.uuid, d.kind, d.status, d.created_at, d.updated_at,
     v.uuid AS version_uuid, v.version AS version_number, v.status AS version_status, v.content_hash,
     v.pdf_status, v.created_at AS version_created_at, v.template_version,
     t.name AS template_name,
+    COALESCE(rl.status, '')::text AS remote_link_status, rl.expires_at AS remote_link_expires_at,
     COUNT(*) OVER ()::bigint AS total
 FROM documents d
 JOIN reservations res ON res.organization_id = d.organization_id AND res.id = d.reservation_id
 LEFT JOIN rentals r ON r.organization_id = d.organization_id AND r.id = d.rental_id
 LEFT JOIN document_versions v ON v.organization_id = d.organization_id AND v.id = d.current_version_id
 LEFT JOIN contract_templates t ON t.organization_id = v.organization_id AND t.id = v.template_id
+LEFT JOIN LATERAL (
+    SELECT l.status, l.expires_at
+    FROM document_approval_links l
+    WHERE l.organization_id = d.organization_id AND l.document_id = d.id
+    ORDER BY l.created_at DESC, l.id DESC
+    LIMIT 1
+) rl ON TRUE
 WHERE d.organization_id = sqlc.arg(organization_id)
   AND res.organization_id = sqlc.arg(organization_id)
   AND (
@@ -282,13 +290,17 @@ WHERE organization_id = sqlc.arg(organization_id)
 
 -- name: ListDocumentApprovals :many
 SELECT a.uuid, a.content_hash, a.party, a.method, a.approver_name, a.note, a.approved_at, a.invalidated_at,
-    a.invalidated_reason, v.uuid AS version_uuid, v.version AS version_number,
+    a.invalidated_reason, a.verified_phone_masked, a.ip_address, a.user_agent,
+    v.uuid AS version_uuid, v.version AS version_number,
+    l.uuid AS link_uuid, l.signer_role,
     ru.uuid AS recorded_by_uuid, ru.name AS recorded_by_name, ru.surname AS recorded_by_surname, ru.email AS recorded_by_email
 FROM document_approvals a
 JOIN document_versions v ON v.organization_id = a.organization_id AND v.id = a.document_version_id
+LEFT JOIN document_approval_links l ON l.organization_id = a.organization_id AND l.id = a.link_id
 LEFT JOIN users ru ON ru.id = a.recorded_by
 WHERE a.organization_id = sqlc.arg(organization_id)
   AND v.organization_id = sqlc.arg(organization_id)
+  AND (l.organization_id IS NULL OR l.organization_id = sqlc.arg(organization_id))
   AND v.document_id = sqlc.arg(document_id)
 ORDER BY a.approved_at DESC, a.id DESC;
 

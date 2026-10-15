@@ -65,7 +65,9 @@ Generic by `purpose` (lower-case code, e.g. `contract_approval`) and `subjectRef
 - **Audit**: `sms.otp.issued | verified | verify_failed | locked | expired | rate_limited | send_failed` activity entries on resource `tenant.sms_otp` with purpose, subject and the masked number — never the code.
 - A failed send closes the challenge (no usable code without its SMS).
 
-Limits are `usecase.Limits` (`DefaultLimits()`); TEC-711 adds its public routes (rate-limited per IP / token) and calls these two methods.
+Limits are `usecase.Limits` (`DefaultLimits()`). TEC-711 calls these two methods from its public routes (`/v1/public/documents/{token}/code` and `/approve`, rate-limited per IP and token; [contracts.md](./contracts.md) §7).
+
+`Send` takes a `RedactedBody` for any class: an OTP always needs one, and a message that carries a bearer link (the TEC-711 approval link, transactional) passes one so the log never holds the token.
 
 ## 6. Tests
 
@@ -99,7 +101,7 @@ netgsm.com.tr was not reachable from the build environment; the adapter follows 
 ## 9. Open items
 
 - Confirm §8 on a real Netgsm account, then switch an account to live.
-- TEC-711: public routes for issue / verify (per-IP and per-token limits), templates per purpose (organization name in the text).
+- Templates per purpose (organization name in the OTP text).
 - Notification templates sending transactional SMS (reservation / contract notices) through `Service.Send`.
 - An SMS log page (the table is ready; the panel shows SMS through the job list today).
 - Push DLR webhook instead of polling (§8.9).

@@ -68,7 +68,25 @@ function wantsBinaryStream(path: string) {
     path.includes("platform/storage/objects/download") ||
     path.includes("platform/storage/objects/preview") ||
     path.startsWith("public/storage/") ||
-    path.startsWith("public/media/")
+    path.startsWith("public/media/") ||
+    (isPublicDocumentPath(path) && path.endsWith("/pdf"))
+  );
+}
+
+/**
+ * Public remote approval routes (TEC-711, `/d/{token}`): the token is the
+ * bearer; no session token is sent upstream.
+ */
+function isPublicDocumentPath(path: string) {
+  return path.startsWith("public/documents/");
+}
+
+/** Approval evidence: the approving device's user agent (code / approve). */
+function wantsUserAgent(path: string, method: string) {
+  return (
+    method.toUpperCase() === "POST" &&
+    isPublicDocumentPath(path) &&
+    (path.endsWith("/code") || path.endsWith("/approve"))
   );
 }
 
@@ -490,6 +508,10 @@ export async function proxyToUpstream(
       if (value) headers.set(name, value);
     }
   }
+  if (wantsUserAgent(path, request.method)) {
+    const userAgent = request.headers.get("user-agent");
+    if (userAgent) headers.set("User-Agent", userAgent);
+  }
   // Payment provider webhooks are verified by the API with the
   // organization's secret: forward their signature header (and only on
   // the webhook path).
@@ -505,7 +527,11 @@ export async function proxyToUpstream(
     if (organization) headers.set(ORGANIZATION_HEADER, organization);
   }
 
-  if (accessToken && !isAuthPublicTokenPath(path)) {
+  if (
+    accessToken &&
+    !isAuthPublicTokenPath(path) &&
+    !isPublicDocumentPath(path)
+  ) {
     headers.set("Authorization", `Bearer ${accessToken}`);
   }
 

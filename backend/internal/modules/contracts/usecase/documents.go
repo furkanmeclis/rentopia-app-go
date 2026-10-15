@@ -150,6 +150,14 @@ func (s *Service) prepareOnce(ctx context.Context, orgID, resID int64, resUUID u
 			}); err != nil {
 				return err
 			}
+			// An open remote approval link names the old content: it stops
+			// working with the new version (TEC-711).
+			if _, err := q.CloseOpenDocumentApprovalLinks(ctx, db.CloseOpenDocumentApprovalLinksParams{
+				Status: model.LinkSuperseded, ClosedAt: ts(now), Reason: "superseded by version " + strconv.Itoa(int(nextVersion)),
+				OrganizationID: orgID, DocumentID: docID, ExceptVersionID: pgtype.Int8{Int64: v.ID, Valid: true},
+			}); err != nil {
+				return err
+			}
 		}
 		n, err := q.SetDocumentCurrent(ctx, db.SetDocumentCurrentParams{
 			OrganizationID: orgID, ID: docID, CurrentVersionID: pgtype.Int8{Int64: v.ID, Valid: true},
@@ -373,12 +381,21 @@ func (s *Service) GetDocument(ctx context.Context, orgID int64, id uuid.UUID) (m
 		}
 	}
 	for _, a := range approvals {
-		out.Approvals = append(out.Approvals, model.Approval{
+		ap := model.Approval{
 			UUID: a.Uuid, VersionUUID: a.VersionUuid, VersionNumber: a.VersionNumber, ContentHash: a.ContentHash, Party: a.Party,
 			Method: a.Method, ApproverName: a.ApproverName, Note: a.Note, ApprovedAt: a.ApprovedAt.Time.UTC(),
 			Valid: !a.InvalidatedAt.Valid, InvalidatedAt: timePtr(a.InvalidatedAt), InvalidatedReason: a.InvalidatedReason,
-			RecordedBy: actorOf(a.RecordedByUuid, a.RecordedByName, a.RecordedBySurname, a.RecordedByEmail),
-		})
+			RecordedBy:          actorOf(a.RecordedByUuid, a.RecordedByName, a.RecordedBySurname, a.RecordedByEmail),
+			VerifiedPhoneMasked: a.VerifiedPhoneMasked, SignerRole: a.SignerRole.String, UserAgent: a.UserAgent,
+		}
+		if a.LinkUuid.Valid {
+			l := uuid.UUID(a.LinkUuid.Bytes)
+			ap.LinkUUID = &l
+		}
+		if a.IpAddress != nil {
+			ap.IPAddress = a.IpAddress.String()
+		}
+		out.Approvals = append(out.Approvals, ap)
 	}
 	return out, nil
 }
@@ -409,6 +426,7 @@ func (s *Service) ListDocuments(ctx context.Context, orgID int64, f model.Docume
 			VersionNumber: r.VersionNumber.Int32, VersionStatus: r.VersionStatus.String, ContentHash: r.ContentHash.String,
 			PDFStatus: r.PdfStatus.String, TemplateName: r.TemplateName.String, TemplateVersion: r.TemplateVersion.Int32,
 			VersionCreatedAt: timePtr(r.VersionCreatedAt),
+			RemoteLinkStatus: effectiveLinkStatus(r.RemoteLinkStatus, r.RemoteLinkExpiresAt, s.clock()),
 		}
 		if r.RentalUuid.Valid {
 			it.Rental = &model.Ref{UUID: r.RentalUuid.Bytes, Reference: r.RentalReference.String}
@@ -564,6 +582,14 @@ func (s *Service) ApproveVersion(ctx context.Context, orgID int64, docID, id uui
 			return err
 		}
 		if _, err := q.SetDocumentStatus(ctx, db.SetDocumentStatusParams{OrganizationID: orgID, ID: doc.ID, Status: model.DocumentApproved}); err != nil {
+			return err
+		}
+		// The version is approved: an open remote link has nothing left
+		// to approve.
+		if _, err := q.CloseOpenDocumentApprovalLinks(ctx, db.CloseOpenDocumentApprovalLinksParams{
+			Status: model.LinkRevoked, ClosedAt: ts(now), RevokedBy: int8Ptr(actorID(ctx)), Reason: "approved_in_person",
+			OrganizationID: orgID, DocumentID: doc.ID,
+		}); err != nil {
 			return err
 		}
 		data := map[string]any{
