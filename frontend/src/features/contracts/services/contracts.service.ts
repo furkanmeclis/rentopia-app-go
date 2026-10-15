@@ -1,5 +1,13 @@
+import { apiConfig } from "@/config/api";
 import type {
+  ApprovalLink,
+  ApprovalLinkCreated,
+  ApprovalLinkCreateRequest,
+  ApprovalLinkSMS,
   ContractDocument,
+  DocumentSigners,
+  PublicDocument,
+  PublicDocumentCode,
   ContractPlaceholders,
   ContractPreview,
   ContractPreviewRequest,
@@ -15,6 +23,7 @@ import type {
   ListTemplatesParams,
 } from "@/features/contracts/types";
 import type { ResourceMeta } from "@/features/io/types";
+import { platformRequest } from "@/lib/api/platform-request";
 import { tenantDownloadFile, tenantRequest } from "@/lib/api/tenant-request";
 
 const TEMPLATES = "/v1/tenant/contract-templates";
@@ -137,5 +146,90 @@ export const contractsService = {
   },
   downloadPdf(slug: string, doc: string, ver: string) {
     return tenantDownloadFile(slug, `${version(doc, ver)}/pdf`);
+  },
+
+  // Remote approval links (TEC-711).
+  signers(slug: string, doc: string) {
+    return tenantRequest<DocumentSigners>(
+      slug,
+      "GET",
+      `${DOCUMENTS}/${doc}/signers`,
+    );
+  },
+  approvalLinks(slug: string, doc: string) {
+    return tenantRequest<{ items: ApprovalLink[] }>(
+      slug,
+      "GET",
+      `${DOCUMENTS}/${doc}/approval-links`,
+    );
+  },
+  createApprovalLink(
+    slug: string,
+    doc: string,
+    ver: string,
+    body: ApprovalLinkCreateRequest,
+  ) {
+    return tenantRequest<ApprovalLinkCreated>(
+      slug,
+      "POST",
+      `${version(doc, ver)}/approval-links`,
+      { body, silent: true },
+    );
+  },
+  sendApprovalLink(slug: string, doc: string, link: string) {
+    return tenantRequest<ApprovalLinkSMS>(
+      slug,
+      "POST",
+      `${DOCUMENTS}/${doc}/approval-links/${link}/send-sms`,
+      { body: {} },
+    );
+  },
+  revokeApprovalLink(slug: string, doc: string, link: string) {
+    return tenantRequest<ApprovalLink>(
+      slug,
+      "POST",
+      `${DOCUMENTS}/${doc}/approval-links/${link}/revoke`,
+      { body: {} },
+    );
+  },
+  downloadApprovalPdf(slug: string, doc: string, approval: string) {
+    return tenantDownloadFile(
+      slug,
+      `${DOCUMENTS}/${doc}/approvals/${approval}/pdf`,
+    );
+  },
+};
+
+const PUBLIC_DOCUMENTS = "/v1/public/documents";
+const publicPath = (token: string) =>
+  `${PUBLIC_DOCUMENTS}/${encodeURIComponent(token)}`;
+
+/**
+ * Public remote approval page (`/d/{token}`): no session, the token is the
+ * bearer. Errors are rendered by the page (silent).
+ */
+export const publicDocumentService = {
+  get(token: string) {
+    return platformRequest<PublicDocument>("GET", publicPath(token), {
+      silent: true,
+    });
+  },
+  requestCode(token: string) {
+    return platformRequest<PublicDocumentCode>(
+      "POST",
+      `${publicPath(token)}/code`,
+      { body: {}, silent: true },
+    );
+  },
+  approve(token: string, code: string, contentHash: string) {
+    return platformRequest<PublicDocument>(
+      "POST",
+      `${publicPath(token)}/approve`,
+      { body: { code, content_hash: contentHash }, silent: true },
+    );
+  },
+  /** Same-origin BFF URL of the approved PDF (streamed by the API). */
+  pdfUrl(token: string) {
+    return `${apiConfig.baseUrl.replace(/\/$/, "")}${publicPath(token)}/pdf`;
   },
 };

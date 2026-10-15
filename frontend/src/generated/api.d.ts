@@ -6999,6 +6999,99 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/public/documents/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Remote approval page data
+         * @description No auth (the token is the bearer; 32 random bytes, stored only as a SHA-256 hash); rate-limited per IP.
+         *     The organization comes from the token. `state`: `pending`, `approved`, `expired`, `revoked` or
+         *     `superseded` (a newer version of the document exists). `html` (the stored, sanitized version, shown
+         *     in a fully sandboxed iframe) is returned while pending and after approval; `phone_masked` only while
+         *     pending.
+         */
+        get: operations["getPublicDocument"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/documents/{token}/code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send the SMS approval code
+         * @description No auth; rate-limited per IP and per token, plus the OTP service limits (60 s resend cooldown, codes per
+         *     number / organization per hour) and a per-link cap. Sends a one-time code (purpose `contract_approval`,
+         *     subject `document_version:<uuid>`) to the number staff chose. Errors are generic: 409 `LINK_UNAVAILABLE`,
+         *     429 `RATE_LIMITED` (`Retry-After`), 503 `CODE_UNAVAILABLE`.
+         */
+        post: operations["postPublicDocumentCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/documents/{token}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve the document with the SMS code
+         * @description No auth; rate-limited per IP and per token, plus a per-link failure cap. `content_hash` is the hash of the
+         *     content the page displayed: a version superseded since answers 409 `CONTENT_CHANGED` and nothing is
+         *     recorded. A code that does not verify (wrong, expired, locked) answers 400 `OTP_INVALID` (one generic
+         *     message). Success records a `remote_sms` approval of that exact version and hash with the verified
+         *     number (masked), the person, time, IP address and user agent, and an activity entry.
+         */
+        post: operations["postPublicDocumentApprove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/documents/{token}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download the approved PDF
+         * @description No auth; rate-limited per IP and per token. Only after this link approved: the approved version with an
+         *     approval page (hash, verified number, time, IP, device and the statement that SMS / tablet approval is
+         *     not a qualified electronic signature). Streamed by the API; the token reaches no other version.
+         */
+        get: operations["getPublicDocumentPdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/public/pay/{token}": {
         parameters: {
             query?: never;
@@ -8953,7 +9046,7 @@ export interface paths {
         put?: never;
         /**
          * Record the approval of the current version
-         * @description `tenant.contracts.read` + (`tenant.contracts.write` or `tenant.rentals.write`). `content_hash` must be the hash of the content shown (409 `CONTENT_CHANGED` with the current version otherwise). In-person approvals only (signing: TEC-711).
+         * @description `tenant.contracts.read` + (`tenant.contracts.write` or `tenant.rentals.write`). `content_hash` must be the hash of the content shown (409 `CONTENT_CHANGED` with the current version otherwise). In-person approvals here; remote approvals (link + SMS code) go through `/v1/public/documents/{token}` (TEC-711).
          */
         post: operations["postTenantDocumentVersionApprove"];
         delete?: never;
@@ -8974,6 +9067,129 @@ export interface paths {
          * @description `tenant.contracts.read` + `tenant.document.download`. Streamed by the API (private object); 409 `PDF_NOT_READY` while it renders. Every download is an activity event.
          */
         get: operations["getTenantDocumentVersionPdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/documents/{uuid}/signers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * People who can approve a document remotely
+         * @description `tenant.contracts.read`. The renter and the drivers of the reservation with masked numbers; `sms_available` when the organization has an active SMS account.
+         */
+        get: operations["getTenantDocumentSigners"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/documents/{uuid}/approval-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Remote approval links of a document
+         * @description `tenant.contracts.read`. Newest first; `url` only for pending links. A pending link past its expiry reads `expired`.
+         */
+        get: operations["getTenantDocumentApprovalLinks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/documents/{uuid}/versions/{documentVersionUuid}/approval-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a remote approval link
+         * @description `tenant.contracts.read` + (`tenant.contracts.write` or `tenant.rentals.write`). For the current version only:
+         *     `content_hash` must be the hash shown (409 `CONTENT_CHANGED` otherwise). Replaces the document's open link.
+         *     `expires_in_minutes` 15-10080 (default 1440). `send_sms` also sends the link by SMS (transactional class);
+         *     a failed SMS is reported in `sms_error`, the link exists anyway.
+         */
+        post: operations["postTenantDocumentApprovalLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/documents/{uuid}/approval-links/{linkUuid}/send-sms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send an open link by SMS
+         * @description `tenant.contracts.read` + (`tenant.contracts.write` or `tenant.rentals.write`). Transactional SMS to the link's number; the SMS log keeps the text with the token redacted. 422 `SMS_ACCOUNT_REQUIRED` without an active SMS account.
+         */
+        post: operations["postTenantDocumentApprovalLinkSendSms"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/documents/{uuid}/approval-links/{linkUuid}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke an open link
+         * @description `tenant.contracts.read` + (`tenant.contracts.write` or `tenant.rentals.write`).
+         */
+        post: operations["postTenantDocumentApprovalLinkRevoke"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/documents/{uuid}/approvals/{approvalUuid}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download the approval PDF
+         * @description `tenant.contracts.read` + `tenant.document.download`. The approved version with its approval page (rendered on first download, then stored privately). Every download is an activity event.
+         */
+        get: operations["getTenantDocumentApprovalPdf"];
         put?: never;
         post?: never;
         delete?: never;
@@ -16332,7 +16548,7 @@ export interface components {
             /** @enum {string} */
             party: "customer" | "staff";
             /** @enum {string} */
-            method: "in_person" | "click" | "signature";
+            method: "in_person" | "click" | "signature" | "remote_sms";
             approver_name: string;
             note: string;
             /** Format: date-time */
@@ -16342,6 +16558,14 @@ export interface components {
             invalidated_at: string | null;
             invalidated_reason: string;
             recorded_by: components["schemas"]["ReservationActor"] | null;
+            /** @description Remote approvals: the number the code was verified on (masked) */
+            verified_phone_masked: string;
+            /** @description Remote approvals: renter or driver; empty otherwise */
+            signer_role: string;
+            /** Format: uuid */
+            link_uuid: string | null;
+            ip_address: string;
+            user_agent: string;
         };
         Document: {
             /** Format: uuid */
@@ -16379,10 +16603,157 @@ export interface components {
             template_version: number;
             /** Format: date-time */
             version_created_at: string | null;
+            /**
+             * @description Status of the latest remote approval link ("" = none)
+             * @enum {string}
+             */
+            remote_link_status: "" | "pending" | "approved" | "expired" | "revoked" | "superseded";
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+        };
+        DocumentSigner: {
+            /** @enum {string} */
+            role: "renter" | "driver";
+            /** Format: uuid */
+            driver_uuid: string | null;
+            name: string;
+            phone_masked: string;
+            has_phone: boolean;
+        };
+        EnvelopeDocumentSigners: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                signers: components["schemas"]["DocumentSigner"][];
+                sms_available: boolean;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        DocumentApprovalLink: {
+            /** Format: uuid */
+            uuid: string;
+            /** Format: uuid */
+            version_uuid: string;
+            version_number: number;
+            content_hash: string;
+            /** @enum {string} */
+            status: "pending" | "approved" | "expired" | "revoked" | "superseded";
+            /** @enum {string} */
+            signer_role: "renter" | "driver";
+            signer_name: string;
+            phone_masked: string;
+            /** @description The public page (`/d/{token}`); pending links only */
+            url?: string;
+            /** Format: date-time */
+            expires_at: string;
+            codes_sent: number;
+            failed_attempts: number;
+            sms_sent_count: number;
+            /** Format: date-time */
+            last_sms_at: string | null;
+            /** Format: date-time */
+            approved_at: string | null;
+            /** Format: uuid */
+            approval_uuid: string | null;
+            /** Format: date-time */
+            revoked_at: string | null;
+            revoked_reason: string;
+            created_by: components["schemas"]["ReservationActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        DocumentApprovalLinkCreateRequest: {
+            content_hash: string;
+            /** @enum {string} */
+            signer_role: "renter" | "driver";
+            /** Format: uuid */
+            driver_uuid?: string;
+            expires_in_minutes?: number;
+            send_sms?: boolean;
+        };
+        DocumentApprovalLinkSMS: {
+            link: components["schemas"]["DocumentApprovalLink"];
+            /** Format: uuid */
+            message_uuid: string;
+            phone_masked: string;
+        };
+        EnvelopeDocumentApprovalLinkCreated: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                link: components["schemas"]["DocumentApprovalLink"];
+                sms?: components["schemas"]["DocumentApprovalLinkSMS"];
+                sms_error?: string;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeDocumentApprovalLink: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["DocumentApprovalLink"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeDocumentApprovalLinks: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["DocumentApprovalLink"][];
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeDocumentApprovalLinkSMS: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["DocumentApprovalLinkSMS"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        PublicDocument: {
+            /** @enum {string} */
+            state: "pending" | "approved" | "expired" | "revoked" | "superseded";
+            organization_name: string;
+            /** @enum {string} */
+            kind: "rental_contract" | "handover_form" | "return_form" | "terms";
+            reference: string;
+            version_number: number;
+            content_hash: string;
+            /** @description The stored version (pending / approved only) */
+            html?: string;
+            /** @description First name and last initial */
+            signer_name: string;
+            /** @description Pending only */
+            phone_masked?: string;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            approved_at: string | null;
+            pdf_available: boolean;
+        };
+        EnvelopePublicDocument: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["PublicDocument"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        PublicDocumentCode: {
+            phone_masked: string;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            resend_after: string;
+        };
+        EnvelopePublicDocumentCode: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["PublicDocumentCode"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        PublicDocumentApproveRequest: {
+            /** @description The 6-digit SMS code */
+            code: string;
+            /** @description The content hash the page displayed */
+            content_hash: string;
         };
         DocumentPrepareRequest: {
             /** @enum {string} */
@@ -17103,6 +17474,12 @@ export interface components {
         PointUUID: string;
         /** @description Product version UUID */
         VersionUUID: string;
+        /** @description Remote approval link UUID */
+        ApprovalLinkUUID: string;
+        /** @description Document approval UUID */
+        DocumentApprovalUUID: string;
+        /** @description Remote approval link token (43 characters, base64url) */
+        DocumentToken: string;
         /** @description Document version UUID */
         DocumentVersionUUID: string;
         /** @description Rental charge UUID */
@@ -30086,6 +30463,127 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
+    getPublicDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Remote approval link token (43 characters, base64url) */
+                token: components["parameters"]["DocumentToken"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicDocument"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    postPublicDocumentCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Remote approval link token (43 characters, base64url) */
+                token: components["parameters"]["DocumentToken"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Code sent (never the code) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicDocumentCode"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
+            /** @description The code could not be sent (`CODE_UNAVAILABLE`, generic) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postPublicDocumentApprove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Remote approval link token (43 characters, base64url) */
+                token: components["parameters"]["DocumentToken"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicDocumentApproveRequest"];
+            };
+        };
+        responses: {
+            /** @description Approved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicDocument"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getPublicDocumentPdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Remote approval link token (43 characters, base64url) */
+                token: components["parameters"]["DocumentToken"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PDF */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
     getPublicPayLink: {
         parameters: {
             query?: {
@@ -33896,6 +34394,217 @@ export interface operations {
                 uuid: components["parameters"]["ResourceUUID"];
                 /** @description Document version UUID */
                 documentVersionUuid: components["parameters"]["DocumentVersionUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PDF */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantDocumentSigners: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signers */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeDocumentSigners"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantDocumentApprovalLinks: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Links */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeDocumentApprovalLinks"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantDocumentApprovalLink: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                /** @description Document version UUID */
+                documentVersionUuid: components["parameters"]["DocumentVersionUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentApprovalLinkCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Link */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeDocumentApprovalLinkCreated"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantDocumentApprovalLinkSendSms: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                /** @description Remote approval link UUID */
+                linkUuid: components["parameters"]["ApprovalLinkUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeDocumentApprovalLinkSMS"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    postTenantDocumentApprovalLinkRevoke: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                /** @description Remote approval link UUID */
+                linkUuid: components["parameters"]["ApprovalLinkUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Link */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeDocumentApprovalLink"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantDocumentApprovalPdf: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                /** @description Document approval UUID */
+                approvalUuid: components["parameters"]["DocumentApprovalUUID"];
             };
             cookie?: never;
         };
