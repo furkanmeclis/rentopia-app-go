@@ -54,7 +54,7 @@ cancelled          cancelled / expired       cancelled / expired             can
 | `request_only` | – | `request` | none (reserved on submit) |
 | `confirm_now` (`tenant.reservations.confirm`) | – | `confirmed` | firm |
 
-Capacity effects: confirm turns the **same** allocation from hold into a firm reservation (never consumed twice); cancel / no-show / expiry release it exactly once (`UPDATE … WHERE status = 'active'`); dependents are re-planned by the engine. Expiry: the worker sweep (`app:availability:expire-holds`, every minute) runs reservations first (`ExpireDue`: waiting reservations whose window passed → `expired`, the option released in the same transaction as the status change; a hold that lapsed at the same moment is accepted as the release), then the engine's own hold sweep, then extras. `RecordPayment` (M3 payments) moves `payment_status` and confirms an `awaiting_payment` reservation once the prepayment is covered.
+Capacity effects: confirm turns the **same** allocation from hold into a firm reservation (never consumed twice); cancel / no-show / expiry release it exactly once (`UPDATE … WHERE status = 'active'`); dependents are re-planned by the engine. Expiry: the worker sweep (`app:availability:expire-holds`, every minute) runs reservations first (`ExpireDue`: waiting reservations whose window passed → `expired`, the option released in the same transaction as the status change; a hold that lapsed at the same moment is accepted as the release), then the engine's own hold sweep, then extras. `RecordPayment` (M3 payments) moves `payment_status` and confirms an `awaiting_payment` reservation once the prepayment is covered; a payment after expiry re-validates capacity (`expired --reinstate--> confirmed`) or opens a `late_payment` task. M3 also adds `request --approve-->`, `reject` and per-channel approval protocols: see [payments.md](./payments.md) §4–§5.
 
 Every transition writes a `reservation_events` row (from, to, action, reason, actor) and publishes a live-list event.
 
@@ -114,7 +114,7 @@ Reservations own neither the extras catalog nor campaigns; they use narrow ports
 | ExtrasPricer | `pricing.Preview` extras resolver (TEC-702) | Extras are priced inside the quote: `extras: [{extra_uuid, quantity}]` → `extra` lines and `extras_total`; channel / product prices, per-day / per-unit / per-rental, caps. |
 | `EquipmentReserver` | `adapters.Equipment` → `extras.Reserve / Release` | Holds physical equipment for the reservation tied to its `vehicle_allocation_uuid`: the extras trigger then follows the vehicle allocation (hold → reservation on confirm, expiry, release), so lifecycle calls need nothing else. Non-physical extras return `uuid.Nil`. Shortage → `EquipmentError` (409 `EQUIPMENT_UNAVAILABLE`). After a change the holds are re-synced for the new allocation (best effort, warning + timeline event). |
 | `CouponRedeemer` | `adapters.Coupons` → `campaigns.Redeem / Release / Consume` | `Redeem` on create (one live redemption per reservation, atomic usage counter, reason codes as `CouponError`), `Release` on cancel / expiry / no-show / failed create (usage returned per `release_on_cancel`), `Consume` when the rental completes (M3). |
-| `PaymentRecorder` | `usecase.Service.RecordPayment` | M3 payments entry point (payment status, auto-confirm after prepayment). |
+| `PaymentRecorder` | `usecase.Service.RecordPayment` | M3 payments entry point (payment status, confirm after prepayment, late payments); see [payments.md](./payments.md) §4. `PaymentLinker` (payments module) creates the link of a staff accept. |
 
 `NoEquipment` / `NoCoupons` are the defaults (tests, deployments without those modules): a coupon code is then refused.
 
@@ -145,6 +145,6 @@ Nav group **Rezervasyonlar**: Rezervasyonlar (list: facets, live, export, bulk c
 
 ## 11. Open items
 
-- Payments, documents, handover and returns (M3): `PaymentRecorder` is ready; `late_return` tasks come with rentals.
+- Payments are implemented ([payments.md](./payments.md)); documents, handover and returns (M3) follow; `late_return` tasks come with rentals.
 - Customer-facing channels (web / widget / API) reuse the same quote → reservation flow; their auth and rate limits are out of M2.
 - Search pick-up points and delivery fees are accepted by the API but not offered by the wizard yet.
