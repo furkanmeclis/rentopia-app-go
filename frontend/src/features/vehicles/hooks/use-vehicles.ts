@@ -4,13 +4,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { fleetKeys } from "@/features/fleet/hooks/query-keys";
 import { useTenant } from "@/features/tenant/components/tenant-provider";
+import { BLOCK_REASON_LABEL_KEYS } from "@/features/vehicles/constants";
 import { vehiclesService } from "@/features/vehicles/services/vehicles.service";
 import type {
   ListVehiclesParams,
+  MembershipBlockingAllocation,
   VehicleCreateRequest,
   VehiclePatchRequest,
   VehicleStatusRequest,
 } from "@/features/vehicles/types";
+import { ApiError, emitApiError } from "@/lib/api";
 import { useLocale } from "@/providers/locale-provider";
 import { appToast } from "@/providers/toast-provider";
 
@@ -34,6 +37,11 @@ export const vehicleKeys = {
     [...vehicleKeys.detail(slug, uuid), "activity", params] as const,
   product: (slug: string, uuid: string, params: Record<string, unknown>) =>
     [...vehicleKeys.all(slug), "product", uuid, params] as const,
+  groupMembers: (
+    slug: string,
+    groupUuid: string,
+    params: Record<string, unknown>,
+  ) => [...vehicleKeys.all(slug), "group-members", groupUuid, params] as const,
 };
 
 /**
@@ -215,6 +223,11 @@ export function useAddVehicleGroup() {
   });
 }
 
+/**
+ * Removes a vehicle from a rental group. The engine re-plans the holds /
+ * reservations that relied on the membership; when one cannot move the API
+ * answers 409 MEMBERSHIP_IN_USE and nothing changes: the toast lists them.
+ */
 export function useRemoveVehicleGroup() {
   const { slug } = useTenant();
   const { t } = useLocale();
@@ -224,6 +237,55 @@ export function useRemoveVehicleGroup() {
       vehiclesService.removeGroup(slug, uuid, groupUuid),
     onSuccess: () => {
       appToast.success(t("vehicles.toast.group_removed"));
+      void invalidate();
+    },
+    onError: (error) => {
+      if (!(error instanceof ApiError)) return;
+      if (error.code !== "MEMBERSHIP_IN_USE") {
+        emitApiError(error);
+        return;
+      }
+      const body = error.body as
+        | { data?: { allocations?: MembershipBlockingAllocation[] } | null }
+        | undefined;
+      const items = (body?.data?.allocations ?? []).map((a) => {
+        const label = a.reservation?.reference ?? t("vehicles.groups.hold");
+        const reason = BLOCK_REASON_LABEL_KEYS[a.reason];
+        return reason ? `${label} (${t(reason)})` : label;
+      });
+      appToast.error(
+        t("vehicles.groups.in_use", { items: items.join(", ") || "—" }),
+      );
+    },
+  });
+}
+
+export function useGroupMembers(
+  groupUuid: string,
+  params: { limit: number; offset: number },
+  enabled = true,
+) {
+  const { slug } = useTenant();
+  return useQuery({
+    queryKey: vehicleKeys.groupMembers(slug, groupUuid, params),
+    queryFn: () => vehiclesService.groupMembers(slug, groupUuid, params),
+    placeholderData: (previous) => previous,
+    enabled,
+  });
+}
+
+/** "Add all eligible vehicles" to a rental group. */
+export function useAddEligibleMembers() {
+  const { slug } = useTenant();
+  const { t } = useLocale();
+  const invalidate = useInvalidateVehicles();
+  return useMutation({
+    mutationFn: (groupUuid: string) =>
+      vehiclesService.addEligibleMembers(slug, groupUuid),
+    onSuccess: (out) => {
+      appToast.success(
+        t("vehicles.sub.add_eligible_done", { count: out.added }),
+      );
       void invalidate();
     },
   });

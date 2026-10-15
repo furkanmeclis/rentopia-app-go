@@ -2,6 +2,8 @@ import type { ResourceMeta } from "@/features/io/types";
 import type {
   ListVehiclesParams,
   ProductVehicles,
+  RentalGroupAddEligible,
+  RentalGroupMembers,
   Vehicle,
   VehicleCreateRequest,
   VehicleEventPage,
@@ -75,11 +77,30 @@ export const vehiclesService = {
       { body: { rental_group_uuid: rentalGroupUuid }, silent: true },
     );
   },
+  /** Silent: a 409 MEMBERSHIP_IN_USE answer is shown by the caller. */
   removeGroup(slug: string, uuid: string, rentalGroupUuid: string) {
     return tenantRequest<{ status: string }>(
       slug,
       "DELETE",
       `${BASE}/${uuid}/rental-groups/${rentalGroupUuid}`,
+      { silent: true },
+    );
+  },
+  /** Member vehicles of a rental group with their current eligibility. */
+  groupMembers(slug: string, groupUuid: string, params: PageParams) {
+    return tenantRequest<RentalGroupMembers>(
+      slug,
+      "GET",
+      `/v1/tenant/rental-groups/${groupUuid}/members`,
+      { query: params },
+    );
+  },
+  /** "Add all eligible vehicles" to a rental group. */
+  addEligibleMembers(slug: string, groupUuid: string) {
+    return tenantRequest<RentalGroupAddEligible>(
+      slug,
+      "POST",
+      `/v1/tenant/rental-groups/${groupUuid}/members/add-eligible`,
     );
   },
   kasko(slug: string, uuid: string) {
