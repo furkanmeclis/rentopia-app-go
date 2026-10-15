@@ -110,6 +110,15 @@ const (
 	PermTenantQuotesWrite                     = "tenant.quotes.write"
 	PermTenantResolutionTasksRead             = "tenant.resolution_tasks.read"
 	PermTenantResolutionTasksWrite            = "tenant.resolution_tasks.write"
+	// Rentals and operation tasks (TEC-709): close = finish the return check
+	// and decide charges; contracts (TEC-710): activate = make a template
+	// version the active one. PDF downloads use PermTenantDocumentDownload.
+	PermTenantRentalsRead       = "tenant.rentals.read"
+	PermTenantRentalsWrite      = "tenant.rentals.write"
+	PermTenantRentalsClose      = "tenant.rentals.close"
+	PermTenantContractsRead     = "tenant.contracts.read"
+	PermTenantContractsWrite    = "tenant.contracts.write"
+	PermTenantContractsActivate = "tenant.contracts.activate"
 	// Extras catalog, prices and branch stock (TEC-702). Equipment holds
 	// use PermTenantAvailabilityHold.
 	PermTenantExtrasRead  = "tenant.extras.read"

@@ -8149,6 +8149,766 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenant/rentals/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rentals table contract
+         * @description `tenant.rentals.read`.
+         */
+        get: operations["getTenantRentalsMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/rentals/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rental list facets
+         * @description `tenant.rentals.read`. Status, branch (planned pick-up / return or actual return) and product counts in the caller's branch scope.
+         */
+        get: operations["getTenantRentalsFacets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/rentals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List rentals
+         * @description `tenant.rentals.read`. Rentals whose planned pick-up, planned return or actual return branch is in the caller's branch scope.
+         */
+        get: operations["getTenantRentals"];
+        put?: never;
+        /**
+         * Create the rental of a confirmed reservation
+         * @description `tenant.rentals.write`. Fixes the plate (`vehicle_uuid`, or the reservation's current plate) through the reservation; the fixed plate creates the rental (preparation + handover tasks, rental contract draft). Idempotent: the live rental is returned.
+         */
+        post: operations["postTenantRental"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/rentals/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export rentals
+         * @description `tenant.rentals.read`. `query` honours `q` and the list filters; the job runs with the requester's branch scope.
+         */
+        post: operations["postTenantRentalsExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/rentals/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rental detail
+         * @description `tenant.rentals.read`. Planned (reservation) and actual facts, vehicle legs, drivers, charges, contract state.
+         */
+        get: operations["getTenantRental"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/rentals/{uuid}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rental timeline
+         * @description `tenant.rentals.read`. Newest first.
+         */
+        get: operations["getTenantRentalEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/rentals/{uuid}/handover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hand the vehicle over
+         * @description `tenant.rentals.write`. Records km / fuel out, the actual time and place; the reservation allocation becomes a rental allocation; the vehicle is rented. Without an approved rental contract (when a rental contract template is active) `waiver_reason` and `tenant.signature.waive` are required (409 `contract_not_approved` otherwise).
+         */
+        post: operations["postTenantRentalHandover"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/rentals/{uuid}/return": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record the return
+         * @description `tenant.rentals.write`. Km / fuel in, actual time and branch (kept next to the planned ones). The engine allocation ends at the actual return at the actual branch (its preparation applies; the vehicle's current branch moves there). Late beyond the policy tolerance proposes the policy late fee; later reservations the return breaks get `late_return` tasks.
+         */
+        post: operations["postTenantRentalReturn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/rentals/{uuid}/extend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extend the rental
+         * @description `tenant.rentals.write`. The reservation's extension rule prices the added days; a collision answers 409 `EXTENSION_CONFLICT` with alternatives. Documents are re-rendered (re-approval).
+         */
+        post: operations["postTenantRentalExtend"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/rentals/{uuid}/swap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change the vehicle of a rental under way
+         * @description `tenant.rentals.write`. The current vehicle is returned (km / fuel in, cleaning task) and the new one handed over (km / fuel out) as separate legs of the same rental; the engine moves the rest of the range atomically (the vehicle must keep the sold guarantee; 409 `CAPACITY_UNAVAILABLE` otherwise).
+         */
+        post: operations["postTenantRentalSwap"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/rentals/{uuid}/charges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Propose a manual charge
+         * @description `tenant.rentals.write`. A proposal until an authorized approval (damage: `tenant.damage.approve`; others: `tenant.rentals.close`).
+         */
+        post: operations["postTenantRentalCharge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/rentals/{uuid}/complete-return": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish the return check
+         * @description `tenant.rentals.close`. The vehicle goes to cleaning (cleaning task at the actual return branch) or back to available.
+         */
+        post: operations["postTenantRentalCompleteReturn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/rentals/{uuid}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a rental before the handover
+         * @description `tenant.rentals.close`. The reservation stays as it is; tasks are cancelled and documents voided.
+         */
+        post: operations["postTenantRentalCancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/rentals/{uuid}/charges/{chargeUuid}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a charge
+         * @description `tenant.rentals.read` + damage: `tenant.damage.approve`, others: `tenant.rentals.close` (use case).
+         */
+        post: operations["postTenantRentalChargeApprove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/rentals/{uuid}/charges/{chargeUuid}/waive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Waive a charge
+         * @description `tenant.rentals.read` + `tenant.rentals.close` (use case); `note` is the reason.
+         */
+        post: operations["postTenantRentalChargeWaive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/operation-tasks/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Operation tasks table contract
+         * @description `tenant.rentals.read`.
+         */
+        get: operations["getTenantOperationTasksMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/operation-tasks/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Operation task facets
+         * @description `tenant.rentals.read`.
+         */
+        get: operations["getTenantOperationTasksFacets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/operation-tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List operation tasks
+         * @description `tenant.rentals.read`. Tasks of the branches in the caller's scope.
+         */
+        get: operations["getTenantOperationTasks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/operation-tasks/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Operation task detail
+         * @description `tenant.rentals.read`.
+         */
+        get: operations["getTenantOperationTask"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/operation-tasks/{uuid}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Assign an operation task
+         * @description `tenant.rentals.write`. `user_uuid` = a member, or null to clear.
+         */
+        post: operations["postTenantOperationTaskAssign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/operation-tasks/{uuid}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start an operation task
+         * @description `tenant.rentals.write`.
+         */
+        post: operations["postTenantOperationTaskStart"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/operation-tasks/{uuid}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete an operation task
+         * @description `tenant.rentals.write`. Handover / return tasks complete with the rental's handover / return; a completed cleaning task makes the vehicle available.
+         */
+        post: operations["postTenantOperationTaskComplete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/operation-tasks/{uuid}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel an operation task
+         * @description `tenant.rentals.write`. `note` is the reason.
+         */
+        post: operations["postTenantOperationTaskCancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/contract-templates/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Contract templates table contract
+         * @description `tenant.contracts.read`.
+         */
+        get: operations["getTenantContractTemplatesMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/contract-templates/placeholders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Placeholder catalog
+         * @description `tenant.contracts.read`. Every `{{key}}` a template may use, grouped, with a sample value.
+         */
+        get: operations["getTenantContractPlaceholders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/contract-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List contract template versions
+         * @description `tenant.contracts.read`.
+         */
+        get: operations["getTenantContractTemplates"];
+        put?: never;
+        /**
+         * Create the next draft version of a kind
+         * @description `tenant.contracts.write`. The body is sanitized; unknown placeholders are refused.
+         */
+        post: operations["postTenantContractTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/contract-templates/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Render a template body
+         * @description `tenant.contracts.read`. Sample data, or the data of `reservation_uuid` (in the caller's branch scope). Nothing is stored.
+         */
+        post: operations["postTenantContractTemplatePreview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/contract-templates/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Contract template version
+         * @description `tenant.contracts.read`.
+         */
+        get: operations["getTenantContractTemplate"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a draft
+         * @description `tenant.contracts.write`.
+         */
+        delete: operations["deleteTenantContractTemplate"];
+        options?: never;
+        head?: never;
+        /**
+         * Edit a draft
+         * @description `tenant.contracts.write`. Active / archived versions are immutable (409).
+         */
+        patch: operations["patchTenantContractTemplate"];
+        trace?: never;
+    };
+    "/v1/tenant/contract-templates/{uuid}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Activate a draft
+         * @description `tenant.contracts.activate`. The previous active version of the kind is archived; existing document versions keep their template.
+         */
+        post: operations["postTenantContractTemplateActivate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/contract-templates/{uuid}/new-version": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy a version into the next draft
+         * @description `tenant.contracts.write`.
+         */
+        post: operations["postTenantContractTemplateNewVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List documents
+         * @description `tenant.contracts.read`. Documents of reservations in the caller's branch scope.
+         */
+        get: operations["getTenantDocuments"];
+        put?: never;
+        /**
+         * Prepare a document
+         * @description `tenant.contracts.read` + (`tenant.contracts.write` or `tenant.rentals.write`). Creates the document of the kind from the active template, or renders a new version when its data changed. 409 `NO_ACTIVE_TEMPLATE` without an active template.
+         */
+        post: operations["postTenantDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/documents/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Document with versions and approvals
+         * @description `tenant.contracts.read`.
+         */
+        get: operations["getTenantDocument"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/documents/{uuid}/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Re-render a document when its data changed
+         * @description `tenant.contracts.read` + (`tenant.contracts.write` or `tenant.rentals.write`).
+         */
+        post: operations["postTenantDocumentRefresh"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/documents/{uuid}/versions/{documentVersionUuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Document version (HTML, hash, data snapshot)
+         * @description `tenant.contracts.read`.
+         */
+        get: operations["getTenantDocumentVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/documents/{uuid}/versions/{documentVersionUuid}/issue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Issue the current draft
+         * @description `tenant.contracts.read` + (`tenant.contracts.write` or `tenant.rentals.write`). Renders the PDF.
+         */
+        post: operations["postTenantDocumentVersionIssue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/documents/{uuid}/versions/{documentVersionUuid}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record the approval of the current version
+         * @description `tenant.contracts.read` + (`tenant.contracts.write` or `tenant.rentals.write`). `content_hash` must be the hash of the content shown (409 `CONTENT_CHANGED` with the current version otherwise). In-person approvals only (signing: TEC-711).
+         */
+        post: operations["postTenantDocumentVersionApprove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/documents/{uuid}/versions/{documentVersionUuid}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download the PDF of a version
+         * @description `tenant.contracts.read` + `tenant.document.download`. Streamed by the API (private object); 409 `PDF_NOT_READY` while it renders. Every download is an activity event.
+         */
+        get: operations["getTenantDocumentVersionPdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -15020,6 +15780,618 @@ export interface components {
             data: components["schemas"]["PricingPreview"];
             meta: components["schemas"]["ResponseMeta"];
         };
+        RentalRef: {
+            /** Format: uuid */
+            uuid: string;
+            code?: string;
+            name: string;
+        };
+        RentalPlace: {
+            branch: components["schemas"]["RentalRef"] | null;
+            point: components["schemas"]["RentalRef"] | null;
+        };
+        RentalVehicleRef: {
+            /** Format: uuid */
+            uuid: string;
+            plate: string;
+            label: string;
+        };
+        RentalCustomerRef: {
+            /** Format: uuid */
+            uuid: string;
+            customer_type: string;
+            display_name: string;
+        };
+        RentalLeg: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            reason: "handover" | "swap";
+            vehicle: components["schemas"]["RentalVehicleRef"];
+            /** Format: date-time */
+            out_at: string | null;
+            out_branch: components["schemas"]["RentalRef"] | null;
+            out_km: number | null;
+            out_fuel: number | null;
+            /** Format: date-time */
+            in_at: string | null;
+            in_branch: components["schemas"]["RentalRef"] | null;
+            in_km: number | null;
+            in_fuel: number | null;
+            driven_km: number | null;
+            note: string;
+        };
+        RentalDriver: {
+            /** Format: uuid */
+            uuid: string | null;
+            /** @enum {string} */
+            role: "primary" | "additional";
+            name: string;
+            licence_hint: string;
+        };
+        RentalCharge: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            kind: "late_return" | "early_return" | "damage" | "fuel" | "mileage" | "other";
+            /** @enum {string} */
+            source: "policy" | "manual";
+            /** @enum {string} */
+            status: "proposed" | "approved" | "waived";
+            currency: string;
+            /** @description Decimal amount */
+            amount: string;
+            settings_version: number;
+            calculation: Record<string, never>;
+            reason: string;
+            /** Format: date-time */
+            decided_at: string | null;
+            decided_by: components["schemas"]["ReservationActor"] | null;
+            decision_note: string;
+            created_by: components["schemas"]["ReservationActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        RentalPolicy: {
+            settings_version: number;
+            late_return_grace_minutes: number | null;
+            extra_hour_fee: string;
+            early_return: string;
+            extension: string;
+            fuel: string;
+            mileage: string;
+        };
+        RentalContractState: {
+            required: boolean;
+            approved: boolean;
+            /** Format: uuid */
+            document_uuid: string | null;
+        };
+        Rental: {
+            /** Format: uuid */
+            uuid: string;
+            reference: string;
+            /** @enum {string} */
+            status: "preparation" | "active" | "return_check" | "returned" | "cancelled";
+            reservation: {
+                /** Format: uuid */
+                uuid: string;
+                reference: string;
+                status: string;
+                currency: string;
+                total_amount: string;
+                paid_amount: string;
+                payment_status: string;
+            };
+            customer: components["schemas"]["RentalCustomerRef"];
+            product: components["schemas"]["RentalRef"];
+            vehicle: components["schemas"]["RentalVehicleRef"];
+            /** Format: date-time */
+            planned_pickup_at: string;
+            /** Format: date-time */
+            planned_return_at: string;
+            planned_pickup: components["schemas"]["RentalPlace"];
+            planned_return: components["schemas"]["RentalPlace"];
+            /** Format: date-time */
+            actual_pickup_at: string | null;
+            /** Format: date-time */
+            actual_return_at: string | null;
+            actual_pickup: components["schemas"]["RentalPlace"];
+            actual_return: components["schemas"]["RentalPlace"];
+            /** Format: date-time */
+            overdue_at: string | null;
+            late_minutes: number;
+            /** Format: date-time */
+            allocation_ends_at: string | null;
+            allocation_kind: string;
+            policy: components["schemas"]["RentalPolicy"];
+            contract_waiver: Record<string, never> | null;
+            contract: components["schemas"]["RentalContractState"];
+            legs: components["schemas"]["RentalLeg"][];
+            drivers: components["schemas"]["RentalDriver"][];
+            charges: components["schemas"]["RentalCharge"][];
+            return_note: string;
+            damage_note: string;
+            note: string;
+            cancel_reason: string;
+            /** Format: date-time */
+            checked_at: string | null;
+            /** Format: date-time */
+            cancelled_at: string | null;
+            /** Format: date-time */
+            closed_at: string | null;
+            created_by: components["schemas"]["ReservationActor"] | null;
+            delivered_by: components["schemas"]["ReservationActor"] | null;
+            returned_by: components["schemas"]["ReservationActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        RentalListItem: {
+            /** Format: uuid */
+            uuid: string;
+            reference: string;
+            /** @enum {string} */
+            status: "preparation" | "active" | "return_check" | "returned" | "cancelled";
+            /** Format: uuid */
+            reservation_uuid: string;
+            customer: components["schemas"]["RentalCustomerRef"];
+            product: components["schemas"]["RentalRef"];
+            vehicle: components["schemas"]["RentalVehicleRef"];
+            pickup_branch: components["schemas"]["RentalRef"];
+            return_branch: components["schemas"]["RentalRef"];
+            actual_return_branch: components["schemas"]["RentalRef"] | null;
+            /** Format: date-time */
+            planned_pickup_at: string;
+            /** Format: date-time */
+            planned_return_at: string;
+            /** Format: date-time */
+            actual_pickup_at: string | null;
+            /** Format: date-time */
+            actual_return_at: string | null;
+            /** Format: date-time */
+            overdue_at: string | null;
+            late_minutes: number;
+            /** Format: int64 */
+            open_charges: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        RentalEvent: {
+            /** Format: uuid */
+            uuid: string;
+            action: string;
+            from_status: string | null;
+            to_status: string | null;
+            reason: string;
+            data: Record<string, never>;
+            actor: components["schemas"]["ReservationActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        RentalFacetValue: {
+            value: string;
+            label: string;
+            /** Format: int64 */
+            count: number;
+        };
+        RentalFacets: {
+            status: components["schemas"]["RentalFacetValue"][];
+            branch: components["schemas"]["RentalFacetValue"][];
+            product: components["schemas"]["RentalFacetValue"][];
+        };
+        RentalCreateRequest: {
+            /** Format: uuid */
+            reservation_uuid: string;
+            /** Format: uuid */
+            vehicle_uuid?: string | null;
+            note?: string;
+        };
+        RentalHandoverRequest: {
+            /**
+             * Format: date-time
+             * @description Defaults to now
+             */
+            at?: string | null;
+            /**
+             * Format: uuid
+             * @description Defaults to the planned pick-up
+             */
+            branch_uuid?: string | null;
+            /** Format: uuid */
+            point_uuid?: string | null;
+            km: number;
+            fuel: number;
+            note?: string;
+            /** @description Handover without an approved contract (tenant.signature.waive) */
+            waiver_reason?: string;
+        };
+        RentalReturnRequest: {
+            /**
+             * Format: date-time
+             * @description Defaults to now
+             */
+            at?: string | null;
+            /**
+             * Format: uuid
+             * @description Defaults to the planned return
+             */
+            branch_uuid?: string | null;
+            /** Format: uuid */
+            point_uuid?: string | null;
+            km: number;
+            fuel: number;
+            note?: string;
+            damage_note?: string;
+        };
+        RentalCompleteReturnRequest: {
+            /** @enum {string} */
+            vehicle_status?: "cleaning" | "available";
+            note?: string;
+        };
+        RentalExtendRequest: {
+            /** Format: date-time */
+            ends_at: string;
+            reason?: string;
+        };
+        RentalSwapRequest: {
+            /** Format: uuid */
+            vehicle_uuid: string;
+            /** Format: date-time */
+            at?: string | null;
+            /** Format: uuid */
+            branch_uuid?: string | null;
+            in_km: number;
+            in_fuel: number;
+            out_km: number;
+            out_fuel: number;
+            reason: string;
+        };
+        RentalReasonRequest: {
+            reason: string;
+        };
+        RentalChargeRequest: {
+            /** @enum {string} */
+            kind: "late_return" | "early_return" | "damage" | "fuel" | "mileage" | "other";
+            /** @description Decimal amount */
+            amount: string;
+            reason: string;
+        };
+        RentalDecisionRequest: {
+            note?: string;
+        };
+        EnvelopeRental: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["Rental"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeRentalPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["RentalListItem"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeRentalEventPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["RentalEvent"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeRentalFacets: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["RentalFacets"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        OperationTask: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            task_type: "preparation" | "handover" | "return" | "cleaning";
+            /** @enum {string} */
+            status: "open" | "in_progress" | "done" | "cancelled";
+            branch: components["schemas"]["RentalRef"];
+            rental: {
+                /** Format: uuid */
+                uuid: string;
+                reference: string;
+                status: string;
+            } | null;
+            vehicle: components["schemas"]["RentalVehicleRef"] | null;
+            /** Format: date-time */
+            due_at: string;
+            note: string;
+            assignee: components["schemas"]["ReservationActor"] | null;
+            /** Format: date-time */
+            started_at: string | null;
+            /** Format: date-time */
+            completed_at: string | null;
+            completed_by: components["schemas"]["ReservationActor"] | null;
+            completion_note: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        OperationTaskNoteRequest: {
+            note?: string;
+        };
+        EnvelopeOperationTask: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["OperationTask"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeOperationTaskPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["OperationTask"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeOperationTaskFacets: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                status: components["schemas"]["RentalFacetValue"][];
+                task_type: components["schemas"]["RentalFacetValue"][];
+                branch: components["schemas"]["RentalFacetValue"][];
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        ContractPlaceholder: {
+            key: string;
+            group: string;
+            html: boolean;
+            sample: string;
+        };
+        ContractTemplate: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            kind: "rental_contract" | "handover_form" | "return_form" | "terms";
+            name: string;
+            version: number;
+            /** @enum {string} */
+            status: "draft" | "active" | "archived";
+            /** @description Editor state (detail only) */
+            content?: Record<string, never>;
+            /** @description Sanitized HTML (detail only) */
+            body_html?: string;
+            placeholders: string[];
+            /** Format: int64 */
+            used_by: number;
+            /** Format: date-time */
+            activated_at: string | null;
+            /** Format: date-time */
+            archived_at: string | null;
+            created_by: components["schemas"]["ReservationActor"] | null;
+            activated_by?: components["schemas"]["ReservationActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ContractTemplateRequest: {
+            /** @enum {string} */
+            kind?: "rental_contract" | "handover_form" | "return_form" | "terms";
+            name?: string;
+            content?: Record<string, never>;
+            body_html?: string;
+        };
+        ContractPreviewRequest: {
+            /** @enum {string} */
+            kind?: "rental_contract" | "handover_form" | "return_form" | "terms";
+            body_html: string;
+            /** Format: uuid */
+            reservation_uuid?: string | null;
+        };
+        ContractPreview: {
+            html: string;
+            unknown: string[];
+            empty: string[];
+        };
+        DocumentRef: {
+            /** Format: uuid */
+            uuid: string;
+            reference: string;
+            status?: string;
+        };
+        DocumentVersionInfo: {
+            /** Format: uuid */
+            uuid: string;
+            version: number;
+            /** @enum {string} */
+            status: "draft" | "issued" | "approved" | "superseded";
+            /** Format: uuid */
+            template_uuid: string | null;
+            template_name: string;
+            template_version: number;
+            /** @description SHA-256 of the rendered HTML (hex) */
+            content_hash: string;
+            changed_keys: string[];
+            /** @enum {string} */
+            pdf_status: "none" | "pending" | "ready" | "failed";
+            pdf_error: string;
+            /** Format: int64 */
+            pdf_size_bytes: number;
+            /** Format: date-time */
+            issued_at: string | null;
+            /** Format: date-time */
+            superseded_at: string | null;
+            created_by: components["schemas"]["ReservationActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        DocumentVersion: components["schemas"]["DocumentVersionInfo"] & {
+            html: string;
+            data_snapshot: Record<string, never>;
+            pdf_sha256: string;
+        };
+        DocumentApproval: {
+            /** Format: uuid */
+            uuid: string;
+            /** Format: uuid */
+            version_uuid: string;
+            version_number: number;
+            content_hash: string;
+            /** @enum {string} */
+            party: "customer" | "staff";
+            /** @enum {string} */
+            method: "in_person" | "click" | "signature";
+            approver_name: string;
+            note: string;
+            /** Format: date-time */
+            approved_at: string;
+            valid: boolean;
+            /** Format: date-time */
+            invalidated_at: string | null;
+            invalidated_reason: string;
+            recorded_by: components["schemas"]["ReservationActor"] | null;
+        };
+        Document: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            kind: "rental_contract" | "handover_form" | "return_form" | "terms";
+            /** @enum {string} */
+            status: "draft" | "approved" | "void";
+            reservation: components["schemas"]["DocumentRef"];
+            rental: components["schemas"]["DocumentRef"] | null;
+            current_version: components["schemas"]["DocumentVersionInfo"] | null;
+            versions: components["schemas"]["DocumentVersionInfo"][];
+            approvals: components["schemas"]["DocumentApproval"][];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        DocumentListItem: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            kind: "rental_contract" | "handover_form" | "return_form" | "terms";
+            /** @enum {string} */
+            status: "draft" | "approved" | "void";
+            reservation: components["schemas"]["DocumentRef"];
+            rental: components["schemas"]["DocumentRef"] | null;
+            /** Format: uuid */
+            version_uuid: string | null;
+            version_number: number;
+            version_status: string;
+            content_hash: string;
+            pdf_status: string;
+            template_name: string;
+            template_version: number;
+            /** Format: date-time */
+            version_created_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        DocumentPrepareRequest: {
+            /** @enum {string} */
+            kind: "rental_contract" | "handover_form" | "return_form" | "terms";
+            /** Format: uuid */
+            reservation_uuid: string;
+        };
+        DocumentApproveRequest: {
+            content_hash: string;
+            /** @enum {string} */
+            party?: "customer" | "staff";
+            /** @enum {string} */
+            method?: "in_person";
+            approver_name: string;
+            note?: string;
+        };
+        EnvelopeContractPlaceholders: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                groups: string[];
+                items: components["schemas"]["ContractPlaceholder"][];
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeContractTemplate: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["ContractTemplate"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeContractTemplatePage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["ContractTemplate"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeContractPreview: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["ContractPreview"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeDocument: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["Document"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeDocumentPrepare: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                document: components["schemas"]["Document"];
+                created: boolean;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeDocumentVersion: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["DocumentVersion"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeDocumentPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["DocumentListItem"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
         PaymentActor: {
             /** Format: uuid */
             uuid: string;
@@ -15339,6 +16711,51 @@ export interface components {
                 "application/json": components["schemas"]["EnvelopeReservationChange"];
             };
         };
+        /** @description Rental */
+        RentalOK: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["EnvelopeRental"];
+            };
+        };
+        /** @description Operation task */
+        OperationTaskOK: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["EnvelopeOperationTask"];
+            };
+        };
+        /** @description Contract template */
+        ContractTemplateOK: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["EnvelopeContractTemplate"];
+            };
+        };
+        /** @description Document */
+        DocumentOK: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["EnvelopeDocument"];
+            };
+        };
+        /** @description Prepared document */
+        DocumentPrepareOK: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["EnvelopeDocumentPrepare"];
+            };
+        };
         /** @description Payment */
         PaymentOK: {
             headers: {
@@ -15502,6 +16919,10 @@ export interface components {
         PointUUID: string;
         /** @description Product version UUID */
         VersionUUID: string;
+        /** @description Document version UUID */
+        DocumentVersionUUID: string;
+        /** @description Rental charge UUID */
+        RentalChargeUUID: string;
         /** @description Product image UUID */
         ImageUUID: string;
         Limit: number;
@@ -30920,6 +32341,1278 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["TenantForbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantRentalsMeta: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource meta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantRentalsFacets: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Facets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeRentalFacets"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantRentals: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description `reference`, `status`, `planned_pickup_at`, `planned_return_at` or `created_at`; prefix `-` for descending. */
+                sort?: string;
+                /** @description preparation, active, return_check, returned, cancelled (comma separated) */
+                status?: string;
+                /** @description Branch uuids (planned pick-up / return or actual return) */
+                branch?: string;
+                /** @description Rental product uuids */
+                product?: string;
+                /** @description Vehicle uuids */
+                vehicle?: string;
+                /** @description Customer uuids */
+                customer?: string;
+                /** @description Reservation uuids */
+                reservation?: string;
+                /** @description `true` = overdue rentals only */
+                overdue?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rental page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeRentalPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantRental: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RentalCreateRequest"];
+            };
+        };
+        responses: {
+            201: components["responses"]["RentalOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantRentalsExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Export job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantRental: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["RentalOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantRentalEvents: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Event page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeRentalEventPage"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantRentalHandover: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RentalHandoverRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["RentalOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantRentalReturn: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RentalReturnRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["RentalOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantRentalExtend: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RentalExtendRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["RentalOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantRentalSwap: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RentalSwapRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["RentalOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantRentalCharge: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RentalChargeRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["RentalOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantRentalCompleteReturn: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RentalCompleteReturnRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["RentalOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantRentalCancel: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RentalReasonRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["RentalOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantRentalChargeApprove: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                /** @description Rental charge UUID */
+                chargeUuid: components["parameters"]["RentalChargeUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RentalDecisionRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["RentalOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantRentalChargeWaive: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                /** @description Rental charge UUID */
+                chargeUuid: components["parameters"]["RentalChargeUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RentalDecisionRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["RentalOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantOperationTasksMeta: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource meta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantOperationTasksFacets: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Facets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeOperationTaskFacets"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantOperationTasks: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description `due_at`, `status` or `created_at`; prefix `-` for descending. */
+                sort?: string;
+                /** @description open, in_progress, done, cancelled */
+                status?: string;
+                /** @description preparation, handover, return, cleaning */
+                task_type?: string;
+                /** @description Branch uuids */
+                branch?: string;
+                /** @description Rental uuids */
+                rental?: string;
+                /** @description Vehicle uuids */
+                vehicle?: string;
+                /** @description User uuids */
+                assignee?: string;
+                due_from?: string;
+                due_to?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Task page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeOperationTaskPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantOperationTask: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["OperationTaskOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantOperationTaskAssign: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReservationAssignRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["OperationTaskOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantOperationTaskStart: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["OperationTaskOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantOperationTaskComplete: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OperationTaskNoteRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["OperationTaskOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantOperationTaskCancel: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OperationTaskNoteRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["OperationTaskOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantContractTemplatesMeta: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource meta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantContractPlaceholders: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Catalog */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeContractPlaceholders"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantContractTemplates: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description `name`, `version` or `created_at`; prefix `-` for descending. */
+                sort?: string;
+                /** @description rental_contract, handover_form, return_form, terms */
+                kind?: string;
+                /** @description draft, active, archived */
+                status?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Template page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeContractTemplatePage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantContractTemplate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractTemplateRequest"];
+            };
+        };
+        responses: {
+            201: components["responses"]["ContractTemplateOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantContractTemplatePreview: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Rendered document */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeContractPreview"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantContractTemplate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ContractTemplateOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteTenantContractTemplate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    patchTenantContractTemplate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractTemplateRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ContractTemplateOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantContractTemplateActivate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ContractTemplateOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantContractTemplateNewVersion: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: components["responses"]["ContractTemplateOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantDocuments: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                kind?: string;
+                /** @description draft, approved, void */
+                status?: string;
+                /** @description Reservation uuids */
+                reservation?: string;
+                /** @description Rental uuids */
+                rental?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Document page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeDocumentPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantDocument: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentPrepareRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["DocumentPrepareOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantDocument: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["DocumentOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantDocumentRefresh: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["DocumentPrepareOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantDocumentVersion: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                /** @description Document version UUID */
+                documentVersionUuid: components["parameters"]["DocumentVersionUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Version */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeDocumentVersion"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantDocumentVersionIssue: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                /** @description Document version UUID */
+                documentVersionUuid: components["parameters"]["DocumentVersionUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["DocumentOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantDocumentVersionApprove: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                /** @description Document version UUID */
+                documentVersionUuid: components["parameters"]["DocumentVersionUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentApproveRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["DocumentOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantDocumentVersionPdf: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                /** @description Document version UUID */
+                documentVersionUuid: components["parameters"]["DocumentVersionUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PDF */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
 }

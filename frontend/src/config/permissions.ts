@@ -101,6 +101,12 @@ export const Permission = {
   TenantQuotesWrite: "tenant.quotes.write",
   TenantResolutionTasksRead: "tenant.resolution_tasks.read",
   TenantResolutionTasksWrite: "tenant.resolution_tasks.write",
+  TenantRentalsRead: "tenant.rentals.read",
+  TenantRentalsWrite: "tenant.rentals.write",
+  TenantRentalsClose: "tenant.rentals.close",
+  TenantContractsRead: "tenant.contracts.read",
+  TenantContractsWrite: "tenant.contracts.write",
+  TenantContractsActivate: "tenant.contracts.activate",
   TenantExtrasRead: "tenant.extras.read",
   TenantExtrasWrite: "tenant.extras.write",
   TenantCampaignsRead: "tenant.campaigns.read",
@@ -325,6 +331,26 @@ export const permissions = {
     resolutionTasks: {
       read: Permission.TenantResolutionTasksRead,
       write: Permission.TenantResolutionTasksWrite,
+    },
+    /**
+     * Rentals and operation tasks: `close` finishes the return check,
+     * cancels before the handover and decides charges (damage approvals
+     * need `damage.approve`).
+     */
+    rentals: {
+      read: Permission.TenantRentalsRead,
+      write: Permission.TenantRentalsWrite,
+      close: Permission.TenantRentalsClose,
+    },
+    /**
+     * Contract templates and documents: `activate` makes a template
+     * version active; preparing documents and recording approvals is
+     * `contracts.write` or `rentals.write`; PDFs need `document.download`.
+     */
+    contracts: {
+      read: Permission.TenantContractsRead,
+      write: Permission.TenantContractsWrite,
+      activate: Permission.TenantContractsActivate,
     },
     /**
      * Extras catalog, per-product prices and branch stock. Equipment holds

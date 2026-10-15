@@ -77,6 +77,7 @@ var isolationAllowlist = map[string]string{
 	"POST /v1/tenant/customers/import":       "rows match identity blind indexes keyed by the organization (customers usecase tests); the job is the {uuid} cases",
 	"POST /v1/tenant/extras":                 "body has no foreign references (code, name, enums, channel codes, default price)",
 	"POST /v1/tenant/integrations":           "body has no foreign references (provider code, display name, mode, the organization's own credentials)",
+	"POST /v1/tenant/contract-templates":     "body has no foreign references (kind, name, editor content, body with placeholders)",
 }
 
 type isoOrg struct {
@@ -419,6 +420,36 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		ids["payment"] = str(must(call(o, http.MethodPost, "/v1/tenant/reservations/"+ids["reservation"]+"/collections", map[string]any{
 			"amount": "10", "method": "cash", "note": m,
 		}), http.StatusCreated, "collection"), "uuid")
+		// Rentals / contracts (TEC-709 / TEC-710): an active terms template,
+		// a reservation whose fixed plate created a rental (preparation +
+		// handover tasks) and its terms document (one version).
+		ids["contractTemplate"] = str(must(call(o, http.MethodPost, "/v1/tenant/contract-templates", map[string]any{
+			"kind": "terms", "name": m + " Koşullar", "body_html": "<p>" + m + " {{renter.full_name}} {{vehicle.plate}}</p>",
+		}), http.StatusCreated, "create contract template"), "uuid")
+		must(call(o, http.MethodPost, "/v1/tenant/contract-templates/"+ids["contractTemplate"]+"/activate", nil), http.StatusOK, "activate template")
+		rentalQuote := str(must(call(o, http.MethodPost, "/v1/tenant/quotes", map[string]any{
+			"pickup_branch_uuid": ids["branch"], "starts_at": day(12), "ends_at": day(13), "product_uuid": ids["product"],
+			"customer_uuid": ids["customer"],
+		}), http.StatusCreated, "create rental quote"), "uuid")
+		ids["rentalReservation"] = str(must(call(o, http.MethodPost, "/v1/tenant/reservations", map[string]any{
+			"quote_uuid": rentalQuote, "customer_uuid": ids["customer"], "drivers": []map[string]any{{"driver_uuid": ids["driver"]}},
+		}), http.StatusCreated, "create rental reservation"), "uuid")
+		ids["rental"] = str(must(call(o, http.MethodPost, "/v1/tenant/rentals", map[string]any{
+			"reservation_uuid": ids["rentalReservation"], "vehicle_uuid": ids["vehicle"], "note": m,
+		}), http.StatusCreated, "create rental"), "uuid")
+		opTasks := must(call(o, http.MethodGet, "/v1/tenant/operation-tasks?rental="+ids["rental"], nil), http.StatusOK, "operation tasks")
+		opItems := pageItems(t, opTasks.data)
+		if len(opItems) == 0 {
+			t.Fatalf("operation tasks of the rental: %s", opTasks.raw)
+		}
+		ids["operationTask"] = opItems[0].(map[string]any)["uuid"].(string)
+		ids["charge"] = uuid.NewString()
+		docResp := must(call(o, http.MethodPost, "/v1/tenant/documents", map[string]any{
+			"kind": "terms", "reservation_uuid": ids["rentalReservation"],
+		}), http.StatusOK, "prepare document")
+		docData := asMap(docResp.data)["document"].(map[string]any)
+		ids["contractDocument"] = docData["uuid"].(string)
+		ids["documentVersion"] = docData["current_version"].(map[string]any)["uuid"].(string)
 		ids["exportJob"] = str(must(call(o, http.MethodPost, "/v1/tenant/branches/export", map[string]any{"format": "csv"}),
 			http.StatusAccepted, "export"), "uuid")
 		ids["importJob"] = str(must(upload(o, http.MethodPost, "/v1/tenant/branches/import", "file", "branches.csv",
@@ -515,7 +546,8 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 	snapshot := func() map[string]string {
 		out := map[string]string{}
 		for _, rt := range routes {
-			if !strings.HasPrefix(rt, "GET ") || !strings.Contains(rt, "{") || strings.HasSuffix(rt, "/download") || strings.HasSuffix(rt, "/file") {
+			if !strings.HasPrefix(rt, "GET ") || !strings.Contains(rt, "{") || strings.HasSuffix(rt, "/download") || strings.HasSuffix(rt, "/file") ||
+				strings.HasSuffix(rt, "/pdf") {
 				continue
 			}
 			path, ok := fill(rt, func(k string) string { return orgB.ids[k] })
@@ -615,6 +647,15 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		"GET /v1/tenant/payments":         {"?reservation=" + b["reservation"], "?q=" + orgB.marker},
 		"GET /v1/tenant/payment-links":    {"?reservation=" + b["reservation"]},
 		"GET /v1/tenant/integrations":     {"?q=" + orgB.marker},
+		"GET /v1/tenant/rentals": {
+			"?reservation=" + b["rentalReservation"], "?vehicle=" + b["vehicle"], "?branch=" + b["branch"], "?product=" + b["product"],
+			"?customer=" + b["customer"], "?q=" + orgB.marker,
+		},
+		"GET /v1/tenant/operation-tasks": {
+			"?rental=" + b["rental"], "?vehicle=" + b["vehicle"], "?branch=" + b["branch"], "?assignee=" + bob.Uuid.String(),
+		},
+		"GET /v1/tenant/documents":          {"?reservation=" + b["rentalReservation"], "?rental=" + b["rental"]},
+		"GET /v1/tenant/contract-templates": {"?q=" + orgB.marker},
 		"GET /v1/tenant/rate-plans/matrix": {
 			"?scope=branch&branch=" + b["branch"],
 			"?scope=branch_channel&branch=" + b["home"] + "&channel=web",
@@ -701,6 +742,12 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			"target": map[string]any{"scope": "ids", "ids": []string{orgB.ids["reservation"]}, "params": map[string]any{"reason": "izolasyon"}}}, nil},
 		{"POST /v1/tenant/reservations/bulk", map[string]any{"action": "assign_staff",
 			"target": map[string]any{"scope": "ids", "ids": []string{orgA.ids["reservation"]}, "params": map[string]any{"user_uuid": bob.Uuid.String()}}}, nil},
+		// Rentals / contracts: bodies naming B's reservation / vehicle.
+		{"POST /v1/tenant/rentals", map[string]any{"reservation_uuid": orgB.ids["rentalReservation"]}, reject},
+		{"POST /v1/tenant/rentals", map[string]any{"reservation_uuid": orgA.ids["rentalReservation"], "vehicle_uuid": orgB.ids["vehicle"]}, reject},
+		{"POST /v1/tenant/documents", map[string]any{"kind": "terms", "reservation_uuid": orgB.ids["rentalReservation"]}, reject},
+		{"POST /v1/tenant/contract-templates/preview", map[string]any{"kind": "terms", "body_html": "<p>x</p>",
+			"reservation_uuid": orgB.ids["rentalReservation"]}, reject},
 		{"POST /v1/tenant/invitations", map[string]any{"email": "x1@iso.test", "role_uuids": []string{orgB.ids["role"]}, "branch_scope": "all"}, reject},
 		{"POST /v1/tenant/invitations", map[string]any{"email": "x2@iso.test", "role_uuids": []string{orgA.ids["role"]},
 			"branch_scope": "selected", "branch_uuids": []string{orgB.ids["branch"]}}, reject},
@@ -799,6 +846,10 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			"drivers": []map[string]any{{"driver_uuid": orgB.ids["driver"]}}}, reject},
 		{"POST /v1/tenant/reservations/" + orgA.ids["reservation"] + "/assign", map[string]any{"user_uuid": bob.Uuid}, reject},
 		{"POST /v1/tenant/resolution-tasks/" + orgA.ids["task"] + "/assign", map[string]any{"user_uuid": carol.Uuid}, reject},
+		{"POST /v1/tenant/operation-tasks/" + orgA.ids["operationTask"] + "/assign", map[string]any{"user_uuid": carol.Uuid}, reject},
+		{"POST /v1/tenant/rentals/" + orgA.ids["rental"] + "/handover", map[string]any{"km": 100, "fuel": 50, "branch_uuid": orgB.ids["branch"]}, reject},
+		{"POST /v1/tenant/rentals/" + orgA.ids["rental"] + "/handover", map[string]any{"km": 100, "fuel": 50,
+			"branch_uuid": orgA.ids["branch"], "point_uuid": orgB.ids["point"]}, reject},
 		{"PATCH /v1/tenant/rental-groups/" + orgA.ids["group"], map[string]any{"segment_uuid": orgB.ids["segment"]}, reject},
 		{"PATCH /v1/tenant/products/" + orgA.ids["product"], map[string]any{"segment_uuid": orgB.ids["segment"]}, reject},
 		{"PATCH /v1/tenant/vehicles/" + orgA.ids["vehicle"], map[string]any{"home_branch_uuid": orgB.ids["home"]}, reject},
@@ -1048,6 +1099,18 @@ func paramKey(prev, name string) string {
 		return "payment"
 	case "payment-links/uuid":
 		return "paymentLink"
+	case "rentals/uuid":
+		return "rental"
+	case "charges/chargeUuid":
+		return "charge"
+	case "operation-tasks/uuid":
+		return "operationTask"
+	case "contract-templates/uuid":
+		return "contractTemplate"
+	case "documents/uuid":
+		return "contractDocument"
+	case "versions/documentVersionUuid":
+		return "documentVersion"
 	}
 	return ""
 }

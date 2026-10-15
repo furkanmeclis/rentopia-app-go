@@ -78,5 +78,6 @@
   "resources.tenant.customers": "Customers",
   "resources.tenant.extras": "Extras",
   "resources.tenant.campaigns": "Campaigns",
-  "resources.tenant.reservations": "Reservations"
+  "resources.tenant.reservations": "Reservations",
+  "resources.tenant.rentals": "Rentals"
 }

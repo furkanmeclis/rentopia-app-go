@@ -66,5 +66,9 @@
   "nav_reservations_quotes": "Quotes",
   "nav_reservations_tasks": "Resolution tasks",
   "nav_reservations_approvals": "Approval queue",
-  "nav_tenant_settings_integrations": "Integrations"
+  "nav_tenant_settings_integrations": "Integrations",
+  "section_rentals": "Rentals",
+  "nav_rentals": "Rentals",
+  "nav_operation_tasks": "Operation tasks",
+  "nav_tenant_settings_contract_templates": "Contract templates"
 }
