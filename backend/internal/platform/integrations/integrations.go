@@ -23,6 +23,7 @@ import (
 // Integration kinds.
 const (
 	KindPayment = "payment"
+	KindSMS     = "sms"
 )
 
 // Account modes.

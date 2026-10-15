@@ -123,18 +123,31 @@ type ListFilter struct {
 
 // Job is one integration job row.
 type Job struct {
-	UUID        uuid.UUID  `json:"uuid"`
-	Direction   string     `json:"direction"`
-	Provider    string     `json:"provider"`
-	Kind        string     `json:"kind"`
-	Status      string     `json:"status"`
-	Attempts    int32      `json:"attempts"`
-	Deliveries  int32      `json:"deliveries"`
-	LastError   string     `json:"last_error"`
-	RefType     string     `json:"ref_type"`
-	RefUUID     *uuid.UUID `json:"ref_uuid"`
-	CompletedAt *time.Time `json:"completed_at"`
-	CreatedAt   time.Time  `json:"created_at"`
+	UUID          uuid.UUID  `json:"uuid"`
+	Direction     string     `json:"direction"`
+	Provider      string     `json:"provider"`
+	Kind          string     `json:"kind"`
+	Status        string     `json:"status"`
+	Priority      string     `json:"priority"`
+	Attempts      int32      `json:"attempts"`
+	MaxAttempts   int32      `json:"max_attempts"`
+	Deliveries    int32      `json:"deliveries"`
+	LastError     string     `json:"last_error"`
+	RefType       string     `json:"ref_type"`
+	RefUUID       *uuid.UUID `json:"ref_uuid"`
+	NextAttemptAt *time.Time `json:"next_attempt_at"`
+	SubmittedAt   *time.Time `json:"submitted_at"`
+	CompletedAt   *time.Time `json:"completed_at"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
+}
+
+// JobFilter selects a page of an account's jobs.
+type JobFilter struct {
+	Statuses, Kinds []string
+	SortField       string
+	SortDesc        bool
+	Limit, Offset   int32
 }
 
 // Service implements the integration accounts.
@@ -269,7 +282,14 @@ func (s *Service) Connect(ctx context.Context, orgID int64, in ConnectInput) (Ac
 	ve := &ValidationError{}
 	in.Kind, in.Provider = strings.TrimSpace(in.Kind), strings.TrimSpace(in.Provider)
 	if in.Kind == "" {
+		// The provider names its kind (iyzico → payment, netgsm → sms).
 		in.Kind = integrations.KindPayment
+		for _, a := range s.reg.Providers() {
+			if a.Provider() == in.Provider {
+				in.Kind = a.Kind()
+				break
+			}
+		}
 	}
 	ad, ok := s.reg.Get(in.Kind, in.Provider)
 	if !ok {
@@ -468,15 +488,25 @@ func (s *Service) SetStatus(ctx context.Context, orgID int64, id uuid.UUID, stat
 }
 
 // Jobs lists the integration jobs of an account.
-func (s *Service) Jobs(ctx context.Context, orgID int64, id uuid.UUID, limit, offset int32) ([]Job, int64, error) {
+func (s *Service) Jobs(ctx context.Context, orgID int64, id uuid.UUID, f JobFilter) ([]Job, int64, error) {
 	r, err := s.row(ctx, orgID, id)
 	if err != nil {
 		return nil, 0, err
 	}
-	rows, err := s.q.ListIntegrationJobs(ctx, db.ListIntegrationJobsParams{
+	p := db.ListIntegrationJobsParams{
 		OrganizationID: pgtype.Int8{Int64: orgID, Valid: true}, AccountID: pgtype.Int8{Int64: r.ID, Valid: true},
-		LimitCount: limit, OffsetCount: offset,
-	})
+		SortField: f.SortField, SortDesc: f.SortDesc, LimitCount: f.Limit, OffsetCount: f.Offset,
+	}
+	if p.SortField == "" {
+		p.SortField, p.SortDesc = "created_at", true
+	}
+	if len(f.Statuses) > 0 {
+		p.Statuses = f.Statuses
+	}
+	if len(f.Kinds) > 0 {
+		p.Kinds = f.Kinds
+	}
+	rows, err := s.q.ListIntegrationJobs(ctx, p)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -485,9 +515,10 @@ func (s *Service) Jobs(ctx context.Context, orgID int64, id uuid.UUID, limit, of
 	for _, j := range rows {
 		total = j.Total
 		job := Job{
-			UUID: j.Uuid, Direction: j.Direction, Provider: j.Provider, Kind: j.Kind, Status: j.Status, Attempts: j.Attempts,
-			Deliveries: j.Deliveries, LastError: j.LastError, RefType: j.RefType, CompletedAt: timePtr(j.CompletedAt),
-			CreatedAt: j.CreatedAt.Time.UTC(),
+			UUID: j.Uuid, Direction: j.Direction, Provider: j.Provider, Kind: j.Kind, Status: j.Status, Priority: j.Priority,
+			Attempts: j.Attempts, MaxAttempts: j.MaxAttempts, Deliveries: j.Deliveries, LastError: j.LastError,
+			RefType: j.RefType, NextAttemptAt: timePtr(j.NextAttemptAt), SubmittedAt: timePtr(j.SubmittedAt),
+			CompletedAt: timePtr(j.CompletedAt), CreatedAt: j.CreatedAt.Time.UTC(), UpdatedAt: j.UpdatedAt.Time.UTC(),
 		}
 		if j.RefUuid.Valid {
 			u := uuid.UUID(j.RefUuid.Bytes)
@@ -505,6 +536,16 @@ func (s *Service) ActiveAccount(ctx context.Context, orgID int64, kind string) (
 	if errors.Is(err, pgx.ErrNoRows) {
 		return integrations.Account{}, ErrNoActiveAccount
 	}
+	if err != nil {
+		return integrations.Account{}, err
+	}
+	return s.account(orgID, r.ID, r.Uuid, r.Kind, r.Provider, r.Mode, r.CredentialsCiphertext)
+}
+
+// AccountByUUID returns the adapter view of an account by uuid (any
+// status: a connection test may target a disabled account).
+func (s *Service) AccountByUUID(ctx context.Context, orgID int64, id uuid.UUID) (integrations.Account, error) {
+	r, err := s.row(ctx, orgID, id)
 	if err != nil {
 		return integrations.Account{}, err
 	}

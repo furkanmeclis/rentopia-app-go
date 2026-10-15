@@ -18,7 +18,12 @@ const SearchCap = 500
 // A quote consumes nothing. It runs in one read-only snapshot; due holds no
 // longer count.
 func (s *Service) Search(ctx context.Context, orgID int64, in model.SearchInput) (model.SearchResult, error) {
-	r, err := s.resolve(ctx, orgID, in.Where)
+	var keep *time.Time
+	if in.KeepStart {
+		start := in.StartsAt
+		keep = &start
+	}
+	r, err := s.resolveKeeping(ctx, orgID, in.Where, keep)
 	if err != nil {
 		return model.SearchResult{}, err
 	}

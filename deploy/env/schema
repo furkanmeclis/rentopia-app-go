@@ -16,7 +16,7 @@
 #   rename with  @rename OLD NEW <version>,  retire with  @remove KEY <version>.
 #   Never change the rule of an existing secret: running installs keep theirs anyway.
 
-@version 2
+@version 3
 
 # --- Identity / Docker ---
 NAME_PREFIX | const:rentopia
@@ -80,3 +80,10 @@ FRONTEND_SENTRY_DSN | empty
 # --- Payments (TEC-707; merchant keys are per organization, in the panel) ---
 IYZICO_SANDBOX_BASE_URL | const:https://sandbox-api.iyzipay.com
 IYZICO_LIVE_BASE_URL | const:https://api.iyzipay.com
+
+# --- SMS (TEC-734; Netgsm credentials are per organization, in the panel) ---
+# Netgsm has no sandbox: leave the sandbox URL empty in production (sandbox
+# accounts then refuse to send). SMS_LOG_PROVIDER is ignored in production.
+NETGSM_LIVE_BASE_URL | const:https://api.netgsm.com.tr
+NETGSM_SANDBOX_BASE_URL | empty
+SMS_LOG_PROVIDER | const:false

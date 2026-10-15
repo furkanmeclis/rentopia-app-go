@@ -272,6 +272,25 @@ type ChannelCapacityRule struct {
 	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
 }
 
+type ContractTemplate struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	Kind           string             `json:"kind"`
+	Name           string             `json:"name"`
+	Version        int32              `json:"version"`
+	Status         string             `json:"status"`
+	Content        []byte             `json:"content"`
+	BodyHtml       string             `json:"body_html"`
+	Placeholders   []string           `json:"placeholders"`
+	CreatedBy      pgtype.Int8        `json:"created_by"`
+	ActivatedBy    pgtype.Int8        `json:"activated_by"`
+	ActivatedAt    pgtype.Timestamptz `json:"activated_at"`
+	ArchivedAt     pgtype.Timestamptz `json:"archived_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Customer struct {
 	ID                int64              `json:"id"`
 	Uuid              uuid.UUID          `json:"uuid"`
@@ -398,6 +417,63 @@ type DateRuleVersionTarget struct {
 	RentalProductID   pgtype.Int8 `json:"rental_product_id"`
 	SegmentID         pgtype.Int8 `json:"segment_id"`
 	BranchID          pgtype.Int8 `json:"branch_id"`
+}
+
+type Document struct {
+	ID               int64              `json:"id"`
+	Uuid             uuid.UUID          `json:"uuid"`
+	OrganizationID   int64              `json:"organization_id"`
+	Kind             string             `json:"kind"`
+	ReservationID    int64              `json:"reservation_id"`
+	RentalID         pgtype.Int8        `json:"rental_id"`
+	Status           string             `json:"status"`
+	CurrentVersionID pgtype.Int8        `json:"current_version_id"`
+	CreatedBy        pgtype.Int8        `json:"created_by"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type DocumentApproval struct {
+	ID                int64              `json:"id"`
+	Uuid              uuid.UUID          `json:"uuid"`
+	OrganizationID    int64              `json:"organization_id"`
+	DocumentVersionID int64              `json:"document_version_id"`
+	ContentHash       string             `json:"content_hash"`
+	Party             string             `json:"party"`
+	Method            string             `json:"method"`
+	ApproverName      string             `json:"approver_name"`
+	CustomerID        pgtype.Int8        `json:"customer_id"`
+	Note              string             `json:"note"`
+	RecordedBy        pgtype.Int8        `json:"recorded_by"`
+	ApprovedAt        pgtype.Timestamptz `json:"approved_at"`
+	InvalidatedAt     pgtype.Timestamptz `json:"invalidated_at"`
+	InvalidatedReason string             `json:"invalidated_reason"`
+}
+
+type DocumentVersion struct {
+	ID              int64              `json:"id"`
+	Uuid            uuid.UUID          `json:"uuid"`
+	OrganizationID  int64              `json:"organization_id"`
+	DocumentID      int64              `json:"document_id"`
+	Version         int32              `json:"version"`
+	Status          string             `json:"status"`
+	TemplateID      int64              `json:"template_id"`
+	TemplateVersion int32              `json:"template_version"`
+	Html            string             `json:"html"`
+	ContentHash     string             `json:"content_hash"`
+	DataSnapshot    []byte             `json:"data_snapshot"`
+	ChangedKeys     []string           `json:"changed_keys"`
+	PdfStatus       string             `json:"pdf_status"`
+	PdfObjectKey    pgtype.Text        `json:"pdf_object_key"`
+	PdfSizeBytes    int64              `json:"pdf_size_bytes"`
+	PdfSha256       pgtype.Text        `json:"pdf_sha256"`
+	PdfError        string             `json:"pdf_error"`
+	PdfRenderedAt   pgtype.Timestamptz `json:"pdf_rendered_at"`
+	IssuedAt        pgtype.Timestamptz `json:"issued_at"`
+	IssuedBy        pgtype.Int8        `json:"issued_by"`
+	SupersededAt    pgtype.Timestamptz `json:"superseded_at"`
+	CreatedBy       pgtype.Int8        `json:"created_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 }
 
 type Driver struct {
@@ -581,6 +657,24 @@ type IntegrationAccount struct {
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
 }
 
+type IntegrationAttempt struct {
+	ID               int64              `json:"id"`
+	Uuid             uuid.UUID          `json:"uuid"`
+	OrganizationID   pgtype.Int8        `json:"organization_id"`
+	IntegrationJobID int64              `json:"integration_job_id"`
+	AttemptNo        int32              `json:"attempt_no"`
+	Operation        string             `json:"operation"`
+	Trigger          string             `json:"trigger"`
+	Outcome          string             `json:"outcome"`
+	RequestSummary   []byte             `json:"request_summary"`
+	ResponseSummary  []byte             `json:"response_summary"`
+	Error            string             `json:"error"`
+	StartedAt        pgtype.Timestamptz `json:"started_at"`
+	FinishedAt       pgtype.Timestamptz `json:"finished_at"`
+	DurationMs       int32              `json:"duration_ms"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
 type IntegrationJob struct {
 	ID                   int64              `json:"id"`
 	Uuid                 uuid.UUID          `json:"uuid"`
@@ -601,6 +695,12 @@ type IntegrationJob struct {
 	CompletedAt          pgtype.Timestamptz `json:"completed_at"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	MaxAttempts          int32              `json:"max_attempts"`
+	NextAttemptAt        pgtype.Timestamptz `json:"next_attempt_at"`
+	ProviderRef          string             `json:"provider_ref"`
+	SubmittedAt          pgtype.Timestamptz `json:"submitted_at"`
+	LockedUntil          pgtype.Timestamptz `json:"locked_until"`
+	Priority             string             `json:"priority"`
 }
 
 type LogPurgeRule struct {
@@ -731,6 +831,27 @@ type OneWayRule struct {
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type OperationTask struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	TaskType       string             `json:"task_type"`
+	Status         string             `json:"status"`
+	BranchID       int64              `json:"branch_id"`
+	RentalID       pgtype.Int8        `json:"rental_id"`
+	VehicleID      pgtype.Int8        `json:"vehicle_id"`
+	DueAt          pgtype.Timestamptz `json:"due_at"`
+	AssigneeID     pgtype.Int8        `json:"assignee_id"`
+	Note           string             `json:"note"`
+	StartedAt      pgtype.Timestamptz `json:"started_at"`
+	CompletedAt    pgtype.Timestamptz `json:"completed_at"`
+	CompletedBy    pgtype.Int8        `json:"completed_by"`
+	CompletionNote string             `json:"completion_note"`
+	CreatedBy      pgtype.Int8        `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Organization struct {
@@ -1079,6 +1200,85 @@ type RefreshToken struct {
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
+type Rental struct {
+	ID                   int64              `json:"id"`
+	Uuid                 uuid.UUID          `json:"uuid"`
+	OrganizationID       int64              `json:"organization_id"`
+	Reference            string             `json:"reference"`
+	ReservationID        int64              `json:"reservation_id"`
+	Status               string             `json:"status"`
+	VehicleID            int64              `json:"vehicle_id"`
+	AllocationID         pgtype.Int8        `json:"allocation_id"`
+	ActualPickupAt       pgtype.Timestamptz `json:"actual_pickup_at"`
+	ActualPickupBranchID pgtype.Int8        `json:"actual_pickup_branch_id"`
+	ActualPickupPointID  pgtype.Int8        `json:"actual_pickup_point_id"`
+	ActualReturnAt       pgtype.Timestamptz `json:"actual_return_at"`
+	ActualReturnBranchID pgtype.Int8        `json:"actual_return_branch_id"`
+	ActualReturnPointID  pgtype.Int8        `json:"actual_return_point_id"`
+	OverdueAt            pgtype.Timestamptz `json:"overdue_at"`
+	LateMinutes          int32              `json:"late_minutes"`
+	SettingsVersion      int32              `json:"settings_version"`
+	PolicySnapshot       []byte             `json:"policy_snapshot"`
+	ContractWaiver       []byte             `json:"contract_waiver"`
+	ReturnNote           string             `json:"return_note"`
+	DamageNote           string             `json:"damage_note"`
+	Note                 string             `json:"note"`
+	CancelReason         string             `json:"cancel_reason"`
+	ClosedAt             pgtype.Timestamptz `json:"closed_at"`
+	CreatedBy            pgtype.Int8        `json:"created_by"`
+	DeliveredBy          pgtype.Int8        `json:"delivered_by"`
+	ReturnedBy           pgtype.Int8        `json:"returned_by"`
+	CheckedBy            pgtype.Int8        `json:"checked_by"`
+	CheckedAt            pgtype.Timestamptz `json:"checked_at"`
+	CancelledAt          pgtype.Timestamptz `json:"cancelled_at"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+type RentalCharge struct {
+	ID              int64              `json:"id"`
+	Uuid            uuid.UUID          `json:"uuid"`
+	OrganizationID  int64              `json:"organization_id"`
+	RentalID        int64              `json:"rental_id"`
+	Kind            string             `json:"kind"`
+	Source          string             `json:"source"`
+	Status          string             `json:"status"`
+	Currency        string             `json:"currency"`
+	Amount          pgtype.Numeric     `json:"amount"`
+	SettingsVersion int32              `json:"settings_version"`
+	Calculation     []byte             `json:"calculation"`
+	Reason          string             `json:"reason"`
+	DecidedBy       pgtype.Int8        `json:"decided_by"`
+	DecidedAt       pgtype.Timestamptz `json:"decided_at"`
+	DecisionNote    string             `json:"decision_note"`
+	CreatedBy       pgtype.Int8        `json:"created_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
+type RentalDriver struct {
+	ID             int64              `json:"id"`
+	OrganizationID int64              `json:"organization_id"`
+	RentalID       int64              `json:"rental_id"`
+	DriverID       pgtype.Int8        `json:"driver_id"`
+	Role           string             `json:"role"`
+	Snapshot       []byte             `json:"snapshot"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type RentalEvent struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	RentalID       int64              `json:"rental_id"`
+	Action         string             `json:"action"`
+	FromStatus     pgtype.Text        `json:"from_status"`
+	ToStatus       pgtype.Text        `json:"to_status"`
+	Reason         string             `json:"reason"`
+	Data           []byte             `json:"data"`
+	ActorID        pgtype.Int8        `json:"actor_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
 type RentalGroup struct {
 	ID              int64              `json:"id"`
 	Uuid            uuid.UUID          `json:"uuid"`
@@ -1168,6 +1368,26 @@ type RentalProductVersion struct {
 	ChangeNote       string             `json:"change_note"`
 	CreatedBy        pgtype.Int8        `json:"created_by"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
+type RentalVehicle struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	RentalID       int64              `json:"rental_id"`
+	VehicleID      int64              `json:"vehicle_id"`
+	AllocationID   pgtype.Int8        `json:"allocation_id"`
+	Reason         string             `json:"reason"`
+	OutAt          pgtype.Timestamptz `json:"out_at"`
+	OutBranchID    pgtype.Int8        `json:"out_branch_id"`
+	OutKm          pgtype.Int4        `json:"out_km"`
+	OutFuel        pgtype.Int2        `json:"out_fuel"`
+	InAt           pgtype.Timestamptz `json:"in_at"`
+	InBranchID     pgtype.Int8        `json:"in_branch_id"`
+	InKm           pgtype.Int4        `json:"in_km"`
+	InFuel         pgtype.Int2        `json:"in_fuel"`
+	Note           string             `json:"note"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
 type Reservation struct {
@@ -1322,6 +1542,52 @@ type ServicePoint struct {
 	IsActive         bool               `json:"is_active"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SmsMessage struct {
+	ID                   int64              `json:"id"`
+	Uuid                 uuid.UUID          `json:"uuid"`
+	OrganizationID       int64              `json:"organization_id"`
+	IntegrationAccountID pgtype.Int8        `json:"integration_account_id"`
+	IntegrationJobID     pgtype.Int8        `json:"integration_job_id"`
+	Class                string             `json:"class"`
+	Purpose              string             `json:"purpose"`
+	Provider             string             `json:"provider"`
+	PhoneMasked          string             `json:"phone_masked"`
+	PhoneHash            string             `json:"phone_hash"`
+	BodyRedacted         string             `json:"body_redacted"`
+	BodyHash             string             `json:"body_hash"`
+	PayloadCiphertext    string             `json:"payload_ciphertext"`
+	CustomerID           pgtype.Int8        `json:"customer_id"`
+	Status               string             `json:"status"`
+	ProviderMessageID    string             `json:"provider_message_id"`
+	DlrStatus            string             `json:"dlr_status"`
+	DlrAt                pgtype.Timestamptz `json:"dlr_at"`
+	Error                string             `json:"error"`
+	RefType              string             `json:"ref_type"`
+	RefUuid              pgtype.UUID        `json:"ref_uuid"`
+	CreatedBy            pgtype.Int8        `json:"created_by"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SmsOtpChallenge struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	Purpose        string             `json:"purpose"`
+	SubjectRef     string             `json:"subject_ref"`
+	PhoneMasked    string             `json:"phone_masked"`
+	PhoneHash      string             `json:"phone_hash"`
+	CodeHash       string             `json:"code_hash"`
+	Status         string             `json:"status"`
+	Attempts       int32              `json:"attempts"`
+	MaxAttempts    int32              `json:"max_attempts"`
+	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
+	VerifiedAt     pgtype.Timestamptz `json:"verified_at"`
+	SmsMessageID   pgtype.Int8        `json:"sms_message_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 type StepupSetting struct {

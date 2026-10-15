@@ -104,6 +104,10 @@ x-backend-environment: &backend-environment
   # --- Payments: provider endpoints only (merchant keys live per organization). ---
   IYZICO_SANDBOX_BASE_URL: ${IYZICO_SANDBOX_BASE_URL:-https://sandbox-api.iyzipay.com}
   IYZICO_LIVE_BASE_URL: ${IYZICO_LIVE_BASE_URL:-https://api.iyzipay.com}
+  # --- SMS: provider endpoints only (Netgsm credentials live per organization). ---
+  NETGSM_LIVE_BASE_URL: ${NETGSM_LIVE_BASE_URL:-https://api.netgsm.com.tr}
+  NETGSM_SANDBOX_BASE_URL: ${NETGSM_SANDBOX_BASE_URL:-}
+  SMS_LOG_PROVIDER: ${SMS_LOG_PROVIDER:-false}
 
 services:
   postgres:

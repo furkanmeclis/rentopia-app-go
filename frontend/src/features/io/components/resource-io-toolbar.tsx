@@ -37,6 +37,8 @@ const EXPORT_PERM: Partial<Record<IoResource, string>> = {
   "tenant.extras": permissions.tenant.extras.read,
   "tenant.campaigns": permissions.tenant.campaigns.read,
   "tenant.reservations": permissions.tenant.reservations.export,
+  // Rental exports need read access only (no separate export slug).
+  "tenant.rentals": permissions.tenant.rentals.read,
 };
 
 const IMPORT_PERM: Partial<Record<IoResource, string>> = {

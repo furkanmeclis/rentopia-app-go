@@ -162,5 +162,13 @@
   "labels.tenant.payments.create_link": "Create payment links",
   "labels.tenant.reservations.approve": "Approve reservation requests",
   "groups.tenant_integrations": "Integrations",
-  "groups.tenant_payments": "Payments"
+  "groups.tenant_payments": "Payments",
+  "labels.tenant.rentals.read": "View rentals",
+  "labels.tenant.rentals.write": "Hand over, return, extend and swap vehicles",
+  "labels.tenant.rentals.close": "Complete return checks, cancel and decide charges",
+  "labels.tenant.contracts.read": "View contract templates and documents",
+  "labels.tenant.contracts.write": "Edit templates, prepare documents and record approvals",
+  "labels.tenant.contracts.activate": "Activate a template version",
+  "groups.tenant_rentals": "Rentals",
+  "groups.tenant_contracts": "Contracts"
 }

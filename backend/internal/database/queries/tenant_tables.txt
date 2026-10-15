@@ -58,3 +58,15 @@ integration_accounts
 payment_links
 payments
 payment_refunds
+sms_messages
+sms_otp_challenges
+rentals
+rental_vehicles
+rental_drivers
+rental_events
+rental_charges
+operation_tasks
+contract_templates
+documents
+document_versions
+document_approvals

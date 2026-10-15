@@ -209,6 +209,7 @@ func (s *Service) confirm(ctx context.Context, orgID int64, c db.GetReservationC
 	if err != nil {
 		return model.Reservation{}, mapEngineErr(err)
 	}
+	s.notify(ctx, orgID, c.Uuid, LifecycleConfirmed)
 	return s.after(ctx, orgID, c.Uuid)
 }
 
@@ -287,6 +288,7 @@ func (s *Service) terminate(ctx context.Context, orgID int64, c db.GetReservatio
 	}
 	s.releaseCoupon(ctx, orgID, c.Uuid, action)
 	s.publish(ctx, model.ResourceReservations, "updated", touched...)
+	s.notify(ctx, orgID, c.Uuid, LifecycleTerminated)
 	return nil
 }
 

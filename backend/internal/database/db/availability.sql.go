@@ -549,6 +549,70 @@ func (q *Queries) GetCapacityRule(ctx context.Context, arg GetCapacityRuleParams
 	return i, err
 }
 
+const getRentalAllocationRef = `-- name: GetRentalAllocationRef :one
+
+SELECT a.id, a.uuid, a.vehicle_id, a.rental_product_id, a.product_version, a.kind, a.status, a.starts_at, a.ends_at,
+    a.pickup_branch_id, a.return_branch_id, a.pickup_point_id, a.return_point_id, a.plate_fixed,
+    a.channel, a.fleet_pool, a.ref_type, a.ref_uuid
+FROM vehicle_allocations a
+WHERE a.organization_id = $1
+  AND a.uuid = $2
+`
+
+type GetRentalAllocationRefParams struct {
+	OrganizationID int64     `json:"organization_id"`
+	Uuid           uuid.UUID `json:"uuid"`
+}
+
+type GetRentalAllocationRefRow struct {
+	ID              int64              `json:"id"`
+	Uuid            uuid.UUID          `json:"uuid"`
+	VehicleID       int64              `json:"vehicle_id"`
+	RentalProductID int64              `json:"rental_product_id"`
+	ProductVersion  int32              `json:"product_version"`
+	Kind            string             `json:"kind"`
+	Status          string             `json:"status"`
+	StartsAt        pgtype.Timestamptz `json:"starts_at"`
+	EndsAt          pgtype.Timestamptz `json:"ends_at"`
+	PickupBranchID  int64              `json:"pickup_branch_id"`
+	ReturnBranchID  int64              `json:"return_branch_id"`
+	PickupPointID   pgtype.Int8        `json:"pickup_point_id"`
+	ReturnPointID   pgtype.Int8        `json:"return_point_id"`
+	PlateFixed      bool               `json:"plate_fixed"`
+	Channel         string             `json:"channel"`
+	FleetPool       string             `json:"fleet_pool"`
+	RefType         pgtype.Text        `json:"ref_type"`
+	RefUuid         pgtype.UUID        `json:"ref_uuid"`
+}
+
+// ------------------------------------------------- rentals (TEC-709)
+// The facts of an allocation a rental works on (with its related record).
+func (q *Queries) GetRentalAllocationRef(ctx context.Context, arg GetRentalAllocationRefParams) (GetRentalAllocationRefRow, error) {
+	row := q.db.QueryRow(ctx, getRentalAllocationRef, arg.OrganizationID, arg.Uuid)
+	var i GetRentalAllocationRefRow
+	err := row.Scan(
+		&i.ID,
+		&i.Uuid,
+		&i.VehicleID,
+		&i.RentalProductID,
+		&i.ProductVersion,
+		&i.Kind,
+		&i.Status,
+		&i.StartsAt,
+		&i.EndsAt,
+		&i.PickupBranchID,
+		&i.ReturnBranchID,
+		&i.PickupPointID,
+		&i.ReturnPointID,
+		&i.PlateFixed,
+		&i.Channel,
+		&i.FleetPool,
+		&i.RefType,
+		&i.RefUuid,
+	)
+	return i, err
+}
+
 const insertAllocation = `-- name: InsertAllocation :one
 INSERT INTO vehicle_allocations (
     organization_id, vehicle_id, rental_product_id, product_version, kind, starts_at, ends_at, prep_minutes, period,
@@ -1318,6 +1382,70 @@ func (q *Queries) ListProductCommitments(ctx context.Context, arg ListProductCom
 	return items, nil
 }
 
+const listVehicleCommitmentsAfter = `-- name: ListVehicleCommitmentsAfter :many
+SELECT a.id, a.uuid, a.kind, a.starts_at, lower(a.period)::timestamptz AS period_start,
+    upper(a.period)::timestamptz AS period_end, a.pickup_branch_id
+FROM vehicle_allocations a
+WHERE a.organization_id = $1
+  AND a.vehicle_id = $2
+  AND a.id <> $3
+  AND a.status = 'active'
+  AND upper(a.period) > $4::timestamptz
+ORDER BY lower(a.period)
+`
+
+type ListVehicleCommitmentsAfterParams struct {
+	OrganizationID int64              `json:"organization_id"`
+	VehicleID      int64              `json:"vehicle_id"`
+	ExcludeID      int64              `json:"exclude_id"`
+	FromAt         pgtype.Timestamptz `json:"from_at"`
+}
+
+type ListVehicleCommitmentsAfterRow struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	Kind           string             `json:"kind"`
+	StartsAt       pgtype.Timestamptz `json:"starts_at"`
+	PeriodStart    pgtype.Timestamptz `json:"period_start"`
+	PeriodEnd      pgtype.Timestamptz `json:"period_end"`
+	PickupBranchID int64              `json:"pickup_branch_id"`
+}
+
+// Active allocations of a vehicle (other than one) whose period ends after
+// from_at, in time order: what a rental's longer or moved end runs into.
+func (q *Queries) ListVehicleCommitmentsAfter(ctx context.Context, arg ListVehicleCommitmentsAfterParams) ([]ListVehicleCommitmentsAfterRow, error) {
+	rows, err := q.db.Query(ctx, listVehicleCommitmentsAfter,
+		arg.OrganizationID,
+		arg.VehicleID,
+		arg.ExcludeID,
+		arg.FromAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListVehicleCommitmentsAfterRow{}
+	for rows.Next() {
+		var i ListVehicleCommitmentsAfterRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Uuid,
+			&i.Kind,
+			&i.StartsAt,
+			&i.PeriodStart,
+			&i.PeriodEnd,
+			&i.PickupBranchID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockAvailabilityComponent = `-- name: LockAvailabilityComponent :exec
 SELECT pg_advisory_xact_lock($1::bigint)
 `
@@ -1326,6 +1454,30 @@ SELECT pg_advisory_xact_lock($1::bigint)
 func (q *Queries) LockAvailabilityComponent(ctx context.Context, lockKey int64) error {
 	_, err := q.db.Exec(ctx, lockAvailabilityComponent, lockKey)
 	return err
+}
+
+const markAllocationRental = `-- name: MarkAllocationRental :execrows
+UPDATE vehicle_allocations
+SET kind = 'rental', plate_fixed = TRUE, expires_at = NULL
+WHERE organization_id = $1
+  AND id = $2
+  AND status = 'active'
+  AND kind = 'reservation'
+`
+
+type MarkAllocationRentalParams struct {
+	OrganizationID int64 `json:"organization_id"`
+	ID             int64 `json:"id"`
+}
+
+// Handover: the confirmed reservation's allocation becomes the rental's
+// (same row, the plate is promised from now on).
+func (q *Queries) MarkAllocationRental(ctx context.Context, arg MarkAllocationRentalParams) (int64, error) {
+	result, err := q.db.Exec(ctx, markAllocationRental, arg.OrganizationID, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const moveAllocation = `-- name: MoveAllocation :execrows

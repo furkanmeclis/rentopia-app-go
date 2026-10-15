@@ -2,7 +2,11 @@ import type {
   ConnectIntegrationRequest,
   IntegrationAccount,
   IntegrationAccountPage,
+  IntegrationJobDetail,
   IntegrationJobPage,
+  IntegrationJobRetry,
+  ListIntegrationJobsParams,
+  SmsSent,
   IntegrationsMeta,
   ListIntegrationsParams,
   ListLinksParams,
@@ -23,6 +27,7 @@ const PAYMENTS = "/v1/tenant/payments";
 const LINKS = "/v1/tenant/payment-links";
 const INTEGRATIONS = "/v1/tenant/integrations";
 const RESERVATIONS = "/v1/tenant/reservations";
+const INTEGRATION_JOBS = "/v1/tenant/integration-jobs";
 
 /**
  * Payments, pay-by-link links, provider accounts and the staff approval
@@ -155,13 +160,37 @@ export const paymentsService = {
   integrationJobs(
     slug: string,
     uuid: string,
-    params: { limit: number; offset: number },
+    params: ListIntegrationJobsParams,
   ) {
     return tenantRequest<IntegrationJobPage>(
       slug,
       "GET",
       `${INTEGRATIONS}/${uuid}/jobs`,
       { query: params },
+    );
+  },
+  integrationJob(slug: string, uuid: string) {
+    return tenantRequest<IntegrationJobDetail>(
+      slug,
+      "GET",
+      `${INTEGRATION_JOBS}/${uuid}`,
+    );
+  },
+  /** CheckStatus first; resubmits only when the provider confirms "not done". */
+  retryIntegrationJob(slug: string, uuid: string) {
+    return tenantRequest<IntegrationJobRetry>(
+      slug,
+      "POST",
+      `${INTEGRATION_JOBS}/${uuid}/retry`,
+      { body: {}, silent: true },
+    );
+  },
+  testSms(slug: string, uuid: string, phone: string) {
+    return tenantRequest<SmsSent>(
+      slug,
+      "POST",
+      `${INTEGRATIONS}/${uuid}/test-sms`,
+      { body: { phone }, silent: true },
     );
   },
 };

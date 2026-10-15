@@ -153,6 +153,8 @@ type Service struct {
 	coupons   model.CouponRedeemer
 	events    resourceevents.Publisher
 	links     model.PaymentLinker
+	// listener hears committed lifecycle changes (rentals, contracts).
+	listener LifecycleListener
 
 	now func() time.Time
 }
@@ -375,6 +377,8 @@ func mapEngineErr(err error) error {
 		return stateErr("allocation_not_active", "the reservation no longer holds capacity")
 	case errors.Is(err, availusecase.ErrAllocationNotFound):
 		return ErrNotFound
+	case errors.Is(err, availusecase.ErrRentalUnderway):
+		return stateErr("rental_underway", "the vehicle is handed over: use the rental (return, extension, swap)")
 	}
 	return err
 }

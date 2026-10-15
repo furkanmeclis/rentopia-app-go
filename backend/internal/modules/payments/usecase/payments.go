@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
 	paymodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/payments/model"
@@ -239,9 +240,15 @@ func (s *Service) Refund(ctx context.Context, orgID int64, id uuid.UUID, in paym
 			return paymodel.Payment{}, err
 		}
 		_, _ = s.q.ClaimIntegrationJob(ctx, db.ClaimIntegrationJobParams{OrganizationID: pgtype.Int8{Int64: orgID, Valid: true}, ID: job.ID})
+		started := time.Now()
 		res, perr := prov.Refund(ctx, acc, payments.RefundRequest{
 			PaymentID: r.ProviderPaymentID.String, ConversationID: refund.Uuid.String(), Amount: amount, Currency: r.Currency, IP: ip,
 		})
+		// The call is an integration_attempts row like every runner call
+		// (TEC-751); the refund flow itself is unchanged.
+		s.recordAttempt(ctx, orgID, job.ID, job.Attempts+1, started, perr,
+			map[string]any{"refund_uuid": refund.Uuid, "amount": amount.String(), "currency": r.Currency},
+			map[string]any{"refund_id": res.RefundID})
 		if perr != nil {
 			_ = s.q.FinishPaymentRefund(ctx, db.FinishPaymentRefundParams{OrganizationID: orgID, ID: refund.ID, Status: "failed", FailureReason: perr.Error()})
 			_ = s.q.FinishIntegrationJob(ctx, db.FinishIntegrationJobParams{
@@ -283,6 +290,29 @@ func (s *Service) Refund(ctx context.Context, orgID int64, id uuid.UUID, in paym
 	}
 	s.publish(ctx, paymodel.ResourcePayments, "updated", r.Uuid)
 	return s.Get(ctx, orgID, id)
+}
+
+// recordAttempt writes the integration_attempts row of a provider call made
+// inline (fail-soft: the payment flow never depends on it).
+func (s *Service) recordAttempt(ctx context.Context, orgID, jobID int64, attemptNo int32, started time.Time, callErr error,
+	request, response map[string]any) {
+	finished := time.Now()
+	outcome, msg := "succeeded", ""
+	if callErr != nil {
+		outcome, msg = "failed", callErr.Error()
+		response = map[string]any{}
+	}
+	if attemptNo < 1 {
+		attemptNo = 1
+	}
+	if _, err := s.q.InsertIntegrationAttempt(ctx, db.InsertIntegrationAttemptParams{
+		OrganizationID: pgtype.Int8{Int64: orgID, Valid: true}, IntegrationJobID: jobID, AttemptNo: attemptNo,
+		Operation: "submit", Trigger: "inline", Outcome: outcome, RequestSummary: mustJSON(request),
+		ResponseSummary: mustJSON(response), Error: msg, StartedAt: pgtype.Timestamptz{Time: started, Valid: true},
+		FinishedAt: pgtype.Timestamptz{Time: finished, Valid: true}, DurationMs: int32(finished.Sub(started) / time.Millisecond),
+	}); err != nil {
+		s.log.Warn("payment_attempt_record_failed", "job_id", jobID, "error", err)
+	}
 }
 
 func mustJSON(v any) []byte {

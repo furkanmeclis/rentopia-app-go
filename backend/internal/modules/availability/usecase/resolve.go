@@ -76,6 +76,12 @@ func pointID(p *db.GetAvailabilityServicePointRow) pgtype.Int8 {
 // resolve checks the places (organization, branch scope: pick-up OR return
 // branch in the caller's scope), the range and the channel.
 func (s *Service) resolve(ctx context.Context, orgID int64, in model.Where) (resolved, error) {
+	return s.resolveKeeping(ctx, orgID, in, nil)
+}
+
+// resolveKeeping is resolve where keepStart, when set, may lie in the past
+// (a rental under way keeps its start while its end moves).
+func (s *Service) resolveKeeping(ctx context.Context, orgID int64, in model.Where, keepStart *time.Time) (resolved, error) {
 	ve := &ValidationError{}
 	r := resolved{}
 	var ok bool
@@ -96,7 +102,7 @@ func (s *Service) resolve(ctx context.Context, orgID int64, in model.Where) (res
 	switch {
 	case in.StartsAt.IsZero():
 		ve.add("starts_at", "required", "starts_at is required (RFC 3339)")
-	case r.start.Before(now.Add(-pastTolerance)):
+	case r.start.Before(now.Add(-pastTolerance)) && (keepStart == nil || !r.start.Equal(keepStart.UTC().Truncate(time.Microsecond))):
 		ve.add("starts_at", "in_past", "starts_at is in the past")
 	}
 	switch {

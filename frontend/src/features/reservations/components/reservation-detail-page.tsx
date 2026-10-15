@@ -50,6 +50,7 @@ import {
   SensitiveValue,
   useCustomerReveal,
 } from "@/features/customers/components/customer-reveal";
+import { DocumentsSection } from "@/features/contracts";
 import { channelLabel } from "@/features/pricing/hooks/use-pricing-options";
 import { moneyText } from "@/features/pricing/lib/format";
 import {
@@ -57,6 +58,7 @@ import {
   PriceLinesTable,
   PriceTotals,
 } from "@/features/reservations/components/price-breakdown";
+import { ReservationRentalCard } from "@/features/rentals";
 import { ReasonDialog } from "@/features/reservations/components/reason-dialog";
 import {
   PaymentStatusChip,
@@ -1074,6 +1076,15 @@ export function ReservationDetailPage({ uuid }: { uuid: string }) {
               </TabsList>
               <TabsContent value="overview" className="space-y-6">
                 <OverviewCard reservation={r} />
+                <ReservationRentalCard
+                  reservationUuid={r.uuid}
+                  reservationStatus={r.status}
+                  plateLabel={
+                    r.plan.assigned_vehicle?.plate ??
+                    r.plan.planned_vehicle?.plate ??
+                    null
+                  }
+                />
                 <CustomerCard reservation={r} />
               </TabsContent>
               <TabsContent value="plan">
@@ -1096,12 +1107,16 @@ export function ReservationDetailPage({ uuid }: { uuid: string }) {
                 <ReservationPayments reservation={r} />
               </TabsContent>
               <TabsContent value="documents">
-                <EntitySectionCard title={t("reservations.tabs.documents")}>
-                  <EntityUnavailable
-                    title={t("reservations.documents.title")}
-                    description={t("reservations.documents.description")}
-                  />
-                </EntitySectionCard>
+                {can(permissions.tenant.contracts.read) ? (
+                  <DocumentsSection reservationUuid={r.uuid} />
+                ) : (
+                  <EntitySectionCard title={t("reservations.tabs.documents")}>
+                    <EntityUnavailable
+                      title={t("reservations.documents.title")}
+                      description={t("reservations.documents.description")}
+                    />
+                  </EntitySectionCard>
+                )}
               </TabsContent>
               <TabsContent value="timeline">
                 <EventsCard uuid={r.uuid} />
