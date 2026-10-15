@@ -220,17 +220,17 @@ WHERE organization_id = sqlc.arg(organization_id)
 -- Moves a task from one status to the next (the use case validated the
 -- transition; the from status guards a concurrent change).
 UPDATE operation_tasks
-SET status = sqlc.arg(to_status),
-    started_at = CASE WHEN sqlc.arg(to_status)::text = 'en_route' THEN COALESCE(started_at, sqlc.arg(at)) ELSE started_at END,
-    issue_note = CASE WHEN sqlc.arg(to_status)::text = 'issue_reported' THEN sqlc.arg(note) ELSE issue_note END,
-    issue_reported_at = CASE WHEN sqlc.arg(to_status)::text = 'issue_reported' THEN sqlc.arg(at) ELSE issue_reported_at END,
-    completed_at = CASE WHEN sqlc.arg(to_status)::text IN ('completed', 'cancelled') THEN sqlc.arg(at) ELSE NULL END,
-    completed_by = CASE WHEN sqlc.arg(to_status)::text IN ('completed', 'cancelled') THEN sqlc.narg(actor_id) ELSE NULL END,
-    completion_note = CASE WHEN sqlc.arg(to_status)::text IN ('completed', 'cancelled') THEN sqlc.arg(note) ELSE completion_note END,
-    updated_by = sqlc.narg(actor_id)
+SET status = sqlc.arg(to_status)::text,
+    started_at = CASE WHEN sqlc.arg(to_status)::text = 'en_route' THEN COALESCE(started_at, sqlc.arg(at)::timestamptz) ELSE started_at END,
+    issue_note = CASE WHEN sqlc.arg(to_status)::text = 'issue_reported' THEN sqlc.arg(note)::text ELSE issue_note END,
+    issue_reported_at = CASE WHEN sqlc.arg(to_status)::text = 'issue_reported' THEN sqlc.arg(at)::timestamptz ELSE issue_reported_at END,
+    completed_at = CASE WHEN sqlc.arg(to_status)::text IN ('completed', 'cancelled') THEN sqlc.arg(at)::timestamptz ELSE NULL END,
+    completed_by = CASE WHEN sqlc.arg(to_status)::text IN ('completed', 'cancelled') THEN sqlc.narg(actor_id)::bigint ELSE NULL END,
+    completion_note = CASE WHEN sqlc.arg(to_status)::text IN ('completed', 'cancelled') THEN sqlc.arg(note)::text ELSE completion_note END,
+    updated_by = sqlc.narg(actor_id)::bigint
 WHERE organization_id = sqlc.arg(organization_id)
   AND id = sqlc.arg(id)
-  AND status = sqlc.arg(from_status);
+  AND status = sqlc.arg(from_status)::text;
 
 -- name: SetFieldTaskTransfer :exec
 UPDATE operation_tasks
@@ -423,10 +423,11 @@ WHERE t.organization_id = sqlc.arg(organization_id)
 -- The place, contact and meeting details of a task (delivery automation;
 -- no change = no write, so the timeline stays quiet).
 UPDATE operation_tasks
-SET location_kind = sqlc.arg(location_kind), point_id = sqlc.narg(point_id), address = sqlc.arg(address),
-    district = sqlc.arg(district), city = sqlc.arg(city), latitude = sqlc.narg(latitude),
-    longitude = sqlc.narg(longitude), contact_name = sqlc.arg(contact_name), contact_phone = sqlc.arg(contact_phone),
-    flight_number = sqlc.arg(flight_number), meeting_note = sqlc.arg(meeting_note), updated_by = sqlc.narg(actor_id)
+SET location_kind = sqlc.arg(location_kind)::text, point_id = sqlc.narg(point_id)::bigint,
+    address = sqlc.arg(address)::text, district = sqlc.arg(district)::text, city = sqlc.arg(city)::text,
+    latitude = sqlc.narg(latitude)::double precision, longitude = sqlc.narg(longitude)::double precision,
+    contact_name = sqlc.arg(contact_name)::text, contact_phone = sqlc.arg(contact_phone)::text,
+    flight_number = sqlc.arg(flight_number)::text, meeting_note = sqlc.arg(meeting_note)::text, updated_by = sqlc.narg(actor_id)
 WHERE organization_id = sqlc.arg(organization_id)
   AND id = sqlc.arg(id)
   AND status IN ('planned', 'assigned', 'en_route', 'issue_reported')
@@ -439,7 +440,7 @@ WHERE organization_id = sqlc.arg(organization_id)
 
 -- name: RescheduleFieldTask :exec
 UPDATE operation_tasks
-SET due_at = sqlc.arg(due_at), branch_id = sqlc.arg(branch_id), updated_by = sqlc.narg(actor_id)
+SET due_at = sqlc.arg(due_at)::timestamptz, branch_id = sqlc.arg(branch_id)::bigint, updated_by = sqlc.narg(actor_id)
 WHERE organization_id = sqlc.arg(organization_id)
   AND id = sqlc.arg(id)
   AND status IN ('planned', 'assigned', 'en_route', 'issue_reported')

@@ -469,6 +469,12 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			t.Fatalf("operation tasks of the rental: %s", opTasks.raw)
 		}
 		ids["operationTask"] = opItems[0].(map[string]any)["uuid"].(string)
+		// Field tasks (TEC-724): a cleaning task at the service point,
+		// assigned to the owner.
+		ids["fieldTask"] = str(must(call(o, http.MethodPost, "/v1/tenant/field-tasks", map[string]any{
+			"task_type": "cleaning", "branch_uuid": ids["branch"], "vehicle_uuid": ids["vehicle"], "due_at": day(9),
+			"point_uuid": ids["point"], "note": m, "assignee_uuid": o.owner.Uuid,
+		}), http.StatusCreated, "create field task"), "uuid")
 		ids["charge"] = uuid.NewString()
 		// Inspections (TEC-712 / TEC-714): the handover form of the rental
 		// with a damage and an uploaded photo; its template is the default
@@ -711,8 +717,14 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		"GET /v1/tenant/operation-tasks": {
 			"?rental=" + b["rental"], "?vehicle=" + b["vehicle"], "?branch=" + b["branch"], "?assignee=" + bob.Uuid.String(),
 		},
-		"GET /v1/tenant/documents":   {"?reservation=" + b["rentalReservation"], "?rental=" + b["rental"]},
-		"GET /v1/tenant/inspections": {"?rental=" + b["rental"]},
+		"GET /v1/tenant/field-tasks": {
+			"?branch=" + b["branch"], "?assignee=" + bob.Uuid.String(), "?reservation=" + b["rentalReservation"], "?q=" + orgB.marker,
+			"?assignee=none",
+		},
+		"GET /v1/tenant/field-tasks/mine": {"?q=" + orgB.marker},
+		"GET /v1/tenant/delivery-points":  {"?branch=" + b["branch"], "?product=" + b["product"]},
+		"GET /v1/tenant/documents":        {"?reservation=" + b["rentalReservation"], "?rental=" + b["rental"]},
+		"GET /v1/tenant/inspections":      {"?rental=" + b["rental"]},
 		// Operations overview (TEC-716): B's branches as the filter are
 		// unknown in A (not_found); the plain call and the badges are
 		// leak-scanned.
@@ -805,6 +817,21 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			"target": map[string]any{"scope": "ids", "ids": []string{orgB.ids["reservation"]}, "params": map[string]any{"reason": "izolasyon"}}}, nil},
 		{"POST /v1/tenant/reservations/bulk", map[string]any{"action": "assign_staff",
 			"target": map[string]any{"scope": "ids", "ids": []string{orgA.ids["reservation"]}, "params": map[string]any{"user_uuid": bob.Uuid.String()}}}, nil},
+		// Field tasks: bodies naming B's branches, vehicle, point, member;
+		// bulk assign of B's task or to B's member.
+		{"POST /v1/tenant/field-tasks", map[string]any{"task_type": "cleaning", "branch_uuid": orgB.ids["branch"], "due_at": day(9)}, reject},
+		{"POST /v1/tenant/field-tasks", map[string]any{"task_type": "cleaning", "branch_uuid": orgA.ids["branch"], "due_at": day(9),
+			"vehicle_uuid": orgB.ids["vehicle"]}, reject},
+		{"POST /v1/tenant/field-tasks", map[string]any{"task_type": "cleaning", "branch_uuid": orgA.ids["branch"], "due_at": day(9),
+			"point_uuid": orgB.ids["point"]}, reject},
+		{"POST /v1/tenant/field-tasks", map[string]any{"task_type": "transfer", "branch_uuid": orgA.ids["home"], "due_at": day(9),
+			"vehicle_uuid": orgA.ids["vehicle"], "to_branch_uuid": orgB.ids["branch"]}, reject},
+		{"POST /v1/tenant/field-tasks", map[string]any{"task_type": "cleaning", "branch_uuid": orgA.ids["branch"], "due_at": day(9),
+			"assignee_uuid": bob.Uuid}, reject},
+		{"POST /v1/tenant/field-tasks/bulk", map[string]any{"action": "assign",
+			"target": map[string]any{"scope": "ids", "ids": []string{orgB.ids["fieldTask"]}}}, nil},
+		{"POST /v1/tenant/field-tasks/bulk", map[string]any{"action": "assign",
+			"target": map[string]any{"scope": "ids", "ids": []string{orgA.ids["fieldTask"]}, "params": map[string]any{"user_uuid": bob.Uuid.String()}}}, nil},
 		// Rentals / contracts: bodies naming B's reservation / vehicle.
 		{"POST /v1/tenant/rentals", map[string]any{"reservation_uuid": orgB.ids["rentalReservation"]}, reject},
 		{"POST /v1/tenant/rentals", map[string]any{"reservation_uuid": orgA.ids["rentalReservation"], "vehicle_uuid": orgB.ids["vehicle"]}, reject},
@@ -911,6 +938,9 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		{"POST /v1/tenant/reservations/" + orgA.ids["reservation"] + "/assign", map[string]any{"user_uuid": bob.Uuid}, reject},
 		{"POST /v1/tenant/resolution-tasks/" + orgA.ids["task"] + "/assign", map[string]any{"user_uuid": carol.Uuid}, reject},
 		{"POST /v1/tenant/operation-tasks/" + orgA.ids["operationTask"] + "/assign", map[string]any{"user_uuid": carol.Uuid}, reject},
+		{"POST /v1/tenant/field-tasks/" + orgA.ids["fieldTask"] + "/assign", map[string]any{"user_uuid": carol.Uuid}, reject},
+		{"POST /v1/tenant/field-tasks/" + orgA.ids["fieldTask"] + "/assign", map[string]any{"user_uuid": bob.Uuid}, reject},
+		{"PATCH /v1/tenant/field-tasks/" + orgA.ids["fieldTask"], map[string]any{"point_uuid": orgB.ids["point"]}, reject},
 		{"POST /v1/tenant/rentals/" + orgA.ids["rental"] + "/handover", map[string]any{"km": 100, "fuel": 50, "branch_uuid": orgB.ids["branch"]}, reject},
 		{"POST /v1/tenant/rentals/" + orgA.ids["rental"] + "/handover", map[string]any{"km": 100, "fuel": 50,
 			"branch_uuid": orgA.ids["branch"], "point_uuid": orgB.ids["point"]}, reject},
@@ -1176,6 +1206,8 @@ func paramKey(prev, name string) string {
 		return "charge"
 	case "operation-tasks/uuid":
 		return "operationTask"
+	case "field-tasks/uuid":
+		return "fieldTask"
 	case "contract-templates/uuid":
 		return "contractTemplate"
 	case "documents/uuid":

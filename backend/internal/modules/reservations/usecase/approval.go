@@ -235,6 +235,9 @@ func (s *Service) acceptRequest(ctx context.Context, orgID int64, c db.GetReserv
 		s.publish(ctx, model.ResourceQuotes, "updated", quoteRow.Uuid)
 	}
 	s.publish(ctx, model.ResourceReservations, "updated", append(touched, c.Uuid)...)
+	if status == model.StatusConfirmed {
+		s.notify(ctx, orgID, c.Uuid, LifecycleConfirmed)
+	}
 	return warnings, nil
 }
 
@@ -389,6 +392,7 @@ func (s *Service) latePayment(ctx context.Context, orgID int64, c db.GetReservat
 			if len(snap.Extras) > 0 {
 				s.resyncEquipment(ctx, orgID, c.ID, nil, snap.Extras, allocUUID, c.Uuid)
 			}
+			s.notify(ctx, orgID, c.Uuid, LifecycleConfirmed)
 			return model.OutcomeReinstated, nil
 		}
 		if _, ok := capacityErr(rerr); ok {

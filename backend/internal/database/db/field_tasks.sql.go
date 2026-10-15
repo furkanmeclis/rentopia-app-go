@@ -1538,7 +1538,7 @@ func (q *Queries) ListReservationFieldTasks(ctx context.Context, arg ListReserva
 
 const rescheduleFieldTask = `-- name: RescheduleFieldTask :exec
 UPDATE operation_tasks
-SET due_at = $1, branch_id = $2, updated_by = $3
+SET due_at = $1::timestamptz, branch_id = $2::bigint, updated_by = $3
 WHERE organization_id = $4
   AND id = $5
   AND status IN ('planned', 'assigned', 'en_route', 'issue_reported')
@@ -1590,10 +1590,11 @@ func (q *Queries) SetFieldTaskTransfer(ctx context.Context, arg SetFieldTaskTran
 
 const setOperationTaskPlace = `-- name: SetOperationTaskPlace :exec
 UPDATE operation_tasks
-SET location_kind = $1, point_id = $2, address = $3,
-    district = $4, city = $5, latitude = $6,
-    longitude = $7, contact_name = $8, contact_phone = $9,
-    flight_number = $10, meeting_note = $11, updated_by = $12
+SET location_kind = $1::text, point_id = $2::bigint,
+    address = $3::text, district = $4::text, city = $5::text,
+    latitude = $6::double precision, longitude = $7::double precision,
+    contact_name = $8::text, contact_phone = $9::text,
+    flight_number = $10::text, meeting_note = $11::text, updated_by = $12
 WHERE organization_id = $13
   AND id = $14
   AND status IN ('planned', 'assigned', 'en_route', 'issue_reported')
@@ -1646,17 +1647,17 @@ func (q *Queries) SetOperationTaskPlace(ctx context.Context, arg SetOperationTas
 
 const transitionFieldTask = `-- name: TransitionFieldTask :execrows
 UPDATE operation_tasks
-SET status = $1,
-    started_at = CASE WHEN $1::text = 'en_route' THEN COALESCE(started_at, $2) ELSE started_at END,
-    issue_note = CASE WHEN $1::text = 'issue_reported' THEN $3 ELSE issue_note END,
-    issue_reported_at = CASE WHEN $1::text = 'issue_reported' THEN $2 ELSE issue_reported_at END,
-    completed_at = CASE WHEN $1::text IN ('completed', 'cancelled') THEN $2 ELSE NULL END,
-    completed_by = CASE WHEN $1::text IN ('completed', 'cancelled') THEN $4 ELSE NULL END,
-    completion_note = CASE WHEN $1::text IN ('completed', 'cancelled') THEN $3 ELSE completion_note END,
-    updated_by = $4
+SET status = $1::text,
+    started_at = CASE WHEN $1::text = 'en_route' THEN COALESCE(started_at, $2::timestamptz) ELSE started_at END,
+    issue_note = CASE WHEN $1::text = 'issue_reported' THEN $3::text ELSE issue_note END,
+    issue_reported_at = CASE WHEN $1::text = 'issue_reported' THEN $2::timestamptz ELSE issue_reported_at END,
+    completed_at = CASE WHEN $1::text IN ('completed', 'cancelled') THEN $2::timestamptz ELSE NULL END,
+    completed_by = CASE WHEN $1::text IN ('completed', 'cancelled') THEN $4::bigint ELSE NULL END,
+    completion_note = CASE WHEN $1::text IN ('completed', 'cancelled') THEN $3::text ELSE completion_note END,
+    updated_by = $4::bigint
 WHERE organization_id = $5
   AND id = $6
-  AND status = $7
+  AND status = $7::text
 `
 
 type TransitionFieldTaskParams struct {

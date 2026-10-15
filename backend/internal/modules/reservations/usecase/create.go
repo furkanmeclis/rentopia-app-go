@@ -495,6 +495,11 @@ func (s *Service) Create(ctx context.Context, orgID int64, in model.CreateInput)
 	}
 	s.publish(ctx, model.ResourceReservations, "created", resUUID)
 	s.publish(ctx, model.ResourceQuotes, "updated", row.Uuid)
+	if status == model.StatusConfirmed {
+		// Confirmed at once: the listeners (rentals, field tasks) hear it
+		// like any other confirmation.
+		s.notify(ctx, orgID, resUUID, LifecycleConfirmed)
+	}
 	return s.Get(ctx, orgID, resUUID)
 }
 

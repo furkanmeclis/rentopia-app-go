@@ -224,12 +224,12 @@ func seed(t *testing.T, pool *pgxpool.Pool) fixture {
 	res3, f.res3 = a.reservation(prod, cust, resOpts{status: "confirmed", pickup: f.a1.id, ret: f.a1.id, starts: at(3), ends: at(51)})
 	r3 := a.rental(res3, v2, "preparation", nil)
 
-	a.task("handover", "planned", f.a1.id, r3, v2, at(3))      // today
-	a.task("return", "planned", f.a1.id, r1, v1, at(-3))       // today, late
-	a.task("handover", "completed", f.a2.id, r2, v3, at(-4))     // today, done
-	a.task("return", "planned", f.a2.id, r2, v3, at(30))       // tomorrow
-	a.task("preparation", "planned", f.a1.id, r3, v2, at(1))   // not a handover / return
-	a.task("handover", "cancelled", f.a1.id, r3, v2, at(2)) // cancelled
+	a.task("handover", "planned", f.a1.id, r3, v2, at(3))    // today
+	a.task("return", "planned", f.a1.id, r1, v1, at(-3))     // today, late
+	a.task("handover", "completed", f.a2.id, r2, v3, at(-4)) // today, done
+	a.task("return", "planned", f.a2.id, r2, v3, at(30))     // tomorrow
+	a.task("preparation", "planned", f.a1.id, r3, v2, at(1)) // not a handover / return
+	a.task("handover", "cancelled", f.a1.id, r3, v2, at(2))  // cancelled
 
 	// Approval queue: A1 request past its SLA, A2 review within it.
 	_, f.res4 = a.reservation(prod, cust, resOpts{status: "request", pickup: f.a1.id, ret: f.a1.id, starts: at(72), ends: at(96), review: ptr(at(-1))})

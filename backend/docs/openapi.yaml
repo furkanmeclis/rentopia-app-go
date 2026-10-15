@@ -13960,6 +13960,406 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
 
+  /v1/tenant/field-tasks/meta:
+    get:
+      tags: [Tenant]
+      operationId: getTenantFieldTasksMeta
+      summary: Field task board table contract
+      description: "`tenant.field_tasks.read`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Resource meta
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeResourceMeta" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/field-tasks/facets:
+    get:
+      tags: [Tenant]
+      operationId: getTenantFieldTasksFacets
+      summary: Field task facets
+      description: "`tenant.field_tasks.read`. Status, type, place kind, branch and assignee (`none` = unassigned) counts in the caller's branch scope."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Facets
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFieldTaskFacets" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/field-tasks/assignees:
+    get:
+      tags: [Tenant]
+      operationId: getTenantFieldTaskAssignees
+      summary: Members who work field tasks
+      description: "Any of `tenant.field_tasks.read|assign|execute`. Members whose roles grant execute or assign, with their branch scope."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Q"
+      responses:
+        "200":
+          description: Assignees
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFieldTaskAssignees" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/field-tasks/mine:
+    get:
+      tags: [Tenant]
+      operationId: getTenantMyFieldTasks
+      summary: My field tasks
+      description: "`tenant.field_tasks.execute`. The caller's own tasks (same filters as the board; the panel asks for today and tomorrow)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - { name: sort, in: query, schema: { type: string }, description: "`due_at`, `status`, `task_type` or `created_at`; prefix `-` for descending." }
+        - { name: status, in: query, schema: { type: string } }
+        - { name: task_type, in: query, schema: { type: string } }
+        - { name: due_from, in: query, schema: { type: string, format: date-time } }
+        - { name: due_to, in: query, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: Task page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFieldTaskPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/field-tasks:
+    get:
+      tags: [Tenant]
+      operationId: getTenantFieldTasks
+      summary: Field task board
+      description: "`tenant.field_tasks.read`. Tasks whose branch (or a transfer's destination) is in the caller's scope."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - { name: sort, in: query, schema: { type: string }, description: "`due_at`, `status`, `task_type` or `created_at`; prefix `-` for descending." }
+        - { name: status, in: query, schema: { type: string }, description: "planned, assigned, en_route, issue_reported, completed, cancelled" }
+        - { name: task_type, in: query, schema: { type: string }, description: "handover, return, transfer, preparation, cleaning, maintenance, deposit, other" }
+        - { name: location_kind, in: query, schema: { type: string }, description: "branch, point, address" }
+        - { name: branch, in: query, schema: { type: string }, description: Branch uuids }
+        - { name: assignee, in: query, schema: { type: string }, description: "User uuids; `none` = unassigned" }
+        - { name: unassigned, in: query, schema: { type: string, enum: ["true", "false"] } }
+        - { name: reservation, in: query, schema: { type: string }, description: Reservation uuids }
+        - { name: due_from, in: query, schema: { type: string, format: date-time } }
+        - { name: due_to, in: query, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: Task page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFieldTaskPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantFieldTask
+      summary: Open a field task
+      description: "`tenant.field_tasks.assign`. Transfer, preparation, cleaning, maintenance or other; a transfer plans the fleet transfer that moves the vehicle when the task completes."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FieldTaskCreateRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFieldTask" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/field-tasks/bulk:
+    post:
+      tags: [Tenant]
+      operationId: postTenantFieldTasksBulk
+      summary: Bulk field task actions
+      description: "`assign` (`tenant.field_tasks.assign`, `params.user_uuid` a member who works field tasks, or empty to unassign; reversible)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkExecuteRequest"
+      responses:
+        "200":
+          description: Synchronous result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeBulkSyncResult"
+        "202":
+          description: Bulk job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeBulkJob"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/field-tasks/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantFieldTask
+      summary: Field task detail
+      description: "Board readers and planners see every task in scope; executors (`tenant.field_tasks.execute` only) their own. `actions` lists what the caller can do now."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Task
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFieldTask" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantFieldTask
+      summary: Re-plan a field task
+      description: "`tenant.field_tasks.assign`. Time, duration, note, place, contact and meeting details of a live task; a planned transfer moves its fleet transfer window."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FieldTaskPatchRequest" }
+      responses:
+        "200":
+          description: Task
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFieldTask" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/field-tasks/{uuid}/events:
+    get:
+      tags: [Tenant]
+      operationId: getTenantFieldTaskEvents
+      summary: Field task timeline
+      description: "Same visibility as the detail. Creation, status, assignee, time and place changes (written by a database trigger, whatever made the change)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Timeline
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFieldTaskEvents" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/field-tasks/{uuid}/assign:
+    post:
+      tags: [Tenant]
+      operationId: postTenantFieldTaskAssign
+      summary: Assign a field task
+      description: "`tenant.field_tasks.assign`. The member must work field tasks and cover the task's branch; a new assignee restarts the task as assigned and gets an in-app notification (realtime and web push mirror it). `user_uuid: null` unassigns."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FieldTaskAssignRequest" }
+      responses:
+        "200":
+          description: Task
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFieldTask" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/field-tasks/{uuid}/start:
+    post:
+      tags: [Tenant]
+      operationId: postTenantFieldTaskStart
+      summary: Start a field task (en route)
+      description: "Planners, or the assignee with `tenant.field_tasks.execute`. From planned / assigned (an unassigned task becomes the caller's) or issue_reported (resume). A transfer starts its fleet transfer."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Task
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFieldTask" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/field-tasks/{uuid}/report-issue:
+    post:
+      tags: [Tenant]
+      operationId: postTenantFieldTaskReportIssue
+      summary: Report an issue on a field task
+      description: "Planners, or the assignee. `note` (3-1000 characters) is required; from assigned or en_route."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FieldTaskNoteRequest" }
+      responses:
+        "200":
+          description: Task
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFieldTask" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/field-tasks/{uuid}/complete:
+    post:
+      tags: [Tenant]
+      operationId: postTenantFieldTaskComplete
+      summary: Complete a field task
+      description: "Planners, or the assignee. Handover / return complete through the rental's inspection form (409 `record_handover` / `record_return`); a transfer completes its fleet transfer (the vehicle's current branch becomes the destination); cleaning, maintenance and preparation make the vehicle available."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FieldTaskNoteRequest" }
+      responses:
+        "200":
+          description: Task
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFieldTask" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/field-tasks/{uuid}/cancel:
+    post:
+      tags: [Tenant]
+      operationId: postTenantFieldTaskCancel
+      summary: Cancel a field task
+      description: "`tenant.field_tasks.assign`. `note` (3-1000 characters) is the reason; a transfer cancels its fleet transfer."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FieldTaskNoteRequest" }
+      responses:
+        "200":
+          description: Task
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFieldTask" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/delivery-points:
+    get:
+      tags: [Tenant]
+      operationId: getTenantDeliveryPoints
+      summary: Delivery points
+      description: "`tenant.quotes.read`. Active delivery points of active branches in the caller's scope with the fee (for `product` when given), hours, served districts and conditions (the reservation wizard's picker). Quotes check eligibility and price the fee themselves."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - { name: branch, in: query, schema: { type: string, format: uuid } }
+        - { name: product, in: query, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Delivery points
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeDeliveryPoints" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
   /v1/tenant/operation-tasks/meta:
     get:
       tags: [Tenant]
@@ -14015,8 +14415,8 @@ paths:
           in: query
           description: "`due_at`, `status` or `created_at`; prefix `-` for descending."
           schema: { type: string }
-        - { name: status, in: query, schema: { type: string }, description: "open, in_progress, done, cancelled" }
-        - { name: task_type, in: query, schema: { type: string }, description: "preparation, handover, return, cleaning, maintenance, deposit" }
+        - { name: status, in: query, schema: { type: string }, description: "planned, assigned, en_route, issue_reported, completed, cancelled" }
+        - { name: task_type, in: query, schema: { type: string }, description: "preparation, handover, return, cleaning, maintenance, deposit, transfer, other" }
         - { name: branch, in: query, schema: { type: string }, description: Branch uuids }
         - { name: rental, in: query, schema: { type: string }, description: Rental uuids }
         - { name: vehicle, in: query, schema: { type: string }, description: Vehicle uuids }
@@ -16737,7 +17137,7 @@ components:
 
     ServicePoint:
       type: object
-      required: [uuid, branch_uuid, type, name, description, extra_fee, working_hours, online_selectable, is_active, created_at, updated_at]
+      required: [uuid, branch_uuid, type, name, description, extra_fee, working_hours, online_selectable, is_active, delivery_enabled, delivery_extra, service_districts, latitude, longitude, service_radius_km, min_notice_minutes, delivery_conditions, created_at, updated_at]
       properties:
         uuid: { type: string, format: uuid }
         branch_uuid: { type: string, format: uuid }
@@ -16752,6 +17152,22 @@ components:
             - type: "null"
         online_selectable: { type: boolean }
         is_active: { type: boolean }
+        delivery_enabled: { type: boolean, description: "Staff bring / collect the vehicle here (TEC-724)" }
+        delivery_extra:
+          description: "The delivery extra whose price is the fee (null = extra_fee)"
+          oneOf:
+            - type: object
+              required: [uuid, name]
+              properties:
+                uuid: { type: string, format: uuid }
+                name: { type: string }
+            - type: "null"
+        service_districts: { type: array, items: { type: string }, description: "Districts an address zone serves (empty = any)" }
+        latitude: { type: [number, "null"] }
+        longitude: { type: [number, "null"] }
+        service_radius_km: { type: [number, "null"], description: "Radius around the centre an address zone serves" }
+        min_notice_minutes: { type: integer }
+        delivery_conditions: { type: string }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 
@@ -16775,6 +17191,14 @@ components:
             - type: "null"
         online_selectable: { type: boolean }
         is_active: { type: boolean }
+        delivery_enabled: { type: boolean, description: "Default true for airport, hotel and address_zone points" }
+        delivery_extra_uuid: { type: [string, "null"], format: uuid, description: "An extra of type delivery" }
+        service_districts: { type: array, items: { type: string, maxLength: 128 }, maxItems: 200 }
+        latitude: { type: [number, "null"], minimum: -90, maximum: 90 }
+        longitude: { type: [number, "null"], minimum: -180, maximum: 180 }
+        service_radius_km: { type: [number, "null"], exclusiveMinimum: 0, maximum: 10000 }
+        min_notice_minutes: { type: integer, minimum: 0, maximum: 10080 }
+        delivery_conditions: { type: string, maxLength: 2000 }
 
     ServicePointCreateRequest:
       type: object
@@ -22053,7 +22477,15 @@ components:
           oneOf:
             - $ref: "#/components/schemas/ManualDiscount"
             - type: "null"
-        delivery_fee: { type: string }
+        delivery_fee: { type: string, description: "Staff delivery fee; replaces the computed fees of delivery points (then needs tenant.price.override)" }
+        pickup_delivery:
+          oneOf:
+            - $ref: "#/components/schemas/DeliveryDetails"
+            - type: "null"
+        return_delivery:
+          oneOf:
+            - $ref: "#/components/schemas/DeliveryDetails"
+            - type: "null"
 
     QuoteSearchRequest:
       type: object
@@ -22069,6 +22501,14 @@ components:
         product_uuids:
           type: array
           items: { type: string, format: uuid }
+        pickup_delivery:
+          oneOf:
+            - $ref: "#/components/schemas/DeliveryDetails"
+            - type: "null"
+        return_delivery:
+          oneOf:
+            - $ref: "#/components/schemas/DeliveryDetails"
+            - type: "null"
 
     QuoteSearchItem:
       type: object
@@ -22197,7 +22637,7 @@ components:
 
     Quote:
       type: object
-      required: [uuid, purpose, status, expired, reservation, customer, product, pickup_branch, return_branch, pickup_point, return_point, starts_at, ends_at, channel, billing_days, currency, rental_subtotal, discount_total, rental_total, extras_total, one_way_fee, delivery_fee, base_total, vat_total, total, prepayment, prepayment_rule, vat_rate, difference, rate_plan_version_uuid, rate_plan_version, settings_version, extras, coupon_code, manual_discount, breakdown, lines, vehicle, availability, valid_until, used_at, created_by, created_at]
+      required: [uuid, purpose, status, expired, reservation, customer, product, pickup_branch, return_branch, pickup_point, return_point, pickup_delivery, return_delivery, starts_at, ends_at, channel, billing_days, currency, rental_subtotal, discount_total, rental_total, extras_total, one_way_fee, delivery_fee, base_total, vat_total, total, prepayment, prepayment_rule, vat_rate, difference, rate_plan_version_uuid, rate_plan_version, settings_version, extras, coupon_code, manual_discount, breakdown, lines, vehicle, availability, valid_until, used_at, created_by, created_at]
       properties:
         uuid: { type: string, format: uuid }
         purpose: { type: string, enum: [new, change, extension, upgrade] }
@@ -22221,6 +22661,14 @@ components:
         return_point:
           oneOf:
             - $ref: "#/components/schemas/ReservationPointRef"
+            - type: "null"
+        pickup_delivery:
+          oneOf:
+            - $ref: "#/components/schemas/DeliveryDetails"
+            - type: "null"
+        return_delivery:
+          oneOf:
+            - $ref: "#/components/schemas/DeliveryDetails"
             - type: "null"
         starts_at: { type: string, format: date-time }
         ends_at: { type: string, format: date-time }
@@ -22385,6 +22833,14 @@ components:
           oneOf:
             - $ref: "#/components/schemas/ManualDiscount"
             - type: "null"
+        pickup_delivery:
+          oneOf:
+            - $ref: "#/components/schemas/DeliveryDetails"
+            - type: "null"
+        return_delivery:
+          oneOf:
+            - $ref: "#/components/schemas/DeliveryDetails"
+            - type: "null"
 
     ReservationApplyChangeRequest:
       type: object
@@ -22535,7 +22991,7 @@ components:
 
     Reservation:
       type: object
-      required: [uuid, reference, status, payment_status, capacity_commitment, pickup_branch, return_branch, pickup_point, return_point, starts_at, ends_at, billing_days, customer, invoice_customer, drivers, channel, approval_protocol, external_reference, collecting_party, price, quote_uuid, settings_version, policy, plan, review_deadline, payment_deadline, assigned_user, note, eligibility_override, open_tasks, actions, confirmed_at, cancelled_at, cancel_reason, created_by, created_at, updated_at]
+      required: [uuid, reference, status, payment_status, capacity_commitment, pickup_branch, return_branch, pickup_point, return_point, pickup_delivery, return_delivery, starts_at, ends_at, billing_days, customer, invoice_customer, drivers, channel, approval_protocol, external_reference, collecting_party, price, quote_uuid, settings_version, policy, plan, review_deadline, payment_deadline, assigned_user, note, eligibility_override, open_tasks, actions, confirmed_at, cancelled_at, cancel_reason, created_by, created_at, updated_at]
       properties:
         uuid: { type: string, format: uuid }
         reference: { type: string, example: IDS-2026-000123 }
@@ -22551,6 +23007,14 @@ components:
         return_point:
           oneOf:
             - $ref: "#/components/schemas/ReservationPointRef"
+            - type: "null"
+        pickup_delivery:
+          oneOf:
+            - $ref: "#/components/schemas/DeliveryDetails"
+            - type: "null"
+        return_delivery:
+          oneOf:
+            - $ref: "#/components/schemas/DeliveryDetails"
             - type: "null"
         starts_at: { type: string, format: date-time }
         ends_at: { type: string, format: date-time }
@@ -24601,8 +25065,8 @@ components:
       required: [uuid, task_type, status, branch, rental, vehicle, due_at, note, assignee, started_at, completed_at, completed_by, completion_note, created_at, updated_at]
       properties:
         uuid: { type: string, format: uuid }
-        task_type: { type: string, enum: [preparation, handover, return, cleaning, maintenance, deposit] }
-        status: { type: string, enum: [open, in_progress, done, cancelled] }
+        task_type: { type: string, enum: [preparation, handover, return, cleaning, maintenance, deposit, transfer, other] }
+        status: { type: string, enum: [planned, assigned, en_route, issue_reported, completed, cancelled] }
         branch: { $ref: "#/components/schemas/RentalRef" }
         rental:
           oneOf:
@@ -24637,6 +25101,307 @@ components:
       type: object
       properties:
         note: { type: string }
+
+    DeliveryDetails:
+      type: object
+      additionalProperties: false
+      description: "Delivery details of a pick-up or return at a delivery point (TEC-724). An address zone needs `address`."
+      properties:
+        address: { type: string, maxLength: 500 }
+        district: { type: string, maxLength: 128 }
+        city: { type: string, maxLength: 128 }
+        latitude: { type: [number, "null"], minimum: -90, maximum: 90 }
+        longitude: { type: [number, "null"], minimum: -180, maximum: 180 }
+        contact_name: { type: string, maxLength: 255 }
+        contact_phone: { type: string, maxLength: 32 }
+        flight_number: { type: string, maxLength: 16 }
+        meeting_note: { type: string, maxLength: 1000 }
+
+    FieldTaskRef:
+      type: object
+      required: [uuid, code, name]
+      properties:
+        uuid: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+
+    FieldTaskRecordRef:
+      type: object
+      required: [uuid, reference, status]
+      properties:
+        uuid: { type: string, format: uuid }
+        reference: { type: string }
+        status: { type: string }
+
+    FieldTaskLocation:
+      type: object
+      required: [kind, point, address, district, city, latitude, longitude]
+      properties:
+        kind: { type: string, enum: [branch, point, address] }
+        point:
+          oneOf:
+            - type: object
+              required: [uuid, name, type]
+              properties:
+                uuid: { type: string, format: uuid }
+                name: { type: string }
+                type: { type: string, enum: [office, airport, address_zone, hotel] }
+            - type: "null"
+        address: { type: string }
+        district: { type: string }
+        city: { type: string }
+        latitude: { type: [number, "null"] }
+        longitude: { type: [number, "null"] }
+
+    FieldTask:
+      type: object
+      required: [uuid, task_type, status, origin, delivery, branch, to_branch, location, contact, flight_number, meeting_note, note, due_at, planned_minutes, planned_end_at, started_at, completed_at, assigned_at, assignee, completed_by, completion_note, issue_note, issue_reported_at, rental, reservation, vehicle, transfer, inspection, actions, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        task_type: { type: string, enum: [handover, return, transfer, preparation, cleaning, maintenance, deposit, other] }
+        status: { type: string, enum: [planned, assigned, en_route, issue_reported, completed, cancelled] }
+        origin: { type: string, enum: [rental, reservation, manual, inspection] }
+        delivery: { type: boolean, description: "A handover / return at a delivery point or an address" }
+        branch: { $ref: "#/components/schemas/FieldTaskRef" }
+        to_branch:
+          oneOf:
+            - $ref: "#/components/schemas/FieldTaskRef"
+            - type: "null"
+        location: { $ref: "#/components/schemas/FieldTaskLocation" }
+        contact:
+          type: object
+          required: [name, phone]
+          properties:
+            name: { type: string }
+            phone: { type: string }
+        flight_number: { type: string }
+        meeting_note: { type: string }
+        note: { type: string }
+        due_at: { type: string, format: date-time, description: Planned start }
+        planned_minutes: { type: integer }
+        planned_end_at: { type: string, format: date-time }
+        started_at: { type: [string, "null"], format: date-time }
+        completed_at: { type: [string, "null"], format: date-time }
+        assigned_at: { type: [string, "null"], format: date-time }
+        assignee:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        completed_by:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        completion_note: { type: string }
+        issue_note: { type: string }
+        issue_reported_at: { type: [string, "null"], format: date-time }
+        rental:
+          oneOf:
+            - $ref: "#/components/schemas/FieldTaskRecordRef"
+            - type: "null"
+        reservation:
+          oneOf:
+            - $ref: "#/components/schemas/FieldTaskRecordRef"
+            - type: "null"
+        vehicle:
+          oneOf:
+            - $ref: "#/components/schemas/RentalVehicleRef"
+            - type: "null"
+        transfer:
+          oneOf:
+            - type: object
+              required: [uuid, status]
+              properties:
+                uuid: { type: string, format: uuid }
+                status: { type: string }
+            - type: "null"
+        inspection: { type: string, enum: ["", handover, return], description: "The inspection form this task continues in" }
+        actions:
+          type: array
+          items: { type: string, enum: [assign, edit, start, report_issue, inspection, complete, cancel] }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    FieldTaskEvent:
+      type: object
+      required: [uuid, action, from_status, to_status, note, data, actor, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        action: { type: string, enum: [created, status_changed, assignee_changed, rescheduled, relocated] }
+        from_status: { type: [string, "null"] }
+        to_status: { type: [string, "null"] }
+        note: { type: string }
+        data: { type: object, additionalProperties: true }
+        actor:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        created_at: { type: string, format: date-time }
+
+    FieldTaskFacetValue:
+      type: object
+      required: [value, label, count]
+      properties:
+        value: { type: string }
+        label: { type: string }
+        count: { type: integer, format: int64 }
+
+    FieldTaskFacets:
+      type: object
+      required: [status, task_type, location_kind, branch, assignee]
+      properties:
+        status: { type: array, items: { $ref: "#/components/schemas/FieldTaskFacetValue" } }
+        task_type: { type: array, items: { $ref: "#/components/schemas/FieldTaskFacetValue" } }
+        location_kind: { type: array, items: { $ref: "#/components/schemas/FieldTaskFacetValue" } }
+        branch: { type: array, items: { $ref: "#/components/schemas/FieldTaskFacetValue" } }
+        assignee: { type: array, items: { $ref: "#/components/schemas/FieldTaskFacetValue" }, description: "`none` = unassigned" }
+
+    FieldTaskAssignee:
+      type: object
+      required: [uuid, name, surname, email, branch_scope, branch_uuids]
+      properties:
+        uuid: { type: string, format: uuid }
+        name: { type: string }
+        surname: { type: string }
+        email: { type: string }
+        branch_scope: { type: string, enum: [all, selected] }
+        branch_uuids: { type: array, items: { type: string, format: uuid } }
+
+    FieldTaskCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [task_type, branch_uuid, due_at]
+      properties:
+        task_type: { type: string, enum: [transfer, preparation, cleaning, maintenance, other] }
+        branch_uuid: { type: string, format: uuid }
+        to_branch_uuid: { type: [string, "null"], format: uuid, description: "Transfer destination (required for a transfer)" }
+        vehicle_uuid: { type: [string, "null"], format: uuid, description: "Required for a transfer" }
+        due_at: { type: string, format: date-time }
+        planned_minutes: { type: [integer, "null"], minimum: 5, maximum: 1440 }
+        assignee_uuid: { type: [string, "null"], format: uuid }
+        note: { type: string, maxLength: 1000 }
+        point_uuid: { type: [string, "null"], format: uuid }
+        address: { type: [string, "null"], maxLength: 500 }
+        district: { type: [string, "null"], maxLength: 128 }
+        city: { type: [string, "null"], maxLength: 128 }
+        latitude: { type: [number, "null"], minimum: -90, maximum: 90 }
+        longitude: { type: [number, "null"], minimum: -180, maximum: 180 }
+        contact_name: { type: [string, "null"], maxLength: 255 }
+        contact_phone: { type: [string, "null"], maxLength: 32 }
+        flight_number: { type: [string, "null"], maxLength: 16 }
+        meeting_note: { type: [string, "null"], maxLength: 1000 }
+
+    FieldTaskPatchRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        due_at: { type: [string, "null"], format: date-time }
+        planned_minutes: { type: [integer, "null"], minimum: 5, maximum: 1440 }
+        note: { type: [string, "null"], maxLength: 1000 }
+        clear_point: { type: boolean }
+        point_uuid: { type: [string, "null"], format: uuid }
+        address: { type: [string, "null"], maxLength: 500 }
+        district: { type: [string, "null"], maxLength: 128 }
+        city: { type: [string, "null"], maxLength: 128 }
+        latitude: { type: [number, "null"], minimum: -90, maximum: 90 }
+        longitude: { type: [number, "null"], minimum: -180, maximum: 180 }
+        contact_name: { type: [string, "null"], maxLength: 255 }
+        contact_phone: { type: [string, "null"], maxLength: 32 }
+        flight_number: { type: [string, "null"], maxLength: 16 }
+        meeting_note: { type: [string, "null"], maxLength: 1000 }
+
+    FieldTaskAssignRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        user_uuid: { type: [string, "null"], format: uuid, description: "A member who works field tasks; null unassigns" }
+
+    FieldTaskNoteRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        note: { type: string, maxLength: 1000 }
+
+    DeliveryPoint:
+      type: object
+      required: [uuid, name, type, description, branch, fee, fee_source, delivery_extra, requires_address, service_districts, min_notice_minutes, conditions, online_selectable, working_hours]
+      properties:
+        uuid: { type: string, format: uuid }
+        name: { type: string }
+        type: { type: string, enum: [office, airport, address_zone, hotel] }
+        description: { type: string }
+        branch: { $ref: "#/components/schemas/FieldTaskRef" }
+        fee: { type: string, description: "Fee for one billing day (per-day extras multiply by the rental days)" }
+        fee_source: { type: string, enum: [extra, flat, none] }
+        delivery_extra:
+          oneOf:
+            - $ref: "#/components/schemas/FieldTaskRef"
+            - type: "null"
+        requires_address: { type: boolean }
+        service_districts: { type: array, items: { type: string } }
+        min_notice_minutes: { type: integer }
+        conditions: { type: string }
+        online_selectable: { type: boolean }
+        working_hours:
+          description: "`null` = the branch working hours"
+          oneOf:
+            - $ref: "#/components/schemas/WeeklyHours"
+            - type: "null"
+
+    EnvelopeFieldTask:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/FieldTask" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeFieldTaskPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/FieldTask" } }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeFieldTaskEvents:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { type: array, items: { $ref: "#/components/schemas/FieldTaskEvent" } }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeFieldTaskFacets:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/FieldTaskFacets" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeFieldTaskAssignees:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { type: array, items: { $ref: "#/components/schemas/FieldTaskAssignee" } }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeDeliveryPoints:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { type: array, items: { $ref: "#/components/schemas/DeliveryPoint" } }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
 
     EnvelopeOperationTask:
       type: object
