@@ -10,14 +10,18 @@ import (
 
 // Fleet calendar (TEC-696): GET /v1/tenant/fleet/calendar answers one page
 // of vehicles (rows) with what keeps each one busy inside [from, to) (bars).
-// Bars come from the vehicle_busy_intervals view (blocks, transfers; M2 adds
-// reservations there) plus maintenance days (vehicle_maintenance).
+// Bars come from the vehicle_busy_intervals view (blocks, transfers and the
+// availability engine's allocations: holds / reservations, TEC-697) plus
+// maintenance days (vehicle_maintenance).
 
-// Calendar layers. Blocks and transfers need their own read permission;
-// maintenance is part of the vehicle (tenant.vehicles.read).
+// Calendar layers. Blocks and transfers need their own read permission,
+// holds and reservations tenant.availability.read; maintenance is part of
+// the vehicle (tenant.vehicles.read).
 const (
 	LayerBlock       = "block"
 	LayerTransfer    = "transfer"
+	LayerHold        = "hold"
+	LayerReservation = "reservation"
 	LayerMaintenance = "maintenance"
 )
 
@@ -94,6 +98,20 @@ type CalendarTransfer struct {
 	InScope bool `json:"in_scope"`
 }
 
+// CalendarAllocation are the details of a hold / reservation bar. The bar
+// itself spans the period including the preparation buffer; StartsAt /
+// EndsAt are the customer range.
+type CalendarAllocation struct {
+	Product      ProductRef `json:"product"`
+	PickupBranch BranchRef  `json:"pickup_branch"`
+	ReturnBranch BranchRef  `json:"return_branch"`
+	StartsAt     time.Time  `json:"starts_at"`
+	EndsAt       time.Time  `json:"ends_at"`
+	ExpiresAt    *time.Time `json:"expires_at"`
+	PlateFixed   bool       `json:"plate_fixed"`
+	Channel      string     `json:"channel"`
+}
+
 // CalendarInterval is one bar. StartsAt / EndsAt are the real bounds (EndsAt
 // nil = open-ended block); ClipStart / ClipEnd are the bounds inside the
 // requested window, ready to draw.
@@ -105,10 +123,11 @@ type CalendarInterval struct {
 	ClipStart time.Time  `json:"clip_start"`
 	ClipEnd   time.Time  `json:"clip_end"`
 	// ContinuesBefore / ContinuesAfter: the interval runs past the window.
-	ContinuesBefore bool              `json:"continues_before"`
-	ContinuesAfter  bool              `json:"continues_after"`
-	Block           *CalendarBlock    `json:"block"`
-	Transfer        *CalendarTransfer `json:"transfer"`
+	ContinuesBefore bool                `json:"continues_before"`
+	ContinuesAfter  bool                `json:"continues_after"`
+	Block           *CalendarBlock      `json:"block"`
+	Transfer        *CalendarTransfer   `json:"transfer"`
+	Allocation      *CalendarAllocation `json:"allocation"`
 }
 
 // CalendarMaintenance is a maintenance day marker (open plan or done item).
@@ -141,7 +160,8 @@ type Calendar struct {
 	Limit  int32         `json:"limit"`
 	Offset int32         `json:"offset"`
 	// Layers are the bar kinds the caller may see (block / transfer need
-	// tenant.blocks.read / tenant.transfers.read).
+	// tenant.blocks.read / tenant.transfers.read, hold / reservation
+	// tenant.availability.read).
 	Layers []string `json:"layers"`
 }
 

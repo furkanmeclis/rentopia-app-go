@@ -372,6 +372,10 @@ type Querier interface {
 	ListAvailabilitySegments(ctx context.Context, arg ListAvailabilitySegmentsParams) ([]ListAvailabilitySegmentsRow, error)
 	// Fresh location / liveness of the component's vehicles (inside the lock).
 	ListAvailabilityVehicleStates(ctx context.Context, arg ListAvailabilityVehicleStatesParams) ([]ListAvailabilityVehicleStatesRow, error)
+	// Active, unexpired allocations (holds / reservations, TEC-697) of a vehicle
+	// that overlap [starts_at, ends_at) (NULL end = unbounded): the commitments a
+	// block now makes impossible on this vehicle (affected[]).
+	ListBlockAffectedAllocations(ctx context.Context, arg ListBlockAffectedAllocationsParams) ([]ListBlockAffectedAllocationsRow, error)
 	ListBranchCityFacets(ctx context.Context, arg ListBranchCityFacetsParams) ([]ListBranchCityFacetsRow, error)
 	ListBranchIDsByUUIDs(ctx context.Context, arg ListBranchIDsByUUIDsParams) ([]ListBranchIDsByUUIDsRow, error)
 	ListBranchSearchDocuments(ctx context.Context, organizationID int64) ([]ListBranchSearchDocumentsRow, error)
@@ -410,9 +414,10 @@ type Querier interface {
 	ListDuePushTickets(ctx context.Context, arg ListDuePushTicketsParams) ([]ListDuePushTicketsRow, error)
 	ListEnabledLogPurgeRules(ctx context.Context) ([]LogPurgeRule, error)
 	ListExportJobsForActor(ctx context.Context, arg ListExportJobsForActorParams) ([]ExportJob, error)
-	// Busy intervals (vehicle_busy_intervals: blocks and non-cancelled
-	// transfers) of the given vehicles that overlap [from_at, to_at), with the
-	// block / transfer details the calendar bars show.
+	// Busy intervals (vehicle_busy_intervals: blocks, non-cancelled transfers
+	// and active allocations - holds / reservations, TEC-697) of the given
+	// vehicles that overlap [from_at, to_at), with the block / transfer /
+	// allocation details the calendar bars show.
 	ListFleetCalendarIntervals(ctx context.Context, arg ListFleetCalendarIntervalsParams) ([]ListFleetCalendarIntervalsRow, error)
 	// Maintenance of the given vehicles on a day in [from_day, to_day): open
 	// plans by their planned date, done items by their done date. Plans with a

@@ -132,3 +132,18 @@ WHERE bi.organization_id = sqlc.arg(organization_id)
   AND bi.during && tstzrange(sqlc.arg(from_at)::timestamptz, sqlc.narg(to_at)::timestamptz, '[)')
   AND (sqlc.narg(kinds)::text[] IS NULL OR bi.kind = ANY(sqlc.narg(kinds)::text[]))
 ORDER BY lower(bi.during), bi.kind;
+
+-- name: ListBlockAffectedAllocations :many
+-- Active, unexpired allocations (holds / reservations, TEC-697) of a vehicle
+-- that overlap [starts_at, ends_at) (NULL end = unbounded): the commitments a
+-- block now makes impossible on this vehicle (affected[]).
+SELECT a.uuid, a.kind, a.starts_at, upper(a.period)::timestamptz AS ends_at, p.code AS product_code
+FROM vehicle_allocations a
+JOIN rental_products p ON p.organization_id = a.organization_id AND p.id = a.rental_product_id
+WHERE a.organization_id = sqlc.arg(organization_id)
+  AND p.organization_id = sqlc.arg(organization_id)
+  AND a.vehicle_id = sqlc.arg(vehicle_id)
+  AND a.status = 'active'
+  AND (a.kind <> 'hold' OR a.expires_at > sqlc.arg(now_at)::timestamptz)
+  AND a.period && tstzrange(sqlc.arg(starts_at)::timestamptz, sqlc.narg(ends_at)::timestamptz, '[)')
+ORDER BY lower(a.period);

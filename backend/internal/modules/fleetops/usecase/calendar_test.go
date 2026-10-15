@@ -114,6 +114,10 @@ func TestCalendarLayers(t *testing.T) {
 	}
 	got := CalendarLayers(only(rbac.PermTenantVehiclesRead, rbac.PermTenantBlocksRead, rbac.PermTenantTransfersRead))
 	if len(got) != 3 || got[0] != model.LayerBlock || got[1] != model.LayerTransfer {
-		t.Errorf("all = %v", got)
+		t.Errorf("blocks + transfers = %v", got)
+	}
+	got = CalendarLayers(only(rbac.PermTenantVehiclesRead, rbac.PermTenantAvailabilityRead))
+	if len(got) != 3 || got[0] != model.LayerHold || got[1] != model.LayerReservation || got[2] != model.LayerMaintenance {
+		t.Errorf("availability = %v", got)
 	}
 }
