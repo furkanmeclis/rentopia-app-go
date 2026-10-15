@@ -49,6 +49,9 @@ import (
 	contractsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/contracts"
 	contractshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/contracts/handler"
 	contractsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/contracts/usecase"
+	customerportalmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/customerportal"
+	customerportalhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/customerportal/handler"
+	customerportalusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/customerportal/usecase"
 	customersmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/customers"
 	customeradapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/customers/adapters"
 	customerhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/customers/handler"
@@ -462,6 +465,9 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	}
 	smsSvc.SetActivity(activity.NewRecorder(deps.Queries, log))
 	smsSvc.SetLogger(log)
+	// E-mail one-time codes (customer portal sign-in) go through the
+	// platform mailer.
+	smsSvc.SetMailer(mailer)
 	paymentsSvc := paymentsusecase.New(deps.DB, deps.Queries, integrationAccountsSvc, reservationSvc,
 		paymentsusecase.Config{PublicBaseURL: cfg.Auth.FrontendURL}, iyzicoAdapter)
 	paymentsSvc.SetResourceEvents(resourceEvents)
@@ -497,6 +503,14 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	inspectionsSvc.SetContracts(contractsSvc)
 	inspectionsSvc.SetResourceEvents(resourceEvents)
 	inspectionsSvc.SetLogger(log)
+	// Customer portal (TEC-715): reference + contact + one-time code, a
+	// customer session of its own, documents, pay remaining, requests.
+	portalSvc := customerportalusecase.New(deps.DB, deps.Queries, smsSvc, reservationSvc)
+	portalSvc.SetPayments(paymentsSvc, integrationAccountsSvc)
+	portalSvc.SetDocuments(contractsSvc)
+	portalSvc.SetActivity(activityRec)
+	portalSvc.SetResourceEvents(resourceEvents)
+	portalSvc.SetLogger(log)
 	// Rental group membership removals re-plan the commitments that relied
 	// on them (or are refused); moved reservations record plan_moved.
 	vehicleSvc.SetMembershipGuard(availabilitySvc)
@@ -521,6 +535,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	rentalsmodule.RegisterLiveResources(tenantLive)
 	inspectionsmodule.RegisterLiveResources(tenantLive)
 	contractsmodule.RegisterLiveResources(tenantLive)
+	customerportalmodule.RegisterLiveResources(tenantLive)
 	resourceEvents.AddResolver(tenantmodule.ChannelResolver(tenantmodule.QueriesLookup(deps.Queries)))
 	uc.AddChannelRules(tenantmodule.ChannelRule(tenantLive, tenantResolver))
 	catalogmodule.RegisterLiveResources(liveResources)
@@ -727,6 +742,9 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	contractsH.SetRateLimiter(contractsmodule.Limiter{L: ratelimit.New(deps.Redis, cfg.App.Env)})
 	contractsmodule.RegisterRoutes(mux, contractsH, tokens, loader, tenantResolver)
 	inspectionsmodule.RegisterRoutes(mux, inspectionshandler.New(inspectionsSvc, activityRec), tokens, loader, tenantResolver)
+	portalH := customerportalhandler.New(portalSvc, activityRec)
+	portalH.SetRateLimiter(customerportalmodule.Limiter{L: ratelimit.New(deps.Redis, cfg.App.Env)})
+	customerportalmodule.RegisterRoutes(mux, portalH, tokens, loader, tenantResolver)
 	settingsmodule.RegisterRoutes(mux, settingshandler.New(
 		settingsusecase.New(deps.Queries),
 		deps.Storage,

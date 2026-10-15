@@ -365,4 +365,3 @@ func clip(v string, n int) string {
 	}
 	return strings.ToValidUTF8(v[:n], "")
 }
-

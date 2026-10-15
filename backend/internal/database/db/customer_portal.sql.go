@@ -78,6 +78,36 @@ func (q *Queries) GetActivePaymentLinkForReservation(ctx context.Context, arg Ge
 	return i, err
 }
 
+const getOpenPortalChallenge = `-- name: GetOpenPortalChallenge :one
+SELECT c.channel, c.phone_hash
+FROM sms_otp_challenges c
+WHERE c.organization_id = $1
+  AND c.purpose = $2
+  AND c.subject_ref = $3
+  AND c.status = 'pending'
+`
+
+type GetOpenPortalChallengeParams struct {
+	OrganizationID int64  `json:"organization_id"`
+	Purpose        string `json:"purpose"`
+	SubjectRef     string `json:"subject_ref"`
+}
+
+type GetOpenPortalChallengeRow struct {
+	Channel   string `json:"channel"`
+	PhoneHash string `json:"phone_hash"`
+}
+
+// The open code of a sign-in subject: its channel and contact hash (a code
+// typed with another contact of the reservation is refused before it is
+// checked, so it does not use up the open code).
+func (q *Queries) GetOpenPortalChallenge(ctx context.Context, arg GetOpenPortalChallengeParams) (GetOpenPortalChallengeRow, error) {
+	row := q.db.QueryRow(ctx, getOpenPortalChallenge, arg.OrganizationID, arg.Purpose, arg.SubjectRef)
+	var i GetOpenPortalChallengeRow
+	err := row.Scan(&i.Channel, &i.PhoneHash)
+	return i, err
+}
+
 const getPortalOTPBinding = `-- name: GetPortalOTPBinding :one
 SELECT c.channel, c.phone_hash, c.created_at
 FROM sms_otp_challenges c

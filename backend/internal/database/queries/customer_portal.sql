@@ -48,6 +48,17 @@ FROM sms_otp_challenges c
 WHERE c.organization_id = sqlc.arg(organization_id)
   AND c.uuid = sqlc.arg(uuid);
 
+-- name: GetOpenPortalChallenge :one
+-- The open code of a sign-in subject: its channel and contact hash (a code
+-- typed with another contact of the reservation is refused before it is
+-- checked, so it does not use up the open code).
+SELECT c.channel, c.phone_hash
+FROM sms_otp_challenges c
+WHERE c.organization_id = sqlc.arg(organization_id)
+  AND c.purpose = sqlc.arg(purpose)
+  AND c.subject_ref = sqlc.arg(subject_ref)
+  AND c.status = 'pending';
+
 -- name: InsertPortalSession :one
 INSERT INTO customer_portal_sessions (
     organization_id, customer_id, driver_id, reservation_id, token_hash, channel, contact_masked, otp_challenge_uuid,

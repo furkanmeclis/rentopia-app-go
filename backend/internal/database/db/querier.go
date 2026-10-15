@@ -514,6 +514,10 @@ type Querier interface {
 	GetOTPChallengeBinding(ctx context.Context, arg GetOTPChallengeBindingParams) (GetOTPChallengeBindingRow, error)
 	GetOneWayRule(ctx context.Context, arg GetOneWayRuleParams) (GetOneWayRuleRow, error)
 	GetOpenOTPChallengeForUpdate(ctx context.Context, arg GetOpenOTPChallengeForUpdateParams) (GetOpenOTPChallengeForUpdateRow, error)
+	// The open code of a sign-in subject: its channel and contact hash (a code
+	// typed with another contact of the reservation is refused before it is
+	// checked, so it does not use up the open code).
+	GetOpenPortalChallenge(ctx context.Context, arg GetOpenPortalChallengeParams) (GetOpenPortalChallengeRow, error)
 	GetOperationTask(ctx context.Context, arg GetOperationTaskParams) (GetOperationTaskRow, error)
 	GetOrganizationByID(ctx context.Context, id int64) (Organization, error)
 	GetOrganizationBySlug(ctx context.Context, slug string) (Organization, error)

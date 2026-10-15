@@ -66,6 +66,22 @@ func (s *Service) ContactKey(orgID int64, c Contact) string {
 	return s.contactHash(orgID, c)[:32]
 }
 
+// RateKeys are the per-reference and per-contact rate-limit subjects of a
+// sign-in attempt ("" when the value is malformed or the portal unknown):
+// the reference itself and a keyed hash prefix of the contact.
+func (s *Service) RateKeys(ctx context.Context, slug, reference, contact string) (string, string) {
+	org, err := s.organization(ctx, slug)
+	if err != nil {
+		return "", ""
+	}
+	ref, _ := NormalizeReference(reference)
+	var key string
+	if c, err := ParseContact(contact); err == nil {
+		key = s.ContactKey(org.ID, c)
+	}
+	return ref, key
+}
+
 func (s *Service) contactHash(orgID int64, c Contact) string {
 	if c.Channel == model.ChannelEmail {
 		return s.otp.EmailHash(orgID, c.Normalized)
@@ -252,6 +268,18 @@ func (s *Service) Verify(ctx context.Context, slug string, in model.VerifyInput,
 	}
 	if m == nil {
 		return model.SessionIssued{}, fail(nil, "unmatched")
+	}
+	// The open code must belong to the contact typed now: another contact
+	// of the same reservation never uses up (or tries) someone else's code.
+	open, err := s.q.GetOpenPortalChallenge(octx, db.GetOpenPortalChallengeParams{
+		OrganizationID: org.ID, Purpose: model.OTPPurpose, SubjectRef: subject(m.reservationUUID),
+	})
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return model.SessionIssued{}, err
+	}
+	if err == nil && (open.Channel != contact.Channel ||
+		subtle.ConstantTimeCompare([]byte(open.PhoneHash), []byte(s.contactHash(org.ID, contact))) != 1) {
+		return model.SessionIssued{}, fail(&m.reservationUUID, "other_contact")
 	}
 	ver, err := s.otp.VerifyOTP(octx, org.ID, model.OTPPurpose, subject(m.reservationUUID), in.Code)
 	if err != nil {
