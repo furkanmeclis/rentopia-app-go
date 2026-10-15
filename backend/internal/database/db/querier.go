@@ -536,6 +536,25 @@ type Querier interface {
 	GetIntegrationAccountByID(ctx context.Context, arg GetIntegrationAccountByIDParams) (GetIntegrationAccountByIDRow, error)
 	GetInvitationByUUID(ctx context.Context, arg GetInvitationByUUIDParams) (OrganizationInvitation, error)
 	GetInvitationPreviewByTokenHash(ctx context.Context, tokenHash string) (GetInvitationPreviewByTokenHashRow, error)
+	GetKabisCustomer(ctx context.Context, arg GetKabisCustomerParams) (GetKabisCustomerRow, error)
+	GetKabisNotification(ctx context.Context, arg GetKabisNotificationParams) (GetKabisNotificationRow, error)
+	GetKabisNotificationByRentalEvent(ctx context.Context, arg GetKabisNotificationByRentalEventParams) (GetKabisNotificationByRentalEventRow, error)
+	// The notification of a runner job (the operation opens its payload).
+	GetKabisNotificationForJob(ctx context.Context, arg GetKabisNotificationForJobParams) (GetKabisNotificationForJobRow, error)
+	GetKabisOrganizationUUID(ctx context.Context, organizationID int64) (uuid.UUID, error)
+	// A branch (and optionally one of its service points) as a place.
+	GetKabisPlace(ctx context.Context, arg GetKabisPlaceParams) (GetKabisPlaceRow, error)
+	// KABİS rental notifications (TEC-726, docs/design/kabis.md). Every query
+	// names the organization; list / count / facets take the branch scope
+	// (nil = every branch): a notification is visible when its event branch or
+	// its rental's branch is in the member's scope.
+	// The actual facts a notification is built from (inside the rental's
+	// transaction): the rental, its current vehicle, the actual handover /
+	// return places, the reservation's customer and planned pick-up branch.
+	GetKabisRentalFacts(ctx context.Context, arg GetKabisRentalFactsParams) (GetKabisRentalFactsRow, error)
+	// The newest start-side notification of a rental (the start or its last
+	// correction) with its job's state.
+	GetLatestKabisStartChain(ctx context.Context, arg GetLatestKabisStartChainParams) (GetLatestKabisStartChainRow, error)
 	GetLatestLinkPayment(ctx context.Context, arg GetLatestLinkPaymentParams) (GetLatestLinkPaymentRow, error)
 	// The newest checkout of a link still waiting for confirmation.
 	GetLatestPendingLinkPayment(ctx context.Context, arg GetLatestPendingLinkPaymentParams) (GetLatestPendingLinkPaymentRow, error)
@@ -766,6 +785,12 @@ type Querier interface {
 	// (organization_id NULL = platform job) and every query names the scope.
 	InsertIntegrationAccount(ctx context.Context, arg InsertIntegrationAccountParams) (int64, error)
 	InsertIntegrationAttempt(ctx context.Context, arg InsertIntegrationAttemptParams) (InsertIntegrationAttemptRow, error)
+	// The notification's integration job, created in the rental's transaction
+	// (outbox: a pending job is due at once; the sweep picks it up if the
+	// process stops before the first step). Blocked / waiting jobs have no
+	// next step.
+	InsertKabisJob(ctx context.Context, arg InsertKabisJobParams) (InsertKabisJobRow, error)
+	InsertKabisNotification(ctx context.Context, arg InsertKabisNotificationParams) (int64, error)
 	InsertNotificationHistory(ctx context.Context, arg InsertNotificationHistoryParams) (NotificationHistory, error)
 	InsertOTPChallenge(ctx context.Context, arg InsertOTPChallengeParams) (int64, error)
 	// Operation tasks (TEC-709). Branch scope: t.branch_id.
@@ -837,6 +862,8 @@ type Querier interface {
 	InvalidateActiveOTPs(ctx context.Context, arg InvalidateActiveOTPsParams) error
 	InvalidateDocumentApprovals(ctx context.Context, arg InvalidateDocumentApprovalsParams) error
 	IssueDocumentVersion(ctx context.Context, arg IssueDocumentVersionParams) (int64, error)
+	KabisEventFacets(ctx context.Context, arg KabisEventFacetsParams) ([]KabisEventFacetsRow, error)
+	KabisStatusFacets(ctx context.Context, arg KabisStatusFacetsParams) ([]KabisStatusFacetsRow, error)
 	// The newest challenge of a purpose and subject (resend cooldown).
 	LatestOTPChallenge(ctx context.Context, arg LatestOTPChallengeParams) (LatestOTPChallengeRow, error)
 	LatestOrganizationSettingsVersion(ctx context.Context, organizationID int64) (int32, error)
@@ -1031,6 +1058,11 @@ type Querier interface {
 	// status: 'pending' (open, not expired), 'expired' (open, past expires_at),
 	// 'accepted', 'revoked'.
 	ListInvitations(ctx context.Context, arg ListInvitationsParams) ([]ListInvitationsRow, error)
+	ListKabisNotifications(ctx context.Context, arg ListKabisNotificationsParams) ([]ListKabisNotificationsRow, error)
+	// The rental's drivers with their current records (identity and licence
+	// numbers sealed; the builder opens them). A driver whose record was
+	// removed has no driver row (its data is missing).
+	ListKabisRentalDrivers(ctx context.Context, arg ListKabisRentalDriversParams) ([]ListKabisRentalDriversRow, error)
 	// Latest earlier reminder of each subject (since a cutoff day).
 	ListLastVehicleReminders(ctx context.Context, arg ListLastVehicleRemindersParams) ([]ListLastVehicleRemindersRow, error)
 	ListLiveDocumentKinds(ctx context.Context, arg ListLiveDocumentKindsParams) ([]string, error)
@@ -1293,6 +1325,10 @@ type Querier interface {
 	ListVehicleTransfers(ctx context.Context, arg ListVehicleTransfersParams) ([]ListVehicleTransfersRow, error)
 	ListVehicleUUIDs(ctx context.Context, arg ListVehicleUUIDsParams) ([]uuid.UUID, error)
 	ListVehicles(ctx context.Context, arg ListVehiclesParams) ([]ListVehiclesRow, error)
+	// The release sweep: notifications waiting on a dependency, across
+	// organizations (each row carries its organization_id; the service
+	// re-scopes from it).
+	ListWaitingKabisJobs(ctx context.Context, limitCount int32) ([]ListWaitingKabisJobsRow, error)
 	ListWebAuthnCredentialsByUserID(ctx context.Context, userID int64) ([]WebauthnCredential, error)
 	ListWebAuthnCredentialsForUserIDs(ctx context.Context, userIds []int64) ([]WebauthnCredential, error)
 	// Serialises the planners of one eligibility component (transaction-scoped).
@@ -1358,6 +1394,7 @@ type Querier interface {
 	MoveCatalogBrandsDisplayBrand(ctx context.Context, arg MoveCatalogBrandsDisplayBrandParams) (int64, error)
 	NextInspectionTemplateVersion(ctx context.Context, organizationID int64) (int32, error)
 	NextInspectionVersion(ctx context.Context, arg NextInspectionVersionParams) (int32, error)
+	NextKabisCorrectionSequence(ctx context.Context, arg NextKabisCorrectionSequenceParams) (int32, error)
 	// Reservations (TEC-706), their drivers, event history and plate
 	// assignment history. Every query filters by organization_id first
 	// (docs/design/tenant-core.md §8); lists apply the caller's branch scope
@@ -1434,6 +1471,8 @@ type Querier interface {
 	ReassignCatalogTypesModel(ctx context.Context, arg ReassignCatalogTypesModelParams) (int64, error)
 	RecordDocumentApprovalLinkFailure(ctx context.Context, arg RecordDocumentApprovalLinkFailureParams) error
 	RecordOTPAttempt(ctx context.Context, arg RecordOTPAttemptParams) error
+	// A notification that was not sent yet takes the current data.
+	RefreshKabisNotification(ctx context.Context, arg RefreshKabisNotificationParams) (int64, error)
 	// A late payment re-secured capacity for an expired reservation (TEC-708):
 	// expired → confirmed on the new firm allocation; the cancellation facts
 	// of the expiry are cleared (the timeline keeps them).
@@ -1466,6 +1505,9 @@ type Querier interface {
 	// default price (product rows sort first).
 	ResolveExtraPrices(ctx context.Context, arg ResolveExtraPricesParams) ([]ResolveExtraPricesRow, error)
 	ResolveInspectionReview(ctx context.Context, arg ResolveInspectionReviewParams) (int64, error)
+	// Staff resolution: reported_manually / reconciled from an allowed state,
+	// unless a worker holds the job.
+	ResolveKabisJob(ctx context.Context, arg ResolveKabisJobParams) (int64, error)
 	ResolveOrganizationScopeBySlug(ctx context.Context, arg ResolveOrganizationScopeBySlugParams) (ResolveOrganizationScopeBySlugRow, error)
 	ResolveOrganizationScopeByUUID(ctx context.Context, arg ResolveOrganizationScopeByUUIDParams) (ResolveOrganizationScopeByUUIDRow, error)
 	// Public webhook: the provider echoes our conversation id; it names the
@@ -1488,6 +1530,10 @@ type Querier interface {
 	RevokeStorageLink(ctx context.Context, argUuid uuid.UUID) (StorageLink, error)
 	// Resend: a new token (the old link stops working) and a fresh expiry.
 	RotateInvitationToken(ctx context.Context, arg RotateInvitationTokenParams) (OrganizationInvitation, error)
+	// Moves a job that has sent nothing yet (blocked, waiting, or pending with
+	// no attempt) to its new state and route. A job a worker holds, or one
+	// that already made a call, is left alone (0 rows).
+	RouteKabisJob(ctx context.Context, arg RouteKabisJobParams) (int64, error)
 	// Stores the outcome of a provider call and releases the claim.
 	SaveRunnerJob(ctx context.Context, arg SaveRunnerJobParams) error
 	SetAppSettingsLogo(ctx context.Context, logoObjectKey pgtype.Text) (AppSetting, error)
@@ -1516,6 +1562,7 @@ type Querier interface {
 	SetInspectionSignatureStatus(ctx context.Context, arg SetInspectionSignatureStatusParams) (int64, error)
 	SetIntegrationAccountCheck(ctx context.Context, arg SetIntegrationAccountCheckParams) error
 	SetIntegrationAccountStatus(ctx context.Context, arg SetIntegrationAccountStatusParams) (int64, error)
+	SetKabisResolution(ctx context.Context, arg SetKabisResolutionParams) error
 	SetMemberBranchScope(ctx context.Context, arg SetMemberBranchScopeParams) error
 	SetMemberPrimaryRole(ctx context.Context, arg SetMemberPrimaryRoleParams) error
 	SetOTPChallengeMessage(ctx context.Context, arg SetOTPChallengeMessageParams) error
@@ -1596,6 +1643,8 @@ type Querier interface {
 	// branch scope (facet = the column).
 	TollPassFacets(ctx context.Context, arg TollPassFacetsParams) ([]TollPassFacetsRow, error)
 	TouchDateRule(ctx context.Context, arg TouchDateRuleParams) error
+	// A status check with the provider happened (CheckStatus attempt).
+	TouchKabisVerified(ctx context.Context, arg TouchKabisVerifiedParams) error
 	// Slides the idle expiry (never beyond the hard cap).
 	TouchPortalSession(ctx context.Context, arg TouchPortalSessionParams) (int64, error)
 	TouchRatePlan(ctx context.Context, arg TouchRatePlanParams) error
