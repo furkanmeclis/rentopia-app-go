@@ -22,7 +22,7 @@ import {
   useServerListState,
 } from "@/components/entity";
 import { useUrlListDefaults } from "@/components/entity/use-url-list-defaults";
-import { createColumn } from "@/components/tables";
+import { createColumn, createSelectColumnDef } from "@/components/tables";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -204,6 +204,7 @@ export function FieldTasksBoardPage() {
   const columns = useMemo(
     () =>
       [
+        ...(planner ? [createSelectColumnDef<FieldTask>()] : []),
         createColumn<FieldTask>({
           accessorKey: "task_type",
           labelKey: "field_tasks.columns.task_type",
@@ -287,7 +288,7 @@ export function FieldTasksBoardPage() {
           enableSorting: false,
           cell: ({ row }) =>
             row.original.vehicle ? (
-              <span className="font-mono text-xs font-semibold">
+              <span className="font-mono text-xs font-semibold whitespace-nowrap">
                 {row.original.vehicle.plate}
               </span>
             ) : (
@@ -406,7 +407,7 @@ export function FieldTasksBoardPage() {
           },
         }),
       ] as ColumnDef<FieldTask, unknown>[],
-    [facets, locale, router, slug, t],
+    [facets, locale, planner, router, slug, t],
   );
 
   const refresh = () => {

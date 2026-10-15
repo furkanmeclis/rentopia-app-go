@@ -32,6 +32,12 @@ The quote is **re-validated server-side** when the reservation is created:
 
 The quote breakdown (lines, pricing, extras, coupon, manual discount) and the **policy part of the settings version** are copied onto the reservation as an immutable snapshot (`price.snapshot`, `policy`, `settings_version`). Later rate-plan, settings or product edits never change a sold reservation.
 
+### Delivery and collection (M4)
+
+A quote side can be a delivery point (airport, hotel, address zone) with `pickup_delivery` / `return_delivery` details (address, district, city, coordinates, contact, flight number, meeting note). The `DeliveryQuoter` port (field tasks) checks eligibility (active delivery point, channel, minimum notice, point or branch hours and holidays, address required, district / radius) and prices each side from the point's delivery extra or flat fee. Fees are `delivery` lines (code `delivery` / `collection`) of the breakdown; a manual `delivery_fee` needs `tenant.price.override`. Problems answer per field (`pickup_point_uuid` …); search drops the price of an ineligible product. The details are stored on the quote and copied to the reservation, and changes and extensions re-check them. See [field-tasks.md](./field-tasks.md).
+
+The lifecycle listener is a fan-out (`Listeners{rentals, fieldTasks}`); `confirmed` is also sent when a reservation is created confirmed, when a request is accepted and on reinstate, so delivery and collection tasks open as soon as the booking is firm.
+
 ## 3. State machine
 
 ```text
@@ -148,4 +154,4 @@ Nav group **Rezervasyonlar**: Rezervasyonlar (list: facets, live, export, bulk c
 - Payments are implemented ([payments.md](./payments.md)); documents, handover and returns are in rentals.
 - Rentals (M3, [rentals.md](./rentals.md)): a `LifecycleListener` (`SetLifecycleListener`) is told about these events: `plate_fixed`, `confirmed`, `terminated`, `changed` and `drivers_changed`. The rental is created when a confirmed reservation has a fixed plate. Once the vehicle is handed over, the engine answers `rental_underway` to cancel, product change and start or pick-up changes. Documents are in [contracts.md](./contracts.md).
 - Customer-facing channels (web / widget / API) reuse the same quote → reservation flow; their auth and rate limits are out of M2.
-- Search pick-up points and delivery fees are accepted by the API but not offered by the wizard yet.
+- Delivery to a point or an address is implemented (M4, [field-tasks.md](./field-tasks.md)); the wizard offers it.

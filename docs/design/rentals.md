@@ -110,6 +110,13 @@ Guards keep a started rental fixed: release, product change, a re-plan to anothe
 
 `operation_tasks` are typed work items of a branch, also used later by the mobile handover and return flows (TEC-712 / 713).
 
+Since M4 these rows are also the field tasks ([field-tasks.md](./field-tasks.md), migration 000300):
+
+- Statuses are `planned`, `assigned`, `en_route`, `issue_reported`, `completed` and `cancelled` (formerly open / in_progress / done); assigning moves planned → assigned, unassigning back. Every transition is validated by one table and written to `operation_task_events` by a trigger.
+- Types add `transfer` (completion moves the vehicle's branch through the fleet transfer) and `other`.
+- A task has a place: the branch desk, a service point, or an address (with optional coordinates), plus contact, flight number, meeting note and a planned duration. Handover / return tasks of the rental are placed at the reservation's pick-up / return point (`placement.Locate`).
+- `origin` tells who opened it (`reservation`, `rental`, `manual`). A delivery reservation opens its handover / return tasks before the rental exists; the rental's insert adopts that row (same task, assignee kept) instead of opening a second one.
+
 | Type | Opened when | Closed by |
 |------|-------------|-----------|
 | preparation | rental created | staff (complete) |

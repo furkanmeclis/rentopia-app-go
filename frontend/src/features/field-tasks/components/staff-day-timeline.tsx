@@ -101,14 +101,21 @@ export function StaffDayTimeline({
   const nowX =
     now >= window.from && now < window.to ? xOf(now, window, width) : null;
 
+  // Once per day (the grid mounts after the first load): scroll to now,
+  // else to the first task, else to 07:00.
+  const scrolledFor = useRef<string | null>(null);
+  const firstDue = query.data?.items[0]?.due_at;
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el) return;
-    const target = nowX ?? xOf(addHoursTo(window.from, 7), window, width);
+    if (!el || !query.isSuccess || scrolledFor.current === day) return;
+    scrolledFor.current = day;
+    const target =
+      nowX ??
+      (firstDue
+        ? xOf(parseISO(firstDue), window, width)
+        : xOf(addHoursTo(window.from, 7), window, width));
     el.scrollLeft = Math.max(0, target - (el.clientWidth - PERSON_COLUMN) / 3);
-    // On day changes only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [day]);
+  }, [day, firstDue, nowX, query.isSuccess, width, window]);
 
   const rows = useMemo<Row[]>(() => {
     const tasks = query.data?.items ?? [];

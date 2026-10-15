@@ -1,6 +1,7 @@
 "use client";
 
 import { Clock, Info, Truck } from "lucide-react";
+import { useEffect } from "react";
 import { useFormContext, useWatch } from "react-hook-form";
 import { z } from "zod";
 
@@ -93,9 +94,11 @@ export function deliveryRequest(input: DeliveryFieldInput) {
         ...contact,
       })
     : null;
+  // The same point keeps the address and meeting details; the flight
+  // number belongs to the arrival only.
   const ret = returnPoint
     ? samePoint
-      ? pickup
+      ? pickup && compact({ ...pickup, flight_number: "" })
       : compact({
           address: v.return_address,
           district: v.return_district,
@@ -193,8 +196,14 @@ export function DeliveryFields() {
     value: p.uuid,
     label: p.name,
   });
-  const sameAvailable =
-    Boolean(selectedPickup) && returnBranch === pickupBranch;
+  // "Same as the pick-up" only makes sense at the same branch; a return
+  // at another branch falls back to its desk.
+  const sameAvailable = returnBranch === pickupBranch;
+  useEffect(() => {
+    if (!sameAvailable && returnPoint === SAME_POINT) {
+      form.setValue("return_point_uuid", DESK);
+    }
+  }, [form, returnPoint, sameAvailable]);
 
   return (
     <div className="space-y-4 rounded-lg border border-dashed p-4 sm:col-span-2 xl:col-span-6">

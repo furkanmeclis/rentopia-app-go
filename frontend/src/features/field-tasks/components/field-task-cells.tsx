@@ -32,7 +32,10 @@ export function FieldTaskTypeBadge({
 }) {
   const { t } = useLocale();
   return (
-    <Badge variant={task.delivery ? "default" : "secondary"} className="gap-1">
+    <Badge
+      variant={task.delivery ? "default" : "secondary"}
+      className="gap-1 whitespace-nowrap"
+    >
       {task.delivery ? <Truck className="size-3" aria-hidden /> : null}
       {taskTypeLabel(t, task)}
     </Badge>
