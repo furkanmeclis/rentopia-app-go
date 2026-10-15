@@ -297,13 +297,13 @@ func (h *Handler) RefreshDocument(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, r, http.StatusOK, out)
 }
 
-// GetVersion serves GET /v1/tenant/documents/{uuid}/versions/{versionUuid}.
+// GetVersion serves GET /v1/tenant/documents/{uuid}/versions/{documentVersionUuid}.
 func (h *Handler) GetVersion(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathUUID(w, r, "uuid")
 	if !ok {
 		return
 	}
-	vid, ok := pathUUID(w, r, "versionUuid")
+	vid, ok := pathUUID(w, r, "documentVersionUuid")
 	if !ok {
 		return
 	}
@@ -315,13 +315,13 @@ func (h *Handler) GetVersion(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, r, http.StatusOK, v)
 }
 
-// IssueVersion serves POST …/versions/{versionUuid}/issue.
+// IssueVersion serves POST …/versions/{documentVersionUuid}/issue.
 func (h *Handler) IssueVersion(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathUUID(w, r, "uuid")
 	if !ok {
 		return
 	}
-	vid, ok := pathUUID(w, r, "versionUuid")
+	vid, ok := pathUUID(w, r, "documentVersionUuid")
 	if !ok {
 		return
 	}
@@ -338,13 +338,13 @@ func (h *Handler) IssueVersion(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, r, http.StatusOK, d)
 }
 
-// ApproveVersion serves POST …/versions/{versionUuid}/approve.
+// ApproveVersion serves POST …/versions/{documentVersionUuid}/approve.
 func (h *Handler) ApproveVersion(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathUUID(w, r, "uuid")
 	if !ok {
 		return
 	}
-	vid, ok := pathUUID(w, r, "versionUuid")
+	vid, ok := pathUUID(w, r, "documentVersionUuid")
 	if !ok {
 		return
 	}
@@ -361,14 +361,14 @@ func (h *Handler) ApproveVersion(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, r, http.StatusOK, d)
 }
 
-// DownloadPDF serves GET …/versions/{versionUuid}/pdf (streamed by the API,
+// DownloadPDF serves GET …/versions/{documentVersionUuid}/pdf (streamed by the API,
 // tenant.document.download; every download is an activity event).
 func (h *Handler) DownloadPDF(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathUUID(w, r, "uuid")
 	if !ok {
 		return
 	}
-	vid, ok := pathUUID(w, r, "versionUuid")
+	vid, ok := pathUUID(w, r, "documentVersionUuid")
 	if !ok {
 		return
 	}

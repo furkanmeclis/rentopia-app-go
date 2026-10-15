@@ -55,10 +55,10 @@ func RegisterRoutes(mux *http.ServeMux, h *handler.Handler, tokens *jwt.Manager,
 	route("POST /v1/tenant/documents", h.PrepareDocument, read)
 	route("GET /v1/tenant/documents/{uuid}", h.GetDocument, read)
 	route("POST /v1/tenant/documents/{uuid}/refresh", h.RefreshDocument, read)
-	route("GET /v1/tenant/documents/{uuid}/versions/{versionUuid}", h.GetVersion, read)
-	route("POST /v1/tenant/documents/{uuid}/versions/{versionUuid}/issue", h.IssueVersion, read)
-	route("POST /v1/tenant/documents/{uuid}/versions/{versionUuid}/approve", h.ApproveVersion, read)
-	route("GET /v1/tenant/documents/{uuid}/versions/{versionUuid}/pdf", h.DownloadPDF, read, perm(rbac.PermTenantDocumentDownload))
+	route("GET /v1/tenant/documents/{uuid}/versions/{documentVersionUuid}", h.GetVersion, read)
+	route("POST /v1/tenant/documents/{uuid}/versions/{documentVersionUuid}/issue", h.IssueVersion, read)
+	route("POST /v1/tenant/documents/{uuid}/versions/{documentVersionUuid}/approve", h.ApproveVersion, read)
+	route("GET /v1/tenant/documents/{uuid}/versions/{documentVersionUuid}/pdf", h.DownloadPDF, read, perm(rbac.PermTenantDocumentDownload))
 }
 
 // RegisterLiveResources declares the live channels.

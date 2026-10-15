@@ -22,16 +22,28 @@ var tokenRE = regexp.MustCompile(`\{\{\s*([a-z_]+\.[a-z_]+)\s*\}\}`)
 // (paragraphs, headings, lists, tables, links, inline styles of the editor,
 // data: images); scripts, event handlers and remote loads are dropped.
 var policy = func() *bluemonday.Policy {
-	p := bluemonday.UGCPolicy()
+	p := bluemonday.NewPolicy()
+	p.AllowStandardAttributes()
+	p.AllowElements(
+		"p", "br", "h1", "h2", "h3", "h4", "h5", "h6", "b", "strong", "i", "em", "u", "s", "sub", "sup", "mark", "span",
+		"div", "blockquote", "pre", "code", "hr", "ul", "ol", "li", "table", "thead", "tbody", "tfoot", "tr", "td", "th",
+		"caption", "colgroup", "col", "figure", "figcaption",
+	)
+	p.AllowStandardURLs()
+	p.AllowAttrs("href").OnElements("a")
+	// Images only as data: URLs (the PDF printer blocks the network; the
+	// panel preview must not load remote content either).
+	p.AllowDataURIImages()
+	p.AllowAttrs("src").Matching(regexp.MustCompile(`^data:image/(png|jpeg|gif|webp);base64,`)).OnElements("img")
+	p.AllowAttrs("alt", "width", "height").OnElements("img")
 	p.AllowAttrs("class").Globally()
+	p.AllowAttrs("colspan", "rowspan").OnElements("td", "th")
+	p.AllowAttrs("value").OnElements("li")
 	p.AllowStyles(
 		"text-align", "font-weight", "font-style", "text-decoration", "color", "background-color", "font-size",
 		"font-family", "white-space", "margin-left", "padding-left", "padding-inline-start", "width", "border",
 		"vertical-align",
 	).Globally()
-	p.AllowDataURIImages()
-	p.AllowElements("u", "s", "mark", "span", "figure", "figcaption", "colgroup", "col")
-	p.AllowAttrs("colspan", "rowspan").OnElements("td", "th")
 	return p
 }()
 

@@ -253,17 +253,6 @@ func (f *fx) reserve(from, to time.Time, ret *ref) resmodel.Reservation {
 	return r
 }
 
-func (f *fx) rentalOf(res resmodel.Reservation) model.Rental {
-	f.t.Helper()
-	items, _, err := f.rentals.List(f.ctx, f.org, model.ListFilter{ReservationUUIDs: []uuid.UUID{res.UUID}})
-	if err != nil || len(items) != 1 {
-		f.t.Fatalf("rental of reservation: %v %d", err, len(items))
-	}
-	r, err := f.rentals.Get(f.ctx, f.org, items[0].UUID)
-	f.must(err)
-	return r
-}
-
 func (f *fx) tasks(rental uuid.UUID) map[string]string {
 	f.t.Helper()
 	items, _, err := f.rentals.ListTasks(f.ctx, f.org, model.TaskFilter{RentalUUIDs: []uuid.UUID{rental}, Limit: 50})
