@@ -83,6 +83,15 @@ func VehicleDocumentObjectKey(orgUUID, vehicleUUID, documentUUID, fileUUID, ext 
 	return fmt.Sprintf("organizations/%s/vehicles/%s/documents/%s/%s.%s", orgUUID, vehicleUUID, documentUUID, fileUUID, trimExt(ext))
 }
 
+// CustomerDocumentObjectKey builds
+// organizations/{orgUUID}/customers/{customerUUID}/documents/{documentUUID}/{fileUUID}.{ext}
+// for identity / licence scans and other customer documents (private:
+// streamed by the API only after the reveal permission check). A replaced
+// file gets a new fileUUID.
+func CustomerDocumentObjectKey(orgUUID, customerUUID, documentUUID, fileUUID, ext string) string {
+	return fmt.Sprintf("organizations/%s/customers/%s/documents/%s/%s.%s", orgUUID, customerUUID, documentUUID, fileUUID, trimExt(ext))
+}
+
 func trimExt(ext string) string {
 	for len(ext) > 0 && ext[0] == '.' {
 		ext = ext[1:]
