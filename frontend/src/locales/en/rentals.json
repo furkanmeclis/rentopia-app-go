@@ -317,5 +317,6 @@
   "detail.open_inspections": "Handover / return forms",
   "actions.mobile_handover": "Mobile handover",
   "actions.mobile_return": "Mobile return",
-  "policy.fuel_fee_per_percent": "Missing fuel fee (per %)"
+  "policy.fuel_fee_per_percent": "Missing fuel fee (per %)",
+  "tabs.ledger": "Ledger"
 }

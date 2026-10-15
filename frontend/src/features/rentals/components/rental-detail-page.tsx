@@ -45,6 +45,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { permissions } from "@/config/permissions";
 import { routes } from "@/config/routes";
 import { DocumentsSection } from "@/features/contracts/components/documents-section";
+import { RentalLedgerCard } from "@/features/finance/components/rental-ledger-card";
 import {
   ChargeStatusChip,
   RentalStatusChip,
@@ -1115,6 +1116,11 @@ export function RentalDetailPage({ uuid }: { uuid: string }) {
                     {t("rentals.tabs.documents")}
                   </TabsTrigger>
                 ) : null}
+                {can(permissions.tenant.finance.accounts.read) ? (
+                  <TabsTrigger value="ledger">
+                    {t("rentals.tabs.ledger")}
+                  </TabsTrigger>
+                ) : null}
                 <TabsTrigger value="tasks">
                   {t("rentals.tabs.tasks")}
                 </TabsTrigger>
@@ -1140,6 +1146,11 @@ export function RentalDetailPage({ uuid }: { uuid: string }) {
               {can(permissions.tenant.contracts.read) ? (
                 <TabsContent value="documents">
                   <DocumentsSection reservationUuid={r.reservation.uuid} />
+                </TabsContent>
+              ) : null}
+              {can(permissions.tenant.finance.accounts.read) ? (
+                <TabsContent value="ledger">
+                  <RentalLedgerCard rentalUuid={r.uuid} />
                 </TabsContent>
               ) : null}
               <TabsContent value="tasks">

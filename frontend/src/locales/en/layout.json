@@ -74,5 +74,12 @@
   "nav_field_tasks": "Field tasks",
   "nav_inspections": "Handover / return forms",
   "nav_tenant_settings_inspection_templates": "Handover / return forms",
-  "nav_customer_requests": "Customer requests"
+  "nav_customer_requests": "Customer requests",
+  "section_finance": "Finance",
+  "nav_finance_accounts": "Accounts",
+  "nav_finance_cash_accounts": "Cash and bank",
+  "nav_finance_movements": "Cash movements",
+  "nav_finance_expenses": "Expenses",
+  "nav_finance_categories": "Expense categories",
+  "nav_finance_reports": "Finance reports"
 }

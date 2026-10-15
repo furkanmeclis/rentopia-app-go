@@ -50,5 +50,7 @@
   "confirm.campaigns.deactivate": "Deactivate {{count}} selected campaigns? Their codes are no longer accepted.",
   "actions.reservations.cancel": "Cancel reservations",
   "actions.reservations.assign_staff": "Assign staff",
-  "confirm.reservations.cancel": "Cancel the {{count}} selected reservations? Capacity is released; this cannot be undone."
+  "confirm.reservations.cancel": "Cancel the {{count}} selected reservations? Capacity is released; this cannot be undone.",
+  "actions.cash_movements.set_category": "Set category",
+  "actions.expenses.set_category": "Set category"
 }

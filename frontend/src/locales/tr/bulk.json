@@ -50,5 +50,7 @@
   "confirm.campaigns.deactivate": "Seçili {{count}} kampanya pasifleştirilsin mi? Kodları artık kabul edilmez.",
   "actions.reservations.cancel": "Rezervasyonları iptal et",
   "actions.reservations.assign_staff": "Personel ata",
-  "confirm.reservations.cancel": "Seçili {{count}} rezervasyon iptal edilsin mi? Kapasite serbest kalır; bu işlem geri alınamaz."
+  "confirm.reservations.cancel": "Seçili {{count}} rezervasyon iptal edilsin mi? Kapasite serbest kalır; bu işlem geri alınamaz.",
+  "actions.cash_movements.set_category": "Kategori ata",
+  "actions.expenses.set_category": "Kategori ata"
 }

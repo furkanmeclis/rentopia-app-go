@@ -119,7 +119,12 @@ export type IoResource =
   | "tenant.extras"
   | "tenant.campaigns"
   | "tenant.reservations"
-  | "tenant.rentals";
+  | "tenant.rentals"
+  | "tenant.finance_accounts"
+  | "tenant.ledger_entries"
+  | "tenant.cash_accounts"
+  | "tenant.cash_movements"
+  | "tenant.expenses";
 
 export const EXPORT_PATHS: Record<IoResource, string> = {
   "platform.users": "/v1/platform/users/export",
@@ -143,6 +148,11 @@ export const EXPORT_PATHS: Record<IoResource, string> = {
   "tenant.campaigns": "/v1/tenant/campaigns/export",
   "tenant.reservations": "/v1/tenant/reservations/export",
   "tenant.rentals": "/v1/tenant/rentals/export",
+  "tenant.finance_accounts": "/v1/tenant/finance/accounts/export",
+  "tenant.ledger_entries": "/v1/tenant/finance/entries/export",
+  "tenant.cash_accounts": "/v1/tenant/finance/cash-accounts/export",
+  "tenant.cash_movements": "/v1/tenant/finance/movements/export",
+  "tenant.expenses": "/v1/tenant/finance/expenses/export",
 };
 
 export const IMPORT_PATHS: Partial<
@@ -171,6 +181,18 @@ export const IMPORT_PATHS: Partial<
   "tenant.customers": {
     upload: "/v1/tenant/customers/import",
     sample: "/v1/tenant/customers/import/sample",
+  },
+  "tenant.cash_accounts": {
+    upload: "/v1/tenant/finance/cash-accounts/import",
+    sample: "/v1/tenant/finance/cash-accounts/import/sample",
+  },
+  "tenant.cash_movements": {
+    upload: "/v1/tenant/finance/movements/import",
+    sample: "/v1/tenant/finance/movements/import/sample",
+  },
+  "tenant.expenses": {
+    upload: "/v1/tenant/finance/expenses/import",
+    sample: "/v1/tenant/finance/expenses/import/sample",
   },
 };
 
@@ -266,5 +288,48 @@ export const IMPORT_SCHEMA: Partial<
     { key: "billing_district", labelKey: "customers.fields.billing_district" },
     { key: "tags", labelKey: "customers.fields.tags" },
     { key: "note", labelKey: "customers.fields.note" },
+  ],
+  "tenant.cash_accounts": [
+    { key: "code", labelKey: "finance.io.code", required: true },
+    { key: "name", labelKey: "finance.io.name", required: true },
+    { key: "kind", labelKey: "finance.io.kind", required: true },
+    { key: "branch_code", labelKey: "finance.io.branch_code" },
+    { key: "currency", labelKey: "finance.io.currency" },
+    { key: "opening_balance", labelKey: "finance.io.opening_balance" },
+    { key: "opening_date", labelKey: "finance.io.opening_date" },
+    { key: "bank_name", labelKey: "finance.io.bank_name" },
+    { key: "iban", labelKey: "finance.io.iban" },
+    { key: "note", labelKey: "finance.io.note" },
+  ],
+  "tenant.cash_movements": [
+    {
+      key: "account_code",
+      labelKey: "finance.io.account_code",
+      required: true,
+    },
+    { key: "movement_date", labelKey: "finance.io.movement_date" },
+    { key: "kind", labelKey: "finance.io.kind", required: true },
+    { key: "direction", labelKey: "finance.io.direction" },
+    { key: "amount", labelKey: "finance.io.amount", required: true },
+    { key: "description", labelKey: "finance.io.description" },
+    { key: "reason", labelKey: "finance.io.reason" },
+    { key: "category_code", labelKey: "finance.io.category_code" },
+  ],
+  "tenant.expenses": [
+    { key: "expense_date", labelKey: "finance.io.expense_date" },
+    {
+      key: "category_code",
+      labelKey: "finance.io.category_code",
+      required: true,
+    },
+    { key: "total_amount", labelKey: "finance.io.total_amount" },
+    { key: "net_amount", labelKey: "finance.io.net_amount" },
+    { key: "vat_rate", labelKey: "finance.io.vat_rate" },
+    { key: "description", labelKey: "finance.io.description" },
+    { key: "supplier_name", labelKey: "finance.io.supplier_name" },
+    { key: "document_no", labelKey: "finance.io.document_no" },
+    { key: "branch_code", labelKey: "finance.io.branch_code" },
+    { key: "plate", labelKey: "finance.io.plate" },
+    { key: "cash_account_code", labelKey: "finance.io.cash_account_code" },
   ],
 };

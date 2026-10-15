@@ -49,6 +49,7 @@ import { CustomerConsentsTab } from "@/features/customers/components/customer-co
 import { CustomerDocumentsTab } from "@/features/customers/components/customer-documents-tab";
 import { CustomerDriversTab } from "@/features/customers/components/customer-drivers-tab";
 import { CustomerGeneralTab } from "@/features/customers/components/customer-general-tab";
+import { CustomerLedgerCard } from "@/features/finance/components/customer-ledger-card";
 import {
   CustomerRevealProvider,
   useCustomerReveal,
@@ -441,10 +442,7 @@ function CustomerDetail({
               />
             </TabsContent>
             <TabsContent value="account">
-              <ComingSoonTab
-                title={t("customers.tabs.account")}
-                description={t("customers.coming.account")}
-              />
+              <CustomerLedgerCard customerUuid={uuid} />
             </TabsContent>
             <TabsContent value="activity">
               <CustomerActivityCard uuid={uuid} />

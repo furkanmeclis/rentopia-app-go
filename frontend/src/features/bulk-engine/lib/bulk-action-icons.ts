@@ -77,6 +77,12 @@ const bulkActionIconCatalog: Record<
     cancel: CircleOff,
     assign_staff: UserCheck,
   },
+  "tenant.cash_movements": {
+    set_category: Tag,
+  },
+  "tenant.expenses": {
+    set_category: Tag,
+  },
 };
 
 export function resolveBulkActionIcon(

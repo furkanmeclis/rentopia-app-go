@@ -170,5 +170,21 @@
   "labels.tenant.contracts.write": "Şablon düzenle, belge hazırla ve onay kaydet",
   "labels.tenant.contracts.activate": "Şablon sürümünü aktifleştir",
   "groups.tenant_rentals": "Kiralamalar",
-  "groups.tenant_contracts": "Sözleşmeler"
+  "groups.tenant_contracts": "Sözleşmeler",
+  "labels.tenant.finance.accounts.read": "Cari hesapları görüntüle",
+  "labels.tenant.finance.accounts.write": "Tahsilat, iade ve ekstre işlemleri",
+  "labels.tenant.finance.accounts.export": "Cari hesapları dışa aktar",
+  "labels.tenant.finance.ledger.adjust": "Düzeltme ve ters kayıt yap",
+  "labels.tenant.finance.cash.read": "Kasa ve bankaları görüntüle",
+  "labels.tenant.finance.cash.write": "Kasa hareketi ve virman yap",
+  "labels.tenant.finance.cash.export": "Kasa hareketlerini dışa aktar",
+  "labels.tenant.finance.cash.import": "Kasa hareketlerini içe aktar",
+  "labels.tenant.finance.cash.bulk.set_category": "Hareketlere toplu kategori ata",
+  "labels.tenant.finance.expenses.read": "Giderleri görüntüle",
+  "labels.tenant.finance.expenses.write": "Gider ve kategori yönet",
+  "labels.tenant.finance.expenses.export": "Giderleri dışa aktar",
+  "labels.tenant.finance.expenses.import": "Giderleri içe aktar",
+  "labels.tenant.finance.expenses.bulk.set_category": "Giderlere toplu kategori ata",
+  "labels.tenant.finance.reports.read": "Finans raporlarını görüntüle",
+  "groups.tenant_finance": "Finans"
 }

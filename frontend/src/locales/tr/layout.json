@@ -74,5 +74,12 @@
   "nav_field_tasks": "Saha görevleri",
   "nav_inspections": "Teslim / iade formları",
   "nav_tenant_settings_inspection_templates": "Teslim / iade formları",
-  "nav_customer_requests": "Müşteri talepleri"
+  "nav_customer_requests": "Müşteri talepleri",
+  "section_finance": "Finans",
+  "nav_finance_accounts": "Cari hesaplar",
+  "nav_finance_cash_accounts": "Kasa ve banka",
+  "nav_finance_movements": "Kasa / banka hareketleri",
+  "nav_finance_expenses": "Giderler",
+  "nav_finance_categories": "Gider kategorileri",
+  "nav_finance_reports": "Finans raporları"
 }

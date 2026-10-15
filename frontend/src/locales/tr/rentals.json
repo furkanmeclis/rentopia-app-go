@@ -317,5 +317,6 @@
   "detail.open_inspections": "Teslim / iade formları",
   "actions.mobile_handover": "Mobil teslim",
   "actions.mobile_return": "Mobil iade",
-  "policy.fuel_fee_per_percent": "Eksik yakıt ücreti (%)"
+  "policy.fuel_fee_per_percent": "Eksik yakıt ücreti (%)",
+  "tabs.ledger": "Cari"
 }
