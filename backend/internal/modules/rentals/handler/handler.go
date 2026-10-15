@@ -226,6 +226,29 @@ func (h *Handler) decide(w http.ResponseWriter, r *http.Request, approve bool) {
 	response.JSON(w, r, http.StatusOK, res)
 }
 
+// OverrideCharge serves PATCH …/{uuid}/charges/{chargeUuid}.
+func (h *Handler) OverrideCharge(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathUUID(w, r, "uuid")
+	if !ok {
+		return
+	}
+	chargeID, ok := pathUUID(w, r, "chargeUuid")
+	if !ok {
+		return
+	}
+	var in model.ChargeOverrideInput
+	if !decodeJSON(w, r, &in, true) {
+		return
+	}
+	res, err := h.svc.OverrideCharge(r.Context(), orgID(r), id, chargeID, in)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	h.audit(r, model.ResourceRentals, "rentals.charge_overridden", id, map[string]any{"charge_uuid": chargeID})
+	response.JSON(w, r, http.StatusOK, res)
+}
+
 // ApproveCharge serves POST …/{uuid}/charges/{chargeUuid}/approve.
 func (h *Handler) ApproveCharge(w http.ResponseWriter, r *http.Request) { h.decide(w, r, true) }
 

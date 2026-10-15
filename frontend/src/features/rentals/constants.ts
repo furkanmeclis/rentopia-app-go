@@ -43,6 +43,7 @@ export const CHARGE_KINDS: ChargeKind[] = [
   "damage",
   "fuel",
   "mileage",
+  "equipment",
   "other",
 ];
 
@@ -52,6 +53,7 @@ export const CHARGE_KIND_LABEL_KEYS: Record<ChargeKind, string> = {
   damage: "rentals.charges.kinds.damage",
   fuel: "rentals.charges.kinds.fuel",
   mileage: "rentals.charges.kinds.mileage",
+  equipment: "rentals.charges.kinds.equipment",
   other: "rentals.charges.kinds.other",
 };
 
@@ -72,6 +74,8 @@ export const TASK_TYPES: OperationTaskType[] = [
   "handover",
   "return",
   "cleaning",
+  "maintenance",
+  "deposit",
 ];
 
 export const TASK_TYPE_LABEL_KEYS: Record<OperationTaskType, string> = {
@@ -79,6 +83,8 @@ export const TASK_TYPE_LABEL_KEYS: Record<OperationTaskType, string> = {
   handover: "rentals.tasks.types.handover",
   return: "rentals.tasks.types.return",
   cleaning: "rentals.tasks.types.cleaning",
+  maintenance: "rentals.tasks.types.maintenance",
+  deposit: "rentals.tasks.types.deposit",
 };
 
 export const TASK_STATUSES: OperationTaskStatus[] = [
@@ -125,6 +131,10 @@ export const EVENT_LABEL_KEYS: Record<string, string> = {
   document_prepared: "rentals.events.actions.document_prepared",
   document_approved: "rentals.events.actions.document_approved",
   reapproval_required: "rentals.events.actions.reapproval_required",
+  charge_overridden: "rentals.events.actions.charge_overridden",
+  inspection_finalized: "rentals.events.actions.inspection_finalized",
+  inspection_revised: "rentals.events.actions.inspection_revised",
+  inspection_reviewed: "rentals.events.actions.inspection_reviewed",
 };
 
 export function eventLabel(t: (key: string) => string, action: string) {

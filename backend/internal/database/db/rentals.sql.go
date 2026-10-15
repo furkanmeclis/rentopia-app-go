@@ -140,6 +140,29 @@ func (q *Queries) CountLivePolicyLateCharges(ctx context.Context, arg CountLiveP
 	return column_1, err
 }
 
+const countPendingInspectionReviews = `-- name: CountPendingInspectionReviews :one
+SELECT COUNT(*)::bigint
+FROM inspections i
+WHERE i.organization_id = $1
+  AND i.rental_id = $2
+  AND i.review_status = 'pending'
+  AND i.status = 'finalized'
+`
+
+type CountPendingInspectionReviewsParams struct {
+	OrganizationID int64 `json:"organization_id"`
+	RentalID       int64 `json:"rental_id"`
+}
+
+// Return forms of the rental that wait for an authorized review (dispute
+// or missing signature): the return check cannot finish before.
+func (q *Queries) CountPendingInspectionReviews(ctx context.Context, arg CountPendingInspectionReviewsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countPendingInspectionReviews, arg.OrganizationID, arg.RentalID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const countRentalEvents = `-- name: CountRentalEvents :one
 SELECT COUNT(*)::bigint FROM rental_events e
 WHERE e.organization_id = $1 AND e.rental_id = $2
@@ -315,7 +338,7 @@ func (q *Queries) GetRentalBranchByID(ctx context.Context, arg GetRentalBranchBy
 }
 
 const getRentalCharge = `-- name: GetRentalCharge :one
-SELECT ch.id, ch.uuid, ch.kind, ch.status, ch.amount
+SELECT ch.id, ch.uuid, ch.kind, ch.source, ch.status, ch.amount, ch.disputed, ch.original_amount, ch.inspection_id
 FROM rental_charges ch
 WHERE ch.organization_id = $1
   AND ch.rental_id = $2
@@ -329,11 +352,15 @@ type GetRentalChargeParams struct {
 }
 
 type GetRentalChargeRow struct {
-	ID     int64          `json:"id"`
-	Uuid   uuid.UUID      `json:"uuid"`
-	Kind   string         `json:"kind"`
-	Status string         `json:"status"`
-	Amount pgtype.Numeric `json:"amount"`
+	ID             int64          `json:"id"`
+	Uuid           uuid.UUID      `json:"uuid"`
+	Kind           string         `json:"kind"`
+	Source         string         `json:"source"`
+	Status         string         `json:"status"`
+	Amount         pgtype.Numeric `json:"amount"`
+	Disputed       bool           `json:"disputed"`
+	OriginalAmount pgtype.Numeric `json:"original_amount"`
+	InspectionID   pgtype.Int8    `json:"inspection_id"`
 }
 
 func (q *Queries) GetRentalCharge(ctx context.Context, arg GetRentalChargeParams) (GetRentalChargeRow, error) {
@@ -343,8 +370,12 @@ func (q *Queries) GetRentalCharge(ctx context.Context, arg GetRentalChargeParams
 		&i.ID,
 		&i.Uuid,
 		&i.Kind,
+		&i.Source,
 		&i.Status,
 		&i.Amount,
+		&i.Disputed,
+		&i.OriginalAmount,
+		&i.InspectionID,
 	)
 	return i, err
 }
@@ -1060,12 +1091,17 @@ func (q *Queries) ListOverdueRentals(ctx context.Context, arg ListOverdueRentals
 
 const listRentalCharges = `-- name: ListRentalCharges :many
 SELECT ch.uuid, ch.kind, ch.source, ch.status, ch.currency, ch.amount, ch.settings_version, ch.calculation,
-    ch.reason, ch.decided_at, ch.decision_note, ch.created_at,
+    ch.reason, ch.decided_at, ch.decision_note, ch.created_at, ch.disputed, ch.original_amount, ch.override_reason,
+    ch.overridden_at,
+    ins.uuid AS inspection_uuid,
     du.uuid AS decided_by_uuid, du.name AS decided_by_name, du.surname AS decided_by_surname, du.email AS decided_by_email,
-    cu.uuid AS created_by_uuid, cu.name AS created_by_name, cu.surname AS created_by_surname, cu.email AS created_by_email
+    cu.uuid AS created_by_uuid, cu.name AS created_by_name, cu.surname AS created_by_surname, cu.email AS created_by_email,
+    ou.uuid AS overridden_by_uuid, ou.name AS overridden_by_name, ou.surname AS overridden_by_surname, ou.email AS overridden_by_email
 FROM rental_charges ch
+LEFT JOIN inspections ins ON ins.organization_id = ch.organization_id AND ins.id = ch.inspection_id
 LEFT JOIN users du ON du.id = ch.decided_by
 LEFT JOIN users cu ON cu.id = ch.created_by
+LEFT JOIN users ou ON ou.id = ch.overridden_by
 WHERE ch.organization_id = $1
   AND ch.rental_id = $2
 ORDER BY ch.created_at, ch.id
@@ -1077,26 +1113,35 @@ type ListRentalChargesParams struct {
 }
 
 type ListRentalChargesRow struct {
-	Uuid             uuid.UUID          `json:"uuid"`
-	Kind             string             `json:"kind"`
-	Source           string             `json:"source"`
-	Status           string             `json:"status"`
-	Currency         string             `json:"currency"`
-	Amount           pgtype.Numeric     `json:"amount"`
-	SettingsVersion  int32              `json:"settings_version"`
-	Calculation      []byte             `json:"calculation"`
-	Reason           string             `json:"reason"`
-	DecidedAt        pgtype.Timestamptz `json:"decided_at"`
-	DecisionNote     string             `json:"decision_note"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	DecidedByUuid    pgtype.UUID        `json:"decided_by_uuid"`
-	DecidedByName    pgtype.Text        `json:"decided_by_name"`
-	DecidedBySurname pgtype.Text        `json:"decided_by_surname"`
-	DecidedByEmail   pgtype.Text        `json:"decided_by_email"`
-	CreatedByUuid    pgtype.UUID        `json:"created_by_uuid"`
-	CreatedByName    pgtype.Text        `json:"created_by_name"`
-	CreatedBySurname pgtype.Text        `json:"created_by_surname"`
-	CreatedByEmail   pgtype.Text        `json:"created_by_email"`
+	Uuid                uuid.UUID          `json:"uuid"`
+	Kind                string             `json:"kind"`
+	Source              string             `json:"source"`
+	Status              string             `json:"status"`
+	Currency            string             `json:"currency"`
+	Amount              pgtype.Numeric     `json:"amount"`
+	SettingsVersion     int32              `json:"settings_version"`
+	Calculation         []byte             `json:"calculation"`
+	Reason              string             `json:"reason"`
+	DecidedAt           pgtype.Timestamptz `json:"decided_at"`
+	DecisionNote        string             `json:"decision_note"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	Disputed            bool               `json:"disputed"`
+	OriginalAmount      pgtype.Numeric     `json:"original_amount"`
+	OverrideReason      string             `json:"override_reason"`
+	OverriddenAt        pgtype.Timestamptz `json:"overridden_at"`
+	InspectionUuid      pgtype.UUID        `json:"inspection_uuid"`
+	DecidedByUuid       pgtype.UUID        `json:"decided_by_uuid"`
+	DecidedByName       pgtype.Text        `json:"decided_by_name"`
+	DecidedBySurname    pgtype.Text        `json:"decided_by_surname"`
+	DecidedByEmail      pgtype.Text        `json:"decided_by_email"`
+	CreatedByUuid       pgtype.UUID        `json:"created_by_uuid"`
+	CreatedByName       pgtype.Text        `json:"created_by_name"`
+	CreatedBySurname    pgtype.Text        `json:"created_by_surname"`
+	CreatedByEmail      pgtype.Text        `json:"created_by_email"`
+	OverriddenByUuid    pgtype.UUID        `json:"overridden_by_uuid"`
+	OverriddenByName    pgtype.Text        `json:"overridden_by_name"`
+	OverriddenBySurname pgtype.Text        `json:"overridden_by_surname"`
+	OverriddenByEmail   pgtype.Text        `json:"overridden_by_email"`
 }
 
 func (q *Queries) ListRentalCharges(ctx context.Context, arg ListRentalChargesParams) ([]ListRentalChargesRow, error) {
@@ -1121,6 +1166,11 @@ func (q *Queries) ListRentalCharges(ctx context.Context, arg ListRentalChargesPa
 			&i.DecidedAt,
 			&i.DecisionNote,
 			&i.CreatedAt,
+			&i.Disputed,
+			&i.OriginalAmount,
+			&i.OverrideReason,
+			&i.OverriddenAt,
+			&i.InspectionUuid,
 			&i.DecidedByUuid,
 			&i.DecidedByName,
 			&i.DecidedBySurname,
@@ -1129,6 +1179,10 @@ func (q *Queries) ListRentalCharges(ctx context.Context, arg ListRentalChargesPa
 			&i.CreatedByName,
 			&i.CreatedBySurname,
 			&i.CreatedByEmail,
+			&i.OverriddenByUuid,
+			&i.OverriddenByName,
+			&i.OverriddenBySurname,
+			&i.OverriddenByEmail,
 		); err != nil {
 			return nil, err
 		}
@@ -1617,6 +1671,42 @@ func (q *Queries) ListRentals(ctx context.Context, arg ListRentalsParams) ([]Lis
 		return nil, err
 	}
 	return items, nil
+}
+
+const overrideRentalCharge = `-- name: OverrideRentalCharge :execrows
+UPDATE rental_charges
+SET original_amount = COALESCE(original_amount, amount), amount = $1,
+    override_reason = $2, overridden_by = $3,
+    overridden_at = $4
+WHERE organization_id = $5
+  AND id = $6
+  AND status = 'proposed'
+`
+
+type OverrideRentalChargeParams struct {
+	Amount         pgtype.Numeric     `json:"amount"`
+	OverrideReason string             `json:"override_reason"`
+	OverriddenBy   pgtype.Int8        `json:"overridden_by"`
+	OverriddenAt   pgtype.Timestamptz `json:"overridden_at"`
+	OrganizationID int64              `json:"organization_id"`
+	ID             int64              `json:"id"`
+}
+
+// A changed amount of a proposed charge; the first override keeps the
+// computed amount in original_amount.
+func (q *Queries) OverrideRentalCharge(ctx context.Context, arg OverrideRentalChargeParams) (int64, error) {
+	result, err := q.db.Exec(ctx, overrideRentalCharge,
+		arg.Amount,
+		arg.OverrideReason,
+		arg.OverriddenBy,
+		arg.OverriddenAt,
+		arg.OrganizationID,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const setRentalChecked = `-- name: SetRentalChecked :execrows

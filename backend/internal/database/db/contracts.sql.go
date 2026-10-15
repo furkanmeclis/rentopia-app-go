@@ -712,10 +712,11 @@ func (q *Queries) InsertDocument(ctx context.Context, arg InsertDocumentParams) 
 const insertDocumentApproval = `-- name: InsertDocumentApproval :one
 INSERT INTO document_approvals (
     organization_id, document_version_id, content_hash, party, method, approver_name, customer_id, note, recorded_by,
-    approved_at
+    approved_at, signature_id
 ) VALUES (
     $1, $2, $3, $4, $5,
-    $6, $7, $8, $9, $10
+    $6, $7, $8, $9, $10,
+    $11
 )
 RETURNING uuid
 `
@@ -731,6 +732,7 @@ type InsertDocumentApprovalParams struct {
 	Note              string             `json:"note"`
 	RecordedBy        pgtype.Int8        `json:"recorded_by"`
 	ApprovedAt        pgtype.Timestamptz `json:"approved_at"`
+	SignatureID       pgtype.Int8        `json:"signature_id"`
 }
 
 func (q *Queries) InsertDocumentApproval(ctx context.Context, arg InsertDocumentApprovalParams) (uuid.UUID, error) {
@@ -745,6 +747,7 @@ func (q *Queries) InsertDocumentApproval(ctx context.Context, arg InsertDocument
 		arg.Note,
 		arg.RecordedBy,
 		arg.ApprovedAt,
+		arg.SignatureID,
 	)
 	var uuid uuid.UUID
 	err := row.Scan(&uuid)
@@ -952,11 +955,14 @@ SELECT a.uuid, a.content_hash, a.party, a.method, a.approver_name, a.note, a.app
     a.invalidated_reason, a.verified_phone_masked, a.ip_address, a.user_agent,
     v.uuid AS version_uuid, v.version AS version_number,
     l.uuid AS link_uuid, l.signer_role,
-    ru.uuid AS recorded_by_uuid, ru.name AS recorded_by_name, ru.surname AS recorded_by_surname, ru.email AS recorded_by_email
+    ru.uuid AS recorded_by_uuid, ru.name AS recorded_by_name, ru.surname AS recorded_by_surname, ru.email AS recorded_by_email,
+    sig.uuid AS signature_uuid, ins.uuid AS signature_inspection_uuid
 FROM document_approvals a
 JOIN document_versions v ON v.organization_id = a.organization_id AND v.id = a.document_version_id
 LEFT JOIN document_approval_links l ON l.organization_id = a.organization_id AND l.id = a.link_id
 LEFT JOIN users ru ON ru.id = a.recorded_by
+LEFT JOIN inspection_signatures sig ON sig.organization_id = a.organization_id AND sig.id = a.signature_id
+LEFT JOIN inspections ins ON ins.organization_id = sig.organization_id AND ins.id = sig.inspection_id
 WHERE a.organization_id = $1
   AND v.organization_id = $1
   AND (l.organization_id IS NULL OR l.organization_id = $1)
@@ -970,26 +976,28 @@ type ListDocumentApprovalsParams struct {
 }
 
 type ListDocumentApprovalsRow struct {
-	Uuid                uuid.UUID          `json:"uuid"`
-	ContentHash         string             `json:"content_hash"`
-	Party               string             `json:"party"`
-	Method              string             `json:"method"`
-	ApproverName        string             `json:"approver_name"`
-	Note                string             `json:"note"`
-	ApprovedAt          pgtype.Timestamptz `json:"approved_at"`
-	InvalidatedAt       pgtype.Timestamptz `json:"invalidated_at"`
-	InvalidatedReason   string             `json:"invalidated_reason"`
-	VerifiedPhoneMasked string             `json:"verified_phone_masked"`
-	IpAddress           *netip.Addr        `json:"ip_address"`
-	UserAgent           string             `json:"user_agent"`
-	VersionUuid         uuid.UUID          `json:"version_uuid"`
-	VersionNumber       int32              `json:"version_number"`
-	LinkUuid            pgtype.UUID        `json:"link_uuid"`
-	SignerRole          pgtype.Text        `json:"signer_role"`
-	RecordedByUuid      pgtype.UUID        `json:"recorded_by_uuid"`
-	RecordedByName      pgtype.Text        `json:"recorded_by_name"`
-	RecordedBySurname   pgtype.Text        `json:"recorded_by_surname"`
-	RecordedByEmail     pgtype.Text        `json:"recorded_by_email"`
+	Uuid                    uuid.UUID          `json:"uuid"`
+	ContentHash             string             `json:"content_hash"`
+	Party                   string             `json:"party"`
+	Method                  string             `json:"method"`
+	ApproverName            string             `json:"approver_name"`
+	Note                    string             `json:"note"`
+	ApprovedAt              pgtype.Timestamptz `json:"approved_at"`
+	InvalidatedAt           pgtype.Timestamptz `json:"invalidated_at"`
+	InvalidatedReason       string             `json:"invalidated_reason"`
+	VerifiedPhoneMasked     string             `json:"verified_phone_masked"`
+	IpAddress               *netip.Addr        `json:"ip_address"`
+	UserAgent               string             `json:"user_agent"`
+	VersionUuid             uuid.UUID          `json:"version_uuid"`
+	VersionNumber           int32              `json:"version_number"`
+	LinkUuid                pgtype.UUID        `json:"link_uuid"`
+	SignerRole              pgtype.Text        `json:"signer_role"`
+	RecordedByUuid          pgtype.UUID        `json:"recorded_by_uuid"`
+	RecordedByName          pgtype.Text        `json:"recorded_by_name"`
+	RecordedBySurname       pgtype.Text        `json:"recorded_by_surname"`
+	RecordedByEmail         pgtype.Text        `json:"recorded_by_email"`
+	SignatureUuid           pgtype.UUID        `json:"signature_uuid"`
+	SignatureInspectionUuid pgtype.UUID        `json:"signature_inspection_uuid"`
 }
 
 func (q *Queries) ListDocumentApprovals(ctx context.Context, arg ListDocumentApprovalsParams) ([]ListDocumentApprovalsRow, error) {
@@ -1022,6 +1030,8 @@ func (q *Queries) ListDocumentApprovals(ctx context.Context, arg ListDocumentApp
 			&i.RecordedByName,
 			&i.RecordedBySurname,
 			&i.RecordedByEmail,
+			&i.SignatureUuid,
+			&i.SignatureInspectionUuid,
 		); err != nil {
 			return nil, err
 		}

@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { AppDialog } from "@/components/dialogs/app-dialog";
 import {
+  AppCheckbox,
   AppCombobox,
   AppDatePicker,
   AppForm,
@@ -478,18 +479,34 @@ export function CompleteReturnDialog({
           </Alert>
         ) : null}
         {open ? (
-          <AppForm<{ vehicle_status: "cleaning" | "available"; note: string }>
+          <AppForm<{
+            vehicle_status:
+              "cleaning" | "available" | "maintenance" | "preparing";
+            note: string;
+            deposit_task: boolean;
+          }>
             id={CHECK_FORM_ID}
             className="grid gap-4"
             schema={z.object({
-              vehicle_status: z.enum(["cleaning", "available"]),
+              vehicle_status: z.enum([
+                "cleaning",
+                "available",
+                "maintenance",
+                "preparing",
+              ]),
               note: z.string().max(1000),
+              deposit_task: z.boolean(),
             })}
-            defaultValues={{ vehicle_status: "cleaning", note: "" }}
+            defaultValues={{
+              vehicle_status: "cleaning",
+              note: "",
+              deposit_task: false,
+            }}
             onSubmit={async (values) => {
               await complete.mutateAsync({
                 vehicle_status: values.vehicle_status,
                 note: values.note.trim() || undefined,
+                deposit_task: values.deposit_task || undefined,
               });
               onOpenChange(false);
             }}
@@ -506,7 +523,19 @@ export function CompleteReturnDialog({
                   value: "available",
                   label: t("rentals.check.status_available"),
                 },
+                {
+                  value: "maintenance",
+                  label: t("rentals.check.status_maintenance"),
+                },
+                {
+                  value: "preparing",
+                  label: t("rentals.check.status_preparing"),
+                },
               ]}
+            />
+            <AppCheckbox
+              name="deposit_task"
+              label={t("rentals.check.deposit_task")}
             />
             <AppTextarea
               name="note"
