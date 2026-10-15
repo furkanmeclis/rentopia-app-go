@@ -43,6 +43,23 @@ export const SALES_CHANNEL_HINT_KEYS: Record<SalesChannelCode, string> = {
   obilet: "tenant_settings.channels.obilet_hint",
 };
 
+/**
+ * Approval protocol of a sales channel (TEC-708): "org" follows the
+ * organization's approval mode; "channel" = the channel confirms on its
+ * side (marketplaces), whatever the online approval mode.
+ */
+export const APPROVAL_PROTOCOLS = ["org", "auto", "staff", "channel"] as const;
+
+export const APPROVAL_PROTOCOL_LABEL_KEYS: Record<
+  (typeof APPROVAL_PROTOCOLS)[number],
+  string
+> = {
+  org: "tenant_settings.approval_protocols.org",
+  auto: "tenant_settings.approval_protocols.auto",
+  staff: "tenant_settings.approval_protocols.staff",
+  channel: "tenant_settings.approval_protocols.channel",
+};
+
 export const INVOICE_ITEM_LABEL_KEYS: Record<InvoiceItemType, string> = {
   rental: "tenant_settings.invoice_items.rental",
   extra_service: "tenant_settings.invoice_items.extra_service",

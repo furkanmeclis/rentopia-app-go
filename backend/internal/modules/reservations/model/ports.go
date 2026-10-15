@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/pkg/money"
 	"github.com/google/uuid"
@@ -67,12 +68,58 @@ type CouponRedeemer interface {
 	Consume(ctx context.Context, orgID int64, reservationUUID uuid.UUID) error
 }
 
-// PaymentRecorder is the M3 payments entry point: a collected / refunded
-// amount updates payment_status (unpaid / partially_paid / paid / refunded)
-// and, in auto approval mode, confirms a reservation waiting for its
-// prepayment. Implemented by usecase.Service.
+// PaymentUpdate is what the payments module tells a reservation after a
+// verified payment or a refund: Paid is the total received so far (refunds
+// deducted), Refunded marks that refunds happened, Payment names the
+// payment that caused the update (uuid.Nil for a plain recount) and
+// Amount is that payment's amount.
+type PaymentUpdate struct {
+	Paid     money.Money
+	Refunded bool
+	Payment  uuid.UUID
+	Amount   money.Money
+	Source   string
+}
+
+// Payment outcomes (payments.outcome).
+const (
+	// OutcomeRecorded: the payment status moved, nothing else.
+	OutcomeRecorded = "recorded"
+	// OutcomeConfirmed: the prepayment is covered; awaiting_payment →
+	// confirmed (hold → firm on the same allocation).
+	OutcomeConfirmed = "confirmed"
+	// OutcomeReinstated: a late payment after expiry found capacity again;
+	// expired → confirmed on a new firm allocation (recorded).
+	OutcomeReinstated = "reinstated"
+	// OutcomeLateTask: a late payment could not be honoured (capacity gone
+	// or the reservation was cancelled): a late_payment resolution task
+	// (refund / re-book) is open; never confirmed silently.
+	OutcomeLateTask = "late_payment_task"
+)
+
+// PaymentRecorder is the M3 payments entry point (TEC-707 / TEC-708): a
+// verified payment / refund updates payment_status (unpaid /
+// partially_paid / paid / refunded) and paid_amount; a reservation
+// awaiting its prepayment is confirmed once it is covered (in both
+// approval modes: in staff mode it only reaches awaiting_payment after the
+// staff accepted it); a payment that arrives after the hold expired is
+// re-validated against current capacity. Implemented by usecase.Service.
 type PaymentRecorder interface {
-	RecordPayment(ctx context.Context, orgID int64, reservationUUID uuid.UUID, paid money.Money, refunded bool) error
+	RecordPayment(ctx context.Context, orgID int64, reservationUUID uuid.UUID, in PaymentUpdate) (string, error)
+}
+
+// PaymentLinkRef is a created pay-by-link link.
+type PaymentLinkRef struct {
+	UUID      uuid.UUID   `json:"uuid"`
+	URL       string      `json:"url"`
+	Amount    money.Money `json:"amount"`
+	ExpiresAt time.Time   `json:"expires_at"`
+}
+
+// PaymentLinker creates a pay-by-link link for a reservation (staff accept
+// with "send payment link"); implemented by the payments module.
+type PaymentLinker interface {
+	CreateReservationLink(ctx context.Context, orgID int64, reservationUUID uuid.UUID, amount money.Money, expiresAt time.Time) (PaymentLinkRef, error)
 }
 
 // ErrCouponUnavailable: a coupon was used without the campaigns module.

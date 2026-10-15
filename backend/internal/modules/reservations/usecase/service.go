@@ -152,6 +152,7 @@ type Service struct {
 	equipment model.EquipmentReserver
 	coupons   model.CouponRedeemer
 	events    resourceevents.Publisher
+	links     model.PaymentLinker
 
 	now func() time.Time
 }

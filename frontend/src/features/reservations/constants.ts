@@ -108,6 +108,7 @@ export const TASK_TYPES: TaskType[] = [
   "extension_conflict",
   "replan_failed",
   "late_return",
+  "late_payment",
 ];
 
 export const TASK_TYPE_LABEL_KEYS: Record<TaskType, string> = {
@@ -116,6 +117,7 @@ export const TASK_TYPE_LABEL_KEYS: Record<TaskType, string> = {
   extension_conflict: "reservations.tasks.types.extension_conflict",
   replan_failed: "reservations.tasks.types.replan_failed",
   late_return: "reservations.tasks.types.late_return",
+  late_payment: "reservations.tasks.types.late_payment",
 };
 
 export const TASK_STATUSES: TaskStatus[] = ["open", "resolved"];
@@ -153,6 +155,12 @@ export const EVENT_LABEL_KEYS: Record<string, string> = {
   equipment_warning: "reservations.events.equipment_warning",
   coupon_warning: "reservations.events.coupon_warning",
   task_resolved: "reservations.events.task_resolved",
+  reject: "reservations.events.reject",
+  reinstate: "reservations.events.reinstate",
+  late_payment: "reservations.events.late_payment",
+  payment_link_created: "reservations.events.payment_link_created",
+  payment_link_cancelled: "reservations.events.payment_link_cancelled",
+  payment_refunded: "reservations.events.payment_refunded",
 };
 
 export const ASSIGNMENT_SOURCE_LABEL_KEYS: Record<string, string> = {

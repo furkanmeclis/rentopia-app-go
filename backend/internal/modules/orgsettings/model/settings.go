@@ -133,10 +133,43 @@ type Policies struct {
 	Mileage      string `json:"mileage"`
 }
 
-// SalesChannel switches one channel on or off.
+// SalesChannel switches one channel on or off and names its approval
+// protocol (TEC-708): "" follows the organization's approval mode; "auto"
+// / "staff" override it for the channel; "channel" means the channel
+// confirms the booking on its own side (marketplaces such as yolcu360 /
+// obilet), so the reservation is confirmed at once whatever the online
+// approval mode. Channel reservations are never blindly bound to the
+// organization's online setting.
 type SalesChannel struct {
-	Code     string `json:"code"`
-	IsActive bool   `json:"is_active"`
+	Code             string `json:"code"`
+	IsActive         bool   `json:"is_active"`
+	ApprovalProtocol string `json:"approval_protocol"`
+}
+
+// Approval protocols of a sales channel ("" = organization setting).
+const (
+	ProtocolDefault = ""
+	ProtocolAuto    = "auto"
+	ProtocolStaff   = "staff"
+	ProtocolChannel = "channel"
+)
+
+// ApprovalProtocols lists the accepted channel protocols.
+var ApprovalProtocols = []string{ProtocolDefault, ProtocolAuto, ProtocolStaff, ProtocolChannel}
+
+// ChannelProtocol is the effective approval protocol of a channel: the
+// channel's own protocol, else the organization's approval mode (staff or
+// auto).
+func (s Settings) ChannelProtocol(channel string) string {
+	for _, c := range s.SalesChannels {
+		if c.Code == channel && c.ApprovalProtocol != "" {
+			return c.ApprovalProtocol
+		}
+	}
+	if s.Reservation.ApprovalMode == ApprovalStaff {
+		return ProtocolStaff
+	}
+	return ProtocolAuto
 }
 
 // Tax holds the VAT default and the invoice item mapping placeholders. There

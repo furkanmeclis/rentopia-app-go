@@ -156,5 +156,11 @@
   "groups.tenant_quotes": "Quotes",
   "labels.tenant.resolution_tasks.read": "View resolution tasks",
   "labels.tenant.resolution_tasks.write": "Manage resolution tasks",
-  "groups.tenant_resolution_tasks": "Resolution tasks"
+  "groups.tenant_resolution_tasks": "Resolution tasks",
+  "labels.tenant.integrations.manage": "Manage integrations",
+  "labels.tenant.payments.read": "View payments",
+  "labels.tenant.payments.create_link": "Create payment links",
+  "labels.tenant.reservations.approve": "Approve reservation requests",
+  "groups.tenant_integrations": "Integrations",
+  "groups.tenant_payments": "Payments"
 }

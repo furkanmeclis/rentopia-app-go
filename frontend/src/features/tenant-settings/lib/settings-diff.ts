@@ -30,6 +30,10 @@ export function flattenSettings(s: OrganizationSettings): Map<string, string> {
   }
   for (const channel of s.sales_channels) {
     put(`sales_channels.${channel.code}`, channel.is_active);
+    put(
+      `sales_channels.${channel.code}.approval_protocol`,
+      channel.approval_protocol ?? "",
+    );
   }
   put("tax.default_vat_rate", s.tax.default_vat_rate);
   for (const mapping of s.tax.invoice_item_mappings) {

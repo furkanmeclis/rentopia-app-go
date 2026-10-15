@@ -76,6 +76,7 @@ var isolationAllowlist = map[string]string{
 	"POST /v1/tenant/customers":              "body has no foreign references (names, identity, contact values)",
 	"POST /v1/tenant/customers/import":       "rows match identity blind indexes keyed by the organization (customers usecase tests); the job is the {uuid} cases",
 	"POST /v1/tenant/extras":                 "body has no foreign references (code, name, enums, channel codes, default price)",
+	"POST /v1/tenant/integrations":           "body has no foreign references (provider code, display name, mode, the organization's own credentials)",
 }
 
 type isoOrg struct {
@@ -405,6 +406,19 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			t.Fatalf("resolution task from the block: %s", tasks.raw)
 		}
 		ids["task"] = taskItems[0].(map[string]any)["uuid"].(string)
+		// Integrations / payments (TEC-676 / TEC-707): an iyzico account
+		// (stored, never called here), a pay-by-link link for the
+		// reservation's balance and a branch collection.
+		ids["integrationAccount"] = str(must(call(o, http.MethodPost, "/v1/tenant/integrations", map[string]any{
+			"provider": "iyzico", "display_name": m + " iyzico", "mode": "sandbox",
+			"credentials": map[string]any{"api_key": m + "-api-key", "secret_key": m + "-secret-key"},
+		}), http.StatusCreated, "connect integration"), "uuid")
+		ids["paymentLink"] = str(must(call(o, http.MethodPost, "/v1/tenant/reservations/"+ids["reservation"]+"/payment-links", map[string]any{
+			"amount": "100",
+		}), http.StatusCreated, "payment link"), "uuid")
+		ids["payment"] = str(must(call(o, http.MethodPost, "/v1/tenant/reservations/"+ids["reservation"]+"/collections", map[string]any{
+			"amount": "10", "method": "cash", "note": m,
+		}), http.StatusCreated, "collection"), "uuid")
 		ids["exportJob"] = str(must(call(o, http.MethodPost, "/v1/tenant/branches/export", map[string]any{"format": "csv"}),
 			http.StatusAccepted, "export"), "uuid")
 		ids["importJob"] = str(must(upload(o, http.MethodPost, "/v1/tenant/branches/import", "file", "branches.csv",
@@ -598,6 +612,9 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		},
 		"GET /v1/tenant/quotes":           {"?reservation=" + b["reservation"], "?product=" + b["product"]},
 		"GET /v1/tenant/resolution-tasks": {"?reservation=" + b["reservation"], "?assignee=" + bob.Uuid.String()},
+		"GET /v1/tenant/payments":         {"?reservation=" + b["reservation"], "?q=" + orgB.marker},
+		"GET /v1/tenant/payment-links":    {"?reservation=" + b["reservation"]},
+		"GET /v1/tenant/integrations":     {"?q=" + orgB.marker},
 		"GET /v1/tenant/rate-plans/matrix": {
 			"?scope=branch&branch=" + b["branch"],
 			"?scope=branch_channel&branch=" + b["home"] + "&channel=web",
@@ -1025,6 +1042,12 @@ func paramKey(prev, name string) string {
 		return "quote"
 	case "resolution-tasks/uuid":
 		return "task"
+	case "integrations/uuid":
+		return "integrationAccount"
+	case "payments/uuid":
+		return "payment"
+	case "payment-links/uuid":
+		return "paymentLink"
 	}
 	return ""
 }

@@ -211,5 +211,20 @@
   "actions.quotes.created": "Teklif oluşturuldu",
   "actions.resolution_tasks.resolved": "Çözüm görevi çözüldü",
   "actions.resolution_tasks.assigned": "Çözüm görevi atandı",
-  "actions.resolution_tasks.replan": "Çözüm görevi yeniden planlandı"
+  "actions.resolution_tasks.replan": "Çözüm görevi yeniden planlandı",
+  "actions.integrations.connected": "Entegrasyon bağlandı",
+  "actions.integrations.updated": "Entegrasyon güncellendi",
+  "actions.integrations.tested": "Entegrasyon test edildi",
+  "actions.integrations.disabled": "Entegrasyon devre dışı bırakıldı",
+  "actions.integrations.enabled": "Entegrasyon etkinleştirildi",
+  "actions.payments.verified": "Ödeme doğrulandı",
+  "actions.payments.refunded": "Ödeme iade edildi",
+  "actions.payments.collected": "Şubede tahsilat",
+  "actions.payment_links.created": "Ödeme linki oluşturuldu",
+  "actions.payment_links.cancelled": "Ödeme linki iptal edildi",
+  "actions.reservations.accepted": "Rezervasyon talebi kabul edildi",
+  "actions.reservations.rejected": "Rezervasyon talebi reddedildi",
+  "resources.tenant.integrations": "Entegrasyonlar",
+  "resources.tenant.payments": "Ödemeler",
+  "resources.tenant.payment_links": "Ödeme linkleri"
 }

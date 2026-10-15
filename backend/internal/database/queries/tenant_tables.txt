@@ -54,3 +54,7 @@ equipment_allocations
 campaigns
 campaign_targets
 campaign_redemptions
+integration_accounts
+payment_links
+payments
+payment_refunds

@@ -156,5 +156,11 @@
   "groups.tenant_quotes": "Teklifler",
   "labels.tenant.resolution_tasks.read": "Çözüm görevlerini görüntüle",
   "labels.tenant.resolution_tasks.write": "Çözüm görevlerini yönet",
-  "groups.tenant_resolution_tasks": "Çözüm görevleri"
+  "groups.tenant_resolution_tasks": "Çözüm görevleri",
+  "labels.tenant.integrations.manage": "Entegrasyonları yönet",
+  "labels.tenant.payments.read": "Ödemeleri görüntüle",
+  "labels.tenant.payments.create_link": "Ödeme linki oluştur",
+  "labels.tenant.reservations.approve": "Rezervasyon taleplerini onayla",
+  "groups.tenant_integrations": "Entegrasyonlar",
+  "groups.tenant_payments": "Ödemeler"
 }

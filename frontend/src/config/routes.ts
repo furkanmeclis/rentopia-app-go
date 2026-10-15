@@ -123,6 +123,9 @@ export const routes = {
         `/t/${encodeURIComponent(slug)}/reservations/quotes`,
       tasks: (slug: string) =>
         `/t/${encodeURIComponent(slug)}/reservations/tasks`,
+      /** Staff approval queue ("Onay kuyruğu", TEC-708). */
+      approvals: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/reservations/approvals`,
     },
     /** Availability search and holds ("Müsaitlik"). */
     availability: (slug: string) =>
@@ -131,6 +134,9 @@ export const routes = {
       root: (slug: string) => `/t/${encodeURIComponent(slug)}/settings`,
       members: (slug: string) =>
         `/t/${encodeURIComponent(slug)}/settings/members`,
+      /** Provider accounts ("Entegrasyonlar", TEC-676). */
+      integrations: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/settings/integrations`,
       roles: {
         root: (slug: string) => `/t/${encodeURIComponent(slug)}/settings/roles`,
         create: (slug: string) =>

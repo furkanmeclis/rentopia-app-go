@@ -215,22 +215,37 @@ func overrideJSON(drivers []checkedDriver, override *model.OverrideInput, actor 
 	return mustJSON(map[string]any{"reason": strings.TrimSpace(override.Reason), "drivers": refused, "actor_id": actor})
 }
 
-// waitingStatus is the status a new (or submitted) reservation starts in:
-// staff approval → awaiting_review (review window); auto approval →
-// awaiting_payment when a prepayment is due (payment hold window), else
-// confirmed.
-func (s *Service) waitingStatus(settings osmodel.Settings, prepayment money.Money) (string, *time.Time, *time.Time) {
+// waitingStatus is the status a new reservation starts in and the approval
+// protocol it is created under (TEC-708, docs/design/payments.md §5). The
+// channel's protocol decides (settings.ChannelProtocol):
+//
+//   - channel: the sales channel confirmed the booking → confirmed (firm),
+//     whatever the organization's online approval mode;
+//   - staff, online channel: a request without stock ("değerlendirme
+//     bekliyor") with the review window as the staff SLA; staff accept
+//     reserves current capacity (Accept);
+//   - staff, the branch counter: awaiting_review on an option that lasts
+//     the review window (the employee selling is at the desk);
+//   - auto: awaiting_payment on an option for the payment hold window when
+//     a prepayment is due, else confirmed.
+func (s *Service) waitingStatus(settings osmodel.Settings, prepayment money.Money, channel string) (string, string, *time.Time, *time.Time) {
 	now := s.clock()
 	r := settings.Reservation
-	if r.ApprovalMode == osmodel.ApprovalStaff {
+	switch settings.ChannelProtocol(channel) {
+	case osmodel.ProtocolChannel:
+		return model.StatusConfirmed, model.ProtocolChannel, nil, nil
+	case osmodel.ProtocolStaff:
 		d := now.Add(time.Duration(minutesOr(r.StaffReviewWindowMinutes, model.DefaultReviewMinutes)) * time.Minute)
-		return model.StatusAwaitingReview, &d, nil
+		if osmodel.IsOnlineChannel(channel) {
+			return model.StatusRequest, model.ProtocolStaff, &d, nil
+		}
+		return model.StatusAwaitingReview, model.ProtocolStaff, &d, nil
 	}
 	if prepayment.IsPositive() {
 		d := now.Add(time.Duration(minutesOr(r.PaymentHoldMinutes, model.DefaultPaymentMinutes)) * time.Minute)
-		return model.StatusAwaitingPayment, nil, &d
+		return model.StatusAwaitingPayment, model.ProtocolAuto, nil, &d
 	}
-	return model.StatusConfirmed, nil, nil
+	return model.StatusConfirmed, model.ProtocolAuto, nil, nil
 }
 
 // policySnapshot is the policy part of the settings version a reservation
@@ -346,7 +361,7 @@ func (s *Service) Create(ctx context.Context, orgID int64, in model.CreateInput)
 	if err != nil {
 		return model.Reservation{}, err
 	}
-	status, reviewDeadline, payDeadline := s.waitingStatus(settings.Settings, quote.Prepayment)
+	status, protocol, reviewDeadline, payDeadline := s.waitingStatus(settings.Settings, quote.Prepayment, row.Channel)
 	switch {
 	case in.RequestOnly:
 		status, reviewDeadline, payDeadline = model.StatusRequest, nil, nil
@@ -370,7 +385,7 @@ func (s *Service) Create(ctx context.Context, orgID int64, in model.CreateInput)
 		QuoteSnapshot: mustJSON(priceSnapshot(quote)), SettingsVersion: int32(settings.Version),
 		PolicySnapshot: mustJSON(policySnapshot(settings)), ReviewDeadline: tsPtr(reviewDeadline), PaymentDeadline: tsPtr(payDeadline),
 		Note: strings.TrimSpace(in.Note), EligibilityOverride: overrideJSON(drivers, in.EligibilityOverride, actorID(ctx)),
-		CreatedBy: int8Ptr(actorID(ctx)),
+		CreatedBy: int8Ptr(actorID(ctx)), ApprovalProtocol: protocol,
 	}
 	if invoice != nil {
 		params.InvoiceCustomerID = int8Of(invoice.ID)

@@ -151,5 +151,11 @@
   "profile.toast.logo_removed": "Logo removed.",
   "fields.reference_prefix": "Reservation reference prefix",
   "fields.reference_prefix_hint": "e.g. IDS → IDS-2026-000123. Empty = derived from the organization slug.",
-  "validation.reference_prefix": "2-6 capital letters or digits starting with a letter"
+  "validation.reference_prefix": "2-6 capital letters or digits starting with a letter",
+  "fields.approval_protocol": "Approval protocol",
+  "fields.approval_protocol_hint": "How reservations from this channel are approved.",
+  "approval_protocols.org": "Organization approval mode",
+  "approval_protocols.auto": "Automatic (on payment)",
+  "approval_protocols.staff": "Staff approval",
+  "approval_protocols.channel": "The channel confirms"
 }

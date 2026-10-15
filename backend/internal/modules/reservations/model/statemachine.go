@@ -3,13 +3,17 @@ package model
 // The reservation state machine (docs/design/reservations.md §3).
 //
 //	request ──submit──▶ awaiting_review | awaiting_payment | confirmed
-//	awaiting_review ──approve──▶ awaiting_payment | confirmed
+//	request | awaiting_review ──approve──▶ awaiting_payment | confirmed   (staff accepts)
+//	request | awaiting_review ──reject──▶ cancelled                       (staff rejects, reason)
+//	expired ──reinstate──▶ confirmed   (system: a late payment found capacity again)
 //	awaiting_review | awaiting_payment ──confirm──▶ confirmed
 //	request | awaiting_review | awaiting_payment | confirmed ──cancel──▶ cancelled
 //	awaiting_review | awaiting_payment ──expire──▶ expired   (system: window over)
 //	confirmed ──no_show──▶ no_show                            (after the pick-up time)
 //
-// cancelled, expired and no_show are terminal. Capacity follows the state:
+// cancelled, expired and no_show are terminal for people; the only way out
+// of expired is the system reinstate of a late payment (TEC-708,
+// docs/design/payments.md §5.3). Capacity follows the state:
 // request holds nothing, awaiting_* hold an option (allocation kind hold,
 // expires with the window), confirmed holds a firm commitment; leaving to a
 // terminal state releases it exactly once.
@@ -57,16 +61,24 @@ const (
 	ActionCancel  = "cancel"
 	ActionExpire  = "expire"
 	ActionNoShow  = "no_show"
+	// ActionReject is a staff refusal of a request / review (→ cancelled).
+	ActionReject = "reject"
+	// ActionReinstate confirms an expired reservation whose late payment
+	// found capacity again (system only, recorded with the payment).
+	ActionReinstate = "reinstate"
 )
 
 // transitions: from → action → allowed targets.
 var transitions = map[string]map[string][]string{
 	StatusRequest: {
-		ActionSubmit: {StatusAwaitingReview, StatusAwaitingPayment, StatusConfirmed},
-		ActionCancel: {StatusCancelled},
+		ActionSubmit:  {StatusAwaitingReview, StatusAwaitingPayment, StatusConfirmed},
+		ActionApprove: {StatusAwaitingPayment, StatusConfirmed},
+		ActionReject:  {StatusCancelled},
+		ActionCancel:  {StatusCancelled},
 	},
 	StatusAwaitingReview: {
 		ActionApprove: {StatusAwaitingPayment, StatusConfirmed},
+		ActionReject:  {StatusCancelled},
 		ActionConfirm: {StatusConfirmed},
 		ActionCancel:  {StatusCancelled},
 		ActionExpire:  {StatusExpired},
@@ -79,6 +91,9 @@ var transitions = map[string]map[string][]string{
 	StatusConfirmed: {
 		ActionCancel: {StatusCancelled},
 		ActionNoShow: {StatusNoShow},
+	},
+	StatusExpired: {
+		ActionReinstate: {StatusConfirmed},
 	},
 }
 

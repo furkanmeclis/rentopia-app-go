@@ -14,6 +14,7 @@ import {
   UserCheck,
   UserX,
   Users,
+  XCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -96,6 +97,9 @@ import { useTenant } from "@/features/tenant/components/tenant-provider";
 import { datetime } from "@/lib/utils/format";
 import { useLocale } from "@/providers/locale-provider";
 import { usePermission } from "@/providers/permission-provider";
+import { AcceptDialog } from "@/features/payments/components/accept-dialog";
+import { ReservationPayments } from "@/features/payments/components/reservation-payments";
+import { useRejectReservation } from "@/features/payments/hooks/use-payments";
 
 type DialogKind =
   | "change"
@@ -822,6 +826,10 @@ export function ReservationDetailPage({ uuid }: { uuid: string }) {
   const write = can(permissions.tenant.reservations.write);
   const confirmPerm = can(permissions.tenant.reservations.confirm);
   const cancelPerm = can(permissions.tenant.reservations.cancel);
+  const approvePerm = can(permissions.tenant.reservations.approve);
+  const [acceptOpen, setAcceptOpen] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const reject = useRejectReservation();
 
   const run = (action: TransitionAction, reason?: string) => {
     if (!r) return;
@@ -881,14 +889,25 @@ export function ReservationDetailPage({ uuid }: { uuid: string }) {
                 {t("reservations.actions.submit")}
               </Button>
             ) : null}
-            {r.actions.approve && confirmPerm ? (
+            {r.actions.approve && approvePerm ? (
               <Button
                 type="button"
                 size="sm"
-                onClick={() => setDialog("approve")}
+                onClick={() => setAcceptOpen(true)}
               >
                 <CheckCircle2 className="size-4" />
                 {t("reservations.actions.approve")}
+              </Button>
+            ) : null}
+            {r.actions.reject && approvePerm ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setRejectOpen(true)}
+              >
+                <XCircle className="size-4" />
+                {t("payments.approvals.reject")}
               </Button>
             ) : null}
             {r.actions.confirm && confirmPerm ? (
@@ -1074,12 +1093,7 @@ export function ReservationDetailPage({ uuid }: { uuid: string }) {
                 </TabsContent>
               ) : null}
               <TabsContent value="payments">
-                <EntitySectionCard title={t("reservations.tabs.payments")}>
-                  <EntityUnavailable
-                    title={t("reservations.payments.title")}
-                    description={t("reservations.payments.description")}
-                  />
-                </EntitySectionCard>
+                <ReservationPayments reservation={r} />
               </TabsContent>
               <TabsContent value="documents">
                 <EntitySectionCard title={t("reservations.tabs.documents")}>
@@ -1120,6 +1134,32 @@ export function ReservationDetailPage({ uuid }: { uuid: string }) {
             reservation={r}
             open={dialog === "assign"}
             onOpenChange={(open) => setDialog(open ? "assign" : null)}
+          />
+          <AcceptDialog
+            reservation={
+              acceptOpen
+                ? { uuid: r.uuid, reference: r.reference, total: r.price.total }
+                : null
+            }
+            onClose={() => setAcceptOpen(false)}
+          />
+          <ReasonDialog
+            open={rejectOpen}
+            title={t("payments.approvals.reject_title", {
+              reference: r.reference,
+            })}
+            description={t("payments.approvals.reject_description")}
+            label={t("payments.approvals.reject_reason")}
+            confirmLabel={t("payments.approvals.reject")}
+            destructive
+            pending={reject.isPending}
+            onCancel={() => setRejectOpen(false)}
+            onConfirm={(reason) =>
+              reject.mutate(
+                { uuid: r.uuid, reason },
+                { onSuccess: () => setRejectOpen(false) },
+              )
+            }
           />
           <ReasonDialog
             open={dialog === "cancel" || dialog === "no_show"}

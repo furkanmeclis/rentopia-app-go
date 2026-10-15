@@ -123,7 +123,11 @@ export function createSettingsSchema(t: Translate) {
         mileage: z.string().max(5000),
       }),
       sales_channels: z.array(
-        z.object({ code: z.string(), is_active: z.boolean() }),
+        z.object({
+          code: z.string(),
+          is_active: z.boolean(),
+          approval_protocol: z.enum(["org", "auto", "staff", "channel"]),
+        }),
       ),
       tax: z.object({
         default_vat_rate: percentField(t),
@@ -167,7 +171,7 @@ const fieldToMinutes = (v: string) => (v.trim() === "" ? null : Number(v));
 
 /** API document → form values (numbers become strings, lists complete). */
 export function settingsToForm(s: OrganizationSettings): SettingsFormValues {
-  const channels = new Map(s.sales_channels.map((c) => [c.code, c.is_active]));
+  const channels = new Map(s.sales_channels.map((c) => [c.code, c]));
   const mappings = new Map(
     s.tax.invoice_item_mappings.map((m) => [m.item_type, m]),
   );
@@ -196,7 +200,10 @@ export function settingsToForm(s: OrganizationSettings): SettingsFormValues {
     },
     sales_channels: SALES_CHANNELS.map((code) => ({
       code,
-      is_active: channels.get(code) ?? false,
+      is_active: channels.get(code)?.is_active ?? false,
+      // "" (organization approval mode) is "org" in the form: a Select
+      // item cannot carry an empty value.
+      approval_protocol: channels.get(code)?.approval_protocol || "org",
     })),
     tax: {
       default_vat_rate: s.tax.default_vat_rate,
@@ -259,6 +266,8 @@ export function formToSaveRequest(
       sales_channels: values.sales_channels.map((c) => ({
         code: c.code as OrganizationSettings["sales_channels"][number]["code"],
         is_active: c.is_active,
+        approval_protocol:
+          c.approval_protocol === "org" ? "" : c.approval_protocol,
       })),
       tax: {
         default_vat_rate: values.tax.default_vat_rate,

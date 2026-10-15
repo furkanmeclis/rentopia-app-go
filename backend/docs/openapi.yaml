@@ -40,6 +40,8 @@ servers:
 tags:
   - name: Health
     description: Liveness and readiness probes
+  - name: Payments
+    description: Public pay-by-link page, hosted checkout start and provider webhooks (TEC-707)
   - name: Auth
     description: Register, login, tokens, sessions, profile
   - name: Search
@@ -10033,7 +10035,7 @@ paths:
         - $ref: "#/components/parameters/Q"
         - name: sort
           in: query
-          description: "One of `reference`, `status`, `starts_at`, `ends_at`, `total_amount`, `created_at`; prefix `-` for descending. Default `-created_at`."
+          description: "One of `reference`, `status`, `starts_at`, `ends_at`, `total_amount`, `created_at`, `review_deadline` (approval queue SLA); prefix `-` for descending. Default `-created_at`."
           schema: { type: string }
         - { name: status, in: query, schema: { type: string }, description: "request, awaiting_review, awaiting_payment, confirmed, cancelled, expired, no_show" }
         - { name: payment_status, in: query, schema: { type: string }, description: "unpaid, partially_paid, paid, refunded" }
@@ -10226,7 +10228,7 @@ paths:
       tags: [Tenant]
       operationId: postTenantReservationApprove
       summary: Approve (staff review)
-      description: "`tenant.reservations.confirm`. awaiting_review → awaiting_payment (prepayment due; the option moves to the payment window) or confirmed."
+      description: "`tenant.reservations.approve`. awaiting_review → awaiting_payment (prepayment due; the option moves to the payment window) or confirmed. See also `/accept` (requests too, payment link)."
       security:
         - bearerAuth: []
       parameters:
@@ -10773,6 +10775,608 @@ paths:
         "403": { $ref: "#/components/responses/TenantForbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/reservations/{uuid}/accept:
+    post:
+      tags: [Tenant]
+      operationId: postTenantReservationAccept
+      summary: Accept a request / review (staff approval queue)
+      description: |
+        `tenant.reservations.approve` (TEC-708). A `request` (no stock yet) reserves capacity now at the
+        current price: a changed price answers `409 QUOTE_PRICE_CHANGED` with a change quote in `data`;
+        sending its `quote_uuid` accepts at that price. A prepayment due → `awaiting_payment` on an
+        option that lasts the payment window, else `confirmed`. An `awaiting_review` keeps its option
+        (moved to the payment window). `send_payment_link` (needs `tenant.payments.create_link` and an
+        active payment account) creates a pay-by-link link for the prepayment due.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                quote_uuid: { type: [string, "null"], format: uuid }
+                send_payment_link: { type: boolean }
+                note: { type: string, maxLength: 500 }
+      responses:
+        "200":
+          description: Accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeReservationAccept" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/reservations/{uuid}/reject:
+    post:
+      tags: [Tenant]
+      operationId: postTenantReservationReject
+      summary: Reject a request / review
+      description: "`tenant.reservations.approve`. request / awaiting_review → cancelled with the reason (an option is released once)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 3, maxLength: 500 }
+      responses:
+        "200": { $ref: "#/components/responses/ReservationOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/reservations/{uuid}/payment-links:
+    post:
+      tags: [Tenant]
+      operationId: postTenantReservationPaymentLink
+      summary: Create a pay-by-link link
+      description: |
+        `tenant.payments.create_link` (TEC-707). The reservation must be awaiting payment or confirmed and
+        the organization must have an active payment account (`422 PAYMENT_ACCOUNT_REQUIRED`). The amount
+        defaults to the prepayment due (awaiting_payment) or the balance and never exceeds the balance;
+        the link expires with the payment window at the latest (else 24 h, or `expires_in_minutes`).
+        A new link cancels the reservation's active one.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                amount: { type: [string, "null"], example: "500.00" }
+                expires_in_minutes: { type: [integer, "null"], minimum: 5, maximum: 10080 }
+      responses:
+        "201":
+          description: Link
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopePaymentLink" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenant/reservations/{uuid}/collections:
+    post:
+      tags: [Tenant]
+      operationId: postTenantReservationCollection
+      summary: Record a collection at the branch
+      description: "`tenant.payment.collect`. Cash / card POS / bank transfer taken at the branch (manual payment, confirmed at once). Amount defaults to the balance."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [method]
+              properties:
+                amount: { type: [string, "null"] }
+                method: { type: string, enum: [cash, card_pos, bank_transfer] }
+                note: { type: string, maxLength: 500 }
+      responses:
+        "201": { $ref: "#/components/responses/PaymentOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/payments:
+    get:
+      tags: [Tenant]
+      operationId: getTenantPayments
+      summary: List payments
+      description: "`tenant.payments.read`. Payments of reservations in the caller's branch scope."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - name: sort
+          in: query
+          description: "`amount` or `created_at`; prefix `-` for descending. Default `-created_at`."
+          schema: { type: string }
+        - { name: status, in: query, schema: { type: string }, description: "pending, succeeded, partially_refunded, refunded, failed, cancelled" }
+        - { name: provider, in: query, schema: { type: string }, description: "iyzico, manual" }
+        - { name: reservation, in: query, schema: { type: string }, description: Reservation uuids }
+      responses:
+        "200":
+          description: Payment page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopePaymentPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/payments/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantPayment
+      summary: Payment detail (with refunds)
+      description: "`tenant.payments.read`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200": { $ref: "#/components/responses/PaymentOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/payments/{uuid}/verify:
+    post:
+      tags: [Tenant]
+      operationId: postTenantPaymentVerify
+      summary: Verify a pending checkout with the provider
+      description: "`tenant.payments.read` + `tenant.payments.create_link`. A provider retrieve; a matching success confirms the payment (idempotent)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200": { $ref: "#/components/responses/PaymentOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/PaymentProviderError" }
+
+  /v1/tenant/payments/{uuid}/refund:
+    post:
+      tags: [Tenant]
+      operationId: postTenantPaymentRefund
+      summary: Refund a payment (partial or full)
+      description: "`tenant.payments.read` + `tenant.payment.refund`. Through the provider (manual payments are recorded). Amount defaults to the refundable rest."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [reason]
+              properties:
+                amount: { type: [string, "null"] }
+                reason: { type: string, minLength: 3, maxLength: 500 }
+      responses:
+        "200": { $ref: "#/components/responses/PaymentOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "502": { $ref: "#/components/responses/PaymentProviderError" }
+
+  /v1/tenant/payment-links:
+    get:
+      tags: [Tenant]
+      operationId: getTenantPaymentLinks
+      summary: List pay-by-link links
+      description: "`tenant.payments.read`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - { name: status, in: query, schema: { type: string }, description: "active, paid, expired, cancelled" }
+        - { name: reservation, in: query, schema: { type: string }, description: Reservation uuids }
+      responses:
+        "200":
+          description: Link page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopePaymentLinkPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/payment-links/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantPaymentLink
+      summary: Payment link
+      description: "`tenant.payments.read`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Link
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopePaymentLink" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/payment-links/{uuid}/cancel:
+    post:
+      tags: [Tenant]
+      operationId: postTenantPaymentLinkCancel
+      summary: Cancel an active link
+      description: "`tenant.payments.create_link`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Link
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopePaymentLink" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/integrations/meta:
+    get:
+      tags: [Tenant]
+      operationId: getTenantIntegrationsMeta
+      summary: Connectable providers
+      description: "`tenant.integrations.manage`. Providers with their credential fields and modes."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Providers
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeIntegrationsMeta" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/integrations:
+    get:
+      tags: [Tenant]
+      operationId: getTenantIntegrations
+      summary: List integration accounts
+      description: "`tenant.integrations.manage`. Credentials are never returned (masked hints only)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - name: sort
+          in: query
+          description: "`display_name` or `created_at`; prefix `-` for descending."
+          schema: { type: string }
+        - { name: status, in: query, schema: { type: string }, description: "active, disabled" }
+        - { name: kind, in: query, schema: { type: string }, description: payment }
+        - { name: provider, in: query, schema: { type: string }, description: iyzico }
+      responses:
+        "200":
+          description: Account page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeIntegrationAccountPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantIntegration
+      summary: Connect a provider account
+      description: |
+        `tenant.integrations.manage`. Stores the organization's own credentials sealed with the field
+        cipher (purpose `integration.credentials`, bound to the organization and the account). One active
+        account per kind (`409`). Use `/test` to check the connection.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [provider, display_name, credentials]
+              properties:
+                kind: { type: string, enum: [payment] }
+                provider: { type: string, enum: [iyzico] }
+                display_name: { type: string, maxLength: 120 }
+                mode: { type: string, enum: [sandbox, live] }
+                credentials:
+                  type: object
+                  additionalProperties: { type: string }
+                  description: "iyzico: `api_key`, `secret_key`"
+      responses:
+        "201": { $ref: "#/components/responses/IntegrationAccountOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/integrations/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantIntegration
+      summary: Integration account
+      description: "`tenant.integrations.manage`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200": { $ref: "#/components/responses/IntegrationAccountOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantIntegration
+      summary: Rename, switch mode, rotate credentials
+      description: "`tenant.integrations.manage`. Only the given credential keys are replaced; a rotation or mode change resets the last check."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                display_name: { type: [string, "null"], maxLength: 120 }
+                mode: { type: [string, "null"], enum: [sandbox, live, null] }
+                credentials:
+                  type: [object, "null"]
+                  additionalProperties: { type: string }
+      responses:
+        "200": { $ref: "#/components/responses/IntegrationAccountOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/integrations/{uuid}/test:
+    post:
+      tags: [Tenant]
+      operationId: postTenantIntegrationTest
+      summary: Test the connection
+      description: "`tenant.integrations.manage`. An authenticated provider call that moves no money; the result is stored on the account. A failure answers `422 INTEGRATION_CHECK_FAILED` with the account in `data`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200": { $ref: "#/components/responses/IntegrationAccountOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenant/integrations/{uuid}/disable:
+    post:
+      tags: [Tenant]
+      operationId: postTenantIntegrationDisable
+      summary: Disable an account
+      description: "`tenant.integrations.manage`. New links / checkouts need an active account; pending payments still verify on it."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200": { $ref: "#/components/responses/IntegrationAccountOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/integrations/{uuid}/enable:
+    post:
+      tags: [Tenant]
+      operationId: postTenantIntegrationEnable
+      summary: Enable an account
+      description: "`tenant.integrations.manage`. `409` when another account of the kind is active."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200": { $ref: "#/components/responses/IntegrationAccountOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/integrations/{uuid}/jobs:
+    get:
+      tags: [Tenant]
+      operationId: getTenantIntegrationJobs
+      summary: Integration jobs of an account
+      description: "`tenant.integrations.manage`. Outbound calls and inbound notifications (idempotency key, attempts, deliveries, status)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Job page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeIntegrationJobPage" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/public/pay/{token}:
+    get:
+      tags: [Payments]
+      operationId: getPublicPayLink
+      summary: Pay-by-link page data
+      description: |
+        No auth (the token is the bearer); rate-limited per IP. Organization name, reservation reference,
+        dates, amount and the state from verified records only (`ready`, `processing`, `paid`, `failed`,
+        `expired`, `cancelled`). `verify=1` asks the provider about a pending checkout first (page poll;
+        rate-limited per token). The provider's return is never proof.
+      security: []
+      parameters:
+        - { name: token, in: path, required: true, schema: { type: string } }
+        - { name: verify, in: query, schema: { type: string, enum: ["1"] } }
+      responses:
+        "200":
+          description: Pay page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopePublicPayLink" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/public/pay/{token}/checkout:
+    post:
+      tags: [Payments]
+      operationId: postPublicPayCheckout
+      summary: Start the hosted checkout
+      description: "No auth; rate-limited per IP and token. Opens the provider's hosted 3DS checkout (iyzico Checkout Form) on the organization's active account and returns its URL. No card data reaches Rentopia."
+      security: []
+      parameters:
+        - { name: token, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                locale: { type: string, enum: [tr, en] }
+      responses:
+        "200":
+          description: Checkout
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopePayCheckout" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "502": { $ref: "#/components/responses/PaymentProviderError" }
+
+  /v1/public/payments/iyzico/webhook:
+    post:
+      tags: [Payments]
+      operationId: postPublicIyzicoWebhook
+      summary: iyzico payment notification
+      description: |
+        No auth; rate-limited per IP. The body's `paymentConversationId` names our payment (and so the
+        organization); `X-IYZ-SIGNATURE-V3` must verify with that organization's secret key (401
+        otherwise). The payment is then confirmed only by a provider retrieve matching order reference,
+        amount, currency and token. The same notification delivered again is one integration job
+        (`duplicate: true`): one payment, one reservation change (RT-A16). Non-2xx answers make iyzico
+        retry.
+      security: []
+      parameters:
+        - { name: X-IYZ-SIGNATURE-V3, in: header, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                iyziEventType: { type: string }
+                iyziEventTime: { type: integer }
+                iyziReferenceCode: { type: string }
+                iyziPaymentId: { type: [string, integer] }
+                token: { type: string }
+                paymentConversationId: { type: string }
+                merchantId: { type: [string, integer] }
+                status: { type: string }
+      responses:
+        "200":
+          description: Processed (or a duplicate)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeWebhookResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
 
   /v1/tenant/capacity-rules:
     get:
@@ -12843,6 +13447,24 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/EnvelopeReservationChange"
+    PaymentOK:
+      description: Payment
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/EnvelopePayment"
+    IntegrationAccountOK:
+      description: Integration account
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/EnvelopeIntegrationAccount"
+    PaymentProviderError:
+      description: "The payment provider refused or failed (PAYMENT_PROVIDER_ERROR); details carry the provider code"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
     ResolutionTaskOK:
       description: Resolution task
       content:
@@ -15962,6 +16584,11 @@ components:
       properties:
         code: { type: string, enum: [web, widget, api, branch, yolcu360, obilet] }
         is_active: { type: boolean }
+        approval_protocol:
+          type: string
+          enum: ["", auto, staff, channel]
+          description: "'' follows the organization's approval mode; channel = the sales channel confirms on its side (TEC-708)"
+
 
     OrganizationInvoiceItemMapping:
       type: object
@@ -19505,10 +20132,11 @@ components:
 
     ReservationActions:
       type: object
-      required: [submit, approve, confirm, cancel, no_show, change, extend, plate]
+      required: [submit, approve, reject, confirm, cancel, no_show, change, extend, plate]
       properties:
         submit: { type: boolean }
         approve: { type: boolean }
+        reject: { type: boolean }
         confirm: { type: boolean }
         cancel: { type: boolean }
         no_show: { type: boolean }
@@ -19518,7 +20146,7 @@ components:
 
     Reservation:
       type: object
-      required: [uuid, reference, status, payment_status, capacity_commitment, pickup_branch, return_branch, pickup_point, return_point, starts_at, ends_at, billing_days, customer, invoice_customer, drivers, channel, external_reference, collecting_party, price, quote_uuid, settings_version, policy, plan, review_deadline, payment_deadline, assigned_user, note, eligibility_override, open_tasks, actions, confirmed_at, cancelled_at, cancel_reason, created_by, created_at, updated_at]
+      required: [uuid, reference, status, payment_status, capacity_commitment, pickup_branch, return_branch, pickup_point, return_point, starts_at, ends_at, billing_days, customer, invoice_customer, drivers, channel, approval_protocol, external_reference, collecting_party, price, quote_uuid, settings_version, policy, plan, review_deadline, payment_deadline, assigned_user, note, eligibility_override, open_tasks, actions, confirmed_at, cancelled_at, cancel_reason, created_by, created_at, updated_at]
       properties:
         uuid: { type: string, format: uuid }
         reference: { type: string, example: IDS-2026-000123 }
@@ -19547,17 +20175,19 @@ components:
           type: array
           items: { $ref: "#/components/schemas/ReservationDriver" }
         channel: { type: string }
+        approval_protocol: { type: string, enum: [auto, staff, channel] }
         external_reference: { type: [string, "null"] }
         collecting_party: { type: string, enum: [us, channel] }
         price:
           type: object
-          required: [currency, total, prepayment, paid, balance, commission, net_receivable, snapshot]
+          required: [currency, total, prepayment, paid, prepayment_due, balance, commission, net_receivable, snapshot]
           properties:
             currency: { type: string }
             total: { type: string }
             prepayment: { type: string }
             paid: { type: string }
-            balance: { type: string }
+            prepayment_due: { type: string, description: Prepayment still missing (paid online) }
+            balance: { type: string, description: "Remaining rent (total - paid), collected at the branch" }
             commission: { type: string }
             net_receivable: { type: string }
             snapshot: { $ref: "#/components/schemas/ReservationPriceSnapshot" }
@@ -19654,7 +20284,7 @@ components:
 
     ReservationListItem:
       type: object
-      required: [uuid, reference, status, payment_status, capacity_commitment, pickup_branch, return_branch, starts_at, ends_at, product, customer, channel, external_reference, currency, total_amount, paid_amount, vehicle, plate_fixed, assigned_user, open_tasks, deadline, created_at, updated_at]
+      required: [uuid, reference, status, payment_status, capacity_commitment, pickup_branch, return_branch, starts_at, ends_at, product, customer, channel, external_reference, currency, total_amount, paid_amount, vehicle, plate_fixed, assigned_user, open_tasks, deadline, review_deadline, prepayment_amount, approval_protocol, created_at, updated_at]
       properties:
         uuid: { type: string, format: uuid }
         reference: { type: string }
@@ -19683,6 +20313,9 @@ components:
             - type: "null"
         open_tasks: { type: integer, format: int64 }
         deadline: { type: [string, "null"], format: date-time }
+        review_deadline: { type: [string, "null"], format: date-time, description: Staff SLA of a request / review }
+        prepayment_amount: { type: string }
+        approval_protocol: { type: string, enum: [auto, staff, channel] }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 
@@ -19766,7 +20399,7 @@ components:
       required: [uuid, task_type, status, reason, source_type, source_uuid, data, reservation, assignee, resolved_at, resolved_by, resolution_note, created_at, updated_at]
       properties:
         uuid: { type: string, format: uuid }
-        task_type: { type: string, enum: [block_conflict, release_conflict, extension_conflict, replan_failed, late_return] }
+        task_type: { type: string, enum: [block_conflict, release_conflict, extension_conflict, replan_failed, late_return, late_payment] }
         status: { type: string, enum: [open, resolved] }
         reason: { type: string }
         source_type: { type: string }
@@ -21192,4 +21825,344 @@ components:
       properties:
         success: { type: boolean, enum: [true] }
         data: { $ref: "#/components/schemas/PricingPreview" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    PaymentActor:
+      type: object
+      required: [uuid, name, surname, email]
+      properties:
+        uuid: { type: string, format: uuid }
+        name: { type: string }
+        surname: { type: string }
+        email: { type: string }
+
+    PaymentReservationRef:
+      type: object
+      required: [uuid, reference]
+      properties:
+        uuid: { type: string, format: uuid }
+        reference: { type: string }
+
+    PaymentRefund:
+      type: object
+      required: [uuid, amount, currency, status, provider_refund_id, reason, failure_reason, created_by, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        amount: { type: string }
+        currency: { type: string }
+        status: { type: string, enum: [pending, succeeded, failed] }
+        provider_refund_id: { type: [string, "null"] }
+        reason: { type: string }
+        failure_reason: { type: string }
+        created_by:
+          oneOf:
+            - $ref: "#/components/schemas/PaymentActor"
+            - type: "null"
+        created_at: { type: string, format: date-time }
+
+    Payment:
+      type: object
+      description: "Gross (what the customer paid on the provider), commission, net payout and refunds are separate. No card data; `provider_data` holds masked facts only."
+      required: [uuid, reservation, link_uuid, provider, method, status, currency, amount, gross_amount, commission_amount, net_amount, refunded_amount, refundable, provider_payment_id, failure_reason, verified_via, verified_at, outcome, note, created_by, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        reservation: { $ref: "#/components/schemas/PaymentReservationRef" }
+        link_uuid: { type: [string, "null"], format: uuid }
+        provider: { type: string, enum: [iyzico, manual] }
+        method: { type: string, enum: [checkout_form, cash, card_pos, bank_transfer] }
+        status: { type: string, enum: [pending, succeeded, partially_refunded, refunded, failed, cancelled] }
+        currency: { type: string }
+        amount: { type: string }
+        gross_amount: { type: string }
+        commission_amount: { type: string }
+        net_amount: { type: string }
+        refunded_amount: { type: string }
+        refundable: { type: string }
+        provider_payment_id: { type: [string, "null"] }
+        provider_status: { type: string }
+        provider_data: { type: object }
+        failure_reason: { type: string }
+        verified_via: { type: string, enum: ["", webhook, retrieve, manual] }
+        verified_at: { type: [string, "null"], format: date-time }
+        outcome: { type: string, description: "recorded, confirmed, reinstated, late_payment_task ('' until applied)" }
+        note: { type: string }
+        refunds:
+          type: array
+          items: { $ref: "#/components/schemas/PaymentRefund" }
+        created_by:
+          oneOf:
+            - $ref: "#/components/schemas/PaymentActor"
+            - type: "null"
+        created_at: { type: string, format: date-time }
+
+    EnvelopePayment:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/Payment" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopePaymentPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/Payment" }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    PaymentLink:
+      type: object
+      required: [uuid, url, reservation, purpose, amount, currency, status, expires_at, paid_at, cancelled_at, created_by, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        url: { type: string, description: "Public page (/pay/{token}) on the app origin" }
+        reservation: { $ref: "#/components/schemas/PaymentReservationRef" }
+        purpose: { type: string, enum: [prepayment, balance, custom] }
+        amount: { type: string }
+        currency: { type: string }
+        status: { type: string, enum: [active, paid, expired, cancelled] }
+        expires_at: { type: string, format: date-time }
+        paid_at: { type: [string, "null"], format: date-time }
+        cancelled_at: { type: [string, "null"], format: date-time }
+        created_by:
+          oneOf:
+            - $ref: "#/components/schemas/PaymentActor"
+            - type: "null"
+        created_at: { type: string, format: date-time }
+
+    EnvelopePaymentLink:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/PaymentLink" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopePaymentLinkPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/PaymentLink" }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    ReservationPaymentLinkRef:
+      type: object
+      required: [uuid, url, amount, expires_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        url: { type: string }
+        amount: { type: string }
+        expires_at: { type: string, format: date-time }
+
+    ReservationAcceptResult:
+      type: object
+      required: [reservation, payment_link, warnings]
+      properties:
+        reservation: { $ref: "#/components/schemas/Reservation" }
+        payment_link:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationPaymentLinkRef"
+            - type: "null"
+        payment_link_error: { type: string }
+        warnings:
+          type: array
+          items: { type: string }
+
+    EnvelopeReservationAccept:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/ReservationAcceptResult" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    IntegrationField:
+      type: object
+      required: [key, label_key, secret, required]
+      properties:
+        key: { type: string }
+        label_key: { type: string }
+        secret: { type: boolean }
+        required: { type: boolean }
+
+    IntegrationProvider:
+      type: object
+      required: [kind, provider, fields, modes]
+      properties:
+        kind: { type: string, enum: [payment] }
+        provider: { type: string, enum: [iyzico] }
+        fields:
+          type: array
+          items: { $ref: "#/components/schemas/IntegrationField" }
+        modes:
+          type: array
+          items: { type: string, enum: [sandbox, live] }
+
+    EnvelopeIntegrationsMeta:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [providers]
+          properties:
+            providers:
+              type: array
+              items: { $ref: "#/components/schemas/IntegrationProvider" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    IntegrationAccount:
+      type: object
+      description: "Never carries secrets: `credentials_hint` holds masked values."
+      required: [uuid, kind, provider, display_name, mode, status, credentials_hint, last_checked_at, last_check_status, last_check_error, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        kind: { type: string, enum: [payment] }
+        provider: { type: string, enum: [iyzico] }
+        display_name: { type: string }
+        mode: { type: string, enum: [sandbox, live] }
+        status: { type: string, enum: [active, disabled] }
+        credentials_hint:
+          type: object
+          additionalProperties: { type: string }
+        last_checked_at: { type: [string, "null"], format: date-time }
+        last_check_status: { type: string, enum: ["", ok, failed] }
+        last_check_error: { type: string }
+        fields:
+          type: array
+          items: { $ref: "#/components/schemas/IntegrationField" }
+        created_by:
+          oneOf:
+            - $ref: "#/components/schemas/PaymentActor"
+            - type: "null"
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    EnvelopeIntegrationAccount:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/IntegrationAccount" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeIntegrationAccountPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/IntegrationAccount" }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    IntegrationJob:
+      type: object
+      required: [uuid, direction, provider, kind, status, attempts, deliveries, last_error, ref_type, ref_uuid, completed_at, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        direction: { type: string, enum: [inbound, outbound] }
+        provider: { type: string }
+        kind: { type: string }
+        status: { type: string, enum: [pending, processing, succeeded, failed, ignored] }
+        attempts: { type: integer }
+        deliveries: { type: integer }
+        last_error: { type: string }
+        ref_type: { type: string }
+        ref_uuid: { type: [string, "null"], format: uuid }
+        completed_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+
+    EnvelopeIntegrationJobPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/IntegrationJob" }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    PublicPayLink:
+      type: object
+      required: [organization_name, reference, product_title, starts_at, ends_at, amount, currency, expires_at, state, result]
+      properties:
+        organization_name: { type: string }
+        reference: { type: string }
+        product_title: { type: string }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+        amount: { type: string }
+        currency: { type: string }
+        expires_at: { type: string, format: date-time }
+        state: { type: string, enum: [ready, processing, paid, failed, expired, cancelled] }
+        result: { type: string, description: "Reservation outcome of the verified payment: confirmed, reinstated, late_payment_task, recorded or ''" }
+        failure_reason: { type: string }
+
+    EnvelopePublicPayLink:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/PublicPayLink" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopePayCheckout:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [payment_page_url]
+          properties:
+            payment_page_url: { type: string }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeWebhookResult:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [duplicate, status]
+          properties:
+            duplicate: { type: boolean }
+            status: { type: string }
         meta: { $ref: "#/components/schemas/ResponseMeta" }
