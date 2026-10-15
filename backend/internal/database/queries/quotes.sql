@@ -59,7 +59,8 @@ JOIN branches rb ON rb.organization_id = q.organization_id AND rb.id = q.return_
 LEFT JOIN service_points pp ON pp.organization_id = q.organization_id AND pp.id = q.pickup_point_id
 LEFT JOIN service_points rp ON rp.organization_id = q.organization_id AND rp.id = q.return_point_id
 LEFT JOIN customers c ON c.organization_id = q.organization_id AND c.id = q.customer_id
-LEFT JOIN reservations r ON r.organization_id = q.organization_id AND r.id = q.reservation_id
+LEFT JOIN reservations r ON r.organization_id = q.organization_id
+    AND (r.id = q.reservation_id OR (q.reservation_id IS NULL AND r.quote_id = q.id))
 LEFT JOIN vehicles v ON v.organization_id = q.organization_id AND v.id = q.vehicle_id
 LEFT JOIN users cu ON cu.id = q.created_by
 WHERE q.organization_id = sqlc.arg(organization_id)
@@ -92,7 +93,8 @@ JOIN rental_products p ON p.organization_id = q.organization_id AND p.id = q.ren
 JOIN branches pb ON pb.organization_id = q.organization_id AND pb.id = q.pickup_branch_id
 JOIN branches rb ON rb.organization_id = q.organization_id AND rb.id = q.return_branch_id
 LEFT JOIN customers c ON c.organization_id = q.organization_id AND c.id = q.customer_id
-LEFT JOIN reservations r ON r.organization_id = q.organization_id AND r.id = q.reservation_id
+LEFT JOIN reservations r ON r.organization_id = q.organization_id
+    AND (r.id = q.reservation_id OR (q.reservation_id IS NULL AND r.quote_id = q.id))
 WHERE q.organization_id = sqlc.arg(organization_id)
   AND p.organization_id = sqlc.arg(organization_id)
   AND pb.organization_id = sqlc.arg(organization_id)

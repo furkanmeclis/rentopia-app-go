@@ -77,6 +77,7 @@ func RegisterRoutes(mux *http.ServeMux, h *handler.Handler, engines EngineHandle
 	route("POST /v1/tenant/reservations/{uuid}/quotes", h.ChangeQuote, write, perm(rbac.PermTenantQuotesWrite))
 	route("POST /v1/tenant/reservations/{uuid}/change", h.ApplyChange, write)
 	route("POST /v1/tenant/reservations/{uuid}/extend", h.Extend, write)
+	route("GET /v1/tenant/reservations/{uuid}/plate-candidates", h.PlateCandidates, write)
 	route("POST /v1/tenant/reservations/{uuid}/plate", h.Plate, write)
 	route("PUT /v1/tenant/reservations/{uuid}/drivers", h.Drivers, write)
 	route("POST /v1/tenant/reservations/{uuid}/assign", h.Assign, write)

@@ -154,6 +154,9 @@ CREATE INDEX idx_reservations_organization_return_branch ON reservations (organi
 CREATE INDEX idx_reservations_organization_status ON reservations (organization_id, status);
 CREATE INDEX idx_reservations_organization_customer ON reservations (organization_id, customer_id);
 CREATE INDEX idx_reservations_organization_product ON reservations (organization_id, rental_product_id);
+-- The reservation a new-sale quote became (quote lists) and the FK check
+-- when a quote is removed.
+CREATE INDEX idx_reservations_organization_quote ON reservations (organization_id, quote_id) WHERE quote_id IS NOT NULL;
 -- Expiry sweep: waiting reservations by deadline.
 CREATE INDEX idx_reservations_organization_waiting
     ON reservations (organization_id, status, review_deadline, payment_deadline)

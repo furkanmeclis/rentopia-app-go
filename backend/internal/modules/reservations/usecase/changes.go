@@ -473,7 +473,7 @@ func (s *Service) extensionConflict(ctx context.Context, orgID int64, c db.GetRe
 		if err != nil {
 			continue
 		}
-		alts.Vehicles = append(alts.Vehicles, model.VehicleAlternative{Vehicle: model.VehicleRef{UUID: v.UUID, Plate: v.Plate}, Quote: q})
+		alts.Vehicles = append(alts.Vehicles, model.VehicleAlternative{Vehicle: model.VehicleRef{UUID: v.UUID, Plate: v.Plate, Label: vrow.Label}, Quote: q})
 	}
 	if res, err := s.avail.Search(unscoped(ctx), orgID, availmodel.SearchInput{Where: extended}); err == nil {
 		for _, item := range res.Items {
@@ -530,6 +530,36 @@ func (s *Service) Extend(ctx context.Context, orgID int64, id uuid.UUID, in mode
 		return model.ChangeResult{}, err
 	}
 	return s.ApplyChange(ctx, orgID, id, model.ApplyChangeInput{QuoteUUID: &qid, Reason: in.Reason})
+}
+
+// PlateCandidates lists the vehicles (other than the planned one) the
+// engine could move the reservation to as it is: each one checked with the
+// planner, read-only. The plate dialog offers only these.
+func (s *Service) PlateCandidates(ctx context.Context, orgID int64, id uuid.UUID) ([]model.VehicleRef, error) {
+	c, err := s.core(ctx, orgID, id)
+	if err != nil {
+		return nil, err
+	}
+	if err := changeable(c); err != nil {
+		return nil, err
+	}
+	w, _, err := s.where(ctx, orgID, id)
+	if err != nil {
+		return nil, err
+	}
+	vehicles, err := s.avail.CandidateVehicles(unscoped(ctx), orgID, c.AllocationUuid.Bytes, w, 25)
+	if err != nil {
+		return nil, mapEngineErr(err)
+	}
+	out := make([]model.VehicleRef, 0, len(vehicles))
+	for _, v := range vehicles {
+		ref := model.VehicleRef{UUID: v.UUID, Plate: v.Plate, Label: v.Label}
+		if row, err := s.q.GetReservationVehicleByUUID(ctx, db.GetReservationVehicleByUUIDParams{OrganizationID: orgID, Uuid: v.UUID}); err == nil {
+			ref.Label = row.Label
+		}
+		out = append(out, ref)
+	}
+	return out, nil
 }
 
 // Plate changes the vehicle plan of a reservation: fix promises the plate

@@ -614,8 +614,13 @@ func (q *Queries) GetReservationVehicleByID(ctx context.Context, arg GetReservat
 }
 
 const getReservationVehicleByUUID = `-- name: GetReservationVehicleByUUID :one
-SELECT v.id, v.uuid, v.plate
+SELECT v.id, v.uuid, v.plate,
+    COALESCE(NULLIF(btrim(d.name || ' ' || COALESCE(m.name, '')), ''), btrim(COALESCE(v.manual_brand, '') || ' ' || COALESCE(v.manual_model, '')))::text AS label
 FROM vehicles v
+LEFT JOIN catalog_types ct ON ct.id = v.catalog_type_id
+LEFT JOIN catalog_models m ON m.id = ct.model_id
+LEFT JOIN catalog_brands tb ON tb.id = ct.brand_id
+LEFT JOIN catalog_display_brands d ON d.id = tb.display_brand_id
 WHERE v.organization_id = $1
   AND v.uuid = $2
   AND v.deleted_at IS NULL
@@ -630,12 +635,18 @@ type GetReservationVehicleByUUIDRow struct {
 	ID    int64     `json:"id"`
 	Uuid  uuid.UUID `json:"uuid"`
 	Plate string    `json:"plate"`
+	Label string    `json:"label"`
 }
 
 func (q *Queries) GetReservationVehicleByUUID(ctx context.Context, arg GetReservationVehicleByUUIDParams) (GetReservationVehicleByUUIDRow, error) {
 	row := q.db.QueryRow(ctx, getReservationVehicleByUUID, arg.OrganizationID, arg.Uuid)
 	var i GetReservationVehicleByUUIDRow
-	err := row.Scan(&i.ID, &i.Uuid, &i.Plate)
+	err := row.Scan(
+		&i.ID,
+		&i.Uuid,
+		&i.Plate,
+		&i.Label,
+	)
 	return i, err
 }
 

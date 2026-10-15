@@ -387,8 +387,13 @@ WHERE v.organization_id = sqlc.arg(organization_id)
   AND v.id = sqlc.arg(id);
 
 -- name: GetReservationVehicleByUUID :one
-SELECT v.id, v.uuid, v.plate
+SELECT v.id, v.uuid, v.plate,
+    COALESCE(NULLIF(btrim(d.name || ' ' || COALESCE(m.name, '')), ''), btrim(COALESCE(v.manual_brand, '') || ' ' || COALESCE(v.manual_model, '')))::text AS label
 FROM vehicles v
+LEFT JOIN catalog_types ct ON ct.id = v.catalog_type_id
+LEFT JOIN catalog_models m ON m.id = ct.model_id
+LEFT JOIN catalog_brands tb ON tb.id = ct.brand_id
+LEFT JOIN catalog_display_brands d ON d.id = tb.display_brand_id
 WHERE v.organization_id = sqlc.arg(organization_id)
   AND v.uuid = sqlc.arg(uuid)
   AND v.deleted_at IS NULL;

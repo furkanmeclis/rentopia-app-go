@@ -74,7 +74,7 @@ func ReservationsMeta() rm.ResourceMeta {
 // QuotesMeta is the table contract of GET /v1/tenant/quotes.
 func QuotesMeta() rm.ResourceMeta {
 	col := func(key string, t rm.ColumnType, sortable, visible bool) rm.Column {
-		return column("quotes", key, t, sortable, visible)
+		return column("reservations.quotes", key, t, sortable, visible)
 	}
 	s, e, dt := rm.ColumnTypeString, rm.ColumnTypeEnum, rm.ColumnTypeDatetime
 	return rm.ResourceMeta{
@@ -93,8 +93,8 @@ func QuotesMeta() rm.ResourceMeta {
 			col("valid_until", dt, true, true), col("created_at", dt, true, false),
 		},
 		Filters: []rm.Filter{
-			{Key: "purpose", LabelKey: "quotes.columns.purpose", Variant: rm.FilterVariantFaceted, EnumLookup: "quotes.purposes"},
-			{Key: "status", LabelKey: "quotes.columns.status", Variant: rm.FilterVariantFaceted, EnumLookup: "quotes.statuses"},
+			{Key: "purpose", LabelKey: "reservations.quotes.columns.purpose", Variant: rm.FilterVariantFaceted, EnumLookup: "reservations.quotes.purposes"},
+			{Key: "status", LabelKey: "reservations.quotes.columns.status", Variant: rm.FilterVariantFaceted, EnumLookup: "reservations.quotes.statuses"},
 		},
 		Includes:    []string{},
 		BulkActions: nil,
@@ -104,7 +104,7 @@ func QuotesMeta() rm.ResourceMeta {
 // TasksMeta is the table contract of GET /v1/tenant/resolution-tasks.
 func TasksMeta() rm.ResourceMeta {
 	col := func(key string, t rm.ColumnType, sortable, visible bool) rm.Column {
-		return column("resolution_tasks", key, t, sortable, visible)
+		return column("reservations.tasks", key, t, sortable, visible)
 	}
 	s, e, dt := rm.ColumnTypeString, rm.ColumnTypeEnum, rm.ColumnTypeDatetime
 	return rm.ResourceMeta{
@@ -121,8 +121,8 @@ func TasksMeta() rm.ResourceMeta {
 			col("created_at", dt, true, true),
 		},
 		Filters: []rm.Filter{
-			{Key: "status", LabelKey: "resolution_tasks.columns.status", Variant: rm.FilterVariantFaceted, EnumLookup: "resolution_tasks.statuses"},
-			{Key: "task_type", LabelKey: "resolution_tasks.columns.task_type", Variant: rm.FilterVariantFaceted, EnumLookup: "resolution_tasks.types"},
+			{Key: "status", LabelKey: "reservations.tasks.columns.status", Variant: rm.FilterVariantFaceted, EnumLookup: "reservations.tasks.statuses"},
+			{Key: "task_type", LabelKey: "reservations.tasks.columns.task_type", Variant: rm.FilterVariantFaceted, EnumLookup: "reservations.tasks.types"},
 		},
 		Includes:    []string{},
 		BulkActions: nil,

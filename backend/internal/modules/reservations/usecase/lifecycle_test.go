@@ -40,6 +40,14 @@ func TestLifecycleAutoConfirmAndCancel(t *testing.T) {
 	if r.Plan.PlannedVehicle == nil || r.Plan.PlateFixed {
 		t.Fatalf("plan: %+v", r.Plan)
 	}
+	// The used quote names the reservation it became (quote lists).
+	if r.QuoteUUID == nil {
+		t.Fatal("reservation without its quote")
+	}
+	if q, err := f.svc.GetQuote(f.ctx, f.org, *r.QuoteUUID); err != nil || q.Status != model.QuoteUsed ||
+		q.Reservation == nil || q.Reservation.UUID != r.UUID {
+		t.Fatalf("used quote: %+v (%v)", q.Reservation, err)
+	}
 	if _, err := f.svc.Cancel(f.ctx, f.org, r.UUID, ""); err == nil {
 		t.Fatal("cancel without a reason accepted")
 	}

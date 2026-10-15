@@ -10321,6 +10321,43 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/ExtensionConflict" }
 
+  /v1/tenant/reservations/{uuid}/plate-candidates:
+    get:
+      tags: [Tenant]
+      operationId: getTenantReservationPlateCandidates
+      summary: Vehicles the plan can move to
+      description: |
+        `tenant.reservations.write`. Up to 25 vehicles (other than the planned one) that keep the sold
+        guarantee and can carry the reservation as it is, each checked with the planner (read-only;
+        nothing is written). `409 INVALID_STATE` when the reservation holds no capacity.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Candidate vehicles
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success: { type: boolean, enum: [true] }
+                  data:
+                    type: object
+                    required: [items]
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: "#/components/schemas/ReservationVehicleRef" }
+                  meta: { $ref: "#/components/schemas/ResponseMeta" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
   /v1/tenant/reservations/{uuid}/plate:
     post:
       tags: [Tenant]

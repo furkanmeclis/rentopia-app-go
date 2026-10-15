@@ -275,6 +275,20 @@ func (h *Handler) Extend(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, r, http.StatusOK, res)
 }
 
+// PlateCandidates serves GET …/{uuid}/plate-candidates.
+func (h *Handler) PlateCandidates(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathUUID(w, r, "uuid")
+	if !ok {
+		return
+	}
+	items, err := h.svc.PlateCandidates(r.Context(), orgID(r), id)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	response.JSON(w, r, http.StatusOK, map[string]any{"items": items})
+}
+
 // Plate serves POST …/{uuid}/plate.
 func (h *Handler) Plate(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathUUID(w, r, "uuid")
