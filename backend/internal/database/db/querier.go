@@ -114,6 +114,7 @@ type Querier interface {
 	CountNotificationsForUser(ctx context.Context, arg CountNotificationsForUserParams) (int64, error)
 	CountOTPChallengesSince(ctx context.Context, arg CountOTPChallengesSinceParams) (int64, error)
 	CountOneWayRules(ctx context.Context, arg CountOneWayRulesParams) (int64, error)
+	CountOpenCustomerRequests(ctx context.Context, arg CountOpenCustomerRequestsParams) (int64, error)
 	CountOrganizationMembersByOrg(ctx context.Context, arg CountOrganizationMembersByOrgParams) (int64, error)
 	// Members holding the template owner role (any of their roles).
 	CountOrganizationOwners(ctx context.Context, organizationID int64) (int64, error)
@@ -359,6 +360,8 @@ type Querier interface {
 	// The organization's active account of a kind (payments go to it).
 	GetActiveIntegrationAccount(ctx context.Context, arg GetActiveIntegrationAccountParams) (GetActiveIntegrationAccountRow, error)
 	GetActiveOTPByEmailType(ctx context.Context, arg GetActiveOTPByEmailTypeParams) (OtpCode, error)
+	// The newest active, unexpired pay-by-link link of a reservation.
+	GetActivePaymentLinkForReservation(ctx context.Context, arg GetActivePaymentLinkForReservationParams) (GetActivePaymentLinkForReservationRow, error)
 	GetAllocation(ctx context.Context, arg GetAllocationParams) (GetAllocationRow, error)
 	// The planning facts of one allocation by uuid.
 	GetAllocationRef(ctx context.Context, arg GetAllocationRefParams) (GetAllocationRefRow, error)
@@ -489,6 +492,21 @@ type Querier interface {
 	// reference, dates, product title and the amount.
 	GetPaymentLinkPublic(ctx context.Context, arg GetPaymentLinkPublicParams) (GetPaymentLinkPublicRow, error)
 	GetPermissionBySlug(ctx context.Context, slug string) (Permission, error)
+	// Channel, contact hash and time of a verified challenge (the session binds
+	// the code to the contact the customer typed).
+	GetPortalOTPBinding(ctx context.Context, arg GetPortalOTPBindingParams) (GetPortalOTPBindingRow, error)
+	// Customer portal (TEC-715, docs/design/customer-portal.md): sign-in
+	// lookups, customer sessions, the customer's reservations and customer
+	// requests. Every query on a tenant table names organization_id; the
+	// session token lookup is global by design (it resolves the organization).
+	// A live organization by its slug (the portal URL names it).
+	GetPortalOrganization(ctx context.Context, slug string) (GetPortalOrganizationRow, error)
+	// One reservation of the session's scope (same rule as the list).
+	GetPortalReservation(ctx context.Context, arg GetPortalReservationParams) (GetPortalReservationRow, error)
+	GetPortalReservationByReference(ctx context.Context, arg GetPortalReservationByReferenceParams) (GetPortalReservationByReferenceRow, error)
+	// The session of a bearer token, with its organization (global lookup by
+	// the token hash; the caller compares the organization with the URL).
+	GetPortalSessionByToken(ctx context.Context, tokenHash string) (GetPortalSessionByTokenRow, error)
 	// Tenant resources: rate plans with duration bands (TEC-700) and named date
 	// rules (TEC-701). Every query filters by organization_id
 	// (docs/design/tenant-core.md §8); joined tenant tables are constrained by
@@ -615,6 +633,7 @@ type Querier interface {
 	// concurrent insert of the same kind hits the unique (kind, version) and
 	// retries.
 	InsertContractTemplate(ctx context.Context, arg InsertContractTemplateParams) (InsertContractTemplateRow, error)
+	InsertCustomerRequest(ctx context.Context, arg InsertCustomerRequestParams) (InsertCustomerRequestRow, error)
 	InsertDateRuleTarget(ctx context.Context, arg InsertDateRuleTargetParams) error
 	InsertDocument(ctx context.Context, arg InsertDocumentParams) (InsertDocumentRow, error)
 	InsertDocumentApproval(ctx context.Context, arg InsertDocumentApprovalParams) (uuid.UUID, error)
@@ -644,6 +663,7 @@ type Querier interface {
 	// scope everything after them.
 	InsertPaymentLink(ctx context.Context, arg InsertPaymentLinkParams) (int64, error)
 	InsertPaymentRefund(ctx context.Context, arg InsertPaymentRefundParams) (InsertPaymentRefundRow, error)
+	InsertPortalSession(ctx context.Context, arg InsertPortalSessionParams) (InsertPortalSessionRow, error)
 	InsertPushTicket(ctx context.Context, arg InsertPushTicketParams) error
 	// Quotes (TEC-704): priced search answers; consume no capacity. Every
 	// query filters by organization_id first; lists apply the caller's branch
@@ -781,6 +801,9 @@ type Querier interface {
 	ListCustomerDrivers(ctx context.Context, arg ListCustomerDriversParams) ([]Driver, error)
 	// Dynamic filter options. facet: customer_type | nationality | tag | consent.
 	ListCustomerFacets(ctx context.Context, organizationID int64) ([]ListCustomerFacetsRow, error)
+	// One page of customer requests in the caller's branch scope (pick-up OR
+	// return branch of the reservation).
+	ListCustomerRequests(ctx context.Context, arg ListCustomerRequestsParams) ([]ListCustomerRequestsRow, error)
 	ListCustomerSearchDocuments(ctx context.Context, organizationID int64) ([]ListCustomerSearchDocumentsRow, error)
 	// Bulk "all matching" scope (same filters as ListCustomers, no paging).
 	ListCustomerUUIDs(ctx context.Context, arg ListCustomerUUIDsParams) ([]uuid.UUID, error)
@@ -925,6 +948,14 @@ type Querier interface {
 	ListPlatformNotificationsForExport(ctx context.Context, arg ListPlatformNotificationsForExportParams) ([]Notification, error)
 	// Platform operations on the organization plus everything recorded inside it.
 	ListPlatformOrganizationActivity(ctx context.Context, arg ListPlatformOrganizationActivityParams) ([]ListPlatformOrganizationActivityRow, error)
+	// Who may sign in for a reservation: the renter (the contract party) and
+	// the drivers on it, with their contact values (plain in the database,
+	// compared through keyed hashes in the use case). Anonymized / deleted
+	// people are left out.
+	ListPortalContacts(ctx context.Context, arg ListPortalContactsParams) ([]ListPortalContactsRow, error)
+	// The reservations a session may see: the customer's (renter session) or
+	// the ones the driver is on (driver session), newest pick-up first.
+	ListPortalReservations(ctx context.Context, arg ListPortalReservationsParams) ([]ListPortalReservationsRow, error)
 	ListPricingBranchesByUUIDs(ctx context.Context, arg ListPricingBranchesByUUIDsParams) ([]ListPricingBranchesByUUIDsRow, error)
 	// Live products with their segment (matrix rows, overlap checks).
 	ListPricingProducts(ctx context.Context, organizationID int64) ([]ListPricingProductsRow, error)
@@ -976,6 +1007,8 @@ type Querier interface {
 	ListRentals(ctx context.Context, arg ListRentalsParams) ([]ListRentalsRow, error)
 	// Active repeat-customer campaigns (eligibility is evaluated in Go).
 	ListRepeatCustomerCampaigns(ctx context.Context, organizationID int64) ([]ListRepeatCustomerCampaignsRow, error)
+	// The requests of one reservation (portal view; newest first).
+	ListReservationCustomerRequests(ctx context.Context, arg ListReservationCustomerRequestsParams) ([]ListReservationCustomerRequestsRow, error)
 	ListReservationDriverIDs(ctx context.Context, arg ListReservationDriverIDsParams) ([]int64, error)
 	ListReservationDrivers(ctx context.Context, arg ListReservationDriversParams) ([]ListReservationDriversRow, error)
 	ListReservationEvents(ctx context.Context, arg ListReservationEventsParams) ([]ListReservationEventsRow, error)
@@ -1165,6 +1198,7 @@ type Querier interface {
 	ReplanAllocation(ctx context.Context, arg ReplanAllocationParams) (int64, error)
 	// The planned pick-up / return moved: live tasks of the type follow.
 	RescheduleRentalTasks(ctx context.Context, arg RescheduleRentalTasksParams) error
+	ResolveCustomerRequest(ctx context.Context, arg ResolveCustomerRequestParams) (int64, error)
 	// Remote approval links of documents (TEC-711, docs/design/contracts.md §7).
 	// Public approval page: the token hash names the link and its organization.
 	ResolveDocumentApprovalLinkToken(ctx context.Context, tokenHash string) (ResolveDocumentApprovalLinkTokenRow, error)
@@ -1187,6 +1221,7 @@ type Querier interface {
 	// Re-inviting an e-mail replaces its open (possibly expired) invitation.
 	RevokeOpenInvitationsForEmail(ctx context.Context, arg RevokeOpenInvitationsForEmailParams) (int64, error)
 	RevokeOtherRefreshTokensForUser(ctx context.Context, arg RevokeOtherRefreshTokensForUserParams) error
+	RevokePortalSession(ctx context.Context, arg RevokePortalSessionParams) (int64, error)
 	RevokeRefreshTokenByHash(ctx context.Context, tokenHash string) (int64, error)
 	RevokeRefreshTokenByUUIDForUser(ctx context.Context, arg RevokeRefreshTokenByUUIDForUserParams) (int64, error)
 	RevokeStorageLink(ctx context.Context, argUuid uuid.UUID) (StorageLink, error)
@@ -1289,6 +1324,8 @@ type Querier interface {
 	TenantListCatalogTypes(ctx context.Context, arg TenantListCatalogTypesParams) ([]TenantListCatalogTypesRow, error)
 	TenantRoleSlugTaken(ctx context.Context, arg TenantRoleSlugTakenParams) (bool, error)
 	TouchDateRule(ctx context.Context, arg TouchDateRuleParams) error
+	// Slides the idle expiry (never beyond the hard cap).
+	TouchPortalSession(ctx context.Context, arg TouchPortalSessionParams) (int64, error)
 	TouchRatePlan(ctx context.Context, arg TouchRatePlanParams) error
 	TouchRentalProduct(ctx context.Context, arg TouchRentalProductParams) error
 	// Moves the status (optimistic: only from the expected status).

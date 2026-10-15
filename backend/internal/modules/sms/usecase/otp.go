@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/mail"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/pii"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/sms"
 	"github.com/google/uuid"
@@ -53,13 +54,16 @@ func (e *CooldownError) Error() string {
 
 // Challenge is an issued code (never the code itself).
 type Challenge struct {
-	UUID        uuid.UUID `json:"uuid"`
-	Purpose     string    `json:"purpose"`
-	PhoneMasked string    `json:"phone_masked"`
-	ExpiresAt   time.Time `json:"expires_at"`
-	ResendAfter time.Time `json:"resend_after"`
-	MaxAttempts int32     `json:"max_attempts"`
-	Message     Sent      `json:"message"`
+	UUID    uuid.UUID `json:"uuid"`
+	Purpose string    `json:"purpose"`
+	// Channel is sms or email; ContactMasked the masked number / address.
+	Channel       string    `json:"channel"`
+	ContactMasked string    `json:"contact_masked"`
+	PhoneMasked   string    `json:"phone_masked"`
+	ExpiresAt     time.Time `json:"expires_at"`
+	ResendAfter   time.Time `json:"resend_after"`
+	MaxAttempts   int32     `json:"max_attempts"`
+	Message       Sent      `json:"message"`
 }
 
 // Verification is the result of a correct code.
@@ -128,6 +132,41 @@ func (s *Service) tx(ctx context.Context, fn func(q *db.Queries) error) error {
 	return tx.Commit(ctx)
 }
 
+// OTP delivery channels (sms_otp_challenges.channel).
+const (
+	ChannelSMS   = "sms"
+	ChannelEmail = "email"
+)
+
+// PurposeEmailHash is the blind index purpose of e-mail addresses in OTP
+// challenges (rate limits, binding a verified code to an address).
+const PurposeEmailHash = "sms.email"
+
+// ErrNoEmailChannel: e-mail codes are not configured in this process.
+var ErrNoEmailChannel = errors.New("e-mail codes are not available")
+
+// EmailHash is the keyed hash of a normalized e-mail address inside an
+// organization (pii.Email).
+func (s *Service) EmailHash(orgID int64, normalized string) string {
+	return s.cipher.BlindIndex(PurposeEmailHash, orgScope(orgID), normalized)
+}
+
+// SetMailer enables e-mail one-time codes (the platform mail sender).
+func (s *Service) SetMailer(m mail.Sender) { s.mailer = m }
+
+// EmailAvailable reports whether e-mail codes can be sent.
+func (s *Service) EmailAvailable() bool { return s.mailer != nil }
+
+// otpDelivery is where a code goes: the channel, the masked contact and its
+// keyed hash, and the send.
+type otpDelivery struct {
+	channel  string
+	auditKey string
+	masked   string
+	hash     string
+	send     func(ctx context.Context, challenge uuid.UUID, code string) (Sent, error)
+}
+
 // IssueOTP creates a one-time code for (purpose, subjectRef), sends it by
 // SMS (class otp, critical queue) and returns the challenge. A new code
 // supersedes the subject's open one. Limits: a resend cooldown per subject,
@@ -141,6 +180,74 @@ func (s *Service) IssueOTP(ctx context.Context, orgID int64, purpose, subjectRef
 	if err != nil {
 		return Challenge{}, err
 	}
+	return s.issue(ctx, orgID, purpose, subjectRef, otpDelivery{
+		channel: ChannelSMS, auditKey: "phone", masked: pii.MaskPhone(normalized), hash: s.PhoneHash(orgID, normalized),
+		send: func(ctx context.Context, id uuid.UUID, code string) (Sent, error) {
+			return s.Send(ctx, orgID, SendInput{
+				Class: sms.ClassOTP, Purpose: purpose, Phone: normalized, Body: otpBody(code, s.limits.OTPTTL),
+				RedactedBody: otpBody(strings.Repeat("•", OTPCodeLength), s.limits.OTPTTL), RefType: "sms_otp", RefUUID: &id,
+			})
+		},
+	})
+}
+
+// EmailOTP names the sender of an e-mail code (the organization).
+type EmailOTP struct {
+	// Sender is the organization's display name (subject and greeting).
+	Sender string
+}
+
+// emailOTPBody is the text of an e-mail code (Turkish first, English).
+func emailOTPBody(sender, code string, ttl time.Duration) string {
+	mins := int(ttl.Minutes() + 0.5)
+	return fmt.Sprintf("%s\n\nDoğrulama kodunuz: %s\nKod %d dakika geçerlidir; kimseyle paylaşmayın.\n\n"+
+		"Your verification code: %s\nThe code is valid for %d minutes; do not share it.\n", sender, code, mins, code, mins)
+}
+
+// IssueEmailOTP is IssueOTP over e-mail (the platform mail sender): the same
+// challenge store, limits, supersede and audit; the address is stored
+// masked and as a keyed hash only. Without a mailer it answers
+// ErrNoEmailChannel.
+func (s *Service) IssueEmailOTP(ctx context.Context, orgID int64, purpose, subjectRef, email string, msg EmailOTP) (Challenge, error) {
+	if err := validSubject(purpose, subjectRef); err != nil {
+		return Challenge{}, err
+	}
+	normalized := pii.Email(email)
+	if !ValidEmail(normalized) {
+		return Challenge{}, &ValidationError{Field: "email", Code: "invalid", Message: "a valid e-mail address is required"}
+	}
+	if s.mailer == nil {
+		return Challenge{}, ErrNoEmailChannel
+	}
+	sender := strings.TrimSpace(msg.Sender)
+	return s.issue(ctx, orgID, purpose, subjectRef, otpDelivery{
+		channel: ChannelEmail, auditKey: "email", masked: clipMasked(pii.MaskEmail(normalized)), hash: s.EmailHash(orgID, normalized),
+		send: func(ctx context.Context, _ uuid.UUID, code string) (Sent, error) {
+			err := s.mailer.Send(ctx, mail.Message{
+				To:      []string{normalized},
+				Subject: strings.TrimSpace(sender + " doğrulama kodu / verification code"),
+				Body:    emailOTPBody(sender, code, s.limits.OTPTTL),
+			})
+			return Sent{}, err
+		},
+	})
+}
+
+// ValidEmail reports whether a normalized address (pii.Email) is plausible.
+func ValidEmail(v string) bool {
+	local, domain, ok := strings.Cut(v, "@")
+	return ok && local != "" && strings.Contains(domain, ".") && !strings.ContainsAny(v, " \r\n,;<>\"") && len(v) <= 254
+}
+
+// clipMasked keeps a masked value inside the 32 characters of the column.
+func clipMasked(v string) string {
+	if len(v) <= 32 {
+		return v
+	}
+	return strings.ToValidUTF8(v[:32], "")
+}
+
+func (s *Service) issue(ctx context.Context, orgID int64, purpose, subjectRef string, d otpDelivery) (Challenge, error) {
 	now := s.now()
 	last, err := s.q.LatestOTPChallenge(ctx, db.LatestOTPChallengeParams{OrganizationID: orgID, Purpose: purpose, SubjectRef: subjectRef})
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
@@ -151,18 +258,17 @@ func (s *Service) IssueOTP(ctx context.Context, orgID int64, purpose, subjectRef
 			return Challenge{}, &CooldownError{RetryAfter: wait}
 		}
 	}
-	phoneHash := s.PhoneHash(orgID, normalized)
 	since := pgtype.Timestamptz{Time: now.Add(-time.Hour), Valid: true}
 	if s.limits.OTPPerPhoneHour > 0 {
 		n, err := s.q.CountOTPChallengesSince(ctx, db.CountOTPChallengesSinceParams{
-			OrganizationID: orgID, PhoneHash: pgtype.Text{String: phoneHash, Valid: true}, Since: since,
+			OrganizationID: orgID, PhoneHash: pgtype.Text{String: d.hash, Valid: true}, Since: since,
 		})
 		if err != nil {
 			return Challenge{}, err
 		}
 		if n >= s.limits.OTPPerPhoneHour {
 			s.audit(ctx, orgID, "sms.otp.rate_limited", ResourceOTP, uuid.Nil, map[string]any{
-				"purpose": purpose, "subject_ref": subjectRef, "phone": pii.MaskPhone(normalized), "limit": "phone",
+				"purpose": purpose, "subject_ref": subjectRef, d.auditKey: d.masked, "limit": d.auditKey, "channel": d.channel,
 			})
 			return Challenge{}, ErrOTPRateLimited
 		}
@@ -191,8 +297,8 @@ func (s *Service) IssueOTP(ctx context.Context, orgID int64, purpose, subjectRef
 		}
 		var err error
 		challengeID, err = q.InsertOTPChallenge(ctx, db.InsertOTPChallengeParams{
-			Uuid: id, OrganizationID: orgID, Purpose: purpose, SubjectRef: subjectRef, PhoneMasked: pii.MaskPhone(normalized),
-			PhoneHash: phoneHash, CodeHash: s.codeHash(orgID, id, code), MaxAttempts: s.limits.OTPMaxAttempts,
+			Uuid: id, OrganizationID: orgID, Purpose: purpose, SubjectRef: subjectRef, Channel: d.channel, PhoneMasked: d.masked,
+			PhoneHash: d.hash, CodeHash: s.codeHash(orgID, id, code), MaxAttempts: s.limits.OTPMaxAttempts,
 			ExpiresAt: pgtype.Timestamptz{Time: expires, Valid: true},
 		})
 		return err
@@ -205,32 +311,39 @@ func (s *Service) IssueOTP(ctx context.Context, orgID int64, purpose, subjectRef
 	if err != nil {
 		return Challenge{}, err
 	}
-	sent, err := s.Send(ctx, orgID, SendInput{
-		Class: sms.ClassOTP, Purpose: purpose, Phone: normalized, Body: otpBody(code, s.limits.OTPTTL),
-		RedactedBody: otpBody(strings.Repeat("•", OTPCodeLength), s.limits.OTPTTL), RefType: "sms_otp", RefUUID: &id,
-	})
+	sent, err := d.send(ctx, id, code)
 	code = ""
 	if err != nil {
-		// No usable code without its SMS: close the challenge.
+		// No usable code without its message: close the challenge.
 		_ = s.q.ExpireOTPChallenge(ctx, db.ExpireOTPChallengeParams{OrganizationID: orgID, ID: challengeID})
 		s.audit(ctx, orgID, "sms.otp.send_failed", ResourceOTP, id, map[string]any{
-			"purpose": purpose, "subject_ref": subjectRef, "phone": pii.MaskPhone(normalized), "error": err.Error(),
+			"purpose": purpose, "subject_ref": subjectRef, d.auditKey: d.masked, "channel": d.channel, "error": err.Error(),
 		})
 		return Challenge{}, err
 	}
-	if msg, err := s.q.GetSMSMessageForSend(ctx, db.GetSMSMessageForSendParams{OrganizationID: orgID, Uuid: sent.MessageUUID}); err == nil {
-		_ = s.q.SetOTPChallengeMessage(ctx, db.SetOTPChallengeMessageParams{
-			OrganizationID: orgID, ID: challengeID, SmsMessageID: pgtype.Int8{Int64: msg.ID, Valid: true},
-		})
+	if sent.MessageUUID != uuid.Nil {
+		if msg, err := s.q.GetSMSMessageForSend(ctx, db.GetSMSMessageForSendParams{OrganizationID: orgID, Uuid: sent.MessageUUID}); err == nil {
+			_ = s.q.SetOTPChallengeMessage(ctx, db.SetOTPChallengeMessageParams{
+				OrganizationID: orgID, ID: challengeID, SmsMessageID: pgtype.Int8{Int64: msg.ID, Valid: true},
+			})
+		}
 	}
-	s.audit(ctx, orgID, "sms.otp.issued", ResourceOTP, id, map[string]any{
-		"purpose": purpose, "subject_ref": subjectRef, "phone": pii.MaskPhone(normalized),
-		"expires_at": expires.UTC().Format(time.RFC3339), "sms_message_uuid": sent.MessageUUID,
-	})
-	return Challenge{
-		UUID: id, Purpose: purpose, PhoneMasked: pii.MaskPhone(normalized), ExpiresAt: expires.UTC(),
+	payload := map[string]any{
+		"purpose": purpose, "subject_ref": subjectRef, d.auditKey: d.masked, "expires_at": expires.UTC().Format(time.RFC3339),
+		"channel": d.channel,
+	}
+	if sent.MessageUUID != uuid.Nil {
+		payload["sms_message_uuid"] = sent.MessageUUID
+	}
+	s.audit(ctx, orgID, "sms.otp.issued", ResourceOTP, id, payload)
+	out := Challenge{
+		UUID: id, Purpose: purpose, Channel: d.channel, ContactMasked: d.masked, ExpiresAt: expires.UTC(),
 		ResendAfter: now.Add(s.limits.OTPCooldown).UTC(), MaxAttempts: s.limits.OTPMaxAttempts, Message: sent,
-	}, nil
+	}
+	if d.channel == ChannelSMS {
+		out.PhoneMasked = d.masked
+	}
+	return out, nil
 }
 
 // VerifyOTP checks a code against the subject's open challenge in constant
