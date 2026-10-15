@@ -146,5 +146,6 @@ Nav group **Rezervasyonlar**: Rezervasyonlar (list: facets, live, export, bulk c
 ## 11. Open items
 
 - Payments, documents, handover and returns (M3): `PaymentRecorder` is ready; `late_return` tasks come with rentals.
+- Rentals (M3, [rentals.md](./rentals.md)): a `LifecycleListener` (`SetLifecycleListener`) is told about these events: `plate_fixed`, `confirmed`, `terminated`, `changed` and `drivers_changed`. The rental is created when a confirmed reservation has a fixed plate. Once the vehicle is handed over, the engine answers `rental_underway` to cancel, product change and start or pick-up changes. Documents are in [contracts.md](./contracts.md).
 - Customer-facing channels (web / widget / API) reuse the same quote → reservation flow; their auth and rate limits are out of M2.
 - Search pick-up points and delivery fees are accepted by the API but not offered by the wizard yet.
