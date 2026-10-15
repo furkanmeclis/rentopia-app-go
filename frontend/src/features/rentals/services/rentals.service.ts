@@ -6,6 +6,7 @@ import type {
   OperationTaskFacets,
   OperationTaskPage,
   Rental,
+  RentalChargeOverrideRequest,
   RentalChargeRequest,
   RentalCompleteReturnRequest,
   RentalCreateRequest,
@@ -94,6 +95,19 @@ export const rentalsService = {
     return tenantRequest<Rental>(slug, "POST", `${one(uuid)}/charges`, {
       body,
     });
+  },
+  overrideCharge(
+    slug: string,
+    uuid: string,
+    charge: string,
+    body: RentalChargeOverrideRequest,
+  ) {
+    return tenantRequest<Rental>(
+      slug,
+      "PATCH",
+      `${one(uuid)}/charges/${charge}`,
+      { body },
+    );
   },
   decideCharge(
     slug: string,

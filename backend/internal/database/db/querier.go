@@ -31,6 +31,7 @@ type Querier interface {
 	ApproveDocumentApprovalLink(ctx context.Context, arg ApproveDocumentApprovalLinkParams) (int64, error)
 	ApproveDocumentVersion(ctx context.Context, arg ApproveDocumentVersionParams) (int64, error)
 	ArchiveActiveContractTemplate(ctx context.Context, arg ArchiveActiveContractTemplateParams) error
+	ArchiveActiveInspectionTemplate(ctx context.Context, organizationID int64) error
 	AssignOperationTask(ctx context.Context, arg AssignOperationTaskParams) (int64, error)
 	AssignResolutionTask(ctx context.Context, arg AssignResolutionTaskParams) (int64, error)
 	AssignUserRoleBySlug(ctx context.Context, arg AssignUserRoleBySlugParams) error
@@ -66,6 +67,7 @@ type Querier interface {
 	CloseOpenDocumentApprovalLinks(ctx context.Context, arg CloseOpenDocumentApprovalLinksParams) ([]uuid.UUID, error)
 	// Return of the current leg (the open one of the vehicle).
 	CloseRentalVehicleLeg(ctx context.Context, arg CloseRentalVehicleLegParams) (int64, error)
+	CompleteInspectionPhoto(ctx context.Context, arg CompleteInspectionPhotoParams) (int64, error)
 	CompleteVehicleTransfer(ctx context.Context, arg CompleteVehicleTransferParams) (int64, error)
 	// Hold -> confirmed reservation (TEC-706): same row, so capacity is never
 	// consumed twice.
@@ -109,6 +111,7 @@ type Querier interface {
 	CountExtraPriceHistory(ctx context.Context, arg CountExtraPriceHistoryParams) (int64, error)
 	CountExtras(ctx context.Context, arg CountExtrasParams) (int64, error)
 	CountImportJobsForActor(ctx context.Context, actorID int64) (int64, error)
+	CountInspectionCharges(ctx context.Context, arg CountInspectionChargesParams) (int64, error)
 	CountInvitations(ctx context.Context, arg CountInvitationsParams) (int64, error)
 	CountLivePolicyLateCharges(ctx context.Context, arg CountLivePolicyLateChargesParams) (int64, error)
 	CountNotificationsForUser(ctx context.Context, arg CountNotificationsForUserParams) (int64, error)
@@ -122,6 +125,9 @@ type Querier interface {
 	CountOrganizationSettingsVersions(ctx context.Context, organizationID int64) (int64, error)
 	CountOrganizationsWithStats(ctx context.Context, arg CountOrganizationsWithStatsParams) (int64, error)
 	CountOutboxByStatus(ctx context.Context, status string) (int64, error)
+	// Return forms of the rental that wait for an authorized review (dispute
+	// or missing signature): the return check cannot finish before.
+	CountPendingInspectionReviews(ctx context.Context, arg CountPendingInspectionReviewsParams) (int64, error)
 	CountPermissions(ctx context.Context, q_ pgtype.Text) (int64, error)
 	CountPlatformNotifications(ctx context.Context, arg CountPlatformNotificationsParams) (int64, error)
 	CountPlatformOrganizationActivity(ctx context.Context, arg CountPlatformOrganizationActivityParams) (int64, error)
@@ -278,12 +284,17 @@ type Querier interface {
 	// Drops rows that would only start at or after from_at (never quoted:
 	// quotes use the row effective at the quote time).
 	DeleteFutureExtraPrices(ctx context.Context, arg DeleteFutureExtraPricesParams) (int64, error)
+	DeleteInspectionDamage(ctx context.Context, arg DeleteInspectionDamageParams) (int64, error)
+	DeleteInspectionPhoto(ctx context.Context, arg DeleteInspectionPhotoParams) (int64, error)
+	DeleteInspectionSignature(ctx context.Context, arg DeleteInspectionSignatureParams) (int64, error)
 	DeleteLogPurgeRule(ctx context.Context, argUuid uuid.UUID) (int64, error)
 	DeleteMemberBranches(ctx context.Context, arg DeleteMemberBranchesParams) error
 	DeleteMemberRoles(ctx context.Context, arg DeleteMemberRolesParams) error
 	DeleteOAuthAccountByProviderAccount(ctx context.Context, arg DeleteOAuthAccountByProviderAccountParams) error
 	DeleteOAuthAccountByUserProvider(ctx context.Context, arg DeleteOAuthAccountByUserProviderParams) error
 	DeleteOrganizationMember(ctx context.Context, arg DeleteOrganizationMemberParams) (int64, error)
+	// A re-computed mileage / fuel / equipment charge replaces the proposal.
+	DeleteProposedInspectionPolicyCharges(ctx context.Context, arg DeleteProposedInspectionPolicyChargesParams) error
 	// A re-computed late fee replaces the proposal (approved fees stay).
 	DeleteProposedPolicyLateCharge(ctx context.Context, arg DeleteProposedPolicyLateChargeParams) error
 	DeletePushDeviceForUser(ctx context.Context, arg DeletePushDeviceForUserParams) (int64, error)
@@ -330,6 +341,7 @@ type Querier interface {
 	ExtensionExists(ctx context.Context, extname string) (bool, error)
 	ExtraFacets(ctx context.Context, organizationID int64) ([]ExtraFacetsRow, error)
 	FailPayment(ctx context.Context, arg FailPaymentParams) (int64, error)
+	FinalizeInspection(ctx context.Context, arg FinalizeInspectionParams) (int64, error)
 	// Import: catalog types with a TSB type code (codes are unique per TSB
 	// brand only, so several may match).
 	FindVehicleCatalogTypeByCode(ctx context.Context, code string) ([]FindVehicleCatalogTypeByCodeRow, error)
@@ -357,6 +369,11 @@ type Querier interface {
 	// clients) a TSB brand uuid mapped to its display brand.
 	GetActiveCatalogDisplayBrandForTenant(ctx context.Context, ref uuid.UUID) (GetActiveCatalogDisplayBrandForTenantRow, error)
 	GetActiveContractTemplate(ctx context.Context, arg GetActiveContractTemplateParams) (GetActiveContractTemplateRow, error)
+	// Vehicle inspections (TEC-712 / TEC-713 / TEC-714): templates, handover
+	// and return forms, damages, photos (evidence) and signatures. Every query
+	// filters on the organization.
+	// ------------------------------------------------------------- templates
+	GetActiveInspectionTemplate(ctx context.Context, organizationID int64) (GetActiveInspectionTemplateRow, error)
 	// The organization's active account of a kind (payments go to it).
 	GetActiveIntegrationAccount(ctx context.Context, arg GetActiveIntegrationAccountParams) (GetActiveIntegrationAccountRow, error)
 	GetActiveOTPByEmailType(ctx context.Context, arg GetActiveOTPByEmailTypeParams) (OtpCode, error)
@@ -445,6 +462,8 @@ type Querier interface {
 	// Unlocked read (tests prove the lock is what prevents overselling).
 	GetExtraStock(ctx context.Context, arg GetExtraStockParams) (int32, error)
 	GetExtrasByUUIDs(ctx context.Context, arg GetExtrasByUUIDsParams) ([]GetExtrasByUUIDsRow, error)
+	// The handover record a return is compared with.
+	GetFinalizedHandoverInspection(ctx context.Context, arg GetFinalizedHandoverInspectionParams) (uuid.UUID, error)
 	// Tenant resource: vehicle usage blocks (TEC-694). Every query filters by
 	// organization_id (docs/design/tenant-core.md §8). during is [start, end);
 	// an unbounded end is an open-ended block. The vehicle (and with it the
@@ -454,6 +473,22 @@ type Querier interface {
 	GetGitHubAppSettings(ctx context.Context) (GithubAppSetting, error)
 	GetImportJobByID(ctx context.Context, id int64) (ImportJob, error)
 	GetImportJobByUUID(ctx context.Context, argUuid uuid.UUID) (ImportJob, error)
+	// One inspection with its display joins.
+	GetInspection(ctx context.Context, arg GetInspectionParams) (GetInspectionRow, error)
+	GetInspectionDamage(ctx context.Context, arg GetInspectionDamageParams) (GetInspectionDamageRow, error)
+	// A completed photo (or a signature) for a media link: the object key and
+	// its content type.
+	GetInspectionMediaObject(ctx context.Context, arg GetInspectionMediaObjectParams) (GetInspectionMediaObjectRow, error)
+	GetInspectionPhoto(ctx context.Context, arg GetInspectionPhotoParams) (GetInspectionPhotoRow, error)
+	GetInspectionPhotoByClientRef(ctx context.Context, arg GetInspectionPhotoByClientRefParams) (uuid.UUID, error)
+	// ------------------------------------------------------------ inspections
+	// The rental side an inspection works on (planned values, money, the
+	// product conditions and the policy snapshot used by return charges).
+	GetInspectionRentalFacts(ctx context.Context, arg GetInspectionRentalFactsParams) (GetInspectionRentalFactsRow, error)
+	GetInspectionSignature(ctx context.Context, arg GetInspectionSignatureParams) (GetInspectionSignatureRow, error)
+	GetInspectionSignatureObject(ctx context.Context, arg GetInspectionSignatureObjectParams) (GetInspectionSignatureObjectRow, error)
+	GetInspectionTemplate(ctx context.Context, arg GetInspectionTemplateParams) (GetInspectionTemplateRow, error)
+	GetInspectionUUIDByID(ctx context.Context, arg GetInspectionUUIDByIDParams) (uuid.UUID, error)
 	GetIntegrationAccount(ctx context.Context, arg GetIntegrationAccountParams) (GetIntegrationAccountRow, error)
 	GetIntegrationAccountByID(ctx context.Context, arg GetIntegrationAccountByIDParams) (GetIntegrationAccountByIDRow, error)
 	GetInvitationByUUID(ctx context.Context, arg GetInvitationByUUIDParams) (OrganizationInvitation, error)
@@ -462,6 +497,7 @@ type Querier interface {
 	// The newest checkout of a link still waiting for confirmation.
 	GetLatestPendingLinkPayment(ctx context.Context, arg GetLatestPendingLinkPaymentParams) (GetLatestPendingLinkPaymentRow, error)
 	GetLiveDocument(ctx context.Context, arg GetLiveDocumentParams) (GetLiveDocumentRow, error)
+	GetLiveInspection(ctx context.Context, arg GetLiveInspectionParams) (GetLiveInspectionRow, error)
 	// The reserved / consumed redemption of a reservation, locked.
 	GetLiveRedemptionForReservation(ctx context.Context, arg GetLiveRedemptionForReservationParams) (GetLiveRedemptionForReservationRow, error)
 	GetLiveRentalGroupForVehicles(ctx context.Context, arg GetLiveRentalGroupForVehiclesParams) (GetLiveRentalGroupForVehiclesRow, error)
@@ -485,6 +521,7 @@ type Querier interface {
 	GetOrganizationMember(ctx context.Context, arg GetOrganizationMemberParams) (GetOrganizationMemberRow, error)
 	GetOrganizationMemberByUserUUID(ctx context.Context, arg GetOrganizationMemberByUserUUIDParams) (GetOrganizationMemberByUserUUIDRow, error)
 	GetOrganizationSettingsVersion(ctx context.Context, arg GetOrganizationSettingsVersionParams) (GetOrganizationSettingsVersionRow, error)
+	GetOrganizationUUIDForInspections(ctx context.Context, id int64) (uuid.UUID, error)
 	GetPayment(ctx context.Context, arg GetPaymentParams) (GetPaymentRow, error)
 	GetPaymentByID(ctx context.Context, arg GetPaymentByIDParams) (GetPaymentByIDRow, error)
 	GetPaymentLink(ctx context.Context, arg GetPaymentLinkParams) (GetPaymentLinkRow, error)
@@ -537,6 +574,11 @@ type Querier interface {
 	// The lifecycle facts of one rental (decisions; no display joins).
 	GetRentalCore(ctx context.Context, arg GetRentalCoreParams) (GetRentalCoreRow, error)
 	GetRentalGroupByUUID(ctx context.Context, arg GetRentalGroupByUUIDParams) (RentalGroup, error)
+	// The newest leg of the rental's vehicle (the one a handover opened or a
+	// return closed).
+	GetRentalLegForInspection(ctx context.Context, arg GetRentalLegForInspectionParams) (int64, error)
+	// Km out / in of the rental's legs (driven km of the whole rental).
+	GetRentalLegKm(ctx context.Context, arg GetRentalLegKmParams) (GetRentalLegKmRow, error)
 	GetRentalProductByUUID(ctx context.Context, arg GetRentalProductByUUIDParams) (RentalProduct, error)
 	GetRentalProductByUUIDForUpdate(ctx context.Context, arg GetRentalProductByUUIDForUpdateParams) (RentalProduct, error)
 	GetRentalProductImage(ctx context.Context, arg GetRentalProductImageParams) (RentalProductImage, error)
@@ -642,6 +684,16 @@ type Querier interface {
 	InsertEquipmentAllocation(ctx context.Context, arg InsertEquipmentAllocationParams) (InsertEquipmentAllocationRow, error)
 	InsertExtraPrice(ctx context.Context, arg InsertExtraPriceParams) (uuid.UUID, error)
 	InsertImportChange(ctx context.Context, arg InsertImportChangeParams) (ImportChange, error)
+	InsertInspection(ctx context.Context, arg InsertInspectionParams) (InsertInspectionRow, error)
+	// ------------------------------------------------------------- charges
+	InsertInspectionCharge(ctx context.Context, arg InsertInspectionChargeParams) (uuid.UUID, error)
+	// -------------------------------------------------------------- damages
+	InsertInspectionDamage(ctx context.Context, arg InsertInspectionDamageParams) (InsertInspectionDamageRow, error)
+	// --------------------------------------------------------------- photos
+	InsertInspectionPhoto(ctx context.Context, arg InsertInspectionPhotoParams) (InsertInspectionPhotoRow, error)
+	// ----------------------------------------------------------- signatures
+	InsertInspectionSignature(ctx context.Context, arg InsertInspectionSignatureParams) (InsertInspectionSignatureRow, error)
+	InsertInspectionTemplate(ctx context.Context, arg InsertInspectionTemplateParams) (InsertInspectionTemplateRow, error)
 	// Integration accounts and jobs (TEC-676). Accounts are organization-owned
 	// (every query filters by organization_id); jobs are mixed scope
 	// (organization_id NULL = platform job) and every query names the scope.
@@ -708,6 +760,8 @@ type Querier interface {
 	// The newest challenge of a purpose and subject (resend cooldown).
 	LatestOTPChallenge(ctx context.Context, arg LatestOTPChallengeParams) (LatestOTPChallengeRow, error)
 	LatestOrganizationSettingsVersion(ctx context.Context, organizationID int64) (int32, error)
+	// The policy late fee the return computed belongs to the return form.
+	LinkLateChargeToInspection(ctx context.Context, arg LinkLateChargeToInspectionParams) (LinkLateChargeToInspectionRow, error)
 	// ------------------------------------------------- channel capacity rules
 	ListActiveCapacityRules(ctx context.Context, organizationID int64) ([]ListActiveCapacityRulesRow, error)
 	// Active versions of active rules whose range overlaps [date_from, date_to)
@@ -870,6 +924,14 @@ type Querier interface {
 	ListFleetCalendarVehicles(ctx context.Context, arg ListFleetCalendarVehiclesParams) ([]ListFleetCalendarVehiclesRow, error)
 	ListImportChangesForJob(ctx context.Context, jobID int64) ([]ImportChange, error)
 	ListImportJobsForActor(ctx context.Context, arg ListImportJobsForActorParams) ([]ImportJob, error)
+	ListInspectionDamages(ctx context.Context, arg ListInspectionDamagesParams) ([]ListInspectionDamagesRow, error)
+	// Facet counts over the caller's branch scope: (facet, value, count).
+	ListInspectionFacets(ctx context.Context, arg ListInspectionFacetsParams) ([]ListInspectionFacetsRow, error)
+	ListInspectionPhotos(ctx context.Context, arg ListInspectionPhotosParams) ([]ListInspectionPhotosRow, error)
+	ListInspectionTemplates(ctx context.Context, arg ListInspectionTemplatesParams) ([]ListInspectionTemplatesRow, error)
+	// One page of inspections in the caller's branch scope (the rental's
+	// planned pick-up / return or actual return branch).
+	ListInspections(ctx context.Context, arg ListInspectionsParams) ([]ListInspectionsRow, error)
 	ListIntegrationAccounts(ctx context.Context, arg ListIntegrationAccountsParams) ([]ListIntegrationAccountsRow, error)
 	ListIntegrationAttempts(ctx context.Context, arg ListIntegrationAttemptsParams) ([]ListIntegrationAttemptsRow, error)
 	ListIntegrationJobs(ctx context.Context, arg ListIntegrationJobsParams) ([]ListIntegrationJobsRow, error)
@@ -994,6 +1056,8 @@ type Querier interface {
 	ListRentalGroupSegmentFacets(ctx context.Context, organizationID int64) ([]ListRentalGroupSegmentFacetsRow, error)
 	ListRentalGroups(ctx context.Context, arg ListRentalGroupsParams) ([]RentalGroup, error)
 	ListRentalGroupsByIDs(ctx context.Context, arg ListRentalGroupsByIDsParams) ([]RentalGroup, error)
+	// Every version of the rental's forms (newest first per kind).
+	ListRentalInspections(ctx context.Context, arg ListRentalInspectionsParams) ([]ListRentalInspectionsRow, error)
 	ListRentalProductGuaranteeFacets(ctx context.Context, organizationID int64) ([]ListRentalProductGuaranteeFacetsRow, error)
 	ListRentalProductImages(ctx context.Context, arg ListRentalProductImagesParams) ([]RentalProductImage, error)
 	ListRentalProductSearchDocuments(ctx context.Context, organizationID int64) ([]ListRentalProductSearchDocumentsRow, error)
@@ -1159,6 +1223,8 @@ type Querier interface {
 	// found it (optimistic check: 0 rows = the plan is stale, retry).
 	MoveAllocation(ctx context.Context, arg MoveAllocationParams) (int64, error)
 	MoveCatalogBrandsDisplayBrand(ctx context.Context, arg MoveCatalogBrandsDisplayBrandParams) (int64, error)
+	NextInspectionTemplateVersion(ctx context.Context, organizationID int64) (int32, error)
+	NextInspectionVersion(ctx context.Context, arg NextInspectionVersionParams) (int32, error)
 	// Reservations (TEC-706), their drivers, event history and plate
 	// assignment history. Every query filters by organization_id first
 	// (docs/design/tenant-core.md §8); lists apply the caller's branch scope
@@ -1168,6 +1234,10 @@ type Querier interface {
 	NextReservationNumber(ctx context.Context, arg NextReservationNumberParams) (int64, error)
 	// Another live rule with the same route and product (NULL = generic).
 	OneWayRouteTaken(ctx context.Context, arg OneWayRouteTakenParams) (bool, error)
+	OverrideLateCharge(ctx context.Context, arg OverrideLateChargeParams) (int64, error)
+	// A changed amount of a proposed charge; the first override keeps the
+	// computed amount in original_amount.
+	OverrideRentalCharge(ctx context.Context, arg OverrideRentalChargeParams) (int64, error)
 	PingDB(ctx context.Context) (int32, error)
 	PurgeCustomerDocuments(ctx context.Context, arg PurgeCustomerDocumentsParams) error
 	QueueImportJob(ctx context.Context, argUuid uuid.UUID) (ImportJob, error)
@@ -1205,6 +1275,7 @@ type Querier interface {
 	// For each extra: the price of the product effective at now_at, else the
 	// default price (product rows sort first).
 	ResolveExtraPrices(ctx context.Context, arg ResolveExtraPricesParams) ([]ResolveExtraPricesRow, error)
+	ResolveInspectionReview(ctx context.Context, arg ResolveInspectionReviewParams) (int64, error)
 	ResolveOrganizationScopeBySlug(ctx context.Context, arg ResolveOrganizationScopeBySlugParams) (ResolveOrganizationScopeBySlugRow, error)
 	ResolveOrganizationScopeByUUID(ctx context.Context, arg ResolveOrganizationScopeByUUIDParams) (ResolveOrganizationScopeByUUIDRow, error)
 	// Public webhook: the provider echoes our conversation id; it names the
@@ -1250,6 +1321,8 @@ type Querier interface {
 	// Moves the expiry of an active hold (reservation review -> payment
 	// window); the new expiry must lie in the future.
 	SetHoldExpiry(ctx context.Context, arg SetHoldExpiryParams) (int64, error)
+	SetInspectionPhotoUploaded(ctx context.Context, arg SetInspectionPhotoUploadedParams) (int64, error)
+	SetInspectionSignatureStatus(ctx context.Context, arg SetInspectionSignatureStatusParams) (int64, error)
 	SetIntegrationAccountCheck(ctx context.Context, arg SetIntegrationAccountCheckParams) error
 	SetIntegrationAccountStatus(ctx context.Context, arg SetIntegrationAccountStatusParams) (int64, error)
 	SetMemberBranchScope(ctx context.Context, arg SetMemberBranchScopeParams) error
@@ -1309,6 +1382,7 @@ type Querier interface {
 	SumReservationPayments(ctx context.Context, arg SumReservationPaymentsParams) (SumReservationPaymentsRow, error)
 	SupersedeDateRuleVersion(ctx context.Context, arg SupersedeDateRuleVersionParams) (int64, error)
 	SupersedeDocumentVersion(ctx context.Context, arg SupersedeDocumentVersionParams) (int64, error)
+	SupersedeInspection(ctx context.Context, arg SupersedeInspectionParams) (int64, error)
 	SupersedeOpenOTPChallenges(ctx context.Context, arg SupersedeOpenOTPChallengesParams) error
 	SupersedeRatePlanVersion(ctx context.Context, arg SupersedeRatePlanVersionParams) (int64, error)
 	SyncCatalogBrandsDisplayName(ctx context.Context, displayBrandID int64) (int64, error)
@@ -1352,6 +1426,8 @@ type Querier interface {
 	UpdateImportJobFileKey(ctx context.Context, arg UpdateImportJobFileKeyParams) (ImportJob, error)
 	UpdateImportJobMapping(ctx context.Context, arg UpdateImportJobMappingParams) (ImportJob, error)
 	UpdateImportJobPreview(ctx context.Context, arg UpdateImportJobPreviewParams) (ImportJob, error)
+	UpdateInspectionDamage(ctx context.Context, arg UpdateInspectionDamageParams) (int64, error)
+	UpdateInspectionDraft(ctx context.Context, arg UpdateInspectionDraftParams) (int64, error)
 	UpdateIntegrationAccount(ctx context.Context, arg UpdateIntegrationAccountParams) (int64, error)
 	UpdateLogPurgeRule(ctx context.Context, arg UpdateLogPurgeRuleParams) (LogPurgeRule, error)
 	UpdateOAuthAccountRefreshToken(ctx context.Context, arg UpdateOAuthAccountRefreshTokenParams) error

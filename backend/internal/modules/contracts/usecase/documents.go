@@ -395,6 +395,14 @@ func (s *Service) GetDocument(ctx context.Context, orgID int64, id uuid.UUID) (m
 		if a.IpAddress != nil {
 			ap.IPAddress = a.IpAddress.String()
 		}
+		if a.SignatureUuid.Valid {
+			sig := uuid.UUID(a.SignatureUuid.Bytes)
+			ap.SignatureUUID = &sig
+		}
+		if a.SignatureInspectionUuid.Valid {
+			ins := uuid.UUID(a.SignatureInspectionUuid.Bytes)
+			ap.SignatureInspectionUUID = &ins
+		}
 		out.Approvals = append(out.Approvals, ap)
 	}
 	return out, nil
@@ -507,6 +515,35 @@ func (s *Service) IssueVersion(ctx context.Context, orgID int64, docID, id uuid.
 // content (a version rendered since answers CONTENT_CHANGED). TEC-710
 // records in-person approvals; click / signature flows come with TEC-711.
 func (s *Service) ApproveVersion(ctx context.Context, orgID int64, docID, id uuid.UUID, in model.ApproveInput) (model.Document, error) {
+	return s.approveVersion(ctx, orgID, docID, id, in, pgtype.Int8{}, 0)
+}
+
+// SignatureApproval is a customer approval given with the tablet
+// signature of a handover / return form (TEC-712): the approval stays
+// bound to the version's content hash and names the signature record
+// (strokes + PNG) instead of storing the signature again.
+type SignatureApproval struct {
+	DocumentUUID  uuid.UUID
+	VersionUUID   uuid.UUID
+	ContentHash   string
+	ApproverName  string
+	SignatureID   int64
+	ReservationID int64
+}
+
+// ApproveWithSignature records a customer approval with method
+// "signature" for the document of the given reservation. A version
+// rendered since the customer saw it answers CONTENT_CHANGED like the
+// in-person approval.
+func (s *Service) ApproveWithSignature(ctx context.Context, orgID int64, in SignatureApproval) (model.Document, error) {
+	return s.approveVersion(ctx, orgID, in.DocumentUUID, in.VersionUUID, model.ApproveInput{
+		ContentHash: in.ContentHash, Party: model.PartyCustomer, Method: model.MethodSignature, ApproverName: in.ApproverName,
+	}, pgtype.Int8{Int64: in.SignatureID, Valid: in.SignatureID > 0}, in.ReservationID)
+}
+
+// approveVersion records an approval. A signature approval (sig set) must
+// belong to the reservation of the signed form.
+func (s *Service) approveVersion(ctx context.Context, orgID int64, docID, id uuid.UUID, in model.ApproveInput, sig pgtype.Int8, reservationID int64) (model.Document, error) {
 	doc, err := s.documentRow(ctx, orgID, docID)
 	if err != nil {
 		return model.Document{}, err
@@ -517,6 +554,9 @@ func (s *Service) ApproveVersion(ctx context.Context, orgID int64, docID, id uui
 	}
 	if !canWrite(ctx) {
 		return model.Document{}, ErrForbidden
+	}
+	if sig.Valid && doc.ReservationID != reservationID {
+		return model.Document{}, ErrDocumentNotFound
 	}
 	ve := &ValidationError{}
 	party := in.Party
@@ -530,8 +570,11 @@ func (s *Service) ApproveVersion(ctx context.Context, orgID int64, docID, id uui
 	if method == "" {
 		method = model.MethodInPerson
 	}
-	if method != model.MethodInPerson {
-		ve.add("method", "unsupported", "only in-person approvals are recorded here (signing flows: TEC-711)")
+	switch {
+	case sig.Valid && method != model.MethodSignature:
+		ve.add("method", "invalid", "a signature approval has method signature")
+	case !sig.Valid && method != model.MethodInPerson:
+		ve.add("method", "unsupported", "only in-person approvals are recorded here (signatures come from the handover / return form)")
 	}
 	name := strings.TrimSpace(in.ApproverName)
 	if utf8.RuneCountInString(name) < 2 || utf8.RuneCountInString(name) > 200 {
@@ -577,6 +620,7 @@ func (s *Service) ApproveVersion(ctx context.Context, orgID int64, docID, id uui
 		approval, err := q.InsertDocumentApproval(ctx, db.InsertDocumentApprovalParams{
 			OrganizationID: orgID, DocumentVersionID: v.ID, ContentHash: hash, Party: party, Method: method, ApproverName: name,
 			CustomerID: customer, Note: strings.TrimSpace(in.Note), RecordedBy: int8Ptr(actorID(ctx)), ApprovedAt: ts(now),
+			SignatureID: sig,
 		})
 		if err != nil {
 			return err

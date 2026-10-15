@@ -9198,6 +9198,435 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenant/rentals/{uuid}/charges/{chargeUuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change the amount of a proposed charge
+         * @description `tenant.rentals.write`. A computed charge (source `policy`: late return, km overage, fuel, missing
+         *     equipment) or one changed before needs `tenant.price.override`; the computed amount stays in
+         *     `original_amount`. A reason is required.
+         */
+        patch: operations["patchTenantRentalCharge"];
+        trace?: never;
+    };
+    "/v1/tenant/inspection-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Inspection template versions
+         * @description `tenant.rentals.read`. The default template (six photos, standard equipment) is created on first use.
+         */
+        get: operations["listTenantInspectionTemplates"];
+        put?: never;
+        /**
+         * Save a new template version
+         * @description `tenant.rentals.close`. The new version becomes the active one; the previous is archived (forms keep the version they used).
+         */
+        post: operations["postTenantInspectionTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/inspection-templates/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The active inspection template
+         * @description `tenant.rentals.read`.
+         */
+        get: operations["getTenantActiveInspectionTemplate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/inspection-templates/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One template version
+         * @description `tenant.rentals.read`.
+         */
+        get: operations["getTenantInspectionTemplate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/inspections/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Inspection list facets
+         * @description `tenant.rentals.read`. Counts over the caller's branch scope.
+         */
+        get: operations["getTenantInspectionFacets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/inspections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Handover / return forms (review queue)
+         * @description `tenant.rentals.read`. The authorized review queue is `review_status=pending`.
+         */
+        get: operations["listTenantInspections"];
+        put?: never;
+        /**
+         * Start (or resume) the handover / return form of a rental
+         * @description `tenant.rentals.write`. A handover form needs a rental in preparation, a return form a rental under way. The live form is returned (200) when it exists.
+         */
+        post: operations["postTenantInspection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/inspections/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One form with its evidence
+         * @description `tenant.rentals.read`. A return form carries the finalized handover record (`baseline`) for the side-by-side comparison.
+         */
+        get: operations["getTenantInspection"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update a draft
+         * @description `tenant.rentals.write`. Omitted fields keep their value. Changing a computed charge amount needs `tenant.price.override`. A finalized form answers 409.
+         */
+        patch: operations["patchTenantInspection"];
+        trace?: never;
+    };
+    "/v1/tenant/inspections/{uuid}/charges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Charge proposal of a return form
+         * @description `tenant.rentals.read`. Late return, km overage, fuel difference and missing equipment from the reservation's policy snapshot and product conditions, plus damage amounts staff entered. Nothing is stored before the completion; a handover form answers no lines.
+         */
+        get: operations["getTenantInspectionCharges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/inspections/{uuid}/media-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Short-lived links to the evidence
+         * @description `tenant.rentals.read`. Signed links (10 minutes) under `/v1/public/media/inspections/{token}` for completed photos (all, or `photo_uuids`) and the signature. The browser never sees an object key.
+         */
+        post: operations["postTenantInspectionMediaLinks"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/inspections/{uuid}/damages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a damage on the vehicle diagram
+         * @description `tenant.rentals.write`. Draft only. A return damage is new by default.
+         */
+        post: operations["postTenantInspectionDamage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/inspections/{uuid}/damages/{damageUuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a damage (and its photos)
+         * @description `tenant.rentals.write`. Draft only.
+         */
+        delete: operations["deleteTenantInspectionDamage"];
+        options?: never;
+        head?: never;
+        /**
+         * Replace a damage
+         * @description `tenant.rentals.write`. Draft only.
+         */
+        patch: operations["patchTenantInspectionDamage"];
+        trace?: never;
+    };
+    "/v1/tenant/inspections/{uuid}/photos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Announce a photo and get its upload address
+         * @description `tenant.rentals.write`. Draft only. Images only (`image/jpeg`, `image/png`, `image/webp`, `image/heic`,
+         *     `image/heif`), at most 15 MiB. Answers the API-issued upload address (`PUT` multipart, field `file`);
+         *     a repeated `client_ref` (the device's upload queue retrying) answers the same photo (200).
+         */
+        post: operations["postTenantInspectionPhoto"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/inspections/{uuid}/photos/{photoUuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a photo (retake)
+         * @description `tenant.rentals.write`. Draft only.
+         */
+        delete: operations["deleteTenantInspectionPhoto"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/inspections/{uuid}/photos/{photoUuid}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload the bytes of a photo
+         * @description `tenant.rentals.write`. Multipart field `file`. The type is sniffed from the bytes and must match the announced one. The photo is `uploaded` until the completion step.
+         */
+        put: operations["putTenantInspectionPhotoFile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/inspections/{uuid}/photos/{photoUuid}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify and hash an uploaded photo
+         * @description `tenant.rentals.write`. Checks that the object exists, computes its SHA-256 on the server, reads the EXIF time / GPS (kept apart) and records the server upload time. The optional malware scan runs here.
+         */
+        post: operations["postTenantInspectionPhotoComplete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/inspections/{uuid}/signature": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record the signature canvas
+         * @description `tenant.rentals.write`. After the customer review. Stores the strokes (x, y, pressure, t) and the PNG
+         *     (server SHA-256 and time). With `contract`, the same signature records the customer approval of that
+         *     rental contract version (bound to its content hash; `409 CONTENT_CHANGED` when it changed).
+         */
+        post: operations["postTenantInspectionSignature"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/inspections/{uuid}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finalize the form
+         * @description `tenant.rentals.write`. RT-A17: refused with `409 INSPECTION_INCOMPLETE` (data = readiness) while a photo
+         *     is not uploaded and completed, a required slot or a damage has no photo, or a field is missing.
+         *     Handover: runs the rentals handover (actual time, km, fuel; rental active) in the same transaction;
+         *     without a signature it needs `no_signature_reason` and `tenant.signature.waive`. Return: runs the rentals
+         *     return, proposes the charges, opens the deposit task; a signed, undisputed return finishes the return
+         *     check, otherwise the form waits in the review queue.
+         */
+        post: operations["postTenantInspectionComplete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/inspections/{uuid}/revise": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * New version of a finalized form
+         * @description `tenant.rentals.close`. The finalized version becomes superseded (it stays immutable); the draft copies its facts and evidence; a reason is required.
+         */
+        post: operations["postTenantInspectionRevise"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/inspections/{uuid}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve the review of a disputed or unsigned return
+         * @description `tenant.rentals.close`; an unsigned return also needs `tenant.signature.waive`. Never decides a charge:
+         *     disputed charges stay proposed until `tenant.damage.approve` approves them one by one. Finishes the
+         *     return check (`vehicle_status`).
+         */
+        post: operations["postTenantInspectionReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/media/inspections/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Evidence object of a signed media link
+         * @description No auth: the signed token (10 minutes) names the organization and the record. Streams the photo or signature PNG (`Cache-Control: private`).
+         */
+        get: operations["getPublicInspectionMedia"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -11858,6 +12287,11 @@ export interface components {
              * @example 150.00
              */
             extra_hour_fee: string;
+            /**
+             * @description Refuelling fee per missing tank percent at the return; empty = not charged
+             * @example 12.50
+             */
+            fuel_fee_per_percent?: string;
             fuel: string;
             mileage: string;
         };
@@ -16122,7 +16556,7 @@ export interface components {
             /** Format: uuid */
             uuid: string;
             /** @enum {string} */
-            kind: "late_return" | "early_return" | "damage" | "fuel" | "mileage" | "other";
+            kind: "late_return" | "early_return" | "damage" | "fuel" | "mileage" | "equipment" | "other";
             /** @enum {string} */
             source: "policy" | "manual";
             /** @enum {string} */
@@ -16140,10 +16574,21 @@ export interface components {
             created_by: components["schemas"]["ReservationActor"] | null;
             /** Format: date-time */
             created_at: string;
+            /** @description Disputed at the return: approving it needs `tenant.damage.approve` and a note */
+            disputed: boolean;
+            /** Format: uuid */
+            inspection_uuid: string | null;
+            /** @description Computed amount before a person changed it */
+            original_amount: string | null;
+            override_reason: string;
+            /** Format: date-time */
+            overridden_at: string | null;
+            overridden_by: components["schemas"]["ReservationActor"] | null;
         };
         RentalPolicy: {
             settings_version: number;
             late_return_grace_minutes: number | null;
+            fuel_fee_per_percent: string;
             extra_hour_fee: string;
             early_return: string;
             extension: string;
@@ -16318,8 +16763,10 @@ export interface components {
         };
         RentalCompleteReturnRequest: {
             /** @enum {string} */
-            vehicle_status?: "cleaning" | "available";
+            vehicle_status?: "cleaning" | "available" | "maintenance" | "preparing";
             note?: string;
+            /** @description Open the deposit / provision resolution task */
+            deposit_task?: boolean;
         };
         RentalExtendRequest: {
             /** Format: date-time */
@@ -16344,7 +16791,7 @@ export interface components {
         };
         RentalChargeRequest: {
             /** @enum {string} */
-            kind: "late_return" | "early_return" | "damage" | "fuel" | "mileage" | "other";
+            kind: "late_return" | "early_return" | "damage" | "fuel" | "mileage" | "equipment" | "other";
             /** @description Decimal amount */
             amount: string;
             reason: string;
@@ -16392,7 +16839,7 @@ export interface components {
             /** Format: uuid */
             uuid: string;
             /** @enum {string} */
-            task_type: "preparation" | "handover" | "return" | "cleaning";
+            task_type: "preparation" | "handover" | "return" | "cleaning" | "maintenance" | "deposit";
             /** @enum {string} */
             status: "open" | "in_progress" | "done" | "cancelled";
             branch: components["schemas"]["RentalRef"];
@@ -16566,6 +17013,13 @@ export interface components {
             link_uuid: string | null;
             ip_address: string;
             user_agent: string;
+            /**
+             * Format: uuid
+             * @description Tablet signature of a handover / return form that gave the approval
+             */
+            signature_uuid: string | null;
+            /** Format: uuid */
+            signature_inspection_uuid: string | null;
         };
         Document: {
             /** Format: uuid */
@@ -17228,6 +17682,526 @@ export interface components {
             };
             meta: components["schemas"]["ResponseMeta"];
         };
+        RentalChargeOverrideRequest: {
+            /** @description Decimal amount (0 or more) */
+            amount: string;
+            reason: string;
+        };
+        InspectionTemplateSlot: {
+            /** @example front */
+            key: string;
+            /** @example Ön */
+            label: string;
+            required: boolean;
+        };
+        InspectionTemplateItem: {
+            /** @example jack */
+            key: string;
+            /** @example Kriko */
+            label: string;
+            required: boolean;
+            /** @description Decimal amount charged when missing at the return; empty = none */
+            price: string;
+        };
+        InspectionTemplate: {
+            /** Format: uuid */
+            uuid: string;
+            name: string;
+            version: number;
+            /** @enum {string} */
+            status: "active" | "archived";
+            photo_slots: components["schemas"]["InspectionTemplateSlot"][];
+            checklist: components["schemas"]["InspectionTemplateItem"][];
+            /** Format: int64 */
+            inspections: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        InspectionTemplateRequest: {
+            name: string;
+            photo_slots: components["schemas"]["InspectionTemplateSlot"][];
+            checklist: components["schemas"]["InspectionTemplateItem"][];
+        };
+        InspectionTemplateSnapshot: {
+            /** Format: uuid */
+            uuid: string;
+            name: string;
+            version: number;
+            photo_slots: components["schemas"]["InspectionTemplateSlot"][];
+            checklist: components["schemas"]["InspectionTemplateItem"][];
+        };
+        InspectionVerification: {
+            plate_confirmed: boolean;
+            vehicle_ok: boolean;
+            /** Format: uuid */
+            driver_uuid: string | null;
+            licence_checked: boolean;
+            identity_checked: boolean;
+        };
+        InspectionChargeOverride: {
+            /** @description late_return, mileage, fuel, equipment:<item>, damage:<damage uuid> */
+            key: string;
+            /** @description Decimal amount */
+            amount: string;
+            reason: string;
+        };
+        InspectionDamage: {
+            /** Format: uuid */
+            uuid: string;
+            zone: string;
+            pos_x: number | null;
+            pos_y: number | null;
+            /** @enum {string} */
+            damage_type: "scratch" | "dent" | "crack" | "broken" | "missing" | "stain" | "other";
+            /** @enum {string} */
+            severity: "minor" | "moderate" | "major";
+            description: string;
+            is_new: boolean;
+            disputed: boolean;
+            /** Format: date-time */
+            created_at: string;
+        };
+        InspectionPhotoExif: {
+            /**
+             * Format: date-time
+             * @description Device EXIF capture time (with an offset)
+             */
+            taken_at: string | null;
+            /** @description Raw EXIF local time without an offset */
+            taken_local: string;
+            gps_lat: number | null;
+            gps_lng: number | null;
+            make: string;
+            model: string;
+        };
+        InspectionPhoto: {
+            /** Format: uuid */
+            uuid: string;
+            slot: string;
+            /** Format: uuid */
+            damage_uuid: string | null;
+            client_ref: string;
+            /** @enum {string} */
+            status: "pending" | "uploaded" | "completed";
+            content_type: string;
+            /** Format: int64 */
+            declared_size_bytes: number;
+            /** Format: int64 */
+            size_bytes: number;
+            /** @description Server-computed SHA-256 (hex) */
+            sha256: string;
+            inspection_version: number;
+            /**
+             * Format: date-time
+             * @description Server time of the completion
+             */
+            uploaded_at: string | null;
+            uploaded_by: components["schemas"]["ReservationActor"] | null;
+            /** Format: date-time */
+            device_captured_at: string | null;
+            exif: components["schemas"]["InspectionPhotoExif"];
+            /** @enum {string} */
+            scan_status: "skipped" | "clean" | "infected";
+            copied: boolean;
+            /** Format: date-time */
+            created_at: string;
+        };
+        InspectionUploadTarget: {
+            /** @enum {string} */
+            method: "PUT";
+            /** @description API path (same origin through the BFF) */
+            path: string;
+            field: string;
+            /** Format: int64 */
+            max_bytes: number;
+        };
+        InspectionPhotoUpload: {
+            photo: components["schemas"]["InspectionPhoto"];
+            upload: components["schemas"]["InspectionUploadTarget"];
+        };
+        InspectionContractApproval: {
+            /** Format: uuid */
+            approval_uuid: string;
+            /** Format: uuid */
+            document_uuid: string;
+            /** Format: uuid */
+            version_uuid: string;
+            content_hash: string;
+        };
+        InspectionSignature: {
+            /** Format: uuid */
+            uuid: string;
+            signer_name: string;
+            /** @enum {string} */
+            signer_role: "customer" | "driver";
+            sha256: string;
+            /** Format: int64 */
+            size_bytes: number;
+            point_count: number;
+            /** Format: date-time */
+            signed_at: string;
+            /** Format: date-time */
+            device_signed_at: string | null;
+            contract_approval: components["schemas"]["InspectionContractApproval"] | null;
+        };
+        InspectionReadiness: {
+            required_slots: string[];
+            missing_slots: string[];
+            damages_without_photo: string[];
+            incomplete_photos: number;
+            missing_fields: string[];
+            photos_ready: boolean;
+            can_complete: boolean;
+        };
+        InspectionAmounts: {
+            currency: string;
+            total: string;
+            paid: string;
+            balance: string;
+            payment_status: string;
+            deposit_amount: string;
+            /** @enum {string} */
+            deposit_status: "not_tracked";
+        };
+        InspectionRentalSummary: {
+            /** Format: uuid */
+            uuid: string;
+            reference: string;
+            /** @enum {string} */
+            status: "preparation" | "active" | "return_check" | "returned" | "cancelled";
+            customer: components["schemas"]["RentalCustomerRef"];
+            vehicle: components["schemas"]["RentalVehicleRef"];
+            product: components["schemas"]["RentalRef"];
+            drivers: components["schemas"]["RentalDriver"][];
+            /** Format: date-time */
+            planned_pickup_at: string;
+            /** Format: date-time */
+            planned_return_at: string;
+            planned_pickup: components["schemas"]["RentalPlace"];
+            planned_return: components["schemas"]["RentalPlace"];
+            /** Format: date-time */
+            actual_pickup_at: string | null;
+            /** Format: date-time */
+            actual_return_at: string | null;
+            contract: components["schemas"]["RentalContractState"];
+            amounts: components["schemas"]["InspectionAmounts"];
+            legs: components["schemas"]["RentalLeg"][];
+        };
+        InspectionBaseline: {
+            /** Format: uuid */
+            uuid: string;
+            version: number;
+            /** Format: date-time */
+            occurred_at: string | null;
+            km: number | null;
+            fuel: number | null;
+            equipment: {
+                [key: string]: boolean;
+            };
+            damages: components["schemas"]["InspectionDamage"][];
+            photos: components["schemas"]["InspectionPhoto"][];
+        };
+        InspectionVersionRef: {
+            /** Format: uuid */
+            uuid: string;
+            version: number;
+            /** @enum {string} */
+            status: "draft" | "finalized" | "superseded";
+            /** Format: date-time */
+            finalized_at: string | null;
+        };
+        Inspection: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            kind: "handover" | "return";
+            version: number;
+            /** @enum {string} */
+            status: "draft" | "finalized" | "superseded";
+            rental: components["schemas"]["InspectionRentalSummary"];
+            template: components["schemas"]["InspectionTemplateSnapshot"];
+            /** Format: uuid */
+            previous_uuid: string | null;
+            revision_reason: string;
+            /** Format: date-time */
+            occurred_at: string | null;
+            branch: components["schemas"]["RentalRef"] | null;
+            point: components["schemas"]["RentalRef"] | null;
+            km: number | null;
+            fuel: number | null;
+            equipment: {
+                [key: string]: boolean;
+            };
+            verification: components["schemas"]["InspectionVerification"];
+            note: string;
+            customer_statement: string;
+            /** Format: date-time */
+            customer_reviewed_at: string | null;
+            charge_overrides: components["schemas"]["InspectionChargeOverride"][];
+            /** @enum {string|null} */
+            vehicle_status_after: "cleaning" | "available" | "maintenance" | "preparing" | null;
+            /** @enum {string} */
+            signature_status: "pending" | "signed" | "refused" | "waived";
+            signature_note: string;
+            signature: components["schemas"]["InspectionSignature"] | null;
+            disputed: boolean;
+            dispute_note: string;
+            /** @enum {string} */
+            review_status: "none" | "pending" | "resolved";
+            /** Format: date-time */
+            reviewed_at: string | null;
+            reviewed_by: components["schemas"]["ReservationActor"] | null;
+            review_note: string;
+            /** Format: date-time */
+            finalized_at: string | null;
+            finalized_by: components["schemas"]["ReservationActor"] | null;
+            created_by: components["schemas"]["ReservationActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            damages: components["schemas"]["InspectionDamage"][];
+            photos: components["schemas"]["InspectionPhoto"][];
+            readiness: components["schemas"]["InspectionReadiness"];
+            baseline: components["schemas"]["InspectionBaseline"] | null;
+            versions: components["schemas"]["InspectionVersionRef"][];
+        };
+        InspectionListItem: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            kind: "handover" | "return";
+            version: number;
+            /** @enum {string} */
+            status: "draft" | "finalized" | "superseded";
+            /** @enum {string} */
+            signature_status: "pending" | "signed" | "refused" | "waived";
+            disputed: boolean;
+            /** @enum {string} */
+            review_status: "none" | "pending" | "resolved";
+            km: number | null;
+            fuel: number | null;
+            /** Format: int64 */
+            photos: number;
+            /** Format: int64 */
+            damages: number;
+            rental: {
+                /** Format: uuid */
+                uuid: string;
+                reference: string;
+                status: string;
+            };
+            vehicle: components["schemas"]["RentalVehicleRef"];
+            customer: components["schemas"]["RentalCustomerRef"];
+            /** Format: date-time */
+            occurred_at: string | null;
+            /** Format: date-time */
+            finalized_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        InspectionFacetValue: {
+            value: string;
+            /** Format: int64 */
+            count: number;
+        };
+        InspectionFacets: {
+            kind: components["schemas"]["InspectionFacetValue"][];
+            status: components["schemas"]["InspectionFacetValue"][];
+            review_status: components["schemas"]["InspectionFacetValue"][];
+        };
+        InspectionChargeLine: {
+            key: string;
+            /** @enum {string} */
+            kind: "late_return" | "early_return" | "damage" | "fuel" | "mileage" | "equipment" | "other";
+            /** @enum {string} */
+            source: "policy" | "manual";
+            currency: string;
+            amount: string;
+            computed: string | null;
+            overridden: boolean;
+            reason: string;
+            calculation: Record<string, never>;
+            disputed: boolean;
+        };
+        InspectionChargePreview: {
+            currency: string;
+            settings_version: number;
+            late_minutes: number;
+            /** Format: int64 */
+            driven_km: number;
+            lines: components["schemas"]["InspectionChargeLine"][];
+            total: string;
+        };
+        InspectionStartRequest: {
+            /** Format: uuid */
+            rental_uuid: string;
+            /** @enum {string} */
+            kind: "handover" | "return";
+        };
+        InspectionDraftRequest: {
+            /** Format: date-time */
+            occurred_at?: string;
+            /** Format: uuid */
+            branch_uuid?: string;
+            /** Format: uuid */
+            point_uuid?: string;
+            km?: number;
+            fuel?: number;
+            equipment?: {
+                [key: string]: boolean;
+            };
+            verification?: components["schemas"]["InspectionVerification"];
+            note?: string;
+            customer_statement?: string;
+            customer_reviewed?: boolean;
+            charge_overrides?: components["schemas"]["InspectionChargeOverride"][];
+            /** @enum {string} */
+            vehicle_status_after?: "cleaning" | "available" | "maintenance" | "preparing";
+            disputed?: boolean;
+            dispute_note?: string;
+        };
+        InspectionDamageRequest: {
+            zone: string;
+            pos_x?: number | null;
+            pos_y?: number | null;
+            /** @enum {string} */
+            damage_type?: "scratch" | "dent" | "crack" | "broken" | "missing" | "stain" | "other";
+            /** @enum {string} */
+            severity?: "minor" | "moderate" | "major";
+            description?: string;
+            is_new?: boolean;
+            disputed?: boolean;
+        };
+        InspectionPhotoRequest: {
+            /** @description A template slot key, `damage` (with damage_uuid) or `extra` */
+            slot: string;
+            /** Format: uuid */
+            damage_uuid?: string;
+            /** @description Idempotency key of the device upload queue */
+            client_ref?: string;
+            /** @enum {string} */
+            content_type: "image/jpeg" | "image/png" | "image/webp" | "image/heic" | "image/heif";
+            /** Format: int64 */
+            size_bytes: number;
+            /** Format: date-time */
+            device_captured_at?: string;
+        };
+        InspectionSignatureRequest: {
+            signer_name: string;
+            /** @enum {string} */
+            signer_role?: "customer" | "driver";
+            png_base64: string;
+            strokes: {
+                width: number;
+                height: number;
+                /** @description Strokes of points [x, y, pressure, t_ms] */
+                strokes: number[][][];
+            };
+            /** Format: date-time */
+            device_signed_at?: string;
+            contract?: {
+                /** Format: uuid */
+                document_uuid: string;
+                /** Format: uuid */
+                version_uuid: string;
+                content_hash: string;
+            };
+        };
+        InspectionCompleteRequest: {
+            no_signature_reason?: string;
+            contract_waiver_reason?: string;
+        };
+        InspectionReviewRequest: {
+            note: string;
+            /** @enum {string} */
+            vehicle_status?: "cleaning" | "available" | "maintenance" | "preparing";
+        };
+        InspectionMediaLinksRequest: {
+            photo_uuids?: string[];
+            signature?: boolean;
+        };
+        InspectionMediaLink: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            kind: "photo" | "signature";
+            url: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        EnvelopeInspection: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["Inspection"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeInspectionPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["InspectionListItem"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeInspectionFacets: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["InspectionFacets"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeInspectionTemplate: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["InspectionTemplate"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeInspectionTemplatePage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["InspectionTemplate"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeInspectionPhoto: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["InspectionPhoto"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeInspectionPhotoUpload: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["InspectionPhotoUpload"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeInspectionChargePreview: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["InspectionChargePreview"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeInspectionMediaLinks: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["InspectionMediaLink"][];
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
     };
     responses: {
         /** @description `PRICING_UNAVAILABLE` (no rate plan / band prices it) or `DRIVER_NOT_ELIGIBLE` (`data` = drivers with reasons) */
@@ -17264,6 +18238,33 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["EnvelopeReservationChange"];
+            };
+        };
+        /** @description Inspection form */
+        InspectionOK: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["EnvelopeInspection"];
+            };
+        };
+        /** @description Inspection photo */
+        InspectionPhotoOK: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["EnvelopeInspectionPhoto"];
+            };
+        };
+        /** @description Photo with its upload address */
+        InspectionPhotoUploadOK: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["EnvelopeInspectionPhotoUpload"];
             };
         };
         /** @description Rental */
@@ -17484,6 +18485,10 @@ export interface components {
         DocumentVersionUUID: string;
         /** @description Rental charge UUID */
         RentalChargeUUID: string;
+        /** @description Inspection damage UUID */
+        InspectionDamageUUID: string;
+        /** @description Inspection photo UUID */
+        InspectionPhotoUUID: string;
         /** @description Product image UUID */
         ImageUUID: string;
         Limit: number;
@@ -33705,7 +34710,7 @@ export interface operations {
                 sort?: string;
                 /** @description open, in_progress, done, cancelled */
                 status?: string;
-                /** @description preparation, handover, return, cleaning */
+                /** @description preparation, handover, return, cleaning, maintenance, deposit */
                 task_type?: string;
                 /** @description Branch uuids */
                 branch?: string;
@@ -34623,6 +35628,742 @@ export interface operations {
             403: components["responses"]["TenantForbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    patchTenantRentalCharge: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                /** @description Rental charge UUID */
+                chargeUuid: components["parameters"]["RentalChargeUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RentalChargeOverrideRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["RentalOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listTenantInspectionTemplates: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description `version` or `created_at`; prefix `-` for descending. */
+                sort?: string;
+                /** @description active, archived */
+                status?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Template versions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeInspectionTemplatePage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantInspectionTemplate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InspectionTemplateRequest"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeInspectionTemplate"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantActiveInspectionTemplate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Template */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeInspectionTemplate"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantInspectionTemplate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Template */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeInspectionTemplate"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantInspectionFacets: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Facets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeInspectionFacets"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    listTenantInspections: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description `created_at`, `finalized_at` or `kind`; prefix `-` for descending. */
+                sort?: string;
+                /** @description handover, return */
+                kind?: string;
+                /** @description draft, finalized, superseded */
+                status?: string;
+                /** @description none, pending, resolved */
+                review_status?: string;
+                /** @description Rental uuids */
+                rental?: string;
+                disputed?: "true" | "false";
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page of forms */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeInspectionPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantInspection: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InspectionStartRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["InspectionOK"];
+            201: components["responses"]["InspectionOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantInspection: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["InspectionOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchTenantInspection: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InspectionDraftRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["InspectionOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantInspectionCharges: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Charge proposal */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeInspectionChargePreview"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantInspectionMediaLinks: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["InspectionMediaLinksRequest"];
+            };
+        };
+        responses: {
+            /** @description Links */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeInspectionMediaLinks"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantInspectionDamage: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InspectionDamageRequest"];
+            };
+        };
+        responses: {
+            201: components["responses"]["InspectionOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteTenantInspectionDamage: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                /** @description Inspection damage UUID */
+                damageUuid: components["parameters"]["InspectionDamageUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["InspectionOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    patchTenantInspectionDamage: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                /** @description Inspection damage UUID */
+                damageUuid: components["parameters"]["InspectionDamageUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InspectionDamageRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["InspectionOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantInspectionPhoto: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InspectionPhotoRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["InspectionPhotoUploadOK"];
+            201: components["responses"]["InspectionPhotoUploadOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteTenantInspectionPhoto: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                /** @description Inspection photo UUID */
+                photoUuid: components["parameters"]["InspectionPhotoUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["InspectionOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    putTenantInspectionPhotoFile: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                /** @description Inspection photo UUID */
+                photoUuid: components["parameters"]["InspectionPhotoUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["InspectionPhotoOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantInspectionPhotoComplete: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                /** @description Inspection photo UUID */
+                photoUuid: components["parameters"]["InspectionPhotoUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["InspectionPhotoOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantInspectionSignature: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InspectionSignatureRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["InspectionOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantInspectionComplete: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["InspectionCompleteRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["InspectionOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantInspectionRevise: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RentalReasonRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["InspectionOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantInspectionReview: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InspectionReviewRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["InspectionOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getPublicInspectionMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Image */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/*": string;
+                };
+            };
+            404: components["responses"]["NotFound"];
         };
     };
 }

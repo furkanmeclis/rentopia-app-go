@@ -70,6 +70,11 @@ contract_templates
 documents
 document_versions
 document_approvals
+inspection_templates
+inspections
+inspection_damages
+inspection_photos
+inspection_signatures
 document_approval_links
 customer_portal_sessions
 customer_requests

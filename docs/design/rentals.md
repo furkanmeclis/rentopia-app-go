@@ -116,6 +116,9 @@ Guards keep a started rental fixed: release, product change, a re-plan to anothe
 | handover | rental created (due = planned pick-up) | the handover itself |
 | return | handover (due = planned return) | the return itself |
 | cleaning | return check with `cleaning`, vehicle swap | staff; completing makes the vehicle available |
+| maintenance | return check with `maintenance` | staff; completing makes the vehicle available |
+| preparation (after a return) | return check with `preparing` | staff; completing makes the vehicle available |
+| deposit | mobile return form ([inspections.md](./inspections.md)), or the return check with `deposit_task` | staff |
 
 - Handover and return tasks cannot be completed by hand (`record_handover` / `record_return`).
 - Reservation changes reschedule the due times of live tasks.

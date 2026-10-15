@@ -225,10 +225,16 @@ func (s *Service) FinishTask(ctx context.Context, orgID int64, id uuid.UUID, don
 		if n != 1 {
 			return stateErr("task_closed", "the task is already closed")
 		}
-		if done && row.TaskType == model.TaskCleaning && row.VehicleUuid.Valid {
+		// Finishing the cleaning / maintenance / preparation of a vehicle makes
+		// it available when it is still in that state.
+		after := map[string]string{
+			model.TaskCleaning: vehiclemodel.StatusCleaning, model.TaskMaintenance: vehiclemodel.StatusMaintenance,
+			model.TaskPreparation: vehiclemodel.StatusPreparing,
+		}[row.TaskType]
+		if done && after != "" && row.VehicleUuid.Valid {
 			v, err := q.GetRentalVehicleByUUID(ctx, db.GetRentalVehicleByUUIDParams{OrganizationID: orgID, Uuid: row.VehicleUuid.Bytes})
-			if err == nil && v.Status == vehiclemodel.StatusCleaning {
-				return s.vehicleChange(ctx, q, orgID, v.Uuid, vehicleusecase.OperationalChange{Status: vehiclemodel.StatusAvailable, Note: "cleaning done"})
+			if err == nil && v.Status == after {
+				return s.vehicleChange(ctx, q, orgID, v.Uuid, vehicleusecase.OperationalChange{Status: vehiclemodel.StatusAvailable, Note: row.TaskType + " done"})
 			}
 		}
 		return nil
