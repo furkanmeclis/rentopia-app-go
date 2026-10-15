@@ -60,6 +60,21 @@ func samePlanTarget(a, b pricing.Plan) bool {
 // Preview prices one rental twice: with the active plans and rules
 // (current) and with the given draft applied (proposed).
 func (s *Service) Preview(ctx context.Context, orgID int64, in model.PreviewInput) (model.Preview, error) {
+	current, proposed, warnings, err := s.previewInputs(ctx, orgID, in)
+	if err != nil {
+		return model.Preview{}, err
+	}
+	out := model.Preview{Current: side(current), Proposed: side(proposed), Warnings: warnings}
+	if out.Current.Breakdown != nil && out.Proposed.Breakdown != nil {
+		d := out.Proposed.Breakdown.Total.Sub(out.Current.Breakdown.Total)
+		out.Difference = &d
+	}
+	return out, nil
+}
+
+// previewInputs validates a preview request and resolves the engine inputs
+// of both sides (current: active plans and rules; proposed: with the draft).
+func (s *Service) previewInputs(ctx context.Context, orgID int64, in model.PreviewInput) (pricing.Input, pricing.Input, []string, error) {
 	q := s.repo.Q()
 	ve := &ValidationError{}
 	var product db.GetPricingProductByUUIDRow
@@ -145,18 +160,18 @@ func (s *Service) Preview(ctx context.Context, orgID int64, in model.PreviewInpu
 		case errors.Is(err, ErrPlanNotFound):
 			ve.add("rate_plan_uuid", "not_found", "rate plan was not found")
 		case err != nil:
-			return model.Preview{}, err
+			return pricing.Input{}, pricing.Input{}, nil, err
 		case row.RentalProductID != product.ID && product.ID != 0:
 			ve.add("rate_plan_uuid", "other_product", "the rate plan belongs to another rental product")
 		default:
 			v, _, err := planVersion(ctx, q, orgID, row.ID, model.VersionDraft)
 			if err != nil {
-				return model.Preview{}, err
+				return pricing.Input{}, pricing.Input{}, nil, err
 			}
 			if v == nil {
 				v, _, err = planVersion(ctx, q, orgID, row.ID, model.VersionActive)
 				if err != nil {
-					return model.Preview{}, err
+					return pricing.Input{}, pricing.Input{}, nil, err
 				}
 			}
 			if v != nil {
@@ -195,21 +210,21 @@ func (s *Service) Preview(ctx context.Context, orgID int64, in model.PreviewInpu
 		case errors.Is(err, ErrRuleNotFound):
 			ve.add("date_rule_uuid", "not_found", "date rule was not found")
 		case err != nil:
-			return model.Preview{}, err
+			return pricing.Input{}, pricing.Input{}, nil, err
 		default:
 			_, v, err := ruleVersion(ctx, q, orgID, row.ID, model.VersionDraft)
 			if err != nil {
-				return model.Preview{}, err
+				return pricing.Input{}, pricing.Input{}, nil, err
 			}
 			if v == nil {
 				if _, v, err = ruleVersion(ctx, q, orgID, row.ID, model.VersionActive); err != nil {
-					return model.Preview{}, err
+					return pricing.Input{}, pricing.Input{}, nil, err
 				}
 			}
 			if v != nil {
 				targets, err := ruleTargets(ctx, q, orgID, []int64{v.ID})
 				if err != nil {
-					return model.Preview{}, err
+					return pricing.Input{}, pricing.Input{}, nil, err
 				}
 				r := engineRule(row.Uuid, row.Name, v.Uuid, v.Version, stateFromVersion(*v, targets[v.ID]))
 				ruleOverride, replaceRuleID = &r, r.ID
@@ -228,22 +243,22 @@ func (s *Service) Preview(ctx context.Context, orgID int64, in model.PreviewInpu
 		ruleOverride = &r
 	}
 	if err := ve.orNil(); err != nil {
-		return model.Preview{}, err
+		return pricing.Input{}, pricing.Input{}, nil, err
 	}
 
 	cfg, warnings, err := s.orgPricing(ctx, orgID)
 	if err != nil {
-		return model.Preview{}, err
+		return pricing.Input{}, pricing.Input{}, nil, err
 	}
 	plans, err := activeEnginePlans(ctx, q, orgID, product.ID)
 	if err != nil {
-		return model.Preview{}, err
+		return pricing.Input{}, pricing.Input{}, nil, err
 	}
 	days := rng.BillingDayDates()
 	from, to := days[0], days[len(days)-1].AddDays(1)
 	rules, err := activeEngineRules(ctx, q, orgID, &from, &to)
 	if err != nil {
-		return model.Preview{}, err
+		return pricing.Input{}, pricing.Input{}, nil, err
 	}
 	base := pricing.Input{
 		Start: rng.Start, End: rng.End,
@@ -257,7 +272,7 @@ func (s *Service) Preview(ctx context.Context, orgID int64, in model.PreviewInpu
 		} else {
 			allowed, fee, err := s.oneWay.ResolveOneWayFee(ctx, orgID, branch.Uuid, returnBranch.Uuid, product.Uuid)
 			if err != nil {
-				return model.Preview{}, err
+				return pricing.Input{}, pricing.Input{}, nil, err
 			}
 			if !allowed {
 				warnings = append(warnings, "one_way_not_allowed")
@@ -293,12 +308,7 @@ func (s *Service) Preview(ctx context.Context, orgID int64, in model.PreviewInpu
 	if planOverride == nil && ruleOverride == nil {
 		warnings = append(warnings, "no_changes")
 	}
-	out := model.Preview{Current: side(current), Proposed: side(proposed), Warnings: warnings}
-	if out.Current.Breakdown != nil && out.Proposed.Breakdown != nil {
-		d := out.Proposed.Breakdown.Total.Sub(out.Current.Breakdown.Total)
-		out.Difference = &d
-	}
-	return out, nil
+	return current, proposed, warnings, nil
 }
 
 func side(in pricing.Input) model.PreviewSide {
@@ -326,4 +336,24 @@ func (s *Service) Quote(ctx context.Context, orgID int64, in model.PreviewInput)
 		return model.PreviewSide{}, err
 	}
 	return p.Current, nil
+}
+
+// QuoteInput resolves the engine input of a rental with the active plans
+// and rules (reservations, TEC-704): the caller adds extras / a discount and
+// calls pricing.Calculate itself (extension quotes price a longer range and
+// keep only the added days). Warnings are the preview's (vat_rate_missing,
+// one_way_not_allowed …), without "no_changes".
+func (s *Service) QuoteInput(ctx context.Context, orgID int64, in model.PreviewInput) (pricing.Input, []string, error) {
+	in.RatePlanUUID, in.RatePlanDraft, in.DateRuleUUID, in.DateRuleDraft = nil, nil, nil, nil
+	current, _, warnings, err := s.previewInputs(ctx, orgID, in)
+	if err != nil {
+		return pricing.Input{}, nil, err
+	}
+	out := make([]string, 0, len(warnings))
+	for _, w := range warnings {
+		if w != "no_changes" {
+			out = append(out, w)
+		}
+	}
+	return current, out, nil
 }

@@ -1351,41 +1351,48 @@ func (q *Queries) ReleaseAllocation(ctx context.Context, arg ReleaseAllocationPa
 const replanAllocation = `-- name: ReplanAllocation :execrows
 UPDATE vehicle_allocations
 SET vehicle_id = $1,
-    starts_at = $2,
-    ends_at = $3,
-    prep_minutes = $4,
-    period = tstzrange($2::timestamptz, $5::timestamptz, '[)'),
-    pickup_branch_id = $6,
-    return_branch_id = $7,
-    pickup_point_id = $8,
-    return_point_id = $9,
-    plate_fixed = $10
-WHERE organization_id = $11
-  AND id = $12
-  AND vehicle_id = $13
+    rental_product_id = $2,
+    product_version = $3,
+    starts_at = $4,
+    ends_at = $5,
+    prep_minutes = $6,
+    period = tstzrange($4::timestamptz, $7::timestamptz, '[)'),
+    pickup_branch_id = $8,
+    return_branch_id = $9,
+    pickup_point_id = $10,
+    return_point_id = $11,
+    plate_fixed = $12
+WHERE organization_id = $13
+  AND id = $14
+  AND vehicle_id = $15
   AND status = 'active'
 `
 
 type ReplanAllocationParams struct {
-	ToVehicleID    int64              `json:"to_vehicle_id"`
-	StartsAt       pgtype.Timestamptz `json:"starts_at"`
-	EndsAt         pgtype.Timestamptz `json:"ends_at"`
-	PrepMinutes    int32              `json:"prep_minutes"`
-	PeriodEnd      pgtype.Timestamptz `json:"period_end"`
-	PickupBranchID int64              `json:"pickup_branch_id"`
-	ReturnBranchID int64              `json:"return_branch_id"`
-	PickupPointID  pgtype.Int8        `json:"pickup_point_id"`
-	ReturnPointID  pgtype.Int8        `json:"return_point_id"`
-	PlateFixed     bool               `json:"plate_fixed"`
-	OrganizationID int64              `json:"organization_id"`
-	ID             int64              `json:"id"`
-	FromVehicleID  int64              `json:"from_vehicle_id"`
+	ToVehicleID     int64              `json:"to_vehicle_id"`
+	RentalProductID int64              `json:"rental_product_id"`
+	ProductVersion  int32              `json:"product_version"`
+	StartsAt        pgtype.Timestamptz `json:"starts_at"`
+	EndsAt          pgtype.Timestamptz `json:"ends_at"`
+	PrepMinutes     int32              `json:"prep_minutes"`
+	PeriodEnd       pgtype.Timestamptz `json:"period_end"`
+	PickupBranchID  int64              `json:"pickup_branch_id"`
+	ReturnBranchID  int64              `json:"return_branch_id"`
+	PickupPointID   pgtype.Int8        `json:"pickup_point_id"`
+	ReturnPointID   pgtype.Int8        `json:"return_point_id"`
+	PlateFixed      bool               `json:"plate_fixed"`
+	OrganizationID  int64              `json:"organization_id"`
+	ID              int64              `json:"id"`
+	FromVehicleID   int64              `json:"from_vehicle_id"`
 }
 
-// Date change / plate assignment of one allocation (same optimistic check).
+// Date change / plate assignment / product change of one allocation (same
+// optimistic check).
 func (q *Queries) ReplanAllocation(ctx context.Context, arg ReplanAllocationParams) (int64, error) {
 	result, err := q.db.Exec(ctx, replanAllocation,
 		arg.ToVehicleID,
+		arg.RentalProductID,
+		arg.ProductVersion,
 		arg.StartsAt,
 		arg.EndsAt,
 		arg.PrepMinutes,
@@ -1398,6 +1405,39 @@ func (q *Queries) ReplanAllocation(ctx context.Context, arg ReplanAllocationPara
 		arg.OrganizationID,
 		arg.ID,
 		arg.FromVehicleID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const setHoldExpiry = `-- name: SetHoldExpiry :execrows
+UPDATE vehicle_allocations
+SET expires_at = $1::timestamptz
+WHERE organization_id = $2
+  AND id = $3
+  AND kind = 'hold'
+  AND status = 'active'
+  AND expires_at > $4::timestamptz
+  AND $1::timestamptz > $4::timestamptz
+`
+
+type SetHoldExpiryParams struct {
+	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
+	OrganizationID int64              `json:"organization_id"`
+	ID             int64              `json:"id"`
+	NowAt          pgtype.Timestamptz `json:"now_at"`
+}
+
+// Moves the expiry of an active hold (reservation review -> payment
+// window); the new expiry must lie in the future.
+func (q *Queries) SetHoldExpiry(ctx context.Context, arg SetHoldExpiryParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setHoldExpiry,
+		arg.ExpiresAt,
+		arg.OrganizationID,
+		arg.ID,
+		arg.NowAt,
 	)
 	if err != nil {
 		return 0, err

@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"sort"
 	"strconv"
 	"time"
@@ -43,7 +44,12 @@ func (s *Service) Reserve(ctx context.Context, orgID int64, in model.ReserveInpu
 		return model.PlanResult{}, &CapacityError{Reason: model.ReasonNotSellable}
 	}
 	var expires pgtype.Timestamptz
-	if in.Kind == model.KindHold {
+	if in.Kind == model.KindHold && in.HoldUntil != nil {
+		if !in.HoldUntil.After(s.clock()) {
+			return model.PlanResult{}, validation("hold_until", "in_past", "the hold must expire in the future")
+		}
+		expires = ts(in.HoldUntil.UTC())
+	} else if in.Kind == model.KindHold {
 		minutes, err := holdMinutes(r, in.HoldMinutes)
 		if err != nil {
 			return model.PlanResult{}, err
@@ -131,6 +137,12 @@ func (s *Service) Reserve(ctx context.Context, orgID int64, in model.ReserveInpu
 		}
 		created = row.Uuid
 		reassigned = len(plan.Moves)
+		if in.Hook != nil {
+			return in.Hook(ctx, tx, model.HookResult{
+				AllocationID: row.ID, AllocationUUID: row.Uuid, VehicleID: plan.Vehicle, ProductID: product.ID,
+				ProductVersion: product.CurrentVersion, Kind: in.Kind, PlateFixed: req.Fixed, Moved: w.movedAllocations(row.ID),
+			})
+		}
 		return nil
 	})
 	if ce, ok := IsCapacity(err); ok && ce.Reason != model.ReasonNotSellable {
@@ -205,10 +217,24 @@ func (s *Service) checkScope(ctx context.Context, pickup, ret int64) error {
 	return nil
 }
 
-// replan re-plans an existing allocation inside the lock: ChangeDates and
-// AssignPlate. The old plan stays untouched unless a new one is found and
-// written (one transaction: the swap is atomic).
-func (s *Service) replan(ctx context.Context, orgID int64, id uuid.UUID, change func(ref db.GetAllocationRefRow, cs *componentState, req *engine.Request) (resolved, error)) (model.PlanResult, error) {
+// ErrOtherComponent: a product change to a product whose vehicles share
+// nothing with the allocation's (the caller reserves the new product and
+// releases the old allocation instead).
+var ErrOtherComponent = errors.New("the product shares no vehicles with the allocation")
+
+// replanned is what a change function decides: the new places / range and
+// (product change) the new product version.
+type replanned struct {
+	r         resolved
+	productID int64
+	version   int32
+}
+
+// replan re-plans an existing allocation inside the lock: ChangeDates,
+// AssignPlate, MovePlan, Replan and ChangeProduct. The old plan stays
+// untouched unless a new one is found and written (one transaction: the
+// swap is atomic). hook runs in the same transaction.
+func (s *Service) replan(ctx context.Context, orgID int64, id uuid.UUID, hook model.TxHook, change func(ref db.GetAllocationRefRow, cs *componentState, req *engine.Request) (replanned, error)) (model.PlanResult, error) {
 	t, err := s.target(ctx, orgID, id)
 	if err != nil {
 		return model.PlanResult{}, err
@@ -250,10 +276,14 @@ func (s *Service) replan(ctx context.Context, orgID int64, id uuid.UUID, change 
 		if c.Fixed {
 			req.Vehicles, req.Fixed = []int64{c.Vehicle}, true
 		}
-		r, err := change(ref, cs, &req)
+		next, err := change(ref, cs, &req)
 		if err != nil {
 			return err
 		}
+		if next.productID == 0 {
+			next.productID, next.version = ref.RentalProductID, ref.ProductVersion
+		}
+		r := next.r
 		plan, ok := cs.st.Place(req, s.opts)
 		if !ok {
 			return &CapacityError{Reason: model.ReasonNoVehicle}
@@ -268,6 +298,7 @@ func (s *Service) replan(ctx context.Context, orgID int64, id uuid.UUID, change 
 		}
 		n, err := q.ReplanAllocation(ctx, db.ReplanAllocationParams{
 			OrganizationID: orgID, ID: ref.ID, FromVehicleID: ref.VehicleID, ToVehicleID: plan.Vehicle,
+			RentalProductID: next.productID, ProductVersion: next.version,
 			StartsAt: ts(r.start), EndsAt: ts(r.end), PrepMinutes: int32(r.prep), PeriodEnd: ts(r.readyAt()),
 			PickupBranchID: r.pickup.ID, ReturnBranchID: r.ret.ID, PickupPointID: pointID(r.pickupPoint), ReturnPointID: pointID(r.retPoint),
 			PlateFixed: req.Fixed,
@@ -279,6 +310,12 @@ func (s *Service) replan(ctx context.Context, orgID int64, id uuid.UUID, change 
 			return errStale
 		}
 		reassigned = len(plan.Moves)
+		if hook != nil {
+			return hook(ctx, tx, model.HookResult{
+				AllocationID: ref.ID, AllocationUUID: ref.Uuid, VehicleID: plan.Vehicle, ProductID: next.productID,
+				ProductVersion: next.version, Kind: ref.Kind, PlateFixed: req.Fixed, Moved: w.movedAllocations(ref.ID),
+			})
+		}
 		return nil
 	})
 	if err != nil {
@@ -293,22 +330,91 @@ func (s *Service) replan(ctx context.Context, orgID int64, id uuid.UUID, change 
 // allocation still in place (it only ignores itself) and swapped in
 // atomically; without a plan the old allocation stays as it was
 // (CapacityError).
+//
+// With in.VehicleUUID the new range is planned on that vehicle only (an
+// explicit plate change, allowed over a promised plate); FixPlate promises
+// it. Both are internal options of reservations (extension onto an
+// alternative vehicle).
 func (s *Service) ChangeDates(ctx context.Context, orgID int64, id uuid.UUID, in model.ChangeInput) (model.PlanResult, error) {
-	return s.replan(ctx, orgID, id, func(ref db.GetAllocationRefRow, cs *componentState, req *engine.Request) (resolved, error) {
-		where := in.Where
-		if where.PickupBranchUUID == nil && where.PickupPointUUID == nil {
-			if err := s.fillPlaces(ctx, orgID, ref, &where); err != nil {
-				return resolved{}, err
-			}
-		}
-		where.Channel = ref.Channel
-		where.FleetPool = ""
-		r, err := s.resolve(ctx, orgID, where)
+	var only int64
+	if in.VehicleUUID != nil {
+		v, err := s.q.GetAvailabilityVehicle(ctx, db.GetAvailabilityVehicleParams{OrganizationID: orgID, Uuid: *in.VehicleUUID})
 		if err != nil {
-			return r, err
+			return model.PlanResult{}, validation("vehicle_uuid", "not_found", "vehicle was not found")
+		}
+		only = v.ID
+	}
+	return s.replan(ctx, orgID, id, in.Hook, func(ref db.GetAllocationRefRow, cs *componentState, req *engine.Request) (replanned, error) {
+		r, err := s.changedWhere(ctx, orgID, ref, in.Where)
+		if err != nil {
+			return replanned{}, err
 		}
 		req.Period, req.End, req.Pickup, req.Return = r.period(), r.end, r.pickup.ID, r.ret.ID
-		return r, nil
+		if only != 0 {
+			if !cs.st.Eligible[req.Key][only] {
+				return replanned{}, validation("vehicle_uuid", "not_eligible", "the vehicle does not keep the product's guarantee")
+			}
+			req.Vehicles = []int64{only}
+			req.Fixed = in.FixPlate || ref.PlateFixed
+		} else if in.FixPlate {
+			req.Fixed = true
+		}
+		return replanned{r: r}, nil
+	})
+}
+
+// changedWhere resolves the places / range of a change request; missing
+// places keep the allocation's, the channel never changes.
+func (s *Service) changedWhere(ctx context.Context, orgID int64, ref db.GetAllocationRefRow, in model.Where) (resolved, error) {
+	where := in
+	if where.PickupBranchUUID == nil && where.PickupPointUUID == nil {
+		if err := s.fillPlaces(ctx, orgID, ref, &where); err != nil {
+			return resolved{}, err
+		}
+	}
+	where.Channel = ref.Channel
+	where.FleetPool = ""
+	return s.resolve(ctx, orgID, where)
+}
+
+// ChangeProduct moves an allocation to another product (an upgrade) and
+// optionally a new range / places, in one atomic re-plan. The new product
+// must share vehicles with the allocation's component (ErrOtherComponent
+// otherwise: the caller reserves the new product, then releases this one).
+// A promised plate is kept when it keeps the new guarantee, else re-planned.
+func (s *Service) ChangeProduct(ctx context.Context, orgID int64, id, productUUID uuid.UUID, in model.ChangeInput) (model.PlanResult, error) {
+	product, err := s.q.GetAvailabilityProduct(ctx, db.GetAvailabilityProductParams{OrganizationID: orgID, Uuid: productUUID})
+	if notFound(err) {
+		return model.PlanResult{}, validation("product_uuid", "not_found", "rental product was not found")
+	}
+	if err != nil {
+		return model.PlanResult{}, err
+	}
+	if product.Status != "published" || !product.IsActive {
+		return model.PlanResult{}, &CapacityError{Reason: model.ReasonNotSellable}
+	}
+	key := versionKey(product.ID, product.CurrentVersion)
+	return s.replan(ctx, orgID, id, in.Hook, func(ref db.GetAllocationRefRow, cs *componentState, req *engine.Request) (replanned, error) {
+		if len(cs.st.Eligible[key]) == 0 {
+			return replanned{}, ErrOtherComponent
+		}
+		r, err := s.changedWhere(ctx, orgID, ref, in.Where)
+		if err != nil {
+			return replanned{}, err
+		}
+		allowed, err := s.oneWayAllowed(ctx, s.q, orgID, r, product.ID)
+		if err != nil {
+			return replanned{}, err
+		}
+		if !allowed {
+			return replanned{}, &CapacityError{Reason: model.ReasonOneWayNotAllowed}
+		}
+		req.Key = key
+		req.Period, req.End, req.Pickup, req.Return = r.period(), r.end, r.pickup.ID, r.ret.ID
+		if req.Fixed && !cs.st.Eligible[key][ref.VehicleID] {
+			req.Vehicles, req.Fixed = nil, false
+		}
+		return replanned{r: r, productID: product.ID, version: product.CurrentVersion}, nil
 	})
 }
 
@@ -337,21 +443,132 @@ func (s *Service) fillPlaces(ctx context.Context, orgID int64, ref db.GetAllocat
 // vehicle (moving flexible commitments off it when needed), never adds a
 // second unit.
 func (s *Service) AssignPlate(ctx context.Context, orgID int64, id, vehicleUUID uuid.UUID) (model.PlanResult, error) {
+	return s.movePlan(ctx, orgID, id, vehicleUUID, true, false, nil)
+}
+
+// MovePlan re-plans an allocation onto one vehicle (staff plate change,
+// calendar drag). With fix the plate is promised; without it the vehicle is
+// the new provisional plate (the engine may move it again later). Unlike
+// AssignPlate it may replace a promised plate: it is an explicit staff
+// decision. Never consumes a second unit.
+func (s *Service) MovePlan(ctx context.Context, orgID int64, id uuid.UUID, opts model.PlanOptions) (model.PlanResult, error) {
+	if opts.VehicleUUID == nil {
+		return model.PlanResult{}, validation("vehicle_uuid", "required", "vehicle_uuid is required")
+	}
+	return s.movePlan(ctx, orgID, id, *opts.VehicleUUID, opts.FixPlate, true, opts.Hook)
+}
+
+func (s *Service) movePlan(ctx context.Context, orgID int64, id, vehicleUUID uuid.UUID, fix, overrideFixed bool, hook model.TxHook) (model.PlanResult, error) {
 	v, err := s.q.GetAvailabilityVehicle(ctx, db.GetAvailabilityVehicleParams{OrganizationID: orgID, Uuid: vehicleUUID})
 	if err != nil {
 		return model.PlanResult{}, validation("vehicle_uuid", "not_found", "vehicle was not found")
 	}
-	return s.replan(ctx, orgID, id, func(ref db.GetAllocationRefRow, cs *componentState, req *engine.Request) (resolved, error) {
-		if ref.PlateFixed && ref.VehicleID != v.ID {
-			return resolved{}, validation("vehicle_uuid", "plate_fixed", "the allocation already has another promised plate")
+	return s.replan(ctx, orgID, id, hook, func(ref db.GetAllocationRefRow, cs *componentState, req *engine.Request) (replanned, error) {
+		if ref.PlateFixed && ref.VehicleID != v.ID && !overrideFixed {
+			return replanned{}, validation("vehicle_uuid", "plate_fixed", "the allocation already has another promised plate")
 		}
 		if !cs.st.Eligible[req.Key][v.ID] {
-			return resolved{}, validation("vehicle_uuid", "not_eligible", "the vehicle does not keep the product's guarantee")
+			return replanned{}, validation("vehicle_uuid", "not_eligible", "the vehicle does not keep the product's guarantee")
 		}
-		req.Vehicles, req.Fixed = []int64{v.ID}, true
+		req.Vehicles, req.Fixed = []int64{v.ID}, fix
 		r, err := s.currentResolved(ctx, orgID, ref)
-		return r, err
+		return replanned{r: r}, err
 	})
+}
+
+// Replan re-plans an allocation as it is (same range and places): after a
+// block or another operational change broke its plan, it moves to another
+// eligible vehicle (moving flexible commitments when needed). A promised
+// plate only stays on its vehicle. CapacityError when nothing fits (the
+// allocation stays where it was).
+func (s *Service) Replan(ctx context.Context, orgID int64, id uuid.UUID, hook model.TxHook) (model.PlanResult, error) {
+	return s.replan(ctx, orgID, id, hook, func(ref db.GetAllocationRefRow, _ *componentState, _ *engine.Request) (replanned, error) {
+		r, err := s.currentResolved(ctx, orgID, ref)
+		return replanned{r: r}, err
+	})
+}
+
+// CandidateVehicles lists the vehicles (other than the current one) that
+// could carry the allocation over a changed range / places, each checked
+// with the planner (read-only; nothing is written). Up to limit vehicles,
+// fewest moves first by id.
+func (s *Service) CandidateVehicles(ctx context.Context, orgID int64, id uuid.UUID, in model.Where, limit int) ([]model.VehicleRef, error) {
+	t, err := s.target(ctx, orgID, id)
+	if err != nil {
+		return nil, err
+	}
+	if t.ref.Status != model.StatusActive {
+		return nil, ErrNotActive
+	}
+	r, err := s.changedWhere(ctx, orgID, t.ref, in)
+	if err != nil {
+		return nil, err
+	}
+	snap, err := s.snapshot(ctx, orgID)
+	if err != nil {
+		return nil, err
+	}
+	comp := snap.component[t.ref.VehicleID]
+	out := []model.VehicleRef{}
+	if comp == 0 {
+		return out, nil
+	}
+	err = s.read(ctx, func(q *db.Queries) error {
+		cs, err := s.loadComponent(ctx, q, orgID, snap, comp, s.clock())
+		if err != nil {
+			return err
+		}
+		cs.dropDue()
+		c := cs.st.Commitments[t.ref.ID]
+		if c == nil {
+			return ErrNotActive
+		}
+		ids := []int64{}
+		for vid := range cs.st.Eligible[c.Key] {
+			if vid != c.Vehicle {
+				ids = append(ids, vid)
+			}
+		}
+		sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+		for _, vid := range ids {
+			if len(out) >= limit {
+				break
+			}
+			req := engine.Request{
+				Self: c.ID, Key: c.Key, Period: r.period(), End: r.end, Pickup: r.pickup.ID, Return: r.ret.ID,
+				Vehicles: []int64{vid}, Fixed: true,
+			}
+			if _, ok := cs.st.Place(req, s.opts); ok {
+				info := snap.vehicles[vid]
+				out = append(out, model.VehicleRef{UUID: info.UUID, Plate: info.Plate})
+			}
+		}
+		return nil
+	})
+	return out, err
+}
+
+// SetHoldExpiry moves the expiry of an active, unexpired hold to until
+// (reservation review window → payment window). ErrHoldExpired / ErrNotHold
+// / ErrNotActive otherwise.
+func (s *Service) SetHoldExpiry(ctx context.Context, orgID int64, id uuid.UUID, until time.Time) error {
+	t, err := s.target(ctx, orgID, id)
+	if err != nil {
+		return err
+	}
+	n, err := s.q.SetHoldExpiry(ctx, db.SetHoldExpiryParams{
+		OrganizationID: orgID, ID: t.ref.ID, ExpiresAt: ts(until.UTC()), NowAt: ts(s.clock()),
+	})
+	if err != nil {
+		return err
+	}
+	if n != 1 {
+		if until.After(s.clock()) {
+			return s.whyNot(t.ref)
+		}
+		return validation("expires_at", "in_past", "the hold must expire in the future")
+	}
+	return nil
 }
 
 // currentResolved rebuilds the resolved request of an allocation as it is.
@@ -385,6 +602,11 @@ func (s *Service) currentResolved(ctx context.Context, orgID int64, ref db.GetAl
 // Confirm turns an active, unexpired hold into a confirmed reservation (the
 // same row: capacity is not consumed twice).
 func (s *Service) Confirm(ctx context.Context, orgID int64, id uuid.UUID, refType string, refUUID *uuid.UUID) (model.Allocation, error) {
+	return s.ConfirmWith(ctx, orgID, id, refType, refUUID, nil)
+}
+
+// ConfirmWith is Confirm with a hook in the same transaction.
+func (s *Service) ConfirmWith(ctx context.Context, orgID int64, id uuid.UUID, refType string, refUUID *uuid.UUID, hook model.TxHook) (model.Allocation, error) {
 	t, err := s.target(ctx, orgID, id)
 	if err != nil {
 		return model.Allocation{}, err
@@ -393,14 +615,27 @@ func (s *Service) Confirm(ctx context.Context, orgID int64, id uuid.UUID, refTyp
 	if refUUID != nil {
 		ref = pgtype.UUID{Bytes: *refUUID, Valid: true}
 	}
-	n, err := s.q.ConfirmAllocation(ctx, db.ConfirmAllocationParams{
-		OrganizationID: orgID, ID: t.ref.ID, RefType: textArg(refType), RefUuid: ref, NowAt: ts(s.clock()),
+	err = s.tx(ctx, func(q *db.Queries, tx pgx.Tx) error {
+		n, err := q.ConfirmAllocation(ctx, db.ConfirmAllocationParams{
+			OrganizationID: orgID, ID: t.ref.ID, RefType: textArg(refType), RefUuid: ref, NowAt: ts(s.clock()),
+		})
+		if err != nil {
+			return err
+		}
+		if n != 1 {
+			return s.whyNot(t.ref)
+		}
+		if hook != nil {
+			return hook(ctx, tx, model.HookResult{
+				AllocationID: t.ref.ID, AllocationUUID: t.ref.Uuid, VehicleID: t.ref.VehicleID, ProductID: t.ref.RentalProductID,
+				ProductVersion: t.ref.ProductVersion, Kind: model.KindReservation, PlateFixed: t.ref.PlateFixed,
+				Moved: []model.MovedAllocation{},
+			})
+		}
+		return nil
 	})
 	if err != nil {
 		return model.Allocation{}, err
-	}
-	if n != 1 {
-		return model.Allocation{}, s.whyNot(t.ref)
 	}
 	return s.GetAllocation(ctx, orgID, id)
 }
@@ -444,6 +679,12 @@ func (s *Service) ExtendHold(ctx context.Context, orgID int64, id uuid.UUID, min
 // Commitments that relied on its return branch are re-planned in the same
 // transaction; the ones that cannot be are reported as affected.
 func (s *Service) Release(ctx context.Context, orgID int64, id uuid.UUID, reason string, actorID *int64) (model.ReleaseResult, error) {
+	return s.ReleaseWith(ctx, orgID, id, reason, actorID, nil)
+}
+
+// ReleaseWith is Release with a hook in the same transaction (the hook sees
+// the moves and the affected items).
+func (s *Service) ReleaseWith(ctx context.Context, orgID int64, id uuid.UUID, reason string, actorID *int64, hook model.TxHook) (model.ReleaseResult, error) {
 	t, err := s.target(ctx, orgID, id)
 	if err != nil {
 		return model.ReleaseResult{}, err
@@ -468,6 +709,7 @@ func (s *Service) Release(ctx context.Context, orgID int64, id uuid.UUID, reason
 		}
 		var cs *componentState
 		var res engine.ReleaseResult
+		w := &writer{ctx: ctx, q: q, tx: tx, orgID: orgID, cs: &componentState{allocs: map[int64]db.ListAvailabilityAllocationsRow{}}}
 		if comp := snap.component[ref.VehicleID]; comp != 0 {
 			if err := s.lock(ctx, q, orgID, comp); err != nil {
 				return err
@@ -475,7 +717,7 @@ func (s *Service) Release(ctx context.Context, orgID int64, id uuid.UUID, reason
 			if cs, err = s.loadComponent(ctx, q, orgID, snap, comp, now); err != nil {
 				return err
 			}
-			w := &writer{ctx: ctx, q: q, tx: tx, orgID: orgID, cs: cs}
+			w.cs = cs
 			affected, err := w.expireDue(now, s.opts)
 			if err != nil {
 				return err
@@ -500,6 +742,13 @@ func (s *Service) Release(ctx context.Context, orgID int64, id uuid.UUID, reason
 		}
 		out.Reassigned = len(res.Moves)
 		out.Affected = affectedItems(cs, res.Affected)
+		if hook != nil {
+			return hook(ctx, tx, model.HookResult{
+				AllocationID: ref.ID, AllocationUUID: ref.Uuid, VehicleID: ref.VehicleID, ProductID: ref.RentalProductID,
+				ProductVersion: ref.ProductVersion, Kind: ref.Kind, PlateFixed: ref.PlateFixed,
+				Moved: w.movedAllocations(ref.ID), Affected: out.Affected,
+			})
+		}
 		return nil
 	})
 	if err != nil {

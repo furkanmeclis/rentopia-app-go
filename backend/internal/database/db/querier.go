@@ -754,7 +754,8 @@ type Querier interface {
 	RentalGroupCodeTaken(ctx context.Context, arg RentalGroupCodeTakenParams) (bool, error)
 	RentalProductCodeTaken(ctx context.Context, arg RentalProductCodeTakenParams) (bool, error)
 	ReplaceUserRoles(ctx context.Context, userID int64) error
-	// Date change / plate assignment of one allocation (same optimistic check).
+	// Date change / plate assignment / product change of one allocation (same
+	// optimistic check).
 	ReplanAllocation(ctx context.Context, arg ReplanAllocationParams) (int64, error)
 	ResolveOrganizationScopeBySlug(ctx context.Context, arg ResolveOrganizationScopeBySlugParams) (ResolveOrganizationScopeBySlugRow, error)
 	ResolveOrganizationScopeByUUID(ctx context.Context, arg ResolveOrganizationScopeByUUIDParams) (ResolveOrganizationScopeByUUIDRow, error)
@@ -778,6 +779,9 @@ type Querier interface {
 	SetCustomerDocumentFile(ctx context.Context, arg SetCustomerDocumentFileParams) (CustomerDocument, error)
 	SetCustomerTags(ctx context.Context, arg SetCustomerTagsParams) (Customer, error)
 	SetDateRuleState(ctx context.Context, arg SetDateRuleStateParams) (int64, error)
+	// Moves the expiry of an active hold (reservation review -> payment
+	// window); the new expiry must lie in the future.
+	SetHoldExpiry(ctx context.Context, arg SetHoldExpiryParams) (int64, error)
 	SetMemberBranchScope(ctx context.Context, arg SetMemberBranchScopeParams) error
 	SetMemberPrimaryRole(ctx context.Context, arg SetMemberPrimaryRoleParams) error
 	SetOneWayRuleActive(ctx context.Context, arg SetOneWayRuleActiveParams) (int64, error)

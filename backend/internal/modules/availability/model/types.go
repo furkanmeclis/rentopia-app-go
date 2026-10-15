@@ -4,10 +4,12 @@
 package model
 
 import (
+	"context"
 	"time"
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/availability/engine"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 // Engine resource slugs (activity, live lists).
@@ -194,6 +196,11 @@ type ReserveInput struct {
 	RefType     string
 	RefUUID     *uuid.UUID
 	ActorID     *int64
+	// HoldUntil sets the expiry of a hold directly (reservation review /
+	// payment windows may exceed MaxHoldMinutes); it wins over HoldMinutes.
+	HoldUntil *time.Time
+	// Hook runs inside the write transaction (nil = none).
+	Hook TxHook
 }
 
 // ExtendInput is the body of POST …/holds/{uuid}/extend.
@@ -205,6 +212,53 @@ type ExtendInput struct {
 // places); nil places keep the current ones.
 type ChangeInput struct {
 	Where
+	// VehicleUUID / FixPlate move the allocation onto one vehicle in the
+	// same atomic re-plan (internal callers; not part of an HTTP body).
+	VehicleUUID *uuid.UUID `json:"-"`
+	FixPlate    bool       `json:"-"`
+	// Hook runs inside the write transaction (internal callers).
+	Hook TxHook `json:"-"`
+}
+
+// TxHook runs inside the engine's write transaction, after the allocation
+// row (and every reassignment of the plan) was written. Callers that keep
+// their own record in step with the allocation (reservations, TEC-706)
+// write it here, so the plan and the record commit or roll back together.
+// An error rolls the whole transaction back. The hook may run more than
+// once (the engine retries stale plans): it must only write through tx.
+type TxHook func(ctx context.Context, tx pgx.Tx, r HookResult) error
+
+// HookResult describes the allocation a write produced.
+type HookResult struct {
+	AllocationID   int64
+	AllocationUUID uuid.UUID
+	VehicleID      int64
+	ProductID      int64
+	ProductVersion int32
+	Kind           string
+	PlateFixed     bool
+	// Moved are the other allocations the plan moved to another vehicle
+	// (reassignments and re-planned dependents).
+	Moved []MovedAllocation
+	// Affected lists what a release could not keep valid.
+	Affected []Affected
+}
+
+// MovedAllocation is one reassignment of a plan.
+type MovedAllocation struct {
+	ID            int64
+	UUID          uuid.UUID
+	FromVehicleID int64
+	ToVehicleID   int64
+}
+
+// PlanOptions tune a re-plan of an existing allocation.
+type PlanOptions struct {
+	// VehicleUUID restricts the plan to one vehicle (plate change).
+	VehicleUUID *uuid.UUID
+	// FixPlate promises the plan's vehicle (plate_fixed).
+	FixPlate bool
+	Hook     TxHook
 }
 
 // Allocation is an allocation (hold / reservation plate plan) as the API
