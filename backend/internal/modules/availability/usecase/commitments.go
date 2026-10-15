@@ -379,8 +379,11 @@ func (s *Service) changedWhere(ctx context.Context, orgID int64, ref db.GetAlloc
 	where.FleetPool = ""
 	var keep *time.Time
 	if ref.Kind == model.KindRental {
+		// A rental under way keeps the start of its handover (which may be
+		// earlier than the planned pick-up); only its end moves.
 		start := ref.StartsAt.Time
 		keep = &start
+		where.StartsAt = start
 	}
 	r, err := s.resolveKeeping(ctx, orgID, where, keep)
 	if err != nil {

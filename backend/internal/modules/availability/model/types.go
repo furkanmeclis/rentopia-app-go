@@ -123,6 +123,9 @@ type SearchInput struct {
 	Where
 	// ProductUUIDs limits the answer (empty = every product on sale).
 	ProductUUIDs []uuid.UUID `json:"product_uuids"`
+	// KeepStart lets the start lie in the past (pricing the extension of a
+	// reservation or rental already under way); internal callers only.
+	KeepStart bool `json:"-"`
 }
 
 // ResolvedRequest echoes what the engine searched for.
