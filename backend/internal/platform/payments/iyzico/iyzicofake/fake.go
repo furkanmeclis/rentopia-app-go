@@ -346,7 +346,7 @@ func (f *Fake) servePage(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if r.Method == http.MethodGet && action == "" {
-		fmt.Fprintf(w, `<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>iyzico (fake)</title></head>
+		_, _ = fmt.Fprintf(w, `<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>iyzico (fake)</title></head>
 <body style="font-family:sans-serif;max-width:420px;margin:48px auto">
 <h1>iyzico ödeme (test)</h1><p>Tutar: <strong>%s %s</strong></p>
 <form method="post" action="/fake/checkout/%s/complete?result=paid"><button id="fake-pay" type="submit">Öde</button></form>
@@ -373,7 +373,7 @@ func (f *Fake) servePage(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	fmt.Fprintf(w, `<!doctype html><html><body onload="document.forms[0].submit()">
+	_, _ = fmt.Fprintf(w, `<!doctype html><html><body onload="document.forms[0].submit()">
 <form method="post" action="%s"><input type="hidden" name="token" value="%s"><noscript><button>Devam</button></noscript></form>
 </body></html>`, html.EscapeString(c.CallbackURL), html.EscapeString(token))
 }

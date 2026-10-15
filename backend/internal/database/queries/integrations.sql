@@ -104,7 +104,7 @@ WHERE organization_id = sqlc.arg(organization_id)
 
 -- name: FinishIntegrationJob :exec
 UPDATE integration_jobs
-SET status = sqlc.arg(status), last_error = sqlc.arg(last_error), result = sqlc.arg(result),
+SET status = sqlc.arg(status)::text, last_error = sqlc.arg(last_error), result = sqlc.arg(result),
     completed_at = CASE WHEN sqlc.arg(status)::text IN ('succeeded', 'ignored') THEN NOW() ELSE completed_at END
 WHERE organization_id = sqlc.arg(organization_id)
   AND id = sqlc.arg(id);

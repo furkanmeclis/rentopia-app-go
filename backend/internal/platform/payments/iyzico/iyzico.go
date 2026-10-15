@@ -182,7 +182,7 @@ func (a *Adapter) post(ctx context.Context, account integrations.Account, path s
 	if err != nil {
 		return nil, &payments.ProviderError{Code: "network", Message: err.Error(), Temporary: true}
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	data, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		return nil, &payments.ProviderError{Code: "network", Message: err.Error(), Temporary: true}

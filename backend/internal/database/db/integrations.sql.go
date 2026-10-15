@@ -36,7 +36,7 @@ func (q *Queries) ClaimIntegrationJob(ctx context.Context, arg ClaimIntegrationJ
 
 const finishIntegrationJob = `-- name: FinishIntegrationJob :exec
 UPDATE integration_jobs
-SET status = $1, last_error = $2, result = $3,
+SET status = $1::text, last_error = $2, result = $3,
     completed_at = CASE WHEN $1::text IN ('succeeded', 'ignored') THEN NOW() ELSE completed_at END
 WHERE organization_id = $4
   AND id = $5
