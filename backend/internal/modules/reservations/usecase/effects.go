@@ -135,6 +135,15 @@ func (s *Service) planEffects(ctx context.Context, q *db.Queries, orgID int64, r
 	return touched, nil
 }
 
+// PlanMoved records reassignments the engine made outside a reservation
+// flow (a vehicle leaving a rental group: its commitments were re-planned
+// onto other vehicles) as plan_moved events on the reservations moved. It
+// runs in the engine's transaction (availability PlanMovedHandler).
+func (s *Service) PlanMoved(ctx context.Context, q *db.Queries, orgID int64, moved []availmodel.MovedAllocation, cause string, causeRef uuid.UUID) error {
+	_, err := s.planEffects(ctx, q, orgID, availmodel.HookResult{Moved: moved}, cause, causeRef)
+	return err
+}
+
 // openTask opens a resolution task (at most one open per reservation, type
 // and source) and records plan_broken on the reservation.
 func (s *Service) openTask(ctx context.Context, q *db.Queries, orgID, reservationID int64, taskType, reason, sourceType string, source uuid.UUID, data map[string]any) error {

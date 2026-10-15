@@ -475,7 +475,8 @@ func (a *Bulk) ApplyItem(ctx context.Context, action, entityUUID string) (bulken
 	params := bulkengine.Params(ctx)
 	fail := func(err error) (bulkengine.BulkItemResult, error) {
 		var ve *usecase.ValidationError
-		if _, ok := usecase.IsNotEligible(err); ok || errors.As(err, &ve) ||
+		var mu *usecase.MembershipInUseError
+		if _, ok := usecase.IsNotEligible(err); ok || errors.As(err, &ve) || errors.As(err, &mu) ||
 			errors.Is(err, usecase.ErrNotFound) || errors.Is(err, usecase.ErrPlateTaken) ||
 			errors.Is(err, usecase.ErrGroupNotFound) {
 			return bulkengine.BulkItemResult{EntityUUID: entityUUID, OK: false, Error: err.Error()}, nil

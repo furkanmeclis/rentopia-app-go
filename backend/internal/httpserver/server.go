@@ -432,6 +432,10 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	paymentsSvc.SetResourceEvents(resourceEvents)
 	paymentsSvc.SetLogger(log)
 	reservationSvc.SetPaymentLinks(paymentsSvc)
+	// Rental group membership removals re-plan the commitments that relied
+	// on them (or are refused); moved reservations record plan_moved.
+	vehicleSvc.SetMembershipGuard(availabilitySvc)
+	availabilitySvc.SetPlanMovedHandler(reservationSvc)
 
 	// Live lists of tenant resources: org:{org_uuid}:resource:{name}, open to
 	// members whose tenant role grants the resource's read permission.

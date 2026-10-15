@@ -262,6 +262,36 @@ type ProductVehicles struct {
 	Offset        int32     `json:"offset"`
 }
 
+// GroupMember is a member vehicle of a rental group with its current
+// eligibility: a member that no longer meets the criteria (eligible =
+// false) does not count for GROUP guarantees.
+type GroupMember struct {
+	Vehicle  Vehicle   `json:"vehicle"`
+	Eligible bool      `json:"eligible"`
+	Reasons  []string  `json:"reasons"`
+	AddedAt  time.Time `json:"added_at"`
+}
+
+// GroupMembers is the answer of GET /v1/tenant/rental-groups/{uuid}/members.
+// EligibleTotal counts the members that still meet the criteria;
+// CandidatesTotal the active vehicles that meet them but are not members
+// (what "add all eligible vehicles" would add).
+type GroupMembers struct {
+	Items           []GroupMember `json:"items"`
+	Total           int64         `json:"total"`
+	EligibleTotal   int64         `json:"eligible_total"`
+	CandidatesTotal int64         `json:"candidates_total"`
+	Limit           int32         `json:"limit"`
+	Offset          int32         `json:"offset"`
+}
+
+// GroupAddEligibleResult is the answer of POST
+// /v1/tenant/rental-groups/{uuid}/members/add-eligible.
+type GroupAddEligibleResult struct {
+	Added        int64       `json:"added"`
+	VehicleUUIDs []uuid.UUID `json:"vehicle_uuids"`
+}
+
 // ListFilter selects vehicles of one organization.
 type ListFilter struct {
 	Limit, Offset      int32

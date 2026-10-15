@@ -200,6 +200,9 @@ func main() {
 		paymentsusecase.Config{PublicBaseURL: cfg.Auth.FrontendURL}, iyzicoAdapter)
 	paymentsSvc.SetLogger(log)
 	reservationSvc.SetPaymentLinks(paymentsSvc)
+	// Bulk rental group changes go through the engine like the API.
+	vehicleSvc.SetMembershipGuard(availabilitySvc)
+	availabilitySvc.SetPlanMovedHandler(reservationSvc)
 	vehicleBulk := vehicleadapters.NewBulk(vehicleSvc)
 	vehicleBulk.SetMaintenance(fleetopsadapters.NewMaintenance(fleetOpsSvc))
 	// Platform organizations (export, bulk activate / suspend). Status

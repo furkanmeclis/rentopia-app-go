@@ -1015,6 +1015,48 @@ func (q *Queries) ListLiveRentalGroupsForVehicles(ctx context.Context, organizat
 	return items, nil
 }
 
+const listRentalGroupMemberVehicles = `-- name: ListRentalGroupMemberVehicles :many
+SELECT vg.rental_group_id, v.uuid AS vehicle_uuid
+FROM vehicle_rental_groups vg
+JOIN vehicles v ON v.organization_id = vg.organization_id AND v.id = vg.vehicle_id
+WHERE vg.organization_id = $1
+  AND vg.rental_group_id = ANY($2::bigint[])
+  AND v.deleted_at IS NULL
+ORDER BY vg.rental_group_id, v.id
+`
+
+type ListRentalGroupMemberVehiclesParams struct {
+	OrganizationID int64   `json:"organization_id"`
+	GroupIds       []int64 `json:"group_ids"`
+}
+
+type ListRentalGroupMemberVehiclesRow struct {
+	RentalGroupID int64     `json:"rental_group_id"`
+	VehicleUuid   uuid.UUID `json:"vehicle_uuid"`
+}
+
+// Member vehicles (live) of the given rental groups: the explicit side of a
+// GROUP guarantee (fleet/eligibility).
+func (q *Queries) ListRentalGroupMemberVehicles(ctx context.Context, arg ListRentalGroupMemberVehiclesParams) ([]ListRentalGroupMemberVehiclesRow, error) {
+	rows, err := q.db.Query(ctx, listRentalGroupMemberVehicles, arg.OrganizationID, arg.GroupIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListRentalGroupMemberVehiclesRow{}
+	for rows.Next() {
+		var i ListRentalGroupMemberVehiclesRow
+		if err := rows.Scan(&i.RentalGroupID, &i.VehicleUuid); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listVehicleEvents = `-- name: ListVehicleEvents :many
 SELECT e.id, e.uuid, e.organization_id, e.vehicle_id, e.event_type, e.from_status, e.to_status, e.odometer_km, e.fuel_level, e.note, e.actor_id, e.created_at, u.uuid AS actor_uuid, u.name AS actor_name, u.surname AS actor_surname, u.email AS actor_email
 FROM vehicle_events e

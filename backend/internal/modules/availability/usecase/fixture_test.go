@@ -22,18 +22,29 @@ import (
 // products, created with SQL and removed when the test ends (the shared
 // TEST_DATABASE_URL database is never truncated).
 type fx struct {
-	t       testing.TB
-	ctx     context.Context
-	pool    *pgxpool.Pool
-	q       *db.Queries
-	svc     *usecase.Service
-	org     int64
-	segment int64
-	suffix  string
-	base    time.Time
-	brands  []int64
-	display []int64
-	plate   int
+	t    testing.TB
+	ctx  context.Context
+	pool *pgxpool.Pool
+	q    *db.Queries
+	svc  *usecase.Service
+	// vehicles is the vehicles use case wired to svc as membership guard.
+	vehicles *vehicleusecase.Service
+	org      int64
+	segment  int64
+	suffix   string
+	base     time.Time
+	brands   []int64
+	display  []int64
+	plate    int
+	// groups are the rental groups whose members the fixture keeps in sync
+	// with their catalog criteria (staff adding every matching vehicle).
+	groups []fxGroup
+}
+
+// fxGroup is a rental group of the fixture with its catalog model criteria.
+type fxGroup struct {
+	id     int64
+	models []int64
 }
 
 type ref struct {
@@ -80,6 +91,10 @@ func newFx(t testing.TB) *fx {
 		t.Fatal(err)
 	}
 	f.svc = f.newService()
+	// The vehicles module with the engine as its membership guard (rental
+	// group removals re-plan or are refused).
+	f.vehicles = vehicleusecase.New(vehiclerepository.NewPostgres(f.pool, f.q), nil)
+	f.vehicles.SetMembershipGuard(f.svc)
 	// Requests start two days ahead on a whole hour.
 	f.base = time.Now().UTC().Add(48 * time.Hour).Truncate(time.Hour)
 	return f
@@ -151,36 +166,89 @@ func (f *fx) vehicle(typeID int64, at ref, pool string) ref {
 	if err != nil {
 		f.t.Fatal(err)
 	}
+	f.syncMembers()
 	return r
 }
 
-// product creates a published product with one version. kind GROUP takes
-// catalog model ids as the group's criteria (none = every vehicle);
-// EXACT_VARIANT takes one model id.
-func (f *fx) product(code, kind string, models ...int64) ref {
+// syncMembers adds every live vehicle that matches a synced group's
+// catalog criteria (none = every vehicle) to the group. Membership is
+// explicit (fleet/eligibility): the fixture plays the staff that put the
+// matching vehicles in.
+func (f *fx) syncMembers() {
+	f.t.Helper()
+	for _, g := range f.groups {
+		if _, err := f.pool.Exec(f.ctx, `INSERT INTO vehicle_rental_groups (organization_id, vehicle_id, rental_group_id)
+			SELECT v.organization_id, v.id, $2 FROM vehicles v LEFT JOIN catalog_types t ON t.id = v.catalog_type_id
+			WHERE v.organization_id = $1 AND v.deleted_at IS NULL
+			  AND (cardinality($3::bigint[]) = 0 OR t.model_id = ANY($3::bigint[]))
+			ON CONFLICT DO NOTHING`, f.org, g.id, g.models); err != nil {
+			f.t.Fatal(err)
+		}
+	}
+}
+
+// group creates a rental group with catalog model criteria (none = every
+// vehicle). synced groups get every matching vehicle as a member, now and
+// when vehicles are created later; the others start without members.
+func (f *fx) group(code string, synced bool, models ...int64) int64 {
+	f.t.Helper()
+	var group int64
+	if err := f.pool.QueryRow(f.ctx, `INSERT INTO rental_groups (organization_id, code, name, segment_id) VALUES ($1, $2, $2, $3) RETURNING id`,
+		f.org, code, f.segment).Scan(&group); err != nil {
+		f.t.Fatal(err)
+	}
+	for _, m := range models {
+		if _, err := f.pool.Exec(f.ctx, `INSERT INTO rental_group_catalog_models (organization_id, rental_group_id, catalog_model_id) VALUES ($1, $2, $3)`,
+			f.org, group, m); err != nil {
+			f.t.Fatal(err)
+		}
+	}
+	if synced {
+		f.groups = append(f.groups, fxGroup{id: group, models: append([]int64{}, models...)})
+		f.syncMembers()
+	}
+	return group
+}
+
+// groupProduct creates a published GROUP product on an existing group.
+func (f *fx) groupProduct(code string, group int64) ref {
 	f.t.Helper()
 	var p ref
 	if err := f.pool.QueryRow(f.ctx, `INSERT INTO rental_products (organization_id, code, title, segment_id, status)
 		VALUES ($1, $2, $3, $4, 'published') RETURNING id, uuid`, f.org, code, code+" ürün", f.segment).Scan(&p.id, &p.uuid); err != nil {
 		f.t.Fatal(err)
 	}
+	if _, err := f.pool.Exec(f.ctx, `INSERT INTO rental_product_versions (organization_id, product_id, version, guarantee_type, rental_group_id)
+		VALUES ($1, $2, 1, 'GROUP', $3)`, f.org, p.id, group); err != nil {
+		f.t.Fatal(err)
+	}
+	return p
+}
+
+// member puts a vehicle in a rental group (as staff would).
+func (f *fx) member(v ref, group int64) {
+	f.t.Helper()
+	if _, err := f.pool.Exec(f.ctx, `INSERT INTO vehicle_rental_groups (organization_id, vehicle_id, rental_group_id) VALUES ($1, $2, $3)`,
+		f.org, v.id, group); err != nil {
+		f.t.Fatal(err)
+	}
+}
+
+// product creates a published product with one version. kind GROUP takes
+// catalog model ids as the group's criteria (none = every vehicle) and
+// keeps every matching vehicle a member (syncMembers); EXACT_VARIANT takes
+// one model id.
+func (f *fx) product(code, kind string, models ...int64) ref {
+	f.t.Helper()
+	if kind == "GROUP" {
+		return f.groupProduct(code, f.group("G"+code, true, models...))
+	}
+	var p ref
+	if err := f.pool.QueryRow(f.ctx, `INSERT INTO rental_products (organization_id, code, title, segment_id, status)
+		VALUES ($1, $2, $3, $4, 'published') RETURNING id, uuid`, f.org, code, code+" ürün", f.segment).Scan(&p.id, &p.uuid); err != nil {
+		f.t.Fatal(err)
+	}
 	switch kind {
-	case "GROUP":
-		var group int64
-		if err := f.pool.QueryRow(f.ctx, `INSERT INTO rental_groups (organization_id, code, name, segment_id) VALUES ($1, $2, $2, $3) RETURNING id`,
-			f.org, "G"+code, f.segment).Scan(&group); err != nil {
-			f.t.Fatal(err)
-		}
-		for _, m := range models {
-			if _, err := f.pool.Exec(f.ctx, `INSERT INTO rental_group_catalog_models (organization_id, rental_group_id, catalog_model_id) VALUES ($1, $2, $3)`,
-				f.org, group, m); err != nil {
-				f.t.Fatal(err)
-			}
-		}
-		if _, err := f.pool.Exec(f.ctx, `INSERT INTO rental_product_versions (organization_id, product_id, version, guarantee_type, rental_group_id)
-			VALUES ($1, $2, 1, 'GROUP', $3)`, f.org, p.id, group); err != nil {
-			f.t.Fatal(err)
-		}
 	case "EXACT_VARIANT":
 		if _, err := f.pool.Exec(f.ctx, `INSERT INTO rental_product_versions (organization_id, product_id, version, guarantee_type, variant_level, catalog_model_id)
 			VALUES ($1, $2, 1, 'EXACT_VARIANT', 'model', $3)`, f.org, p.id, models[0]); err != nil {

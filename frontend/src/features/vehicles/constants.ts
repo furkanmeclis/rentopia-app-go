@@ -62,4 +62,12 @@ export const REASON_LABEL_KEYS: Record<string, string> = {
   luggage_below_minimum: "vehicles.reasons.luggage_below_minimum",
   air_conditioning_required: "vehicles.reasons.air_conditioning_required",
   catalog_not_allowed: "vehicles.reasons.catalog_not_allowed",
+  not_group_member: "vehicles.reasons.not_group_member",
+};
+
+/** Why a commitment blocks a rental group membership removal (409). */
+export const BLOCK_REASON_LABEL_KEYS: Record<string, string> = {
+  plate_fixed: "vehicles.groups.block_reasons.plate_fixed",
+  started: "vehicles.groups.block_reasons.started",
+  no_vehicle: "vehicles.groups.block_reasons.no_vehicle",
 };

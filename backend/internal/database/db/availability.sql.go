@@ -358,7 +358,10 @@ SELECT md5(concat_ws('|',
     (SELECT count(*)::text || ':' || COALESCE(max(gm.created_at)::text, '')
         FROM rental_group_catalog_models gm WHERE gm.organization_id = $1),
     (SELECT count(*)::text || ':' || COALESCE(max(gt.created_at)::text, '')
-        FROM rental_group_catalog_types gt WHERE gt.organization_id = $1)
+        FROM rental_group_catalog_types gt WHERE gt.organization_id = $1),
+    (SELECT count(*)::text || ':' || md5(COALESCE(string_agg(vg.vehicle_id::text || '/' || vg.rental_group_id::text, ','
+            ORDER BY vg.vehicle_id, vg.rental_group_id), ''))
+        FROM vehicle_rental_groups vg WHERE vg.organization_id = $1)
 ))::text AS fingerprint
 `
 
@@ -368,7 +371,9 @@ SELECT md5(concat_ws('|',
 // eligibility component inside its advisory lock and writes the plan back
 // in the same transaction.
 // Changes whenever the inputs of the cached eligibility graph change
-// (vehicles, products, versions, rental groups and their criteria).
+// (vehicles, products, versions, rental groups, their criteria and their
+// member vehicles). Memberships are hashed as a set: a removal followed by
+// an addition changes it even when the row count stays the same.
 func (q *Queries) GetAvailabilityFingerprint(ctx context.Context, organizationID int64) (string, error) {
 	row := q.db.QueryRow(ctx, getAvailabilityFingerprint, organizationID)
 	var fingerprint string
@@ -656,6 +661,46 @@ func (q *Queries) ListActiveCapacityRules(ctx context.Context, organizationID in
 			&i.BranchID,
 			&i.Quantity,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAllocationReservations = `-- name: ListAllocationReservations :many
+SELECT r.allocation_id, r.uuid, r.reference
+FROM reservations r
+WHERE r.organization_id = $1
+  AND r.allocation_id = ANY($2::bigint[])
+`
+
+type ListAllocationReservationsParams struct {
+	OrganizationID int64   `json:"organization_id"`
+	AllocationIds  []int64 `json:"allocation_ids"`
+}
+
+type ListAllocationReservationsRow struct {
+	AllocationID pgtype.Int8 `json:"allocation_id"`
+	Uuid         uuid.UUID   `json:"uuid"`
+	Reference    string      `json:"reference"`
+}
+
+// The reservations (reference) of the given allocations; plain holds have
+// none.
+func (q *Queries) ListAllocationReservations(ctx context.Context, arg ListAllocationReservationsParams) ([]ListAllocationReservationsRow, error) {
+	rows, err := q.db.Query(ctx, listAllocationReservations, arg.OrganizationID, arg.AllocationIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAllocationReservationsRow{}
+	for rows.Next() {
+		var i ListAllocationReservationsRow
+		if err := rows.Scan(&i.AllocationID, &i.Uuid, &i.Reference); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

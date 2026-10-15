@@ -144,7 +144,10 @@ func (s *Service) AddGroup(ctx context.Context, orgID int64, id, groupUUID uuid.
 	return model.Membership{Group: groupRef(g), Eligible: true, Reasons: []string{}, AddedAt: s.now().UTC()}, nil
 }
 
-// RemoveGroup removes a vehicle from a rental group.
+// RemoveGroup removes a vehicle from a rental group. Future commitments
+// that relied on the membership are re-planned onto other vehicles in the
+// same transaction; when one cannot move the removal is refused
+// (MembershipInUseError).
 func (s *Service) RemoveGroup(ctx context.Context, orgID int64, id, groupUUID uuid.UUID) error {
 	row, err := s.getVehicle(ctx, orgID, id)
 	if err != nil {
@@ -154,20 +157,35 @@ func (s *Service) RemoveGroup(ctx context.Context, orgID int64, id, groupUUID uu
 	if err != nil {
 		return mapNotFound(err, ErrMembershipNotFound)
 	}
-	removed, err := s.repo.RemoveMembership(ctx, orgID, row.Vehicle.ID, g.ID)
+	members, err := s.repo.MembershipsByVehicle(ctx, orgID, []int64{row.Vehicle.ID})
 	if err != nil {
 		return err
 	}
-	if !removed {
+	isMember := false
+	for _, m := range members[row.Vehicle.ID] {
+		isMember = isMember || m.RentalGroupID == g.ID
+	}
+	if !isMember {
 		return ErrMembershipNotFound
 	}
-	return nil
+	return s.changeMemberships(ctx, orgID, row.Vehicle, []int64{g.ID}, func(tx *repository.Postgres) error {
+		removed, err := tx.RemoveMembership(ctx, orgID, row.Vehicle.ID, g.ID)
+		if err != nil {
+			return err
+		}
+		if !removed {
+			return ErrMembershipNotFound
+		}
+		return nil
+	})
 }
 
 // SetGroups makes groupUUIDs the exact memberships of a vehicle (bulk
 // replace) or adds them (replace=false). Every new group is checked for
 // eligibility unless check is false (rollback restores the previous set as
-// it was). It returns the previous memberships.
+// it was). Groups a replace drops are removed like RemoveGroup (dependent
+// commitments re-planned, or MembershipInUseError). It returns the previous
+// memberships.
 func (s *Service) SetGroups(ctx context.Context, orgID int64, id uuid.UUID, groupUUIDs []uuid.UUID, replace, check bool) ([]uuid.UUID, error) {
 	row, err := s.getVehicle(ctx, orgID, id)
 	if err != nil {
@@ -197,7 +215,19 @@ func (s *Service) SetGroups(ctx context.Context, orgID int64, id uuid.UUID, grou
 		}
 		ids = append(ids, g.ID)
 	}
-	err = s.repo.InTx(ctx, func(tx *repository.Postgres) error {
+	removed := []int64{}
+	if replace {
+		kept := map[int64]bool{}
+		for _, gid := range ids {
+			kept[gid] = true
+		}
+		for _, m := range members[row.Vehicle.ID] {
+			if !kept[m.RentalGroupID] {
+				removed = append(removed, m.RentalGroupID)
+			}
+		}
+	}
+	err = s.changeMemberships(ctx, orgID, row.Vehicle, removed, func(tx *repository.Postgres) error {
 		if replace {
 			if err := tx.ClearMemberships(ctx, orgID, row.Vehicle.ID); err != nil {
 				return err
@@ -300,6 +330,11 @@ func (s *Service) guarantee(ctx context.Context, orgID int64, v db.RentalProduct
 			}
 			c := crit[row.ID]
 			g.Group = &c
+			members, err := s.repo.GroupMembers(ctx, orgID, []int64{row.ID})
+			if err != nil {
+				return g, err
+			}
+			g.Members = members[row.ID]
 		}
 	}
 	return g, nil
@@ -349,6 +384,10 @@ func (s *Service) Guarantees(ctx context.Context, orgID int64, versions []db.Ren
 	if err != nil {
 		return nil, err
 	}
+	members, err := s.repo.GroupMembers(ctx, orgID, groupIDs)
+	if err != nil {
+		return nil, err
+	}
 	out := make(map[int64]eligibility.Guarantee, len(versions))
 	for _, v := range versions {
 		g := eligibility.Guarantee{Type: v.GuaranteeType, VariantLevel: v.VariantLevel.String, CatalogTypeID: v.CatalogTypeID.Int64}
@@ -362,6 +401,7 @@ func (s *Service) Guarantees(ctx context.Context, orgID int64, versions []db.Ren
 		if v.RentalGroupID.Valid {
 			if c, ok := crit[v.RentalGroupID.Int64]; ok {
 				g.Group = &c
+				g.Members = members[v.RentalGroupID.Int64]
 			}
 		}
 		out[v.ID] = g
