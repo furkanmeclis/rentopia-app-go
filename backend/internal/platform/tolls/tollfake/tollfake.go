@@ -2,7 +2,7 @@
 // is registered outside production only.
 //
 // Without a script it generates a deterministic, plausible history for the
-// tags it is asked about: 0–2 passes per tag and day at well-known bridges
+// tags it is asked about: 1–2 passes per tag and day at well-known bridges
 // and motorways, each with a stable transaction id, so fetching the same
 // window again returns the same passes. Tests script exact passes
 // (Script) and failures (FailNext) instead.
@@ -159,7 +159,7 @@ func generate(req tolls.FetchRequest, now time.Time) []tolls.Pass {
 				continue
 			}
 			seed := hash(key + day.Format("20060102"))
-			n := int(seed % 3)
+			n := 1 + int(seed%2)
 			for i := 0; i < n; i++ {
 				st := stations[int((seed>>(8+uint(i)*4))%uint64(len(stations)))]
 				minute := int((seed>>(16+uint(i)*8))%(12*60)) + 7*60 + i*95
