@@ -77,6 +77,9 @@ const bulkActionIconCatalog: Record<
     cancel: CircleOff,
     assign_staff: UserCheck,
   },
+  "tenant.field_tasks": {
+    assign: UserCheck,
+  },
 };
 
 export function resolveBulkActionIcon(

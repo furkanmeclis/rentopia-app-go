@@ -263,9 +263,6 @@
   "tasks.load_failed": "Tasks could not be loaded.",
   "tasks.note": "Note",
   "tasks.statuses.cancelled": "Cancelled",
-  "tasks.statuses.done": "Done",
-  "tasks.statuses.in_progress": "In progress",
-  "tasks.statuses.open": "Open",
   "tasks.title": "Operation tasks",
   "tasks.toast.assigned": "Assignee updated",
   "tasks.toast.cancel": "Task cancelled",
@@ -321,5 +318,12 @@
   "charges.kinds.toll": "Bridge / motorway toll",
   "charges.kinds.toll_fee": "Toll processing fee",
   "events.actions.toll_charged": "Toll pass charged",
-  "events.actions.toll_reversed": "Toll charge reversed"
+  "events.actions.toll_reversed": "Toll charge reversed",
+  "tasks.statuses.planned": "Planned",
+  "tasks.statuses.assigned": "Assigned",
+  "tasks.statuses.en_route": "En route",
+  "tasks.statuses.issue_reported": "Issue reported",
+  "tasks.statuses.completed": "Completed",
+  "tasks.types.transfer": "Transfer",
+  "tasks.types.other": "Other"
 }

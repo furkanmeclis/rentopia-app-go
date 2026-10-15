@@ -81,6 +81,7 @@ func (s *Service) view(row db.GetReservationViewRow, drivers []db.ListReservatio
 	if row.ReturnPointUuid.Valid {
 		r.ReturnPoint = &model.PointRef{UUID: row.ReturnPointUuid.Bytes, Name: row.ReturnPointName.String}
 	}
+	r.PickupDelivery, r.ReturnDelivery = storedDelivery(row.PickupDelivery), storedDelivery(row.ReturnDelivery)
 	if row.InvoiceCustomerUuid.Valid {
 		r.InvoiceCustomer = &model.CustomerRef{
 			UUID: row.InvoiceCustomerUuid.Bytes, CustomerType: row.InvoiceCustomerType.String,

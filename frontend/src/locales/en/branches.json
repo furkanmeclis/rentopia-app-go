@@ -137,5 +137,22 @@
   "validation.close_after_open": "Closing time must be after opening time.",
   "validation.date": "Pick a date.",
   "validation.date_duplicate": "This date is already listed.",
-  "validation.extra_fee": "Enter a non-negative amount with at most 2 decimals."
+  "validation.extra_fee": "Enter a non-negative amount with at most 2 decimals.",
+  "service_points.fields.conditions": "Delivery conditions",
+  "service_points.fields.conditions_hint": "Shown with the booking.",
+  "service_points.fields.delivery_enabled": "Delivers here",
+  "service_points.fields.delivery_enabled_hint": "Staff bring or collect the vehicle here.",
+  "service_points.fields.delivery_extra": "Delivery extra",
+  "service_points.fields.delivery_extra_hint": "The fee is this extra's price; else the extra fee.",
+  "service_points.fields.districts": "Served districts",
+  "service_points.fields.districts_hint": "Comma separated; empty = any district.",
+  "service_points.fields.latitude": "Centre latitude",
+  "service_points.fields.longitude": "Centre longitude",
+  "service_points.fields.min_notice": "Minimum notice (min)",
+  "service_points.fields.min_notice_hint": "Bookings need at least this much notice.",
+  "service_points.fields.no_delivery_extra": "Use the extra fee",
+  "service_points.fields.radius": "Service radius (km)",
+  "service_points.fields.radius_hint": "Addresses with coordinates must be within this distance.",
+  "validation.min_notice": "Enter minutes.",
+  "validation.radius": "Enter a positive distance."
 }

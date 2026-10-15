@@ -3,14 +3,36 @@
 -- name: InsertOperationTask :one
 -- A live task per rental, type and vehicle at most (the partial unique
 -- index): a second open of the same task is a no-op (no row returned).
-INSERT INTO operation_tasks (
-    organization_id, task_type, branch_id, rental_id, vehicle_id, due_at, note, created_by
-) VALUES (
-    sqlc.arg(organization_id), sqlc.arg(task_type), sqlc.arg(branch_id), sqlc.narg(rental_id), sqlc.narg(vehicle_id),
-    sqlc.arg(due_at), sqlc.arg(note), sqlc.narg(created_by)
+-- A delivery / collection task the reservation opened before the rental
+-- existed (TEC-724) is adopted instead: it gets the rental and vehicle
+-- and keeps its assignee, status and place.
+WITH res AS (
+    SELECT r.reservation_id FROM rentals r
+    WHERE r.organization_id = sqlc.arg(organization_id) AND r.id = sqlc.narg(rental_id)::bigint
+), adopted AS (
+    UPDATE operation_tasks a
+    SET rental_id = sqlc.narg(rental_id)::bigint, vehicle_id = COALESCE(sqlc.narg(vehicle_id)::bigint, a.vehicle_id),
+        updated_by = sqlc.narg(created_by)::bigint
+    WHERE a.organization_id = sqlc.arg(organization_id)
+      AND a.reservation_id = (SELECT reservation_id FROM res)
+      AND a.rental_id IS NULL
+      AND a.task_type = sqlc.arg(task_type)
+      AND a.status IN ('planned', 'assigned', 'en_route', 'issue_reported')
+    RETURNING a.uuid
+), inserted AS (
+    INSERT INTO operation_tasks (
+        organization_id, task_type, branch_id, rental_id, reservation_id, vehicle_id, due_at, note, created_by, updated_by
+    )
+    SELECT sqlc.arg(organization_id), sqlc.arg(task_type), sqlc.arg(branch_id), sqlc.narg(rental_id)::bigint,
+        (SELECT reservation_id FROM res), sqlc.narg(vehicle_id)::bigint, sqlc.arg(due_at), sqlc.arg(note),
+        sqlc.narg(created_by)::bigint, sqlc.narg(created_by)::bigint
+    WHERE NOT EXISTS (SELECT 1 FROM adopted)
+    ON CONFLICT DO NOTHING
+    RETURNING uuid
 )
-ON CONFLICT DO NOTHING
-RETURNING uuid;
+SELECT uuid FROM adopted
+UNION ALL
+SELECT uuid FROM inserted;
 
 -- name: GetOperationTask :one
 SELECT t.id, t.uuid, t.task_type, t.status, t.branch_id, t.due_at, t.note, t.started_at, t.completed_at,
@@ -91,35 +113,50 @@ LIMIT 2000;
 
 -- name: StartOperationTask :execrows
 UPDATE operation_tasks
-SET status = 'in_progress', started_at = sqlc.arg(started_at), assignee_id = COALESCE(assignee_id, sqlc.narg(actor_id))
+SET status = 'en_route', started_at = sqlc.arg(started_at), assignee_id = COALESCE(assignee_id, sqlc.narg(actor_id)),
+    assigned_at = COALESCE(assigned_at, sqlc.arg(started_at)), updated_by = sqlc.narg(actor_id)
 WHERE organization_id = sqlc.arg(organization_id)
   AND id = sqlc.arg(id)
-  AND status = 'open';
+  AND status IN ('planned', 'assigned');
 
 -- name: FinishOperationTask :execrows
 UPDATE operation_tasks
 SET status = sqlc.arg(status), completed_at = sqlc.arg(completed_at), completed_by = sqlc.narg(actor_id),
-    completion_note = sqlc.arg(completion_note)
+    completion_note = sqlc.arg(completion_note), updated_by = sqlc.narg(actor_id)
 WHERE organization_id = sqlc.arg(organization_id)
   AND id = sqlc.arg(id)
-  AND status IN ('open', 'in_progress');
+  AND status IN ('planned', 'assigned', 'en_route', 'issue_reported');
 
 -- name: AssignOperationTask :execrows
+-- A new assignee resets the task to assigned (planned without one); the
+-- same assignee again changes nothing.
 UPDATE operation_tasks
-SET assignee_id = sqlc.narg(assignee_id)
+SET status = CASE
+        WHEN assignee_id IS NOT DISTINCT FROM sqlc.narg(assignee_id)::bigint THEN status
+        WHEN sqlc.narg(assignee_id)::bigint IS NULL THEN 'planned'
+        ELSE 'assigned'
+    END,
+    started_at = CASE WHEN assignee_id IS NOT DISTINCT FROM sqlc.narg(assignee_id)::bigint THEN started_at ELSE NULL END,
+    assigned_at = CASE
+        WHEN assignee_id IS NOT DISTINCT FROM sqlc.narg(assignee_id)::bigint THEN assigned_at
+        WHEN sqlc.narg(assignee_id)::bigint IS NULL THEN NULL
+        ELSE NOW()
+    END,
+    assignee_id = sqlc.narg(assignee_id)::bigint,
+    updated_by = sqlc.narg(actor_id)
 WHERE organization_id = sqlc.arg(organization_id)
   AND id = sqlc.arg(id)
-  AND status IN ('open', 'in_progress');
+  AND status IN ('planned', 'assigned', 'en_route', 'issue_reported');
 
 -- name: FinishRentalTasks :many
 -- Closes the live tasks of a rental of one type (optionally one vehicle):
 -- the matching fact was recorded (handover, return) or the rental ended.
 UPDATE operation_tasks
 SET status = sqlc.arg(status), completed_at = sqlc.arg(completed_at), completed_by = sqlc.narg(actor_id),
-    completion_note = sqlc.arg(completion_note)
+    completion_note = sqlc.arg(completion_note), updated_by = sqlc.narg(actor_id)
 WHERE organization_id = sqlc.arg(organization_id)
   AND rental_id = sqlc.arg(rental_id)
-  AND status IN ('open', 'in_progress')
+  AND status IN ('planned', 'assigned', 'en_route', 'issue_reported')
   AND (sqlc.narg(task_types)::text[] IS NULL OR task_type = ANY(sqlc.narg(task_types)::text[]))
   AND (sqlc.narg(vehicle_id)::bigint IS NULL OR vehicle_id = sqlc.narg(vehicle_id)::bigint)
 RETURNING uuid;
@@ -127,8 +164,9 @@ RETURNING uuid;
 -- name: RescheduleRentalTasks :exec
 -- The planned pick-up / return moved: live tasks of the type follow.
 UPDATE operation_tasks
-SET due_at = sqlc.arg(due_at)
+SET due_at = sqlc.arg(due_at), updated_by = NULL
 WHERE organization_id = sqlc.arg(organization_id)
   AND rental_id = sqlc.arg(rental_id)
   AND task_type = sqlc.arg(task_type)
-  AND status IN ('open', 'in_progress');
+  AND status IN ('planned', 'assigned', 'en_route', 'issue_reported')
+  AND due_at IS DISTINCT FROM sqlc.arg(due_at);

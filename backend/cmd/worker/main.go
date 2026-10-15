@@ -28,6 +28,8 @@ import (
 	exportusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/exports/usecase"
 	extrasadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/extras/adapters"
 	extrasusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/extras/usecase"
+	fieldtasksadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fieldtasks/adapters"
+	fieldtasksusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fieldtasks/usecase"
 	fleetadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleet/adapters"
 	fleetrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleet/repository"
 	fleetusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleet/usecase"
@@ -237,7 +239,15 @@ func main() {
 	contractsSvc.SetRenderer(pdfRenderer)
 	rentalsSvc := rentalusecase.New(pool, queries, availabilitySvc, rentaladapters.NewReservations(reservationSvc), vehicleSvc)
 	rentalsSvc.SetDocuments(contractsSvc)
-	reservationSvc.SetLifecycleListener(rentalsSvc)
+	// Field tasks (TEC-724): bulk cancellations re-plan delivery tasks,
+	// bulk assign runs here.
+	fieldTasksSvc := fieldtasksusecase.New(pool, queries)
+	fieldTasksSvc.SetTransfers(fleetOpsSvc)
+	fieldTasksSvc.SetFinisher(fieldtasksadapters.Finisher{Rentals: rentalsSvc})
+	fieldTasksSvc.SetNotifier(notifSvc)
+	fieldTasksSvc.SetLogger(log)
+	reservationSvc.SetDeliveryQuoter(fieldTasksSvc)
+	reservationSvc.SetLifecycleListener(reservationusecase.Listeners{rentalsSvc, fieldTasksSvc})
 	// Toll passes (TEC-725): fetch steps (runner operations), the hourly
 	// fetch schedule and re-match, file imports.
 	tollsSvc := tollsusecase.New(pool, queries, integrationAccountsSvc, integrationRunner, integrationOps, tollProviders...)
@@ -293,6 +303,7 @@ func main() {
 		extrasadapters.NewBulk(extrasSvc),
 		campaignsadapters.NewBulk(campaignsSvc),
 		reservationadapters.NewBulk(reservationSvc),
+		fieldtasksadapters.NewBulk(fieldTasksSvc),
 		orgadapters.NewBulk(jobScopes),
 		customeradapters.NewBulk(customerSvc),
 	)
@@ -337,7 +348,8 @@ func main() {
 	reservationSvc.SetResourceEvents(resourceEvents)
 	paymentsSvc.SetResourceEvents(resourceEvents)
 	integrationRunner.SetResourceEvents(resourceEvents)
-	rentalsSvc.SetResourceEvents(resourceEvents)
+	rentalsSvc.SetResourceEvents(fieldtasksusecase.MirrorPublisher{Publisher: resourceEvents})
+	fieldTasksSvc.SetResourceEvents(resourceEvents)
 	contractsSvc.SetResourceEvents(resourceEvents)
 	tollsSvc.SetResourceEvents(resourceEvents)
 

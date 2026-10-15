@@ -308,5 +308,13 @@
   "actions.tolls.settings_updated": "HGS ayarları güncellendi",
   "actions.vehicles.toll_tag_created": "Araca HGS/OGS etiketi eklendi",
   "actions.vehicles.toll_tag_updated": "Araç HGS/OGS etiketi güncellendi",
-  "actions.vehicles.toll_tag_deleted": "Araç HGS/OGS etiketi silindi"
+  "actions.vehicles.toll_tag_deleted": "Araç HGS/OGS etiketi silindi",
+  "resources.tenant.field_tasks": "Saha görevleri",
+  "actions.field_tasks.created": "Saha görevi oluşturuldu",
+  "actions.field_tasks.updated": "Saha görevi güncellendi",
+  "actions.field_tasks.assigned": "Saha görevi atandı",
+  "actions.field_tasks.started": "Saha görevinde yola çıkıldı",
+  "actions.field_tasks.issue_reported": "Saha görevinde sorun bildirildi",
+  "actions.field_tasks.completed": "Saha görevi tamamlandı",
+  "actions.field_tasks.cancelled": "Saha görevi iptal edildi"
 }

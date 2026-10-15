@@ -205,11 +205,14 @@ ORDER BY created_at ASC, id ASC;
 -- name: CreateServicePoint :one
 INSERT INTO service_points (
     organization_id, branch_id, type, name, description, extra_fee,
-    working_hours, online_selectable, is_active
+    working_hours, online_selectable, is_active, delivery_enabled, delivery_extra_id,
+    service_districts, latitude, longitude, service_radius_km, min_notice_minutes, delivery_conditions
 ) VALUES (
     sqlc.arg(organization_id), sqlc.arg(branch_id), sqlc.arg(type), sqlc.arg(name),
     sqlc.arg(description), sqlc.arg(extra_fee), sqlc.narg(working_hours),
-    sqlc.arg(online_selectable), sqlc.arg(is_active)
+    sqlc.arg(online_selectable), sqlc.arg(is_active), sqlc.arg(delivery_enabled), sqlc.narg(delivery_extra_id),
+    sqlc.arg(service_districts)::text[], sqlc.narg(latitude), sqlc.narg(longitude), sqlc.narg(service_radius_km),
+    sqlc.arg(min_notice_minutes), sqlc.arg(delivery_conditions)
 )
 RETURNING *;
 
@@ -227,11 +230,34 @@ SET type = sqlc.arg(type),
     extra_fee = sqlc.arg(extra_fee),
     working_hours = sqlc.narg(working_hours),
     online_selectable = sqlc.arg(online_selectable),
-    is_active = sqlc.arg(is_active)
+    is_active = sqlc.arg(is_active),
+    delivery_enabled = sqlc.arg(delivery_enabled),
+    delivery_extra_id = sqlc.narg(delivery_extra_id),
+    service_districts = sqlc.arg(service_districts)::text[],
+    latitude = sqlc.narg(latitude),
+    longitude = sqlc.narg(longitude),
+    service_radius_km = sqlc.narg(service_radius_km),
+    min_notice_minutes = sqlc.arg(min_notice_minutes),
+    delivery_conditions = sqlc.arg(delivery_conditions)
 WHERE organization_id = sqlc.arg(organization_id)
   AND branch_id = sqlc.arg(branch_id)
   AND uuid = sqlc.arg(uuid)
 RETURNING *;
+
+-- name: GetBranchDeliveryExtraByUUID :one
+-- A delivery extra of the organization (the fee of a delivery point).
+SELECT e.id, e.uuid, e.name
+FROM extras e
+WHERE e.organization_id = sqlc.arg(organization_id)
+  AND e.uuid = sqlc.arg(uuid)
+  AND e.extra_type = 'delivery'
+  AND e.deleted_at IS NULL;
+
+-- name: GetBranchDeliveryExtraByID :one
+SELECT e.id, e.uuid, e.name
+FROM extras e
+WHERE e.organization_id = sqlc.arg(organization_id)
+  AND e.id = sqlc.arg(id);
 
 -- name: DeleteServicePoint :execrows
 DELETE FROM service_points

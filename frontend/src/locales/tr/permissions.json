@@ -175,5 +175,9 @@
   "labels.tenant.tolls.export": "HGS/OGS geçişlerini dışa aktar",
   "labels.tenant.tolls.import": "HGS/OGS geçişlerini içe aktar ve sorgula",
   "labels.tenant.tolls.review": "HGS/OGS geçişlerini ata, kaldır, yok say",
-  "groups.tenant_tolls": "HGS/OGS geçişleri"
+  "groups.tenant_tolls": "HGS/OGS geçişleri",
+  "labels.tenant.field_tasks.read": "Görev panosunu görüntüle",
+  "labels.tenant.field_tasks.assign": "Saha görevlerini planla ve ata",
+  "labels.tenant.field_tasks.execute": "Kendi saha görevlerini yürüt",
+  "groups.tenant_field_tasks": "Saha görevleri"
 }

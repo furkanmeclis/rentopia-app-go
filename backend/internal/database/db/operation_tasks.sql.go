@@ -14,20 +14,40 @@ import (
 
 const assignOperationTask = `-- name: AssignOperationTask :execrows
 UPDATE operation_tasks
-SET assignee_id = $1
-WHERE organization_id = $2
-  AND id = $3
-  AND status IN ('open', 'in_progress')
+SET status = CASE
+        WHEN assignee_id IS NOT DISTINCT FROM $1::bigint THEN status
+        WHEN $1::bigint IS NULL THEN 'planned'
+        ELSE 'assigned'
+    END,
+    started_at = CASE WHEN assignee_id IS NOT DISTINCT FROM $1::bigint THEN started_at ELSE NULL END,
+    assigned_at = CASE
+        WHEN assignee_id IS NOT DISTINCT FROM $1::bigint THEN assigned_at
+        WHEN $1::bigint IS NULL THEN NULL
+        ELSE NOW()
+    END,
+    assignee_id = $1::bigint,
+    updated_by = $2
+WHERE organization_id = $3
+  AND id = $4
+  AND status IN ('planned', 'assigned', 'en_route', 'issue_reported')
 `
 
 type AssignOperationTaskParams struct {
 	AssigneeID     pgtype.Int8 `json:"assignee_id"`
+	ActorID        pgtype.Int8 `json:"actor_id"`
 	OrganizationID int64       `json:"organization_id"`
 	ID             int64       `json:"id"`
 }
 
+// A new assignee resets the task to assigned (planned without one); the
+// same assignee again changes nothing.
 func (q *Queries) AssignOperationTask(ctx context.Context, arg AssignOperationTaskParams) (int64, error) {
-	result, err := q.db.Exec(ctx, assignOperationTask, arg.AssigneeID, arg.OrganizationID, arg.ID)
+	result, err := q.db.Exec(ctx, assignOperationTask,
+		arg.AssigneeID,
+		arg.ActorID,
+		arg.OrganizationID,
+		arg.ID,
+	)
 	if err != nil {
 		return 0, err
 	}
@@ -37,10 +57,10 @@ func (q *Queries) AssignOperationTask(ctx context.Context, arg AssignOperationTa
 const finishOperationTask = `-- name: FinishOperationTask :execrows
 UPDATE operation_tasks
 SET status = $1, completed_at = $2, completed_by = $3,
-    completion_note = $4
+    completion_note = $4, updated_by = $3
 WHERE organization_id = $5
   AND id = $6
-  AND status IN ('open', 'in_progress')
+  AND status IN ('planned', 'assigned', 'en_route', 'issue_reported')
 `
 
 type FinishOperationTaskParams struct {
@@ -70,10 +90,10 @@ func (q *Queries) FinishOperationTask(ctx context.Context, arg FinishOperationTa
 const finishRentalTasks = `-- name: FinishRentalTasks :many
 UPDATE operation_tasks
 SET status = $1, completed_at = $2, completed_by = $3,
-    completion_note = $4
+    completion_note = $4, updated_by = $3
 WHERE organization_id = $5
   AND rental_id = $6
-  AND status IN ('open', 'in_progress')
+  AND status IN ('planned', 'assigned', 'en_route', 'issue_reported')
   AND ($7::text[] IS NULL OR task_type = ANY($7::text[]))
   AND ($8::bigint IS NULL OR vehicle_id = $8::bigint)
 RETURNING uuid
@@ -216,40 +236,62 @@ func (q *Queries) GetOperationTask(ctx context.Context, arg GetOperationTaskPara
 
 const insertOperationTask = `-- name: InsertOperationTask :one
 
-INSERT INTO operation_tasks (
-    organization_id, task_type, branch_id, rental_id, vehicle_id, due_at, note, created_by
-) VALUES (
-    $1, $2, $3, $4, $5,
-    $6, $7, $8
+WITH res AS (
+    SELECT r.reservation_id FROM rentals r
+    WHERE r.organization_id = $1 AND r.id = $2::bigint
+), adopted AS (
+    UPDATE operation_tasks a
+    SET rental_id = $2::bigint, vehicle_id = COALESCE($3::bigint, a.vehicle_id),
+        updated_by = $4::bigint
+    WHERE a.organization_id = $1
+      AND a.reservation_id = (SELECT reservation_id FROM res)
+      AND a.rental_id IS NULL
+      AND a.task_type = $5
+      AND a.status IN ('planned', 'assigned', 'en_route', 'issue_reported')
+    RETURNING a.uuid
+), inserted AS (
+    INSERT INTO operation_tasks (
+        organization_id, task_type, branch_id, rental_id, reservation_id, vehicle_id, due_at, note, created_by, updated_by
+    )
+    SELECT $1, $5, $6, $2::bigint,
+        (SELECT reservation_id FROM res), $3::bigint, $7, $8,
+        $4::bigint, $4::bigint
+    WHERE NOT EXISTS (SELECT 1 FROM adopted)
+    ON CONFLICT DO NOTHING
+    RETURNING uuid
 )
-ON CONFLICT DO NOTHING
-RETURNING uuid
+SELECT uuid FROM adopted
+UNION ALL
+SELECT uuid FROM inserted
 `
 
 type InsertOperationTaskParams struct {
 	OrganizationID int64              `json:"organization_id"`
-	TaskType       string             `json:"task_type"`
-	BranchID       int64              `json:"branch_id"`
 	RentalID       pgtype.Int8        `json:"rental_id"`
 	VehicleID      pgtype.Int8        `json:"vehicle_id"`
+	CreatedBy      pgtype.Int8        `json:"created_by"`
+	TaskType       string             `json:"task_type"`
+	BranchID       int64              `json:"branch_id"`
 	DueAt          pgtype.Timestamptz `json:"due_at"`
 	Note           string             `json:"note"`
-	CreatedBy      pgtype.Int8        `json:"created_by"`
 }
 
 // Operation tasks (TEC-709). Branch scope: t.branch_id.
 // A live task per rental, type and vehicle at most (the partial unique
 // index): a second open of the same task is a no-op (no row returned).
+// A delivery / collection task the reservation opened before the rental
+// existed (TEC-724) is adopted instead: it gets the rental and vehicle
+// and keeps its assignee, status and place.
 func (q *Queries) InsertOperationTask(ctx context.Context, arg InsertOperationTaskParams) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, insertOperationTask,
 		arg.OrganizationID,
-		arg.TaskType,
-		arg.BranchID,
 		arg.RentalID,
 		arg.VehicleID,
+		arg.CreatedBy,
+		arg.TaskType,
+		arg.BranchID,
 		arg.DueAt,
 		arg.Note,
-		arg.CreatedBy,
 	)
 	var uuid uuid.UUID
 	err := row.Scan(&uuid)
@@ -460,11 +502,12 @@ func (q *Queries) ListOperationTasks(ctx context.Context, arg ListOperationTasks
 
 const rescheduleRentalTasks = `-- name: RescheduleRentalTasks :exec
 UPDATE operation_tasks
-SET due_at = $1
+SET due_at = $1, updated_by = NULL
 WHERE organization_id = $2
   AND rental_id = $3
   AND task_type = $4
-  AND status IN ('open', 'in_progress')
+  AND status IN ('planned', 'assigned', 'en_route', 'issue_reported')
+  AND due_at IS DISTINCT FROM $1
 `
 
 type RescheduleRentalTasksParams struct {
@@ -487,10 +530,11 @@ func (q *Queries) RescheduleRentalTasks(ctx context.Context, arg RescheduleRenta
 
 const startOperationTask = `-- name: StartOperationTask :execrows
 UPDATE operation_tasks
-SET status = 'in_progress', started_at = $1, assignee_id = COALESCE(assignee_id, $2)
+SET status = 'en_route', started_at = $1, assignee_id = COALESCE(assignee_id, $2),
+    assigned_at = COALESCE(assigned_at, $1), updated_by = $2
 WHERE organization_id = $3
   AND id = $4
-  AND status = 'open'
+  AND status IN ('planned', 'assigned')
 `
 
 type StartOperationTaskParams struct {

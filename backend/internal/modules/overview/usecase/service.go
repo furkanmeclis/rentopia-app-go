@@ -258,7 +258,7 @@ func (s *Service) todayOperations(ctx context.Context, orgID int64, branchIDs []
 			target = &out.Returns
 		}
 		target.Total += c.Count
-		if c.Status == "done" {
+		if c.Status == "completed" {
 			target.Done += c.Count
 		} else {
 			target.Open += c.Count
