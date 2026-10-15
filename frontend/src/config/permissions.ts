@@ -77,6 +77,9 @@ export const Permission = {
   TenantTransfersWrite: "tenant.transfers.write",
   TenantOneWayRead: "tenant.one_way.read",
   TenantOneWayWrite: "tenant.one_way.write",
+  TenantPricingRead: "tenant.pricing.read",
+  TenantPricingWrite: "tenant.pricing.write",
+  TenantPricingActivate: "tenant.pricing.activate",
   TenantPriceOverride: "tenant.price.override",
   TenantDiscountApply: "tenant.discount.apply",
   TenantPaymentCollect: "tenant.payment.collect",
@@ -235,6 +238,16 @@ export const permissions = {
     oneWay: {
       read: Permission.TenantOneWayRead,
       write: Permission.TenantOneWayWrite,
+    },
+    /**
+     * Rate plans, date rules and the price preview. `write` edits drafts
+     * only; `activate` puts a draft live (separate so sales staff cannot
+     * change prices).
+     */
+    pricing: {
+      read: Permission.TenantPricingRead,
+      write: Permission.TenantPricingWrite,
+      activate: Permission.TenantPricingActivate,
     },
     price: {
       override: Permission.TenantPriceOverride,

@@ -112,7 +112,9 @@ export type IoResource =
   | "tenant.vehicle_documents"
   | "tenant.vehicle_maintenance"
   | "tenant.transfers"
-  | "tenant.one_way_rules";
+  | "tenant.one_way_rules"
+  | "tenant.rate_plans"
+  | "tenant.date_rules";
 
 export const EXPORT_PATHS: Record<IoResource, string> = {
   "platform.users": "/v1/platform/users/export",
@@ -129,6 +131,8 @@ export const EXPORT_PATHS: Record<IoResource, string> = {
   "tenant.vehicle_maintenance": "/v1/tenant/vehicle-maintenance/export",
   "tenant.transfers": "/v1/tenant/transfers/export",
   "tenant.one_way_rules": "/v1/tenant/one-way-rules/export",
+  "tenant.rate_plans": "/v1/tenant/rate-plans/export",
+  "tenant.date_rules": "/v1/tenant/date-rules/export",
 };
 
 export const IMPORT_PATHS: Partial<
@@ -149,6 +153,10 @@ export const IMPORT_PATHS: Partial<
   "tenant.vehicles": {
     upload: "/v1/tenant/vehicles/import",
     sample: "/v1/tenant/vehicles/import/sample",
+  },
+  "tenant.rate_plans": {
+    upload: "/v1/tenant/rate-plans/import",
+    sample: "/v1/tenant/rate-plans/import/sample",
   },
 };
 
@@ -205,5 +213,23 @@ export const IMPORT_SCHEMA: Partial<
     { key: "supplier_name", labelKey: "vehicles.fields.supplier_name" },
     { key: "fleet_pool", labelKey: "vehicles.fields.fleet_pool" },
     { key: "odometer_km", labelKey: "vehicles.fields.odometer_km" },
+  ],
+  // İdes price list: ürün kodu, bant (1-3, 15+), günlük fiyat; optional
+  // branch code / channel / priority target an override plan.
+  "tenant.rate_plans": [
+    {
+      key: "product_code",
+      labelKey: "pricing.import.product_code",
+      required: true,
+    },
+    { key: "band", labelKey: "pricing.import.band", required: true },
+    {
+      key: "daily_price",
+      labelKey: "pricing.import.daily_price",
+      required: true,
+    },
+    { key: "branch_code", labelKey: "pricing.import.branch_code" },
+    { key: "channel", labelKey: "pricing.import.channel" },
+    { key: "priority", labelKey: "pricing.import.priority" },
   ],
 };

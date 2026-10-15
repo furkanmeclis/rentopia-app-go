@@ -68,6 +68,25 @@ export const routes = {
       transfers: fleetRoutes("transfers"),
       oneWayRules: fleetRoutes("one-way-rules"),
     },
+    /** Pricing: rate plans (+ matrix), date rules, price preview. */
+    pricing: {
+      plans: {
+        root: (slug: string) =>
+          `/t/${encodeURIComponent(slug)}/pricing/rate-plans`,
+        detail: (slug: string, uuid: string) =>
+          `/t/${encodeURIComponent(slug)}/pricing/rate-plans/${uuid}`,
+        matrix: (slug: string) =>
+          `/t/${encodeURIComponent(slug)}/pricing/rate-plans/matrix`,
+      },
+      rules: {
+        root: (slug: string) =>
+          `/t/${encodeURIComponent(slug)}/pricing/date-rules`,
+        detail: (slug: string, uuid: string) =>
+          `/t/${encodeURIComponent(slug)}/pricing/date-rules/${uuid}`,
+      },
+      preview: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/pricing/preview`,
+    },
     settings: {
       root: (slug: string) => `/t/${encodeURIComponent(slug)}/settings`,
       members: (slug: string) =>

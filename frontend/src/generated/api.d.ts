@@ -5288,6 +5288,598 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenant/rate-plans/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rate plans table contract
+         * @description `tenant.pricing.read`.
+         */
+        get: operations["getTenantRatePlansMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/rate-plans/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rate plan filter options
+         * @description `tenant.pricing.read`. Counts in the caller's branch scope.
+         */
+        get: operations["getTenantRatePlanFacets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/rate-plans/matrix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Product × band price matrix of a scope target
+         * @description `tenant.pricing.read`.
+         *     Rows are every live rental product; columns the union of the bands in use.
+         *     Prices come from each plan's draft, else its active version.
+         */
+        get: operations["getTenantRatePlanMatrix"];
+        /**
+         * Save the matrix as drafts
+         * @description `tenant.pricing.write` (drafts only).
+         *     Rows whose prices differ become drafts (plans are created as needed); rows
+         *     without prices are left alone. Product / branch uuids are resolved inside the
+         *     organization (`400` `not_found` otherwise).
+         */
+        put: operations["putTenantRatePlanMatrix"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/rate-plans/matrix/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Activate every draft of a matrix
+         * @description `tenant.pricing.activate`. All or nothing: any issue answers `422 ACTIVATION_BLOCKED`
+         *     with the issues (fields prefixed with the product code).
+         */
+        post: operations["postTenantRatePlanMatrixActivate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/rate-plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List rate plans
+         * @description `tenant.pricing.read`. Branch plans are visible inside the caller's branch scope;
+         *     common and channel plans to everyone. Priority, band count and the lowest
+         *     daily price come from the effective version (draft, else active).
+         */
+        get: operations["getTenantRatePlans"];
+        put?: never;
+        /**
+         * Create a rate plan (draft version 1)
+         * @description `tenant.pricing.write` (drafts only). The branch must be in the caller's scope; the channel a
+         *     settings sales channel. Bands must not overlap. Activation is separate.
+         */
+        post: operations["postTenantRatePlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/rate-plans/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export the price list
+         * @description `tenant.pricing.read`. One row per band of the effective version (the import format).
+         */
+        post: operations["postTenantRatePlansExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/rate-plans/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload an İdes price list
+         * @description `tenant.pricing.write` (drafts only).
+         *     Columns: product code, band (`1-3`, `15+`), daily price, optional branch code,
+         *     channel and priority. Rows write into the draft of the target plan (created as
+         *     needed). `/preview` returns a dry-run diff. Continue with
+         *     `/v1/tenant/imports/{uuid}/mapping`, `/preview` and `/confirm`.
+         */
+        post: operations["postTenantRatePlansImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/rate-plans/import/sample": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download a price list import sample
+         * @description `tenant.pricing.write` (drafts only).
+         */
+        get: operations["getTenantRatePlansImportSample"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/rate-plans/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a rate plan with its active and draft versions
+         * @description `tenant.pricing.read`.
+         */
+        get: operations["getTenantRatePlan"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a rate plan (soft)
+         * @description `tenant.pricing.write` (drafts only). Versions are kept for reservations that reference them.
+         */
+        delete: operations["deleteTenantRatePlan"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a rate plan
+         * @description `tenant.pricing.write` (drafts only). `name` changes the plan; `priority`, `bands` and
+         *     `change_note` go into the draft (created from the active version on the first edit).
+         */
+        patch: operations["patchTenantRatePlan"];
+        trace?: never;
+    };
+    "/v1/tenant/rate-plans/{uuid}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Discard the draft of a rate plan
+         * @description `tenant.pricing.write` (drafts only). `409` for a plan that was never activated.
+         */
+        delete: operations["deleteTenantRatePlanDraft"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/rate-plans/{uuid}/activation-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What activation would refuse
+         * @description `tenant.pricing.read`. Overlapping bands, gaps for online channels (1 day up to
+         *     `reservation.max_online_rental_days`), equal priority with another active plan.
+         */
+        get: operations["getTenantRatePlanActivationCheck"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/rate-plans/{uuid}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Activate a rate plan
+         * @description `tenant.pricing.activate`. Freezes the draft (the previous active version is
+         *     superseded) or re-enables an inactive plan. Issues answer `422 ACTIVATION_BLOCKED`.
+         */
+        post: operations["postTenantRatePlanActivate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/rate-plans/{uuid}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Deactivate a rate plan
+         * @description `tenant.pricing.activate`.
+         */
+        post: operations["postTenantRatePlanDeactivate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/rate-plans/{uuid}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Versions of a rate plan
+         * @description `tenant.pricing.read`. Newest first, with bands.
+         */
+        get: operations["getTenantRatePlanVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/rate-plans/{uuid}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Audit events of a rate plan
+         * @description `tenant.pricing.read`.
+         */
+        get: operations["getTenantRatePlanActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/date-rules/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Date rules table contract
+         * @description `tenant.pricing.read`.
+         */
+        get: operations["getTenantDateRulesMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/date-rules/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Date rule filter options
+         * @description `tenant.pricing.read`.
+         */
+        get: operations["getTenantDateRuleFacets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/date-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List date rules
+         * @description `tenant.pricing.read`. Values come from the effective version (draft, else active).
+         */
+        get: operations["getTenantDateRules"];
+        put?: never;
+        /**
+         * Create a date rule (draft version 1)
+         * @description `tenant.pricing.write` (drafts only). `[start_date, end_date)`: the end day is excluded.
+         *     Product / segment / branch uuids are resolved inside the organization
+         *     (`400` `not_found` otherwise). Names are unique among live rules (`409`).
+         */
+        post: operations["postTenantDateRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/date-rules/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export date rules
+         * @description `tenant.pricing.read`. `query` honours `q` and the list filters.
+         */
+        post: operations["postTenantDateRulesExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/date-rules/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a date rule with its active and draft versions
+         * @description `tenant.pricing.read`.
+         */
+        get: operations["getTenantDateRule"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a date rule (soft)
+         * @description `tenant.pricing.write` (drafts only).
+         */
+        delete: operations["deleteTenantDateRule"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a date rule
+         * @description `tenant.pricing.write` (drafts only). `name` changes the rule; every other field goes into the draft.
+         */
+        patch: operations["patchTenantDateRule"];
+        trace?: never;
+    };
+    "/v1/tenant/date-rules/{uuid}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Discard the draft of a date rule
+         * @description `tenant.pricing.write` (drafts only). `409` for a rule that was never activated.
+         */
+        delete: operations["deleteTenantDateRuleDraft"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/date-rules/{uuid}/activation-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What activation would refuse
+         * @description `tenant.pricing.read`. An active rule with the same priority whose dates, products,
+         *     branches and channels overlap.
+         */
+        get: operations["getTenantDateRuleActivationCheck"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/date-rules/{uuid}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Activate a date rule
+         * @description `tenant.pricing.activate`. Issues answer `422 ACTIVATION_BLOCKED`.
+         */
+        post: operations["postTenantDateRuleActivate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/date-rules/{uuid}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Deactivate a date rule
+         * @description `tenant.pricing.activate`.
+         */
+        post: operations["postTenantDateRuleDeactivate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/date-rules/{uuid}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Versions of a date rule
+         * @description `tenant.pricing.read`. Newest first.
+         */
+        get: operations["getTenantDateRuleVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/date-rules/{uuid}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Audit events of a date rule
+         * @description `tenant.pricing.read`.
+         */
+        get: operations["getTenantDateRuleActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/pricing/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Price preview (current vs proposed)
+         * @description `tenant.pricing.read`.
+         *     Prices one rental with the active plans and rules (`current`) and with the
+         *     draft of `rate_plan_uuid` / `date_rule_uuid` or the unsaved `rate_plan_draft` /
+         *     `date_rule_draft` applied (`proposed`). Engine refusals (no plan, ambiguity)
+         *     are returned per side in `error`. Every uuid is resolved inside the
+         *     organization (`400` `not_found` otherwise).
+         */
+        post: operations["postTenantPricingPreview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -7124,6 +7716,8 @@ export interface components {
             staff_review_window_minutes: number | null;
             payment_hold_minutes: number | null;
             quote_validity_minutes: number | null;
+            /** @description Longest rental online channels sell; rate plans that price online sales must cover 1 day up to it without gaps (null = 30) */
+            max_online_rental_days?: number | null;
         };
         OrganizationPaymentSettings: {
             /** @enum {string} */
@@ -9451,6 +10045,585 @@ export interface components {
             };
             meta: components["schemas"]["ResponseMeta"];
         };
+        PricingActor: {
+            /** Format: uuid */
+            uuid: string;
+            name: string;
+            surname: string;
+            email: string;
+        };
+        PricingProductRef: {
+            /** Format: uuid */
+            uuid: string;
+            code: string;
+            title: string;
+        };
+        PricingBranchRef: {
+            /** Format: uuid */
+            uuid: string;
+            code: string;
+            name: string;
+        };
+        PricingSegmentRef: {
+            /** Format: uuid */
+            uuid: string;
+            code: string;
+            name: string;
+        };
+        RateBand: {
+            min_days: number;
+            /** @description null = open-ended */
+            max_days: number | null;
+            /**
+             * @description TRY decimal string (VAT included)
+             * @example 1300.00
+             */
+            daily_price: string;
+        };
+        RateBandInput: {
+            min_days: number;
+            max_days?: number | null;
+            /** @description TRY, at most 2 decimals */
+            daily_price: string | number;
+        };
+        RatePlanVersion: {
+            /** Format: uuid */
+            uuid: string;
+            version: number;
+            /** @enum {string} */
+            status: "draft" | "active" | "superseded";
+            priority: number;
+            change_note: string;
+            bands: components["schemas"]["RateBand"][];
+            /** Format: date-time */
+            created_at: string;
+            created_by: components["schemas"]["PricingActor"] | null;
+            /** Format: date-time */
+            activated_at: string | null;
+            activated_by: components["schemas"]["PricingActor"] | null;
+            /** Format: date-time */
+            superseded_at: string | null;
+        };
+        RatePlan: {
+            /** Format: uuid */
+            uuid: string;
+            name: string;
+            /** @enum {string} */
+            scope: "common" | "branch" | "channel" | "branch_channel";
+            rental_product: components["schemas"]["PricingProductRef"];
+            branch: components["schemas"]["PricingBranchRef"] | null;
+            channel: string | null;
+            /** @enum {string} */
+            status: "draft" | "active" | "inactive";
+            current_version: number;
+            active_version: number | null;
+            has_draft: boolean;
+            priority: number;
+            /** Format: int64 */
+            band_count: number;
+            /** @description Lowest daily price of the effective version */
+            price_from: string | null;
+            /** Format: date-time */
+            activated_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** @description Detail only */
+            active?: components["schemas"]["RatePlanVersion"] | null;
+            /** @description Detail only */
+            draft?: components["schemas"]["RatePlanVersion"] | null;
+        };
+        RatePlanPage: {
+            items: components["schemas"]["RatePlan"][];
+            /** Format: int64 */
+            total: number;
+            limit: number;
+            offset: number;
+        };
+        RatePlanCreateRequest: {
+            /** Format: uuid */
+            rental_product_uuid: string;
+            /** @enum {string} */
+            scope: "common" | "branch" | "channel" | "branch_channel";
+            /**
+             * Format: uuid
+             * @description branch / branch_channel scopes
+             */
+            branch_uuid?: string | null;
+            /** @description Sales channel code (channel / branch_channel scopes) */
+            channel?: string | null;
+            name?: string;
+            priority?: number;
+            bands?: components["schemas"]["RateBandInput"][];
+            change_note?: string;
+        };
+        RatePlanPatchRequest: {
+            name?: string;
+            priority?: number;
+            bands?: components["schemas"]["RateBandInput"][];
+            change_note?: string;
+        };
+        PricingActivateRequest: {
+            change_note?: string;
+        };
+        PricingIssue: {
+            /** @description Dot path of the form field */
+            field: string;
+            /** @description no_draft, no_bands, band_range, band_price, band_overlap, coverage_start, coverage_gap, coverage_short, priority_conflict */
+            code: string;
+            message: string;
+            params?: {
+                [key: string]: number;
+            };
+            ref?: {
+                /** Format: uuid */
+                uuid: string;
+                name: string;
+            };
+        };
+        ActivationCheck: {
+            ready: boolean;
+            issues: components["schemas"]["PricingIssue"][];
+        };
+        RatePlanFacets: {
+            rental_product: components["schemas"]["FleetFacet"][];
+            branch: components["schemas"]["FleetFacet"][];
+            scope: components["schemas"]["FleetFacet"][];
+            channel: components["schemas"]["FleetFacet"][];
+            status: components["schemas"]["FleetFacet"][];
+        };
+        RatePlanMatrixTarget: {
+            /** @enum {string} */
+            scope: "common" | "branch" | "channel" | "branch_channel";
+            /** Format: uuid */
+            branch_uuid?: string | null;
+            channel?: string | null;
+            priority?: number;
+        };
+        RatePlanMatrixBand: {
+            min_days: number;
+            max_days: number | null;
+        };
+        RatePlanMatrixRow: {
+            rental_product: components["schemas"]["PricingProductRef"];
+            segment: components["schemas"]["PricingSegmentRef"];
+            /** Format: uuid */
+            plan_uuid: string | null;
+            /** @enum {string|null} */
+            plan_status: "draft" | "active" | "inactive" | null;
+            has_draft: boolean;
+            /** @enum {string|null} */
+            source: "draft" | "active" | null;
+            /** @description Aligned with the matrix bands; null = no such band */
+            prices: (string | null)[];
+        };
+        RatePlanMatrix: {
+            /** @enum {string} */
+            scope: "common" | "branch" | "channel" | "branch_channel";
+            branch: components["schemas"]["PricingBranchRef"] | null;
+            channel: string | null;
+            priority: number;
+            bands: components["schemas"]["RatePlanMatrixBand"][];
+            rows: components["schemas"]["RatePlanMatrixRow"][];
+            /** @description Rows with a pending draft */
+            drafts: number;
+        };
+        RatePlanMatrixSaveRequest: {
+            /** @enum {string} */
+            scope: "common" | "branch" | "channel" | "branch_channel";
+            /** Format: uuid */
+            branch_uuid?: string | null;
+            channel?: string | null;
+            priority?: number;
+            bands: components["schemas"]["RatePlanMatrixBand"][];
+            rows: {
+                /** Format: uuid */
+                rental_product_uuid: string;
+                prices: (string | number | null)[];
+            }[];
+            change_note?: string;
+        };
+        RatePlanMatrixSaveResult: {
+            created: number;
+            updated: number;
+            unchanged: number;
+            matrix: components["schemas"]["RatePlanMatrix"];
+        };
+        RatePlanMatrixActivateResult: {
+            activated: number;
+        };
+        DateRuleVersion: {
+            /** Format: uuid */
+            uuid: string;
+            version: number;
+            /** @enum {string} */
+            status: "draft" | "active" | "superseded";
+            /** Format: date */
+            start_date: string;
+            /**
+             * Format: date
+             * @description First day NOT covered (excluded)
+             */
+            end_date: string;
+            /** @enum {string} */
+            product_scope: "all" | "segments" | "products";
+            rental_products: components["schemas"]["PricingProductRef"][];
+            segments: components["schemas"]["PricingSegmentRef"][];
+            all_branches: boolean;
+            branches: components["schemas"]["PricingBranchRef"][];
+            /** @description null = every channel */
+            channels: string[] | null;
+            /** @enum {string} */
+            kind: "percent" | "amount";
+            /**
+             * @description Signed percentage or TRY amount
+             * @example 20.00
+             */
+            value: string;
+            priority: number;
+            change_note: string;
+            /** Format: date-time */
+            created_at: string;
+            created_by: components["schemas"]["PricingActor"] | null;
+            /** Format: date-time */
+            activated_at: string | null;
+            activated_by: components["schemas"]["PricingActor"] | null;
+            /** Format: date-time */
+            superseded_at: string | null;
+        };
+        DateRule: {
+            /** Format: uuid */
+            uuid: string;
+            name: string;
+            /** @enum {string} */
+            status: "draft" | "active" | "inactive";
+            current_version: number;
+            active_version: number | null;
+            has_draft: boolean;
+            /** Format: date */
+            start_date: string | null;
+            /**
+             * Format: date
+             * @description Excluded
+             */
+            end_date: string | null;
+            /** @enum {string} */
+            kind: "percent" | "amount" | "";
+            value: string;
+            priority: number;
+            /** @enum {string} */
+            product_scope: "all" | "segments" | "products" | "";
+            all_branches: boolean;
+            all_channels: boolean;
+            /** Format: date-time */
+            activated_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** @description Detail only */
+            active?: components["schemas"]["DateRuleVersion"] | null;
+            /** @description Detail only */
+            draft?: components["schemas"]["DateRuleVersion"] | null;
+        };
+        DateRulePage: {
+            items: components["schemas"]["DateRule"][];
+            /** Format: int64 */
+            total: number;
+            limit: number;
+            offset: number;
+        };
+        DateRulePatchRequest: {
+            name?: string;
+            /** Format: date */
+            start_date?: string;
+            /**
+             * Format: date
+             * @description Excluded (bitiş günü hariç)
+             */
+            end_date?: string;
+            /** @enum {string} */
+            product_scope?: "all" | "segments" | "products";
+            rental_product_uuids?: string[];
+            segment_uuids?: string[];
+            all_branches?: boolean;
+            branch_uuids?: string[];
+            all_channels?: boolean;
+            channels?: string[];
+            /** @enum {string} */
+            kind?: "percent" | "amount";
+            /** @description Signed; a percentage (-100..1000) or a TRY amount */
+            value?: string | number;
+            priority?: number;
+            change_note?: string;
+        };
+        DateRuleCreateRequest: {
+            name: string;
+            /** Format: date */
+            start_date: string;
+            /**
+             * Format: date
+             * @description Excluded (bitiş günü hariç)
+             */
+            end_date: string;
+            /** @enum {string} */
+            product_scope?: "all" | "segments" | "products";
+            rental_product_uuids?: string[];
+            segment_uuids?: string[];
+            all_branches?: boolean;
+            branch_uuids?: string[];
+            all_channels?: boolean;
+            channels?: string[];
+            /** @enum {string} */
+            kind: "percent" | "amount";
+            /** @description Signed; a percentage (-100..1000) or a TRY amount */
+            value: string | number;
+            priority?: number;
+            change_note?: string;
+        };
+        DateRuleFacets: {
+            status: components["schemas"]["FleetFacet"][];
+            kind: components["schemas"]["FleetFacet"][];
+        };
+        PricingPreviewRequest: {
+            /** Format: uuid */
+            rental_product_uuid: string;
+            /** Format: uuid */
+            branch_uuid: string;
+            /**
+             * Format: uuid
+             * @description One-way fee from the one-way rules
+             */
+            return_branch_uuid?: string | null;
+            channel: string;
+            /** Format: date-time */
+            start_at: string;
+            /** Format: date-time */
+            end_at: string;
+            delivery_fee?: string | number | null;
+            discount?: {
+                name?: string;
+                /** @enum {string} */
+                kind: "percent" | "amount";
+                value: string | number;
+            } | null;
+            /**
+             * Format: uuid
+             * @description Apply this plan's draft
+             */
+            rate_plan_uuid?: string | null;
+            rate_plan_draft?: {
+                /** @enum {string} */
+                scope: "common" | "branch" | "channel" | "branch_channel";
+                /** Format: uuid */
+                branch_uuid?: string | null;
+                channel?: string | null;
+                priority?: number;
+                bands: components["schemas"]["RateBandInput"][];
+            } | null;
+            /**
+             * Format: uuid
+             * @description Apply this rule's draft
+             */
+            date_rule_uuid?: string | null;
+            date_rule_draft?: {
+                name?: string;
+                /** Format: date */
+                start_date?: string;
+                /**
+                 * Format: date
+                 * @description Excluded (bitiş günü hariç)
+                 */
+                end_date?: string;
+                /** @enum {string} */
+                product_scope?: "all" | "segments" | "products";
+                rental_product_uuids?: string[];
+                segment_uuids?: string[];
+                all_branches?: boolean;
+                branch_uuids?: string[];
+                all_channels?: boolean;
+                channels?: string[];
+                /** @enum {string} */
+                kind?: "percent" | "amount";
+                /** @description Signed; a percentage (-100..1000) or a TRY amount */
+                value?: string | number;
+                priority?: number;
+                change_note?: string;
+            } | null;
+        };
+        PricingRuleRef: {
+            id: string;
+            version_id: string;
+            version: number;
+            name: string;
+            /** @enum {string} */
+            kind: "percent" | "amount";
+            percent?: string;
+            amount?: string;
+            priority: number;
+        };
+        PricingBreakdown: {
+            /** @example TRY */
+            currency: string;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            billing_days: number;
+            plan: {
+                id: string;
+                version_id: string;
+                version: number;
+                name: string;
+                scope: string;
+                priority: number;
+            };
+            band: components["schemas"]["RateBand"];
+            days: {
+                index: number;
+                /**
+                 * Format: date
+                 * @description Istanbul date the billing day starts on
+                 */
+                date: string;
+                /** Format: date-time */
+                starts_at: string;
+                base_price: string;
+                rule: components["schemas"]["PricingRuleRef"] | null;
+                adjustment: string;
+                unit_price: string;
+            }[];
+            rules: components["schemas"]["PricingRuleRef"][];
+            rental_subtotal: string;
+            discount: {
+                code: string;
+                name: string;
+                kind: string;
+                percent?: string;
+                amount: string;
+            } | null;
+            rental_total: string;
+            lines: {
+                /** @enum {string} */
+                kind: "rental" | "extra" | "one_way" | "delivery";
+                code?: string;
+                name?: string;
+                quantity: number;
+                /** @description VAT included */
+                gross: string;
+                /** @description Matrah */
+                base: string;
+                vat: string;
+            }[];
+            /** @description null = VAT rate not configured (no split) */
+            vat_rate: string | null;
+            base_total: string;
+            vat_total: string;
+            total: string;
+            prepayment: string;
+            /** @enum {string} */
+            prepayment_rule: "none" | "fixed" | "percent" | "full";
+        };
+        PricingPreviewSide: {
+            breakdown: components["schemas"]["PricingBreakdown"] | null;
+            error: {
+                /** @description no_plan, ambiguous_plan, no_band, ambiguous_band, ambiguous_rule, invalid_input */
+                code: string;
+                message: string;
+                refs: string[];
+            } | null;
+        };
+        PricingPreview: {
+            current: components["schemas"]["PricingPreviewSide"];
+            proposed: components["schemas"]["PricingPreviewSide"];
+            /** @description Proposed total minus current total */
+            difference: string | null;
+            /** @description vat_rate_missing, one_way_not_allowed, one_way_unavailable, no_changes */
+            warnings: string[];
+        };
+        EnvelopeRatePlan: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["RatePlan"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeRatePlanPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["RatePlanPage"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeRatePlanFacets: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["RatePlanFacets"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeRatePlanVersions: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["RatePlanVersion"][];
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeActivationCheck: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["ActivationCheck"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeRatePlanMatrix: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["RatePlanMatrix"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeRatePlanMatrixSaveResult: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["RatePlanMatrixSaveResult"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeRatePlanMatrixActivateResult: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["RatePlanMatrixActivateResult"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeDateRule: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["DateRule"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeDateRulePage: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["DateRulePage"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeDateRuleFacets: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["DateRuleFacets"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeDateRuleVersions: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["DateRuleVersion"][];
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopePricingPreview: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["PricingPreview"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
     };
     responses: {
         /** @description Validation or malformed request */
@@ -9527,6 +10700,15 @@ export interface components {
         };
         /** @description `ORGANIZATION_REQUIRED`: the `X-Organization` header is missing or empty */
         OrganizationRequired: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description `ACTIVATION_BLOCKED`: activation was refused; `details` list the issues (field, code, message) */
+        ActivationBlocked: {
             headers: {
                 [name: string]: unknown;
             };
@@ -19355,6 +20537,1176 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["TenantForbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantRatePlansMeta: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource meta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantRatePlanFacets: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Facets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeRatePlanFacets"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantRatePlanMatrix: {
+        parameters: {
+            query?: {
+                /** @description common (default), branch, channel or branch_channel */
+                scope?: string;
+                /** @description Branch uuid (branch scopes) */
+                branch?: string;
+                /** @description Sales channel code (channel scopes) */
+                channel?: string;
+                /** @description Plan priority (default 0) */
+                priority?: number;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Matrix */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeRatePlanMatrix"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    putTenantRatePlanMatrix: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RatePlanMatrixSaveRequest"];
+            };
+        };
+        responses: {
+            /** @description Save result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeRatePlanMatrixSaveResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantRatePlanMatrixActivate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RatePlanMatrixTarget"];
+            };
+        };
+        responses: {
+            /** @description Activated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeRatePlanMatrixActivateResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            422: components["responses"]["ActivationBlocked"];
+        };
+    };
+    getTenantRatePlans: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description One of `name`, `rental_product`, `scope`, `status`, `priority`, `created_at`, `updated_at`; prefix `-` for descending. Default `rental_product`. */
+                sort?: string;
+                /** @description Rental product uuids; comma-separated */
+                rental_product?: string;
+                /** @description Branch uuids; comma-separated */
+                branch?: string;
+                /** @description Scopes; comma-separated */
+                scope?: string;
+                /** @description Channel codes; comma-separated */
+                channel?: string;
+                /** @description draft, active, inactive; comma-separated */
+                status?: string;
+                /** @description Plans with pending draft changes */
+                has_draft?: boolean;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Plan page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeRatePlanPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantRatePlan: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RatePlanCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Plan */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeRatePlan"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantRatePlansExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Export job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantRatePlansImport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ImportUploadForm"];
+            };
+        };
+        responses: {
+            /** @description Import job */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeImportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantRatePlansImportSample: {
+        parameters: {
+            query?: {
+                format?: "json" | "xlsx" | "csv" | "tsv";
+                locale?: "tr" | "en";
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sample file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantRatePlan: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Plan */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeRatePlan"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteTenantRatePlan: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeStatus"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchTenantRatePlan: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RatePlanPatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Plan */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeRatePlan"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteTenantRatePlanDraft: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Plan */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeRatePlan"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantRatePlanActivationCheck: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Check */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeActivationCheck"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantRatePlanActivate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PricingActivateRequest"];
+            };
+        };
+        responses: {
+            /** @description Plan */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeRatePlan"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ActivationBlocked"];
+        };
+    };
+    postTenantRatePlanDeactivate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Plan */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeRatePlan"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantRatePlanVersions: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Versions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeRatePlanVersions"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantRatePlanActivity: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Activity page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFleetActivityPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantDateRulesMeta: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource meta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantDateRuleFacets: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Facets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeDateRuleFacets"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantDateRules: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description One of `name`, `start_date`, `priority`, `status`, `created_at`, `updated_at`; prefix `-` for descending. Default `start_date`. */
+                sort?: string;
+                /** @description draft, active, inactive; comma-separated */
+                status?: string;
+                /** @description percent, amount; comma-separated */
+                kind?: string;
+                /** @description Rules with pending draft changes */
+                has_draft?: boolean;
+                /** @description Rules whose range ends after this date (yyyy-MM-dd) */
+                date_from?: string;
+                /** @description Rules whose range starts on or before this date (yyyy-MM-dd) */
+                date_to?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rule page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeDateRulePage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantDateRule: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DateRuleCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Rule */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeDateRule"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantDateRulesExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Export job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantDateRule: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rule */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeDateRule"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteTenantDateRule: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeStatus"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchTenantDateRule: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DateRulePatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Rule */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeDateRule"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteTenantDateRuleDraft: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rule */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeDateRule"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantDateRuleActivationCheck: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Check */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeActivationCheck"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantDateRuleActivate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PricingActivateRequest"];
+            };
+        };
+        responses: {
+            /** @description Rule */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeDateRule"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ActivationBlocked"];
+        };
+    };
+    postTenantDateRuleDeactivate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rule */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeDateRule"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantDateRuleVersions: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Versions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeDateRuleVersions"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantDateRuleActivity: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Activity page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFleetActivityPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantPricingPreview: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PricingPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Preview */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePricingPreview"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
         };
     };
 }
