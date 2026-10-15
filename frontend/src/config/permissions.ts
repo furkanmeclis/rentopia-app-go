@@ -104,6 +104,9 @@ export const Permission = {
   TenantRentalsRead: "tenant.rentals.read",
   TenantRentalsWrite: "tenant.rentals.write",
   TenantRentalsClose: "tenant.rentals.close",
+  TenantFieldTasksRead: "tenant.field_tasks.read",
+  TenantFieldTasksAssign: "tenant.field_tasks.assign",
+  TenantFieldTasksExecute: "tenant.field_tasks.execute",
   TenantContractsRead: "tenant.contracts.read",
   TenantContractsWrite: "tenant.contracts.write",
   TenantContractsActivate: "tenant.contracts.activate",
@@ -341,6 +344,16 @@ export const permissions = {
       read: Permission.TenantRentalsRead,
       write: Permission.TenantRentalsWrite,
       close: Permission.TenantRentalsClose,
+    },
+    /**
+     * Field tasks: `read` = the assignment board, `assign` = plan, assign
+     * (bulk), re-plan and cancel, `execute` = "my tasks" (start, report an
+     * issue, complete the member's own tasks).
+     */
+    fieldTasks: {
+      read: Permission.TenantFieldTasksRead,
+      assign: Permission.TenantFieldTasksAssign,
+      execute: Permission.TenantFieldTasksExecute,
     },
     /**
      * Contract templates and documents: `activate` makes a template

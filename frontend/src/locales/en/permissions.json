@@ -170,5 +170,9 @@
   "labels.tenant.contracts.write": "Edit templates, prepare documents and record approvals",
   "labels.tenant.contracts.activate": "Activate a template version",
   "groups.tenant_rentals": "Rentals",
-  "groups.tenant_contracts": "Contracts"
+  "groups.tenant_contracts": "Contracts",
+  "labels.tenant.field_tasks.read": "View the field task board",
+  "labels.tenant.field_tasks.assign": "Plan and assign field tasks",
+  "labels.tenant.field_tasks.execute": "Work own field tasks",
+  "groups.tenant_field_tasks": "Field tasks"
 }

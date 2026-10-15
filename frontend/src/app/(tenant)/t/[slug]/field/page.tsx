@@ -1,5 +1,5 @@
-import { FieldTasksPage } from "@/features/inspections";
+import { MyFieldTasksPage } from "@/features/field-tasks";
 
 export default function Page() {
-  return <FieldTasksPage />;
+  return <MyFieldTasksPage />;
 }

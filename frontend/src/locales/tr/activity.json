@@ -298,5 +298,13 @@
   "actions.customer_portal.payment_link_reused": "Müşteri mevcut ödeme linkine yönlendirildi",
   "actions.customer_portal.request_created": "Müşteri talebi oluşturuldu",
   "actions.customer_requests.resolved": "Müşteri talebi sonuçlandırıldı",
-  "actions.customer_requests.rejected": "Müşteri talebi reddedildi"
+  "actions.customer_requests.rejected": "Müşteri talebi reddedildi",
+  "resources.tenant.field_tasks": "Saha görevleri",
+  "actions.field_tasks.created": "Saha görevi oluşturuldu",
+  "actions.field_tasks.updated": "Saha görevi güncellendi",
+  "actions.field_tasks.assigned": "Saha görevi atandı",
+  "actions.field_tasks.started": "Saha görevinde yola çıkıldı",
+  "actions.field_tasks.issue_reported": "Saha görevinde sorun bildirildi",
+  "actions.field_tasks.completed": "Saha görevi tamamlandı",
+  "actions.field_tasks.cancelled": "Saha görevi iptal edildi"
 }

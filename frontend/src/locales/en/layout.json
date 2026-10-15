@@ -71,8 +71,9 @@
   "nav_rentals": "Rentals",
   "nav_operation_tasks": "Operation tasks",
   "nav_tenant_settings_contract_templates": "Contract templates",
-  "nav_field_tasks": "Field tasks",
   "nav_inspections": "Handover / return forms",
   "nav_tenant_settings_inspection_templates": "Handover / return forms",
-  "nav_customer_requests": "Customer requests"
+  "nav_customer_requests": "Customer requests",
+  "nav_my_field_tasks": "My tasks",
+  "nav_field_task_board": "Task board"
 }

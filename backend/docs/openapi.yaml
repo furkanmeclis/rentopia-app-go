@@ -25432,7 +25432,7 @@ components:
       properties:
         total: { type: integer, format: int64 }
         done: { type: integer, format: int64 }
-        open: { type: integer, format: int64, description: Open or in progress. }
+        open: { type: integer, format: int64, description: "Planned, assigned, en route or with an issue." }
 
     OverviewOperationItem:
       type: object
@@ -25440,7 +25440,7 @@ components:
       properties:
         uuid: { type: string, format: uuid, description: Operation task uuid. }
         task_type: { type: string, enum: [handover, return] }
-        status: { type: string, enum: [open, in_progress, done] }
+        status: { type: string, enum: [planned, assigned, en_route, issue_reported, completed] }
         due_at: { type: string, format: date-time }
         completed_at: { type: [string, "null"], format: date-time }
         branch: { $ref: "#/components/schemas/OverviewBranchRef" }

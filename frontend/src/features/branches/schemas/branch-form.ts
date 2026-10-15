@@ -267,6 +267,9 @@ export type QuickEditValues = z.infer<ReturnType<typeof createQuickEditSchema>>;
 
 // ---------------------------------------------------------- service point
 
+/** Select value of "no delivery extra" (Radix items cannot be empty). */
+export const NO_EXTRA = "none";
+
 export function createServicePointSchema(t: Translate) {
   return z
     .object({
@@ -285,10 +288,54 @@ export function createServicePointSchema(t: Translate) {
       is_active: z.boolean(),
       own_hours: z.boolean(),
       working_hours: weeklyHoursSchema,
+      delivery_enabled: z.boolean(),
+      delivery_extra_uuid: z.string(),
+      service_districts: z.string().max(5000),
+      latitude: z.string().trim(),
+      longitude: z.string().trim(),
+      service_radius_km: z.string().trim(),
+      min_notice_minutes: z
+        .string()
+        .trim()
+        .regex(/^\d{0,5}$/, t("branches.validation.min_notice")),
+      delivery_conditions: z.string().max(2000),
     })
     .superRefine((values, ctx) => {
       if (values.own_hours) {
         checkWeek(t, ctx, ["working_hours"], values.working_hours);
+      }
+      const num = (v: string) =>
+        v === "" ? null : Number(v.replace(",", "."));
+      const lat = num(values.latitude);
+      const lng = num(values.longitude);
+      if (lat !== null && (Number.isNaN(lat) || lat < -90 || lat > 90)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["latitude"],
+          message: t("branches.validation.latitude"),
+        });
+      }
+      if (lng !== null && (Number.isNaN(lng) || lng < -180 || lng > 180)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["longitude"],
+          message: t("branches.validation.longitude"),
+        });
+      }
+      if ((lat === null) !== (lng === null)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["longitude"],
+          message: t("branches.validation.coordinates_pair"),
+        });
+      }
+      const radius = num(values.service_radius_km);
+      if (radius !== null && (Number.isNaN(radius) || radius <= 0)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["service_radius_km"],
+          message: t("branches.validation.radius"),
+        });
       }
     });
 }
@@ -310,6 +357,15 @@ export function servicePointFormDefaults(
     is_active: point?.is_active ?? true,
     own_hours: Boolean(point?.working_hours),
     working_hours: point?.working_hours ?? branchHours ?? defaultWeeklyHours(),
+    delivery_enabled: point?.delivery_enabled ?? false,
+    delivery_extra_uuid: point?.delivery_extra?.uuid ?? NO_EXTRA,
+    service_districts: (point?.service_districts ?? []).join(", "),
+    latitude: point?.latitude != null ? String(point.latitude) : "",
+    longitude: point?.longitude != null ? String(point.longitude) : "",
+    service_radius_km:
+      point?.service_radius_km != null ? String(point.service_radius_km) : "",
+    min_notice_minutes: String(point?.min_notice_minutes ?? 0),
+    delivery_conditions: point?.delivery_conditions ?? "",
   };
 }
 
@@ -326,5 +382,25 @@ export function servicePointFormToRequest(
     working_hours: values.own_hours
       ? normalizeWeek(values.working_hours)
       : null,
+    delivery_enabled: values.delivery_enabled,
+    delivery_extra_uuid:
+      values.delivery_extra_uuid === NO_EXTRA
+        ? null
+        : values.delivery_extra_uuid,
+    service_districts: values.service_districts
+      .split(/[,\n]/)
+      .map((d) => d.trim())
+      .filter(Boolean),
+    latitude: values.latitude
+      ? Number(values.latitude.replace(",", "."))
+      : null,
+    longitude: values.longitude
+      ? Number(values.longitude.replace(",", "."))
+      : null,
+    service_radius_km: values.service_radius_km
+      ? Number(values.service_radius_km.replace(",", "."))
+      : null,
+    min_notice_minutes: Number(values.min_notice_minutes || 0),
+    delivery_conditions: values.delivery_conditions.trim(),
   };
 }

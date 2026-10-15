@@ -170,5 +170,9 @@
   "labels.tenant.contracts.write": "Şablon düzenle, belge hazırla ve onay kaydet",
   "labels.tenant.contracts.activate": "Şablon sürümünü aktifleştir",
   "groups.tenant_rentals": "Kiralamalar",
-  "groups.tenant_contracts": "Sözleşmeler"
+  "groups.tenant_contracts": "Sözleşmeler",
+  "labels.tenant.field_tasks.read": "Görev panosunu görüntüle",
+  "labels.tenant.field_tasks.assign": "Saha görevlerini planla ve ata",
+  "labels.tenant.field_tasks.execute": "Kendi saha görevlerini yürüt",
+  "groups.tenant_field_tasks": "Saha görevleri"
 }

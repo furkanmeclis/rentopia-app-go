@@ -263,9 +263,6 @@
   "tasks.load_failed": "Tasks could not be loaded.",
   "tasks.note": "Note",
   "tasks.statuses.cancelled": "Cancelled",
-  "tasks.statuses.done": "Done",
-  "tasks.statuses.in_progress": "In progress",
-  "tasks.statuses.open": "Open",
   "tasks.title": "Operation tasks",
   "tasks.toast.assigned": "Assignee updated",
   "tasks.toast.cancel": "Task cancelled",
@@ -317,5 +314,12 @@
   "detail.open_inspections": "Handover / return forms",
   "actions.mobile_handover": "Mobile handover",
   "actions.mobile_return": "Mobile return",
-  "policy.fuel_fee_per_percent": "Missing fuel fee (per %)"
+  "policy.fuel_fee_per_percent": "Missing fuel fee (per %)",
+  "tasks.statuses.planned": "Planned",
+  "tasks.statuses.assigned": "Assigned",
+  "tasks.statuses.en_route": "En route",
+  "tasks.statuses.issue_reported": "Issue reported",
+  "tasks.statuses.completed": "Completed",
+  "tasks.types.transfer": "Transfer",
+  "tasks.types.other": "Other"
 }

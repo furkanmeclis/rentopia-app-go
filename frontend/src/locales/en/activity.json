@@ -298,5 +298,13 @@
   "actions.customer_portal.payment_link_reused": "Customer sent to the existing payment link",
   "actions.customer_portal.request_created": "Customer request created",
   "actions.customer_requests.resolved": "Customer request resolved",
-  "actions.customer_requests.rejected": "Customer request rejected"
+  "actions.customer_requests.rejected": "Customer request rejected",
+  "resources.tenant.field_tasks": "Field tasks",
+  "actions.field_tasks.created": "Field task created",
+  "actions.field_tasks.updated": "Field task updated",
+  "actions.field_tasks.assigned": "Field task assigned",
+  "actions.field_tasks.started": "Field task started",
+  "actions.field_tasks.issue_reported": "Field task issue reported",
+  "actions.field_tasks.completed": "Field task completed",
+  "actions.field_tasks.cancelled": "Field task cancelled"
 }

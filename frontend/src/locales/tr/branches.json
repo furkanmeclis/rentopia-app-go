@@ -137,5 +137,22 @@
   "validation.close_after_open": "Kapanış saati açılıştan sonra olmalıdır.",
   "validation.date": "Bir tarih seçin.",
   "validation.date_duplicate": "Bu tarih zaten listede.",
-  "validation.extra_fee": "En fazla 2 ondalıklı, negatif olmayan bir tutar girin."
+  "validation.extra_fee": "En fazla 2 ondalıklı, negatif olmayan bir tutar girin.",
+  "service_points.fields.conditions": "Teslimat koşulları",
+  "service_points.fields.conditions_hint": "Rezervasyonda müşteriye gösterilir.",
+  "service_points.fields.delivery_enabled": "Adrese / noktaya teslim",
+  "service_points.fields.delivery_enabled_hint": "Araç personel tarafından buraya getirilir veya buradan alınır.",
+  "service_points.fields.delivery_extra": "Teslimat ek hizmeti",
+  "service_points.fields.delivery_extra_hint": "Ücret bu ek hizmetin fiyatından gelir; seçilmezse ek ücret kullanılır.",
+  "service_points.fields.districts": "Hizmet verilen ilçeler",
+  "service_points.fields.districts_hint": "Virgülle ayırın; boş bırakılırsa ilçe kısıtı yok.",
+  "service_points.fields.latitude": "Merkez enlem",
+  "service_points.fields.longitude": "Merkez boylam",
+  "service_points.fields.min_notice": "En az bildirim (dk)",
+  "service_points.fields.min_notice_hint": "Teslimattan en az bu kadar önce rezervasyon yapılmalı.",
+  "service_points.fields.no_delivery_extra": "Ek ücret kullan",
+  "service_points.fields.radius": "Hizmet yarıçapı (km)",
+  "service_points.fields.radius_hint": "Koordinat verilen adresler merkezden bu mesafede olmalı.",
+  "validation.min_notice": "Dakika girin.",
+  "validation.radius": "Pozitif bir mesafe girin."
 }

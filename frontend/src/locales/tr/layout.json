@@ -71,8 +71,9 @@
   "nav_rentals": "Kiralamalar",
   "nav_operation_tasks": "Operasyon görevleri",
   "nav_tenant_settings_contract_templates": "Sözleşme şablonları",
-  "nav_field_tasks": "Saha görevleri",
   "nav_inspections": "Teslim / iade formları",
   "nav_tenant_settings_inspection_templates": "Teslim / iade formları",
-  "nav_customer_requests": "Müşteri talepleri"
+  "nav_customer_requests": "Müşteri talepleri",
+  "nav_my_field_tasks": "Görevlerim",
+  "nav_field_task_board": "Görev panosu"
 }
