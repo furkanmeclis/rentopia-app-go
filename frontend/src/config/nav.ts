@@ -52,6 +52,7 @@ import { routes } from "@/config/routes";
 import { defineNav } from "@/features/nav-engine";
 import type { NavCatalog } from "@/features/nav-engine";
 import { usersNavItem } from "@/features/users/nav";
+import { customerRequestsNavItem } from "@/features/customer-portal/nav";
 import {
   ApprovalsNavAdornment,
   ResolutionTasksNavAdornment,
@@ -366,6 +367,7 @@ export function tenantNav(slug: string): NavCatalog {
             permission: permissions.tenant.resolutionTasks.read,
             Adornment: ResolutionTasksNavAdornment,
           },
+          customerRequestsNavItem(slug),
         ],
       },
       {

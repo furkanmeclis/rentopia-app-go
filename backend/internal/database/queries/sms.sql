@@ -82,9 +82,9 @@ WHERE c.organization_id = sqlc.arg(organization_id)
 
 -- name: InsertOTPChallenge :one
 INSERT INTO sms_otp_challenges (
-    uuid, organization_id, purpose, subject_ref, phone_masked, phone_hash, code_hash, max_attempts, expires_at
+    uuid, organization_id, purpose, subject_ref, channel, phone_masked, phone_hash, code_hash, max_attempts, expires_at
 ) VALUES (
-    sqlc.arg(uuid), sqlc.arg(organization_id), sqlc.arg(purpose), sqlc.arg(subject_ref), sqlc.arg(phone_masked),
+    sqlc.arg(uuid), sqlc.arg(organization_id), sqlc.arg(purpose), sqlc.arg(subject_ref), sqlc.arg(channel), sqlc.arg(phone_masked),
     sqlc.arg(phone_hash), sqlc.arg(code_hash), sqlc.arg(max_attempts), sqlc.arg(expires_at)
 )
 RETURNING id;

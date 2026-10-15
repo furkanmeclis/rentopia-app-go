@@ -29,6 +29,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/authctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/crypto"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/integrations"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/mail"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/pii"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/sms"
@@ -127,6 +128,8 @@ type Service struct {
 	log       *slog.Logger
 	limits    Limits
 	now       func() time.Time
+	// mailer sends e-mail one-time codes; nil = e-mail codes unavailable.
+	mailer mail.Sender
 }
 
 // New builds the service and registers the send operation of every

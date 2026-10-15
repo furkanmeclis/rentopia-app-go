@@ -4,6 +4,12 @@ import {
   persistApiTokens,
 } from "@/lib/server/auth-tokens";
 import {
+  attachCustomerSession,
+  isCustomerPath,
+  proxyCustomer,
+  wantsCustomerUserAgent,
+} from "@/lib/server/customer-session";
+import {
   sharedRefresh,
   type RefreshResult,
 } from "@/lib/server/refresh-single-flight";
@@ -69,7 +75,8 @@ function wantsBinaryStream(path: string) {
     path.includes("platform/storage/objects/preview") ||
     path.startsWith("public/storage/") ||
     path.startsWith("public/media/") ||
-    (isPublicDocumentPath(path) && path.endsWith("/pdf"))
+    (isPublicDocumentPath(path) && path.endsWith("/pdf")) ||
+    (path.startsWith("customer/") && path.endsWith("/pdf"))
   );
 }
 
@@ -525,6 +532,40 @@ export async function proxyToUpstream(
   if (isTenantPath(pathSegments)) {
     const organization = request.headers.get(ORGANIZATION_HEADER)?.trim();
     if (organization) headers.set(ORGANIZATION_HEADER, organization);
+  }
+
+  // Customer portal (TEC-715): its own session cookie, never the staff
+  // Bearer token.
+  if (pathSegments[0] === "customer") {
+    if (!isCustomerPath(pathSegments)) return jsonError(404, "not_found");
+    if (wantsCustomerUserAgent(pathSegments, request.method)) {
+      const userAgent = request.headers.get("user-agent");
+      if (userAgent) headers.set("User-Agent", userAgent);
+    }
+    const customerBody =
+      request.method === "GET" || request.method === "HEAD"
+        ? null
+        : incomingBody.byteLength > 0
+          ? incomingBody
+          : null;
+    if (wantsBinaryStream(path)) {
+      await attachCustomerSession(headers);
+      return proxyStream(
+        path,
+        pathWithQuery,
+        request,
+        headers,
+        customerBody,
+        null,
+      );
+    }
+    return proxyCustomer(
+      pathSegments,
+      pathWithQuery,
+      request.method,
+      headers,
+      customerBody,
+    );
   }
 
   if (

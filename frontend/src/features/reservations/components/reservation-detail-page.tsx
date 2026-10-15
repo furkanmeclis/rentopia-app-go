@@ -74,6 +74,7 @@ import {
   PlateDialog,
 } from "@/features/reservations/components/reservation-dialogs";
 import { TasksTable } from "@/features/reservations/components/tasks-table";
+import { CustomerRequestsTable } from "@/features/customer-portal/components/customer-requests-table";
 import {
   ASSIGNMENT_SOURCE_LABEL_KEYS,
   COMMITMENT_LABEL_KEYS,
@@ -1064,6 +1065,9 @@ export function ReservationDetailPage({ uuid }: { uuid: string }) {
                     {r.open_tasks > 0 ? ` (${r.open_tasks})` : ""}
                   </TabsTrigger>
                 ) : null}
+                <TabsTrigger value="requests">
+                  {t("reservations.tabs.customer_requests")}
+                </TabsTrigger>
                 <TabsTrigger value="payments">
                   {t("reservations.tabs.payments")}
                 </TabsTrigger>
@@ -1103,6 +1107,16 @@ export function ReservationDetailPage({ uuid }: { uuid: string }) {
                   </EntitySectionCard>
                 </TabsContent>
               ) : null}
+              <TabsContent value="requests">
+                <EntitySectionCard
+                  title={t("reservations.tabs.customer_requests")}
+                >
+                  <CustomerRequestsTable
+                    reservationUuid={r.uuid}
+                    persistKey="tenant-reservation-customer-requests-v1"
+                  />
+                </EntitySectionCard>
+              </TabsContent>
               <TabsContent value="payments">
                 <ReservationPayments reservation={r} />
               </TabsContent>

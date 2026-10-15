@@ -73,5 +73,6 @@
   "nav_tenant_settings_contract_templates": "Contract templates",
   "nav_field_tasks": "Field tasks",
   "nav_inspections": "Handover / return forms",
-  "nav_tenant_settings_inspection_templates": "Handover / return forms"
+  "nav_tenant_settings_inspection_templates": "Handover / return forms",
+  "nav_customer_requests": "Customer requests"
 }

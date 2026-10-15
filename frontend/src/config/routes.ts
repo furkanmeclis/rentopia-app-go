@@ -126,6 +126,9 @@ export const routes = {
       /** Staff approval queue ("Onay kuyruğu", TEC-708). */
       approvals: (slug: string) =>
         `/t/${encodeURIComponent(slug)}/reservations/approvals`,
+      /** Requests from the customer portal ("Müşteri talepleri", TEC-715). */
+      customerRequests: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/reservations/requests`,
     },
     /** Rentals ("Kiralamalar"): list and detail. */
     rentals: {

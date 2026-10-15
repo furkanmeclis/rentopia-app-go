@@ -284,5 +284,19 @@
   "actions.documents.approval_link_revoked": "Remote approval link revoked",
   "actions.documents.remote_code_sent": "Remote approval code sent",
   "actions.documents.remote_approved": "Document approved remotely (SMS code)",
-  "actions.documents.remote_approval_failed": "Remote approval code not verified"
+  "actions.documents.remote_approval_failed": "Remote approval code not verified",
+  "resources.tenant.customer_portal": "Customer portal",
+  "resources.tenant.customer_requests": "Customer requests",
+  "actions.customer_portal.code_sent": "Customer portal sign-in code sent",
+  "actions.customer_portal.code_not_sent": "Customer portal sign-in code not sent",
+  "actions.customer_portal.sign_in_unmatched": "Customer portal: unmatched sign-in attempt",
+  "actions.customer_portal.sign_in_failed": "Customer portal: failed sign-in",
+  "actions.customer_portal.signed_in": "Signed in to the customer portal",
+  "actions.customer_portal.signed_out": "Signed out of the customer portal",
+  "actions.customer_portal.document_downloaded": "Customer downloaded a document",
+  "actions.customer_portal.payment_link_created": "Payment link created for the customer",
+  "actions.customer_portal.payment_link_reused": "Customer sent to the existing payment link",
+  "actions.customer_portal.request_created": "Customer request created",
+  "actions.customer_requests.resolved": "Customer request resolved",
+  "actions.customer_requests.rejected": "Customer request rejected"
 }

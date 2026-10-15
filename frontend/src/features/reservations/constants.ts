@@ -161,6 +161,9 @@ export const EVENT_LABEL_KEYS: Record<string, string> = {
   payment_link_created: "reservations.events.payment_link_created",
   payment_link_cancelled: "reservations.events.payment_link_cancelled",
   payment_refunded: "reservations.events.payment_refunded",
+  customer_request: "reservations.events.customer_request",
+  customer_request_resolved: "reservations.events.customer_request_resolved",
+  customer_request_rejected: "reservations.events.customer_request_rejected",
 };
 
 export const ASSIGNMENT_SOURCE_LABEL_KEYS: Record<string, string> = {

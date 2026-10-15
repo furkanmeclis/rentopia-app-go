@@ -42,6 +42,8 @@ tags:
     description: Liveness and readiness probes
   - name: Payments
     description: Public pay-by-link page, hosted checkout start and provider webhooks (TEC-707)
+  - name: Customer
+    description: "Customer portal (`/r/{orgSlug}`): reservation reference + contact + one-time code, customer session (TEC-715)"
   - name: Documents
     description: Public remote contract approval page (`/d/{token}`, signed link + SMS code, TEC-711)
   - name: Auth
@@ -15215,14 +15217,374 @@ paths:
               schema: { type: string, format: binary }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/customer/{orgSlug}:
+    get:
+      tags: [Customer]
+      operationId: getCustomerPortal
+      summary: Customer portal header
+      description: |
+        No auth. The organization of the portal (from the URL slug) and the channels it can send sign-in codes
+        on. Unknown, suspended or out-of-window organizations answer 404. Rate-limited per IP.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/PortalOrgSlug"
+      responses:
+        "200":
+          description: Portal
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeCustomerPortalInfo" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/customer/{orgSlug}/auth/start:
+    post:
+      tags: [Customer]
+      operationId: postCustomerAuthStart
+      summary: Request a sign-in code
+      description: |
+        No auth. A reservation reference plus the phone number or e-mail address on file (the renter's or a
+        driver's of that reservation). When both match, a one-time code (purpose `customer_portal`, subject
+        `reservation:<uuid>`) goes out by SMS through the organization's SMS account, or by e-mail through the
+        platform mailer. The answer is **the same whether they matched or not** (202); a cooldown, a limit or a
+        failed send is not reported either. 503 `CODE_UNAVAILABLE` when the organization cannot send on the
+        chosen channel at all (checked before any lookup). Rate-limited per IP, per reference and per contact.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/PortalOrgSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CustomerAuthStartRequest" }
+      responses:
+        "202":
+          description: Generic answer
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeCustomerAuthStart" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "503":
+          description: "`CODE_UNAVAILABLE`: no channel for the organization"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /v1/customer/{orgSlug}/auth/verify:
+    post:
+      tags: [Customer]
+      operationId: postCustomerAuthVerify
+      summary: Verify the code and open a customer session
+      description: |
+        No auth. Every failure (unknown reference, other contact, wrong / expired / locked code) answers the same
+        400 `OTP_INVALID`. On success the answer carries `session_token` (opaque, 43 characters, stored hashed);
+        the BFF moves it into an HttpOnly, Secure, SameSite=Lax cookie and strips it from the browser answer.
+        Sessions slide a 30 minute idle expiry inside a 2 hour hard cap. Rate-limited per IP, reference, contact.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/PortalOrgSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CustomerAuthVerifyRequest" }
+      responses:
+        "200":
+          description: Session
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeCustomerSessionIssued" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/customer/{orgSlug}/auth/logout:
+    post:
+      tags: [Customer]
+      operationId: postCustomerAuthLogout
+      summary: Sign out (revoke the session)
+      security:
+        - customerSession: []
+      parameters:
+        - $ref: "#/components/parameters/PortalOrgSlug"
+      responses:
+        "200":
+          description: Signed out
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeCustomerSignedOut" }
+        "401": { $ref: "#/components/responses/CustomerSessionRequired" }
+
+  /v1/customer/{orgSlug}/session:
+    get:
+      tags: [Customer]
+      operationId: getCustomerSession
+      summary: Current customer session
+      description: "401 `CUSTOMER_SESSION_REQUIRED` without a live session of this organization (never the staff JWT)."
+      security:
+        - customerSession: []
+      parameters:
+        - $ref: "#/components/parameters/PortalOrgSlug"
+      responses:
+        "200":
+          description: Session
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeCustomerSession" }
+        "401": { $ref: "#/components/responses/CustomerSessionRequired" }
+
+  /v1/customer/{orgSlug}/reservations:
+    get:
+      tags: [Customer]
+      operationId: getCustomerReservations
+      summary: The session's reservations
+      description: |
+        A renter session sees every reservation of that customer in the organization; a driver session only the
+        reservations that driver is on.
+      security:
+        - customerSession: []
+      parameters:
+        - $ref: "#/components/parameters/PortalOrgSlug"
+      responses:
+        "200":
+          description: Reservations
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeCustomerReservationList" }
+        "401": { $ref: "#/components/responses/CustomerSessionRequired" }
+
+  /v1/customer/{orgSlug}/reservations/{uuid}:
+    get:
+      tags: [Customer]
+      operationId: getCustomerReservation
+      summary: One reservation of the session
+      description: "Another customer's or organization's reservation (or a malformed id) answers 404."
+      security:
+        - customerSession: []
+      parameters:
+        - $ref: "#/components/parameters/PortalOrgSlug"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Reservation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeCustomerReservation" }
+        "401": { $ref: "#/components/responses/CustomerSessionRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/customer/{orgSlug}/reservations/{uuid}/documents/{documentUuid}/pdf:
+    get:
+      tags: [Customer]
+      operationId: getCustomerReservationDocumentPdf
+      summary: Download a document of the reservation
+      description: |
+        Streams the current version's PDF (rendered on demand; 409 `PDF_NOT_READY` with `Retry-After` while it
+        renders). Only documents of the session's own reservations; the browser never sees a storage key.
+      security:
+        - customerSession: []
+      parameters:
+        - $ref: "#/components/parameters/PortalOrgSlug"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - name: documentUuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: PDF
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/CustomerSessionRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/customer/{orgSlug}/reservations/{uuid}/pay:
+    post:
+      tags: [Customer]
+      operationId: postCustomerReservationPay
+      summary: Pay remaining (pay-by-link)
+      description: |
+        The pay page (`/pay/{token}`) for what is due now: the prepayment still due while the reservation waits for
+        payment, else the remaining balance of a confirmed reservation. The reservation's active link is reused when
+        it is for exactly that amount and valid for 10 more minutes; otherwise the payments service creates one.
+        409 `NOTHING_DUE`, `PAYMENT_UNAVAILABLE` (no active payment account) or `INVALID_STATE`.
+      security:
+        - customerSession: []
+      parameters:
+        - $ref: "#/components/parameters/PortalOrgSlug"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false }
+      responses:
+        "200":
+          description: Pay page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeCustomerPayResult" }
+        "401": { $ref: "#/components/responses/CustomerSessionRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/customer/{orgSlug}/reservations/{uuid}/requests:
+    post:
+      tags: [Customer]
+      operationId: postCustomerReservationRequest
+      summary: Send a change or cancellation request
+      description: |
+        Staff see the request (`/v1/tenant/customer-requests`, reservation timeline). A cancellation stores the
+        policy text and fee of the reservation's policy snapshot and cancels at once only when that snapshot
+        explicitly allows self-cancellation (`outcome: self_cancelled`). One open request per type
+        (409 `REQUEST_EXISTS`); 409 `INVALID_STATE` when the reservation can no longer be changed / cancelled.
+      security:
+        - customerSession: []
+      parameters:
+        - $ref: "#/components/parameters/PortalOrgSlug"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CustomerRequestCreate" }
+      responses:
+        "201":
+          description: Request
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeCustomerRequest" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/CustomerSessionRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/tenant/customer-requests:
+    get:
+      tags: [Tenant]
+      operationId: getTenantCustomerRequests
+      summary: List customer requests
+      description: "`tenant.reservations.read`. Requests of reservations in the caller's branch scope; live resource `tenant.customer_requests`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - name: sort
+          in: query
+          description: "`created_at`; prefix `-` for descending (default newest first)."
+          schema: { type: string }
+        - { name: status, in: query, schema: { type: string }, description: "open, resolved, rejected" }
+        - { name: request_type, in: query, schema: { type: string }, description: "change, cancel" }
+        - { name: reservation, in: query, schema: { type: string }, description: Reservation uuids }
+      responses:
+        "200":
+          description: Request page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeCustomerRequestPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/customer-requests/stats:
+    get:
+      tags: [Tenant]
+      operationId: getTenantCustomerRequestStats
+      summary: Open customer requests (nav badge)
+      description: "`tenant.reservations.read`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Counts
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeCustomerRequestStats" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/customer-requests/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantCustomerRequest
+      summary: Customer request detail
+      description: "`tenant.reservations.read`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Request
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeStaffCustomerRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/customer-requests/{uuid}/resolve:
+    post:
+      tags: [Tenant]
+      operationId: postTenantCustomerRequestResolve
+      summary: Resolve or reject a customer request
+      description: |
+        `tenant.reservations.write`. Closes an open request with a note the customer sees (required to reject).
+        Acting on the reservation (change, cancel) stays a separate action with its own permission.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CustomerRequestResolve" }
+      responses:
+        "200":
+          description: Request
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeStaffCustomerRequest" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
 components:
   securitySchemes:
+    customerSession:
+      type: apiKey
+      in: header
+      name: X-Customer-Session
+      description: Customer portal session (set by the BFF from its HttpOnly cookie; never the staff JWT)
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
 
   parameters:
+    PortalOrgSlug:
+      name: orgSlug
+      in: path
+      required: true
+      description: Organization slug of the customer portal
+      schema:
+        type: string
     InvitationUUID:
       name: invitationUuid
       in: path
@@ -15395,6 +15757,12 @@ components:
       schema: { type: integer, minimum: 1950, maximum: 2100 }
 
   responses:
+    CustomerSessionRequired:
+      description: "`CUSTOMER_SESSION_REQUIRED`: no live customer session of this organization"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
     UnprocessableEntity:
       description: "`PRICING_UNAVAILABLE` (no rate plan / band prices it) or `DRIVER_NOT_ELIGIBLE` (`data` = drivers with reasons)"
       content:
@@ -26046,3 +26414,348 @@ components:
           properties:
             items: { type: array, items: { $ref: "#/components/schemas/InspectionMediaLink" } }
         meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    CustomerPortalInfo:
+      type: object
+      required: [organization, channels]
+      properties:
+        organization: { $ref: "#/components/schemas/CustomerPortalOrganization" }
+        channels:
+          type: object
+          required: [sms, email]
+          properties:
+            sms: { type: boolean }
+            email: { type: boolean }
+
+    CustomerPortalOrganization:
+      type: object
+      required: [slug, name]
+      properties:
+        slug: { type: string }
+        name: { type: string }
+
+    EnvelopeCustomerPortalInfo:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/CustomerPortalInfo" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    CustomerAuthStartRequest:
+      type: object
+      additionalProperties: false
+      required: [reference, contact]
+      properties:
+        reference: { type: string, description: "Reservation reference (case and spaces ignored)" }
+        contact: { type: string, description: Phone number or e-mail address on the reservation }
+
+    CustomerAuthStart:
+      type: object
+      required: [status, channel, resend_after_seconds, code_ttl_seconds]
+      properties:
+        status: { type: string, enum: [code_sent_if_matched] }
+        channel: { type: string, enum: [sms, email] }
+        resend_after_seconds: { type: integer }
+        code_ttl_seconds: { type: integer }
+
+    EnvelopeCustomerAuthStart:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/CustomerAuthStart" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    CustomerAuthVerifyRequest:
+      type: object
+      additionalProperties: false
+      required: [reference, contact, code]
+      properties:
+        reference: { type: string }
+        contact: { type: string }
+        code: { type: string, description: 6 digits }
+
+    CustomerSession:
+      type: object
+      required: [organization, role, display_name, channel, contact_masked, expires_at, hard_expires_at]
+      properties:
+        organization: { $ref: "#/components/schemas/CustomerPortalOrganization" }
+        role: { type: string, enum: [renter, driver] }
+        display_name: { type: string }
+        channel: { type: string, enum: [sms, email] }
+        contact_masked: { type: string }
+        expires_at: { type: string, format: date-time }
+        hard_expires_at: { type: string, format: date-time }
+
+    CustomerSessionIssued:
+      type: object
+      required: [session]
+      properties:
+        session_token:
+          type: string
+          description: Opaque bearer (BFF only; stripped before the browser answer and kept in an HttpOnly cookie)
+        session: { $ref: "#/components/schemas/CustomerSession" }
+
+    EnvelopeCustomerSessionIssued:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/CustomerSessionIssued" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeCustomerSession:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/CustomerSession" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeCustomerSignedOut:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [signed_out]
+          properties:
+            signed_out: { type: boolean }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    CustomerPrice:
+      type: object
+      required: [currency, total, prepayment, paid, prepayment_due, balance]
+      properties:
+        currency: { type: string }
+        total: { type: string, description: Decimal amount }
+        prepayment: { type: string }
+        paid: { type: string }
+        prepayment_due: { type: string }
+        balance: { type: string }
+
+    CustomerReservationSummary:
+      type: object
+      required: [uuid, reference, status, payment_status, starts_at, ends_at, pickup_branch, return_branch, product, price]
+      properties:
+        uuid: { type: string, format: uuid }
+        reference: { type: string }
+        status: { type: string }
+        payment_status: { type: string }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+        pickup_branch: { type: string }
+        return_branch: { type: string }
+        product: { type: string }
+        price: { $ref: "#/components/schemas/CustomerPrice" }
+
+    EnvelopeCustomerReservationList:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/CustomerReservationSummary" } }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    PortalDocument:
+      type: object
+      required: [uuid, kind, status, version_number, pdf_available, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        kind: { type: string, enum: [rental_contract, handover_form, return_form, terms] }
+        status: { type: string }
+        version_number: { type: integer }
+        pdf_available: { type: boolean }
+        download_path: { type: string, description: "API path relative to /v1 (the BFF serves it at /api/v1/...)" }
+        approval_url: { type: string, description: Remote approval page of an open link for the signed-in person }
+        approval_due: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    CustomerRequest:
+      type: object
+      required: [uuid, type, status, message, policy_text, currency, outcome, resolution_note, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        type: { type: string, enum: [change, cancel] }
+        status: { type: string, enum: [open, resolved, rejected] }
+        message: { type: string }
+        requested_starts_at: { type: [string, "null"], format: date-time }
+        requested_ends_at: { type: [string, "null"], format: date-time }
+        policy_text: { type: string }
+        cancellation_fee: { type: [string, "null"] }
+        currency: { type: string }
+        outcome: { type: string, enum: ["", self_cancelled] }
+        resolution_note: { type: string }
+        resolved_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+
+    CustomerReservation:
+      allOf:
+        - $ref: "#/components/schemas/CustomerReservationSummary"
+        - type: object
+          required: [pickup_point, return_point, vehicle, drivers, extras, policies, cancellation, actions, documents, requests]
+          properties:
+            pickup_point: { type: string }
+            return_point: { type: string }
+            vehicle: { type: string, description: Plate and model once the plate is fixed }
+            drivers: { type: array, items: { type: string } }
+            extras:
+              type: array
+              items:
+                type: object
+                required: [name, quantity, amount]
+                properties:
+                  name: { type: string }
+                  quantity: { type: integer }
+                  amount: { type: string }
+            payment_deadline: { type: [string, "null"], format: date-time }
+            policies:
+              type: object
+              required: [cancellation, no_show, early_return, extension, fuel, mileage]
+              properties:
+                cancellation: { type: string }
+                no_show: { type: string }
+                early_return: { type: string }
+                extension: { type: string }
+                fuel: { type: string }
+                mileage: { type: string }
+            cancellation:
+              type: object
+              required: [policy_text, self_cancel]
+              properties:
+                policy_text: { type: string }
+                fee: { type: [string, "null"] }
+                self_cancel: { type: boolean }
+            actions:
+              type: object
+              required: [pay, request_change, request_cancel]
+              properties:
+                pay: { type: boolean }
+                pay_amount: { type: [string, "null"] }
+                request_change: { type: boolean }
+                request_cancel: { type: boolean }
+            documents: { type: array, items: { $ref: "#/components/schemas/PortalDocument" } }
+            requests: { type: array, items: { $ref: "#/components/schemas/CustomerRequest" } }
+
+    EnvelopeCustomerReservation:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/CustomerReservation" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    CustomerPayResult:
+      type: object
+      required: [url, amount, currency, expires_at, reused]
+      properties:
+        url: { type: string, description: "Pay page on the app origin (/pay/{token})" }
+        amount: { type: string }
+        currency: { type: string }
+        expires_at: { type: string, format: date-time }
+        reused: { type: boolean }
+
+    EnvelopeCustomerPayResult:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/CustomerPayResult" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    CustomerRequestCreate:
+      type: object
+      additionalProperties: false
+      required: [type]
+      properties:
+        type: { type: string, enum: [change, cancel] }
+        message: { type: string, maxLength: 2000 }
+        requested_starts_at: { type: [string, "null"], format: date-time }
+        requested_ends_at: { type: [string, "null"], format: date-time }
+
+    EnvelopeCustomerRequest:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/CustomerRequest" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    StaffCustomerRequest:
+      allOf:
+        - $ref: "#/components/schemas/CustomerRequest"
+        - type: object
+          required: [reservation, customer_uuid, customer_name, requester_role, requester_name, contact_masked, updated_at]
+          properties:
+            reservation:
+              type: object
+              required: [uuid, reference, status, starts_at, ends_at]
+              properties:
+                uuid: { type: string, format: uuid }
+                reference: { type: string }
+                status: { type: string }
+                starts_at: { type: string, format: date-time }
+                ends_at: { type: string, format: date-time }
+            customer_uuid: { type: string, format: uuid }
+            customer_name: { type: string }
+            requester_role: { type: string, enum: [renter, driver] }
+            requester_name: { type: string }
+            contact_masked: { type: string }
+            resolved_by:
+              type: [object, "null"]
+              required: [uuid, name, surname, email]
+              properties:
+                uuid: { type: string, format: uuid }
+                name: { type: string }
+                surname: { type: string }
+                email: { type: string }
+            updated_at: { type: string, format: date-time }
+
+    EnvelopeStaffCustomerRequest:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/StaffCustomerRequest" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeCustomerRequestPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/StaffCustomerRequest" } }
+            total: { type: integer }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeCustomerRequestStats:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [open]
+          properties:
+            open: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    CustomerRequestResolve:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: { type: string, enum: [resolved, rejected] }
+        note: { type: string, maxLength: 2000 }

@@ -410,6 +410,21 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			t.Fatalf("resolution task from the block: %s", tasks.raw)
 		}
 		ids["task"] = taskItems[0].(map[string]any)["uuid"].(string)
+		// Customer portal (TEC-715): a cancellation request of the
+		// reservation, as the portal stores it.
+		var resID, custID int64
+		if err := pool.QueryRow(ctx, "SELECT id, customer_id FROM reservations WHERE organization_id = $1 AND uuid = $2",
+			o.org.ID, ids["reservation"]).Scan(&resID, &custID); err != nil {
+			t.Fatal(err)
+		}
+		creq, err := q.InsertCustomerRequest(ctx, db.InsertCustomerRequestParams{
+			OrganizationID: o.org.ID, ReservationID: resID, CustomerID: custID, RequestType: "cancel", Status: "open",
+			Message: m + " iptal", Currency: "TRY",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids["customerRequest"] = creq.Uuid.String()
 		// Integrations / payments (TEC-676 / TEC-707): an iyzico account
 		// (stored, never called here), a pay-by-link link for the
 		// reservation's balance and a branch collection.
@@ -703,6 +718,7 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		// leak-scanned.
 		"GET /v1/tenant/overview":           {"?branch=" + b["branch"], "?branch=" + b["home"]},
 		"GET /v1/tenant/contract-templates": {"?q=" + orgB.marker},
+		"GET /v1/tenant/customer-requests":  {"?reservation=" + b["reservation"], "?q=" + orgB.marker},
 		"GET /v1/tenant/rate-plans/matrix": {
 			"?scope=branch&branch=" + b["branch"],
 			"?scope=branch_channel&branch=" + b["home"] + "&channel=web",
@@ -1178,6 +1194,8 @@ func paramKey(prev, name string) string {
 		return "approvalLink"
 	case "approvals/approvalUuid":
 		return "approval"
+	case "customer-requests/uuid":
+		return "customerRequest"
 	}
 	return ""
 }

@@ -373,6 +373,53 @@ type CustomerMarketingConsent struct {
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 }
 
+type CustomerPortalSession struct {
+	ID               int64              `json:"id"`
+	Uuid             uuid.UUID          `json:"uuid"`
+	OrganizationID   int64              `json:"organization_id"`
+	CustomerID       int64              `json:"customer_id"`
+	DriverID         pgtype.Int8        `json:"driver_id"`
+	ReservationID    int64              `json:"reservation_id"`
+	TokenHash        string             `json:"token_hash"`
+	Channel          string             `json:"channel"`
+	ContactMasked    string             `json:"contact_masked"`
+	OtpChallengeUuid uuid.UUID          `json:"otp_challenge_uuid"`
+	IpAddress        *netip.Addr        `json:"ip_address"`
+	UserAgent        string             `json:"user_agent"`
+	LastSeenAt       pgtype.Timestamptz `json:"last_seen_at"`
+	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
+	HardExpiresAt    pgtype.Timestamptz `json:"hard_expires_at"`
+	RevokedAt        pgtype.Timestamptz `json:"revoked_at"`
+	RevokedReason    string             `json:"revoked_reason"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CustomerRequest struct {
+	ID                int64              `json:"id"`
+	Uuid              uuid.UUID          `json:"uuid"`
+	OrganizationID    int64              `json:"organization_id"`
+	ReservationID     int64              `json:"reservation_id"`
+	CustomerID        int64              `json:"customer_id"`
+	DriverID          pgtype.Int8        `json:"driver_id"`
+	SessionID         pgtype.Int8        `json:"session_id"`
+	RequestType       string             `json:"request_type"`
+	Status            string             `json:"status"`
+	Message           string             `json:"message"`
+	RequestedStartsAt pgtype.Timestamptz `json:"requested_starts_at"`
+	RequestedEndsAt   pgtype.Timestamptz `json:"requested_ends_at"`
+	PolicyText        string             `json:"policy_text"`
+	CancellationFee   pgtype.Numeric     `json:"cancellation_fee"`
+	Currency          string             `json:"currency"`
+	Outcome           string             `json:"outcome"`
+	ContactMasked     string             `json:"contact_masked"`
+	ResolutionNote    string             `json:"resolution_note"`
+	ResolvedBy        pgtype.Int8        `json:"resolved_by"`
+	ResolvedAt        pgtype.Timestamptz `json:"resolved_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
 type DateRule struct {
 	ID             int64              `json:"id"`
 	Uuid           uuid.UUID          `json:"uuid"`
@@ -1760,6 +1807,7 @@ type SmsOtpChallenge struct {
 	SmsMessageID   pgtype.Int8        `json:"sms_message_id"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	Channel        string             `json:"channel"`
 }
 
 type StepupSetting struct {

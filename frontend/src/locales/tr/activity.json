@@ -284,5 +284,19 @@
   "actions.documents.approval_link_revoked": "Uzaktan onay linki iptal edildi",
   "actions.documents.remote_code_sent": "Uzaktan onay kodu gönderildi",
   "actions.documents.remote_approved": "Belge uzaktan (SMS kodu ile) onaylandı",
-  "actions.documents.remote_approval_failed": "Uzaktan onay kodu doğrulanamadı"
+  "actions.documents.remote_approval_failed": "Uzaktan onay kodu doğrulanamadı",
+  "resources.tenant.customer_portal": "Müşteri portalı",
+  "resources.tenant.customer_requests": "Müşteri talepleri",
+  "actions.customer_portal.code_sent": "Müşteri portalı giriş kodu gönderildi",
+  "actions.customer_portal.code_not_sent": "Müşteri portalı giriş kodu gönderilmedi",
+  "actions.customer_portal.sign_in_unmatched": "Müşteri portalı: eşleşmeyen giriş denemesi",
+  "actions.customer_portal.sign_in_failed": "Müşteri portalı: başarısız giriş",
+  "actions.customer_portal.signed_in": "Müşteri portalına giriş yapıldı",
+  "actions.customer_portal.signed_out": "Müşteri portalından çıkış yapıldı",
+  "actions.customer_portal.document_downloaded": "Müşteri belgeyi indirdi",
+  "actions.customer_portal.payment_link_created": "Müşteri için ödeme linki oluşturuldu",
+  "actions.customer_portal.payment_link_reused": "Müşteri mevcut ödeme linkine yönlendirildi",
+  "actions.customer_portal.request_created": "Müşteri talebi oluşturuldu",
+  "actions.customer_requests.resolved": "Müşteri talebi sonuçlandırıldı",
+  "actions.customer_requests.rejected": "Müşteri talebi reddedildi"
 }

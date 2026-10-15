@@ -76,3 +76,5 @@ inspection_damages
 inspection_photos
 inspection_signatures
 document_approval_links
+customer_portal_sessions
+customer_requests

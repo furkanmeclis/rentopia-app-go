@@ -284,10 +284,10 @@ func (q *Queries) GetSMSMessageForSend(ctx context.Context, arg GetSMSMessageFor
 
 const insertOTPChallenge = `-- name: InsertOTPChallenge :one
 INSERT INTO sms_otp_challenges (
-    uuid, organization_id, purpose, subject_ref, phone_masked, phone_hash, code_hash, max_attempts, expires_at
+    uuid, organization_id, purpose, subject_ref, channel, phone_masked, phone_hash, code_hash, max_attempts, expires_at
 ) VALUES (
-    $1, $2, $3, $4, $5,
-    $6, $7, $8, $9
+    $1, $2, $3, $4, $5, $6,
+    $7, $8, $9, $10
 )
 RETURNING id
 `
@@ -297,6 +297,7 @@ type InsertOTPChallengeParams struct {
 	OrganizationID int64              `json:"organization_id"`
 	Purpose        string             `json:"purpose"`
 	SubjectRef     string             `json:"subject_ref"`
+	Channel        string             `json:"channel"`
 	PhoneMasked    string             `json:"phone_masked"`
 	PhoneHash      string             `json:"phone_hash"`
 	CodeHash       string             `json:"code_hash"`
@@ -310,6 +311,7 @@ func (q *Queries) InsertOTPChallenge(ctx context.Context, arg InsertOTPChallenge
 		arg.OrganizationID,
 		arg.Purpose,
 		arg.SubjectRef,
+		arg.Channel,
 		arg.PhoneMasked,
 		arg.PhoneHash,
 		arg.CodeHash,
