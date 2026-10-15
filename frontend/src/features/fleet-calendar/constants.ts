@@ -9,6 +9,7 @@ export const CALENDAR_LIVE_RESOURCES = [
   "tenant.vehicles",
   "tenant.transfers",
   "tenant.vehicle_blocks",
+  "tenant.availability_holds",
 ] as const;
 
 /** Vehicles per calendar page (the API default). */
@@ -60,6 +61,17 @@ export const TRANSFER_BAR_CLASSES: Record<TransferStatus, string> = {
   cancelled:
     "bg-muted text-muted-foreground border-border line-through opacity-70",
 };
+
+/**
+ * Allocation bars (availability engine): holds ("opsiyon") are dashed (they
+ * lapse on their own), confirmed reservations solid. The bar spans the
+ * customer range plus the preparation buffer of the return branch.
+ */
+export const ALLOCATION_BAR_CLASSES = {
+  hold: "border-dashed border-2 border-teal-600 bg-teal-500/20 text-teal-950 dark:border-teal-400 dark:text-teal-50",
+  reservation:
+    "bg-emerald-600 text-white border-emerald-700 dark:bg-emerald-500/90 dark:text-emerald-50",
+} as const;
 
 /** Maintenance day markers per state. */
 export const MAINTENANCE_MARKER_CLASSES: Record<
@@ -134,9 +146,14 @@ export const LEGEND_ENTRIES: LegendEntry[] = [
     swatch: MAINTENANCE_MARKER_CLASSES.scheduled,
   },
   {
+    id: "hold",
+    labelKey: "fleet_calendar.legend.hold",
+    swatch: ALLOCATION_BAR_CLASSES.hold,
+  },
+  {
     id: "reservation",
     labelKey: "fleet_calendar.legend.reservation",
-    swatch: "bg-muted border-border",
+    swatch: ALLOCATION_BAR_CLASSES.reservation,
     milestone: "M2",
   },
   {

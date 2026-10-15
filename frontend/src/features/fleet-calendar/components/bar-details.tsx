@@ -146,6 +146,16 @@ export function IntervalDetails({
     );
   }
 
+  if (interval.allocation) {
+    return (
+      <AllocationDetails
+        vehicle={vehicle}
+        interval={interval}
+        allocation={interval.allocation}
+      />
+    );
+  }
+
   const transfer = interval.transfer;
   if (!transfer) return null;
   const canWrite =
@@ -237,6 +247,92 @@ export function IntervalDetails({
           </Button>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Popover body of a hold / reservation bar: the product, the customer range,
+ * when the vehicle is sellable again (after the preparation buffer), the
+ * hold expiry and whether the plate is promised or only planned.
+ */
+function AllocationDetails({
+  vehicle,
+  interval,
+  allocation,
+}: {
+  vehicle: FleetCalendarVehicle;
+  interval: FleetCalendarInterval;
+  allocation: NonNullable<FleetCalendarInterval["allocation"]>;
+}) {
+  const { t, locale } = useLocale();
+  const { slug } = useTenant();
+  const { can } = usePermission();
+  const when = (value: string | null | undefined) =>
+    value ? datetime(value, undefined, locale) : "—";
+  const hold = interval.kind === "hold";
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <StatusChip
+          label={
+            hold
+              ? t("fleet_calendar.bar.hold")
+              : t("fleet_calendar.bar.reservation")
+          }
+          tone={hold ? "warning" : "success"}
+        />
+        <StatusChip
+          label={
+            allocation.plate_fixed
+              ? t("fleet_calendar.details.plate_fixed")
+              : t("fleet_calendar.details.plate_provisional")
+          }
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Field
+          label={t("fleet_calendar.details.vehicle")}
+          value={`${vehicle.plate} · ${vehicle.label}`}
+        />
+        <Field
+          label={t("fleet_calendar.details.product")}
+          value={`${allocation.product.code} · ${allocation.product.title}`}
+        />
+        <Field
+          label={t("fleet_calendar.details.route")}
+          value={`${allocation.pickup_branch.name} → ${allocation.return_branch.name}`}
+        />
+        <Field
+          label={t("fleet_calendar.details.starts_at")}
+          value={when(allocation.starts_at)}
+        />
+        <Field
+          label={t("fleet_calendar.details.ends_at")}
+          value={when(allocation.ends_at)}
+        />
+        <Field
+          label={t("fleet_calendar.details.ready_at")}
+          value={when(interval.ends_at)}
+        />
+        {allocation.expires_at ? (
+          <Field
+            label={t("fleet_calendar.details.expires_at")}
+            value={when(allocation.expires_at)}
+          />
+        ) : null}
+      </div>
+      {can(permissions.tenant.availability.read) ? (
+        <>
+          <Separator />
+          <Button asChild size="sm" variant="ghost">
+            <Link href={routes.tenant.availability(slug)}>
+              <ExternalLink className="size-4" />
+              {t("fleet_calendar.details.open_availability")}
+            </Link>
+          </Button>
+        </>
+      ) : null}
     </div>
   );
 }
