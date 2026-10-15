@@ -389,6 +389,7 @@ func (s *Service) ApplyChange(ctx context.Context, orgID int64, id uuid.UUID, in
 	}
 	s.publish(ctx, model.ResourceReservations, "updated", append(touched, c.Uuid)...)
 	s.publish(ctx, model.ResourceQuotes, "updated", row.Uuid)
+	s.notify(ctx, orgID, c.Uuid, LifecycleChanged)
 	res, err := s.Get(ctx, orgID, id)
 	result.Reservation = res
 	return result, err
@@ -612,6 +613,9 @@ func (s *Service) Plate(ctx context.Context, orgID int64, id uuid.UUID, in model
 		return model.ChangeResult{}, mapEngineErr(err)
 	}
 	s.publish(ctx, model.ResourceReservations, "updated", append(touched, c.Uuid)...)
+	if in.Fix {
+		s.notify(ctx, orgID, c.Uuid, LifecyclePlateFixed)
+	}
 	res, err := s.Get(ctx, orgID, id)
 	return model.ChangeResult{Reservation: res, Reassigned: reassigned, Warnings: []string{}}, err
 }
@@ -651,6 +655,7 @@ func (s *Service) UpdateDrivers(ctx context.Context, orgID int64, id uuid.UUID, 
 	if err != nil {
 		return model.Reservation{}, err
 	}
+	s.notify(ctx, orgID, c.Uuid, LifecycleDriversChanged)
 	return s.after(ctx, orgID, id)
 }
 

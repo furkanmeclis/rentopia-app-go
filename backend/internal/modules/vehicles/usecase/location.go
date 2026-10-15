@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"github.com/jackc/pgx/v5/pgtype"
 	"sort"
 	"time"
 
@@ -150,6 +151,10 @@ type OperationalChange struct {
 	// CurrentBranchID is the new current branch (0 = unchanged).
 	CurrentBranchID int64
 	Note            string
+	// OdometerKm / FuelLevel, when set, are recorded with the status
+	// transition (rental handover / return, TEC-709).
+	OdometerKm *int32
+	FuelLevel  *int16
 }
 
 // WithQueries returns a service bound to q, typically another module's
@@ -183,7 +188,14 @@ func (s *Service) ApplyOperationalChange(ctx context.Context, orgID int64, id uu
 			}
 		}
 		if changed {
-			return transition(ctx, tx, orgID, v, change.Status, v.OdometerKm, v.FuelLevel, change.Note)
+			km, fuel := v.OdometerKm, v.FuelLevel
+			if change.OdometerKm != nil {
+				km = *change.OdometerKm
+			}
+			if change.FuelLevel != nil {
+				fuel = pgtype.Int2{Int16: *change.FuelLevel, Valid: true}
+			}
+			return transition(ctx, tx, orgID, v, change.Status, km, fuel, change.Note)
 		}
 		return nil
 	})
