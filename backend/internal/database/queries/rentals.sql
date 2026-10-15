@@ -401,9 +401,15 @@ SELECT ch.uuid, ch.kind, ch.source, ch.status, ch.currency, ch.amount, ch.settin
     ins.uuid AS inspection_uuid,
     du.uuid AS decided_by_uuid, du.name AS decided_by_name, du.surname AS decided_by_surname, du.email AS decided_by_email,
     cu.uuid AS created_by_uuid, cu.name AS created_by_name, cu.surname AS created_by_surname, cu.email AS created_by_email,
-    ou.uuid AS overridden_by_uuid, ou.name AS overridden_by_name, ou.surname AS overridden_by_surname, ou.email AS overridden_by_email
+    ou.uuid AS overridden_by_uuid, ou.name AS overridden_by_name, ou.surname AS overridden_by_surname, ou.email AS overridden_by_email,
+    tp.uuid AS toll_pass_uuid, rvo.uuid AS reversal_of_uuid,
+    EXISTS (
+        SELECT 1 FROM rental_charges rvx WHERE rvx.organization_id = ch.organization_id AND rvx.reversal_of_id = ch.id
+    )::boolean AS reversed
 FROM rental_charges ch
 LEFT JOIN inspections ins ON ins.organization_id = ch.organization_id AND ins.id = ch.inspection_id
+LEFT JOIN toll_passes tp ON tp.organization_id = ch.organization_id AND tp.id = ch.toll_pass_id
+LEFT JOIN rental_charges rvo ON rvo.organization_id = ch.organization_id AND rvo.id = ch.reversal_of_id
 LEFT JOIN users du ON du.id = ch.decided_by
 LEFT JOIN users cu ON cu.id = ch.created_by
 LEFT JOIN users ou ON ou.id = ch.overridden_by

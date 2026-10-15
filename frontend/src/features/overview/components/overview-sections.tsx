@@ -276,13 +276,19 @@ export function TodayOperationsSection({ data, slug, branch }: SectionProps) {
           labelKey: "overview.today.columns.status",
           enableSorting: false,
           filterVariant: "faceted",
-          filterOptions: (["open", "in_progress", "done"] as const).map(
-            (v) => ({
-              value: v,
-              labelKey: OPERATION_STATUS_LABEL_KEYS[v],
-              label: t(OPERATION_STATUS_LABEL_KEYS[v]),
-            }),
-          ),
+          filterOptions: (
+            [
+              "planned",
+              "assigned",
+              "en_route",
+              "issue_reported",
+              "completed",
+            ] as const
+          ).map((v) => ({
+            value: v,
+            labelKey: OPERATION_STATUS_LABEL_KEYS[v],
+            label: t(OPERATION_STATUS_LABEL_KEYS[v]),
+          })),
           cell: ({ row }) => (
             <OperationTaskStatusChip
               status={row.original.status as OperationTaskStatus}

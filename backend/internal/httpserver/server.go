@@ -64,6 +64,10 @@ import (
 	extrasadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/extras/adapters"
 	extrashandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/extras/handler"
 	extrasusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/extras/usecase"
+	fieldtasksmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fieldtasks"
+	fieldtasksadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fieldtasks/adapters"
+	fieldtaskshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fieldtasks/handler"
+	fieldtasksusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fieldtasks/usecase"
 	financemodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/finance"
 	financeadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/finance/adapters"
 	financehandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/finance/handler"
@@ -145,6 +149,10 @@ import (
 	storagehandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/storage/handler"
 	storageusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/storage/usecase"
 	tenantmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tenant"
+	tollsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tolls"
+	tollsadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tolls/adapters"
+	tollshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tolls/handler"
+	tollsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tolls/usecase"
 	vehiclerecordsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehiclerecords"
 	vehiclerecordsadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehiclerecords/adapters"
 	vehiclerecordshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehiclerecords/handler"
@@ -457,8 +465,13 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	})
 	// SMS providers (TEC-734): Netgsm, and the log provider in development.
 	smsProviders := smsmodule.Providers(cfg.SMS, cfg.App.Env, log)
+	// Toll providers (TEC-725): none is chosen yet (TEC-683); the fake is
+	// registered outside production only.
+	tollProviders := tollsmodule.Providers(cfg.App.Env, log)
+	integrationAdapters := append([]integrations.Adapter{iyzicoAdapter}, smsmodule.Adapters(smsProviders)...)
+	integrationAdapters = append(integrationAdapters, tollsmodule.Adapters(tollProviders)...)
 	integrationAccountsSvc := integrationaccountsusecase.New(deps.Queries, integrationVault,
-		integrations.NewRegistry(append([]integrations.Adapter{iyzicoAdapter}, smsmodule.Adapters(smsProviders)...)...))
+		integrations.NewRegistry(integrationAdapters...))
 	// Generic integration job runner (TEC-751): steps go to the
 	// integrations queues when a queue is configured.
 	integrationOps := integrations.NewOperationRegistry()
@@ -503,20 +516,39 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	// engine, operation tasks; documents through contracts.
 	rentalsSvc := rentalusecase.New(deps.DB, deps.Queries, availabilitySvc, rentaladapters.NewReservations(reservationSvc), vehicleSvc)
 	rentalsSvc.SetDocuments(contractsSvc)
-	rentalsSvc.SetResourceEvents(resourceEvents)
-	reservationSvc.SetLifecycleListener(rentalsSvc)
+	// Operation task events of rentals and inspections also refresh the
+	// field task lists (board, my tasks).
+	rentalsSvc.SetResourceEvents(fieldtasksusecase.MirrorPublisher{Publisher: resourceEvents})
+	// Field tasks (TEC-724): delivery / collection tasks of reservations,
+	// transfers on the fleet transfer flow, delivery eligibility and fees
+	// of service points in quotes, assignment notifications.
+	fieldTasksSvc := fieldtasksusecase.New(deps.DB, deps.Queries)
+	fieldTasksSvc.SetTransfers(fleetOpsSvc)
+	fieldTasksSvc.SetFinisher(fieldtasksadapters.Finisher{Rentals: rentalsSvc})
+	fieldTasksSvc.SetNotifier(notifSvc)
+	fieldTasksSvc.SetResourceEvents(resourceEvents)
+	fieldTasksSvc.SetLogger(log)
+	reservationSvc.SetDeliveryQuoter(fieldTasksSvc)
+	reservationSvc.SetLifecycleListener(reservationusecase.Listeners{rentalsSvc, fieldTasksSvc})
+	// Toll passes (TEC-725): provider fetch jobs on the integration runner,
+	// file import fallback, matching to rentals (toll charges), review
+	// queue. The finance ledger (TEC-717) plugs in with SetLedger.
+	tollsSvc := tollsusecase.New(deps.DB, deps.Queries, integrationAccountsSvc, integrationRunner, integrationOps, tollProviders...)
+	tollsSvc.SetResourceEvents(resourceEvents)
+	tollsSvc.SetLogger(log)
 	// Inspections (TEC-712 / 713 / 714): mobile handover / return forms on
 	// the rentals use cases, evidence in private storage behind signed
 	// short-lived media links, signatures linked to contract approvals.
 	inspectionsSvc := inspectionsusecase.New(deps.DB, deps.Queries, rentalsSvc, deps.Storage, inspectionsusecase.NewMediaSigner(cfg.JWT.AccessSecret))
 	inspectionsSvc.SetContracts(contractsSvc)
-	inspectionsSvc.SetResourceEvents(resourceEvents)
+	inspectionsSvc.SetResourceEvents(fieldtasksusecase.MirrorPublisher{Publisher: resourceEvents})
 	inspectionsSvc.SetLogger(log)
 	// Finance (TEC-717 / TEC-720): the customer / supplier ledger, cash and
 	// bank accounts, expenses. Rentals accrue (rent at the handover,
 	// approved charges), payments post collections and refunds, statements
 	// go out over the SMS and pay-link plumbing.
 	financeSvc := financeusecase.New(deps.DB, deps.Queries, deps.Storage)
+	tollsSvc.SetLedger(tollsadapters.Ledger{Finance: financeSvc})
 	financeSvc.SetResourceEvents(resourceEvents)
 	financeSvc.SetMessaging(paymentsSvc, smsSvc)
 	financeSvc.SetLogger(log)
@@ -552,10 +584,12 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	paymentsmodule.RegisterLiveResources(tenantLive)
 	integrationjobsmodule.RegisterLiveResources(tenantLive)
 	rentalsmodule.RegisterLiveResources(tenantLive)
+	fieldtasksmodule.RegisterLiveResources(tenantLive)
 	inspectionsmodule.RegisterLiveResources(tenantLive)
 	contractsmodule.RegisterLiveResources(tenantLive)
 	customerportalmodule.RegisterLiveResources(tenantLive)
 	financemodule.RegisterLiveResources(tenantLive)
+	tollsmodule.RegisterLiveResources(tenantLive)
 	resourceEvents.AddResolver(tenantmodule.ChannelResolver(tenantmodule.QueriesLookup(deps.Queries)))
 	uc.AddChannelRules(tenantmodule.ChannelRule(tenantLive, tenantResolver))
 	catalogmodule.RegisterLiveResources(liveResources)
@@ -609,6 +643,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		campaignsadapters.NewIO(campaignsSvc),
 		reservationadapters.NewIO(reservationSvc),
 		rentaladapters.NewIO(rentalsSvc),
+		tollsadapters.NewIO(tollsSvc),
 		orgadapters.NewIO(orgSvc),
 		customeradapters.NewIO(customerSvc),
 		financeadapters.NewAccountsIO(financeSvc),
@@ -633,6 +668,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		extrasadapters.NewBulk(extrasSvc),
 		campaignsadapters.NewBulk(campaignsSvc),
 		reservationadapters.NewBulk(reservationSvc),
+		fieldtasksadapters.NewBulk(fieldTasksSvc),
 		orgadapters.NewBulk(orgSvc),
 		customeradapters.NewBulk(customerSvc),
 		financeadapters.NewMovementsBulk(financeSvc),
@@ -764,6 +800,14 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	paymentsmodule.RegisterRoutes(mux, paymentsH, tokens, loader, tenantResolver)
 	rentalsmodule.RegisterRoutes(mux, rentalhandler.New(rentalsSvc, activityRec), rentalsmodule.EngineHandlers{
 		Export: exportH.TenantExport(rentalsmodule.Resource, rentalsmodule.ExportQueryKeys...),
+	}, tokens, loader, tenantResolver)
+	tollsmodule.RegisterRoutes(mux, tollshandler.New(tollsSvc, activityRec), tollsmodule.EngineHandlers{
+		Export: exportH.TenantExport(tollsmodule.Resource, tollsmodule.ExportQueryKeys...),
+		Import: importH.TenantUpload(tollsmodule.Resource),
+		Sample: importH.TenantSample(tollsmodule.Resource),
+	}, tokens, loader, tenantResolver)
+	fieldtasksmodule.RegisterRoutes(mux, fieldtaskshandler.New(fieldTasksSvc, activityRec), fieldtasksmodule.EngineHandlers{
+		Bulk: bulkH.TenantExecute(fieldtasksmodule.Resource),
 	}, tokens, loader, tenantResolver)
 	// Operations overview (TEC-716): the tenant home page and the sidebar
 	// badge counts, read-only over the modules above.

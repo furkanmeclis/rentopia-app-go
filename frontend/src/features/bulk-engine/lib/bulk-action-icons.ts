@@ -83,6 +83,9 @@ const bulkActionIconCatalog: Record<
   "tenant.expenses": {
     set_category: Tag,
   },
+  "tenant.field_tasks": {
+    assign: UserCheck,
+  },
 };
 
 export function resolveBulkActionIcon(

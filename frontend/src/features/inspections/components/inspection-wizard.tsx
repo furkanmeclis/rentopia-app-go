@@ -257,7 +257,7 @@ export function InspectionWizard({
       breadcrumbs={[
         { label: t("layout.breadcrumb_home"), href: routes.tenant.home(slug) },
         {
-          label: t("inspections.field.title"),
+          label: t("field_tasks.my.title"),
           href: routes.tenant.field.root(slug),
         },
         { label: t(KIND_LABEL_KEYS[kind]) },

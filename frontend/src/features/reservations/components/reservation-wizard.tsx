@@ -7,6 +7,7 @@ import {
   Calculator,
   CheckCircle2,
   RefreshCw,
+  Truck,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
@@ -29,6 +30,7 @@ import { permissions } from "@/config/permissions";
 import { routes } from "@/config/routes";
 import { AvailabilitySearchForm } from "@/features/availability/components/availability-search-form";
 import { CAPACITY_REASON_LABEL_KEYS } from "@/features/availability/constants";
+import { deliveryProblems } from "@/features/field-tasks/lib/field-tasks";
 import { channelLabel } from "@/features/pricing/hooks/use-pricing-options";
 import { moneyText } from "@/features/pricing/lib/format";
 import {
@@ -524,8 +526,13 @@ export function ReservationWizardPage() {
         setStep("extras");
         return;
       }
+      const delivery = deliveryProblems(t, error);
       setQuoteError(
-        "message" in p ? p.message : t("reservations.problems.generic"),
+        delivery.length
+          ? delivery.join(" · ")
+          : "message" in p
+            ? p.message
+            : t("reservations.problems.generic"),
       );
     }
   };
@@ -604,6 +611,12 @@ export function ReservationWizardPage() {
           {product.product.code} · {product.product.title}
         </Badge>
       ) : null}
+      {search?.pickup_point_uuid || search?.return_point_uuid ? (
+        <Badge variant="outline" className="gap-1">
+          <Truck className="size-3" aria-hidden />
+          {t("field_tasks.delivery.badge")}
+        </Badge>
+      ) : null}
       {selectedDrivers.length > 0 ? (
         <Badge variant="outline">
           {t("reservations.wizard.drivers_count", {
@@ -648,6 +661,7 @@ export function ReservationWizardPage() {
         <div className={step === "search" ? undefined : "hidden"}>
           <EntitySectionCard title={t("reservations.wizard.steps.search")}>
             <AvailabilitySearchForm
+              withDelivery
               pending={searchQuery.isFetching}
               onSearch={(request) => {
                 setSearch(request);
@@ -661,6 +675,30 @@ export function ReservationWizardPage() {
 
         {step === "product" ? (
           <EntitySectionCard title={t("reservations.wizard.steps.product")}>
+            {deliveryProblems(t, searchQuery.error).length ? (
+              <Alert variant="destructive" className="mb-4">
+                <AlertTriangle className="size-4" />
+                <AlertTitle>
+                  {t("field_tasks.delivery.not_eligible")}
+                </AlertTitle>
+                <AlertDescription className="space-y-2">
+                  <ul className="list-inside list-disc">
+                    {deliveryProblems(t, searchQuery.error).map((text) => (
+                      <li key={text}>{text}</li>
+                    ))}
+                  </ul>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setStep("search")}
+                  >
+                    <ArrowLeft className="size-3.5" />
+                    {t("field_tasks.delivery.change")}
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            ) : null}
             {searchQuery.data?.warnings.length ? (
               <Alert className="mb-4">
                 <AlertDescription>

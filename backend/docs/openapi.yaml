@@ -11194,7 +11194,7 @@ paths:
           schema: { type: string }
         - { name: status, in: query, schema: { type: string }, description: "active, disabled" }
         - { name: kind, in: query, schema: { type: string }, description: "payment, sms" }
-        - { name: provider, in: query, schema: { type: string }, description: "iyzico, netgsm, log" }
+        - { name: provider, in: query, schema: { type: string }, description: "iyzico, netgsm, log, hgs_fake" }
       responses:
         "200":
           description: Account page
@@ -11225,14 +11225,14 @@ paths:
               additionalProperties: false
               required: [provider, display_name, credentials]
               properties:
-                kind: { type: string, enum: [payment, sms], description: "Defaults to the provider's kind." }
-                provider: { type: string, enum: [iyzico, netgsm, log] }
+                kind: { type: string, enum: [payment, sms, toll], description: "Defaults to the provider's kind." }
+                provider: { type: string, enum: [iyzico, netgsm, log, hgs_fake] }
                 display_name: { type: string, maxLength: 120 }
                 mode: { type: string, enum: [sandbox, live] }
                 credentials:
                   type: object
                   additionalProperties: { type: string }
-                  description: "iyzico: `api_key`, `secret_key`; netgsm: `usercode`, `password`, `msgheader`; log (development only): `msgheader`"
+                  description: "iyzico: `api_key`, `secret_key`; netgsm: `usercode`, `password`, `msgheader`; log (development only): `msgheader`; hgs_fake (toll passes, development only): `api_key`, `customer_no`"
       responses:
         "201": { $ref: "#/components/responses/IntegrationAccountOK" }
         "400": { $ref: "#/components/responses/BadRequest" }
@@ -13960,6 +13960,406 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
 
+  /v1/tenant/field-tasks/meta:
+    get:
+      tags: [Tenant]
+      operationId: getTenantFieldTasksMeta
+      summary: Field task board table contract
+      description: "`tenant.field_tasks.read`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Resource meta
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeResourceMeta" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/field-tasks/facets:
+    get:
+      tags: [Tenant]
+      operationId: getTenantFieldTasksFacets
+      summary: Field task facets
+      description: "`tenant.field_tasks.read`. Status, type, place kind, branch and assignee (`none` = unassigned) counts in the caller's branch scope."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Facets
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFieldTaskFacets" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/field-tasks/assignees:
+    get:
+      tags: [Tenant]
+      operationId: getTenantFieldTaskAssignees
+      summary: Members who work field tasks
+      description: "Any of `tenant.field_tasks.read|assign|execute`. Members whose roles grant execute or assign, with their branch scope."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Q"
+      responses:
+        "200":
+          description: Assignees
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFieldTaskAssignees" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/field-tasks/mine:
+    get:
+      tags: [Tenant]
+      operationId: getTenantMyFieldTasks
+      summary: My field tasks
+      description: "`tenant.field_tasks.execute`. The caller's own tasks (same filters as the board; the panel asks for today and tomorrow)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - { name: sort, in: query, schema: { type: string }, description: "`due_at`, `status`, `task_type` or `created_at`; prefix `-` for descending." }
+        - { name: status, in: query, schema: { type: string } }
+        - { name: task_type, in: query, schema: { type: string } }
+        - { name: due_from, in: query, schema: { type: string, format: date-time } }
+        - { name: due_to, in: query, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: Task page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFieldTaskPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/field-tasks:
+    get:
+      tags: [Tenant]
+      operationId: getTenantFieldTasks
+      summary: Field task board
+      description: "`tenant.field_tasks.read`. Tasks whose branch (or a transfer's destination) is in the caller's scope."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - { name: sort, in: query, schema: { type: string }, description: "`due_at`, `status`, `task_type` or `created_at`; prefix `-` for descending." }
+        - { name: status, in: query, schema: { type: string }, description: "planned, assigned, en_route, issue_reported, completed, cancelled" }
+        - { name: task_type, in: query, schema: { type: string }, description: "handover, return, transfer, preparation, cleaning, maintenance, deposit, other" }
+        - { name: location_kind, in: query, schema: { type: string }, description: "branch, point, address" }
+        - { name: branch, in: query, schema: { type: string }, description: Branch uuids }
+        - { name: assignee, in: query, schema: { type: string }, description: "User uuids; `none` = unassigned" }
+        - { name: unassigned, in: query, schema: { type: string, enum: ["true", "false"] } }
+        - { name: reservation, in: query, schema: { type: string }, description: Reservation uuids }
+        - { name: due_from, in: query, schema: { type: string, format: date-time } }
+        - { name: due_to, in: query, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: Task page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFieldTaskPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantFieldTask
+      summary: Open a field task
+      description: "`tenant.field_tasks.assign`. Transfer, preparation, cleaning, maintenance or other; a transfer plans the fleet transfer that moves the vehicle when the task completes."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FieldTaskCreateRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFieldTask" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/field-tasks/bulk:
+    post:
+      tags: [Tenant]
+      operationId: postTenantFieldTasksBulk
+      summary: Bulk field task actions
+      description: "`assign` (`tenant.field_tasks.assign`, `params.user_uuid` a member who works field tasks, or empty to unassign; reversible)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkExecuteRequest"
+      responses:
+        "200":
+          description: Synchronous result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeBulkSyncResult"
+        "202":
+          description: Bulk job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeBulkJob"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/field-tasks/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantFieldTask
+      summary: Field task detail
+      description: "Board readers and planners see every task in scope; executors (`tenant.field_tasks.execute` only) their own. `actions` lists what the caller can do now."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Task
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFieldTask" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantFieldTask
+      summary: Re-plan a field task
+      description: "`tenant.field_tasks.assign`. Time, duration, note, place, contact and meeting details of a live task; a planned transfer moves its fleet transfer window."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FieldTaskPatchRequest" }
+      responses:
+        "200":
+          description: Task
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFieldTask" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/field-tasks/{uuid}/events:
+    get:
+      tags: [Tenant]
+      operationId: getTenantFieldTaskEvents
+      summary: Field task timeline
+      description: "Same visibility as the detail. Creation, status, assignee, time and place changes (written by a database trigger, whatever made the change)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Timeline
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFieldTaskEvents" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/field-tasks/{uuid}/assign:
+    post:
+      tags: [Tenant]
+      operationId: postTenantFieldTaskAssign
+      summary: Assign a field task
+      description: "`tenant.field_tasks.assign`. The member must work field tasks and cover the task's branch; a new assignee restarts the task as assigned and gets an in-app notification (realtime and web push mirror it). `user_uuid: null` unassigns."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FieldTaskAssignRequest" }
+      responses:
+        "200":
+          description: Task
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFieldTask" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/field-tasks/{uuid}/start:
+    post:
+      tags: [Tenant]
+      operationId: postTenantFieldTaskStart
+      summary: Start a field task (en route)
+      description: "Planners, or the assignee with `tenant.field_tasks.execute`. From planned / assigned (an unassigned task becomes the caller's) or issue_reported (resume). A transfer starts its fleet transfer."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Task
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFieldTask" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/field-tasks/{uuid}/report-issue:
+    post:
+      tags: [Tenant]
+      operationId: postTenantFieldTaskReportIssue
+      summary: Report an issue on a field task
+      description: "Planners, or the assignee. `note` (3-1000 characters) is required; from assigned or en_route."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FieldTaskNoteRequest" }
+      responses:
+        "200":
+          description: Task
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFieldTask" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/field-tasks/{uuid}/complete:
+    post:
+      tags: [Tenant]
+      operationId: postTenantFieldTaskComplete
+      summary: Complete a field task
+      description: "Planners, or the assignee. Handover / return complete through the rental's inspection form (409 `record_handover` / `record_return`); a transfer completes its fleet transfer (the vehicle's current branch becomes the destination); cleaning, maintenance and preparation make the vehicle available."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FieldTaskNoteRequest" }
+      responses:
+        "200":
+          description: Task
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFieldTask" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/field-tasks/{uuid}/cancel:
+    post:
+      tags: [Tenant]
+      operationId: postTenantFieldTaskCancel
+      summary: Cancel a field task
+      description: "`tenant.field_tasks.assign`. `note` (3-1000 characters) is the reason; a transfer cancels its fleet transfer."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FieldTaskNoteRequest" }
+      responses:
+        "200":
+          description: Task
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFieldTask" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/delivery-points:
+    get:
+      tags: [Tenant]
+      operationId: getTenantDeliveryPoints
+      summary: Delivery points
+      description: "`tenant.quotes.read`. Active delivery points of active branches in the caller's scope with the fee (for `product` when given), hours, served districts and conditions (the reservation wizard's picker). Quotes check eligibility and price the fee themselves."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - { name: branch, in: query, schema: { type: string, format: uuid } }
+        - { name: product, in: query, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Delivery points
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeDeliveryPoints" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
   /v1/tenant/operation-tasks/meta:
     get:
       tags: [Tenant]
@@ -14015,8 +14415,8 @@ paths:
           in: query
           description: "`due_at`, `status` or `created_at`; prefix `-` for descending."
           schema: { type: string }
-        - { name: status, in: query, schema: { type: string }, description: "open, in_progress, done, cancelled" }
-        - { name: task_type, in: query, schema: { type: string }, description: "preparation, handover, return, cleaning, maintenance, deposit" }
+        - { name: status, in: query, schema: { type: string }, description: "planned, assigned, en_route, issue_reported, completed, cancelled" }
+        - { name: task_type, in: query, schema: { type: string }, description: "preparation, handover, return, cleaning, maintenance, deposit, transfer, other" }
         - { name: branch, in: query, schema: { type: string }, description: Branch uuids }
         - { name: rental, in: query, schema: { type: string }, description: Rental uuids }
         - { name: vehicle, in: query, schema: { type: string }, description: Vehicle uuids }
@@ -15564,6 +15964,463 @@ paths:
         "403": { $ref: "#/components/responses/TenantForbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/toll-passes/meta:
+    get:
+      tags: [Tenant]
+      operationId: getTenantTollPassesMeta
+      summary: Toll pass list contract
+      description: "`tenant.tolls.read`. Columns, filters, sortable fields and capabilities (export, import) of the toll pass list."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Resource meta
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeResourceMeta" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/toll-passes/facets:
+    get:
+      tags: [Tenant]
+      operationId: getTenantTollPassesFacets
+      summary: Toll pass facets and review queue count
+      description: "`tenant.tolls.read`. Status, source, provider and review reason counts in the caller's branch scope; `review` is the review queue (unmatched + needs_review)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Facets
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeTollPassFacets" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/toll-passes:
+    get:
+      tags: [Tenant]
+      operationId: getTenantTollPasses
+      summary: List toll passes
+      description: |
+        `tenant.tolls.read`. HGS / OGS passes whose vehicle (home or current
+        branch) or rental (planned pick-up / return, actual return branch) is
+        in the caller's branch scope; a pass with neither is visible to
+        members of every branch only.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - name: sort
+          in: query
+          description: "`passed_at`, `amount`, `status`, `plate` or `created_at`; prefix `-` for descending (default `-passed_at`)."
+          schema: { type: string }
+        - { name: status, in: query, schema: { type: string }, description: "unmatched, needs_review, matched, charged, ignored (comma separated)" }
+        - { name: review, in: query, schema: { type: string }, description: "`1` = the review queue (unmatched + needs_review)" }
+        - { name: review_reason, in: query, schema: { type: string }, description: Review reasons (comma separated) }
+        - { name: source, in: query, schema: { type: string }, description: "api, file" }
+        - { name: provider, in: query, schema: { type: string }, description: Provider codes }
+        - { name: vehicle, in: query, schema: { type: string }, description: Vehicle uuids }
+        - { name: rental, in: query, schema: { type: string }, description: Rental uuids }
+        - { name: has_rental, in: query, schema: { type: string }, description: "`true` / `false`" }
+        - { name: from, in: query, schema: { type: string }, description: "Passes from this day (YYYY-MM-DD, Istanbul) or time" }
+        - { name: to, in: query, schema: { type: string }, description: "Passes up to this day (inclusive) or time (exclusive)" }
+      responses:
+        "200":
+          description: Toll pass page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeTollPassPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/toll-passes/export:
+    post:
+      tags: [Tenant]
+      operationId: postTenantTollPassesExport
+      summary: Export toll passes
+      description: "`tenant.tolls.read` + `tenant.tolls.export`. `query` honours `q` and the list filters; the job runs with the requester's branch scope."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExportRequest" }
+      responses:
+        "202":
+          description: Export job queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeExportJob" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/toll-passes/import:
+    post:
+      tags: [Tenant]
+      operationId: postTenantTollPassesImport
+      summary: Upload a toll pass file (provider fallback)
+      description: |
+        `tenant.tolls.read` + `tenant.tolls.import`. CSV / XLSX / TSV / JSON
+        with the columns external_id (required), passed_at (required; RFC
+        3339, `2006-01-02 15:04[:05]` or `02.01.2006 15:04[:05]` in Istanbul
+        time), plate and / or tag_number, station (required), exit_station,
+        amount (required; `47.00`, `47,00`, `1.234,56`), currency (TRY) and
+        provider (`hgs`). A row with a known provider + external_id updates
+        that pass (unchanged: nothing; changed facts: a revision, charges
+        reversed and re-created). `/preview` validates every row and reports
+        the errors per row with the field names. Continue with
+        `/v1/tenant/imports/{uuid}/mapping`, `/preview` and `/confirm`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/ImportUploadForm"
+      responses:
+        "201":
+          description: Import job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeImportJob"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/toll-passes/import/sample:
+    get:
+      tags: [Tenant]
+      operationId: getTenantTollPassesImportSample
+      summary: Download a toll pass import sample
+      description: "`tenant.tolls.import`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - name: format
+          in: query
+          schema: { type: string, enum: [json, xlsx, csv, tsv], default: xlsx }
+        - name: locale
+          in: query
+          schema: { type: string, enum: [tr, en], default: tr }
+      responses:
+        "200":
+          description: Sample file
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/toll-passes/fetch:
+    post:
+      tags: [Tenant]
+      operationId: postTenantTollPassesFetch
+      summary: Fetch passes from the provider now
+      description: |
+        `tenant.tolls.read` + `tenant.tolls.import`. Queues a `toll.fetch`
+        integration job for the organization's active toll provider account
+        over the look-back window of the toll settings (at most one per
+        minute; the hourly schedule does the same automatically). Failures
+        show as integration jobs (operations overview). `409
+        TOLL_PROVIDER_NOT_CONNECTED` without an active account.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "202":
+          description: Fetch job
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeTollFetch" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/toll-passes/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantTollPass
+      summary: Get a toll pass
+      description: "`tenant.tolls.read`. The pass with its revisions, timeline (manual decisions carry their reason) and every rental charge it caused (reversals included)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200": { $ref: "#/components/responses/TollPassOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/toll-passes/{uuid}/candidates:
+    get:
+      tags: [Tenant]
+      operationId: getTenantTollPassCandidates
+      summary: Rentals of the pass's vehicle around the pass time
+      description: "`tenant.tolls.review`. Rentals of the vehicle within three days of the pass in the caller's branch scope; `contains_pass` when the actual handover → return holds the pass time."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Candidate rentals
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeTollCandidates" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/toll-passes/{uuid}/assign:
+    post:
+      tags: [Tenant]
+      operationId: postTenantTollPassAssign
+      summary: Assign a pass to a rental
+      description: |
+        `tenant.tolls.review`. Mandatory reason (audited). The rental must be
+        handed over (not in preparation, not cancelled) and in the caller's
+        branch scope. The old charge is reversed and the new one created on
+        the rental; automatic matching keeps the assignment.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TollAssignRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/TollPassOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/toll-passes/{uuid}/unassign:
+    post:
+      tags: [Tenant]
+      operationId: postTenantTollPassUnassign
+      summary: Remove the rental of a pass
+      description: "`tenant.tolls.review`. Mandatory reason (audited). Charges are reversed; the pass waits in the review queue as unmatched (`unassigned`)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TollReasonRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/TollPassOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/toll-passes/{uuid}/ignore:
+    post:
+      tags: [Tenant]
+      operationId: postTenantTollPassIgnore
+      summary: Ignore a pass (not billed)
+      description: "`tenant.tolls.review`. Mandatory reason (audited); any live charge is reversed."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TollReasonRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/TollPassOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/toll-passes/{uuid}/rematch:
+    post:
+      tags: [Tenant]
+      operationId: postTenantTollPassRematch
+      summary: Hand a pass back to the automatic matching
+      description: "`tenant.tolls.review`. Mandatory reason (audited). A person's earlier decision is dropped; charges settle to the automatic result."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TollReasonRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/TollPassOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/toll-settings:
+    get:
+      tags: [Tenant]
+      operationId: getTenantTollSettings
+      summary: Toll settings
+      description: "`tenant.tolls.read`. Processing fee, automatic fetch and look-back window; whether a toll provider account is connected."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200": { $ref: "#/components/responses/TollSettingsOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantTollSettings
+      summary: Change the toll settings
+      description: "`tenant.tolls.read` + `tenant.settings.write`. A new processing fee applies to passes charged from now on."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TollSettingsPatch" }
+      responses:
+        "200": { $ref: "#/components/responses/TollSettingsOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/vehicles/{uuid}/toll-tags:
+    get:
+      tags: [Tenant]
+      operationId: getTenantVehicleTollTags
+      summary: Toll tags of a vehicle
+      description: "`tenant.tolls.read`. Current tag first, then the history."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Tags
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeTollTags" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantVehicleTollTag
+      summary: Link a toll tag to a vehicle
+      description: "`tenant.tolls.read` + `tenant.vehicles.write`. A tag number is on one vehicle at a time: an overlapping period answers `409 CONFLICT` (`tag_number`, `in_use`). Review passes of the tag are matched again."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TollTagCreate" }
+      responses:
+        "201": { $ref: "#/components/responses/TollTagOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/vehicles/{uuid}/toll-tags/{tagUuid}:
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantVehicleTollTag
+      summary: Change or end a toll tag link
+      description: "`tenant.tolls.read` + `tenant.vehicles.write`. Typically sets `valid_to` (the tag left the vehicle); `clear_valid_to` puts it back."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - name: tagUuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TollTagPatch" }
+      responses:
+        "200": { $ref: "#/components/responses/TollTagOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantVehicleTollTag
+      summary: Delete a mistaken toll tag link
+      description: "`tenant.tolls.read` + `tenant.vehicles.write`. Matched passes keep their rental; end a real tag with `valid_to` instead."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - name: tagUuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204": { description: Deleted }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /v1/tenant/finance/summary:
     get:
@@ -17176,6 +18033,24 @@ components:
       schema: { type: integer, minimum: 1950, maximum: 2100 }
 
   responses:
+    TollPassOK:
+      description: Toll pass
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/EnvelopeTollPass"
+    TollSettingsOK:
+      description: Toll settings
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/EnvelopeTollSettings"
+    TollTagOK:
+      description: Toll tag
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/EnvelopeTollTag"
     CustomerSessionRequired:
       description: "`CUSTOMER_SESSION_REQUIRED`: no live customer session of this organization"
       content:
@@ -18156,7 +19031,7 @@ components:
 
     ServicePoint:
       type: object
-      required: [uuid, branch_uuid, type, name, description, extra_fee, working_hours, online_selectable, is_active, created_at, updated_at]
+      required: [uuid, branch_uuid, type, name, description, extra_fee, working_hours, online_selectable, is_active, delivery_enabled, delivery_extra, service_districts, latitude, longitude, service_radius_km, min_notice_minutes, delivery_conditions, created_at, updated_at]
       properties:
         uuid: { type: string, format: uuid }
         branch_uuid: { type: string, format: uuid }
@@ -18171,6 +19046,22 @@ components:
             - type: "null"
         online_selectable: { type: boolean }
         is_active: { type: boolean }
+        delivery_enabled: { type: boolean, description: "Staff bring / collect the vehicle here (TEC-724)" }
+        delivery_extra:
+          description: "The delivery extra whose price is the fee (null = extra_fee)"
+          oneOf:
+            - type: object
+              required: [uuid, name]
+              properties:
+                uuid: { type: string, format: uuid }
+                name: { type: string }
+            - type: "null"
+        service_districts: { type: array, items: { type: string }, description: "Districts an address zone serves (empty = any)" }
+        latitude: { type: [number, "null"] }
+        longitude: { type: [number, "null"] }
+        service_radius_km: { type: [number, "null"], description: "Radius around the centre an address zone serves" }
+        min_notice_minutes: { type: integer }
+        delivery_conditions: { type: string }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 
@@ -18194,6 +19085,14 @@ components:
             - type: "null"
         online_selectable: { type: boolean }
         is_active: { type: boolean }
+        delivery_enabled: { type: boolean, description: "Default true for airport, hotel and address_zone points" }
+        delivery_extra_uuid: { type: [string, "null"], format: uuid, description: "An extra of type delivery" }
+        service_districts: { type: array, items: { type: string, maxLength: 128 }, maxItems: 200 }
+        latitude: { type: [number, "null"], minimum: -90, maximum: 90 }
+        longitude: { type: [number, "null"], minimum: -180, maximum: 180 }
+        service_radius_km: { type: [number, "null"], exclusiveMinimum: 0, maximum: 10000 }
+        min_notice_minutes: { type: integer, minimum: 0, maximum: 10080 }
+        delivery_conditions: { type: string, maxLength: 2000 }
 
     ServicePointCreateRequest:
       type: object
@@ -23472,7 +24371,15 @@ components:
           oneOf:
             - $ref: "#/components/schemas/ManualDiscount"
             - type: "null"
-        delivery_fee: { type: string }
+        delivery_fee: { type: string, description: "Staff delivery fee; replaces the computed fees of delivery points (then needs tenant.price.override)" }
+        pickup_delivery:
+          oneOf:
+            - $ref: "#/components/schemas/DeliveryDetails"
+            - type: "null"
+        return_delivery:
+          oneOf:
+            - $ref: "#/components/schemas/DeliveryDetails"
+            - type: "null"
 
     QuoteSearchRequest:
       type: object
@@ -23488,6 +24395,14 @@ components:
         product_uuids:
           type: array
           items: { type: string, format: uuid }
+        pickup_delivery:
+          oneOf:
+            - $ref: "#/components/schemas/DeliveryDetails"
+            - type: "null"
+        return_delivery:
+          oneOf:
+            - $ref: "#/components/schemas/DeliveryDetails"
+            - type: "null"
 
     QuoteSearchItem:
       type: object
@@ -23616,7 +24531,7 @@ components:
 
     Quote:
       type: object
-      required: [uuid, purpose, status, expired, reservation, customer, product, pickup_branch, return_branch, pickup_point, return_point, starts_at, ends_at, channel, billing_days, currency, rental_subtotal, discount_total, rental_total, extras_total, one_way_fee, delivery_fee, base_total, vat_total, total, prepayment, prepayment_rule, vat_rate, difference, rate_plan_version_uuid, rate_plan_version, settings_version, extras, coupon_code, manual_discount, breakdown, lines, vehicle, availability, valid_until, used_at, created_by, created_at]
+      required: [uuid, purpose, status, expired, reservation, customer, product, pickup_branch, return_branch, pickup_point, return_point, pickup_delivery, return_delivery, starts_at, ends_at, channel, billing_days, currency, rental_subtotal, discount_total, rental_total, extras_total, one_way_fee, delivery_fee, base_total, vat_total, total, prepayment, prepayment_rule, vat_rate, difference, rate_plan_version_uuid, rate_plan_version, settings_version, extras, coupon_code, manual_discount, breakdown, lines, vehicle, availability, valid_until, used_at, created_by, created_at]
       properties:
         uuid: { type: string, format: uuid }
         purpose: { type: string, enum: [new, change, extension, upgrade] }
@@ -23640,6 +24555,14 @@ components:
         return_point:
           oneOf:
             - $ref: "#/components/schemas/ReservationPointRef"
+            - type: "null"
+        pickup_delivery:
+          oneOf:
+            - $ref: "#/components/schemas/DeliveryDetails"
+            - type: "null"
+        return_delivery:
+          oneOf:
+            - $ref: "#/components/schemas/DeliveryDetails"
             - type: "null"
         starts_at: { type: string, format: date-time }
         ends_at: { type: string, format: date-time }
@@ -23804,6 +24727,14 @@ components:
           oneOf:
             - $ref: "#/components/schemas/ManualDiscount"
             - type: "null"
+        pickup_delivery:
+          oneOf:
+            - $ref: "#/components/schemas/DeliveryDetails"
+            - type: "null"
+        return_delivery:
+          oneOf:
+            - $ref: "#/components/schemas/DeliveryDetails"
+            - type: "null"
 
     ReservationApplyChangeRequest:
       type: object
@@ -23954,7 +24885,7 @@ components:
 
     Reservation:
       type: object
-      required: [uuid, reference, status, payment_status, capacity_commitment, pickup_branch, return_branch, pickup_point, return_point, starts_at, ends_at, billing_days, customer, invoice_customer, drivers, channel, approval_protocol, external_reference, collecting_party, price, quote_uuid, settings_version, policy, plan, review_deadline, payment_deadline, assigned_user, note, eligibility_override, open_tasks, actions, confirmed_at, cancelled_at, cancel_reason, created_by, created_at, updated_at]
+      required: [uuid, reference, status, payment_status, capacity_commitment, pickup_branch, return_branch, pickup_point, return_point, pickup_delivery, return_delivery, starts_at, ends_at, billing_days, customer, invoice_customer, drivers, channel, approval_protocol, external_reference, collecting_party, price, quote_uuid, settings_version, policy, plan, review_deadline, payment_deadline, assigned_user, note, eligibility_override, open_tasks, actions, confirmed_at, cancelled_at, cancel_reason, created_by, created_at, updated_at]
       properties:
         uuid: { type: string, format: uuid }
         reference: { type: string, example: IDS-2026-000123 }
@@ -23970,6 +24901,14 @@ components:
         return_point:
           oneOf:
             - $ref: "#/components/schemas/ReservationPointRef"
+            - type: "null"
+        pickup_delivery:
+          oneOf:
+            - $ref: "#/components/schemas/DeliveryDetails"
+            - type: "null"
+        return_delivery:
+          oneOf:
+            - $ref: "#/components/schemas/DeliveryDetails"
             - type: "null"
         starts_at: { type: string, format: date-time }
         ends_at: { type: string, format: date-time }
@@ -25708,11 +26647,11 @@ components:
     RentalCharge:
       type: object
       required: [uuid, kind, source, status, currency, amount, settings_version, calculation, reason, decided_at, decided_by, decision_note, created_by, created_at,
-        disputed, inspection_uuid, original_amount, override_reason, overridden_at, overridden_by]
+        disputed, inspection_uuid, original_amount, override_reason, overridden_at, overridden_by, toll_pass_uuid, reversal_of_uuid, reversed]
       properties:
         uuid: { type: string, format: uuid }
-        kind: { type: string, enum: [late_return, early_return, damage, fuel, mileage, equipment, other] }
-        source: { type: string, enum: [policy, manual] }
+        kind: { type: string, enum: [late_return, early_return, damage, fuel, mileage, equipment, toll, toll_fee, other] }
+        source: { type: string, enum: [policy, manual, toll], description: "`toll`: a toll pass charge (approved fact; reversed by a negative row, never edited)" }
         status: { type: string, enum: [proposed, approved, waived] }
         currency: { type: string }
         amount: { type: string, description: Decimal amount }
@@ -25739,6 +26678,9 @@ components:
           oneOf:
             - $ref: "#/components/schemas/ReservationActor"
             - type: "null"
+        toll_pass_uuid: { type: [string, "null"], format: uuid, description: Toll pass of a toll / toll_fee charge }
+        reversal_of_uuid: { type: [string, "null"], format: uuid, description: "This row reverses that charge (negative amount)" }
+        reversed: { type: boolean, description: A later row reverses this charge }
 
     RentalPolicy:
       type: object
@@ -26020,8 +26962,8 @@ components:
       required: [uuid, task_type, status, branch, rental, vehicle, due_at, note, assignee, started_at, completed_at, completed_by, completion_note, created_at, updated_at]
       properties:
         uuid: { type: string, format: uuid }
-        task_type: { type: string, enum: [preparation, handover, return, cleaning, maintenance, deposit] }
-        status: { type: string, enum: [open, in_progress, done, cancelled] }
+        task_type: { type: string, enum: [preparation, handover, return, cleaning, maintenance, deposit, transfer, other] }
+        status: { type: string, enum: [planned, assigned, en_route, issue_reported, completed, cancelled] }
         branch: { $ref: "#/components/schemas/RentalRef" }
         rental:
           oneOf:
@@ -26057,6 +26999,307 @@ components:
       properties:
         note: { type: string }
 
+    DeliveryDetails:
+      type: object
+      additionalProperties: false
+      description: "Delivery details of a pick-up or return at a delivery point (TEC-724). An address zone needs `address`."
+      properties:
+        address: { type: string, maxLength: 500 }
+        district: { type: string, maxLength: 128 }
+        city: { type: string, maxLength: 128 }
+        latitude: { type: [number, "null"], minimum: -90, maximum: 90 }
+        longitude: { type: [number, "null"], minimum: -180, maximum: 180 }
+        contact_name: { type: string, maxLength: 255 }
+        contact_phone: { type: string, maxLength: 32 }
+        flight_number: { type: string, maxLength: 16 }
+        meeting_note: { type: string, maxLength: 1000 }
+
+    FieldTaskRef:
+      type: object
+      required: [uuid, code, name]
+      properties:
+        uuid: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+
+    FieldTaskRecordRef:
+      type: object
+      required: [uuid, reference, status]
+      properties:
+        uuid: { type: string, format: uuid }
+        reference: { type: string }
+        status: { type: string }
+
+    FieldTaskLocation:
+      type: object
+      required: [kind, point, address, district, city, latitude, longitude]
+      properties:
+        kind: { type: string, enum: [branch, point, address] }
+        point:
+          oneOf:
+            - type: object
+              required: [uuid, name, type]
+              properties:
+                uuid: { type: string, format: uuid }
+                name: { type: string }
+                type: { type: string, enum: [office, airport, address_zone, hotel] }
+            - type: "null"
+        address: { type: string }
+        district: { type: string }
+        city: { type: string }
+        latitude: { type: [number, "null"] }
+        longitude: { type: [number, "null"] }
+
+    FieldTask:
+      type: object
+      required: [uuid, task_type, status, origin, delivery, branch, to_branch, location, contact, flight_number, meeting_note, note, due_at, planned_minutes, planned_end_at, started_at, completed_at, assigned_at, assignee, completed_by, completion_note, issue_note, issue_reported_at, rental, reservation, vehicle, transfer, inspection, actions, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        task_type: { type: string, enum: [handover, return, transfer, preparation, cleaning, maintenance, deposit, other] }
+        status: { type: string, enum: [planned, assigned, en_route, issue_reported, completed, cancelled] }
+        origin: { type: string, enum: [rental, reservation, manual, inspection] }
+        delivery: { type: boolean, description: "A handover / return at a delivery point or an address" }
+        branch: { $ref: "#/components/schemas/FieldTaskRef" }
+        to_branch:
+          oneOf:
+            - $ref: "#/components/schemas/FieldTaskRef"
+            - type: "null"
+        location: { $ref: "#/components/schemas/FieldTaskLocation" }
+        contact:
+          type: object
+          required: [name, phone]
+          properties:
+            name: { type: string }
+            phone: { type: string }
+        flight_number: { type: string }
+        meeting_note: { type: string }
+        note: { type: string }
+        due_at: { type: string, format: date-time, description: Planned start }
+        planned_minutes: { type: integer }
+        planned_end_at: { type: string, format: date-time }
+        started_at: { type: [string, "null"], format: date-time }
+        completed_at: { type: [string, "null"], format: date-time }
+        assigned_at: { type: [string, "null"], format: date-time }
+        assignee:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        completed_by:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        completion_note: { type: string }
+        issue_note: { type: string }
+        issue_reported_at: { type: [string, "null"], format: date-time }
+        rental:
+          oneOf:
+            - $ref: "#/components/schemas/FieldTaskRecordRef"
+            - type: "null"
+        reservation:
+          oneOf:
+            - $ref: "#/components/schemas/FieldTaskRecordRef"
+            - type: "null"
+        vehicle:
+          oneOf:
+            - $ref: "#/components/schemas/RentalVehicleRef"
+            - type: "null"
+        transfer:
+          oneOf:
+            - type: object
+              required: [uuid, status]
+              properties:
+                uuid: { type: string, format: uuid }
+                status: { type: string }
+            - type: "null"
+        inspection: { type: string, enum: ["", handover, return], description: "The inspection form this task continues in" }
+        actions:
+          type: array
+          items: { type: string, enum: [assign, edit, start, report_issue, inspection, complete, cancel] }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    FieldTaskEvent:
+      type: object
+      required: [uuid, action, from_status, to_status, note, data, actor, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        action: { type: string, enum: [created, status_changed, assignee_changed, rescheduled, relocated] }
+        from_status: { type: [string, "null"] }
+        to_status: { type: [string, "null"] }
+        note: { type: string }
+        data: { type: object, additionalProperties: true }
+        actor:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        created_at: { type: string, format: date-time }
+
+    FieldTaskFacetValue:
+      type: object
+      required: [value, label, count]
+      properties:
+        value: { type: string }
+        label: { type: string }
+        count: { type: integer, format: int64 }
+
+    FieldTaskFacets:
+      type: object
+      required: [status, task_type, location_kind, branch, assignee]
+      properties:
+        status: { type: array, items: { $ref: "#/components/schemas/FieldTaskFacetValue" } }
+        task_type: { type: array, items: { $ref: "#/components/schemas/FieldTaskFacetValue" } }
+        location_kind: { type: array, items: { $ref: "#/components/schemas/FieldTaskFacetValue" } }
+        branch: { type: array, items: { $ref: "#/components/schemas/FieldTaskFacetValue" } }
+        assignee: { type: array, items: { $ref: "#/components/schemas/FieldTaskFacetValue" }, description: "`none` = unassigned" }
+
+    FieldTaskAssignee:
+      type: object
+      required: [uuid, name, surname, email, branch_scope, branch_uuids]
+      properties:
+        uuid: { type: string, format: uuid }
+        name: { type: string }
+        surname: { type: string }
+        email: { type: string }
+        branch_scope: { type: string, enum: [all, selected] }
+        branch_uuids: { type: array, items: { type: string, format: uuid } }
+
+    FieldTaskCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [task_type, branch_uuid, due_at]
+      properties:
+        task_type: { type: string, enum: [transfer, preparation, cleaning, maintenance, other] }
+        branch_uuid: { type: string, format: uuid }
+        to_branch_uuid: { type: [string, "null"], format: uuid, description: "Transfer destination (required for a transfer)" }
+        vehicle_uuid: { type: [string, "null"], format: uuid, description: "Required for a transfer" }
+        due_at: { type: string, format: date-time }
+        planned_minutes: { type: [integer, "null"], minimum: 5, maximum: 1440 }
+        assignee_uuid: { type: [string, "null"], format: uuid }
+        note: { type: string, maxLength: 1000 }
+        point_uuid: { type: [string, "null"], format: uuid }
+        address: { type: [string, "null"], maxLength: 500 }
+        district: { type: [string, "null"], maxLength: 128 }
+        city: { type: [string, "null"], maxLength: 128 }
+        latitude: { type: [number, "null"], minimum: -90, maximum: 90 }
+        longitude: { type: [number, "null"], minimum: -180, maximum: 180 }
+        contact_name: { type: [string, "null"], maxLength: 255 }
+        contact_phone: { type: [string, "null"], maxLength: 32 }
+        flight_number: { type: [string, "null"], maxLength: 16 }
+        meeting_note: { type: [string, "null"], maxLength: 1000 }
+
+    FieldTaskPatchRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        due_at: { type: [string, "null"], format: date-time }
+        planned_minutes: { type: [integer, "null"], minimum: 5, maximum: 1440 }
+        note: { type: [string, "null"], maxLength: 1000 }
+        clear_point: { type: boolean }
+        point_uuid: { type: [string, "null"], format: uuid }
+        address: { type: [string, "null"], maxLength: 500 }
+        district: { type: [string, "null"], maxLength: 128 }
+        city: { type: [string, "null"], maxLength: 128 }
+        latitude: { type: [number, "null"], minimum: -90, maximum: 90 }
+        longitude: { type: [number, "null"], minimum: -180, maximum: 180 }
+        contact_name: { type: [string, "null"], maxLength: 255 }
+        contact_phone: { type: [string, "null"], maxLength: 32 }
+        flight_number: { type: [string, "null"], maxLength: 16 }
+        meeting_note: { type: [string, "null"], maxLength: 1000 }
+
+    FieldTaskAssignRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        user_uuid: { type: [string, "null"], format: uuid, description: "A member who works field tasks; null unassigns" }
+
+    FieldTaskNoteRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        note: { type: string, maxLength: 1000 }
+
+    DeliveryPoint:
+      type: object
+      required: [uuid, name, type, description, branch, fee, fee_source, delivery_extra, requires_address, service_districts, min_notice_minutes, conditions, online_selectable, working_hours]
+      properties:
+        uuid: { type: string, format: uuid }
+        name: { type: string }
+        type: { type: string, enum: [office, airport, address_zone, hotel] }
+        description: { type: string }
+        branch: { $ref: "#/components/schemas/FieldTaskRef" }
+        fee: { type: string, description: "Fee for one billing day (per-day extras multiply by the rental days)" }
+        fee_source: { type: string, enum: [extra, flat, none] }
+        delivery_extra:
+          oneOf:
+            - $ref: "#/components/schemas/FieldTaskRef"
+            - type: "null"
+        requires_address: { type: boolean }
+        service_districts: { type: array, items: { type: string } }
+        min_notice_minutes: { type: integer }
+        conditions: { type: string }
+        online_selectable: { type: boolean }
+        working_hours:
+          description: "`null` = the branch working hours"
+          oneOf:
+            - $ref: "#/components/schemas/WeeklyHours"
+            - type: "null"
+
+    EnvelopeFieldTask:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/FieldTask" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeFieldTaskPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/FieldTask" } }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeFieldTaskEvents:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { type: array, items: { $ref: "#/components/schemas/FieldTaskEvent" } }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeFieldTaskFacets:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/FieldTaskFacets" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeFieldTaskAssignees:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { type: array, items: { $ref: "#/components/schemas/FieldTaskAssignee" } }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeDeliveryPoints:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { type: array, items: { $ref: "#/components/schemas/DeliveryPoint" } }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+
     EnvelopeOperationTask:
       type: object
       required: [success, data, meta]
@@ -26086,7 +27329,7 @@ components:
       properties:
         total: { type: integer, format: int64 }
         done: { type: integer, format: int64 }
-        open: { type: integer, format: int64, description: Open or in progress. }
+        open: { type: integer, format: int64, description: "Planned, assigned, en route or with an issue." }
 
     OverviewOperationItem:
       type: object
@@ -26094,7 +27337,7 @@ components:
       properties:
         uuid: { type: string, format: uuid, description: Operation task uuid. }
         task_type: { type: string, enum: [handover, return] }
-        status: { type: string, enum: [open, in_progress, done] }
+        status: { type: string, enum: [planned, assigned, en_route, issue_reported, completed] }
         due_at: { type: string, format: date-time }
         completed_at: { type: [string, "null"], format: date-time }
         branch: { $ref: "#/components/schemas/OverviewBranchRef" }
@@ -27010,8 +28253,8 @@ components:
       type: object
       required: [kind, provider, fields, modes]
       properties:
-        kind: { type: string, enum: [payment, sms] }
-        provider: { type: string, enum: [iyzico, netgsm, log] }
+        kind: { type: string, enum: [payment, sms, toll] }
+        provider: { type: string, enum: [iyzico, netgsm, log, hgs_fake] }
         fields:
           type: array
           items: { $ref: "#/components/schemas/IntegrationField" }
@@ -27039,8 +28282,8 @@ components:
       required: [uuid, kind, provider, display_name, mode, status, credentials_hint, last_checked_at, last_check_status, last_check_error, created_at, updated_at]
       properties:
         uuid: { type: string, format: uuid }
-        kind: { type: string, enum: [payment, sms] }
-        provider: { type: string, enum: [iyzico, netgsm, log] }
+        kind: { type: string, enum: [payment, sms, toll] }
+        provider: { type: string, enum: [iyzico, netgsm, log, hgs_fake] }
         display_name: { type: string }
         mode: { type: string, enum: [sandbox, live] }
         status: { type: string, enum: [active, disabled] }
@@ -28178,6 +29421,315 @@ components:
       properties:
         status: { type: string, enum: [resolved, rejected] }
         note: { type: string, maxLength: 2000 }
+
+    TollPass:
+      type: object
+      required: [uuid, provider, external_id, source, passed_at, plate, tag_number, station, exit_station, currency, amount, status,
+        review_reason, match_method, manual, revision, vehicle, rental, fee_amount, last_fetched_at, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        provider: { type: string, description: Provider / issuer code }
+        external_id: { type: string, description: The provider's transaction id (unique per organization and provider) }
+        source: { type: string, enum: [api, file] }
+        passed_at: { type: string, format: date-time }
+        plate: { type: string }
+        tag_number: { type: string }
+        station: { type: string, description: Station or route entry }
+        exit_station: { type: string }
+        currency: { type: string }
+        amount: { type: string, description: Decimal amount }
+        status: { type: string, enum: [unmatched, needs_review, matched, charged, ignored] }
+        review_reason:
+          type: string
+          description: "Why the pass waits in the review queue ('' otherwise)"
+          enum: ["", vehicle_unknown, vehicle_conflict, no_rental, overlap, missing_actual_times, outside_actual_window, in_transfer, rental_cancelled, unassigned]
+        match_method: { type: string, enum: ["", plate, tag, manual] }
+        manual: { type: boolean, description: A person decided (automatic matching keeps the decision) }
+        revision: { type: integer }
+        vehicle:
+          oneOf:
+            - $ref: "#/components/schemas/TollVehicleRef"
+            - type: "null"
+        rental:
+          oneOf:
+            - $ref: "#/components/schemas/TollRentalRef"
+            - type: "null"
+        fee_amount: { type: [string, "null"], description: Processing fee line of the pass }
+        last_fetched_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    TollVehicleRef:
+      type: object
+      required: [uuid, plate]
+      properties:
+        uuid: { type: string, format: uuid }
+        plate: { type: string }
+
+    TollRentalRef:
+      type: object
+      required: [uuid, reference, status]
+      properties:
+        uuid: { type: string, format: uuid }
+        reference: { type: string }
+        status: { type: string }
+
+    TollPassRevision:
+      type: object
+      required: [uuid, revision, source, changed_fields, previous, current, amount_before, amount_after, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        revision: { type: integer }
+        source: { type: string, enum: [api, file] }
+        changed_fields: { type: array, items: { type: string } }
+        previous: { type: object }
+        current: { type: object }
+        amount_before: { type: string }
+        amount_after: { type: string }
+        created_at: { type: string, format: date-time }
+
+    TollPassEvent:
+      type: object
+      required: [uuid, action, from_status, to_status, reason, data, actor, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        action:
+          type: string
+          enum: [received, revised, matched, review, assigned, unassigned, ignored, rematched, charge_created, charge_reversed]
+        from_status: { type: string }
+        to_status: { type: string }
+        reason: { type: string }
+        data: { type: object }
+        actor:
+          oneOf:
+            - $ref: "#/components/schemas/ReservationActor"
+            - type: "null"
+        created_at: { type: string, format: date-time }
+
+    TollPassCharge:
+      type: object
+      required: [uuid, kind, status, currency, amount, reason, reversal_of_uuid, rental, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        kind: { type: string, enum: [toll, toll_fee] }
+        status: { type: string }
+        currency: { type: string }
+        amount: { type: string, description: Decimal amount (negative for a reversal) }
+        reason: { type: string }
+        reversal_of_uuid: { type: [string, "null"], format: uuid }
+        rental: { $ref: "#/components/schemas/TollRentalRef" }
+        created_at: { type: string, format: date-time }
+
+    TollPassDetail:
+      allOf:
+        - $ref: "#/components/schemas/TollPass"
+        - type: object
+          required: [first_fetched_at, raw, account, decided_at, decided_by, revisions, events, charges]
+          properties:
+            first_fetched_at: { type: string, format: date-time }
+            raw: { type: object, description: Non-sensitive provider fields }
+            account:
+              oneOf:
+                - type: object
+                  required: [uuid, display_name]
+                  properties:
+                    uuid: { type: string, format: uuid }
+                    display_name: { type: string }
+                - type: "null"
+            decided_at: { type: [string, "null"], format: date-time }
+            decided_by:
+              oneOf:
+                - $ref: "#/components/schemas/ReservationActor"
+                - type: "null"
+            revisions: { type: array, items: { $ref: "#/components/schemas/TollPassRevision" } }
+            events: { type: array, items: { $ref: "#/components/schemas/TollPassEvent" } }
+            charges: { type: array, items: { $ref: "#/components/schemas/TollPassCharge" } }
+
+    TollFacet:
+      type: object
+      required: [value, count]
+      properties:
+        value: { type: string }
+        count: { type: integer, format: int64 }
+
+    TollPassFacets:
+      type: object
+      required: [status, source, provider, review_reason, review]
+      properties:
+        status: { type: array, items: { $ref: "#/components/schemas/TollFacet" } }
+        source: { type: array, items: { $ref: "#/components/schemas/TollFacet" } }
+        provider: { type: array, items: { $ref: "#/components/schemas/TollFacet" } }
+        review_reason: { type: array, items: { $ref: "#/components/schemas/TollFacet" } }
+        review: { type: integer, format: int64, description: Review queue count (unmatched + needs_review) }
+
+    TollCandidate:
+      type: object
+      required: [uuid, reference, status, customer, planned_pickup_at, planned_return_at, actual_pickup_at, actual_return_at, contains_pass]
+      properties:
+        uuid: { type: string, format: uuid }
+        reference: { type: string }
+        status: { type: string }
+        customer: { type: string }
+        planned_pickup_at: { type: string, format: date-time }
+        planned_return_at: { type: string, format: date-time }
+        actual_pickup_at: { type: [string, "null"], format: date-time }
+        actual_return_at: { type: [string, "null"], format: date-time }
+        contains_pass: { type: boolean }
+
+    TollSettings:
+      type: object
+      required: [processing_fee, currency, auto_fetch, lookback_days, provider_connected, updated_at]
+      properties:
+        processing_fee: { type: string, description: Decimal fee charged as its own line next to each toll (0 = none) }
+        currency: { type: string }
+        auto_fetch: { type: boolean }
+        lookback_days: { type: integer }
+        provider_connected: { type: boolean }
+        updated_at: { type: [string, "null"], format: date-time }
+
+    TollSettingsPatch:
+      type: object
+      additionalProperties: false
+      properties:
+        processing_fee: { type: string, description: Decimal amount 0-100000 }
+        auto_fetch: { type: boolean }
+        lookback_days: { type: integer, minimum: 1, maximum: 60 }
+
+    TollAssignRequest:
+      type: object
+      additionalProperties: false
+      required: [rental_uuid, reason]
+      properties:
+        rental_uuid: { type: string, format: uuid }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+
+    TollReasonRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 3, maxLength: 500 }
+
+    TollTag:
+      type: object
+      required: [uuid, provider, network, tag_number, valid_from, valid_to, active, note, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        provider: { type: string }
+        network: { type: string, enum: [hgs, ogs] }
+        tag_number: { type: string }
+        valid_from: { type: string, format: date-time }
+        valid_to: { type: [string, "null"], format: date-time }
+        active: { type: boolean }
+        note: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    TollTagPatch:
+      type: object
+      additionalProperties: false
+      properties: &TollTagProperties
+        provider: { type: string, description: "Provider / issuer code (lower case, e.g. hgs, ptt)" }
+        network: { type: string, enum: [hgs, ogs] }
+        tag_number: { type: string, minLength: 4, maxLength: 40 }
+        valid_from: { type: string, format: date-time }
+        valid_to: { type: [string, "null"], format: date-time }
+        clear_valid_to: { type: boolean }
+        note: { type: string, maxLength: 500 }
+
+    TollTagCreate:
+      type: object
+      additionalProperties: false
+      required: [provider, tag_number, valid_from]
+      properties: *TollTagProperties
+
+    TollFetchResult:
+      type: object
+      required: [job_uuid, status, from, to]
+      properties:
+        job_uuid: { type: string, format: uuid }
+        status: { type: string, description: Integration job status }
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+
+    EnvelopeTollPass:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/TollPassDetail" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeTollPassPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/TollPass" } }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeTollPassFacets:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/TollPassFacets" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeTollCandidates:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/TollCandidate" } }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeTollSettings:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/TollSettings" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeTollTag:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/TollTag" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeTollTags:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/TollTag" } }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeTollFetch:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/TollFetchResult" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
 
     FinanceRef:
       type: object

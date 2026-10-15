@@ -52,7 +52,7 @@ type DefaultCategory struct {
 	Sort       int32
 }
 
-// DefaultCategories are seeded for every organization (migration 000201
+// DefaultCategories are seeded for every organization (migration 000097
 // for existing ones, the organization hook for new ones).
 var DefaultCategories = []DefaultCategory{
 	{"maintenance", "Bakım", 10},

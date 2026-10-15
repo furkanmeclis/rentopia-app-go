@@ -48,6 +48,58 @@ type ServicePointFields struct {
 	WorkingHours     []byte
 	OnlineSelectable bool
 	IsActive         bool
+	// Delivery settings (TEC-724).
+	DeliveryEnabled    bool
+	DeliveryExtraID    pgtype.Int8
+	ServiceDistricts   []string
+	Latitude           pgtype.Float8
+	Longitude          pgtype.Float8
+	ServiceRadiusKm    pgtype.Numeric
+	MinNoticeMinutes   int32
+	DeliveryConditions string
+}
+
+// DeliveryExtra names the delivery extra of a point.
+type DeliveryExtra struct {
+	ID   int64
+	UUID uuid.UUID
+	Name string
+}
+
+// PointFields copies the writable columns of a stored point.
+func PointFields(row db.ServicePoint) ServicePointFields {
+	return ServicePointFields{
+		Type: row.Type, Name: row.Name, Description: row.Description, ExtraFee: row.ExtraFee,
+		WorkingHours: row.WorkingHours, OnlineSelectable: row.OnlineSelectable, IsActive: row.IsActive,
+		DeliveryEnabled: row.DeliveryEnabled, DeliveryExtraID: row.DeliveryExtraID, ServiceDistricts: row.ServiceDistricts,
+		Latitude: row.Latitude, Longitude: row.Longitude, ServiceRadiusKm: row.ServiceRadiusKm,
+		MinNoticeMinutes: row.MinNoticeMinutes, DeliveryConditions: row.DeliveryConditions,
+	}
+}
+
+// DeliveryExtraByUUID resolves a delivery extra of the organization.
+func (r *Postgres) DeliveryExtraByUUID(ctx context.Context, orgID int64, id uuid.UUID) (DeliveryExtra, error) {
+	row, err := r.q.GetBranchDeliveryExtraByUUID(ctx, db.GetBranchDeliveryExtraByUUIDParams{OrganizationID: orgID, Uuid: id})
+	if err != nil {
+		return DeliveryExtra{}, mapErr(err)
+	}
+	return DeliveryExtra{ID: row.ID, UUID: row.Uuid, Name: row.Name}, nil
+}
+
+// DeliveryExtraByID names a delivery extra by id.
+func (r *Postgres) DeliveryExtraByID(ctx context.Context, orgID, id int64) (DeliveryExtra, error) {
+	row, err := r.q.GetBranchDeliveryExtraByID(ctx, db.GetBranchDeliveryExtraByIDParams{OrganizationID: orgID, ID: id})
+	if err != nil {
+		return DeliveryExtra{}, mapErr(err)
+	}
+	return DeliveryExtra{ID: row.ID, UUID: row.Uuid, Name: row.Name}, nil
+}
+
+func districtsOrEmpty(v []string) []string {
+	if v == nil {
+		return []string{}
+	}
+	return v
 }
 
 // BranchRow is a branch with its service point count.
@@ -196,6 +248,9 @@ func (r *Postgres) CreateServicePoint(ctx context.Context, orgID, branchID int64
 	row, err := r.q.CreateServicePoint(ctx, db.CreateServicePointParams{
 		OrganizationID: orgID, BranchID: branchID, Type: f.Type, Name: f.Name, Description: f.Description,
 		ExtraFee: f.ExtraFee, WorkingHours: f.WorkingHours, OnlineSelectable: f.OnlineSelectable, IsActive: f.IsActive,
+		DeliveryEnabled: f.DeliveryEnabled, DeliveryExtraID: f.DeliveryExtraID, ServiceDistricts: districtsOrEmpty(f.ServiceDistricts),
+		Latitude: f.Latitude, Longitude: f.Longitude, ServiceRadiusKm: f.ServiceRadiusKm, MinNoticeMinutes: f.MinNoticeMinutes,
+		DeliveryConditions: f.DeliveryConditions,
 	})
 	return row, mapErr(err)
 }
@@ -205,6 +260,9 @@ func (r *Postgres) UpdateServicePoint(ctx context.Context, orgID, branchID int64
 	row, err := r.q.UpdateServicePoint(ctx, db.UpdateServicePointParams{
 		OrganizationID: orgID, BranchID: branchID, Uuid: id, Type: f.Type, Name: f.Name, Description: f.Description,
 		ExtraFee: f.ExtraFee, WorkingHours: f.WorkingHours, OnlineSelectable: f.OnlineSelectable, IsActive: f.IsActive,
+		DeliveryEnabled: f.DeliveryEnabled, DeliveryExtraID: f.DeliveryExtraID, ServiceDistricts: districtsOrEmpty(f.ServiceDistricts),
+		Latitude: f.Latitude, Longitude: f.Longitude, ServiceRadiusKm: f.ServiceRadiusKm, MinNoticeMinutes: f.MinNoticeMinutes,
+		DeliveryConditions: f.DeliveryConditions,
 	})
 	return row, mapErr(err)
 }

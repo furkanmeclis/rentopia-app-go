@@ -31,7 +31,7 @@ export type PublicPayLink = Schemas["PublicPayLink"];
 export type PublicPayState = PublicPayLink["state"];
 
 export type ConnectIntegrationRequest = {
-  kind?: "payment" | "sms";
+  kind?: IntegrationAccount["kind"];
   provider: IntegrationProviderCode;
   display_name: string;
   mode: "sandbox" | "live";

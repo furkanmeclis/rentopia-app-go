@@ -273,5 +273,6 @@
   "odometer.source_status": "Status change",
   "odometer.source_maintenance": "Maintenance",
   "odometer.empty_title": "No km / fuel readings",
-  "odometer.empty_description": "Km and fuel entered on status changes or when completing maintenance show up here."
+  "odometer.empty_description": "Km and fuel entered on status changes or when completing maintenance show up here.",
+  "tabs.tolls": "Tolls"
 }

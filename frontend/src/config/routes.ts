@@ -155,9 +155,22 @@ export const routes = {
       reports: (slug: string) =>
         `/t/${encodeURIComponent(slug)}/finance/reports`,
     },
+    /** HGS / OGS toll passes and their review queue (TEC-725). */
+    tolls: {
+      root: (slug: string) => `/t/${encodeURIComponent(slug)}/tolls`,
+      review: (slug: string) => `/t/${encodeURIComponent(slug)}/tolls/review`,
+      detail: (slug: string, uuid: string) =>
+        `/t/${encodeURIComponent(slug)}/tolls/${uuid}`,
+    },
     /** Mobile handover / return ("Saha görevleri", TEC-712 / TEC-713). */
     field: {
+      /** "Görevlerim": the member's own field tasks (today, tomorrow). */
       root: (slug: string) => `/t/${encodeURIComponent(slug)}/field`,
+      /** One field task (phone layout). */
+      task: (slug: string, uuid: string) =>
+        `/t/${encodeURIComponent(slug)}/field/my/${uuid}`,
+      /** "Görev panosu": the assignment board and the staff timeline. */
+      board: (slug: string) => `/t/${encodeURIComponent(slug)}/field/board`,
       handover: (slug: string, rentalUuid: string) =>
         `/t/${encodeURIComponent(slug)}/field/handover/${rentalUuid}`,
       return: (slug: string, rentalUuid: string) =>

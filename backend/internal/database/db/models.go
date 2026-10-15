@@ -1194,24 +1194,58 @@ type OneWayRule struct {
 }
 
 type OperationTask struct {
+	ID              int64              `json:"id"`
+	Uuid            uuid.UUID          `json:"uuid"`
+	OrganizationID  int64              `json:"organization_id"`
+	TaskType        string             `json:"task_type"`
+	Status          string             `json:"status"`
+	BranchID        int64              `json:"branch_id"`
+	RentalID        pgtype.Int8        `json:"rental_id"`
+	VehicleID       pgtype.Int8        `json:"vehicle_id"`
+	DueAt           pgtype.Timestamptz `json:"due_at"`
+	AssigneeID      pgtype.Int8        `json:"assignee_id"`
+	Note            string             `json:"note"`
+	StartedAt       pgtype.Timestamptz `json:"started_at"`
+	CompletedAt     pgtype.Timestamptz `json:"completed_at"`
+	CompletedBy     pgtype.Int8        `json:"completed_by"`
+	CompletionNote  string             `json:"completion_note"`
+	CreatedBy       pgtype.Int8        `json:"created_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	ReservationID   pgtype.Int8        `json:"reservation_id"`
+	Origin          string             `json:"origin"`
+	LocationKind    string             `json:"location_kind"`
+	PointID         pgtype.Int8        `json:"point_id"`
+	Address         string             `json:"address"`
+	District        string             `json:"district"`
+	City            string             `json:"city"`
+	Latitude        pgtype.Float8      `json:"latitude"`
+	Longitude       pgtype.Float8      `json:"longitude"`
+	ContactName     string             `json:"contact_name"`
+	ContactPhone    string             `json:"contact_phone"`
+	FlightNumber    string             `json:"flight_number"`
+	MeetingNote     string             `json:"meeting_note"`
+	PlannedMinutes  int32              `json:"planned_minutes"`
+	ToBranchID      pgtype.Int8        `json:"to_branch_id"`
+	TransferID      pgtype.Int8        `json:"transfer_id"`
+	AssignedAt      pgtype.Timestamptz `json:"assigned_at"`
+	IssueNote       string             `json:"issue_note"`
+	IssueReportedAt pgtype.Timestamptz `json:"issue_reported_at"`
+	UpdatedBy       pgtype.Int8        `json:"updated_by"`
+}
+
+type OperationTaskEvent struct {
 	ID             int64              `json:"id"`
 	Uuid           uuid.UUID          `json:"uuid"`
 	OrganizationID int64              `json:"organization_id"`
-	TaskType       string             `json:"task_type"`
-	Status         string             `json:"status"`
-	BranchID       int64              `json:"branch_id"`
-	RentalID       pgtype.Int8        `json:"rental_id"`
-	VehicleID      pgtype.Int8        `json:"vehicle_id"`
-	DueAt          pgtype.Timestamptz `json:"due_at"`
-	AssigneeID     pgtype.Int8        `json:"assignee_id"`
+	TaskID         int64              `json:"task_id"`
+	Action         string             `json:"action"`
+	FromStatus     pgtype.Text        `json:"from_status"`
+	ToStatus       pgtype.Text        `json:"to_status"`
 	Note           string             `json:"note"`
-	StartedAt      pgtype.Timestamptz `json:"started_at"`
-	CompletedAt    pgtype.Timestamptz `json:"completed_at"`
-	CompletedBy    pgtype.Int8        `json:"completed_by"`
-	CompletionNote string             `json:"completion_note"`
-	CreatedBy      pgtype.Int8        `json:"created_by"`
+	Data           []byte             `json:"data"`
+	ActorID        pgtype.Int8        `json:"actor_id"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Organization struct {
@@ -1483,6 +1517,9 @@ type Quote struct {
 	CreatedBy           pgtype.Int8        `json:"created_by"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	PickupDelivery      []byte             `json:"pickup_delivery"`
+	ReturnDelivery      []byte             `json:"return_delivery"`
+	DeliveryOverride    pgtype.Numeric     `json:"delivery_override"`
 }
 
 type QuoteLine struct {
@@ -1619,6 +1656,8 @@ type RentalCharge struct {
 	OverrideReason  string             `json:"override_reason"`
 	OverriddenBy    pgtype.Int8        `json:"overridden_by"`
 	OverriddenAt    pgtype.Timestamptz `json:"overridden_at"`
+	TollPassID      pgtype.Int8        `json:"toll_pass_id"`
+	ReversalOfID    pgtype.Int8        `json:"reversal_of_id"`
 }
 
 type RentalDriver struct {
@@ -1806,6 +1845,8 @@ type Reservation struct {
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 	ApprovalProtocol     string             `json:"approval_protocol"`
+	PickupDelivery       []byte             `json:"pickup_delivery"`
+	ReturnDelivery       []byte             `json:"return_delivery"`
 }
 
 type ReservationDriver struct {
@@ -1895,19 +1936,27 @@ type RolePermission struct {
 }
 
 type ServicePoint struct {
-	ID               int64              `json:"id"`
-	Uuid             uuid.UUID          `json:"uuid"`
-	OrganizationID   int64              `json:"organization_id"`
-	BranchID         int64              `json:"branch_id"`
-	Type             string             `json:"type"`
-	Name             string             `json:"name"`
-	Description      string             `json:"description"`
-	ExtraFee         pgtype.Numeric     `json:"extra_fee"`
-	WorkingHours     []byte             `json:"working_hours"`
-	OnlineSelectable bool               `json:"online_selectable"`
-	IsActive         bool               `json:"is_active"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	ID                 int64              `json:"id"`
+	Uuid               uuid.UUID          `json:"uuid"`
+	OrganizationID     int64              `json:"organization_id"`
+	BranchID           int64              `json:"branch_id"`
+	Type               string             `json:"type"`
+	Name               string             `json:"name"`
+	Description        string             `json:"description"`
+	ExtraFee           pgtype.Numeric     `json:"extra_fee"`
+	WorkingHours       []byte             `json:"working_hours"`
+	OnlineSelectable   bool               `json:"online_selectable"`
+	IsActive           bool               `json:"is_active"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	DeliveryEnabled    bool               `json:"delivery_enabled"`
+	DeliveryExtraID    pgtype.Int8        `json:"delivery_extra_id"`
+	ServiceDistricts   []string           `json:"service_districts"`
+	Latitude           pgtype.Float8      `json:"latitude"`
+	Longitude          pgtype.Float8      `json:"longitude"`
+	ServiceRadiusKm    pgtype.Numeric     `json:"service_radius_km"`
+	MinNoticeMinutes   int32              `json:"min_notice_minutes"`
+	DeliveryConditions string             `json:"delivery_conditions"`
 }
 
 type SmsMessage struct {
@@ -2023,6 +2072,82 @@ type StorageTrash struct {
 	DeletedBy   pgtype.Int8        `json:"deleted_by"`
 	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
 	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+}
+
+type TollPass struct {
+	ID                   int64              `json:"id"`
+	Uuid                 uuid.UUID          `json:"uuid"`
+	OrganizationID       int64              `json:"organization_id"`
+	Provider             string             `json:"provider"`
+	ExternalID           string             `json:"external_id"`
+	Source               string             `json:"source"`
+	IntegrationAccountID pgtype.Int8        `json:"integration_account_id"`
+	PassedAt             pgtype.Timestamptz `json:"passed_at"`
+	Plate                string             `json:"plate"`
+	PlateKey             pgtype.Text        `json:"plate_key"`
+	TagNumber            string             `json:"tag_number"`
+	TagKey               pgtype.Text        `json:"tag_key"`
+	Station              string             `json:"station"`
+	ExitStation          string             `json:"exit_station"`
+	Currency             string             `json:"currency"`
+	Amount               pgtype.Numeric     `json:"amount"`
+	Status               string             `json:"status"`
+	ReviewReason         string             `json:"review_reason"`
+	VehicleID            pgtype.Int8        `json:"vehicle_id"`
+	RentalID             pgtype.Int8        `json:"rental_id"`
+	MatchMethod          string             `json:"match_method"`
+	Manual               bool               `json:"manual"`
+	ChargeID             pgtype.Int8        `json:"charge_id"`
+	FeeChargeID          pgtype.Int8        `json:"fee_charge_id"`
+	Revision             int32              `json:"revision"`
+	FirstFetchedAt       pgtype.Timestamptz `json:"first_fetched_at"`
+	LastFetchedAt        pgtype.Timestamptz `json:"last_fetched_at"`
+	Raw                  []byte             `json:"raw"`
+	DecidedBy            pgtype.Int8        `json:"decided_by"`
+	DecidedAt            pgtype.Timestamptz `json:"decided_at"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+type TollPassEvent struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	TollPassID     int64              `json:"toll_pass_id"`
+	Action         string             `json:"action"`
+	FromStatus     pgtype.Text        `json:"from_status"`
+	ToStatus       pgtype.Text        `json:"to_status"`
+	Reason         string             `json:"reason"`
+	Data           []byte             `json:"data"`
+	ActorID        pgtype.Int8        `json:"actor_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type TollPassRevision struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	TollPassID     int64              `json:"toll_pass_id"`
+	Revision       int32              `json:"revision"`
+	Source         string             `json:"source"`
+	ChangedFields  []string           `json:"changed_fields"`
+	Previous       []byte             `json:"previous"`
+	Current        []byte             `json:"current"`
+	AmountBefore   pgtype.Numeric     `json:"amount_before"`
+	AmountAfter    pgtype.Numeric     `json:"amount_after"`
+	CreatedBy      pgtype.Int8        `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type TollSetting struct {
+	OrganizationID int64              `json:"organization_id"`
+	ProcessingFee  pgtype.Numeric     `json:"processing_fee"`
+	Currency       string             `json:"currency"`
+	AutoFetch      bool               `json:"auto_fetch"`
+	LookbackDays   int32              `json:"lookback_days"`
+	UpdatedBy      pgtype.Int8        `json:"updated_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 type User struct {
@@ -2242,6 +2367,23 @@ type VehicleSegment struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt      pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type VehicleTollTag struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	VehicleID      int64              `json:"vehicle_id"`
+	Provider       string             `json:"provider"`
+	Network        string             `json:"network"`
+	TagNumber      string             `json:"tag_number"`
+	TagKey         pgtype.Text        `json:"tag_key"`
+	ValidFrom      pgtype.Timestamptz `json:"valid_from"`
+	ValidTo        pgtype.Timestamptz `json:"valid_to"`
+	Note           string             `json:"note"`
+	CreatedBy      pgtype.Int8        `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 type VehicleTransfer struct {

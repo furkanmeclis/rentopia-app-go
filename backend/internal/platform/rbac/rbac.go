@@ -119,6 +119,12 @@ const (
 	PermTenantContractsRead     = "tenant.contracts.read"
 	PermTenantContractsWrite    = "tenant.contracts.write"
 	PermTenantContractsActivate = "tenant.contracts.activate"
+	// Field tasks (TEC-724): read = the assignment board; assign = plan,
+	// assign (bulk), re-plan and cancel; execute = "my tasks" (start,
+	// report an issue, complete the caller's own tasks).
+	PermTenantFieldTasksRead    = "tenant.field_tasks.read"
+	PermTenantFieldTasksAssign  = "tenant.field_tasks.assign"
+	PermTenantFieldTasksExecute = "tenant.field_tasks.execute"
 	// Extras catalog, prices and branch stock (TEC-702). Equipment holds
 	// use PermTenantAvailabilityHold.
 	PermTenantExtrasRead  = "tenant.extras.read"
@@ -143,7 +149,7 @@ const (
 	PermTenantPaymentsRead        = "tenant.payments.read"
 	PermTenantPaymentsCreateLink  = "tenant.payments.create_link"
 	PermTenantReservationsApprove = "tenant.reservations.approve"
-	// Finance (TEC-717 / TEC-720, migration 000202): customer / supplier
+	// Finance (TEC-717 / TEC-720, migration 000098): customer / supplier
 	// accounts and their ledger, cash / bank accounts, expenses, reports.
 	// Recording a collection / refund on an account also needs
 	// PermTenantPaymentCollect / PermTenantPaymentRefund.
@@ -162,6 +168,12 @@ const (
 	PermTenantFinanceExpensesImport          = "tenant.finance.expenses.import"
 	PermTenantFinanceExpensesBulkSetCategory = "tenant.finance.expenses.bulk.set_category"
 	PermTenantFinanceReportsRead             = "tenant.finance.reports.read"
+	// Toll passes (TEC-725, migration 000094). Vehicle tags use
+	// PermTenantVehiclesWrite, the processing fee PermTenantSettingsWrite.
+	PermTenantTollsRead   = "tenant.tolls.read"
+	PermTenantTollsExport = "tenant.tolls.export"
+	PermTenantTollsImport = "tenant.tolls.import"
+	PermTenantTollsReview = "tenant.tolls.review"
 )
 
 // Tenant template role keys seeded by migrations 000030 and 000041.

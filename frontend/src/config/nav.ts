@@ -42,6 +42,7 @@ import {
   ScrollText,
   Settings2,
   Share2,
+  ScanLine,
   Shield,
   SlidersHorizontal,
   Sparkles,
@@ -58,6 +59,8 @@ import { defineNav } from "@/features/nav-engine";
 import type { NavCatalog } from "@/features/nav-engine";
 import { usersNavItem } from "@/features/users/nav";
 import { customerRequestsNavItem } from "@/features/customer-portal/nav";
+import { TollReviewNavAdornment } from "@/features/tolls/nav";
+import { MyFieldTasksNavAdornment } from "@/features/field-tasks/nav";
 import {
   ApprovalsNavAdornment,
   ResolutionTasksNavAdornment,
@@ -396,11 +399,19 @@ export function tenantNav(slug: string): NavCatalog {
             permission: permissions.tenant.rentals.read,
           },
           {
-            id: "field-tasks",
-            titleKey: "layout.nav_field_tasks",
+            id: "my-field-tasks",
+            titleKey: "layout.nav_my_field_tasks",
             href: routes.tenant.field.root(slug),
             icon: Smartphone,
-            permission: permissions.tenant.rentals.read,
+            permission: permissions.tenant.fieldTasks.execute,
+            Adornment: MyFieldTasksNavAdornment,
+          },
+          {
+            id: "field-task-board",
+            titleKey: "layout.nav_field_task_board",
+            href: routes.tenant.field.board(slug),
+            icon: ClipboardList,
+            permission: permissions.tenant.fieldTasks.read,
           },
           {
             id: "inspections",
@@ -408,6 +419,21 @@ export function tenantNav(slug: string): NavCatalog {
             href: routes.tenant.inspections.root(slug),
             icon: ScanSearch,
             permission: permissions.tenant.rentals.read,
+          },
+          {
+            id: "tolls",
+            titleKey: "layout.nav_tolls",
+            href: routes.tenant.tolls.root(slug),
+            icon: Route,
+            permission: permissions.tenant.tolls.read,
+          },
+          {
+            id: "tolls-review",
+            titleKey: "layout.nav_tolls_review",
+            href: routes.tenant.tolls.review(slug),
+            icon: ScanLine,
+            permission: permissions.tenant.tolls.read,
+            Adornment: TollReviewNavAdornment,
           },
         ],
       },

@@ -72,9 +72,16 @@ const (
 	ChargeMileage     = "mileage"
 	ChargeEquipment   = "equipment"
 	ChargeOther       = "other"
+	// ChargeToll / ChargeTollFee: a toll pass and its processing fee
+	// (TEC-725, docs/design/tolls.md); recorded by the tolls module only.
+	ChargeToll    = "toll"
+	ChargeTollFee = "toll_fee"
 
 	SourcePolicy = "policy"
 	SourceManual = "manual"
+	// SourceToll: created by toll matching (approved facts, reversed by a
+	// negative row instead of edited).
+	SourceToll = "toll"
 
 	ChargeProposed = "proposed"
 	ChargeApproved = "approved"
@@ -96,16 +103,28 @@ const (
 	TaskMaintenance = "maintenance"
 	TaskDeposit     = "deposit"
 
-	TaskOpen       = "open"
-	TaskInProgress = "in_progress"
-	TaskDone       = "done"
-	TaskCancelled  = "cancelled"
+	// TaskTransfer / TaskOther are field tasks (TEC-724): a transfer moves
+	// the vehicle to another branch through the fleet transfer.
+	TaskTransfer = "transfer"
+	TaskOther    = "other"
+
+	// Field task statuses (TEC-724, docs/design/field-tasks.md): planned
+	// (nobody assigned), assigned, en_route (started), issue_reported,
+	// completed, cancelled.
+	TaskPlanned       = "planned"
+	TaskAssigned      = "assigned"
+	TaskEnRoute       = "en_route"
+	TaskIssueReported = "issue_reported"
+	TaskCompleted     = "completed"
+	TaskCancelled     = "cancelled"
 )
 
 // TaskTypes / TaskStatuses in display order.
 var (
-	TaskTypes    = []string{TaskPreparation, TaskHandover, TaskReturn, TaskCleaning, TaskMaintenance, TaskDeposit}
-	TaskStatuses = []string{TaskOpen, TaskInProgress, TaskDone, TaskCancelled}
+	TaskTypes    = []string{TaskPreparation, TaskHandover, TaskReturn, TaskCleaning, TaskMaintenance, TaskDeposit, TaskTransfer, TaskOther}
+	TaskStatuses = []string{TaskPlanned, TaskAssigned, TaskEnRoute, TaskIssueReported, TaskCompleted, TaskCancelled}
+	// TaskLiveStatuses are the statuses of a task still to be done.
+	TaskLiveStatuses = []string{TaskPlanned, TaskAssigned, TaskEnRoute, TaskIssueReported}
 )
 
 // OverdueHorizon is how far the engine allocation of a late vehicle is
@@ -200,6 +219,12 @@ type Charge struct {
 	OverrideReason string       `json:"override_reason"`
 	OverriddenAt   *time.Time   `json:"overridden_at"`
 	OverriddenBy   *Actor       `json:"overridden_by"`
+	// TollPassUUID is the toll pass of a toll / toll_fee charge.
+	TollPassUUID *uuid.UUID `json:"toll_pass_uuid"`
+	// ReversalOfUUID: this row reverses that charge (negative amount).
+	ReversalOfUUID *uuid.UUID `json:"reversal_of_uuid"`
+	// Reversed: a later row reverses this charge.
+	Reversed bool `json:"reversed"`
 }
 
 // Policy is the policy part of the reservation's settings version that

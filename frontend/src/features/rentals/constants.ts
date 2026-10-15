@@ -1,5 +1,6 @@
 import type {
   ChargeKind,
+  ManualChargeKind,
   ChargeStatus,
   OperationTaskStatus,
   OperationTaskType,
@@ -37,7 +38,8 @@ export const RENTAL_STATUS_TONES: Record<RentalStatus, Tone> = {
   cancelled: "danger",
 };
 
-export const CHARGE_KINDS: ChargeKind[] = [
+/** Kinds a person may propose (toll charges come from toll passes only). */
+export const CHARGE_KINDS: ManualChargeKind[] = [
   "late_return",
   "early_return",
   "damage",
@@ -54,6 +56,8 @@ export const CHARGE_KIND_LABEL_KEYS: Record<ChargeKind, string> = {
   fuel: "rentals.charges.kinds.fuel",
   mileage: "rentals.charges.kinds.mileage",
   equipment: "rentals.charges.kinds.equipment",
+  toll: "rentals.charges.kinds.toll",
+  toll_fee: "rentals.charges.kinds.toll_fee",
   other: "rentals.charges.kinds.other",
 };
 
@@ -76,6 +80,8 @@ export const TASK_TYPES: OperationTaskType[] = [
   "cleaning",
   "maintenance",
   "deposit",
+  "transfer",
+  "other",
 ];
 
 export const TASK_TYPE_LABEL_KEYS: Record<OperationTaskType, string> = {
@@ -85,26 +91,46 @@ export const TASK_TYPE_LABEL_KEYS: Record<OperationTaskType, string> = {
   cleaning: "rentals.tasks.types.cleaning",
   maintenance: "rentals.tasks.types.maintenance",
   deposit: "rentals.tasks.types.deposit",
+  transfer: "rentals.tasks.types.transfer",
+  other: "rentals.tasks.types.other",
 };
 
 export const TASK_STATUSES: OperationTaskStatus[] = [
-  "open",
-  "in_progress",
-  "done",
+  "planned",
+  "assigned",
+  "en_route",
+  "issue_reported",
+  "completed",
   "cancelled",
 ];
 
+/** Statuses of a task still to be done. */
+export const TASK_LIVE_STATUSES: OperationTaskStatus[] = [
+  "planned",
+  "assigned",
+  "en_route",
+  "issue_reported",
+];
+
+export function isLiveTask(status: OperationTaskStatus) {
+  return TASK_LIVE_STATUSES.includes(status);
+}
+
 export const TASK_STATUS_LABEL_KEYS: Record<OperationTaskStatus, string> = {
-  open: "rentals.tasks.statuses.open",
-  in_progress: "rentals.tasks.statuses.in_progress",
-  done: "rentals.tasks.statuses.done",
+  planned: "rentals.tasks.statuses.planned",
+  assigned: "rentals.tasks.statuses.assigned",
+  en_route: "rentals.tasks.statuses.en_route",
+  issue_reported: "rentals.tasks.statuses.issue_reported",
+  completed: "rentals.tasks.statuses.completed",
   cancelled: "rentals.tasks.statuses.cancelled",
 };
 
 export const TASK_STATUS_TONES: Record<OperationTaskStatus, Tone> = {
-  open: "warning",
-  in_progress: "default",
-  done: "success",
+  planned: "warning",
+  assigned: "default",
+  en_route: "default",
+  issue_reported: "danger",
+  completed: "success",
   cancelled: "default",
 };
 
@@ -135,6 +161,8 @@ export const EVENT_LABEL_KEYS: Record<string, string> = {
   inspection_finalized: "rentals.events.actions.inspection_finalized",
   inspection_revised: "rentals.events.actions.inspection_revised",
   inspection_reviewed: "rentals.events.actions.inspection_reviewed",
+  toll_charged: "rentals.events.actions.toll_charged",
+  toll_reversed: "rentals.events.actions.toll_reversed",
 };
 
 export function eventLabel(t: (key: string) => string, action: string) {

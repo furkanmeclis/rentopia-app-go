@@ -66,6 +66,7 @@ rental_drivers
 rental_events
 rental_charges
 operation_tasks
+operation_task_events
 contract_templates
 documents
 document_versions
@@ -85,3 +86,8 @@ cash_accounts
 cash_movements
 expense_categories
 expenses
+vehicle_toll_tags
+toll_passes
+toll_pass_revisions
+toll_pass_events
+toll_settings

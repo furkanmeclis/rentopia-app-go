@@ -7,6 +7,7 @@ import (
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
 	availmodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/availability/model"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fieldtasks/placement"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/rentals/model"
 	resusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/usecase"
 	"github.com/google/uuid"
@@ -329,6 +330,13 @@ func openTask(ctx context.Context, q *db.Queries, orgID int64, typ string, branc
 	}
 	if err != nil {
 		return uuid.Nil, false, err
+	}
+	// A handover / return happens where the reservation says: a delivery
+	// address, a service point or the branch (TEC-724).
+	if typ == model.TaskHandover || typ == model.TaskReturn {
+		if err := placement.Locate(ctx, q, orgID, id, int8Ptr(actorID(ctx))); err != nil {
+			return uuid.Nil, false, err
+		}
 	}
 	return id, true, nil
 }

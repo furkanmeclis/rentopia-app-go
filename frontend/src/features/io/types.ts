@@ -124,7 +124,8 @@ export type IoResource =
   | "tenant.ledger_entries"
   | "tenant.cash_accounts"
   | "tenant.cash_movements"
-  | "tenant.expenses";
+  | "tenant.expenses"
+  | "tenant.toll_passes";
 
 export const EXPORT_PATHS: Record<IoResource, string> = {
   "platform.users": "/v1/platform/users/export",
@@ -153,6 +154,7 @@ export const EXPORT_PATHS: Record<IoResource, string> = {
   "tenant.cash_accounts": "/v1/tenant/finance/cash-accounts/export",
   "tenant.cash_movements": "/v1/tenant/finance/movements/export",
   "tenant.expenses": "/v1/tenant/finance/expenses/export",
+  "tenant.toll_passes": "/v1/tenant/toll-passes/export",
 };
 
 export const IMPORT_PATHS: Partial<
@@ -194,6 +196,10 @@ export const IMPORT_PATHS: Partial<
     upload: "/v1/tenant/finance/expenses/import",
     sample: "/v1/tenant/finance/expenses/import/sample",
   },
+  "tenant.toll_passes": {
+    upload: "/v1/tenant/toll-passes/import",
+    sample: "/v1/tenant/toll-passes/import/sample",
+  },
 };
 
 export const IMPORT_SCHEMA: Partial<
@@ -229,6 +235,21 @@ export const IMPORT_SCHEMA: Partial<
   // İdes fleet XLSX: plaka, şasi, marka, model, tip / kasko kodu, model yılı,
   // renk, vites, yakıt, şube, mülkiyet, km. type_code before type_name so a
   // "Tip/Kasko Kodu" header maps to the code.
+  "tenant.toll_passes": [
+    {
+      key: "external_id",
+      labelKey: "tolls.import.external_id",
+      required: true,
+    },
+    { key: "passed_at", labelKey: "tolls.import.passed_at", required: true },
+    { key: "plate", labelKey: "tolls.import.plate" },
+    { key: "tag_number", labelKey: "tolls.import.tag_number" },
+    { key: "station", labelKey: "tolls.import.station", required: true },
+    { key: "exit_station", labelKey: "tolls.import.exit_station" },
+    { key: "amount", labelKey: "tolls.import.amount", required: true },
+    { key: "currency", labelKey: "tolls.import.currency" },
+    { key: "provider", labelKey: "tolls.import.provider" },
+  ],
   "tenant.vehicles": [
     { key: "plate", labelKey: "vehicles.fields.plate", required: true },
     { key: "vin", labelKey: "vehicles.fields.vin" },

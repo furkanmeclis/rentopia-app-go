@@ -10,6 +10,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
 	availmodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/availability/model"
 	availusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/availability/usecase"
+	fieldmodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fieldtasks/model"
 	pricingmodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/model"
 	pricingusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/model"
@@ -36,7 +37,14 @@ type quoteSpec struct {
 	extras        []model.ExtraRequest
 	coupon        string
 	manual        *model.ManualDiscountInput
-	deliveryFee   string
+	// deliveryFee is a staff-entered delivery fee (replaces the computed
+	// fees of delivery points; then it needs tenant.price.override).
+	deliveryFee string
+	// pickupDelivery / returnDelivery are the delivery details of the
+	// sides; checkPickup / checkReturn apply the eligibility rules to them
+	// (an unchanged side of a change keeps its fee without a new check).
+	pickupDelivery, returnDelivery *fieldmodel.Delivery
+	checkPickup, checkReturn       bool
 }
 
 // priced is the outcome of pricing a spec.
@@ -107,6 +115,8 @@ func (s *Service) price(ctx context.Context, orgID int64, spec quoteSpec) (price
 			ve.add("extras."+itoa(i)+".extra_uuid", "required", "extra_uuid is required")
 		}
 	}
+	validateDelivery(ve, "pickup", spec.pickupDelivery, spec.where.PickupPointUUID != nil)
+	validateDelivery(ve, "return", spec.returnDelivery, spec.where.ReturnPointUUID != nil || (spec.where.ReturnBranchUUID == nil && spec.where.PickupPointUUID != nil))
 	if err := ve.orNil(); err != nil {
 		return out, err
 	}
@@ -131,9 +141,20 @@ func (s *Service) price(ctx context.Context, orgID int64, spec quoteSpec) (price
 		id := spec.customer.Uuid
 		in.CustomerUUID = &id
 	}
-	if spec.deliveryFee != "" {
+	fees, err := s.deliveryFees(ctx, orgID, spec, res)
+	if err != nil {
+		return out, err
+	}
+	switch {
+	case spec.deliveryFee != "":
+		// A staff fee replaces the computed fees of delivery points.
+		if len(fees) > 0 && !has(ctx, rbac.PermTenantPriceOverride) {
+			return out, ErrForbidden
+		}
 		fee := pricingmodel.Decimal(spec.deliveryFee)
 		in.DeliveryFee = &fee
+	default:
+		in.Deliveries = fees
 	}
 	if spec.manual != nil {
 		in.Discount = &pricingmodel.DiscountInput{Name: strings.TrimSpace(spec.manual.Reason), Kind: spec.manual.Kind, Value: spec.manual.Value}
@@ -173,6 +194,34 @@ func (s *Service) quoteValidity(ctx context.Context, orgID int64) (time.Duration
 		return 0, err
 	}
 	return time.Duration(minutesOr(v.Settings.Reservation.QuoteValidityMinutes, model.DefaultQuoteValidityMinutes)) * time.Minute, nil
+}
+
+// deliveryFees asks the delivery port for the fees of the resolved
+// delivery points of a priced request (and their eligibility).
+func (s *Service) deliveryFees(ctx context.Context, orgID int64, spec quoteSpec, res availmodel.SearchResult) ([]pricing.DeliveryFee, error) {
+	if s.delivery == nil {
+		return nil, nil
+	}
+	in := DeliveryInput{
+		Channel: res.Request.Channel, ProductUUID: spec.productUUID, StartsAt: res.Request.StartsAt, EndsAt: res.Request.EndsAt,
+	}
+	if res.Request.PickupPoint != nil {
+		in.Pickup = &DeliverySide{PointUUID: res.Request.PickupPoint.UUID, Details: spec.pickupDelivery, Check: spec.checkPickup}
+	}
+	if res.Request.ReturnPoint != nil {
+		in.Return = &DeliverySide{PointUUID: res.Request.ReturnPoint.UUID, Details: spec.returnDelivery, Check: spec.checkReturn}
+	}
+	if in.Pickup == nil && in.Return == nil {
+		return nil, nil
+	}
+	dq, err := s.delivery.QuoteDelivery(ctx, orgID, in)
+	if err != nil {
+		return nil, err
+	}
+	if len(dq.Problems) > 0 {
+		return nil, &ValidationError{Details: dq.Problems}
+	}
+	return dq.Fees, nil
 }
 
 // whereOf maps the quote body's places / range to the engine's.
@@ -221,14 +270,29 @@ func (s *Service) Search(ctx context.Context, orgID int64, in model.QuoteSearchI
 	}
 	out := model.QuoteSearchResult{Request: res.Request, Items: []model.QuoteSearchItem{}, Warnings: []string{}}
 	seen := map[string]bool{}
+	ve := &ValidationError{}
+	pickupDelivery, returnDelivery := cleanDelivery(in.PickupDelivery), cleanDelivery(in.ReturnDelivery)
+	validateDelivery(ve, "pickup", pickupDelivery, res.Request.PickupPoint != nil)
+	validateDelivery(ve, "return", returnDelivery, res.Request.ReturnPoint != nil)
+	if err := ve.orNil(); err != nil {
+		return model.QuoteSearchResult{}, err
+	}
 	for _, item := range res.Items {
 		qi := model.QuoteSearchItem{
 			Product: item.Product, Availability: item.Breakdown, Sellable: item.Sellable, Reasons: item.Reasons,
 		}
 		id := item.Product.UUID
+		// Delivery points: eligibility (refused for every product alike)
+		// and the fee of this product.
+		fees, err := s.deliveryFees(ctx, orgID, quoteSpec{
+			productUUID: id, pickupDelivery: pickupDelivery, returnDelivery: returnDelivery, checkPickup: true, checkReturn: true,
+		}, res)
+		if err != nil {
+			return model.QuoteSearchResult{}, err
+		}
 		preview, err := s.pricing.Preview(ctx, orgID, pricingmodel.PreviewInput{
 			RentalProductUUID: &id, BranchUUID: &res.Request.PickupBranch.UUID, ReturnBranchUUID: &res.Request.ReturnBranch.UUID,
-			Channel: res.Request.Channel, StartAt: &res.Request.StartsAt, EndAt: &res.Request.EndsAt,
+			Channel: res.Request.Channel, StartAt: &res.Request.StartsAt, EndAt: &res.Request.EndsAt, Deliveries: fees,
 		})
 		switch {
 		case err != nil:
@@ -279,7 +343,8 @@ func (s *Service) CreateQuote(ctx context.Context, orgID int64, in model.QuoteIn
 	spec := quoteSpec{
 		purpose: model.PurposeNew, customer: customer, where: whereOf(in.Where, in.Channel), productUUID: *in.ProductUUID,
 		extras: in.Extras, coupon: strings.ToUpper(strings.TrimSpace(in.CouponCode)), manual: in.ManualDiscount,
-		deliveryFee: string(in.DeliveryFee),
+		deliveryFee: strings.TrimSpace(string(in.DeliveryFee)), pickupDelivery: cleanDelivery(in.PickupDelivery),
+		returnDelivery: cleanDelivery(in.ReturnDelivery), checkPickup: true, checkReturn: true,
 	}
 	p, err := s.price(ctx, orgID, spec)
 	if err != nil {
@@ -409,6 +474,13 @@ func (s *Service) storeQuote(ctx context.Context, orgID int64, spec quoteSpec, p
 	}
 	if extra.vehicleID != 0 {
 		params.VehicleID = int8Of(extra.vehicleID)
+	}
+	params.PickupDelivery = deliveryJSON(spec.pickupDelivery)
+	params.ReturnDelivery = deliveryJSON(spec.returnDelivery)
+	if spec.deliveryFee != "" {
+		if m, err := money.Parse(spec.deliveryFee); err == nil {
+			params.DeliveryOverride = m.Numeric()
+		}
 	}
 	lines := quoteLines(b, extra.extension)
 	var created uuid.UUID
@@ -618,6 +690,7 @@ func (s *Service) quoteView(row db.GetQuoteRow, lines []db.ListQuoteLinesRow) mo
 	if row.ReturnPointUuid.Valid {
 		q.ReturnPoint = &model.PointRef{UUID: row.ReturnPointUuid.Bytes, Name: row.ReturnPointName.String}
 	}
+	q.PickupDelivery, q.ReturnDelivery = storedDelivery(row.PickupDelivery), storedDelivery(row.ReturnDelivery)
 	if row.CustomerUuid.Valid {
 		q.Customer = &model.CustomerRef{
 			UUID: row.CustomerUuid.Bytes, CustomerType: row.CustomerType.String,

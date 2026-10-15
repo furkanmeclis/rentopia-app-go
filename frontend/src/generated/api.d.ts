@@ -8685,6 +8685,294 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenant/field-tasks/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Field task board table contract
+         * @description `tenant.field_tasks.read`.
+         */
+        get: operations["getTenantFieldTasksMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/field-tasks/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Field task facets
+         * @description `tenant.field_tasks.read`. Status, type, place kind, branch and assignee (`none` = unassigned) counts in the caller's branch scope.
+         */
+        get: operations["getTenantFieldTasksFacets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/field-tasks/assignees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Members who work field tasks
+         * @description Any of `tenant.field_tasks.read|assign|execute`. Members whose roles grant execute or assign, with their branch scope.
+         */
+        get: operations["getTenantFieldTaskAssignees"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/field-tasks/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My field tasks
+         * @description `tenant.field_tasks.execute`. The caller's own tasks (same filters as the board; the panel asks for today and tomorrow).
+         */
+        get: operations["getTenantMyFieldTasks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/field-tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Field task board
+         * @description `tenant.field_tasks.read`. Tasks whose branch (or a transfer's destination) is in the caller's scope.
+         */
+        get: operations["getTenantFieldTasks"];
+        put?: never;
+        /**
+         * Open a field task
+         * @description `tenant.field_tasks.assign`. Transfer, preparation, cleaning, maintenance or other; a transfer plans the fleet transfer that moves the vehicle when the task completes.
+         */
+        post: operations["postTenantFieldTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/field-tasks/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk field task actions
+         * @description `assign` (`tenant.field_tasks.assign`, `params.user_uuid` a member who works field tasks, or empty to unassign; reversible).
+         */
+        post: operations["postTenantFieldTasksBulk"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/field-tasks/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Field task detail
+         * @description Board readers and planners see every task in scope; executors (`tenant.field_tasks.execute` only) their own. `actions` lists what the caller can do now.
+         */
+        get: operations["getTenantFieldTask"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Re-plan a field task
+         * @description `tenant.field_tasks.assign`. Time, duration, note, place, contact and meeting details of a live task; a planned transfer moves its fleet transfer window.
+         */
+        patch: operations["patchTenantFieldTask"];
+        trace?: never;
+    };
+    "/v1/tenant/field-tasks/{uuid}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Field task timeline
+         * @description Same visibility as the detail. Creation, status, assignee, time and place changes (written by a database trigger, whatever made the change).
+         */
+        get: operations["getTenantFieldTaskEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/field-tasks/{uuid}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Assign a field task
+         * @description `tenant.field_tasks.assign`. The member must work field tasks and cover the task's branch; a new assignee restarts the task as assigned and gets an in-app notification (realtime and web push mirror it). `user_uuid: null` unassigns.
+         */
+        post: operations["postTenantFieldTaskAssign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/field-tasks/{uuid}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a field task (en route)
+         * @description Planners, or the assignee with `tenant.field_tasks.execute`. From planned / assigned (an unassigned task becomes the caller's) or issue_reported (resume). A transfer starts its fleet transfer.
+         */
+        post: operations["postTenantFieldTaskStart"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/field-tasks/{uuid}/report-issue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Report an issue on a field task
+         * @description Planners, or the assignee. `note` (3-1000 characters) is required; from assigned or en_route.
+         */
+        post: operations["postTenantFieldTaskReportIssue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/field-tasks/{uuid}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete a field task
+         * @description Planners, or the assignee. Handover / return complete through the rental's inspection form (409 `record_handover` / `record_return`); a transfer completes its fleet transfer (the vehicle's current branch becomes the destination); cleaning, maintenance and preparation make the vehicle available.
+         */
+        post: operations["postTenantFieldTaskComplete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/field-tasks/{uuid}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a field task
+         * @description `tenant.field_tasks.assign`. `note` (3-1000 characters) is the reason; a transfer cancels its fleet transfer.
+         */
+        post: operations["postTenantFieldTaskCancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/delivery-points": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Delivery points
+         * @description `tenant.quotes.read`. Active delivery points of active branches in the caller's scope with the fee (for `product` when given), hours, served districts and conditions (the reservation wizard's picker). Quotes check eligibility and price the fee themselves.
+         */
+        get: operations["getTenantDeliveryPoints"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenant/operation-tasks/meta": {
         parameters: {
             query?: never;
@@ -9986,6 +10274,358 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/toll-passes/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Toll pass list contract
+         * @description `tenant.tolls.read`. Columns, filters, sortable fields and capabilities (export, import) of the toll pass list.
+         */
+        get: operations["getTenantTollPassesMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/toll-passes/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Toll pass facets and review queue count
+         * @description `tenant.tolls.read`. Status, source, provider and review reason counts in the caller's branch scope; `review` is the review queue (unmatched + needs_review).
+         */
+        get: operations["getTenantTollPassesFacets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/toll-passes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List toll passes
+         * @description `tenant.tolls.read`. HGS / OGS passes whose vehicle (home or current
+         *     branch) or rental (planned pick-up / return, actual return branch) is
+         *     in the caller's branch scope; a pass with neither is visible to
+         *     members of every branch only.
+         */
+        get: operations["getTenantTollPasses"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/toll-passes/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export toll passes
+         * @description `tenant.tolls.read` + `tenant.tolls.export`. `query` honours `q` and the list filters; the job runs with the requester's branch scope.
+         */
+        post: operations["postTenantTollPassesExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/toll-passes/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload a toll pass file (provider fallback)
+         * @description `tenant.tolls.read` + `tenant.tolls.import`. CSV / XLSX / TSV / JSON
+         *     with the columns external_id (required), passed_at (required; RFC
+         *     3339, `2006-01-02 15:04[:05]` or `02.01.2006 15:04[:05]` in Istanbul
+         *     time), plate and / or tag_number, station (required), exit_station,
+         *     amount (required; `47.00`, `47,00`, `1.234,56`), currency (TRY) and
+         *     provider (`hgs`). A row with a known provider + external_id updates
+         *     that pass (unchanged: nothing; changed facts: a revision, charges
+         *     reversed and re-created). `/preview` validates every row and reports
+         *     the errors per row with the field names. Continue with
+         *     `/v1/tenant/imports/{uuid}/mapping`, `/preview` and `/confirm`.
+         */
+        post: operations["postTenantTollPassesImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/toll-passes/import/sample": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download a toll pass import sample
+         * @description `tenant.tolls.import`.
+         */
+        get: operations["getTenantTollPassesImportSample"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/toll-passes/fetch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fetch passes from the provider now
+         * @description `tenant.tolls.read` + `tenant.tolls.import`. Queues a `toll.fetch`
+         *     integration job for the organization's active toll provider account
+         *     over the look-back window of the toll settings (at most one per
+         *     minute; the hourly schedule does the same automatically). Failures
+         *     show as integration jobs (operations overview). `409
+         *     TOLL_PROVIDER_NOT_CONNECTED` without an active account.
+         */
+        post: operations["postTenantTollPassesFetch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/toll-passes/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a toll pass
+         * @description `tenant.tolls.read`. The pass with its revisions, timeline (manual decisions carry their reason) and every rental charge it caused (reversals included).
+         */
+        get: operations["getTenantTollPass"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/toll-passes/{uuid}/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rentals of the pass's vehicle around the pass time
+         * @description `tenant.tolls.review`. Rentals of the vehicle within three days of the pass in the caller's branch scope; `contains_pass` when the actual handover → return holds the pass time.
+         */
+        get: operations["getTenantTollPassCandidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/toll-passes/{uuid}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Assign a pass to a rental
+         * @description `tenant.tolls.review`. Mandatory reason (audited). The rental must be
+         *     handed over (not in preparation, not cancelled) and in the caller's
+         *     branch scope. The old charge is reversed and the new one created on
+         *     the rental; automatic matching keeps the assignment.
+         */
+        post: operations["postTenantTollPassAssign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/toll-passes/{uuid}/unassign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove the rental of a pass
+         * @description `tenant.tolls.review`. Mandatory reason (audited). Charges are reversed; the pass waits in the review queue as unmatched (`unassigned`).
+         */
+        post: operations["postTenantTollPassUnassign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/toll-passes/{uuid}/ignore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ignore a pass (not billed)
+         * @description `tenant.tolls.review`. Mandatory reason (audited); any live charge is reversed.
+         */
+        post: operations["postTenantTollPassIgnore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/toll-passes/{uuid}/rematch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hand a pass back to the automatic matching
+         * @description `tenant.tolls.review`. Mandatory reason (audited). A person's earlier decision is dropped; charges settle to the automatic result.
+         */
+        post: operations["postTenantTollPassRematch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/toll-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Toll settings
+         * @description `tenant.tolls.read`. Processing fee, automatic fetch and look-back window; whether a toll provider account is connected.
+         */
+        get: operations["getTenantTollSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change the toll settings
+         * @description `tenant.tolls.read` + `tenant.settings.write`. A new processing fee applies to passes charged from now on.
+         */
+        patch: operations["patchTenantTollSettings"];
+        trace?: never;
+    };
+    "/v1/tenant/vehicles/{uuid}/toll-tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Toll tags of a vehicle
+         * @description `tenant.tolls.read`. Current tag first, then the history.
+         */
+        get: operations["getTenantVehicleTollTags"];
+        put?: never;
+        /**
+         * Link a toll tag to a vehicle
+         * @description `tenant.tolls.read` + `tenant.vehicles.write`. A tag number is on one vehicle at a time: an overlapping period answers `409 CONFLICT` (`tag_number`, `in_use`). Review passes of the tag are matched again.
+         */
+        post: operations["postTenantVehicleTollTag"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/vehicles/{uuid}/toll-tags/{tagUuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a mistaken toll tag link
+         * @description `tenant.tolls.read` + `tenant.vehicles.write`. Matched passes keep their rental; end a real tag with `valid_to` instead.
+         */
+        delete: operations["deleteTenantVehicleTollTag"];
+        options?: never;
+        head?: never;
+        /**
+         * Change or end a toll tag link
+         * @description `tenant.tolls.read` + `tenant.vehicles.write`. Typically sets `valid_to` (the tag left the vehicle); `clear_valid_to` puts it back.
+         */
+        patch: operations["patchTenantVehicleTollTag"];
         trace?: never;
     };
     "/v1/tenant/finance/summary": {
@@ -11705,6 +12345,22 @@ export interface components {
             working_hours: components["schemas"]["WeeklyHours"] | null;
             online_selectable: boolean;
             is_active: boolean;
+            /** @description Staff bring / collect the vehicle here (TEC-724) */
+            delivery_enabled: boolean;
+            /** @description The delivery extra whose price is the fee (null = extra_fee) */
+            delivery_extra: {
+                /** Format: uuid */
+                uuid: string;
+                name: string;
+            } | null;
+            /** @description Districts an address zone serves (empty = any) */
+            service_districts: string[];
+            latitude: number | null;
+            longitude: number | null;
+            /** @description Radius around the centre an address zone serves */
+            service_radius_km: number | null;
+            min_notice_minutes: number;
+            delivery_conditions: string;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -11720,6 +12376,19 @@ export interface components {
             working_hours?: components["schemas"]["WeeklyHours"] | null;
             online_selectable?: boolean;
             is_active?: boolean;
+            /** @description Default true for airport, hotel and address_zone points */
+            delivery_enabled?: boolean;
+            /**
+             * Format: uuid
+             * @description An extra of type delivery
+             */
+            delivery_extra_uuid?: string | null;
+            service_districts?: string[];
+            latitude?: number | null;
+            longitude?: number | null;
+            service_radius_km?: number | null;
+            min_notice_minutes?: number;
+            delivery_conditions?: string;
         };
         ServicePointCreateRequest: {
             /** @enum {string} */
@@ -11731,6 +12400,19 @@ export interface components {
             working_hours?: components["schemas"]["WeeklyHours"] | null;
             online_selectable?: boolean;
             is_active?: boolean;
+            /** @description Default true for airport, hotel and address_zone points */
+            delivery_enabled?: boolean;
+            /**
+             * Format: uuid
+             * @description An extra of type delivery
+             */
+            delivery_extra_uuid?: string | null;
+            service_districts?: string[];
+            latitude?: number | null;
+            longitude?: number | null;
+            service_radius_km?: number | null;
+            min_notice_minutes?: number;
+            delivery_conditions?: string;
         };
         ServicePointList: {
             items: components["schemas"]["ServicePoint"][];
@@ -16067,7 +16749,10 @@ export interface components {
             extras?: components["schemas"]["ExtraSelection"][];
             coupon_code?: string;
             manual_discount?: components["schemas"]["ManualDiscount"] | null;
+            /** @description Staff delivery fee; replaces the computed fees of delivery points (then needs tenant.price.override) */
             delivery_fee?: string;
+            pickup_delivery?: components["schemas"]["DeliveryDetails"] | null;
+            return_delivery?: components["schemas"]["DeliveryDetails"] | null;
         };
         QuoteSearchRequest: {
             /** Format: uuid */
@@ -16084,6 +16769,8 @@ export interface components {
             ends_at?: string | null;
             channel?: string;
             product_uuids?: string[];
+            pickup_delivery?: components["schemas"]["DeliveryDetails"] | null;
+            return_delivery?: components["schemas"]["DeliveryDetails"] | null;
         };
         QuoteSearchItem: {
             product: components["schemas"]["AvailabilityProductRef"];
@@ -16184,6 +16871,8 @@ export interface components {
             return_branch: components["schemas"]["ReservationBranchRef"];
             pickup_point: components["schemas"]["ReservationPointRef"] | null;
             return_point: components["schemas"]["ReservationPointRef"] | null;
+            pickup_delivery: components["schemas"]["DeliveryDetails"] | null;
+            return_delivery: components["schemas"]["DeliveryDetails"] | null;
             /** Format: date-time */
             starts_at: string;
             /** Format: date-time */
@@ -16320,6 +17009,8 @@ export interface components {
             product_uuid?: string | null;
             extras?: components["schemas"]["ExtraSelection"][] | null;
             manual_discount?: components["schemas"]["ManualDiscount"] | null;
+            pickup_delivery?: components["schemas"]["DeliveryDetails"] | null;
+            return_delivery?: components["schemas"]["DeliveryDetails"] | null;
         };
         ReservationApplyChangeRequest: {
             /** Format: uuid */
@@ -16438,6 +17129,8 @@ export interface components {
             return_branch: components["schemas"]["ReservationBranchRef"];
             pickup_point: components["schemas"]["ReservationPointRef"] | null;
             return_point: components["schemas"]["ReservationPointRef"] | null;
+            pickup_delivery: components["schemas"]["DeliveryDetails"] | null;
+            return_delivery: components["schemas"]["DeliveryDetails"] | null;
             /** Format: date-time */
             starts_at: string;
             /** Format: date-time */
@@ -17913,9 +18606,12 @@ export interface components {
             /** Format: uuid */
             uuid: string;
             /** @enum {string} */
-            kind: "late_return" | "early_return" | "damage" | "fuel" | "mileage" | "equipment" | "other";
-            /** @enum {string} */
-            source: "policy" | "manual";
+            kind: "late_return" | "early_return" | "damage" | "fuel" | "mileage" | "equipment" | "toll" | "toll_fee" | "other";
+            /**
+             * @description `toll`: a toll pass charge (approved fact; reversed by a negative row, never edited)
+             * @enum {string}
+             */
+            source: "policy" | "manual" | "toll";
             /** @enum {string} */
             status: "proposed" | "approved" | "waived";
             currency: string;
@@ -17941,6 +18637,18 @@ export interface components {
             /** Format: date-time */
             overridden_at: string | null;
             overridden_by: components["schemas"]["ReservationActor"] | null;
+            /**
+             * Format: uuid
+             * @description Toll pass of a toll / toll_fee charge
+             */
+            toll_pass_uuid: string | null;
+            /**
+             * Format: uuid
+             * @description This row reverses that charge (negative amount)
+             */
+            reversal_of_uuid: string | null;
+            /** @description A later row reverses this charge */
+            reversed: boolean;
         };
         RentalPolicy: {
             settings_version: number;
@@ -18196,9 +18904,9 @@ export interface components {
             /** Format: uuid */
             uuid: string;
             /** @enum {string} */
-            task_type: "preparation" | "handover" | "return" | "cleaning" | "maintenance" | "deposit";
+            task_type: "preparation" | "handover" | "return" | "cleaning" | "maintenance" | "deposit" | "transfer" | "other";
             /** @enum {string} */
-            status: "open" | "in_progress" | "done" | "cancelled";
+            status: "planned" | "assigned" | "en_route" | "issue_reported" | "completed" | "cancelled";
             branch: components["schemas"]["RentalRef"];
             rental: {
                 /** Format: uuid */
@@ -18224,6 +18932,269 @@ export interface components {
         };
         OperationTaskNoteRequest: {
             note?: string;
+        };
+        /** @description Delivery details of a pick-up or return at a delivery point (TEC-724). An address zone needs `address`. */
+        DeliveryDetails: {
+            address?: string;
+            district?: string;
+            city?: string;
+            latitude?: number | null;
+            longitude?: number | null;
+            contact_name?: string;
+            contact_phone?: string;
+            flight_number?: string;
+            meeting_note?: string;
+        };
+        FieldTaskRef: {
+            /** Format: uuid */
+            uuid: string;
+            code: string;
+            name: string;
+        };
+        FieldTaskRecordRef: {
+            /** Format: uuid */
+            uuid: string;
+            reference: string;
+            status: string;
+        };
+        FieldTaskLocation: {
+            /** @enum {string} */
+            kind: "branch" | "point" | "address";
+            point: {
+                /** Format: uuid */
+                uuid: string;
+                name: string;
+                /** @enum {string} */
+                type: "office" | "airport" | "address_zone" | "hotel";
+            } | null;
+            address: string;
+            district: string;
+            city: string;
+            latitude: number | null;
+            longitude: number | null;
+        };
+        FieldTask: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            task_type: "handover" | "return" | "transfer" | "preparation" | "cleaning" | "maintenance" | "deposit" | "other";
+            /** @enum {string} */
+            status: "planned" | "assigned" | "en_route" | "issue_reported" | "completed" | "cancelled";
+            /** @enum {string} */
+            origin: "rental" | "reservation" | "manual" | "inspection";
+            /** @description A handover / return at a delivery point or an address */
+            delivery: boolean;
+            branch: components["schemas"]["FieldTaskRef"];
+            to_branch: components["schemas"]["FieldTaskRef"] | null;
+            location: components["schemas"]["FieldTaskLocation"];
+            contact: {
+                name: string;
+                phone: string;
+            };
+            flight_number: string;
+            meeting_note: string;
+            note: string;
+            /**
+             * Format: date-time
+             * @description Planned start
+             */
+            due_at: string;
+            planned_minutes: number;
+            /** Format: date-time */
+            planned_end_at: string;
+            /** Format: date-time */
+            started_at: string | null;
+            /** Format: date-time */
+            completed_at: string | null;
+            /** Format: date-time */
+            assigned_at: string | null;
+            assignee: components["schemas"]["ReservationActor"] | null;
+            completed_by: components["schemas"]["ReservationActor"] | null;
+            completion_note: string;
+            issue_note: string;
+            /** Format: date-time */
+            issue_reported_at: string | null;
+            rental: components["schemas"]["FieldTaskRecordRef"] | null;
+            reservation: components["schemas"]["FieldTaskRecordRef"] | null;
+            vehicle: components["schemas"]["RentalVehicleRef"] | null;
+            transfer: {
+                /** Format: uuid */
+                uuid: string;
+                status: string;
+            } | null;
+            /**
+             * @description The inspection form this task continues in
+             * @enum {string}
+             */
+            inspection: "" | "handover" | "return";
+            actions: ("assign" | "edit" | "start" | "report_issue" | "inspection" | "complete" | "cancel")[];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        FieldTaskEvent: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            action: "created" | "status_changed" | "assignee_changed" | "rescheduled" | "relocated";
+            from_status: string | null;
+            to_status: string | null;
+            note: string;
+            data: {
+                [key: string]: unknown;
+            };
+            actor: components["schemas"]["ReservationActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        FieldTaskFacetValue: {
+            value: string;
+            label: string;
+            /** Format: int64 */
+            count: number;
+        };
+        FieldTaskFacets: {
+            status: components["schemas"]["FieldTaskFacetValue"][];
+            task_type: components["schemas"]["FieldTaskFacetValue"][];
+            location_kind: components["schemas"]["FieldTaskFacetValue"][];
+            branch: components["schemas"]["FieldTaskFacetValue"][];
+            /** @description `none` = unassigned */
+            assignee: components["schemas"]["FieldTaskFacetValue"][];
+        };
+        FieldTaskAssignee: {
+            /** Format: uuid */
+            uuid: string;
+            name: string;
+            surname: string;
+            email: string;
+            /** @enum {string} */
+            branch_scope: "all" | "selected";
+            branch_uuids: string[];
+        };
+        FieldTaskCreateRequest: {
+            /** @enum {string} */
+            task_type: "transfer" | "preparation" | "cleaning" | "maintenance" | "other";
+            /** Format: uuid */
+            branch_uuid: string;
+            /**
+             * Format: uuid
+             * @description Transfer destination (required for a transfer)
+             */
+            to_branch_uuid?: string | null;
+            /**
+             * Format: uuid
+             * @description Required for a transfer
+             */
+            vehicle_uuid?: string | null;
+            /** Format: date-time */
+            due_at: string;
+            planned_minutes?: number | null;
+            /** Format: uuid */
+            assignee_uuid?: string | null;
+            note?: string;
+            /** Format: uuid */
+            point_uuid?: string | null;
+            address?: string | null;
+            district?: string | null;
+            city?: string | null;
+            latitude?: number | null;
+            longitude?: number | null;
+            contact_name?: string | null;
+            contact_phone?: string | null;
+            flight_number?: string | null;
+            meeting_note?: string | null;
+        };
+        FieldTaskPatchRequest: {
+            /** Format: date-time */
+            due_at?: string | null;
+            planned_minutes?: number | null;
+            note?: string | null;
+            clear_point?: boolean;
+            /** Format: uuid */
+            point_uuid?: string | null;
+            address?: string | null;
+            district?: string | null;
+            city?: string | null;
+            latitude?: number | null;
+            longitude?: number | null;
+            contact_name?: string | null;
+            contact_phone?: string | null;
+            flight_number?: string | null;
+            meeting_note?: string | null;
+        };
+        FieldTaskAssignRequest: {
+            /**
+             * Format: uuid
+             * @description A member who works field tasks; null unassigns
+             */
+            user_uuid?: string | null;
+        };
+        FieldTaskNoteRequest: {
+            note?: string;
+        };
+        DeliveryPoint: {
+            /** Format: uuid */
+            uuid: string;
+            name: string;
+            /** @enum {string} */
+            type: "office" | "airport" | "address_zone" | "hotel";
+            description: string;
+            branch: components["schemas"]["FieldTaskRef"];
+            /** @description Fee for one billing day (per-day extras multiply by the rental days) */
+            fee: string;
+            /** @enum {string} */
+            fee_source: "extra" | "flat" | "none";
+            delivery_extra: components["schemas"]["FieldTaskRef"] | null;
+            requires_address: boolean;
+            service_districts: string[];
+            min_notice_minutes: number;
+            conditions: string;
+            online_selectable: boolean;
+            /** @description `null` = the branch working hours */
+            working_hours: components["schemas"]["WeeklyHours"] | null;
+        };
+        EnvelopeFieldTask: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["FieldTask"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeFieldTaskPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["FieldTask"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeFieldTaskEvents: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["FieldTaskEvent"][];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeFieldTaskFacets: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["FieldTaskFacets"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeFieldTaskAssignees: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["FieldTaskAssignee"][];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeDeliveryPoints: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["DeliveryPoint"][];
+            meta: components["schemas"]["ResponseMeta"];
         };
         EnvelopeOperationTask: {
             /** @enum {boolean} */
@@ -18253,7 +19224,7 @@ export interface components {
             done: number;
             /**
              * Format: int64
-             * @description Open or in progress.
+             * @description Planned, assigned, en route or with an issue.
              */
             open: number;
         };
@@ -18266,7 +19237,7 @@ export interface components {
             /** @enum {string} */
             task_type: "handover" | "return";
             /** @enum {string} */
-            status: "open" | "in_progress" | "done";
+            status: "planned" | "assigned" | "en_route" | "issue_reported" | "completed";
             /** Format: date-time */
             due_at: string;
             /** Format: date-time */
@@ -19066,9 +20037,9 @@ export interface components {
         };
         IntegrationProvider: {
             /** @enum {string} */
-            kind: "payment" | "sms";
+            kind: "payment" | "sms" | "toll";
             /** @enum {string} */
-            provider: "iyzico" | "netgsm" | "log";
+            provider: "iyzico" | "netgsm" | "log" | "hgs_fake";
             fields: components["schemas"]["IntegrationField"][];
             modes: ("sandbox" | "live")[];
         };
@@ -19085,9 +20056,9 @@ export interface components {
             /** Format: uuid */
             uuid: string;
             /** @enum {string} */
-            kind: "payment" | "sms";
+            kind: "payment" | "sms" | "toll";
             /** @enum {string} */
-            provider: "iyzico" | "netgsm" | "log";
+            provider: "iyzico" | "netgsm" | "log" | "hgs_fake";
             display_name: string;
             /** @enum {string} */
             mode: "sandbox" | "live";
@@ -20112,6 +21083,287 @@ export interface components {
             status: "resolved" | "rejected";
             note?: string;
         };
+        TollPass: {
+            /** Format: uuid */
+            uuid: string;
+            /** @description Provider / issuer code */
+            provider: string;
+            /** @description The provider's transaction id (unique per organization and provider) */
+            external_id: string;
+            /** @enum {string} */
+            source: "api" | "file";
+            /** Format: date-time */
+            passed_at: string;
+            plate: string;
+            tag_number: string;
+            /** @description Station or route entry */
+            station: string;
+            exit_station: string;
+            currency: string;
+            /** @description Decimal amount */
+            amount: string;
+            /** @enum {string} */
+            status: "unmatched" | "needs_review" | "matched" | "charged" | "ignored";
+            /**
+             * @description Why the pass waits in the review queue ('' otherwise)
+             * @enum {string}
+             */
+            review_reason: "" | "vehicle_unknown" | "vehicle_conflict" | "no_rental" | "overlap" | "missing_actual_times" | "outside_actual_window" | "in_transfer" | "rental_cancelled" | "unassigned";
+            /** @enum {string} */
+            match_method: "" | "plate" | "tag" | "manual";
+            /** @description A person decided (automatic matching keeps the decision) */
+            manual: boolean;
+            revision: number;
+            vehicle: components["schemas"]["TollVehicleRef"] | null;
+            rental: components["schemas"]["TollRentalRef"] | null;
+            /** @description Processing fee line of the pass */
+            fee_amount: string | null;
+            /** Format: date-time */
+            last_fetched_at: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        TollVehicleRef: {
+            /** Format: uuid */
+            uuid: string;
+            plate: string;
+        };
+        TollRentalRef: {
+            /** Format: uuid */
+            uuid: string;
+            reference: string;
+            status: string;
+        };
+        TollPassRevision: {
+            /** Format: uuid */
+            uuid: string;
+            revision: number;
+            /** @enum {string} */
+            source: "api" | "file";
+            changed_fields: string[];
+            previous: Record<string, never>;
+            current: Record<string, never>;
+            amount_before: string;
+            amount_after: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        TollPassEvent: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            action: "received" | "revised" | "matched" | "review" | "assigned" | "unassigned" | "ignored" | "rematched" | "charge_created" | "charge_reversed";
+            from_status: string;
+            to_status: string;
+            reason: string;
+            data: Record<string, never>;
+            actor: components["schemas"]["ReservationActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        TollPassCharge: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            kind: "toll" | "toll_fee";
+            status: string;
+            currency: string;
+            /** @description Decimal amount (negative for a reversal) */
+            amount: string;
+            reason: string;
+            /** Format: uuid */
+            reversal_of_uuid: string | null;
+            rental: components["schemas"]["TollRentalRef"];
+            /** Format: date-time */
+            created_at: string;
+        };
+        TollPassDetail: components["schemas"]["TollPass"] & {
+            /** Format: date-time */
+            first_fetched_at: string;
+            /** @description Non-sensitive provider fields */
+            raw: Record<string, never>;
+            account: {
+                /** Format: uuid */
+                uuid: string;
+                display_name: string;
+            } | null;
+            /** Format: date-time */
+            decided_at: string | null;
+            decided_by: components["schemas"]["ReservationActor"] | null;
+            revisions: components["schemas"]["TollPassRevision"][];
+            events: components["schemas"]["TollPassEvent"][];
+            charges: components["schemas"]["TollPassCharge"][];
+        };
+        TollFacet: {
+            value: string;
+            /** Format: int64 */
+            count: number;
+        };
+        TollPassFacets: {
+            status: components["schemas"]["TollFacet"][];
+            source: components["schemas"]["TollFacet"][];
+            provider: components["schemas"]["TollFacet"][];
+            review_reason: components["schemas"]["TollFacet"][];
+            /**
+             * Format: int64
+             * @description Review queue count (unmatched + needs_review)
+             */
+            review: number;
+        };
+        TollCandidate: {
+            /** Format: uuid */
+            uuid: string;
+            reference: string;
+            status: string;
+            customer: string;
+            /** Format: date-time */
+            planned_pickup_at: string;
+            /** Format: date-time */
+            planned_return_at: string;
+            /** Format: date-time */
+            actual_pickup_at: string | null;
+            /** Format: date-time */
+            actual_return_at: string | null;
+            contains_pass: boolean;
+        };
+        TollSettings: {
+            /** @description Decimal fee charged as its own line next to each toll (0 = none) */
+            processing_fee: string;
+            currency: string;
+            auto_fetch: boolean;
+            lookback_days: number;
+            provider_connected: boolean;
+            /** Format: date-time */
+            updated_at: string | null;
+        };
+        TollSettingsPatch: {
+            /** @description Decimal amount 0-100000 */
+            processing_fee?: string;
+            auto_fetch?: boolean;
+            lookback_days?: number;
+        };
+        TollAssignRequest: {
+            /** Format: uuid */
+            rental_uuid: string;
+            reason: string;
+        };
+        TollReasonRequest: {
+            reason: string;
+        };
+        TollTag: {
+            /** Format: uuid */
+            uuid: string;
+            provider: string;
+            /** @enum {string} */
+            network: "hgs" | "ogs";
+            tag_number: string;
+            /** Format: date-time */
+            valid_from: string;
+            /** Format: date-time */
+            valid_to: string | null;
+            active: boolean;
+            note: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        TollTagPatch: {
+            /** @description Provider / issuer code (lower case, e.g. hgs, ptt) */
+            provider?: string;
+            /** @enum {string} */
+            network?: "hgs" | "ogs";
+            tag_number?: string;
+            /** Format: date-time */
+            valid_from?: string;
+            /** Format: date-time */
+            valid_to?: string | null;
+            clear_valid_to?: boolean;
+            note?: string;
+        };
+        TollTagCreate: {
+            /** @description Provider / issuer code (lower case, e.g. hgs, ptt) */
+            provider: string;
+            /** @enum {string} */
+            network?: "hgs" | "ogs";
+            tag_number: string;
+            /** Format: date-time */
+            valid_from: string;
+            /** Format: date-time */
+            valid_to?: string | null;
+            clear_valid_to?: boolean;
+            note?: string;
+        };
+        TollFetchResult: {
+            /** Format: uuid */
+            job_uuid: string;
+            /** @description Integration job status */
+            status: string;
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+        };
+        EnvelopeTollPass: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["TollPassDetail"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeTollPassPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["TollPass"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeTollPassFacets: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["TollPassFacets"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeTollCandidates: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["TollCandidate"][];
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeTollSettings: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["TollSettings"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeTollTag: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["TollTag"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeTollTags: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["TollTag"][];
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeTollFetch: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["TollFetchResult"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
         FinanceRef: {
             /** Format: uuid */
             uuid: string;
@@ -20807,6 +22059,33 @@ export interface components {
         };
     };
     responses: {
+        /** @description Toll pass */
+        TollPassOK: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["EnvelopeTollPass"];
+            };
+        };
+        /** @description Toll settings */
+        TollSettingsOK: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["EnvelopeTollSettings"];
+            };
+        };
+        /** @description Toll tag */
+        TollTagOK: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["EnvelopeTollTag"];
+            };
+        };
         /** @description `CUSTOMER_SESSION_REQUIRED`: no live customer session of this organization */
         CustomerSessionRequired: {
             headers: {
@@ -33792,7 +35071,7 @@ export interface operations {
                 status?: string;
                 /** @description payment, sms */
                 kind?: string;
-                /** @description iyzico, netgsm, log */
+                /** @description iyzico, netgsm, log, hgs_fake */
                 provider?: string;
             };
             header: {
@@ -33841,13 +35120,13 @@ export interface operations {
                      * @description Defaults to the provider's kind.
                      * @enum {string}
                      */
-                    kind?: "payment" | "sms";
+                    kind?: "payment" | "sms" | "toll";
                     /** @enum {string} */
-                    provider: "iyzico" | "netgsm" | "log";
+                    provider: "iyzico" | "netgsm" | "log" | "hgs_fake";
                     display_name: string;
                     /** @enum {string} */
                     mode?: "sandbox" | "live";
-                    /** @description iyzico: `api_key`, `secret_key`; netgsm: `usercode`, `password`, `msgheader`; log (development only): `msgheader` */
+                    /** @description iyzico: `api_key`, `secret_key`; netgsm: `usercode`, `password`, `msgheader`; log (development only): `msgheader`; hgs_fake (toll passes, development only): `api_key`, `customer_no` */
                     credentials: {
                         [key: string]: string;
                     };
@@ -37321,6 +38600,576 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
+    getTenantFieldTasksMeta: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource meta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantFieldTasksFacets: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Facets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFieldTaskFacets"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantFieldTaskAssignees: {
+        parameters: {
+            query?: {
+                q?: components["parameters"]["Q"];
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Assignees */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFieldTaskAssignees"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantMyFieldTasks: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description `due_at`, `status`, `task_type` or `created_at`; prefix `-` for descending. */
+                sort?: string;
+                status?: string;
+                task_type?: string;
+                due_from?: string;
+                due_to?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Task page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFieldTaskPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantFieldTasks: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description `due_at`, `status`, `task_type` or `created_at`; prefix `-` for descending. */
+                sort?: string;
+                /** @description planned, assigned, en_route, issue_reported, completed, cancelled */
+                status?: string;
+                /** @description handover, return, transfer, preparation, cleaning, maintenance, deposit, other */
+                task_type?: string;
+                /** @description branch, point, address */
+                location_kind?: string;
+                /** @description Branch uuids */
+                branch?: string;
+                /** @description User uuids; `none` = unassigned */
+                assignee?: string;
+                unassigned?: "true" | "false";
+                /** @description Reservation uuids */
+                reservation?: string;
+                due_from?: string;
+                due_to?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Task page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFieldTaskPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantFieldTask: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FieldTaskCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFieldTask"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantFieldTasksBulk: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkExecuteRequest"];
+            };
+        };
+        responses: {
+            /** @description Synchronous result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeBulkSyncResult"];
+                };
+            };
+            /** @description Bulk job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeBulkJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantFieldTask: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Task */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFieldTask"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchTenantFieldTask: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FieldTaskPatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Task */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFieldTask"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantFieldTaskEvents: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Timeline */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFieldTaskEvents"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantFieldTaskAssign: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FieldTaskAssignRequest"];
+            };
+        };
+        responses: {
+            /** @description Task */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFieldTask"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantFieldTaskStart: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Task */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFieldTask"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantFieldTaskReportIssue: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FieldTaskNoteRequest"];
+            };
+        };
+        responses: {
+            /** @description Task */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFieldTask"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantFieldTaskComplete: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["FieldTaskNoteRequest"];
+            };
+        };
+        responses: {
+            /** @description Task */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFieldTask"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantFieldTaskCancel: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FieldTaskNoteRequest"];
+            };
+        };
+        responses: {
+            /** @description Task */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFieldTask"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantDeliveryPoints: {
+        parameters: {
+            query?: {
+                branch?: string;
+                product?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Delivery points */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeDeliveryPoints"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
     getTenantOperationTasksMeta: {
         parameters: {
             query?: never;
@@ -37385,9 +39234,9 @@ export interface operations {
                 q?: components["parameters"]["Q"];
                 /** @description `due_at`, `status` or `created_at`; prefix `-` for descending. */
                 sort?: string;
-                /** @description open, in_progress, done, cancelled */
+                /** @description planned, assigned, en_route, issue_reported, completed, cancelled */
                 status?: string;
-                /** @description preparation, handover, return, cleaning, maintenance, deposit */
+                /** @description preparation, handover, return, cleaning, maintenance, deposit, transfer, other */
                 task_type?: string;
                 /** @description Branch uuids */
                 branch?: string;
@@ -39464,6 +41313,591 @@ export interface operations {
                     "application/json": components["schemas"]["EnvelopeStaffCustomerRequest"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantTollPassesMeta: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource meta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantTollPassesFacets: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Facets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeTollPassFacets"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantTollPasses: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description `passed_at`, `amount`, `status`, `plate` or `created_at`; prefix `-` for descending (default `-passed_at`). */
+                sort?: string;
+                /** @description unmatched, needs_review, matched, charged, ignored (comma separated) */
+                status?: string;
+                /** @description `1` = the review queue (unmatched + needs_review) */
+                review?: string;
+                /** @description Review reasons (comma separated) */
+                review_reason?: string;
+                /** @description api, file */
+                source?: string;
+                /** @description Provider codes */
+                provider?: string;
+                /** @description Vehicle uuids */
+                vehicle?: string;
+                /** @description Rental uuids */
+                rental?: string;
+                /** @description `true` / `false` */
+                has_rental?: string;
+                /** @description Passes from this day (YYYY-MM-DD, Istanbul) or time */
+                from?: string;
+                /** @description Passes up to this day (inclusive) or time (exclusive) */
+                to?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Toll pass page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeTollPassPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantTollPassesExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Export job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantTollPassesImport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ImportUploadForm"];
+            };
+        };
+        responses: {
+            /** @description Import job */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeImportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantTollPassesImportSample: {
+        parameters: {
+            query?: {
+                format?: "json" | "xlsx" | "csv" | "tsv";
+                locale?: "tr" | "en";
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sample file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantTollPassesFetch: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Fetch job */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeTollFetch"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantTollPass: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["TollPassOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantTollPassCandidates: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Candidate rentals */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeTollCandidates"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantTollPassAssign: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TollAssignRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["TollPassOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantTollPassUnassign: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TollReasonRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["TollPassOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantTollPassIgnore: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TollReasonRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["TollPassOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantTollPassRematch: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TollReasonRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["TollPassOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantTollSettings: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["TollSettingsOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    patchTenantTollSettings: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TollSettingsPatch"];
+            };
+        };
+        responses: {
+            200: components["responses"]["TollSettingsOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantVehicleTollTags: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tags */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeTollTags"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantVehicleTollTag: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TollTagCreate"];
+            };
+        };
+        responses: {
+            201: components["responses"]["TollTagOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteTenantVehicleTollTag: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                tagUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchTenantVehicleTollTag: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                tagUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TollTagPatch"];
+            };
+        };
+        responses: {
+            200: components["responses"]["TollTagOK"];
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["TenantForbidden"];

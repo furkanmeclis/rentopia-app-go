@@ -111,8 +111,46 @@ type ServicePoint struct {
 	WorkingHours     *WeeklyHours `json:"working_hours"`
 	OnlineSelectable bool         `json:"online_selectable"`
 	IsActive         bool         `json:"is_active"`
-	CreatedAt        time.Time    `json:"created_at"`
-	UpdatedAt        time.Time    `json:"updated_at"`
+	// Delivery settings (TEC-724): staff bring / collect the vehicle here;
+	// the fee is the delivery extra's price (else extra_fee); an address
+	// zone serves the listed districts and / or a radius around its centre
+	// within its hours, with min_notice_minutes of notice.
+	DeliveryEnabled    bool      `json:"delivery_enabled"`
+	DeliveryExtra      *ExtraRef `json:"delivery_extra"`
+	ServiceDistricts   []string  `json:"service_districts"`
+	Latitude           *float64  `json:"latitude"`
+	Longitude          *float64  `json:"longitude"`
+	ServiceRadiusKm    *float64  `json:"service_radius_km"`
+	MinNoticeMinutes   int32     `json:"min_notice_minutes"`
+	DeliveryConditions string    `json:"delivery_conditions"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
+}
+
+// ExtraRef names an extra.
+type ExtraRef struct {
+	UUID uuid.UUID `json:"uuid"`
+	Name string    `json:"name"`
+}
+
+// OptionalUUID distinguishes an absent JSON field from an explicit null.
+type OptionalUUID struct {
+	Set   bool
+	Value *uuid.UUID
+}
+
+func (o *OptionalUUID) UnmarshalJSON(b []byte) error {
+	o.Set = true
+	if bytes.Equal(bytes.TrimSpace(b), []byte("null")) {
+		o.Value = nil
+		return nil
+	}
+	var v uuid.UUID
+	if err := json.Unmarshal(b, &v); err != nil {
+		return err
+	}
+	o.Value = &v
+	return nil
 }
 
 // OptionalFloat distinguishes an absent JSON field from an explicit null.
@@ -182,6 +220,15 @@ type ServicePointInput struct {
 	WorkingHours     OptionalHours `json:"working_hours"`
 	OnlineSelectable *bool         `json:"online_selectable"`
 	IsActive         *bool         `json:"is_active"`
+	// Delivery settings (TEC-724).
+	DeliveryEnabled    *bool         `json:"delivery_enabled"`
+	DeliveryExtraUUID  OptionalUUID  `json:"delivery_extra_uuid"`
+	ServiceDistricts   *[]string     `json:"service_districts"`
+	Latitude           OptionalFloat `json:"latitude"`
+	Longitude          OptionalFloat `json:"longitude"`
+	ServiceRadiusKm    OptionalFloat `json:"service_radius_km"`
+	MinNoticeMinutes   *int32        `json:"min_notice_minutes"`
+	DeliveryConditions *string       `json:"delivery_conditions"`
 }
 
 // ListFilter selects branches of one organization.

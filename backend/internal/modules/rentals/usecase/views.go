@@ -171,6 +171,15 @@ func (s *Service) Get(ctx context.Context, orgID int64, id uuid.UUID) (model.Ren
 			orig := money.FromNumericOrZero(ch.OriginalAmount)
 			item.OriginalAmount = &orig
 		}
+		if ch.TollPassUuid.Valid {
+			id := uuid.UUID(ch.TollPassUuid.Bytes)
+			item.TollPassUUID = &id
+		}
+		if ch.ReversalOfUuid.Valid {
+			id := uuid.UUID(ch.ReversalOfUuid.Bytes)
+			item.ReversalOfUUID = &id
+		}
+		item.Reversed = ch.Reversed
 		out.Charges = append(out.Charges, item)
 	}
 	resID, _ := s.reservationID(ctx, orgID, row.ReservationUuid)

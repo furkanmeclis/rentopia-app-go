@@ -32,6 +32,8 @@ type Querier interface {
 	ApproveDocumentVersion(ctx context.Context, arg ApproveDocumentVersionParams) (int64, error)
 	ArchiveActiveContractTemplate(ctx context.Context, arg ArchiveActiveContractTemplateParams) error
 	ArchiveActiveInspectionTemplate(ctx context.Context, organizationID int64) error
+	// A new assignee resets the task to assigned (planned without one); the
+	// same assignee again changes nothing.
 	AssignOperationTask(ctx context.Context, arg AssignOperationTaskParams) (int64, error)
 	AssignResolutionTask(ctx context.Context, arg AssignResolutionTaskParams) (int64, error)
 	AssignUserRoleBySlug(ctx context.Context, arg AssignUserRoleBySlugParams) error
@@ -41,6 +43,9 @@ type Querier interface {
 	CancelActivePaymentLinks(ctx context.Context, arg CancelActivePaymentLinksParams) (int64, error)
 	CancelPaymentLink(ctx context.Context, arg CancelPaymentLinkParams) (int64, error)
 	CancelRental(ctx context.Context, arg CancelRentalParams) (int64, error)
+	// The reservation ended (cancelled, expired, no-show) or no longer asks for
+	// a delivery: its live tasks without a rental are cancelled.
+	CancelReservationFieldTasks(ctx context.Context, arg CancelReservationFieldTasksParams) ([]uuid.UUID, error)
 	CancelVehicleTransfer(ctx context.Context, arg CancelVehicleTransferParams) (int64, error)
 	CashAccountBalance(ctx context.Context, arg CashAccountBalanceParams) (pgtype.Numeric, error)
 	// Movements grouped by account, branch or month and kind inside a period.
@@ -149,6 +154,9 @@ type Querier interface {
 	CountStorageActivity(ctx context.Context, objectKey string) (int64, error)
 	CountStorageTrash(ctx context.Context) (int64, error)
 	CountTenantMembers(ctx context.Context, arg CountTenantMembersParams) (int64, error)
+	// Transfers of the vehicle (not cancelled) whose actual, else planned,
+	// window contains the pass time.
+	CountTollVehicleTransfersAt(ctx context.Context, arg CountTollVehicleTransfersAtParams) (int64, error)
 	CountUnreadInappForUser(ctx context.Context, arg CountUnreadInappForUserParams) (int64, error)
 	CountUnresolvedCatalogTypesByCategory(ctx context.Context) ([]CountUnresolvedCatalogTypesByCategoryRow, error)
 	CountUsers(ctx context.Context, arg CountUsersParams) (int64, error)
@@ -320,7 +328,11 @@ type Querier interface {
 	DeleteStorageStar(ctx context.Context, arg DeleteStorageStarParams) error
 	DeleteStorageTrashByUUID(ctx context.Context, argUuid uuid.UUID) error
 	DeleteTenantRole(ctx context.Context, arg DeleteTenantRoleParams) (int64, error)
+	// Import rollback of a pass the import created (its charges were reversed
+	// first; they keep their rows without the pass link).
+	DeleteTollPass(ctx context.Context, arg DeleteTollPassParams) error
 	DeleteUserTOTP(ctx context.Context, userID int64) error
+	DeleteVehicleTollTag(ctx context.Context, arg DeleteVehicleTollTagParams) (int64, error)
 	DeleteWebAuthnCredentialByCredentialID(ctx context.Context, credentialID string) error
 	DeleteWebAuthnCredentialByUUID(ctx context.Context, arg DeleteWebAuthnCredentialByUUIDParams) error
 	DisablePushDevice(ctx context.Context, arg DisablePushDeviceParams) error
@@ -357,6 +369,11 @@ type Querier interface {
 	ExtraFacets(ctx context.Context, organizationID int64) ([]ExtraFacetsRow, error)
 	FailPayment(ctx context.Context, arg FailPaymentParams) (int64, error)
 	FinalizeInspection(ctx context.Context, arg FinalizeInspectionParams) (int64, error)
+	// Vehicles with the plate (live ones first; a soft-deleted vehicle still
+	// matches a pass from its time).
+	FindTollVehiclesByPlate(ctx context.Context, arg FindTollVehiclesByPlateParams) ([]FindTollVehiclesByPlateRow, error)
+	// Vehicles that carried the tag at the pass time.
+	FindTollVehiclesByTag(ctx context.Context, arg FindTollVehiclesByTagParams) ([]FindTollVehiclesByTagRow, error)
 	// Import: catalog types with a TSB type code (codes are unique per TSB
 	// brand only, so several may match).
 	FindVehicleCatalogTypeByCode(ctx context.Context, code string) ([]FindVehicleCatalogTypeByCodeRow, error)
@@ -419,9 +436,13 @@ type Querier interface {
 	GetAvailabilityVehicle(ctx context.Context, arg GetAvailabilityVehicleParams) (GetAvailabilityVehicleRow, error)
 	GetBranchByCode(ctx context.Context, arg GetBranchByCodeParams) (Branch, error)
 	GetBranchByUUID(ctx context.Context, arg GetBranchByUUIDParams) (Branch, error)
+	GetBranchDeliveryExtraByID(ctx context.Context, arg GetBranchDeliveryExtraByIDParams) (GetBranchDeliveryExtraByIDRow, error)
+	// A delivery extra of the organization (the fee of a delivery point).
+	GetBranchDeliveryExtraByUUID(ctx context.Context, arg GetBranchDeliveryExtraByUUIDParams) (GetBranchDeliveryExtraByUUIDRow, error)
 	GetBranchRefByCode(ctx context.Context, arg GetBranchRefByCodeParams) (GetBranchRefByCodeRow, error)
 	GetBranchRefByUUID(ctx context.Context, arg GetBranchRefByUUIDParams) (GetBranchRefByUUIDRow, error)
 	GetBranchSearchDocument(ctx context.Context, arg GetBranchSearchDocumentParams) (GetBranchSearchDocumentRow, error)
+	GetBranchUUIDByID(ctx context.Context, arg GetBranchUUIDByIDParams) (uuid.UUID, error)
 	GetBulkJobByID(ctx context.Context, id int64) (BulkJob, error)
 	GetBulkJobByUUID(ctx context.Context, argUuid uuid.UUID) (BulkJob, error)
 	GetCampaignByCode(ctx context.Context, arg GetCampaignByCodeParams) (GetCampaignByCodeRow, error)
@@ -460,6 +481,11 @@ type Querier interface {
 	GetCustomerSearchDocument(ctx context.Context, arg GetCustomerSearchDocumentParams) (GetCustomerSearchDocumentRow, error)
 	GetDateRule(ctx context.Context, arg GetDateRuleParams) (GetDateRuleRow, error)
 	GetDateRuleVersionByStatus(ctx context.Context, arg GetDateRuleVersionByStatusParams) (GetDateRuleVersionByStatusRow, error)
+	// The price of a delivery extra effective at a time: the product's row,
+	// else the default row.
+	GetDeliveryExtraPrice(ctx context.Context, arg GetDeliveryExtraPriceParams) (GetDeliveryExtraPriceRow, error)
+	// A service point with what delivery eligibility and the fee need.
+	GetDeliveryPoint(ctx context.Context, arg GetDeliveryPointParams) (GetDeliveryPointRow, error)
 	GetDocument(ctx context.Context, arg GetDocumentParams) (GetDocumentRow, error)
 	GetDocumentApprovalForPDF(ctx context.Context, arg GetDocumentApprovalForPDFParams) (GetDocumentApprovalForPDFRow, error)
 	GetDocumentApprovalLink(ctx context.Context, arg GetDocumentApprovalLinkParams) (GetDocumentApprovalLinkRow, error)
@@ -491,6 +517,23 @@ type Querier interface {
 	// Unlocked read (tests prove the lock is what prevents overselling).
 	GetExtraStock(ctx context.Context, arg GetExtraStockParams) (int32, error)
 	GetExtrasByUUIDs(ctx context.Context, arg GetExtrasByUUIDsParams) ([]GetExtrasByUUIDsRow, error)
+	GetFieldBranch(ctx context.Context, arg GetFieldBranchParams) (GetFieldBranchRow, error)
+	// A member of the organization as a task assignee: branch scope and
+	// whether a role lets them work field tasks.
+	GetFieldMember(ctx context.Context, arg GetFieldMemberParams) (GetFieldMemberRow, error)
+	GetFieldPoint(ctx context.Context, arg GetFieldPointParams) (GetFieldPointRow, error)
+	// What the delivery automation needs of a reservation: status, plan,
+	// places with their delivery settings, delivery details, the live rental.
+	GetFieldReservation(ctx context.Context, arg GetFieldReservationParams) (GetFieldReservationRow, error)
+	// Field tasks (TEC-724): the field view of operation_tasks (place,
+	// contact, meeting details, assignee, timeline). Branch scope: the task's
+	// branch or, for a transfer, its destination. The vehicle of a delivery
+	// task opened before the rental is the reservation's planned vehicle.
+	GetFieldTask(ctx context.Context, arg GetFieldTaskParams) (GetFieldTaskRow, error)
+	GetFieldTaskTransferByID(ctx context.Context, arg GetFieldTaskTransferByIDParams) (GetFieldTaskTransferByIDRow, error)
+	GetFieldTransferIDByUUID(ctx context.Context, arg GetFieldTransferIDByUUIDParams) (int64, error)
+	GetFieldUserByID(ctx context.Context, id int64) (GetFieldUserByIDRow, error)
+	GetFieldVehicle(ctx context.Context, arg GetFieldVehicleParams) (GetFieldVehicleRow, error)
 	// The handover record a return is compared with.
 	GetFinalizedHandoverInspection(ctx context.Context, arg GetFinalizedHandoverInspectionParams) (uuid.UUID, error)
 	// Tenant resource: vehicle usage blocks (TEC-694). Every query filters by
@@ -672,10 +715,25 @@ type Querier interface {
 	GetStorageLinkByUUID(ctx context.Context, argUuid uuid.UUID) (StorageLink, error)
 	GetStorageTrashByOriginalKey(ctx context.Context, originalKey string) (StorageTrash, error)
 	GetStorageTrashByUUID(ctx context.Context, argUuid uuid.UUID) (StorageTrash, error)
+	// A rental's handover / return task and the delivery facts of its
+	// reservation (placement.Locate).
+	GetTaskPlacementFacts(ctx context.Context, arg GetTaskPlacementFactsParams) (GetTaskPlacementFactsRow, error)
 	GetTemplateByCodeChannelLang(ctx context.Context, arg GetTemplateByCodeChannelLangParams) (NotificationTemplate, error)
 	GetTenantMemberByUserUUID(ctx context.Context, arg GetTenantMemberByUserUUIDParams) (GetTenantMemberByUserUUIDRow, error)
 	GetTenantRoleByKey(ctx context.Context, arg GetTenantRoleByKeyParams) (Role, error)
 	GetTenantRoleByUUIDForOrganization(ctx context.Context, arg GetTenantRoleByUUIDForOrganizationParams) (GetTenantRoleByUUIDForOrganizationRow, error)
+	GetTollCharge(ctx context.Context, arg GetTollChargeParams) (GetTollChargeRow, error)
+	// One pass with its vehicle / rental references (detail view).
+	GetTollPass(ctx context.Context, arg GetTollPassParams) (GetTollPassRow, error)
+	// A rental as a toll charge target (by id): status, customer, currency and
+	// the branches its visibility depends on.
+	GetTollRental(ctx context.Context, arg GetTollRentalParams) (GetTollRentalRow, error)
+	GetTollRentalByUUID(ctx context.Context, arg GetTollRentalByUUIDParams) (GetTollRentalByUUIDRow, error)
+	GetTollSettings(ctx context.Context, organizationID int64) (GetTollSettingsRow, error)
+	// A vehicle as the owner of toll tags / passes (scope: home or current
+	// branch).
+	GetTollVehicle(ctx context.Context, arg GetTollVehicleParams) (GetTollVehicleRow, error)
+	GetTollVehicleByID(ctx context.Context, arg GetTollVehicleByIDParams) (GetTollVehicleByIDRow, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id int64) (User, error)
 	GetUserByUUID(ctx context.Context, argUuid uuid.UUID) (User, error)
@@ -696,6 +754,7 @@ type Querier interface {
 	GetVehicleRefByUUID(ctx context.Context, arg GetVehicleRefByUUIDParams) (GetVehicleRefByUUIDRow, error)
 	GetVehicleSearchDocument(ctx context.Context, arg GetVehicleSearchDocumentParams) (GetVehicleSearchDocumentRow, error)
 	GetVehicleSegmentByUUID(ctx context.Context, arg GetVehicleSegmentByUUIDParams) (VehicleSegment, error)
+	GetVehicleTollTag(ctx context.Context, arg GetVehicleTollTagParams) (GetVehicleTollTagRow, error)
 	GetVehicleTransfer(ctx context.Context, arg GetVehicleTransferParams) (GetVehicleTransferRow, error)
 	GetWebAuthnCredentialByCredentialID(ctx context.Context, credentialID string) (WebauthnCredential, error)
 	GetWebAuthnCredentialByUUID(ctx context.Context, arg GetWebAuthnCredentialByUUIDParams) (WebauthnCredential, error)
@@ -733,6 +792,10 @@ type Querier interface {
 	InsertExpense(ctx context.Context, arg InsertExpenseParams) (InsertExpenseRow, error)
 	InsertExpenseCategory(ctx context.Context, arg InsertExpenseCategoryParams) (InsertExpenseCategoryRow, error)
 	InsertExtraPrice(ctx context.Context, arg InsertExtraPriceParams) (uuid.UUID, error)
+	// A task staff open by hand or a reservation opens for a delivery /
+	// collection (one live task per reservation and type before the rental:
+	// uq_operation_tasks_reservation_live; a second open returns no row).
+	InsertFieldTask(ctx context.Context, arg InsertFieldTaskParams) (InsertFieldTaskRow, error)
 	InsertImportChange(ctx context.Context, arg InsertImportChangeParams) (ImportChange, error)
 	InsertInspection(ctx context.Context, arg InsertInspectionParams) (InsertInspectionRow, error)
 	// ------------------------------------------------------------- charges
@@ -756,6 +819,9 @@ type Querier interface {
 	// Operation tasks (TEC-709). Branch scope: t.branch_id.
 	// A live task per rental, type and vehicle at most (the partial unique
 	// index): a second open of the same task is a no-op (no row returned).
+	// A delivery / collection task the reservation opened before the rental
+	// existed (TEC-724) is adopted instead: it gets the rental and vehicle
+	// and keeps its assignee, status and place.
 	InsertOperationTask(ctx context.Context, arg InsertOperationTaskParams) (uuid.UUID, error)
 	InsertOrganizationSettingsVersion(ctx context.Context, arg InsertOrganizationSettingsVersionParams) (OrganizationSettingsVersion, error)
 	InsertOutboxEvent(ctx context.Context, arg InsertOutboxEventParams) (OutboxEvent, error)
@@ -807,9 +873,19 @@ type Querier interface {
 	InsertStorageShare(ctx context.Context, arg InsertStorageShareParams) (StorageShare, error)
 	InsertStorageStar(ctx context.Context, arg InsertStorageStarParams) (StorageStar, error)
 	InsertStorageTrash(ctx context.Context, arg InsertStorageTrashParams) (StorageTrash, error)
+	// A toll / processing fee charge or the reversal of one. Toll charges are
+	// facts reported by the provider: they are recorded approved (decided by
+	// the system), never edited, and reversed by a negative row.
+	InsertTollCharge(ctx context.Context, arg InsertTollChargeParams) (InsertTollChargeRow, error)
+	// A new pass; a concurrent arrival of the same transaction loses the
+	// unique index and reads the row again (inserted = false).
+	InsertTollPass(ctx context.Context, arg InsertTollPassParams) (InsertTollPassRow, error)
+	InsertTollPassEvent(ctx context.Context, arg InsertTollPassEventParams) error
+	InsertTollPassRevision(ctx context.Context, arg InsertTollPassRevisionParams) error
 	InsertUserRole(ctx context.Context, arg InsertUserRoleParams) error
 	InsertVehicleAssignment(ctx context.Context, arg InsertVehicleAssignmentParams) error
 	InsertVehicleEvent(ctx context.Context, arg InsertVehicleEventParams) (VehicleEvent, error)
+	InsertVehicleTollTag(ctx context.Context, arg InsertVehicleTollTagParams) (uuid.UUID, error)
 	InvalidateActiveOTPs(ctx context.Context, arg InvalidateActiveOTPsParams) error
 	InvalidateDocumentApprovals(ctx context.Context, arg InvalidateDocumentApprovalsParams) error
 	IssueDocumentVersion(ctx context.Context, arg IssueDocumentVersionParams) (int64, error)
@@ -934,6 +1010,9 @@ type Querier interface {
 	// effective range [start, end) overlaps [date_from, date_to].
 	ListDateRules(ctx context.Context, arg ListDateRulesParams) ([]ListDateRulesRow, error)
 	ListDateRulesForExport(ctx context.Context, arg ListDateRulesForExportParams) ([]ListDateRulesForExportRow, error)
+	// The delivery points of the organization (wizard picker), optionally of
+	// one branch.
+	ListDeliveryPoints(ctx context.Context, arg ListDeliveryPointsParams) ([]ListDeliveryPointsRow, error)
 	ListDocumentApprovalLinks(ctx context.Context, arg ListDocumentApprovalLinksParams) ([]ListDocumentApprovalLinksRow, error)
 	ListDocumentApprovals(ctx context.Context, arg ListDocumentApprovalsParams) ([]ListDocumentApprovalsRow, error)
 	ListDocumentSignerDrivers(ctx context.Context, arg ListDocumentSignerDriversParams) ([]ListDocumentSignerDriversRow, error)
@@ -970,6 +1049,14 @@ type Querier interface {
 	// default_price: the current default price row; stock_total: owned units
 	// over every branch (physical extras).
 	ListExtras(ctx context.Context, arg ListExtrasParams) ([]ListExtrasRow, error)
+	// Members whose roles let them work field tasks (pickers, the per-staff
+	// day timeline), with their branch scope.
+	ListFieldAssignees(ctx context.Context, arg ListFieldAssigneesParams) ([]ListFieldAssigneesRow, error)
+	ListFieldTaskEvents(ctx context.Context, arg ListFieldTaskEventsParams) ([]ListFieldTaskEventsRow, error)
+	ListFieldTaskFacets(ctx context.Context, arg ListFieldTaskFacetsParams) ([]ListFieldTaskFacetsRow, error)
+	// Bulk "all matching": the uuids of the filtered list (capped).
+	ListFieldTaskUUIDs(ctx context.Context, arg ListFieldTaskUUIDsParams) ([]uuid.UUID, error)
+	ListFieldTasks(ctx context.Context, arg ListFieldTasksParams) ([]ListFieldTasksRow, error)
 	// Busy intervals (vehicle_busy_intervals: blocks, non-cancelled transfers
 	// and active allocations - holds / reservations, TEC-697) of the given
 	// vehicles that overlap [from_at, to_at), with the block / transfer /
@@ -1048,6 +1135,9 @@ type Querier interface {
 	ListOrganizationMembershipsByUser(ctx context.Context, userID int64) ([]ListOrganizationMembershipsByUserRow, error)
 	ListOrganizationResourceActivity(ctx context.Context, arg ListOrganizationResourceActivityParams) ([]ListOrganizationResourceActivityRow, error)
 	ListOrganizationSettingsVersions(ctx context.Context, arg ListOrganizationSettingsVersionsParams) ([]ListOrganizationSettingsVersionsRow, error)
+	// Organizations that have passes waiting in the review queue (the
+	// periodic re-match walks them).
+	ListOrganizationsWithReviewTollPasses(ctx context.Context, since pgtype.Timestamptz) ([]int64, error)
 	// Platform organization management (TEC-670): list with owner and counts,
 	// export / bulk uuids, profile logo, activity.
 	// Access state: 'upcoming' before access_starts_at, 'expired' after
@@ -1154,6 +1244,9 @@ type Querier interface {
 	ListReservationEvents(ctx context.Context, arg ListReservationEventsParams) ([]ListReservationEventsRow, error)
 	// Facet counts over the caller's branch scope: (facet, value, label, count).
 	ListReservationFacets(ctx context.Context, arg ListReservationFacetsParams) ([]ListReservationFacetsRow, error)
+	// The live handover / return tasks of a reservation (with or without the
+	// rental).
+	ListReservationFieldTasks(ctx context.Context, arg ListReservationFieldTasksParams) ([]ListReservationFieldTasksRow, error)
 	// Bulk "all matching": the uuids of the list filter in the branch scope.
 	ListReservationTargetUUIDs(ctx context.Context, arg ListReservationTargetUUIDsParams) ([]uuid.UUID, error)
 	// One page of reservations in the caller's branch scope (pick-up OR return
@@ -1183,6 +1276,39 @@ type Querier interface {
 	ListTenantRolePermissionSlugsByRoleID(ctx context.Context, roleID int64) ([]string, error)
 	// Template roles plus the roles created by this organization.
 	ListTenantRolesForOrganization(ctx context.Context, organizationID int64) ([]ListTenantRolesForOrganizationRow, error)
+	// Rentals of the vehicle around the pass time (assign dialog): planned
+	// and actual windows, customer, whether the actual window contains it.
+	ListTollCandidateRentals(ctx context.Context, arg ListTollCandidateRentalsParams) ([]ListTollCandidateRentalsRow, error)
+	// The periodic fetch: every active toll provider account whose
+	// organization has not switched the automatic fetch off, across
+	// organizations (each row carries its organization; the job is created in
+	// it).
+	ListTollFetchAccounts(ctx context.Context) ([]ListTollFetchAccountsRow, error)
+	// Every rental charge of the pass (live, reversed and reversals).
+	ListTollPassCharges(ctx context.Context, arg ListTollPassChargesParams) ([]ListTollPassChargesRow, error)
+	ListTollPassEvents(ctx context.Context, arg ListTollPassEventsParams) ([]ListTollPassEventsRow, error)
+	ListTollPassRevisions(ctx context.Context, arg ListTollPassRevisionsParams) ([]ListTollPassRevisionsRow, error)
+	// Toll passes (TEC-725, docs/design/tolls.md). Every query names the
+	// organization. Branch scope: a pass is visible when its vehicle's home or
+	// current branch, or its rental's planned pick-up / return or actual
+	// return branch, is in the member's scope (branch_ids NULL = every
+	// branch). A pass without a vehicle and a rental is visible to members of
+	// every branch only.
+	ListTollPasses(ctx context.Context, arg ListTollPassesParams) ([]ListTollPassesRow, error)
+	// Passes of the review queue the automatic matching may now resolve
+	// (actual times recorded later, a tag added): not decided by a person.
+	ListTollPassesToRematch(ctx context.Context, arg ListTollPassesToRematchParams) ([]uuid.UUID, error)
+	// Rentals of the vehicle whose PLANNED window contains the pass time while
+	// no actual leg does (actual times missing or outside the plan).
+	ListTollPlannedRentals(ctx context.Context, arg ListTollPlannedRentalsParams) ([]ListTollPlannedRentalsRow, error)
+	// Rental legs of the vehicle whose ACTUAL out → in interval contains the
+	// pass time (an open leg runs until now).
+	ListTollRentalLegs(ctx context.Context, arg ListTollRentalLegsParams) ([]ListTollRentalLegsRow, error)
+	// Review passes of a tag (re-matched when the tag is linked / changed).
+	ListTollReviewPassesByTag(ctx context.Context, arg ListTollReviewPassesByTagParams) ([]uuid.UUID, error)
+	// Tag numbers carried by the organization's vehicles during the window
+	// (the provider is asked for these tags).
+	ListTollTagNumbersForFetch(ctx context.Context, arg ListTollTagNumbersForFetchParams) ([]string, error)
 	ListTransferPair(ctx context.Context, arg ListTransferPairParams) ([]ListTransferPairRow, error)
 	// Catch-up sweep: confirmed payments without their collection entry.
 	ListUnpostedPayments(ctx context.Context, limitCount int32) ([]ListUnpostedPaymentsRow, error)
@@ -1237,6 +1363,7 @@ type Querier interface {
 	ListVehicleSegmentActiveFacets(ctx context.Context, organizationID int64) ([]ListVehicleSegmentActiveFacetsRow, error)
 	ListVehicleSegments(ctx context.Context, arg ListVehicleSegmentsParams) ([]VehicleSegment, error)
 	ListVehicleSegmentsByIDs(ctx context.Context, arg ListVehicleSegmentsByIDsParams) ([]VehicleSegment, error)
+	ListVehicleTollTags(ctx context.Context, arg ListVehicleTollTagsParams) ([]ListVehicleTollTagsRow, error)
 	// facet: status | from_branch | to_branch, in the caller's branch scope.
 	ListVehicleTransferFacets(ctx context.Context, arg ListVehicleTransferFacetsParams) ([]ListVehicleTransferFacetsRow, error)
 	ListVehicleTransfers(ctx context.Context, arg ListVehicleTransfersParams) ([]ListVehicleTransfersRow, error)
@@ -1268,6 +1395,8 @@ type Querier interface {
 	// Claims a job for one provider call (one worker at a time; an expired
 	// claim of a crashed worker is free again).
 	LockRunnerJob(ctx context.Context, arg LockRunnerJobParams) (int64, error)
+	LockTollPassByExternal(ctx context.Context, arg LockTollPassByExternalParams) (LockTollPassByExternalRow, error)
+	LockTollPassByUUID(ctx context.Context, arg LockTollPassByUUIDParams) (LockTollPassByUUIDRow, error)
 	MarkAllNotificationsReadForUser(ctx context.Context, arg MarkAllNotificationsReadForUserParams) (int64, error)
 	// Handover: the confirmed reservation's allocation becomes the rental's
 	// (same row, the plate is promised from now on).
@@ -1411,6 +1540,7 @@ type Querier interface {
 	// Date change / plate assignment / product change of one allocation (same
 	// optimistic check).
 	ReplanAllocation(ctx context.Context, arg ReplanAllocationParams) (int64, error)
+	RescheduleFieldTask(ctx context.Context, arg RescheduleFieldTaskParams) error
 	// The planned pick-up / return moved: live tasks of the type follow.
 	RescheduleRentalTasks(ctx context.Context, arg RescheduleRentalTasksParams) error
 	ResolveCustomerRequest(ctx context.Context, arg ResolveCustomerRequestParams) (int64, error)
@@ -1467,6 +1597,7 @@ type Querier interface {
 	SetExpenseAttachment(ctx context.Context, arg SetExpenseAttachmentParams) (int64, error)
 	SetExpenseCategory(ctx context.Context, arg SetExpenseCategoryParams) (int64, error)
 	SetExtraStatus(ctx context.Context, arg SetExtraStatusParams) (int64, error)
+	SetFieldTaskTransfer(ctx context.Context, arg SetFieldTaskTransferParams) error
 	// Moves the expiry of an active hold (reservation review -> payment
 	// window); the new expiry must lie in the future.
 	SetHoldExpiry(ctx context.Context, arg SetHoldExpiryParams) (int64, error)
@@ -1478,6 +1609,9 @@ type Querier interface {
 	SetMemberPrimaryRole(ctx context.Context, arg SetMemberPrimaryRoleParams) error
 	SetOTPChallengeMessage(ctx context.Context, arg SetOTPChallengeMessageParams) error
 	SetOneWayRuleActive(ctx context.Context, arg SetOneWayRuleActiveParams) (int64, error)
+	// The place, contact and meeting details of a task (delivery automation;
+	// no change = no write, so the timeline stays quiet).
+	SetOperationTaskPlace(ctx context.Context, arg SetOperationTaskPlaceParams) error
 	SetOrganizationAccessWindow(ctx context.Context, arg SetOrganizationAccessWindowParams) (Organization, error)
 	SetOrganizationLogo(ctx context.Context, arg SetOrganizationLogoParams) (Organization, error)
 	SetOrganizationStatus(ctx context.Context, arg SetOrganizationStatusParams) (Organization, error)
@@ -1500,6 +1634,7 @@ type Querier interface {
 	SetReservationPayment(ctx context.Context, arg SetReservationPaymentParams) (int64, error)
 	SetRolePermissions(ctx context.Context, roleID int64) error
 	SetSMSMessageJob(ctx context.Context, arg SetSMSMessageJobParams) error
+	SetTollPassMatch(ctx context.Context, arg SetTollPassMatchParams) error
 	SetUserEmailVerified(ctx context.Context, id int64) (User, error)
 	SetVehicleActive(ctx context.Context, arg SetVehicleActiveParams) (Vehicle, error)
 	SetVehicleCurrentBranch(ctx context.Context, arg SetVehicleCurrentBranchParams) (Vehicle, error)
@@ -1548,11 +1683,18 @@ type Querier interface {
 	TenantListCatalogModels(ctx context.Context, arg TenantListCatalogModelsParams) ([]TenantListCatalogModelsRow, error)
 	TenantListCatalogTypes(ctx context.Context, arg TenantListCatalogTypesParams) ([]TenantListCatalogTypesRow, error)
 	TenantRoleSlugTaken(ctx context.Context, arg TenantRoleSlugTakenParams) (bool, error)
+	// Counts per status, source, provider and review reason in the caller's
+	// branch scope (facet = the column).
+	TollPassFacets(ctx context.Context, arg TollPassFacetsParams) ([]TollPassFacetsRow, error)
 	TouchDateRule(ctx context.Context, arg TouchDateRuleParams) error
 	// Slides the idle expiry (never beyond the hard cap).
 	TouchPortalSession(ctx context.Context, arg TouchPortalSessionParams) (int64, error)
 	TouchRatePlan(ctx context.Context, arg TouchRatePlanParams) error
 	TouchRentalProduct(ctx context.Context, arg TouchRentalProductParams) error
+	TouchTollPassFetched(ctx context.Context, arg TouchTollPassFetchedParams) error
+	// Moves a task from one status to the next (the use case validated the
+	// transition; the from status guards a concurrent change).
+	TransitionFieldTask(ctx context.Context, arg TransitionFieldTaskParams) (int64, error)
 	// Moves the status (optimistic: only from the expected status).
 	TransitionReservation(ctx context.Context, arg TransitionReservationParams) (int64, error)
 	UnlockRunnerJob(ctx context.Context, arg UnlockRunnerJobParams) error
@@ -1579,6 +1721,8 @@ type Querier interface {
 	// fixed once recorded (void and record again to change them).
 	UpdateExpenseDetails(ctx context.Context, arg UpdateExpenseDetailsParams) (int64, error)
 	UpdateExtra(ctx context.Context, arg UpdateExtraParams) (int64, error)
+	// Re-plans a live task: time, duration, place, contact and meeting details.
+	UpdateFieldTaskPlan(ctx context.Context, arg UpdateFieldTaskPlanParams) (int64, error)
 	UpdateGitHubAppSettings(ctx context.Context, arg UpdateGitHubAppSettingsParams) (GithubAppSetting, error)
 	UpdateImportJobFileKey(ctx context.Context, arg UpdateImportJobFileKeyParams) (ImportJob, error)
 	UpdateImportJobMapping(ctx context.Context, arg UpdateImportJobMappingParams) (ImportJob, error)
@@ -1607,6 +1751,8 @@ type Querier interface {
 	UpdateServicePoint(ctx context.Context, arg UpdateServicePointParams) (ServicePoint, error)
 	UpdateStepupSettings(ctx context.Context, arg UpdateStepupSettingsParams) (StepupSetting, error)
 	UpdateTenantRole(ctx context.Context, arg UpdateTenantRoleParams) (int64, error)
+	// A pass that arrived again with changed facts (a new revision).
+	UpdateTollPassFacts(ctx context.Context, arg UpdateTollPassFactsParams) error
 	UpdateUserLastLogin(ctx context.Context, id int64) error
 	UpdateUserLocale(ctx context.Context, arg UpdateUserLocaleParams) error
 	UpdateUserPasswordByID(ctx context.Context, arg UpdateUserPasswordByIDParams) error
@@ -1621,6 +1767,7 @@ type Querier interface {
 	UpdateVehicleDocument(ctx context.Context, arg UpdateVehicleDocumentParams) (VehicleDocument, error)
 	UpdateVehicleMaintenance(ctx context.Context, arg UpdateVehicleMaintenanceParams) (VehicleMaintenance, error)
 	UpdateVehicleSegment(ctx context.Context, arg UpdateVehicleSegmentParams) (VehicleSegment, error)
+	UpdateVehicleTollTag(ctx context.Context, arg UpdateVehicleTollTagParams) (int64, error)
 	// Only planned transfers can be re-planned.
 	UpdateVehicleTransferPlan(ctx context.Context, arg UpdateVehicleTransferPlanParams) (int64, error)
 	UpdateWebAuthnCredentialCounter(ctx context.Context, arg UpdateWebAuthnCredentialCounterParams) error
@@ -1636,6 +1783,7 @@ type Querier interface {
 	// re-enabled on every registration.
 	UpsertPushDevice(ctx context.Context, arg UpsertPushDeviceParams) (PushDevice, error)
 	UpsertPushSubscription(ctx context.Context, arg UpsertPushSubscriptionParams) (PushSubscription, error)
+	UpsertTollSettings(ctx context.Context, arg UpsertTollSettingsParams) (UpsertTollSettingsRow, error)
 	UpsertUserTOTPSetup(ctx context.Context, arg UpsertUserTOTPSetupParams) (UserTotp, error)
 	UserHasRoleSlug(ctx context.Context, arg UserHasRoleSlugParams) (bool, error)
 	// Platform catalog (not organization scoped): the grouped model of each

@@ -204,7 +204,7 @@ func (s *Service) Handover(ctx context.Context, orgID int64, id uuid.UUID, in mo
 				}
 			}
 			closed, err := q.FinishRentalTasks(hctx, db.FinishRentalTasksParams{
-				OrganizationID: orgID, RentalID: int8Of(c.ID), Status: model.TaskDone, CompletedAt: ts(s.clock()),
+				OrganizationID: orgID, RentalID: int8Of(c.ID), Status: model.TaskCompleted, CompletedAt: ts(s.clock()),
 				ActorID: int8Ptr(actorID(ctx)), CompletionNote: "handed over", TaskTypes: []string{model.TaskPreparation, model.TaskHandover},
 			})
 			if err != nil {
@@ -334,7 +334,7 @@ func (s *Service) Return(ctx context.Context, orgID int64, id uuid.UUID, in mode
 				return err
 			}
 			closed, err := q.FinishRentalTasks(hctx, db.FinishRentalTasksParams{
-				OrganizationID: orgID, RentalID: int8Of(c.ID), Status: model.TaskDone, CompletedAt: ts(s.clock()),
+				OrganizationID: orgID, RentalID: int8Of(c.ID), Status: model.TaskCompleted, CompletedAt: ts(s.clock()),
 				ActorID: int8Ptr(actorID(ctx)), CompletionNote: "returned", TaskTypes: []string{model.TaskReturn},
 			})
 			if err != nil {

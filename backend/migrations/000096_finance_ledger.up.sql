@@ -66,8 +66,8 @@ CREATE TRIGGER trg_accounts_updated_at
     BEFORE UPDATE ON accounts
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
--- Composite FK target for ledger entries naming a charge.
-ALTER TABLE rental_charges ADD CONSTRAINT uq_rental_charges_organization_id UNIQUE (organization_id, id);
+-- Ledger entries naming a charge use the composite FK target
+-- uq_rental_charges_organization_id added by 000093_tolls.
 
 CREATE TABLE ledger_entries (
     id BIGSERIAL PRIMARY KEY,

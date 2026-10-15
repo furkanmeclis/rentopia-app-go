@@ -130,7 +130,7 @@ func (s *seeder) rental(reservation, vehicle int64, status string, overdueAt *ti
 
 func (s *seeder) task(kind, status string, branch, rental, vehicle int64, due time.Time) {
 	var completed *time.Time
-	if status == "done" || status == "cancelled" {
+	if status == "completed" || status == "cancelled" {
 		c := due
 		completed = &c
 	}
@@ -224,12 +224,12 @@ func seed(t *testing.T, pool *pgxpool.Pool) fixture {
 	res3, f.res3 = a.reservation(prod, cust, resOpts{status: "confirmed", pickup: f.a1.id, ret: f.a1.id, starts: at(3), ends: at(51)})
 	r3 := a.rental(res3, v2, "preparation", nil)
 
-	a.task("handover", "open", f.a1.id, r3, v2, at(3))      // today
-	a.task("return", "open", f.a1.id, r1, v1, at(-3))       // today, late
-	a.task("handover", "done", f.a2.id, r2, v3, at(-4))     // today, done
-	a.task("return", "open", f.a2.id, r2, v3, at(30))       // tomorrow
-	a.task("preparation", "open", f.a1.id, r3, v2, at(1))   // not a handover / return
-	a.task("handover", "cancelled", f.a1.id, r3, v2, at(2)) // cancelled
+	a.task("handover", "planned", f.a1.id, r3, v2, at(3))    // today
+	a.task("return", "planned", f.a1.id, r1, v1, at(-3))     // today, late
+	a.task("handover", "completed", f.a2.id, r2, v3, at(-4)) // today, done
+	a.task("return", "planned", f.a2.id, r2, v3, at(30))     // tomorrow
+	a.task("preparation", "planned", f.a1.id, r3, v2, at(1)) // not a handover / return
+	a.task("handover", "cancelled", f.a1.id, r3, v2, at(2))  // cancelled
 
 	// Approval queue: A1 request past its SLA, A2 review within it.
 	_, f.res4 = a.reservation(prod, cust, resOpts{status: "request", pickup: f.a1.id, ret: f.a1.id, starts: at(72), ends: at(96), review: ptr(at(-1))})
@@ -270,7 +270,7 @@ func seed(t *testing.T, pool *pgxpool.Pool) fixture {
 	bv := b.vehicle("06 B 001", f.b1.id, f.b1.id, "rented")
 	bres, _ := b.reservation(bprod, bcust, resOpts{status: "confirmed", pickup: f.b1.id, ret: f.b1.id, starts: at(-48), ends: at(-5)})
 	br := b.rental(bres, bv, "active", ptr(at(-4)))
-	b.task("return", "open", f.b1.id, br, bv, at(-5))
+	b.task("return", "planned", f.b1.id, br, bv, at(-5))
 	b.reservation(bprod, bcust, resOpts{status: "request", pickup: f.b1.id, ret: f.b1.id, starts: at(72), ends: at(96), review: ptr(at(-2))})
 	b.resolution(bres, "late_return", "open")
 	b.payment(bres, "7777.00", "succeeded", ptr(at(-1)))
@@ -333,7 +333,7 @@ func TestOverviewAllBranches(t *testing.T) {
 		today.Handovers != (usecase.TaskCounts{Total: 2, Done: 1, Open: 1}) || today.Returns != (usecase.TaskCounts{Total: 1, Open: 1}) {
 		t.Fatalf("today = %+v", today)
 	}
-	if first := today.Items[0]; first.TaskType != "handover" || first.Status != "done" || first.Plate != "35 A 003" ||
+	if first := today.Items[0]; first.TaskType != "handover" || first.Status != "completed" || first.Plate != "35 A 003" ||
 		first.CustomerName != "Ayşe Yılmaz" || first.Branch.UUID != f.a2.uuid {
 		t.Errorf("today first row = %+v", first)
 	}

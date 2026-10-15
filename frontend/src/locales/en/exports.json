@@ -80,6 +80,7 @@
   "resources.tenant.campaigns": "Campaigns",
   "resources.tenant.reservations": "Reservations",
   "resources.tenant.rentals": "Rentals",
+  "resources.tenant.toll_passes": "Toll passes",
   "resources.tenant.finance_accounts": "Customer accounts",
   "resources.tenant.ledger_entries": "Ledger entries",
   "resources.tenant.cash_accounts": "Tills and bank accounts",

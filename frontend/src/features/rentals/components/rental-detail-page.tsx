@@ -46,6 +46,7 @@ import { permissions } from "@/config/permissions";
 import { routes } from "@/config/routes";
 import { DocumentsSection } from "@/features/contracts/components/documents-section";
 import { RentalLedgerCard } from "@/features/finance/components/rental-ledger-card";
+import { RentalTollCharges } from "@/features/tolls/components/rental-toll-charges";
 import {
   ChargeStatusChip,
   RentalStatusChip,
@@ -527,6 +528,11 @@ function ChargesCard({
   const writePerm = can(permissions.tenant.rentals.write);
   const overridePerm = can(permissions.tenant.price.override);
   const [override, setOverride] = useState<RentalCharge | null>(null);
+  // Toll passes have their own section (RentalTollCharges).
+  const charges = useMemo(
+    () => rental.charges.filter((c) => c.source !== "toll"),
+    [rental.charges],
+  );
   const columns = useMemo(
     () =>
       [
@@ -677,7 +683,7 @@ function ChargesCard({
   return (
     <EntitySectionCard
       title={t("rentals.charges.title")}
-      badge={rental.charges.length}
+      badge={charges.length}
       actions={
         canAdd ? (
           <Button type="button" size="sm" variant="outline" onClick={onAdd}>
@@ -689,7 +695,7 @@ function ChargesCard({
     >
       <EntityTable
         columns={columns}
-        data={rental.charges}
+        data={charges}
         getRowId={(row) => row.uuid}
         emptyTitle={t("rentals.charges.empty")}
         emptyDescription={t("rentals.charges.empty_description")}
@@ -1136,11 +1142,16 @@ export function RentalDetailPage({ uuid }: { uuid: string }) {
               <TabsContent value="vehicles">
                 <LegsCard rental={r} />
               </TabsContent>
-              <TabsContent value="charges">
+              <TabsContent value="charges" className="space-y-6">
                 <ChargesCard
                   rental={r}
                   canAdd={canCharge}
                   onAdd={open("charge")}
+                />
+                <RentalTollCharges
+                  rentalUuid={r.uuid}
+                  charges={r.charges.filter((c) => c.source === "toll")}
+                  currency={r.reservation.currency}
                 />
               </TabsContent>
               {can(permissions.tenant.contracts.read) ? (

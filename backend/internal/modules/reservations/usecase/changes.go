@@ -96,8 +96,22 @@ func (s *Service) ChangeQuote(ctx context.Context, orgID int64, id uuid.UUID, in
 	if in.Extras != nil {
 		extras = *in.Extras
 	}
+	// Delivery details: the request's, else the reservation's while the
+	// point stays (TEC-724). A side is checked again when its point, time
+	// or details change.
+	curPickup, curReturn := storedDelivery(c.PickupDelivery), storedDelivery(c.ReturnDelivery)
+	pickupDelivery, returnDelivery := cleanDelivery(in.PickupDelivery), cleanDelivery(in.ReturnDelivery)
+	if in.PickupDelivery == nil && sameUUID(nw.PickupPointUUID, w.PickupPointUUID) {
+		pickupDelivery = curPickup
+	}
+	if in.ReturnDelivery == nil && sameUUID(nw.ReturnPointUUID, w.ReturnPointUUID) {
+		returnDelivery = curReturn
+	}
+	checkPickup := !sameUUID(nw.PickupPointUUID, w.PickupPointUUID) || !nw.StartsAt.Equal(w.StartsAt) || !sameDelivery(pickupDelivery, curPickup)
+	checkReturn := !sameUUID(nw.ReturnPointUUID, w.ReturnPointUUID) || !nw.EndsAt.Equal(w.EndsAt) || !sameDelivery(returnDelivery, curReturn)
 	samePlaces := sameUUID(nw.PickupBranchUUID, w.PickupBranchUUID) && sameUUID(nw.PickupPointUUID, w.PickupPointUUID) &&
-		sameUUID(nw.ReturnBranchUUID, w.ReturnBranchUUID) && sameUUID(nw.ReturnPointUUID, w.ReturnPointUUID)
+		sameUUID(nw.ReturnBranchUUID, w.ReturnBranchUUID) && sameUUID(nw.ReturnPointUUID, w.ReturnPointUUID) &&
+		sameDelivery(pickupDelivery, curPickup) && sameDelivery(returnDelivery, curReturn)
 	if product == c.ProductUuid && samePlaces && nw.StartsAt.Equal(w.StartsAt) && nw.EndsAt.After(w.EndsAt) &&
 		sameExtras(extras, snap.Extras) && in.ManualDiscount == nil {
 		qid, _, err := s.extensionQuote(ctx, orgID, c, w, nw.EndsAt, snap, 0)
@@ -113,6 +127,7 @@ func (s *Service) ChangeQuote(ctx context.Context, orgID int64, id uuid.UUID, in
 	}
 	qid, err := s.changeQuote(ctx, orgID, c, quoteSpec{
 		purpose: purpose, reservationID: c.ID, where: nw, productUUID: product, extras: extras, manual: in.ManualDiscount,
+		pickupDelivery: pickupDelivery, returnDelivery: returnDelivery, checkPickup: checkPickup, checkReturn: checkReturn,
 	}, 0)
 	if err != nil {
 		return model.Quote{}, err
@@ -142,7 +157,11 @@ func (s *Service) changeQuote(ctx context.Context, orgID int64, c db.GetReservat
 func (s *Service) extensionPricing(ctx context.Context, orgID int64, c db.GetReservationCoreRow, w availmodel.Where, newEnd time.Time, snap model.PriceSnapshot) (priced, model.Extension, quoteSpec, error) {
 	full := w
 	full.EndsAt = newEnd.UTC()
-	spec := quoteSpec{purpose: model.PurposeExtension, reservationID: c.ID, where: full, productUUID: c.ProductUuid, extras: snap.Extras}
+	// The started pick-up is not checked again; the new return is.
+	spec := quoteSpec{
+		purpose: model.PurposeExtension, reservationID: c.ID, where: full, productUUID: c.ProductUuid, extras: snap.Extras,
+		pickupDelivery: storedDelivery(c.PickupDelivery), returnDelivery: storedDelivery(c.ReturnDelivery), checkReturn: true,
+	}
 	p, err := s.price(ctx, orgID, spec)
 	if err != nil {
 		return p, model.Extension{}, spec, err
@@ -325,7 +344,8 @@ func (s *Service) ApplyChange(ctx context.Context, orgID int64, id uuid.UUID, in
 		n, err := q.UpdateReservationPlan(ctx, db.UpdateReservationPlanParams{
 			OrganizationID: orgID, ID: c.ID, AllocationID: int8Of(r.AllocationID), StartsAt: row.StartsAt, EndsAt: row.EndsAt,
 			PickupBranchID: row.PickupBranchID, ReturnBranchID: row.ReturnBranchID, PickupPointID: row.PickupPointID,
-			ReturnPointID: row.ReturnPointID, RentalProductID: r.ProductID, ProductVersion: r.ProductVersion,
+			ReturnPointID: row.ReturnPointID, PickupDelivery: row.PickupDelivery, ReturnDelivery: row.ReturnDelivery,
+			RentalProductID: r.ProductID, ProductVersion: r.ProductVersion,
 			GuaranteeType: conds.GuaranteeType, ProductSnapshot: mustJSON(conds), TotalAmount: newTotal.Numeric(),
 			PrepaymentAmount: newPrepay.Numeric(), NetReceivable: newTotal.Sub(commission).Numeric(), QuoteID: int8Of(row.ID),
 			QuoteSnapshot: mustJSON(newSnap),

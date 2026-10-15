@@ -104,6 +104,9 @@ export const Permission = {
   TenantRentalsRead: "tenant.rentals.read",
   TenantRentalsWrite: "tenant.rentals.write",
   TenantRentalsClose: "tenant.rentals.close",
+  TenantFieldTasksRead: "tenant.field_tasks.read",
+  TenantFieldTasksAssign: "tenant.field_tasks.assign",
+  TenantFieldTasksExecute: "tenant.field_tasks.execute",
   TenantContractsRead: "tenant.contracts.read",
   TenantContractsWrite: "tenant.contracts.write",
   TenantContractsActivate: "tenant.contracts.activate",
@@ -139,6 +142,10 @@ export const Permission = {
   TenantFinanceExpensesBulkSetCategory:
     "tenant.finance.expenses.bulk.set_category",
   TenantFinanceReportsRead: "tenant.finance.reports.read",
+  TenantTollsRead: "tenant.tolls.read",
+  TenantTollsExport: "tenant.tolls.export",
+  TenantTollsImport: "tenant.tolls.import",
+  TenantTollsReview: "tenant.tolls.review",
 } as const;
 
 export type PermissionSlug = (typeof Permission)[keyof typeof Permission];
@@ -359,6 +366,16 @@ export const permissions = {
       close: Permission.TenantRentalsClose,
     },
     /**
+     * Field tasks: `read` = the assignment board, `assign` = plan, assign
+     * (bulk), re-plan and cancel, `execute` = "my tasks" (start, report an
+     * issue, complete the member's own tasks).
+     */
+    fieldTasks: {
+      read: Permission.TenantFieldTasksRead,
+      assign: Permission.TenantFieldTasksAssign,
+      execute: Permission.TenantFieldTasksExecute,
+    },
+    /**
      * Contract templates and documents: `activate` makes a template
      * version active; preparing documents and recording approvals is
      * `contracts.write` or `rentals.write`; PDFs need `document.download`.
@@ -403,6 +420,18 @@ export const permissions = {
     /** Provider accounts (iyzico …): connect, test, disable (TEC-676). */
     integrations: {
       manage: Permission.TenantIntegrationsManage,
+    },
+    /**
+     * HGS / OGS toll passes (TEC-725): list and review queue (`read`),
+     * export, file import and "fetch now" (`import`), assign / unassign /
+     * ignore / rematch with a reason (`review`). Vehicle tags need
+     * `vehicles.write`, the processing fee `settings.write`.
+     */
+    tolls: {
+      read: Permission.TenantTollsRead,
+      export: Permission.TenantTollsExport,
+      import: Permission.TenantTollsImport,
+      review: Permission.TenantTollsReview,
     },
     damage: {
       approve: Permission.TenantDamageApprove,
