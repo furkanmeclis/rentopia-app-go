@@ -221,6 +221,11 @@ func (s *Service) Handover(ctx context.Context, orgID int64, id uuid.UUID, in mo
 			if err != nil {
 				return err
 			}
+			// The rent becomes a firm debt with the handover (same
+			// transaction as the rental becoming active).
+			if err := s.ledger.SyncRental(hctx, q, orgID, c.ID); err != nil {
+				return err
+			}
 			if in.Finalize != nil {
 				return in.Finalize(hctx, tx, leg.ID)
 			}
@@ -579,9 +584,14 @@ func (s *Service) Extend(ctx context.Context, orgID int64, id uuid.UUID, in mode
 				return err
 			}
 		}
-		return event(ctx, q, orgID, c.ID, model.EventExtended, "", "", strings.TrimSpace(in.Reason), map[string]any{
+		if err := event(ctx, q, orgID, c.ID, model.EventExtended, "", "", strings.TrimSpace(in.Reason), map[string]any{
 			"from": from, "to": in.EndsAt.UTC(), "difference": out.Difference, "total": out.Total,
-		})
+		}); err != nil {
+			return err
+		}
+		// A started rental's rent follows the new total (reversal + new
+		// accrual).
+		return s.ledger.SyncRental(ctx, q, orgID, c.ID)
 	})
 	if err != nil {
 		return model.Rental{}, err

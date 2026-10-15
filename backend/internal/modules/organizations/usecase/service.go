@@ -24,6 +24,36 @@ type OrganizationHooks interface {
 	OnDeleted(ctx context.Context, org orgmodel.Organization) error
 }
 
+// ChainHooks runs several OrganizationHooks in order (the first error
+// stops OnCreated and rolls the creation back).
+type ChainHooks []OrganizationHooks
+
+// OnCreated runs every hook inside the create transaction.
+func (c ChainHooks) OnCreated(ctx context.Context, tx pgx.Tx, org orgmodel.Organization, owner orgmodel.User) error {
+	for _, h := range c {
+		if h == nil {
+			continue
+		}
+		if err := h.OnCreated(ctx, tx, org, owner); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// OnDeleted runs every hook; the first error is returned.
+func (c ChainHooks) OnDeleted(ctx context.Context, org orgmodel.Organization) error {
+	for _, h := range c {
+		if h == nil {
+			continue
+		}
+		if err := h.OnDeleted(ctx, org); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type Repository interface {
 	WithTx(ctx context.Context, fn repository.TxFunc) error
 	CreateOrganization(ctx context.Context, q *db.Queries, params db.CreateOrganizationParams) (db.Organization, error)

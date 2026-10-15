@@ -64,6 +64,10 @@ import (
 	extrasadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/extras/adapters"
 	extrashandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/extras/handler"
 	extrasusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/extras/usecase"
+	financemodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/finance"
+	financeadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/finance/adapters"
+	financehandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/finance/handler"
+	financeusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/finance/usecase"
 	fleetmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleet"
 	fleetadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleet/adapters"
 	fleethandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleet/handler"
@@ -389,7 +393,9 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	fleetOpsSvc := fleetopsusecase.New(fleetopsrepository.NewPostgres(deps.DB, deps.Queries), vehicleSvc)
 	orgSvc := orgusecase.New(
 		orgrepository.NewPostgres(deps.DB, deps.Queries),
-		branchusecase.NewOrganizationHooks(searchIndexer),
+		// New organizations get the "Merkez" branch and the default
+		// expense categories.
+		orgusecase.ChainHooks{branchusecase.NewOrganizationHooks(searchIndexer), financeusecase.OrganizationHooks{}},
 	)
 	uc.SetOrganizationsLister(orgSvc)
 	// Staff invitations, organization logo and the platform management views.
@@ -506,6 +512,16 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	inspectionsSvc.SetContracts(contractsSvc)
 	inspectionsSvc.SetResourceEvents(resourceEvents)
 	inspectionsSvc.SetLogger(log)
+	// Finance (TEC-717 / TEC-720): the customer / supplier ledger, cash and
+	// bank accounts, expenses. Rentals accrue (rent at the handover,
+	// approved charges), payments post collections and refunds, statements
+	// go out over the SMS and pay-link plumbing.
+	financeSvc := financeusecase.New(deps.DB, deps.Queries, deps.Storage)
+	financeSvc.SetResourceEvents(resourceEvents)
+	financeSvc.SetMessaging(paymentsSvc, smsSvc)
+	financeSvc.SetLogger(log)
+	rentalsSvc.SetLedger(financeSvc)
+	paymentsSvc.SetLedger(financeSvc)
 	// Customer portal (TEC-715): reference + contact + one-time code, a
 	// customer session of its own, documents, pay remaining, requests.
 	portalSvc := customerportalusecase.New(deps.DB, deps.Queries, smsSvc, reservationSvc)
@@ -539,6 +555,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	inspectionsmodule.RegisterLiveResources(tenantLive)
 	contractsmodule.RegisterLiveResources(tenantLive)
 	customerportalmodule.RegisterLiveResources(tenantLive)
+	financemodule.RegisterLiveResources(tenantLive)
 	resourceEvents.AddResolver(tenantmodule.ChannelResolver(tenantmodule.QueriesLookup(deps.Queries)))
 	uc.AddChannelRules(tenantmodule.ChannelRule(tenantLive, tenantResolver))
 	catalogmodule.RegisterLiveResources(liveResources)
@@ -594,6 +611,11 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		rentaladapters.NewIO(rentalsSvc),
 		orgadapters.NewIO(orgSvc),
 		customeradapters.NewIO(customerSvc),
+		financeadapters.NewAccountsIO(financeSvc),
+		financeadapters.NewEntriesIO(financeSvc),
+		financeadapters.NewCashAccountsIO(financeSvc),
+		financeadapters.NewMovementsIO(financeSvc),
+		financeadapters.NewExpensesIO(financeSvc),
 	)
 	exportSvc := exportusecase.New(deps.Queries, deps.Storage, ioReg, jobQueue, notifSvc, activityRec, log)
 	importSvc := importusecase.New(deps.Queries, deps.Storage, ioReg, jobQueue, notifSvc, activityRec, log)
@@ -613,6 +635,8 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		reservationadapters.NewBulk(reservationSvc),
 		orgadapters.NewBulk(orgSvc),
 		customeradapters.NewBulk(customerSvc),
+		financeadapters.NewMovementsBulk(financeSvc),
+		financeadapters.NewExpensesBulk(financeSvc),
 	)
 	bulkSvc := bulkusecase.New(deps.Queries, bulkReg, jobQueue, notifSvc, activityRec, cfg.Bulk, log)
 	// Tenant jobs run with the requester's current membership (permissions
@@ -748,6 +772,31 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	contractsH.SetRateLimiter(contractsmodule.Limiter{L: ratelimit.New(deps.Redis, cfg.App.Env)})
 	contractsmodule.RegisterRoutes(mux, contractsH, tokens, loader, tenantResolver)
 	inspectionsmodule.RegisterRoutes(mux, inspectionshandler.New(inspectionsSvc, activityRec), tokens, loader, tenantResolver)
+	financemodule.RegisterRoutes(mux, financehandler.New(financeSvc, activityRec), financemodule.EngineHandlers{
+		Accounts: financemodule.ResourceEngines{
+			Export: exportH.TenantExport(financemodule.ResourceAccounts, financemodule.AccountQueryKeys...),
+		},
+		Entries: financemodule.ResourceEngines{
+			Export: exportH.TenantExport(financemodule.ResourceEntries, financemodule.EntryQueryKeys...),
+		},
+		CashAccounts: financemodule.ResourceEngines{
+			Export: exportH.TenantExport(financemodule.ResourceCashAccounts, financemodule.CashQueryKeys...),
+			Import: importH.TenantUpload(financemodule.ResourceCashAccounts),
+			Sample: importH.TenantSample(financemodule.ResourceCashAccounts),
+		},
+		Movements: financemodule.ResourceEngines{
+			Export: exportH.TenantExport(financemodule.ResourceMovements, financemodule.MovementQueryKeys...),
+			Import: importH.TenantUpload(financemodule.ResourceMovements),
+			Sample: importH.TenantSample(financemodule.ResourceMovements),
+			Bulk:   bulkH.TenantExecute(financemodule.ResourceMovements),
+		},
+		Expenses: financemodule.ResourceEngines{
+			Export: exportH.TenantExport(financemodule.ResourceExpenses, financemodule.ExpenseQueryKeys...),
+			Import: importH.TenantUpload(financemodule.ResourceExpenses),
+			Sample: importH.TenantSample(financemodule.ResourceExpenses),
+			Bulk:   bulkH.TenantExecute(financemodule.ResourceExpenses),
+		},
+	}, tokens, loader, tenantResolver)
 	portalH := customerportalhandler.New(portalSvc, activityRec)
 	portalH.SetRateLimiter(customerportalmodule.Limiter{L: ratelimit.New(deps.Redis, cfg.App.Env)})
 	customerportalmodule.RegisterRoutes(mux, portalH, tokens, loader, tenantResolver)

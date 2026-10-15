@@ -62,23 +62,27 @@ import (
 // names no record of the organization (nothing to swap for B's uuids), with
 // the test that covers them otherwise.
 var isolationAllowlist = map[string]string{
-	"POST /v1/tenant/branches":               "body has no foreign references (code, name)",
-	"POST /v1/tenant/segments":               "body has no foreign references (code, name)",
-	"POST /v1/tenant/roles":                  "body names permission slugs only; role isolation is the {uuid} cases",
-	"PUT /v1/tenant/settings":                "settings document of the caller's organization; versions are the {version} cases",
-	"POST /v1/tenant/notifications/read-all": "marks the caller's rows of the current organization (notifications scope test)",
-	"POST /v1/tenant/branches/import":        "imports match natural keys inside the organization (adapter tests); the job is the {uuid} cases",
-	"POST /v1/tenant/vehicles/import":        "imports match natural keys inside the organization (adapter tests); the job is the {uuid} cases",
-	"PATCH /v1/tenant/organization":          "profile of the caller's organization (name only); no foreign references",
-	"PUT /v1/tenant/organization/logo":       "logo of the caller's organization; the key is built from the scope (storage prefix check)",
-	"DELETE /v1/tenant/organization/logo":    "logo of the caller's organization; no ids",
-	"POST /v1/tenant/rate-plans/import":      "price list rows match product / branch codes inside the organization (pricing usecase tests); the job is the {uuid} cases",
-	"POST /v1/tenant/customers":              "body has no foreign references (names, identity, contact values)",
-	"POST /v1/tenant/customers/import":       "rows match identity blind indexes keyed by the organization (customers usecase tests); the job is the {uuid} cases",
-	"POST /v1/tenant/extras":                 "body has no foreign references (code, name, enums, channel codes, default price)",
-	"POST /v1/tenant/integrations":           "body has no foreign references (provider code, display name, mode, the organization's own credentials)",
-	"POST /v1/tenant/contract-templates":     "body has no foreign references (kind, name, editor content, body with placeholders)",
-	"POST /v1/tenant/inspection-templates":   "body has no foreign references (name, photo slots, checklist items)",
+	"POST /v1/tenant/branches":                     "body has no foreign references (code, name)",
+	"POST /v1/tenant/segments":                     "body has no foreign references (code, name)",
+	"POST /v1/tenant/roles":                        "body names permission slugs only; role isolation is the {uuid} cases",
+	"PUT /v1/tenant/settings":                      "settings document of the caller's organization; versions are the {version} cases",
+	"POST /v1/tenant/notifications/read-all":       "marks the caller's rows of the current organization (notifications scope test)",
+	"POST /v1/tenant/branches/import":              "imports match natural keys inside the organization (adapter tests); the job is the {uuid} cases",
+	"POST /v1/tenant/vehicles/import":              "imports match natural keys inside the organization (adapter tests); the job is the {uuid} cases",
+	"PATCH /v1/tenant/organization":                "profile of the caller's organization (name only); no foreign references",
+	"PUT /v1/tenant/organization/logo":             "logo of the caller's organization; the key is built from the scope (storage prefix check)",
+	"DELETE /v1/tenant/organization/logo":          "logo of the caller's organization; no ids",
+	"POST /v1/tenant/rate-plans/import":            "price list rows match product / branch codes inside the organization (pricing usecase tests); the job is the {uuid} cases",
+	"POST /v1/tenant/customers":                    "body has no foreign references (names, identity, contact values)",
+	"POST /v1/tenant/customers/import":             "rows match identity blind indexes keyed by the organization (customers usecase tests); the job is the {uuid} cases",
+	"POST /v1/tenant/extras":                       "body has no foreign references (code, name, enums, channel codes, default price)",
+	"POST /v1/tenant/integrations":                 "body has no foreign references (provider code, display name, mode, the organization's own credentials)",
+	"POST /v1/tenant/contract-templates":           "body has no foreign references (kind, name, editor content, body with placeholders)",
+	"POST /v1/tenant/inspection-templates":         "body has no foreign references (name, photo slots, checklist items)",
+	"POST /v1/tenant/finance/expense-categories":   "body has no foreign references (code, name, sort order)",
+	"POST /v1/tenant/finance/cash-accounts/import": "rows match account / branch codes inside the organization (finance adapters); the job is the {uuid} cases",
+	"POST /v1/tenant/finance/movements/import":     "rows match account / category codes inside the organization (finance adapters); the job is the {uuid} cases",
+	"POST /v1/tenant/finance/expenses/import":      "rows match category / branch / plate / account codes inside the organization; the job is the {uuid} cases",
 }
 
 type isoOrg struct {
@@ -507,6 +511,33 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			"content_hash": docHash, "approver_name": m + " Onaylayan",
 		}), http.StatusOK, "approve document")
 		ids["approval"] = asMap(asMap(approved.data)["approvals"].([]any)[0])["uuid"].(string)
+		// Finance (TEC-717 / TEC-720): the branch collection above posted
+		// the customer's account and its first entry; a till, a bank
+		// account, a transfer, a category and a paid expense with a receipt.
+		accounts := pageItems(t, must(call(o, http.MethodGet, "/v1/tenant/finance/accounts", nil), http.StatusOK, "finance accounts").data)
+		ids["financeAccount"] = accounts[0].(map[string]any)["uuid"].(string)
+		entries := pageItems(t, must(call(o, http.MethodGet, "/v1/tenant/finance/entries?account="+ids["financeAccount"], nil),
+			http.StatusOK, "ledger entries").data)
+		ids["ledgerEntry"] = entries[0].(map[string]any)["uuid"].(string)
+		ids["cashAccount"] = str(must(call(o, http.MethodPost, "/v1/tenant/finance/cash-accounts", map[string]any{
+			"code": "KASA", "name": m + " Kasa", "kind": "cash", "branch_uuid": ids["home"], "opening_balance": "1000",
+		}), http.StatusCreated, "create till"), "uuid")
+		ids["bankAccount"] = str(must(call(o, http.MethodPost, "/v1/tenant/finance/cash-accounts", map[string]any{
+			"code": "BANKA", "name": m + " Banka", "kind": "bank",
+		}), http.StatusCreated, "create bank account"), "uuid")
+		transfer := must(call(o, http.MethodPost, "/v1/tenant/finance/transfers", map[string]any{
+			"from_account_uuid": ids["cashAccount"], "to_account_uuid": ids["bankAccount"], "amount": "100", "description": m,
+		}), http.StatusCreated, "transfer")
+		ids["cashMovement"] = asMap(asMap(transfer.data)["out"])["uuid"].(string)
+		ids["expenseCategory"] = str(must(call(o, http.MethodPost, "/v1/tenant/finance/expense-categories", map[string]any{
+			"code": "iso_cat", "name": m + " Kategori",
+		}), http.StatusCreated, "create expense category"), "uuid")
+		ids["expense"] = str(must(call(o, http.MethodPost, "/v1/tenant/finance/expenses", map[string]any{
+			"category_uuid": ids["expenseCategory"], "total_amount": "120", "vat_rate": "20", "description": m + " gider",
+			"branch_uuid": ids["home"], "vehicle_uuid": ids["vehicle"], "cash_account_uuid": ids["cashAccount"],
+		}), http.StatusCreated, "create expense"), "uuid")
+		must(upload(o, http.MethodPut, "/v1/tenant/finance/expenses/"+ids["expense"]+"/file", "file", "fis.png", png, nil),
+			http.StatusOK, "upload expense receipt")
 		ids["exportJob"] = str(must(call(o, http.MethodPost, "/v1/tenant/branches/export", map[string]any{"format": "csv"}),
 			http.StatusAccepted, "export"), "uuid")
 		ids["importJob"] = str(must(upload(o, http.MethodPost, "/v1/tenant/branches/import", "file", "branches.csv",
@@ -719,6 +750,20 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		"GET /v1/tenant/overview":           {"?branch=" + b["branch"], "?branch=" + b["home"]},
 		"GET /v1/tenant/contract-templates": {"?q=" + orgB.marker},
 		"GET /v1/tenant/customer-requests":  {"?reservation=" + b["reservation"], "?q=" + orgB.marker},
+		// Finance: filters naming B's records are unknown in A.
+		"GET /v1/tenant/finance/accounts": {"?branch=" + b["home"], "?q=" + orgB.marker},
+		"GET /v1/tenant/finance/entries": {
+			"?account=" + b["financeAccount"], "?rental=" + b["rental"], "?branch=" + b["home"], "?q=" + orgB.marker,
+		},
+		"GET /v1/tenant/finance/cash-accounts": {"?branch=" + b["home"], "?q=" + orgB.marker},
+		"GET /v1/tenant/finance/movements": {
+			"?account=" + b["cashAccount"], "?category=" + b["expenseCategory"], "?branch=" + b["home"], "?q=" + orgB.marker,
+		},
+		"GET /v1/tenant/finance/expenses": {
+			"?category=" + b["expenseCategory"], "?vehicle=" + b["vehicle"], "?branch=" + b["home"], "?q=" + orgB.marker,
+		},
+		"GET /v1/tenant/finance/rental-balances":    {"?q=" + orgB.marker},
+		"GET /v1/tenant/finance/expense-categories": {"?q=" + orgB.marker},
 		"GET /v1/tenant/rate-plans/matrix": {
 			"?scope=branch&branch=" + b["branch"],
 			"?scope=branch_channel&branch=" + b["home"] + "&channel=web",
@@ -883,6 +928,29 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			"target": map[string]any{"scope": "ids", "ids": []string{orgA.ids["vehicle"]}}}, reject},
 		{"POST /v1/tenant/vehicles/bulk", map[string]any{"action": "add_rental_group", "params": map[string]any{"rental_group_uuid": orgB.ids["group"]},
 			"target": map[string]any{"scope": "ids", "ids": []string{orgA.ids["vehicle"]}}}, reject},
+		// Finance: bodies naming B's customer, branch, accounts, category,
+		// vehicle; bulk targets / params of B.
+		{"POST /v1/tenant/finance/accounts", map[string]any{"customer_uuid": orgB.ids["customer"]}, reject},
+		{"POST /v1/tenant/finance/cash-accounts", map[string]any{"code": "X1", "name": "x", "kind": "cash", "branch_uuid": orgB.ids["home"]}, reject},
+		{"POST /v1/tenant/finance/transfers", map[string]any{"from_account_uuid": orgA.ids["cashAccount"], "to_account_uuid": orgB.ids["bankAccount"],
+			"amount": "1"}, reject},
+		{"POST /v1/tenant/finance/transfers", map[string]any{"from_account_uuid": orgB.ids["cashAccount"], "to_account_uuid": orgA.ids["bankAccount"],
+			"amount": "1"}, reject},
+		{"POST /v1/tenant/finance/expenses", map[string]any{"category_uuid": orgB.ids["expenseCategory"], "total_amount": "1"}, reject},
+		{"POST /v1/tenant/finance/expenses", map[string]any{"category_uuid": orgA.ids["expenseCategory"], "total_amount": "1",
+			"branch_uuid": orgB.ids["home"]}, reject},
+		{"POST /v1/tenant/finance/expenses", map[string]any{"category_uuid": orgA.ids["expenseCategory"], "total_amount": "1",
+			"branch_uuid": orgA.ids["home"], "vehicle_uuid": orgB.ids["vehicle"]}, reject},
+		{"POST /v1/tenant/finance/expenses", map[string]any{"category_uuid": orgA.ids["expenseCategory"], "total_amount": "1",
+			"branch_uuid": orgA.ids["home"], "cash_account_uuid": orgB.ids["cashAccount"]}, reject},
+		{"POST /v1/tenant/finance/movements/bulk", map[string]any{"action": "set_category",
+			"target": map[string]any{"scope": "ids", "ids": []string{orgB.ids["cashMovement"]}, "params": map[string]any{"category_uuid": orgA.ids["expenseCategory"]}}}, nil},
+		{"POST /v1/tenant/finance/movements/bulk", map[string]any{"action": "set_category",
+			"target": map[string]any{"scope": "ids", "ids": []string{orgA.ids["cashMovement"]}, "params": map[string]any{"category_uuid": orgB.ids["expenseCategory"]}}}, reject},
+		{"POST /v1/tenant/finance/expenses/bulk", map[string]any{"action": "set_category",
+			"target": map[string]any{"scope": "ids", "ids": []string{orgB.ids["expense"]}, "params": map[string]any{"category_uuid": orgA.ids["expenseCategory"]}}}, nil},
+		{"POST /v1/tenant/finance/expenses/bulk", map[string]any{"action": "set_category",
+			"target": map[string]any{"scope": "ids", "ids": []string{orgA.ids["expense"]}, "params": map[string]any{"category_uuid": orgB.ids["expenseCategory"]}}}, reject},
 	}
 	for _, c := range cases {
 		method, path, _ := strings.Cut(c.route, " ")
@@ -903,6 +971,18 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 	// Mutations on A's own records whose body names B's records.
 	ownCases := []bodyCase{
 		{"POST /v1/tenant/reservations/" + orgA.ids["reservation"] + "/plate", map[string]any{"vehicle_uuid": orgB.ids["vehicle"]}, reject},
+		{"POST /v1/tenant/finance/accounts/" + orgA.ids["financeAccount"] + "/collections", map[string]any{"amount": "1",
+			"cash_account_uuid": orgB.ids["cashAccount"]}, reject},
+		{"POST /v1/tenant/finance/accounts/" + orgA.ids["financeAccount"] + "/collections", map[string]any{"amount": "1",
+			"rental_uuid": orgB.ids["rental"]}, reject},
+		{"POST /v1/tenant/finance/accounts/" + orgA.ids["financeAccount"] + "/adjustments", map[string]any{"amount": "1",
+			"direction": "debit", "reason": "izolasyon", "adjusts_entry_uuid": orgB.ids["ledgerEntry"]}, reject},
+		{"POST /v1/tenant/finance/cash-accounts/" + orgA.ids["cashAccount"] + "/movements", map[string]any{"kind": "collection",
+			"amount": "1", "ledger_entry_uuid": orgB.ids["ledgerEntry"]}, reject},
+		{"POST /v1/tenant/finance/cash-accounts/" + orgA.ids["cashAccount"] + "/movements", map[string]any{"kind": "collection",
+			"amount": "1", "category_uuid": orgB.ids["expenseCategory"]}, reject},
+		{"PATCH /v1/tenant/finance/expenses/" + orgA.ids["expense"], map[string]any{"category_uuid": orgB.ids["expenseCategory"]}, reject},
+		{"PATCH /v1/tenant/finance/cash-accounts/" + orgA.ids["cashAccount"], map[string]any{"branch_uuid": orgB.ids["home"]}, reject},
 		{"POST /v1/tenant/reservations/" + orgA.ids["reservation"] + "/change", map[string]any{"quote_uuid": orgB.ids["quoteOpen"]}, reject},
 		{"POST /v1/tenant/reservations/" + orgA.ids["reservation"] + "/quotes", map[string]any{"product_uuid": orgB.ids["product"]}, reject},
 		{"POST /v1/tenant/reservations/" + orgA.ids["reservation"] + "/quotes", map[string]any{"pickup_branch_uuid": orgB.ids["branch"]}, reject},
@@ -1196,6 +1276,18 @@ func paramKey(prev, name string) string {
 		return "approval"
 	case "customer-requests/uuid":
 		return "customerRequest"
+	case "accounts/uuid":
+		return "financeAccount"
+	case "entries/uuid":
+		return "ledgerEntry"
+	case "cash-accounts/uuid":
+		return "cashAccount"
+	case "movements/uuid":
+		return "cashMovement"
+	case "expense-categories/uuid":
+		return "expenseCategory"
+	case "expenses/uuid":
+		return "expense"
 	}
 	return ""
 }

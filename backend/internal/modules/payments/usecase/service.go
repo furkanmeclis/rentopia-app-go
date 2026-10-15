@@ -88,6 +88,14 @@ type Accounts interface {
 	AccountByID(ctx context.Context, orgID, id int64) (integrations.Account, error)
 }
 
+// Ledger posts confirmed payments and refunds to the customer account
+// (finance, TEC-717). Posting is idempotent (one entry per payment /
+// refund); a failure is caught up by the finance sweep.
+type Ledger interface {
+	PostPayment(ctx context.Context, orgID, paymentID int64) error
+	PostRefund(ctx context.Context, orgID, refundID int64) error
+}
+
 // Service implements payments.
 type Service struct {
 	pool      *pgxpool.Pool
@@ -95,6 +103,7 @@ type Service struct {
 	accounts  Accounts
 	providers map[string]payments.Provider
 	recorder  resmodel.PaymentRecorder
+	ledger    Ledger
 	baseURL   string
 	events    resourceevents.Publisher
 	log       *slog.Logger
@@ -126,6 +135,20 @@ func New(pool *pgxpool.Pool, q *db.Queries, accounts Accounts, recorder resmodel
 func (s *Service) SetResourceEvents(p resourceevents.Publisher) {
 	if p != nil {
 		s.events = p
+	}
+}
+
+// SetLedger wires the finance ledger (collections and refunds post there).
+func (s *Service) SetLedger(l Ledger) { s.ledger = l }
+
+// postPayment posts a confirmed payment to the ledger (fail-soft: the
+// finance sweep posts what was missed; posting twice is impossible).
+func (s *Service) postPayment(ctx context.Context, orgID, paymentID int64) {
+	if s.ledger == nil {
+		return
+	}
+	if err := s.ledger.PostPayment(ctx, orgID, paymentID); err != nil {
+		s.log.Warn("payment_ledger_post_failed", "organization_id", orgID, "payment_id", paymentID, "error", err)
 	}
 }
 
@@ -411,6 +434,7 @@ func (s *Service) apply(ctx context.Context, orgID, paymentID int64) error {
 	if err != nil {
 		return err
 	}
+	s.postPayment(ctx, orgID, paymentID)
 	outcome, err := s.recount(ctx, orgID, p, p.Uuid, m(p.Amount), p.Provider)
 	if err != nil {
 		// Leave the claim to lapse: the next delivery / poll / sweep retries.
