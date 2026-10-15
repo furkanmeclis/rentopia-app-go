@@ -112,7 +112,7 @@ CREATE TRIGGER trg_rentals_updated_at
 CREATE TABLE rental_vehicles (
     id BIGSERIAL PRIMARY KEY,
     uuid UUID NOT NULL DEFAULT gen_random_uuid(),
-    organization_id BIGINT NOT NULL,
+    organization_id BIGINT NOT NULL REFERENCES organizations (id) ON DELETE CASCADE,
     rental_id BIGINT NOT NULL,
     vehicle_id BIGINT NOT NULL,
     allocation_id BIGINT NULL,
@@ -149,7 +149,7 @@ CREATE INDEX idx_rental_vehicles_organization_vehicle ON rental_vehicles (organi
 -- row anonymized later keeps the masked snapshot).
 CREATE TABLE rental_drivers (
     id BIGSERIAL PRIMARY KEY,
-    organization_id BIGINT NOT NULL,
+    organization_id BIGINT NOT NULL REFERENCES organizations (id) ON DELETE CASCADE,
     rental_id BIGINT NOT NULL,
     driver_id BIGINT NULL,
     role VARCHAR(16) NOT NULL DEFAULT 'primary' CHECK (role IN ('primary', 'additional')),
@@ -169,7 +169,7 @@ CREATE INDEX idx_rental_drivers_organization_driver
 CREATE TABLE rental_events (
     id BIGSERIAL PRIMARY KEY,
     uuid UUID NOT NULL DEFAULT gen_random_uuid(),
-    organization_id BIGINT NOT NULL,
+    organization_id BIGINT NOT NULL REFERENCES organizations (id) ON DELETE CASCADE,
     rental_id BIGINT NOT NULL,
     action VARCHAR(48) NOT NULL,
     from_status VARCHAR(16) NULL,
@@ -193,7 +193,7 @@ CREATE INDEX idx_rental_events_organization_rental ON rental_events (organizatio
 CREATE TABLE rental_charges (
     id BIGSERIAL PRIMARY KEY,
     uuid UUID NOT NULL DEFAULT gen_random_uuid(),
-    organization_id BIGINT NOT NULL,
+    organization_id BIGINT NOT NULL REFERENCES organizations (id) ON DELETE CASCADE,
     rental_id BIGINT NOT NULL,
     kind VARCHAR(24) NOT NULL CHECK (kind IN ('late_return', 'early_return', 'damage', 'fuel', 'mileage', 'other')),
     source VARCHAR(8) NOT NULL CHECK (source IN ('policy', 'manual')),

@@ -93,7 +93,7 @@ CREATE TRIGGER trg_documents_updated_at
 CREATE TABLE document_versions (
     id BIGSERIAL PRIMARY KEY,
     uuid UUID NOT NULL DEFAULT gen_random_uuid(),
-    organization_id BIGINT NOT NULL,
+    organization_id BIGINT NOT NULL REFERENCES organizations (id) ON DELETE CASCADE,
     document_id BIGINT NOT NULL,
     version INTEGER NOT NULL CHECK (version > 0),
     status VARCHAR(12) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'issued', 'approved', 'superseded')),
@@ -161,7 +161,7 @@ ALTER TABLE documents
 CREATE TABLE document_approvals (
     id BIGSERIAL PRIMARY KEY,
     uuid UUID NOT NULL DEFAULT gen_random_uuid(),
-    organization_id BIGINT NOT NULL,
+    organization_id BIGINT NOT NULL REFERENCES organizations (id) ON DELETE CASCADE,
     document_version_id BIGINT NOT NULL,
     content_hash CHAR(64) NOT NULL,
     -- customer (the renter / driver) or staff (an internal approval)
