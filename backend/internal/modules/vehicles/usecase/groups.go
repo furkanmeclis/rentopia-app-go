@@ -305,6 +305,70 @@ func (s *Service) guarantee(ctx context.Context, orgID int64, v db.RentalProduct
 	return g, nil
 }
 
+// AvailabilityFleet lists every live, active vehicle of the organization
+// (no branch scope: capacity is organization-wide; the availability engine
+// applies location itself), plate order.
+func (s *Service) AvailabilityFleet(ctx context.Context, orgID int64) ([]repository.VehicleRow, error) {
+	active := true
+	rows, _, err := s.repo.ListVehicles(ctx, orgID, model.ListFilter{
+		IsActive: &active, Limit: MaxListTargets, SortField: "plate",
+	})
+	return rows, err
+}
+
+// Guarantees maps product versions to eligibility terms in one pass (rental
+// group criteria and canonical catalog models loaded in batches), keyed by
+// version id. The availability engine builds its eligibility graph with it.
+func (s *Service) Guarantees(ctx context.Context, orgID int64, versions []db.RentalProductVersion) (map[int64]eligibility.Guarantee, error) {
+	groupIDs := []int64{}
+	modelIDs := []int64{}
+	for _, v := range versions {
+		if v.RentalGroupID.Valid {
+			groupIDs = append(groupIDs, v.RentalGroupID.Int64)
+		}
+		if v.CatalogModelID.Valid {
+			modelIDs = append(modelIDs, v.CatalogModelID.Int64)
+		}
+	}
+	canonical, err := s.repo.CanonicalModelIDs(ctx, modelIDs)
+	if err != nil {
+		return nil, err
+	}
+	groups, err := s.repo.GroupsByIDs(ctx, orgID, groupIDs)
+	if err != nil {
+		return nil, err
+	}
+	attrs := make([]groupAttrs, 0, len(groups))
+	for _, row := range groups {
+		attrs = append(attrs, groupAttrs{
+			ID: row.ID, Transmission: row.Transmission, Fuel: row.Fuel, BodyType: row.BodyType,
+			MinSeats: row.MinSeats, MinLuggage: row.MinLuggage, AirConditioning: row.AirConditioning,
+		})
+	}
+	crit, err := s.criteria(ctx, orgID, attrs)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[int64]eligibility.Guarantee, len(versions))
+	for _, v := range versions {
+		g := eligibility.Guarantee{Type: v.GuaranteeType, VariantLevel: v.VariantLevel.String, CatalogTypeID: v.CatalogTypeID.Int64}
+		if v.VehicleID.Valid {
+			id := uuid.UUID(v.VehicleID.Bytes)
+			g.VehicleID = &id
+		}
+		if v.CatalogModelID.Valid {
+			g.CatalogModelID = canonical[v.CatalogModelID.Int64]
+		}
+		if v.RentalGroupID.Valid {
+			if c, ok := crit[v.RentalGroupID.Int64]; ok {
+				g.Group = &c
+			}
+		}
+		out[v.ID] = g
+	}
+	return out, nil
+}
+
 // IsNotEligible reports whether err is a NotEligibleError.
 func IsNotEligible(err error) (*NotEligibleError, bool) {
 	var ne *NotEligibleError
