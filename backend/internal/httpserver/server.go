@@ -472,6 +472,14 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		contractsSvc.SetQueue(deps.Queue)
 	}
 	contractsSvc.SetResourceEvents(resourceEvents)
+	// Remote approval (TEC-711): signed link + SMS code through the OTP
+	// service; links point at the app origin (/d/{token}).
+	if err := contractsSvc.SetRemote(contractsusecase.Remote{
+		SMS: smsSvc, Cipher: fieldCipher, PublicBaseURL: cfg.Auth.FrontendURL, Activity: activityRec,
+	}); err != nil {
+		return nil, fmt.Errorf("httpserver: contracts remote approval: %w", err)
+	}
+	contractsSvc.SetLogger(log)
 	// Rentals (TEC-709): born from confirmed reservations with a fixed
 	// plate (reservation lifecycle listener), handover / return on the
 	// engine, operation tasks; documents through contracts.
@@ -704,7 +712,9 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	rentalsmodule.RegisterRoutes(mux, rentalhandler.New(rentalsSvc, activityRec), rentalsmodule.EngineHandlers{
 		Export: exportH.TenantExport(rentalsmodule.Resource, rentalsmodule.ExportQueryKeys...),
 	}, tokens, loader, tenantResolver)
-	contractsmodule.RegisterRoutes(mux, contractshandler.New(contractsSvc, activityRec), tokens, loader, tenantResolver)
+	contractsH := contractshandler.New(contractsSvc, activityRec)
+	contractsH.SetRateLimiter(contractsmodule.Limiter{L: ratelimit.New(deps.Redis, cfg.App.Env)})
+	contractsmodule.RegisterRoutes(mux, contractsH, tokens, loader, tenantResolver)
 	settingsmodule.RegisterRoutes(mux, settingshandler.New(
 		settingsusecase.New(deps.Queries),
 		deps.Storage,

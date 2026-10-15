@@ -1,4 +1,5 @@
 import type {
+  ApprovalLinkStatus,
   ContractKind,
   DocumentStatus,
   TemplateStatus,
@@ -69,6 +70,45 @@ export const VERSION_STATUS_TONES: Record<VersionStatus, Tone> = {
   approved: "success",
   superseded: "default",
 };
+
+/** Remote approval link statuses (TEC-711). */
+export const LINK_STATUS_LABEL_KEYS: Record<ApprovalLinkStatus, string> = {
+  pending: "contracts.remote.statuses.pending",
+  approved: "contracts.remote.statuses.approved",
+  expired: "contracts.remote.statuses.expired",
+  revoked: "contracts.remote.statuses.revoked",
+  superseded: "contracts.remote.statuses.superseded",
+};
+
+export const LINK_STATUS_TONES: Record<ApprovalLinkStatus, Tone> = {
+  pending: "warning",
+  approved: "success",
+  expired: "default",
+  revoked: "danger",
+  superseded: "default",
+};
+
+/** Remote approval signer roles. */
+export const SIGNER_ROLE_LABEL_KEYS: Record<string, string> = {
+  renter: "contracts.remote.roles.renter",
+  driver: "contracts.remote.roles.driver",
+};
+
+/** Approval methods. */
+export const APPROVAL_METHOD_LABEL_KEYS: Record<string, string> = {
+  in_person: "contracts.approvals.methods.in_person",
+  remote_sms: "contracts.approvals.methods.remote_sms",
+  click: "contracts.approvals.methods.click",
+  signature: "contracts.approvals.methods.signature",
+};
+
+/** Link lifetimes offered to staff (minutes). */
+export const LINK_EXPIRY_OPTIONS = [
+  { minutes: 60, labelKey: "contracts.remote.expiry.hour" },
+  { minutes: 1440, labelKey: "contracts.remote.expiry.day" },
+  { minutes: 4320, labelKey: "contracts.remote.expiry.three_days" },
+  { minutes: 10080, labelKey: "contracts.remote.expiry.week" },
+] as const;
 
 export const PDF_STATUS_LABEL_KEYS: Record<string, string> = {
   none: "contracts.pdf_statuses.none",

@@ -70,3 +70,4 @@ contract_templates
 documents
 document_versions
 document_approvals
+document_approval_links

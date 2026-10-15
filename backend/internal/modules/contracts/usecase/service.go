@@ -115,6 +115,8 @@ type Service struct {
 	events   resourceevents.Publisher
 	log      *slog.Logger
 	now      func() time.Time
+	// remote is remote approval (TEC-711); nil = not wired here.
+	remote *remote
 }
 
 // New builds the service. renderer / queue may be nil.
@@ -148,6 +150,13 @@ func (s *Service) SetQueue(q PDFQueue) { s.queue = q }
 func (s *Service) SetResourceEvents(pub resourceevents.Publisher) {
 	if pub != nil {
 		s.events = pub
+	}
+}
+
+// SetLogger replaces the logger.
+func (s *Service) SetLogger(l *slog.Logger) {
+	if l != nil {
+		s.log = l
 	}
 }
 
