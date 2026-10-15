@@ -146,6 +146,10 @@ func Normalize(in model.Settings) (model.Settings, error) {
 	minutes(ve, "reservation.staff_review_window_minutes", r.StaffReviewWindowMinutes, 1, maxReviewWindowMinutes)
 	minutes(ve, "reservation.payment_hold_minutes", r.PaymentHoldMinutes, 1, maxPaymentHoldMinutes)
 	minutes(ve, "reservation.quote_validity_minutes", r.QuoteValidityMinutes, 1, maxQuoteValidity)
+	if v := r.MaxOnlineRentalDays; v != nil && (*v < 1 || *v > model.MaxOnlineRentalDaysLimit) {
+		ve.add("reservation.max_online_rental_days", "out_of_range",
+			fmt.Sprintf("must be between 1 and %d days", model.MaxOnlineRentalDaysLimit))
+	}
 
 	// --- payment
 	p := &s.Payment
