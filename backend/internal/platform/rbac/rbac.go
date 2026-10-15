@@ -89,6 +89,14 @@ const (
 	PermTenantAvailabilityHold   = "tenant.availability.hold"
 	PermTenantCapacityRulesRead  = "tenant.capacity_rules.read"
 	PermTenantCapacityRulesWrite = "tenant.capacity_rules.write"
+	// Customers and drivers (TEC-705). Read shows masked identity / contact
+	// values; reveal, export, import and anonymize are granted one by one.
+	PermTenantCustomersRead      = "tenant.customers.read"
+	PermTenantCustomersWrite     = "tenant.customers.write"
+	PermTenantCustomersReveal    = "tenant.customers.reveal"
+	PermTenantCustomersExport    = "tenant.customers.export"
+	PermTenantCustomersImport    = "tenant.customers.import"
+	PermTenantCustomersAnonymize = "tenant.customers.anonymize"
 	// Sensitive actions of later tenant modules (TEC-689), separate from the
 	// resource read/write slugs so roles can grant them one by one.
 	PermTenantPriceOverride    = "tenant.price.override"

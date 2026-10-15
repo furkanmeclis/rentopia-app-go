@@ -215,6 +215,88 @@ type ChannelCapacityRule struct {
 	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
 }
 
+type Customer struct {
+	ID                int64              `json:"id"`
+	Uuid              uuid.UUID          `json:"uuid"`
+	OrganizationID    int64              `json:"organization_id"`
+	CustomerType      string             `json:"customer_type"`
+	FirstName         string             `json:"first_name"`
+	LastName          string             `json:"last_name"`
+	CompanyTitle      string             `json:"company_title"`
+	IdentityType      pgtype.Text        `json:"identity_type"`
+	IdentityEnc       string             `json:"identity_enc"`
+	IdentityBidx      string             `json:"identity_bidx"`
+	IdentityHint      string             `json:"identity_hint"`
+	Nationality       pgtype.Text        `json:"nationality"`
+	TaxOffice         string             `json:"tax_office"`
+	Phone             string             `json:"phone"`
+	Email             string             `json:"email"`
+	BillingAddress    string             `json:"billing_address"`
+	BillingCity       string             `json:"billing_city"`
+	BillingDistrict   string             `json:"billing_district"`
+	BillingPostalCode string             `json:"billing_postal_code"`
+	BillingCountry    pgtype.Text        `json:"billing_country"`
+	EInvoice          bool               `json:"e_invoice"`
+	Note              string             `json:"note"`
+	Tags              []string           `json:"tags"`
+	AnonymizedAt      pgtype.Timestamptz `json:"anonymized_at"`
+	CreatedBy         pgtype.Int8        `json:"created_by"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type CustomerContact struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	CustomerID     int64              `json:"customer_id"`
+	FullName       string             `json:"full_name"`
+	Title          string             `json:"title"`
+	Phone          string             `json:"phone"`
+	Email          string             `json:"email"`
+	IsPrimary      bool               `json:"is_primary"`
+	Note           string             `json:"note"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CustomerDocument struct {
+	ID              int64              `json:"id"`
+	Uuid            uuid.UUID          `json:"uuid"`
+	OrganizationID  int64              `json:"organization_id"`
+	CustomerID      int64              `json:"customer_id"`
+	DriverID        pgtype.Int8        `json:"driver_id"`
+	DocType         string             `json:"doc_type"`
+	ValidUntil      pgtype.Date        `json:"valid_until"`
+	FileObjectKey   pgtype.Text        `json:"file_object_key"`
+	FileName        string             `json:"file_name"`
+	FileContentType string             `json:"file_content_type"`
+	FileSizeBytes   int64              `json:"file_size_bytes"`
+	Note            string             `json:"note"`
+	CreatedBy       pgtype.Int8        `json:"created_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type CustomerMarketingConsent struct {
+	ID               int64              `json:"id"`
+	Uuid             uuid.UUID          `json:"uuid"`
+	OrganizationID   int64              `json:"organization_id"`
+	CustomerID       int64              `json:"customer_id"`
+	Channel          string             `json:"channel"`
+	GrantedAt        pgtype.Timestamptz `json:"granted_at"`
+	WithdrawnAt      pgtype.Timestamptz `json:"withdrawn_at"`
+	Source           string             `json:"source"`
+	WithdrawalSource pgtype.Text        `json:"withdrawal_source"`
+	TextVersion      string             `json:"text_version"`
+	Note             string             `json:"note"`
+	RecordedBy       pgtype.Int8        `json:"recorded_by"`
+	WithdrawnBy      pgtype.Int8        `json:"withdrawn_by"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
 type DateRule struct {
 	ID             int64              `json:"id"`
 	Uuid           uuid.UUID          `json:"uuid"`
@@ -259,6 +341,36 @@ type DateRuleVersionTarget struct {
 	RentalProductID   pgtype.Int8 `json:"rental_product_id"`
 	SegmentID         pgtype.Int8 `json:"segment_id"`
 	BranchID          pgtype.Int8 `json:"branch_id"`
+}
+
+type Driver struct {
+	ID               int64              `json:"id"`
+	Uuid             uuid.UUID          `json:"uuid"`
+	OrganizationID   int64              `json:"organization_id"`
+	CustomerID       int64              `json:"customer_id"`
+	IsCustomerSelf   bool               `json:"is_customer_self"`
+	FirstName        string             `json:"first_name"`
+	LastName         string             `json:"last_name"`
+	BirthDate        pgtype.Date        `json:"birth_date"`
+	Phone            string             `json:"phone"`
+	Email            string             `json:"email"`
+	IdentityType     pgtype.Text        `json:"identity_type"`
+	IdentityEnc      string             `json:"identity_enc"`
+	IdentityBidx     string             `json:"identity_bidx"`
+	IdentityHint     string             `json:"identity_hint"`
+	Nationality      pgtype.Text        `json:"nationality"`
+	LicenceEnc       string             `json:"licence_enc"`
+	LicenceBidx      string             `json:"licence_bidx"`
+	LicenceHint      string             `json:"licence_hint"`
+	LicenceClass     string             `json:"licence_class"`
+	LicenceIssuedOn  pgtype.Date        `json:"licence_issued_on"`
+	LicenceExpiresOn pgtype.Date        `json:"licence_expires_on"`
+	LicenceCountry   pgtype.Text        `json:"licence_country"`
+	Note             string             `json:"note"`
+	CreatedBy        pgtype.Int8        `json:"created_by"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type ExportJob struct {

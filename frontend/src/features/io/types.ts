@@ -114,7 +114,8 @@ export type IoResource =
   | "tenant.transfers"
   | "tenant.one_way_rules"
   | "tenant.rate_plans"
-  | "tenant.date_rules";
+  | "tenant.date_rules"
+  | "tenant.customers";
 
 export const EXPORT_PATHS: Record<IoResource, string> = {
   "platform.users": "/v1/platform/users/export",
@@ -133,6 +134,7 @@ export const EXPORT_PATHS: Record<IoResource, string> = {
   "tenant.one_way_rules": "/v1/tenant/one-way-rules/export",
   "tenant.rate_plans": "/v1/tenant/rate-plans/export",
   "tenant.date_rules": "/v1/tenant/date-rules/export",
+  "tenant.customers": "/v1/tenant/customers/export",
 };
 
 export const IMPORT_PATHS: Partial<
@@ -157,6 +159,10 @@ export const IMPORT_PATHS: Partial<
   "tenant.rate_plans": {
     upload: "/v1/tenant/rate-plans/import",
     sample: "/v1/tenant/rate-plans/import/sample",
+  },
+  "tenant.customers": {
+    upload: "/v1/tenant/customers/import",
+    sample: "/v1/tenant/customers/import/sample",
   },
 };
 
@@ -231,5 +237,26 @@ export const IMPORT_SCHEMA: Partial<
     { key: "branch_code", labelKey: "pricing.import.branch_code" },
     { key: "channel", labelKey: "pricing.import.channel" },
     { key: "priority", labelKey: "pricing.import.priority" },
+  ],
+  // İdes customer list: müşteri tipi, ad, soyad, unvan, TC kimlik, vergi no,
+  // pasaport, uyruk, telefon, e-posta, vergi dairesi, adres, il, ilçe,
+  // etiketler, not. Rows match existing customers by identity number.
+  "tenant.customers": [
+    { key: "customer_type", labelKey: "customers.fields.customer_type" },
+    { key: "first_name", labelKey: "customers.fields.first_name" },
+    { key: "last_name", labelKey: "customers.fields.last_name" },
+    { key: "company_title", labelKey: "customers.fields.company_title" },
+    { key: "tckn", labelKey: "customers.import.tckn" },
+    { key: "vkn", labelKey: "customers.import.vkn" },
+    { key: "passport_no", labelKey: "customers.import.passport_no" },
+    { key: "nationality", labelKey: "customers.fields.nationality" },
+    { key: "phone", labelKey: "customers.fields.phone" },
+    { key: "email", labelKey: "customers.fields.email" },
+    { key: "tax_office", labelKey: "customers.fields.tax_office" },
+    { key: "billing_address", labelKey: "customers.fields.billing_address" },
+    { key: "billing_city", labelKey: "customers.fields.billing_city" },
+    { key: "billing_district", labelKey: "customers.fields.billing_district" },
+    { key: "tags", labelKey: "customers.fields.tags" },
+    { key: "note", labelKey: "customers.fields.note" },
   ],
 };

@@ -84,6 +84,12 @@ export const Permission = {
   TenantAvailabilityHold: "tenant.availability.hold",
   TenantCapacityRulesRead: "tenant.capacity_rules.read",
   TenantCapacityRulesWrite: "tenant.capacity_rules.write",
+  TenantCustomersRead: "tenant.customers.read",
+  TenantCustomersWrite: "tenant.customers.write",
+  TenantCustomersReveal: "tenant.customers.reveal",
+  TenantCustomersExport: "tenant.customers.export",
+  TenantCustomersImport: "tenant.customers.import",
+  TenantCustomersAnonymize: "tenant.customers.anonymize",
   TenantPriceOverride: "tenant.price.override",
   TenantDiscountApply: "tenant.discount.apply",
   TenantPaymentCollect: "tenant.payment.collect",
@@ -262,6 +268,19 @@ export const permissions = {
     capacityRules: {
       read: Permission.TenantCapacityRulesRead,
       write: Permission.TenantCapacityRulesWrite,
+    },
+    /**
+     * Customers and drivers: read shows masked identity / contact values;
+     * `reveal` (plaintext, with a reason), `export`, `import` and
+     * `anonymize` are granted one by one.
+     */
+    customers: {
+      read: Permission.TenantCustomersRead,
+      write: Permission.TenantCustomersWrite,
+      reveal: Permission.TenantCustomersReveal,
+      export: Permission.TenantCustomersExport,
+      import: Permission.TenantCustomersImport,
+      anonymize: Permission.TenantCustomersAnonymize,
     },
     price: {
       override: Permission.TenantPriceOverride,

@@ -55,5 +55,7 @@
   "nav_pricing_rules": "Date rules",
   "nav_pricing_preview": "Price preview",
   "nav_availability": "Availability",
-  "nav_fleet_capacity_rules": "Channel capacity rules"
+  "nav_fleet_capacity_rules": "Channel capacity rules",
+  "section_customers": "Customers",
+  "nav_customers": "Customers"
 }

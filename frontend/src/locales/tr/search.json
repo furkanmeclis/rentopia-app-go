@@ -21,5 +21,7 @@
   "specs_rental_products": "Ürünler",
   "prefix_rental_products": "ürün",
   "specs_vehicles": "Araçlar",
-  "prefix_vehicles": "araç"
+  "prefix_vehicles": "araç",
+  "specs_customers": "Müşteriler",
+  "prefix_customers": "müşteri"
 }

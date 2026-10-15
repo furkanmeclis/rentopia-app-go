@@ -18,6 +18,9 @@ import (
 	bulkusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/bulk/usecase"
 	catalogrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/repository"
 	catalogusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/usecase"
+	customeradapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/customers/adapters"
+	customerrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/customers/repository"
+	customerusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/customers/usecase"
 	exportusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/exports/usecase"
 	fleetadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleet/adapters"
 	fleetrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleet/repository"
@@ -49,6 +52,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/activity"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/bulkengine"
 	bulkadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/bulkengine/adapters"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/crypto"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/events"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/ioengine"
 	ioadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/ioengine/adapters"
@@ -146,6 +150,13 @@ func main() {
 		vehiclerecordsrepository.NewPostgres(queries), vehicleSvc, store, notifSvc, log,
 	)
 	fleetOpsSvc := fleetopsusecase.New(fleetopsrepository.NewPostgres(pool, queries), vehicleSvc)
+	// Customers: export (masked unless include_sensitive with reveal), import.
+	fieldCipher, err := crypto.NewFieldCipher(cfg.Encryption.Key)
+	if err != nil {
+		log.Error("field_encryption_init_failed", "error", err)
+		exit(1)
+	}
+	customerSvc := customerusecase.New(customerrepository.NewPostgres(pool, queries), fieldCipher, store, nil, log)
 	pricingSvc := pricingusecase.New(
 		pricingrepository.NewPostgres(pool, queries),
 		orgsettingsusecase.New(orgsettingsrepository.NewPostgres(pool, queries)),
@@ -181,6 +192,7 @@ func main() {
 		pricingadapters.NewRatePlansIO(pricingSvc),
 		pricingadapters.NewDateRulesIO(pricingSvc),
 		orgadapters.NewIO(jobScopes),
+		customeradapters.NewIO(customerSvc),
 	)
 	exportSvc := exportusecase.New(queries, store, ioReg, nil, notifSvc, activityRec, log)
 	importSvc := importusecase.New(queries, store, ioReg, nil, notifSvc, activityRec, log)
@@ -193,6 +205,7 @@ func main() {
 		vehicleBulk,
 		fleetopsadapters.NewOneWayBulk(fleetOpsSvc),
 		orgadapters.NewBulk(jobScopes),
+		customeradapters.NewBulk(customerSvc),
 	)
 	bulkSvc := bulkusecase.New(queries, bulkReg, nil, notifSvc, activityRec, cfg.Bulk, log)
 	// Tenant jobs run with the requester's current membership (permissions
@@ -209,11 +222,13 @@ func main() {
 		branchadapters.NewSearch(queries),
 		fleetadapters.NewProductsSearch(queries),
 		vehicleadapters.NewSearch(queries),
+		customeradapters.NewSearch(queries),
 	)
 	searchClient := searchengine.NewClient(cfg.Search, log)
 	searchIndexer := searchengine.NewIndexer(searchClient, searchReg, nil, log)
 	// Vehicle imports / bulk changes keep the Cmd+K index current.
 	vehicleSvc.SetSearchIndexer(searchIndexer)
+	customerSvc.SetSearchIndexer(searchIndexer)
 	// Deliveries run inline here; mobile pushes go through the queue (retries).
 	queueClient := queue.NewClient(cfg.Redis)
 	defer func() { _ = queueClient.Close() }()

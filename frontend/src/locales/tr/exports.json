@@ -74,5 +74,6 @@
   "resources.tenant.one_way_rules": "Tek yön kuralları",
   "resources.platform.organizations": "Firmalar",
   "resources.tenant.rate_plans": "Tarifeler (fiyat listesi)",
-  "resources.tenant.date_rules": "Tarih kuralları"
+  "resources.tenant.date_rules": "Tarih kuralları",
+  "resources.tenant.customers": "Müşteriler"
 }

@@ -34,3 +34,8 @@ date_rule_versions
 date_rule_version_targets
 vehicle_allocations
 channel_capacity_rules
+customers
+customer_contacts
+customer_marketing_consents
+drivers
+customer_documents
