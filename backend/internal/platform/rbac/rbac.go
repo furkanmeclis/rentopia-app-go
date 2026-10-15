@@ -97,6 +97,19 @@ const (
 	PermTenantCustomersExport    = "tenant.customers.export"
 	PermTenantCustomersImport    = "tenant.customers.import"
 	PermTenantCustomersAnonymize = "tenant.customers.anonymize"
+	// Reservations, quotes and resolution tasks (TEC-704 / TEC-706 /
+	// TEC-698). Cancel, confirm, export and the driver eligibility override
+	// are granted one by one.
+	PermTenantReservationsRead                = "tenant.reservations.read"
+	PermTenantReservationsWrite               = "tenant.reservations.write"
+	PermTenantReservationsCancel              = "tenant.reservations.cancel"
+	PermTenantReservationsConfirm             = "tenant.reservations.confirm"
+	PermTenantReservationsExport              = "tenant.reservations.export"
+	PermTenantReservationsOverrideEligibility = "tenant.reservations.override_eligibility"
+	PermTenantQuotesRead                      = "tenant.quotes.read"
+	PermTenantQuotesWrite                     = "tenant.quotes.write"
+	PermTenantResolutionTasksRead             = "tenant.resolution_tasks.read"
+	PermTenantResolutionTasksWrite            = "tenant.resolution_tasks.write"
 	// Extras catalog, prices and branch stock (TEC-702). Equipment holds
 	// use PermTenantAvailabilityHold.
 	PermTenantExtrasRead  = "tenant.extras.read"

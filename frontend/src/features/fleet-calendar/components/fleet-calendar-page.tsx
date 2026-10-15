@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { Card, CardContent } from "@/components/common/card";
 import { EmptyState } from "@/components/common/empty-state";
@@ -32,6 +32,7 @@ import {
 } from "@/features/fleet-calendar/lib/timeline";
 import type {
   CalendarZoom,
+  FleetCalendarInterval,
   FleetCalendarFilters,
   FleetCalendarParams,
 } from "@/features/fleet-calendar/types";
@@ -41,7 +42,9 @@ import { useVehicleFacets } from "@/features/vehicles/hooks/use-vehicles";
 import type { VehicleStatus } from "@/features/vehicles/types";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useChangePlate } from "@/features/reservations/hooks/use-reservations";
 import { useLocale } from "@/providers/locale-provider";
+import { usePermission } from "@/providers/permission-provider";
 
 const EMPTY_FILTERS: FleetCalendarFilters = {
   q: "",
@@ -90,6 +93,33 @@ export function FleetCalendarPage() {
   );
   const query = useFleetCalendar(params);
   useFleetCalendarLive(() => query.refetch());
+
+  // Plate change by drag & drop: only reservation bars whose plate is not
+  // promised yet; the engine re-validates and refuses what does not fit.
+  const { can } = usePermission();
+  const changePlate = useChangePlate();
+  const canDragBar = useCallback(
+    (bar: FleetCalendarInterval) =>
+      bar.kind === "reservation" &&
+      Boolean(bar.allocation?.reservation) &&
+      !bar.allocation?.plate_fixed &&
+      can(permissions.tenant.reservations.write),
+    [can],
+  );
+  const onBarDrop = useCallback(
+    (bar: FleetCalendarInterval, _from: string, toVehicleUuid: string) => {
+      const reservation = bar.allocation?.reservation;
+      if (!reservation || changePlate.isPending) return;
+      changePlate.mutate(
+        {
+          uuid: reservation.uuid,
+          body: { vehicle_uuid: toVehicleUuid, fix: false, source: "drag" },
+        },
+        { onSettled: () => void query.refetch() },
+      );
+    },
+    [changePlate, query],
+  );
 
   const setFilter = <K extends keyof FleetCalendarFilters>(
     key: K,
@@ -260,6 +290,8 @@ export function FleetCalendarPage() {
               zoom={zoom}
               window={window}
               onAction={onAction}
+              canDragBar={canDragBar}
+              onBarDrop={onBarDrop}
             />
           )}
 

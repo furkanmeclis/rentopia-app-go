@@ -148,5 +148,8 @@
   "profile.validation.name_too_long": "Firma adı en fazla 255 karakter olabilir.",
   "profile.toast.renamed": "Firma adı güncellendi.",
   "profile.toast.logo_uploaded": "Logo yüklendi.",
-  "profile.toast.logo_removed": "Logo kaldırıldı."
+  "profile.toast.logo_removed": "Logo kaldırıldı.",
+  "fields.reference_prefix": "Rezervasyon referans öneki",
+  "fields.reference_prefix_hint": "Örn. IDS → IDS-2026-000123. Boş bırakılırsa firma kısa adından türetilir.",
+  "validation.reference_prefix": "Harfle başlayan 2-6 büyük harf veya rakam"
 }

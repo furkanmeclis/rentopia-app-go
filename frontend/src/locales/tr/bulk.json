@@ -47,5 +47,8 @@
   "confirm.extras.archive": "Seçili {{count}} ek hizmet arşivlensin mi? Arşivdeki ek hizmetler satılmaz.",
   "actions.campaigns.activate": "Kampanyaları aktifleştir",
   "actions.campaigns.deactivate": "Kampanyaları pasifleştir",
-  "confirm.campaigns.deactivate": "Seçili {{count}} kampanya pasifleştirilsin mi? Kodları artık kabul edilmez."
+  "confirm.campaigns.deactivate": "Seçili {{count}} kampanya pasifleştirilsin mi? Kodları artık kabul edilmez.",
+  "actions.reservations.cancel": "Rezervasyonları iptal et",
+  "actions.reservations.assign_staff": "Personel ata",
+  "confirm.reservations.cancel": "Seçili {{count}} rezervasyon iptal edilsin mi? Kapasite serbest kalır; bu işlem geri alınamaz."
 }

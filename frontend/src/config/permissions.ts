@@ -90,6 +90,17 @@ export const Permission = {
   TenantCustomersExport: "tenant.customers.export",
   TenantCustomersImport: "tenant.customers.import",
   TenantCustomersAnonymize: "tenant.customers.anonymize",
+  TenantReservationsRead: "tenant.reservations.read",
+  TenantReservationsWrite: "tenant.reservations.write",
+  TenantReservationsCancel: "tenant.reservations.cancel",
+  TenantReservationsConfirm: "tenant.reservations.confirm",
+  TenantReservationsExport: "tenant.reservations.export",
+  TenantReservationsOverrideEligibility:
+    "tenant.reservations.override_eligibility",
+  TenantQuotesRead: "tenant.quotes.read",
+  TenantQuotesWrite: "tenant.quotes.write",
+  TenantResolutionTasksRead: "tenant.resolution_tasks.read",
+  TenantResolutionTasksWrite: "tenant.resolution_tasks.write",
   TenantExtrasRead: "tenant.extras.read",
   TenantExtrasWrite: "tenant.extras.write",
   TenantCampaignsRead: "tenant.campaigns.read",
@@ -285,6 +296,29 @@ export const permissions = {
       export: Permission.TenantCustomersExport,
       import: Permission.TenantCustomersImport,
       anonymize: Permission.TenantCustomersAnonymize,
+    },
+    /**
+     * Reservations: `cancel` (cancel, no-show), `confirm` (approve,
+     * confirm), `export` and the driver eligibility override are granted
+     * one by one.
+     */
+    reservations: {
+      read: Permission.TenantReservationsRead,
+      write: Permission.TenantReservationsWrite,
+      cancel: Permission.TenantReservationsCancel,
+      confirm: Permission.TenantReservationsConfirm,
+      export: Permission.TenantReservationsExport,
+      overrideEligibility: Permission.TenantReservationsOverrideEligibility,
+    },
+    /** Quotes (priced searches; no capacity). */
+    quotes: {
+      read: Permission.TenantQuotesRead,
+      write: Permission.TenantQuotesWrite,
+    },
+    /** Resolution tasks of broken vehicle plans. */
+    resolutionTasks: {
+      read: Permission.TenantResolutionTasksRead,
+      write: Permission.TenantResolutionTasksWrite,
     },
     /**
      * Extras catalog, per-product prices and branch stock. Equipment holds

@@ -61,11 +61,10 @@ const MIN_BAR_WIDTH = 8;
 const MARKER_SIZE = 22;
 
 /**
- * Drag & drop extension point. Reservations (TEC-706) will be draggable onto
- * another vehicle row ("plaka değişimi" = the availability engine's
- * AssignPlate); blocks, transfers, holds and maintenance never are. Until
- * the reservation API exists no bar passes `canDragBar`, so the timeline
- * renders the affordance disabled and `onBarDrop` is never called.
+ * Drag & drop of reservation bars onto another vehicle row ("plaka
+ * değişimi" = `POST /reservations/{uuid}/plate` with `source: drag`, the
+ * engine re-validates the whole plan). Blocks, transfers, holds and
+ * maintenance never pass `canDragBar`; neither does a promised plate.
  */
 export type TimelineDragProps = {
   canDragBar?: (bar: FleetCalendarInterval) => boolean;

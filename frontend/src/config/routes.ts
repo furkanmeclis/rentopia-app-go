@@ -112,6 +112,18 @@ export const routes = {
           `/t/${encodeURIComponent(slug)}/pricing/campaigns/${uuid}`,
       },
     },
+    /** Reservations ("Rezervasyonlar"): list, wizard, detail, quotes, tasks. */
+    reservations: {
+      root: (slug: string) => `/t/${encodeURIComponent(slug)}/reservations`,
+      create: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/reservations/create`,
+      detail: (slug: string, uuid: string) =>
+        `/t/${encodeURIComponent(slug)}/reservations/${uuid}`,
+      quotes: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/reservations/quotes`,
+      tasks: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/reservations/tasks`,
+    },
     /** Availability search and holds ("Müsaitlik"). */
     availability: (slug: string) =>
       `/t/${encodeURIComponent(slug)}/availability`,

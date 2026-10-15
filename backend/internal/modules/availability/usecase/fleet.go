@@ -9,6 +9,7 @@ import (
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/availability/engine"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/availability/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleet/eligibility"
 	vehicleusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/usecase"
 	"github.com/google/uuid"
@@ -341,6 +342,36 @@ type writer struct {
 	orgID    int64
 	deferred bool
 	cs       *componentState
+	// moved collects every reassignment written (hook reporting).
+	moved []engine.Move
+}
+
+// movedAllocations maps the written reassignments to allocation rows (the
+// last move of a commitment wins; moves back onto the start are dropped).
+func (w *writer) movedAllocations(exclude int64) []model.MovedAllocation {
+	first := map[int64]int64{}
+	last := map[int64]int64{}
+	order := []int64{}
+	for _, m := range w.moved {
+		if m.Commitment == exclude {
+			continue
+		}
+		if _, ok := first[m.Commitment]; !ok {
+			first[m.Commitment] = m.From
+			order = append(order, m.Commitment)
+		}
+		last[m.Commitment] = m.To
+	}
+	out := []model.MovedAllocation{}
+	for _, id := range order {
+		if first[id] == last[id] {
+			continue
+		}
+		out = append(out, model.MovedAllocation{
+			ID: id, UUID: w.cs.allocs[id].Uuid, FromVehicleID: first[id], ToVehicleID: last[id],
+		})
+	}
+	return out
 }
 
 func (w *writer) deferConstraint() error {
@@ -370,6 +401,7 @@ func (w *writer) applyMoves(moves []engine.Move) error {
 		if n != 1 {
 			return errStale
 		}
+		w.moved = append(w.moved, m)
 	}
 	return nil
 }

@@ -117,7 +117,8 @@ export type IoResource =
   | "tenant.date_rules"
   | "tenant.customers"
   | "tenant.extras"
-  | "tenant.campaigns";
+  | "tenant.campaigns"
+  | "tenant.reservations";
 
 export const EXPORT_PATHS: Record<IoResource, string> = {
   "platform.users": "/v1/platform/users/export",
@@ -139,6 +140,7 @@ export const EXPORT_PATHS: Record<IoResource, string> = {
   "tenant.customers": "/v1/tenant/customers/export",
   "tenant.extras": "/v1/tenant/extras/export",
   "tenant.campaigns": "/v1/tenant/campaigns/export",
+  "tenant.reservations": "/v1/tenant/reservations/export",
 };
 
 export const IMPORT_PATHS: Partial<

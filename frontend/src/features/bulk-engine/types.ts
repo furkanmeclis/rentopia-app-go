@@ -58,7 +58,8 @@ export type BulkResource =
   | "tenant.one_way_rules"
   | "tenant.customers"
   | "tenant.extras"
-  | "tenant.campaigns";
+  | "tenant.campaigns"
+  | "tenant.reservations";
 
 /**
  * Execute route per resource. `tenant.*` resources are organization-scoped:
@@ -76,6 +77,7 @@ export const BULK_PATHS: Record<BulkResource, string> = {
   "tenant.customers": "/v1/tenant/customers/bulk",
   "tenant.extras": "/v1/tenant/extras/bulk",
   "tenant.campaigns": "/v1/tenant/campaigns/bulk",
+  "tenant.reservations": "/v1/tenant/reservations/bulk",
 };
 
 export type SelectionScope =

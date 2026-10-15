@@ -143,5 +143,18 @@
   "groups.tenant_extras": "Extras",
   "labels.tenant.campaigns.read": "View campaigns",
   "labels.tenant.campaigns.write": "Manage campaigns and coupon codes",
-  "groups.tenant_campaigns": "Campaigns"
+  "groups.tenant_campaigns": "Campaigns",
+  "labels.tenant.reservations.read": "View reservations",
+  "labels.tenant.reservations.write": "Create and change reservations",
+  "labels.tenant.reservations.cancel": "Cancel reservations",
+  "labels.tenant.reservations.confirm": "Confirm reservations",
+  "labels.tenant.reservations.export": "Export reservations",
+  "labels.tenant.reservations.override_eligibility": "Override driver eligibility with a reason",
+  "groups.tenant_reservations": "Reservations",
+  "labels.tenant.quotes.read": "View quotes",
+  "labels.tenant.quotes.write": "Create quotes",
+  "groups.tenant_quotes": "Quotes",
+  "labels.tenant.resolution_tasks.read": "View resolution tasks",
+  "labels.tenant.resolution_tasks.write": "Manage resolution tasks",
+  "groups.tenant_resolution_tasks": "Resolution tasks"
 }

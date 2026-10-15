@@ -59,5 +59,10 @@
   "section_customers": "Customers",
   "nav_customers": "Customers",
   "nav_pricing_extras": "Extras",
-  "nav_pricing_campaigns": "Campaigns"
+  "nav_pricing_campaigns": "Campaigns",
+  "section_reservations": "Reservations",
+  "nav_reservations": "Reservations",
+  "nav_reservations_create": "New reservation",
+  "nav_reservations_quotes": "Quotes",
+  "nav_reservations_tasks": "Resolution tasks"
 }

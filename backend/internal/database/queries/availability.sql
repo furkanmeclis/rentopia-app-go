@@ -118,9 +118,12 @@ WHERE organization_id = sqlc.arg(organization_id)
   AND status = 'active';
 
 -- name: ReplanAllocation :execrows
--- Date change / plate assignment of one allocation (same optimistic check).
+-- Date change / plate assignment / product change of one allocation (same
+-- optimistic check).
 UPDATE vehicle_allocations
 SET vehicle_id = sqlc.arg(to_vehicle_id),
+    rental_product_id = sqlc.arg(rental_product_id),
+    product_version = sqlc.arg(product_version),
     starts_at = sqlc.arg(starts_at),
     ends_at = sqlc.arg(ends_at),
     prep_minutes = sqlc.arg(prep_minutes),
@@ -152,6 +155,18 @@ WHERE organization_id = sqlc.arg(organization_id)
   AND kind = 'hold'
   AND status = 'active'
   AND expires_at > sqlc.arg(now_at)::timestamptz;
+
+-- name: SetHoldExpiry :execrows
+-- Moves the expiry of an active hold (reservation review -> payment
+-- window); the new expiry must lie in the future.
+UPDATE vehicle_allocations
+SET expires_at = sqlc.arg(expires_at)::timestamptz
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND kind = 'hold'
+  AND status = 'active'
+  AND expires_at > sqlc.arg(now_at)::timestamptz
+  AND sqlc.arg(expires_at)::timestamptz > sqlc.arg(now_at)::timestamptz;
 
 -- name: ConfirmAllocation :execrows
 -- Hold -> confirmed reservation (TEC-706): same row, so capacity is never

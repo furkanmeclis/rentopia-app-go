@@ -47,6 +47,7 @@ import enFleetCalendar from "@/locales/en/fleet_calendar.json";
 import enVehicleBlocks from "@/locales/en/vehicle_blocks.json";
 import enVehicles from "@/locales/en/vehicles.json";
 import enCustomers from "@/locales/en/customers.json";
+import enReservations from "@/locales/en/reservations.json";
 import trAccess from "@/locales/tr/access.json";
 import trActivity from "@/locales/tr/activity.json";
 import trAuth from "@/locales/tr/auth.json";
@@ -94,6 +95,7 @@ import trFleetCalendar from "@/locales/tr/fleet_calendar.json";
 import trVehicleBlocks from "@/locales/tr/vehicle_blocks.json";
 import trVehicles from "@/locales/tr/vehicles.json";
 import trCustomers from "@/locales/tr/customers.json";
+import trReservations from "@/locales/tr/reservations.json";
 
 export type MessageDictionary = Record<string, string>;
 
@@ -119,6 +121,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     users: trUsers,
     vehicles: trVehicles,
     customers: trCustomers,
+    reservations: trReservations,
     vehicle_records: trVehicleRecords,
     vehicle_blocks: trVehicleBlocks,
     transfers: trTransfers,
@@ -168,6 +171,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     users: enUsers,
     vehicles: enVehicles,
     customers: enCustomers,
+    reservations: enReservations,
     vehicle_records: enVehicleRecords,
     vehicle_blocks: enVehicleBlocks,
     transfers: enTransfers,

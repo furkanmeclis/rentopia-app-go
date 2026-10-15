@@ -5878,6 +5878,616 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenant/reservations/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Reservations table contract
+         * @description `tenant.reservations.read`. Columns, filters, sortable fields, capabilities and bulk actions.
+         */
+        get: operations["getTenantReservationsMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reservations/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Reservation list facets
+         * @description `tenant.reservations.read`. Counts per status, payment status, channel, product, branch (pick-up or return) and customer inside the caller's branch scope.
+         */
+        get: operations["getTenantReservationsFacets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reservations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List reservations
+         * @description `tenant.reservations.read`. Reservations whose pick-up OR return branch is in the caller's
+         *     branch scope. `q` matches the reference, the channel's reservation number, the customer name
+         *     and the planned plate. Multi-value filters are comma-separated.
+         */
+        get: operations["getTenantReservations"];
+        put?: never;
+        /**
+         * Create a reservation from a quote
+         * @description `tenant.reservations.write`. The quote is re-validated server-side: open and not expired
+         *     (`409 QUOTE_EXPIRED` / `QUOTE_USED`), same product version and total now (`409
+         *     QUOTE_PRICE_CHANGED`, `data` = the fresh quote that superseded it), capacity still there
+         *     (`409 CAPACITY_UNAVAILABLE` with alternatives). Drivers are checked against the sold
+         *     version's conditions on the pick-up day (`422 DRIVER_NOT_ELIGIBLE`, `data` = drivers with
+         *     reasons); `eligibility_override` needs `tenant.reservations.override_eligibility` and a
+         *     reason. Status by the settings: staff approval → `awaiting_review` (option until the review
+         *     window), auto approval with a prepayment → `awaiting_payment` (option until the payment
+         *     window), else `confirmed` (firm commitment). `request_only` records a request without
+         *     capacity; `confirm_now` (needs `tenant.reservations.confirm`) confirms at once. The quote
+         *     breakdown and the policy (settings) version are copied as an immutable snapshot. A coupon
+         *     is redeemed, physical extras are held (`409 EQUIPMENT_UNAVAILABLE`).
+         */
+        post: operations["postTenantReservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reservations/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export reservations
+         * @description `tenant.reservations.export`. `query` honours `q` and the list filters; the job runs with the requester's branch scope.
+         */
+        post: operations["postTenantReservationsExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reservations/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk reservation actions
+         * @description `cancel` (`tenant.reservations.cancel`, `params.reason` 3-500 characters; releases capacity,
+         *     not reversible) and `assign_staff` (`tenant.reservations.write`, `params.user_uuid` a member
+         *     or empty to clear; reversible).
+         */
+        post: operations["postTenantReservationsBulk"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reservations/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Reservation detail
+         * @description `tenant.reservations.read`. Price snapshot, vehicle plan (sold product / planned / promised plate, history), customer and drivers (masked), allowed actions.
+         */
+        get: operations["getTenantReservation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reservations/{uuid}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Reservation timeline
+         * @description `tenant.reservations.read`. Every transition and change (who, when, from, to, reason, data), newest first.
+         */
+        get: operations["getTenantReservationEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reservations/{uuid}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit a request
+         * @description `tenant.reservations.write`. request → awaiting_review / awaiting_payment / confirmed by the settings; capacity is reserved now (`409 CAPACITY_UNAVAILABLE`).
+         */
+        post: operations["postTenantReservationSubmit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reservations/{uuid}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve (staff review)
+         * @description `tenant.reservations.confirm`. awaiting_review → awaiting_payment (prepayment due; the option moves to the payment window) or confirmed.
+         */
+        post: operations["postTenantReservationApprove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reservations/{uuid}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm
+         * @description `tenant.reservations.confirm`. awaiting_review / awaiting_payment → confirmed: the option becomes a firm commitment on the same allocation. A lapsed option expires the reservation (`409 INVALID_STATE` `hold_expired`).
+         */
+        post: operations["postTenantReservationConfirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reservations/{uuid}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel
+         * @description `tenant.reservations.cancel`. Releases the capacity exactly once (dependents re-planned; what cannot be kept valid opens resolution tasks) and gives a campaign use back.
+         */
+        post: operations["postTenantReservationCancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reservations/{uuid}/no-show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark as no-show
+         * @description `tenant.reservations.cancel`. Confirmed reservations after their pick-up time (`409` `not_started` before); capacity released.
+         */
+        post: operations["postTenantReservationNoShow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reservations/{uuid}/quotes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Quote a change, extension or upgrade
+         * @description `tenant.reservations.write` + `tenant.quotes.write`. Missing fields keep the reservation's
+         *     values. Moving only the return later is an `extension`: past lines stay as sold and the
+         *     added days are priced with the band of the NEW total length (`total` = the extension
+         *     charge); a product change is an `upgrade` (with the condition difference); anything else a
+         *     `change`. `difference` = what the change adds to the current total.
+         */
+        post: operations["postTenantReservationQuote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reservations/{uuid}/change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply a change / extension / upgrade quote
+         * @description `tenant.reservations.write`. The quote is re-validated (open, not expired, same price now).
+         *     Capacity moves atomically with the engine (the old plan stays when no new one exists:
+         *     `409 CAPACITY_UNAVAILABLE`). A refused extension answers `409 EXTENSION_CONFLICT` with
+         *     alternatives (another vehicle for the whole range, other products) and difference quotes
+         *     (RT-A31). `keep_price` (free upgrade) needs `tenant.price.override`.
+         */
+        post: operations["postTenantReservationChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reservations/{uuid}/extend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extend
+         * @description `tenant.reservations.write`. Quotes and applies an extension in one call. A collision with
+         *     the next commitment answers `409 EXTENSION_CONFLICT` (`data` = alternatives with difference
+         *     quotes, applied through `/change`); the reservation stays as it was and an
+         *     `extension_conflict` resolution task is opened.
+         */
+        post: operations["postTenantReservationExtend"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reservations/{uuid}/plate-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Vehicles the plan can move to
+         * @description `tenant.reservations.write`. Up to 25 vehicles (other than the planned one) that keep the sold
+         *     guarantee and can carry the reservation as it is, each checked with the planner (read-only;
+         *     nothing is written). `409 INVALID_STATE` when the reservation holds no capacity.
+         */
+        get: operations["getTenantReservationPlateCandidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reservations/{uuid}/plate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change / fix the plate
+         * @description `tenant.reservations.write`. `fix` promises the plate; without it the vehicle becomes the new
+         *     provisional plate (calendar drag, `source` = `drag`). The engine re-validates the whole plan:
+         *     the vehicle must keep the sold guarantee (`400 not_eligible`: use an upgrade) and later
+         *     commitments are moved or the change is refused (`409 CAPACITY_UNAVAILABLE`).
+         */
+        post: operations["postTenantReservationPlate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reservations/{uuid}/drivers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace the drivers
+         * @description `tenant.reservations.write`. Checked against the current product version's conditions (`422 DRIVER_NOT_ELIGIBLE`; override with permission + reason).
+         */
+        put: operations["putTenantReservationDrivers"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reservations/{uuid}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Assign a staff member
+         * @description `tenant.reservations.write`. `user_uuid` = a member of the organization, or null to clear.
+         */
+        post: operations["postTenantReservationAssign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/quotes/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Quotes table contract */
+        get: operations["getTenantQuotesMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/quotes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List quotes
+         * @description `tenant.quotes.read`. Quotes whose pick-up OR return branch is in the caller's branch scope.
+         */
+        get: operations["getTenantQuotes"];
+        put?: never;
+        /**
+         * Create a quote
+         * @description `tenant.quotes.write`. Prices one product for the search (availability answer included,
+         *     nothing consumed) and stores the quote until `valid_until` (settings quote validity, default
+         *     30 minutes). Extras and a coupon are priced by the pricing engine; a manual discount needs
+         *     `tenant.discount.apply` and a reason. `422 PRICING_UNAVAILABLE` when no rate plan prices it.
+         */
+        post: operations["postTenantQuote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/quotes/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Price every product for a search
+         * @description `tenant.quotes.read`. Availability breakdown and price per product on sale (or the given ones); nothing is stored.
+         */
+        post: operations["postTenantQuoteSearch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/quotes/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Quote detail */
+        get: operations["getTenantQuote"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/resolution-tasks/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Resolution tasks table contract */
+        get: operations["getTenantResolutionTasksMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/resolution-tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List resolution tasks
+         * @description `tenant.resolution_tasks.read`. Tasks of reservations in the caller's branch scope.
+         */
+        get: operations["getTenantResolutionTasks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/resolution-tasks/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Resolution task detail */
+        get: operations["getTenantResolutionTask"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/resolution-tasks/{uuid}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve a task
+         * @description `tenant.resolution_tasks.write`.
+         */
+        post: operations["postTenantResolutionTaskResolve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/resolution-tasks/{uuid}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Assign a task
+         * @description `tenant.resolution_tasks.write`. `user_uuid` = a member, or null to clear.
+         */
+        post: operations["postTenantResolutionTaskAssign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/resolution-tasks/{uuid}/replan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry the engine re-plan
+         * @description `tenant.resolution_tasks.write`. Re-plans the reservation's allocation as it is; success resolves the task.
+         */
+        post: operations["postTenantResolutionTaskReplan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenant/capacity-rules": {
         parameters: {
             query?: never;
@@ -9604,6 +10214,8 @@ export interface components {
             quote_validity_minutes: number | null;
             /** @description Longest rental online channels sell; rate plans that price online sales must cover 1 day up to it without gaps (null = 30) */
             max_online_rental_days?: number | null;
+            /** @description Prefix of reservation references (IDS-2026-000123); empty = derived from the organization slug */
+            reference_prefix?: string;
         };
         OrganizationPaymentSettings: {
             /** @enum {string} */
@@ -10726,6 +11338,16 @@ export interface components {
             expires_at: string | null;
             plate_fixed: boolean;
             channel: string;
+            /**
+             * @description Reservation of the allocation (TEC-706); null for a plain hold. Its bar can be dropped on
+             *     another vehicle row while `plate_fixed` is false (`POST /v1/tenant/reservations/{uuid}/plate`).
+             */
+            reservation?: {
+                /** Format: uuid */
+                uuid: string;
+                reference: string;
+                status: string;
+            } | null;
         };
         FleetCalendarMaintenance: {
             /** Format: uuid */
@@ -11949,6 +12571,697 @@ export interface components {
             };
             meta: components["schemas"]["ResponseMeta"];
         };
+        ReservationBranchRef: {
+            /** Format: uuid */
+            uuid: string;
+            code: string;
+            name: string;
+        };
+        ReservationPointRef: {
+            /** Format: uuid */
+            uuid: string;
+            name: string;
+        };
+        ReservationProductRef: {
+            /** Format: uuid */
+            uuid: string;
+            code: string;
+            title: string;
+            version: number;
+        };
+        /** @description Customer with masked identity / contact values (reveal through the customers API) */
+        ReservationCustomerRef: {
+            /** Format: uuid */
+            uuid: string;
+            customer_type: string;
+            display_name: string;
+            identity_masked: string;
+            phone_masked: string;
+            email_masked: string;
+        };
+        ReservationVehicleRef: {
+            /** Format: uuid */
+            uuid: string;
+            plate: string;
+            label: string;
+        };
+        ReservationActor: {
+            /** Format: uuid */
+            uuid: string;
+            name: string;
+            surname: string;
+            email: string;
+        };
+        ReservationRef: {
+            /** Format: uuid */
+            uuid: string;
+            reference: string;
+        };
+        ExtraSelection: {
+            /** Format: uuid */
+            extra_uuid: string;
+            quantity: number;
+        };
+        ManualDiscount: {
+            /** @enum {string} */
+            kind: "percent" | "amount";
+            /** @description Percentage (0-100) or amount */
+            value: string;
+            reason: string;
+        };
+        QuoteRequest: {
+            /** Format: uuid */
+            pickup_branch_uuid?: string | null;
+            /** Format: uuid */
+            pickup_point_uuid?: string | null;
+            /** Format: uuid */
+            return_branch_uuid?: string | null;
+            /** Format: uuid */
+            return_point_uuid?: string | null;
+            /** Format: date-time */
+            starts_at?: string | null;
+            /** Format: date-time */
+            ends_at?: string | null;
+            /** @description Sales channel code (default branch) */
+            channel?: string;
+            /** Format: uuid */
+            product_uuid?: string | null;
+            /** Format: uuid */
+            customer_uuid?: string | null;
+            extras?: components["schemas"]["ExtraSelection"][];
+            coupon_code?: string;
+            manual_discount?: components["schemas"]["ManualDiscount"] | null;
+            delivery_fee?: string;
+        };
+        QuoteSearchRequest: {
+            /** Format: uuid */
+            pickup_branch_uuid?: string | null;
+            /** Format: uuid */
+            pickup_point_uuid?: string | null;
+            /** Format: uuid */
+            return_branch_uuid?: string | null;
+            /** Format: uuid */
+            return_point_uuid?: string | null;
+            /** Format: date-time */
+            starts_at?: string | null;
+            /** Format: date-time */
+            ends_at?: string | null;
+            channel?: string;
+            product_uuids?: string[];
+        };
+        QuoteSearchItem: {
+            product: components["schemas"]["AvailabilityProductRef"];
+            availability: components["schemas"]["AvailabilityBreakdown"];
+            sellable: number;
+            reasons: string[];
+            price: {
+                currency: string;
+                billing_days: number;
+                daily_average: string;
+                total: string;
+                prepayment: string;
+            } | null;
+            price_error: {
+                code: string;
+                message: string;
+            } | null;
+        };
+        QuoteSearchResult: {
+            request: components["schemas"]["AvailabilityResolvedRequest"];
+            items: components["schemas"]["QuoteSearchItem"][];
+            warnings: string[];
+        };
+        EnvelopeQuoteSearch: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["QuoteSearchResult"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        QuoteLine: {
+            position: number;
+            /** @enum {string} */
+            kind: "day" | "extra" | "one_way" | "delivery" | "discount";
+            day_index: number | null;
+            /** Format: date */
+            day_date: string | null;
+            /** Format: uuid */
+            date_rule_version_uuid: string | null;
+            date_rule_name: string;
+            code: string;
+            name: string;
+            quantity: number;
+            unit_price: string;
+            adjustment: string;
+            amount: string;
+        };
+        /** @description The added period of an extension; the band of the NEW total length prices the added days. */
+        QuoteExtension: {
+            /** Format: date-time */
+            previous_ends_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            previous_billing_days: number;
+            billing_days: number;
+            added_days: number;
+            band: components["schemas"]["RateBand"];
+            days: Record<string, never>[];
+            rental_amount: string;
+            extras_amount: string;
+            amount: string;
+            base: string;
+            vat: string;
+        };
+        ReservationConditions: {
+            guarantee_type: string;
+            guarantee_label: string;
+            min_driver_age: number;
+            min_license_years: number;
+            deposit_amount: string;
+            included_km_per_day: number | null;
+            extra_km_fee: string;
+            fuel_policy: string;
+            product_uuid: string;
+            product_code: string;
+            product_title: string;
+            version: number;
+            version_uuid?: string;
+        };
+        QuoteBreakdown: {
+            pricing: components["schemas"]["PricingBreakdown"] | null;
+            extension: components["schemas"]["QuoteExtension"] | null;
+            conditions: components["schemas"]["ReservationConditions"] | null;
+            previous_conditions: components["schemas"]["ReservationConditions"] | null;
+            warnings: string[];
+        };
+        Quote: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            purpose: "new" | "change" | "extension" | "upgrade";
+            /** @enum {string} */
+            status: "open" | "used" | "superseded";
+            expired: boolean;
+            reservation: components["schemas"]["ReservationRef"] | null;
+            customer: components["schemas"]["ReservationCustomerRef"] | null;
+            product: components["schemas"]["ReservationProductRef"];
+            pickup_branch: components["schemas"]["ReservationBranchRef"];
+            return_branch: components["schemas"]["ReservationBranchRef"];
+            pickup_point: components["schemas"]["ReservationPointRef"] | null;
+            return_point: components["schemas"]["ReservationPointRef"] | null;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            channel: string;
+            billing_days: number;
+            currency: string;
+            rental_subtotal: string;
+            discount_total: string;
+            rental_total: string;
+            extras_total: string;
+            one_way_fee: string;
+            delivery_fee: string;
+            base_total: string;
+            vat_total: string;
+            /** @description New / change / upgrade: the whole price. Extension: the extension charge. */
+            total: string;
+            prepayment: string;
+            prepayment_rule: string;
+            vat_rate: string | null;
+            /** @description Change quotes: what the change adds to the reservation's current total */
+            difference: string | null;
+            /** Format: uuid */
+            rate_plan_version_uuid: string | null;
+            rate_plan_version: number | null;
+            settings_version: number;
+            extras: components["schemas"]["ExtraSelection"][];
+            coupon_code: string | null;
+            manual_discount: components["schemas"]["ManualDiscount"] | null;
+            breakdown: components["schemas"]["QuoteBreakdown"];
+            lines: components["schemas"]["QuoteLine"][];
+            vehicle: components["schemas"]["ReservationVehicleRef"] | null;
+            availability: {
+                sellable: number;
+                breakdown: components["schemas"]["AvailabilityBreakdown"];
+                reasons: string[];
+            } | null;
+            /** Format: date-time */
+            valid_until: string;
+            /** Format: date-time */
+            used_at: string | null;
+            created_by: components["schemas"]["ReservationActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        EnvelopeQuote: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["Quote"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        QuoteListItem: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            purpose: "new" | "change" | "extension" | "upgrade";
+            /** @enum {string} */
+            status: "open" | "used" | "superseded";
+            expired: boolean;
+            product: components["schemas"]["ReservationProductRef"];
+            pickup_branch: components["schemas"]["ReservationBranchRef"];
+            return_branch: components["schemas"]["ReservationBranchRef"];
+            customer: components["schemas"]["ReservationCustomerRef"] | null;
+            reservation: components["schemas"]["ReservationRef"] | null;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            channel: string;
+            billing_days: number;
+            currency: string;
+            total: string;
+            difference: string | null;
+            /** Format: date-time */
+            valid_until: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        EnvelopeQuotePage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["QuoteListItem"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        ReservationDriverInput: {
+            /** Format: uuid */
+            driver_uuid: string;
+            /** @enum {string} */
+            role?: "primary" | "additional";
+        };
+        ReservationOverride: {
+            reason: string;
+        } | null;
+        ReservationCreateRequest: {
+            /** Format: uuid */
+            quote_uuid?: string | null;
+            /** Format: uuid */
+            customer_uuid?: string | null;
+            /** Format: uuid */
+            invoice_customer_uuid?: string | null;
+            drivers?: components["schemas"]["ReservationDriverInput"][];
+            eligibility_override?: components["schemas"]["ReservationOverride"];
+            external_reference?: string;
+            /** @enum {string} */
+            collecting_party?: "us" | "channel";
+            commission_amount?: string;
+            note?: string;
+            request_only?: boolean;
+            confirm_now?: boolean;
+        };
+        ReservationReasonRequest: {
+            reason?: string;
+        };
+        ReservationChangeQuoteRequest: {
+            /** Format: uuid */
+            pickup_branch_uuid?: string | null;
+            /** Format: uuid */
+            pickup_point_uuid?: string | null;
+            /** Format: uuid */
+            return_branch_uuid?: string | null;
+            /** Format: uuid */
+            return_point_uuid?: string | null;
+            /** Format: date-time */
+            starts_at?: string | null;
+            /** Format: date-time */
+            ends_at?: string | null;
+            /** Format: uuid */
+            product_uuid?: string | null;
+            extras?: components["schemas"]["ExtraSelection"][] | null;
+            manual_discount?: components["schemas"]["ManualDiscount"] | null;
+        };
+        ReservationApplyChangeRequest: {
+            /** Format: uuid */
+            quote_uuid?: string | null;
+            reason?: string;
+            keep_price?: boolean;
+        };
+        ReservationExtendRequest: {
+            /** Format: date-time */
+            ends_at?: string | null;
+            reason?: string;
+        };
+        ReservationPlateRequest: {
+            /** Format: uuid */
+            vehicle_uuid?: string | null;
+            fix?: boolean;
+            reason?: string;
+            /** @enum {string} */
+            source?: "staff" | "drag";
+        };
+        ReservationDriversRequest: {
+            drivers?: components["schemas"]["ReservationDriverInput"][];
+            eligibility_override?: components["schemas"]["ReservationOverride"];
+        };
+        ReservationAssignRequest: {
+            /** Format: uuid */
+            user_uuid?: string | null;
+        };
+        ReservationDriver: {
+            /** Format: uuid */
+            driver_uuid: string | null;
+            /** Format: uuid */
+            customer_uuid: string | null;
+            name: string;
+            licence_masked: string;
+            licence_class: string;
+            /** @enum {string} */
+            role: "primary" | "additional";
+            eligible: boolean;
+            reasons: string[];
+            override_reason: string;
+        };
+        ReservationAssignment: {
+            /** @enum {string} */
+            kind: "planned" | "fixed";
+            /** @enum {string} */
+            source: "engine" | "staff" | "drag" | "replan" | "upgrade" | "extension";
+            note: string;
+            vehicle: components["schemas"]["ReservationVehicleRef"] | null;
+            product: components["schemas"]["ReservationProductRef"];
+            actor: components["schemas"]["ReservationActor"] | null;
+            /** Format: date-time */
+            started_at: string;
+            /** Format: date-time */
+            ended_at: string | null;
+        };
+        /** @description Sold product / guarantee next to the planned (provisional) and assigned (promised) vehicle. */
+        ReservationPlan: {
+            sold_product: components["schemas"]["ReservationProductRef"];
+            sold_conditions: components["schemas"]["ReservationConditions"];
+            product: components["schemas"]["ReservationProductRef"];
+            conditions: components["schemas"]["ReservationConditions"];
+            guarantee_type: string;
+            /** Format: uuid */
+            allocation_uuid: string | null;
+            allocation_kind: string;
+            allocation_status: string;
+            /** Format: date-time */
+            hold_expires_at: string | null;
+            planned_vehicle: components["schemas"]["ReservationVehicleRef"] | null;
+            assigned_vehicle: components["schemas"]["ReservationVehicleRef"] | null;
+            plate_fixed: boolean;
+            history: components["schemas"]["ReservationAssignment"][];
+        };
+        ReservationPriceSnapshot: {
+            /** Format: uuid */
+            quote_uuid: string;
+            purpose: string;
+            currency: string;
+            pricing: components["schemas"]["PricingBreakdown"] | null;
+            lines: components["schemas"]["QuoteLine"][];
+            extras: components["schemas"]["ExtraSelection"][];
+            coupon_code: string | null;
+            manual_discount: components["schemas"]["ManualDiscount"] | null;
+            extensions: components["schemas"]["QuoteExtension"][];
+            base_total: string;
+            vat_total: string;
+            total: string;
+            prepayment: string;
+            settings_version: number;
+            kept_price: boolean;
+        };
+        ReservationActions: {
+            submit: boolean;
+            approve: boolean;
+            confirm: boolean;
+            cancel: boolean;
+            no_show: boolean;
+            change: boolean;
+            extend: boolean;
+            plate: boolean;
+        };
+        Reservation: {
+            /** Format: uuid */
+            uuid: string;
+            /** @example IDS-2026-000123 */
+            reference: string;
+            /** @enum {string} */
+            status: "request" | "awaiting_review" | "awaiting_payment" | "confirmed" | "cancelled" | "expired" | "no_show";
+            /** @enum {string} */
+            payment_status: "unpaid" | "partially_paid" | "paid" | "refunded";
+            /** @enum {string} */
+            capacity_commitment: "none" | "hold" | "firm";
+            pickup_branch: components["schemas"]["ReservationBranchRef"];
+            return_branch: components["schemas"]["ReservationBranchRef"];
+            pickup_point: components["schemas"]["ReservationPointRef"] | null;
+            return_point: components["schemas"]["ReservationPointRef"] | null;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            billing_days: number;
+            customer: components["schemas"]["ReservationCustomerRef"];
+            invoice_customer: components["schemas"]["ReservationCustomerRef"] | null;
+            drivers: components["schemas"]["ReservationDriver"][];
+            channel: string;
+            external_reference: string | null;
+            /** @enum {string} */
+            collecting_party: "us" | "channel";
+            price: {
+                currency: string;
+                total: string;
+                prepayment: string;
+                paid: string;
+                balance: string;
+                commission: string;
+                net_receivable: string;
+                snapshot: components["schemas"]["ReservationPriceSnapshot"];
+            };
+            /** Format: uuid */
+            quote_uuid: string | null;
+            settings_version: number;
+            /** @description Policy part of the settings version sold under */
+            policy: Record<string, never>;
+            plan: components["schemas"]["ReservationPlan"];
+            /** Format: date-time */
+            review_deadline: string | null;
+            /** Format: date-time */
+            payment_deadline: string | null;
+            assigned_user: components["schemas"]["ReservationActor"] | null;
+            note: string;
+            eligibility_override: Record<string, never> | null;
+            /** Format: int64 */
+            open_tasks: number;
+            actions: components["schemas"]["ReservationActions"];
+            /** Format: date-time */
+            confirmed_at: string | null;
+            /** Format: date-time */
+            cancelled_at: string | null;
+            cancel_reason: string;
+            created_by: components["schemas"]["ReservationActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        EnvelopeReservation: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["Reservation"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        ReservationChangeResult: {
+            reservation: components["schemas"]["Reservation"];
+            /** @description Other reservations the plan moved */
+            reassigned: number;
+            difference: string | null;
+            warnings: string[];
+        };
+        EnvelopeReservationChange: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["ReservationChangeResult"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        ReservationExtensionConflictError: {
+            /** @enum {boolean} */
+            success: false;
+            error: components["schemas"]["ErrorBody"];
+            data?: components["schemas"]["ReservationExtensionAlternatives"] | null;
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        /** @description `data` of `409 EXTENSION_CONFLICT` (RT-A31) */
+        ReservationExtensionAlternatives: {
+            reason: string;
+            extension_quote: components["schemas"]["Quote"] | null;
+            vehicles: {
+                vehicle: components["schemas"]["ReservationVehicleRef"];
+                quote: components["schemas"]["Quote"];
+            }[];
+            products: {
+                product: components["schemas"]["AvailabilityProductRef"];
+                sellable: number;
+                quote: components["schemas"]["Quote"];
+            }[];
+        };
+        ReservationListItem: {
+            /** Format: uuid */
+            uuid: string;
+            reference: string;
+            /** @enum {string} */
+            status: "request" | "awaiting_review" | "awaiting_payment" | "confirmed" | "cancelled" | "expired" | "no_show";
+            /** @enum {string} */
+            payment_status: "unpaid" | "partially_paid" | "paid" | "refunded";
+            /** @enum {string} */
+            capacity_commitment: "none" | "hold" | "firm";
+            pickup_branch: components["schemas"]["ReservationBranchRef"];
+            return_branch: components["schemas"]["ReservationBranchRef"];
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            product: components["schemas"]["ReservationProductRef"];
+            customer: components["schemas"]["ReservationCustomerRef"];
+            channel: string;
+            external_reference: string | null;
+            currency: string;
+            total_amount: string;
+            paid_amount: string;
+            vehicle: components["schemas"]["ReservationVehicleRef"] | null;
+            plate_fixed: boolean;
+            assigned_user: components["schemas"]["ReservationActor"] | null;
+            /** Format: int64 */
+            open_tasks: number;
+            /** Format: date-time */
+            deadline: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        EnvelopeReservationPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["ReservationListItem"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        ReservationFacet: {
+            value: string;
+            label?: string;
+            /** Format: int64 */
+            count: number;
+        };
+        EnvelopeReservationFacets: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                status: components["schemas"]["ReservationFacet"][];
+                payment_status: components["schemas"]["ReservationFacet"][];
+                channel: components["schemas"]["ReservationFacet"][];
+                product: components["schemas"]["ReservationFacet"][];
+                branch: components["schemas"]["ReservationFacet"][];
+                customer: components["schemas"]["ReservationFacet"][];
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        ReservationEvent: {
+            /** Format: uuid */
+            uuid: string;
+            action: string;
+            from_status: string | null;
+            to_status: string | null;
+            reason: string;
+            data: Record<string, never>;
+            actor: components["schemas"]["ReservationActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        EnvelopeReservationEventPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["ReservationEvent"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        ResolutionTask: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            task_type: "block_conflict" | "release_conflict" | "extension_conflict" | "replan_failed" | "late_return";
+            /** @enum {string} */
+            status: "open" | "resolved";
+            reason: string;
+            source_type: string;
+            /** Format: uuid */
+            source_uuid: string | null;
+            data: Record<string, never>;
+            reservation: {
+                /** Format: uuid */
+                uuid: string;
+                reference: string;
+                status: string;
+                /** Format: date-time */
+                starts_at: string;
+                /** Format: date-time */
+                ends_at: string;
+                pickup_branch?: components["schemas"]["ReservationBranchRef"] | null;
+            };
+            assignee: components["schemas"]["ReservationActor"] | null;
+            /** Format: date-time */
+            resolved_at: string | null;
+            resolved_by: components["schemas"]["ReservationActor"] | null;
+            resolution_note: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        EnvelopeResolutionTask: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["ResolutionTask"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeResolutionTaskPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["ResolutionTask"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeResolutionTaskReplan: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                task: components["schemas"]["ResolutionTask"];
+                replanned: boolean;
+                vehicle: components["schemas"]["ReservationVehicleRef"] | null;
+                reassigned: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
         PricingActor: {
             /** Format: uuid */
             uuid: string;
@@ -13119,6 +14432,51 @@ export interface components {
         };
     };
     responses: {
+        /** @description `PRICING_UNAVAILABLE` (no rate plan / band prices it) or `DRIVER_NOT_ELIGIBLE` (`data` = drivers with reasons) */
+        UnprocessableEntity: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description `EXTENSION_CONFLICT` (`data` = alternatives with difference quotes, RT-A31), `CAPACITY_UNAVAILABLE`, `QUOTE_*` or `INVALID_STATE` */
+        ExtensionConflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ReservationExtensionConflictError"];
+            };
+        };
+        /** @description Reservation */
+        ReservationOK: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["EnvelopeReservation"];
+            };
+        };
+        /** @description Changed reservation */
+        ReservationChangeOK: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["EnvelopeReservationChange"];
+            };
+        };
+        /** @description Resolution task */
+        ResolutionTaskOK: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["EnvelopeResolutionTask"];
+            };
+        };
         /** @description Validation or malformed request */
         BadRequest: {
             headers: {
@@ -24360,6 +25718,1016 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantReservationsMeta: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource meta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            400: components["responses"]["OrganizationRequired"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantReservationsFacets: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Facets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeReservationFacets"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantReservations: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description One of `reference`, `status`, `starts_at`, `ends_at`, `total_amount`, `created_at`; prefix `-` for descending. Default `-created_at`. */
+                sort?: string;
+                /** @description request, awaiting_review, awaiting_payment, confirmed, cancelled, expired, no_show */
+                status?: string;
+                /** @description unpaid, partially_paid, paid, refunded */
+                payment_status?: string;
+                channel?: string;
+                /** @description Rental product uuids */
+                product?: string;
+                /** @description Customer uuids */
+                customer?: string;
+                /** @description Branch uuids (pick-up or return) */
+                branch?: string;
+                /** @description User uuids */
+                assigned_user?: string;
+                /** @description Pick-up from (RFC 3339 or yyyy-MM-dd) */
+                starts_from?: string;
+                /** @description Pick-up until (RFC 3339 or yyyy-MM-dd, day included) */
+                starts_to?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reservation page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeReservationPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantReservation: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReservationCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Reservation */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeReservation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    postTenantReservationsExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Export job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantReservationsBulk: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkExecuteRequest"];
+            };
+        };
+        responses: {
+            /** @description Synchronous result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeBulkSyncResult"];
+                };
+            };
+            /** @description Bulk job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeBulkJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantReservation: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reservation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeReservation"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantReservationEvents: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Events */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeReservationEventPage"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantReservationSubmit: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ReservationOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantReservationApprove: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ReservationOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantReservationConfirm: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ReservationOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantReservationCancel: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReservationReasonRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ReservationOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantReservationNoShow: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReservationReasonRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ReservationOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantReservationQuote: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReservationChangeQuoteRequest"];
+            };
+        };
+        responses: {
+            /** @description Quote */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeQuote"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    postTenantReservationChange: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReservationApplyChangeRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ReservationChangeOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["ExtensionConflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    postTenantReservationExtend: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReservationExtendRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ReservationChangeOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["ExtensionConflict"];
+        };
+    };
+    getTenantReservationPlateCandidates: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Candidate vehicles */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: {
+                            items: components["schemas"]["ReservationVehicleRef"][];
+                        };
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantReservationPlate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReservationPlateRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ReservationChangeOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    putTenantReservationDrivers: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReservationDriversRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ReservationOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    postTenantReservationAssign: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReservationAssignRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ReservationOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantQuotesMeta: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource meta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantQuotes: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description One of `total`, `starts_at`, `valid_until`, `created_at`; prefix `-` for descending. */
+                sort?: string;
+                /** @description new, change, extension, upgrade */
+                purpose?: string;
+                /** @description open, used, superseded */
+                status?: string;
+                channel?: string;
+                /** @description Rental product uuids */
+                product?: string;
+                /** @description Reservation uuids */
+                reservation?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Quote page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeQuotePage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantQuote: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuoteRequest"];
+            };
+        };
+        responses: {
+            /** @description Quote */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeQuote"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    postTenantQuoteSearch: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuoteSearchRequest"];
+            };
+        };
+        responses: {
+            /** @description Products with availability and price */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeQuoteSearch"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantQuote: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Quote */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeQuote"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantResolutionTasksMeta: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource meta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantResolutionTasks: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description `created_at` or `starts_at`; prefix `-` for descending. */
+                sort?: string;
+                /** @description open, resolved */
+                status?: string;
+                task_type?: string;
+                /** @description Reservation uuids */
+                reservation?: string;
+                /** @description User uuids */
+                assignee?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Task page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResolutionTaskPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantResolutionTask: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ResolutionTaskOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantResolutionTaskResolve: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["ResolutionTaskOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantResolutionTaskAssign: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReservationAssignRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ResolutionTaskOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantResolutionTaskReplan: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Re-plan result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResolutionTaskReplan"];
+                };
+            };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["TenantForbidden"];
             404: components["responses"]["NotFound"];

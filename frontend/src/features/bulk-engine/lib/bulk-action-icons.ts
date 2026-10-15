@@ -73,6 +73,10 @@ const bulkActionIconCatalog: Record<
     activate: CircleCheck,
     deactivate: CircleOff,
   },
+  "tenant.reservations": {
+    cancel: CircleOff,
+    assign_staff: UserCheck,
+  },
 };
 
 export function resolveBulkActionIcon(
