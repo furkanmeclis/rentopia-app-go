@@ -6,7 +6,8 @@
 //
 // Permissions: tenant.reservations.read / .write (create, edit, change,
 // extend, plate, drivers, staff assignment) / .cancel (cancel, no-show) /
-// .confirm (approve, confirm) / .export / .override_eligibility (in the
+// .confirm (confirm) / .approve (staff approval queue: approve, accept,
+// reject; TEC-708) / .export / .override_eligibility (in the
 // use case), tenant.quotes.read / .write, tenant.resolution_tasks.read /
 // .write. A manual discount needs tenant.discount.apply, keeping the price
 // on a change tenant.price.override (checked in the use case).
@@ -70,7 +71,10 @@ func RegisterRoutes(mux *http.ServeMux, h *handler.Handler, engines EngineHandle
 	route("GET /v1/tenant/reservations/{uuid}", h.Get, read)
 	route("GET /v1/tenant/reservations/{uuid}/events", h.Events, read)
 	route("POST /v1/tenant/reservations/{uuid}/submit", h.Submit, write)
-	route("POST /v1/tenant/reservations/{uuid}/approve", h.Approve, confirm)
+	approve := perm(rbac.PermTenantReservationsApprove)
+	route("POST /v1/tenant/reservations/{uuid}/approve", h.Approve, approve)
+	route("POST /v1/tenant/reservations/{uuid}/accept", h.Accept, approve)
+	route("POST /v1/tenant/reservations/{uuid}/reject", h.Reject, approve)
 	route("POST /v1/tenant/reservations/{uuid}/confirm", h.Confirm, confirm)
 	route("POST /v1/tenant/reservations/{uuid}/cancel", h.Cancel, cancel)
 	route("POST /v1/tenant/reservations/{uuid}/no-show", h.NoShow, cancel)

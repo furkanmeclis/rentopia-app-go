@@ -267,14 +267,14 @@ func TestRecordPaymentConfirms(t *testing.T) {
 	f.vehicle(f.mrk)
 	c, d := f.customer(30, 5)
 	r := f.reserve(p, c, d, f.at(0), f.at(24))
-	if err := f.svc.RecordPayment(f.ctx, f.org, r.UUID, money.MustParse("200"), false); err != nil {
+	if _, err := f.svc.RecordPayment(f.ctx, f.org, r.UUID, model.PaymentUpdate{Paid: money.MustParse("200")}); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := f.svc.Get(f.ctx, f.org, r.UUID)
 	if got.Status != model.StatusAwaitingPayment || got.PaymentStatus != model.PaymentPartially {
 		t.Fatalf("partial: %s / %s", got.Status, got.PaymentStatus)
 	}
-	if err := f.svc.RecordPayment(f.ctx, f.org, r.UUID, money.MustParse("500"), false); err != nil {
+	if _, err := f.svc.RecordPayment(f.ctx, f.org, r.UUID, model.PaymentUpdate{Paid: money.MustParse("500")}); err != nil {
 		t.Fatal(err)
 	}
 	got, _ = f.svc.Get(f.ctx, f.org, r.UUID)

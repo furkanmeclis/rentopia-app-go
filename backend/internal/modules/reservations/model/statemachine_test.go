@@ -9,6 +9,11 @@ func TestStateMachineTable(t *testing.T) {
 		{StatusRequest, ActionSubmit, StatusAwaitingPayment}:         true,
 		{StatusRequest, ActionSubmit, StatusConfirmed}:               true,
 		{StatusRequest, ActionCancel, StatusCancelled}:               true,
+		{StatusRequest, ActionApprove, StatusAwaitingPayment}:        true,
+		{StatusRequest, ActionApprove, StatusConfirmed}:              true,
+		{StatusRequest, ActionReject, StatusCancelled}:               true,
+		{StatusAwaitingReview, ActionReject, StatusCancelled}:        true,
+		{StatusExpired, ActionReinstate, StatusConfirmed}:            true,
 		{StatusAwaitingReview, ActionApprove, StatusAwaitingPayment}: true,
 		{StatusAwaitingReview, ActionApprove, StatusConfirmed}:       true,
 		{StatusAwaitingReview, ActionConfirm, StatusConfirmed}:       true,
@@ -20,7 +25,7 @@ func TestStateMachineTable(t *testing.T) {
 		{StatusConfirmed, ActionCancel, StatusCancelled}:             true,
 		{StatusConfirmed, ActionNoShow, StatusNoShow}:                true,
 	}
-	actions := []string{ActionSubmit, ActionApprove, ActionConfirm, ActionCancel, ActionExpire, ActionNoShow}
+	actions := []string{ActionSubmit, ActionApprove, ActionConfirm, ActionCancel, ActionExpire, ActionNoShow, ActionReject, ActionReinstate}
 	for _, from := range Statuses {
 		for _, action := range actions {
 			for _, to := range Statuses {
@@ -36,6 +41,9 @@ func TestStateMachineTable(t *testing.T) {
 			t.Errorf("%s must be terminal without capacity", s)
 		}
 		for _, a := range actions {
+			if a == ActionReinstate && s == StatusExpired {
+				continue // system: late payment (TEC-708)
+			}
 			if CanAct(s, a) {
 				t.Errorf("terminal %s allows %s", s, a)
 			}

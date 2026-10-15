@@ -56,7 +56,8 @@ func (s *Service) view(row db.GetReservationViewRow, drivers []db.ListReservatio
 		Customer: customerRef(row.CustomerUuid, row.CustomerType, row.CustomerFirstName, row.CustomerLastName, row.CustomerCompanyTitle,
 			row.CustomerIdentityHint, row.CustomerPhone, row.CustomerEmail),
 		Drivers: []model.ReservationDriver{}, Channel: row.Channel, CollectingParty: row.CollectingParty,
-		QuoteUUID: uuidPtr(row.QuoteUuid), SettingsVersion: row.SettingsVersion, Policy: json.RawMessage(row.PolicySnapshot),
+		ApprovalProtocol: row.ApprovalProtocol,
+		QuoteUUID:        uuidPtr(row.QuoteUuid), SettingsVersion: row.SettingsVersion, Policy: json.RawMessage(row.PolicySnapshot),
 		ReviewDeadline: timePtr(row.ReviewDeadline), PaymentDeadline: timePtr(row.PaymentDeadline),
 		AssignedUser: actorOf(row.AssignedUserUuid, row.AssignedUserName, row.AssignedUserSurname, row.AssignedUserEmail),
 		Note:         row.Note, OpenTasks: row.OpenTasks, ConfirmedAt: timePtr(row.ConfirmedAt), CancelledAt: timePtr(row.CancelledAt),
@@ -89,7 +90,8 @@ func (s *Service) view(row db.GetReservationViewRow, drivers []db.ListReservatio
 	total, paid := m(row.TotalAmount), m(row.PaidAmount)
 	r.Price = model.Price{
 		Currency: row.Currency, Total: total, Prepayment: m(row.PrepaymentAmount), Paid: paid, Balance: total.Sub(paid),
-		Commission: m(row.CommissionAmount), NetReceivable: m(row.NetReceivable),
+		PrepaymentDue: m(row.PrepaymentAmount).Sub(paid).ClampZero(),
+		Commission:    m(row.CommissionAmount), NetReceivable: m(row.NetReceivable),
 	}
 	_ = json.Unmarshal(row.QuoteSnapshot, &r.Price.Snapshot)
 	if r.Price.Snapshot.Extensions == nil {
@@ -155,6 +157,7 @@ func (s *Service) view(row db.GetReservationViewRow, drivers []db.ListReservatio
 	r.Actions = model.Actions{
 		Submit:  model.CanAct(r.Status, model.ActionSubmit),
 		Approve: model.CanAct(r.Status, model.ActionApprove),
+		Reject:  model.CanAct(r.Status, model.ActionReject),
 		Confirm: model.CanAct(r.Status, model.ActionConfirm),
 		Cancel:  model.CanAct(r.Status, model.ActionCancel),
 		NoShow:  model.CanAct(r.Status, model.ActionNoShow) && !s.clock().Before(r.StartsAt),
@@ -208,6 +211,8 @@ func (s *Service) List(ctx context.Context, orgID int64, f model.ListFilter) ([]
 			PaidAmount: money.FromNumericOrZero(r.PaidAmount), PlateFixed: r.PlateFixed, OpenTasks: r.OpenTasks,
 			AssignedUser: actorOf(r.AssignedUserUuid, r.AssignedUserName, r.AssignedUserSurname, pgtype.Text{}),
 			CreatedAt:    r.CreatedAt.Time.UTC(), UpdatedAt: r.UpdatedAt.Time.UTC(),
+			ReviewDeadline: timePtr(r.ReviewDeadline), PrepaymentAmount: money.FromNumericOrZero(r.PrepaymentAmount),
+			ApprovalProtocol: r.ApprovalProtocol,
 		}
 		if r.ExternalReference.Valid {
 			e := r.ExternalReference.String
@@ -217,7 +222,7 @@ func (s *Service) List(ctx context.Context, orgID int64, f model.ListFilter) ([]
 			it.Vehicle = &model.VehicleRef{UUID: r.VehicleUuid.Bytes, Plate: r.VehiclePlate.String}
 		}
 		switch r.Status {
-		case model.StatusAwaitingReview:
+		case model.StatusAwaitingReview, model.StatusRequest:
 			it.Deadline = timePtr(r.ReviewDeadline)
 		case model.StatusAwaitingPayment:
 			it.Deadline = timePtr(r.PaymentDeadline)

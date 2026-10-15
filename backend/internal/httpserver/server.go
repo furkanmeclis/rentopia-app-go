@@ -71,6 +71,9 @@ import (
 	importmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/imports"
 	importhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/imports/handler"
 	importusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/imports/usecase"
+	integrationaccountsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/accounts"
+	integrationaccountshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/accounts/handler"
+	integrationaccountsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/accounts/usecase"
 	githubmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/github"
 	githubhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/github/handler"
 	githubusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/github/usecase"
@@ -93,6 +96,9 @@ import (
 	orgsettingshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/handler"
 	orgsettingsrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/repository"
 	orgsettingsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/usecase"
+	paymentsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/payments"
+	paymentshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/payments/handler"
+	paymentsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/payments/usecase"
 	pricingmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing"
 	pricingadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/adapters"
 	pricinghandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/handler"
@@ -129,6 +135,7 @@ import (
 	bulkadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/bulkengine/adapters"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/crypto"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/events"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/integrations"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/ioengine"
 	ioadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/ioengine/adapters"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/jwt"
@@ -137,6 +144,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx/orgcache"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/outbox"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/payments/iyzico"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/ratelimit"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/resourceevents"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/searchengine"
@@ -405,6 +413,25 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	reservationSvc.SetCoupons(reservationadapters.NewCoupons(campaignsSvc))
 	reservationSvc.SetResourceEvents(resourceEvents)
 	fleetOpsSvc.SetAffectedHandler(reservationadapters.NewAffected(reservationSvc))
+	// Integrations (TEC-676) and payments (TEC-707 / TEC-708): each
+	// organization's own provider account (credentials sealed with the
+	// field cipher under their own purpose), pay-by-link + hosted
+	// checkout, verified webhooks; payments tell reservations through the
+	// PaymentRecorder port, staff accept creates links through
+	// PaymentLinker.
+	integrationVault, err := integrations.NewVault(fieldCipher)
+	if err != nil {
+		return nil, fmt.Errorf("httpserver: integration vault: %w", err)
+	}
+	iyzicoAdapter := iyzico.New(iyzico.Config{
+		SandboxBaseURL: cfg.Payments.IyzicoSandboxBaseURL, LiveBaseURL: cfg.Payments.IyzicoLiveBaseURL,
+	})
+	integrationAccountsSvc := integrationaccountsusecase.New(deps.Queries, integrationVault, integrations.NewRegistry(iyzicoAdapter))
+	paymentsSvc := paymentsusecase.New(deps.DB, deps.Queries, integrationAccountsSvc, reservationSvc,
+		paymentsusecase.Config{PublicBaseURL: cfg.Auth.FrontendURL}, iyzicoAdapter)
+	paymentsSvc.SetResourceEvents(resourceEvents)
+	paymentsSvc.SetLogger(log)
+	reservationSvc.SetPaymentLinks(paymentsSvc)
 
 	// Live lists of tenant resources: org:{org_uuid}:resource:{name}, open to
 	// members whose tenant role grants the resource's read permission.
@@ -420,6 +447,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	extrasmodule.RegisterLiveResources(tenantLive)
 	campaignsmodule.RegisterLiveResources(tenantLive)
 	reservationsmodule.RegisterLiveResources(tenantLive)
+	paymentsmodule.RegisterLiveResources(tenantLive)
 	resourceEvents.AddResolver(tenantmodule.ChannelResolver(tenantmodule.QueriesLookup(deps.Queries)))
 	uc.AddChannelRules(tenantmodule.ChannelRule(tenantLive, tenantResolver))
 	catalogmodule.RegisterLiveResources(liveResources)
@@ -612,6 +640,10 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		Export: exportH.TenantExport(reservationsmodule.Resource, reservationsmodule.ExportQueryKeys...),
 		Bulk:   bulkH.TenantExecute(reservationsmodule.Resource),
 	}, tokens, loader, tenantResolver)
+	integrationaccountsmodule.RegisterRoutes(mux, integrationaccountshandler.New(integrationAccountsSvc, activityRec), tokens, loader, tenantResolver)
+	paymentsH := paymentshandler.New(paymentsSvc, activityRec)
+	paymentsH.SetRateLimiter(paymentsmodule.Limiter{L: ratelimit.New(deps.Redis, cfg.App.Env)})
+	paymentsmodule.RegisterRoutes(mux, paymentsH, tokens, loader, tenantResolver)
 	settingsmodule.RegisterRoutes(mux, settingshandler.New(
 		settingsusecase.New(deps.Queries),
 		deps.Storage,

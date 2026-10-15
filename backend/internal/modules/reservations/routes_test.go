@@ -60,6 +60,8 @@ func TestReservationPermissionGates(t *testing.T) {
 		// muhasebe: read / export, quotes read.
 		"accounting": {ID: 3, Slug: "accounting", Permissions: []string{read, rbac.PermTenantReservationsExport, rbac.PermTenantQuotesRead}},
 		"member":     {ID: 4, Slug: "member", Permissions: []string{read}},
+		// rezervasyon_satis after 000080: the approval queue slug.
+		"approver": {ID: 5, Slug: "approver", Permissions: []string{read, rbac.PermTenantReservationsApprove}},
 	}
 	exported := 0
 	mux := http.NewServeMux()
@@ -90,6 +92,11 @@ func TestReservationPermissionGates(t *testing.T) {
 		{"member cannot cancel", http.MethodPost, r + id + "/cancel", "member", `{"reason":"x"}`, http.StatusForbidden},
 		{"accounting cannot confirm", http.MethodPost, r + id + "/confirm", "accounting", "", http.StatusForbidden},
 		{"delivery cannot approve", http.MethodPost, r + id + "/approve", "delivery", "", http.StatusForbidden},
+		{"confirm alone cannot approve", http.MethodPost, r + id + "/approve", "sales", "", http.StatusForbidden},
+		{"confirm alone cannot accept", http.MethodPost, r + id + "/accept", "sales", "{}", http.StatusForbidden},
+		{"accounting cannot reject", http.MethodPost, r + id + "/reject", "accounting", `{"reason":"xyz"}`, http.StatusForbidden},
+		{"approver passes the accept gate", http.MethodPost, r + id + "/accept", "approver", "{not json", http.StatusBadRequest},
+		{"approver passes the reject gate", http.MethodPost, r + id + "/reject", "approver", "{not json", http.StatusBadRequest},
 		{"accounting cannot quote", http.MethodPost, "/v1/tenant/quotes", "accounting", "{}", http.StatusForbidden},
 		{"member cannot read quotes", http.MethodGet, "/v1/tenant/quotes", "member", "", http.StatusForbidden},
 		{"sales cannot resolve tasks", http.MethodPost, "/v1/tenant/resolution-tasks/" + id + "/resolve", "sales", "{}", http.StatusForbidden},

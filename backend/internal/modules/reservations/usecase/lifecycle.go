@@ -10,7 +10,6 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
 	availmodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/availability/model"
 	availusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/availability/usecase"
-	osmodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/pkg/money"
@@ -80,7 +79,12 @@ func (s *Service) Submit(ctx context.Context, orgID int64, id uuid.UUID) (model.
 	if err != nil {
 		return model.Reservation{}, err
 	}
-	status, review, pay := s.waitingStatus(settings.Settings, money.FromNumericOrZero(c.PrepaymentAmount))
+	status, _, review, pay := s.waitingStatus(settings.Settings, money.FromNumericOrZero(c.PrepaymentAmount), c.Channel)
+	if status == model.StatusRequest {
+		// An explicit submit of a staff-approved online request holds the
+		// option for the review window.
+		status = model.StatusAwaitingReview
+	}
 	w, _, err := s.where(ctx, orgID, id)
 	if err != nil {
 		return model.Reservation{}, err
@@ -318,57 +322,6 @@ func (s *Service) ExpireDue(ctx context.Context) (int, error) {
 		}
 	}
 	return total, nil
-}
-
-// RecordPayment implements model.PaymentRecorder (M3 payments): paid is the
-// total collected so far; refunded marks a refund. In auto approval mode a
-// reservation awaiting its prepayment is confirmed once it is covered.
-func (s *Service) RecordPayment(ctx context.Context, orgID int64, id uuid.UUID, paid money.Money, refunded bool) error {
-	c, err := s.q.GetReservationCore(ctx, db.GetReservationCoreParams{OrganizationID: orgID, Uuid: id})
-	if notFound(err) {
-		return ErrNotFound
-	}
-	if err != nil {
-		return err
-	}
-	if paid.IsNegative() {
-		return validation("paid", "invalid", "paid must not be negative")
-	}
-	total := money.FromNumericOrZero(c.TotalAmount)
-	status := model.PaymentUnpaid
-	switch {
-	case refunded:
-		status = model.PaymentRefunded
-	case paid.Cmp(total) >= 0 && paid.IsPositive():
-		status = model.PaymentPaid
-	case paid.IsPositive():
-		status = model.PaymentPartially
-	}
-	err = s.tx(ctx, func(q *db.Queries, _ pgxTx) error {
-		if _, err := q.SetReservationPayment(ctx, db.SetReservationPaymentParams{
-			OrganizationID: orgID, ID: c.ID, PaymentStatus: status, PaidAmount: paid.Numeric(),
-		}); err != nil {
-			return err
-		}
-		return event(ctx, q, orgID, c.ID, EventPaymentRecorded, "", "", "", map[string]any{"paid": paid.String(), "payment_status": status})
-	})
-	if err != nil {
-		return err
-	}
-	if c.Status == model.StatusAwaitingPayment && paid.Cmp(money.FromNumericOrZero(c.PrepaymentAmount)) >= 0 {
-		settings, err := s.settingsOf(ctx, orgID)
-		if err != nil {
-			return err
-		}
-		if settings.Settings.Reservation.ApprovalMode != osmodel.ApprovalStaff {
-			c.PaidAmount = paid.Numeric()
-			if _, err := s.confirm(unscoped(ctx), orgID, c, model.ActionConfirm); err != nil {
-				return err
-			}
-		}
-	}
-	s.publish(ctx, model.ResourceReservations, "updated", id)
-	return nil
 }
 
 // after publishes the change and returns the fresh reservation.
