@@ -77,6 +77,11 @@ import (
 	orgsettingshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/handler"
 	orgsettingsrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/repository"
 	orgsettingsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/usecase"
+	pricingmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing"
+	pricingadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/adapters"
+	pricinghandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/handler"
+	pricingrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/repository"
+	pricingusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/qrlogin"
 	searchmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/search"
 	searchhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/search/handler"
@@ -347,9 +352,11 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	}
 	tenantmodule.RegisterRoutes(mux, tokens, loader, tenantResolver)
 	organizationsmodule.RegisterTenantRoutes(mux, orgH, tokens, loader, tenantResolver)
-	orgsettingsmodule.RegisterRoutes(mux, orgsettingshandler.New(
-		orgsettingsusecase.New(orgsettingsrepository.NewPostgres(deps.DB, deps.Queries)), activityRec,
-	), tokens, loader, tenantResolver)
+	orgSettingsSvc := orgsettingsusecase.New(orgsettingsrepository.NewPostgres(deps.DB, deps.Queries))
+	orgsettingsmodule.RegisterRoutes(mux, orgsettingshandler.New(orgSettingsSvc, activityRec), tokens, loader, tenantResolver)
+	// Pricing (TEC-700 / TEC-701): rate plans, date rules, preview.
+	pricingSvc := pricingusecase.New(pricingrepository.NewPostgres(deps.DB, deps.Queries), orgSettingsSvc)
+	pricingSvc.SetOneWayResolver(pricingadapters.NewOneWay(fleetOpsSvc))
 
 	// Live lists of tenant resources: org:{org_uuid}:resource:{name}, open to
 	// members whose tenant role grants the resource's read permission.
@@ -359,6 +366,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	organizationsmodule.RegisterLiveResources(tenantLive)
 	vehiclesmodule.RegisterLiveResources(tenantLive)
 	fleetopsmodule.RegisterLiveResources(tenantLive)
+	pricingmodule.RegisterLiveResources(tenantLive)
 	resourceEvents.AddResolver(tenantmodule.ChannelResolver(tenantmodule.QueriesLookup(deps.Queries)))
 	uc.AddChannelRules(tenantmodule.ChannelRule(tenantLive, tenantResolver))
 	catalogmodule.RegisterLiveResources(liveResources)
@@ -406,6 +414,8 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		vehiclerecordsadapters.NewMaintenanceIO(vehicleRecordsSvc),
 		fleetopsadapters.NewTransfersIO(fleetOpsSvc),
 		fleetopsadapters.NewOneWayIO(fleetOpsSvc),
+		pricingadapters.NewRatePlansIO(pricingSvc),
+		pricingadapters.NewDateRulesIO(pricingSvc),
 		orgadapters.NewIO(orgSvc),
 	)
 	exportSvc := exportusecase.New(deps.Queries, deps.Storage, ioReg, jobQueue, notifSvc, activityRec, log)
@@ -505,6 +515,14 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		ExportTransfers: exportH.TenantExport(fleetopsmodule.ResourceTransfers, fleetopsmodule.TransferExportKeys...),
 		ExportOneWay:    exportH.TenantExport(fleetopsmodule.ResourceOneWayRules, fleetopsmodule.OneWayExportKeys...),
 		BulkOneWay:      bulkH.TenantExecute(fleetopsmodule.ResourceOneWayRules),
+	}, tokens, loader, tenantResolver)
+	pricingH := pricinghandler.New(pricingSvc, activityRec)
+	pricingH.SetResourceEvents(resourceEvents)
+	pricingmodule.RegisterRoutes(mux, pricingH, pricingmodule.EngineHandlers{
+		ExportPlans: exportH.TenantExport(pricingmodule.ResourceRatePlans, pricingmodule.RatePlanExportKeys...),
+		ImportPlans: importH.TenantUpload(pricingmodule.ResourceRatePlans),
+		SamplePlans: importH.TenantSample(pricingmodule.ResourceRatePlans),
+		ExportRules: exportH.TenantExport(pricingmodule.ResourceDateRules, pricingmodule.DateRuleExportKeys...),
 	}, tokens, loader, tenantResolver)
 	settingsmodule.RegisterRoutes(mux, settingshandler.New(
 		settingsusecase.New(deps.Queries),

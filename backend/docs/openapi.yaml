@@ -8766,6 +8766,922 @@ paths:
         "403": { $ref: "#/components/responses/TenantForbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/tenant/rate-plans/meta:
+    get:
+      tags: [Tenant]
+      operationId: getTenantRatePlansMeta
+      summary: Rate plans table contract
+      description: |
+        `tenant.pricing.read`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Resource meta
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeResourceMeta"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/rate-plans/facets:
+    get:
+      tags: [Tenant]
+      operationId: getTenantRatePlanFacets
+      summary: Rate plan filter options
+      description: |
+        `tenant.pricing.read`. Counts in the caller's branch scope.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Facets
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeRatePlanFacets"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/rate-plans/matrix:
+    get:
+      tags: [Tenant]
+      operationId: getTenantRatePlanMatrix
+      summary: Product × band price matrix of a scope target
+      description: |
+        `tenant.pricing.read`.
+        Rows are every live rental product; columns the union of the bands in use.
+        Prices come from each plan's draft, else its active version.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - { name: scope, in: query, description: "common (default), branch, channel or branch_channel", schema: { type: string } }
+        - { name: branch, in: query, description: "Branch uuid (branch scopes)", schema: { type: string } }
+        - { name: channel, in: query, description: "Sales channel code (channel scopes)", schema: { type: string } }
+        - { name: priority, in: query, description: "Plan priority (default 0)", schema: { type: integer } }
+      responses:
+        "200":
+          description: Matrix
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeRatePlanMatrix"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    put:
+      tags: [Tenant]
+      operationId: putTenantRatePlanMatrix
+      summary: Save the matrix as drafts
+      description: |
+        `tenant.pricing.write` (drafts only).
+        Rows whose prices differ become drafts (plans are created as needed); rows
+        without prices are left alone. Product / branch uuids are resolved inside the
+        organization (`400` `not_found` otherwise).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RatePlanMatrixSaveRequest"
+      responses:
+        "200":
+          description: Save result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeRatePlanMatrixSaveResult"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/rate-plans/matrix/activate:
+    post:
+      tags: [Tenant]
+      operationId: postTenantRatePlanMatrixActivate
+      summary: Activate every draft of a matrix
+      description: |
+        `tenant.pricing.activate`. All or nothing: any issue answers `422 ACTIVATION_BLOCKED`
+        with the issues (fields prefixed with the product code).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RatePlanMatrixTarget"
+      responses:
+        "200":
+          description: Activated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeRatePlanMatrixActivateResult"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "422": { $ref: "#/components/responses/ActivationBlocked" }
+
+  /v1/tenant/rate-plans:
+    get:
+      tags: [Tenant]
+      operationId: getTenantRatePlans
+      summary: List rate plans
+      description: |
+        `tenant.pricing.read`. Branch plans are visible inside the caller's branch scope;
+        common and channel plans to everyone. Priority, band count and the lowest
+        daily price come from the effective version (draft, else active).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - name: sort
+          in: query
+          description: "One of `name`, `rental_product`, `scope`, `status`, `priority`, `created_at`, `updated_at`; prefix `-` for descending. Default `rental_product`."
+          schema: { type: string }
+        - { name: rental_product, in: query, description: "Rental product uuids; comma-separated", schema: { type: string } }
+        - { name: branch, in: query, description: "Branch uuids; comma-separated", schema: { type: string } }
+        - { name: scope, in: query, description: "Scopes; comma-separated", schema: { type: string } }
+        - { name: channel, in: query, description: "Channel codes; comma-separated", schema: { type: string } }
+        - { name: status, in: query, description: "draft, active, inactive; comma-separated", schema: { type: string } }
+        - { name: has_draft, in: query, description: "Plans with pending draft changes", schema: { type: boolean } }
+      responses:
+        "200":
+          description: Plan page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeRatePlanPage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantRatePlan
+      summary: Create a rate plan (draft version 1)
+      description: |
+        `tenant.pricing.write` (drafts only). The branch must be in the caller's scope; the channel a
+        settings sales channel. Bands must not overlap. Activation is separate.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RatePlanCreateRequest"
+      responses:
+        "201":
+          description: Plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeRatePlan"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/rate-plans/export:
+    post:
+      tags: [Tenant]
+      operationId: postTenantRatePlansExport
+      summary: Export the price list
+      description: |
+        `tenant.pricing.read`. One row per band of the effective version (the import format).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportRequest"
+      responses:
+        "202":
+          description: Export job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeExportJob"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/rate-plans/import:
+    post:
+      tags: [Tenant]
+      operationId: postTenantRatePlansImport
+      summary: Upload an İdes price list
+      description: |
+        `tenant.pricing.write` (drafts only).
+        Columns: product code, band (`1-3`, `15+`), daily price, optional branch code,
+        channel and priority. Rows write into the draft of the target plan (created as
+        needed). `/preview` returns a dry-run diff. Continue with
+        `/v1/tenant/imports/{uuid}/mapping`, `/preview` and `/confirm`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/ImportUploadForm"
+      responses:
+        "201":
+          description: Import job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeImportJob"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/rate-plans/import/sample:
+    get:
+      tags: [Tenant]
+      operationId: getTenantRatePlansImportSample
+      summary: Download a price list import sample
+      description: |
+        `tenant.pricing.write` (drafts only).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - name: format
+          in: query
+          schema: { type: string, enum: [json, xlsx, csv, tsv], default: xlsx }
+        - name: locale
+          in: query
+          schema: { type: string, enum: [tr, en], default: tr }
+      responses:
+        "200":
+          description: Sample file
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/rate-plans/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantRatePlan
+      summary: Get a rate plan with its active and draft versions
+      description: |
+        `tenant.pricing.read`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeRatePlan"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantRatePlan
+      summary: Change a rate plan
+      description: |
+        `tenant.pricing.write` (drafts only). `name` changes the plan; `priority`, `bands` and
+        `change_note` go into the draft (created from the active version on the first edit).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RatePlanPatchRequest"
+      responses:
+        "200":
+          description: Plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeRatePlan"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantRatePlan
+      summary: Delete a rate plan (soft)
+      description: |
+        `tenant.pricing.write` (drafts only). Versions are kept for reservations that reference them.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeStatus"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/rate-plans/{uuid}/draft:
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantRatePlanDraft
+      summary: Discard the draft of a rate plan
+      description: |
+        `tenant.pricing.write` (drafts only). `409` for a plan that was never activated.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeRatePlan"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/rate-plans/{uuid}/activation-check:
+    get:
+      tags: [Tenant]
+      operationId: getTenantRatePlanActivationCheck
+      summary: What activation would refuse
+      description: |
+        `tenant.pricing.read`. Overlapping bands, gaps for online channels (1 day up to
+        `reservation.max_online_rental_days`), equal priority with another active plan.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Check
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeActivationCheck"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/rate-plans/{uuid}/activate:
+    post:
+      tags: [Tenant]
+      operationId: postTenantRatePlanActivate
+      summary: Activate a rate plan
+      description: |
+        `tenant.pricing.activate`. Freezes the draft (the previous active version is
+        superseded) or re-enables an inactive plan. Issues answer `422 ACTIVATION_BLOCKED`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PricingActivateRequest"
+      responses:
+        "200":
+          description: Plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeRatePlan"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ActivationBlocked" }
+
+  /v1/tenant/rate-plans/{uuid}/deactivate:
+    post:
+      tags: [Tenant]
+      operationId: postTenantRatePlanDeactivate
+      summary: Deactivate a rate plan
+      description: |
+        `tenant.pricing.activate`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeRatePlan"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/rate-plans/{uuid}/versions:
+    get:
+      tags: [Tenant]
+      operationId: getTenantRatePlanVersions
+      summary: Versions of a rate plan
+      description: |
+        `tenant.pricing.read`. Newest first, with bands.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Versions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeRatePlanVersions"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/rate-plans/{uuid}/activity:
+    get:
+      tags: [Tenant]
+      operationId: getTenantRatePlanActivity
+      summary: Audit events of a rate plan
+      description: |
+        `tenant.pricing.read`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Activity page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeFleetActivityPage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/date-rules/meta:
+    get:
+      tags: [Tenant]
+      operationId: getTenantDateRulesMeta
+      summary: Date rules table contract
+      description: |
+        `tenant.pricing.read`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Resource meta
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeResourceMeta"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/date-rules/facets:
+    get:
+      tags: [Tenant]
+      operationId: getTenantDateRuleFacets
+      summary: Date rule filter options
+      description: |
+        `tenant.pricing.read`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Facets
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeDateRuleFacets"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/date-rules:
+    get:
+      tags: [Tenant]
+      operationId: getTenantDateRules
+      summary: List date rules
+      description: |
+        `tenant.pricing.read`. Values come from the effective version (draft, else active).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - name: sort
+          in: query
+          description: "One of `name`, `start_date`, `priority`, `status`, `created_at`, `updated_at`; prefix `-` for descending. Default `start_date`."
+          schema: { type: string }
+        - { name: status, in: query, description: "draft, active, inactive; comma-separated", schema: { type: string } }
+        - { name: kind, in: query, description: "percent, amount; comma-separated", schema: { type: string } }
+        - { name: has_draft, in: query, description: "Rules with pending draft changes", schema: { type: boolean } }
+        - { name: date_from, in: query, description: "Rules whose range ends after this date (yyyy-MM-dd)", schema: { type: string } }
+        - { name: date_to, in: query, description: "Rules whose range starts on or before this date (yyyy-MM-dd)", schema: { type: string } }
+      responses:
+        "200":
+          description: Rule page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeDateRulePage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantDateRule
+      summary: Create a date rule (draft version 1)
+      description: |
+        `tenant.pricing.write` (drafts only). `[start_date, end_date)`: the end day is excluded.
+        Product / segment / branch uuids are resolved inside the organization
+        (`400` `not_found` otherwise). Names are unique among live rules (`409`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DateRuleCreateRequest"
+      responses:
+        "201":
+          description: Rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeDateRule"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/date-rules/export:
+    post:
+      tags: [Tenant]
+      operationId: postTenantDateRulesExport
+      summary: Export date rules
+      description: |
+        `tenant.pricing.read`. `query` honours `q` and the list filters.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportRequest"
+      responses:
+        "202":
+          description: Export job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeExportJob"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/date-rules/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantDateRule
+      summary: Get a date rule with its active and draft versions
+      description: |
+        `tenant.pricing.read`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeDateRule"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantDateRule
+      summary: Change a date rule
+      description: |
+        `tenant.pricing.write` (drafts only). `name` changes the rule; every other field goes into the draft.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DateRulePatchRequest"
+      responses:
+        "200":
+          description: Rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeDateRule"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantDateRule
+      summary: Delete a date rule (soft)
+      description: |
+        `tenant.pricing.write` (drafts only).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeStatus"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/date-rules/{uuid}/draft:
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantDateRuleDraft
+      summary: Discard the draft of a date rule
+      description: |
+        `tenant.pricing.write` (drafts only). `409` for a rule that was never activated.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeDateRule"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/date-rules/{uuid}/activation-check:
+    get:
+      tags: [Tenant]
+      operationId: getTenantDateRuleActivationCheck
+      summary: What activation would refuse
+      description: |
+        `tenant.pricing.read`. An active rule with the same priority whose dates, products,
+        branches and channels overlap.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Check
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeActivationCheck"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/date-rules/{uuid}/activate:
+    post:
+      tags: [Tenant]
+      operationId: postTenantDateRuleActivate
+      summary: Activate a date rule
+      description: |
+        `tenant.pricing.activate`. Issues answer `422 ACTIVATION_BLOCKED`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PricingActivateRequest"
+      responses:
+        "200":
+          description: Rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeDateRule"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ActivationBlocked" }
+
+  /v1/tenant/date-rules/{uuid}/deactivate:
+    post:
+      tags: [Tenant]
+      operationId: postTenantDateRuleDeactivate
+      summary: Deactivate a date rule
+      description: |
+        `tenant.pricing.activate`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeDateRule"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/date-rules/{uuid}/versions:
+    get:
+      tags: [Tenant]
+      operationId: getTenantDateRuleVersions
+      summary: Versions of a date rule
+      description: |
+        `tenant.pricing.read`. Newest first.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Versions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeDateRuleVersions"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/date-rules/{uuid}/activity:
+    get:
+      tags: [Tenant]
+      operationId: getTenantDateRuleActivity
+      summary: Audit events of a date rule
+      description: |
+        `tenant.pricing.read`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Activity page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeFleetActivityPage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/pricing/preview:
+    post:
+      tags: [Tenant]
+      operationId: postTenantPricingPreview
+      summary: Price preview (current vs proposed)
+      description: |
+        `tenant.pricing.read`.
+        Prices one rental with the active plans and rules (`current`) and with the
+        draft of `rate_plan_uuid` / `date_rule_uuid` or the unsaved `rate_plan_draft` /
+        `date_rule_draft` applied (`proposed`). Engine refusals (no plan, ambiguity)
+        are returned per side in `error`. Every uuid is resolved inside the
+        organization (`400` `not_found` otherwise).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PricingPreviewRequest"
+      responses:
+        "200":
+          description: Preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopePricingPreview"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -8942,6 +9858,12 @@ components:
             $ref: "#/components/schemas/Error"
     OrganizationRequired:
       description: "`ORGANIZATION_REQUIRED`: the `X-Organization` header is missing or empty"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    ActivationBlocked:
+      description: "`ACTIVATION_BLOCKED`: activation was refused; `details` list the issues (field, code, message)"
       content:
         application/json:
           schema:
@@ -11085,6 +12007,11 @@ components:
         staff_review_window_minutes: { type: [integer, "null"], minimum: 1, maximum: 10080 }
         payment_hold_minutes: { type: [integer, "null"], minimum: 1, maximum: 10080 }
         quote_validity_minutes: { type: [integer, "null"], minimum: 1, maximum: 43200 }
+        max_online_rental_days:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 365
+          description: "Longest rental online channels sell; rate plans that price online sales must cover 1 day up to it without gaps (null = 30)"
 
     OrganizationPaymentSettings:
       type: object
@@ -14058,4 +14985,691 @@ components:
             total: { type: integer, format: int64 }
             limit: { type: integer }
             offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    # ------------------------------------------------------------ pricing
+
+    PricingActor:
+      type: object
+      required: [uuid, name, surname, email]
+      properties:
+        uuid: { type: string, format: uuid }
+        name: { type: string }
+        surname: { type: string }
+        email: { type: string }
+
+    PricingProductRef:
+      type: object
+      required: [uuid, code, title]
+      properties:
+        uuid: { type: string, format: uuid }
+        code: { type: string }
+        title: { type: string }
+
+    PricingBranchRef:
+      type: object
+      required: [uuid, code, name]
+      properties:
+        uuid: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+
+    PricingSegmentRef:
+      type: object
+      required: [uuid, code, name]
+      properties:
+        uuid: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+
+    RateBand:
+      type: object
+      required: [min_days, max_days, daily_price]
+      properties:
+        min_days: { type: integer, minimum: 1 }
+        max_days: { type: [integer, "null"], description: null = open-ended }
+        daily_price: { type: string, description: TRY decimal string (VAT included), example: "1300.00" }
+
+    RateBandInput:
+      type: object
+      additionalProperties: false
+      required: [min_days, daily_price]
+      properties:
+        min_days: { type: integer, minimum: 1, maximum: 3650 }
+        max_days: { type: [integer, "null"], minimum: 1, maximum: 3650 }
+        daily_price: { type: [string, number], description: "TRY, at most 2 decimals" }
+
+    RatePlanVersion:
+      type: object
+      required: [uuid, version, status, priority, change_note, bands, created_at, created_by, activated_at, activated_by, superseded_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        version: { type: integer }
+        status: { type: string, enum: [draft, active, superseded] }
+        priority: { type: integer }
+        change_note: { type: string }
+        bands:
+          type: array
+          items: { $ref: "#/components/schemas/RateBand" }
+        created_at: { type: string, format: date-time }
+        created_by:
+          oneOf:
+            - $ref: "#/components/schemas/PricingActor"
+            - type: "null"
+        activated_at: { type: [string, "null"], format: date-time }
+        activated_by:
+          oneOf:
+            - $ref: "#/components/schemas/PricingActor"
+            - type: "null"
+        superseded_at: { type: [string, "null"], format: date-time }
+
+    RatePlan:
+      type: object
+      required: [uuid, name, scope, rental_product, branch, channel, status, current_version, active_version, has_draft, priority, band_count, price_from, activated_at, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        name: { type: string }
+        scope: { type: string, enum: [common, branch, channel, branch_channel] }
+        rental_product: { $ref: "#/components/schemas/PricingProductRef" }
+        branch:
+          oneOf:
+            - $ref: "#/components/schemas/PricingBranchRef"
+            - type: "null"
+        channel: { type: [string, "null"] }
+        status: { type: string, enum: [draft, active, inactive] }
+        current_version: { type: integer }
+        active_version: { type: [integer, "null"] }
+        has_draft: { type: boolean }
+        priority: { type: integer }
+        band_count: { type: integer, format: int64 }
+        price_from: { type: [string, "null"], description: Lowest daily price of the effective version }
+        activated_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        active:
+          description: Detail only
+          oneOf:
+            - $ref: "#/components/schemas/RatePlanVersion"
+            - type: "null"
+        draft:
+          description: Detail only
+          oneOf:
+            - $ref: "#/components/schemas/RatePlanVersion"
+            - type: "null"
+
+    RatePlanPage:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/RatePlan" }
+        total: { type: integer, format: int64 }
+        limit: { type: integer }
+        offset: { type: integer }
+
+    RatePlanCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [rental_product_uuid, scope]
+      properties:
+        rental_product_uuid: { type: string, format: uuid }
+        scope: { type: string, enum: [common, branch, channel, branch_channel] }
+        branch_uuid: { type: [string, "null"], format: uuid, description: branch / branch_channel scopes }
+        channel: { type: [string, "null"], description: "Sales channel code (channel / branch_channel scopes)" }
+        name: { type: string, maxLength: 255 }
+        priority: { type: integer, minimum: 0, maximum: 1000 }
+        bands:
+          type: array
+          items: { $ref: "#/components/schemas/RateBandInput" }
+        change_note: { type: string, maxLength: 2000 }
+
+    RatePlanPatchRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, maxLength: 255 }
+        priority: { type: integer, minimum: 0, maximum: 1000 }
+        bands:
+          type: array
+          items: { $ref: "#/components/schemas/RateBandInput" }
+        change_note: { type: string, maxLength: 2000 }
+
+    PricingActivateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        change_note: { type: string, maxLength: 2000 }
+
+    PricingIssue:
+      type: object
+      required: [field, code, message]
+      properties:
+        field: { type: string, description: Dot path of the form field }
+        code:
+          type: string
+          description: "no_draft, no_bands, band_range, band_price, band_overlap, coverage_start, coverage_gap, coverage_short, priority_conflict"
+        message: { type: string }
+        params:
+          type: object
+          additionalProperties: { type: integer }
+        ref:
+          type: object
+          required: [uuid, name]
+          properties:
+            uuid: { type: string, format: uuid }
+            name: { type: string }
+
+    ActivationCheck:
+      type: object
+      required: [ready, issues]
+      properties:
+        ready: { type: boolean }
+        issues:
+          type: array
+          items: { $ref: "#/components/schemas/PricingIssue" }
+
+    RatePlanFacets:
+      type: object
+      required: [rental_product, branch, scope, channel, status]
+      properties:
+        rental_product:
+          type: array
+          items: { $ref: "#/components/schemas/FleetFacet" }
+        branch:
+          type: array
+          items: { $ref: "#/components/schemas/FleetFacet" }
+        scope:
+          type: array
+          items: { $ref: "#/components/schemas/FleetFacet" }
+        channel:
+          type: array
+          items: { $ref: "#/components/schemas/FleetFacet" }
+        status:
+          type: array
+          items: { $ref: "#/components/schemas/FleetFacet" }
+
+    RatePlanMatrixTarget:
+      type: object
+      additionalProperties: false
+      required: [scope]
+      properties:
+        scope: { type: string, enum: [common, branch, channel, branch_channel] }
+        branch_uuid: { type: [string, "null"], format: uuid }
+        channel: { type: [string, "null"] }
+        priority: { type: integer, minimum: 0, maximum: 1000 }
+
+    RatePlanMatrixBand:
+      type: object
+      required: [min_days, max_days]
+      properties:
+        min_days: { type: integer, minimum: 1 }
+        max_days: { type: [integer, "null"] }
+
+    RatePlanMatrixRow:
+      type: object
+      required: [rental_product, segment, plan_uuid, plan_status, has_draft, source, prices]
+      properties:
+        rental_product: { $ref: "#/components/schemas/PricingProductRef" }
+        segment: { $ref: "#/components/schemas/PricingSegmentRef" }
+        plan_uuid: { type: [string, "null"], format: uuid }
+        plan_status: { type: [string, "null"], enum: [draft, active, inactive, null] }
+        has_draft: { type: boolean }
+        source: { type: [string, "null"], enum: [draft, active, null] }
+        prices:
+          type: array
+          description: Aligned with the matrix bands; null = no such band
+          items: { type: [string, "null"] }
+
+    RatePlanMatrix:
+      type: object
+      required: [scope, branch, channel, priority, bands, rows, drafts]
+      properties:
+        scope: { type: string, enum: [common, branch, channel, branch_channel] }
+        branch:
+          oneOf:
+            - $ref: "#/components/schemas/PricingBranchRef"
+            - type: "null"
+        channel: { type: [string, "null"] }
+        priority: { type: integer }
+        bands:
+          type: array
+          items: { $ref: "#/components/schemas/RatePlanMatrixBand" }
+        rows:
+          type: array
+          items: { $ref: "#/components/schemas/RatePlanMatrixRow" }
+        drafts: { type: integer, description: Rows with a pending draft }
+
+    RatePlanMatrixSaveRequest:
+      type: object
+      additionalProperties: false
+      required: [scope, bands, rows]
+      properties:
+        scope: { type: string, enum: [common, branch, channel, branch_channel] }
+        branch_uuid: { type: [string, "null"], format: uuid }
+        channel: { type: [string, "null"] }
+        priority: { type: integer, minimum: 0, maximum: 1000 }
+        bands:
+          type: array
+          items: { $ref: "#/components/schemas/RatePlanMatrixBand" }
+        rows:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [rental_product_uuid, prices]
+            properties:
+              rental_product_uuid: { type: string, format: uuid }
+              prices:
+                type: array
+                items: { type: [string, number, "null"] }
+        change_note: { type: string, maxLength: 2000 }
+
+    RatePlanMatrixSaveResult:
+      type: object
+      required: [created, updated, unchanged, matrix]
+      properties:
+        created: { type: integer }
+        updated: { type: integer }
+        unchanged: { type: integer }
+        matrix: { $ref: "#/components/schemas/RatePlanMatrix" }
+
+    RatePlanMatrixActivateResult:
+      type: object
+      required: [activated]
+      properties:
+        activated: { type: integer }
+
+    DateRuleVersion:
+      type: object
+      required: [uuid, version, status, start_date, end_date, product_scope, rental_products, segments, all_branches, branches, channels, kind, value, priority, change_note, created_at, created_by, activated_at, activated_by, superseded_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        version: { type: integer }
+        status: { type: string, enum: [draft, active, superseded] }
+        start_date: { type: string, format: date }
+        end_date: { type: string, format: date, description: First day NOT covered (excluded) }
+        product_scope: { type: string, enum: [all, segments, products] }
+        rental_products:
+          type: array
+          items: { $ref: "#/components/schemas/PricingProductRef" }
+        segments:
+          type: array
+          items: { $ref: "#/components/schemas/PricingSegmentRef" }
+        all_branches: { type: boolean }
+        branches:
+          type: array
+          items: { $ref: "#/components/schemas/PricingBranchRef" }
+        channels:
+          type: [array, "null"]
+          description: null = every channel
+          items: { type: string }
+        kind: { type: string, enum: [percent, amount] }
+        value: { type: string, description: "Signed percentage or TRY amount", example: "20.00" }
+        priority: { type: integer }
+        change_note: { type: string }
+        created_at: { type: string, format: date-time }
+        created_by:
+          oneOf:
+            - $ref: "#/components/schemas/PricingActor"
+            - type: "null"
+        activated_at: { type: [string, "null"], format: date-time }
+        activated_by:
+          oneOf:
+            - $ref: "#/components/schemas/PricingActor"
+            - type: "null"
+        superseded_at: { type: [string, "null"], format: date-time }
+
+    DateRule:
+      type: object
+      required: [uuid, name, status, current_version, active_version, has_draft, start_date, end_date, kind, value, priority, product_scope, all_branches, all_channels, activated_at, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        name: { type: string }
+        status: { type: string, enum: [draft, active, inactive] }
+        current_version: { type: integer }
+        active_version: { type: [integer, "null"] }
+        has_draft: { type: boolean }
+        start_date: { type: [string, "null"], format: date }
+        end_date: { type: [string, "null"], format: date, description: Excluded }
+        kind: { type: string, enum: [percent, amount, ""] }
+        value: { type: string }
+        priority: { type: integer }
+        product_scope: { type: string, enum: [all, segments, products, ""] }
+        all_branches: { type: boolean }
+        all_channels: { type: boolean }
+        activated_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        active:
+          description: Detail only
+          oneOf:
+            - $ref: "#/components/schemas/DateRuleVersion"
+            - type: "null"
+        draft:
+          description: Detail only
+          oneOf:
+            - $ref: "#/components/schemas/DateRuleVersion"
+            - type: "null"
+
+    DateRulePage:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/DateRule" }
+        total: { type: integer, format: int64 }
+        limit: { type: integer }
+        offset: { type: integer }
+
+    DateRulePatchRequest:
+      type: object
+      additionalProperties: false
+      properties: &dateRuleWriteProperties
+        name: { type: string, maxLength: 64 }
+        start_date: { type: string, format: date }
+        end_date: { type: string, format: date, description: "Excluded (bitiş günü hariç)" }
+        product_scope: { type: string, enum: [all, segments, products] }
+        rental_product_uuids:
+          type: array
+          items: { type: string, format: uuid }
+        segment_uuids:
+          type: array
+          items: { type: string, format: uuid }
+        all_branches: { type: boolean }
+        branch_uuids:
+          type: array
+          items: { type: string, format: uuid }
+        all_channels: { type: boolean }
+        channels:
+          type: array
+          items: { type: string }
+        kind: { type: string, enum: [percent, amount] }
+        value: { type: [string, number], description: "Signed; a percentage (-100..1000) or a TRY amount" }
+        priority: { type: integer, minimum: 0, maximum: 1000 }
+        change_note: { type: string, maxLength: 2000 }
+
+    DateRuleCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [name, start_date, end_date, kind, value]
+      properties: *dateRuleWriteProperties
+
+    DateRuleFacets:
+      type: object
+      required: [status, kind]
+      properties:
+        status:
+          type: array
+          items: { $ref: "#/components/schemas/FleetFacet" }
+        kind:
+          type: array
+          items: { $ref: "#/components/schemas/FleetFacet" }
+
+    PricingPreviewRequest:
+      type: object
+      additionalProperties: false
+      required: [rental_product_uuid, branch_uuid, channel, start_at, end_at]
+      properties:
+        rental_product_uuid: { type: string, format: uuid }
+        branch_uuid: { type: string, format: uuid }
+        return_branch_uuid: { type: [string, "null"], format: uuid, description: One-way fee from the one-way rules }
+        channel: { type: string }
+        start_at: { type: string, format: date-time }
+        end_at: { type: string, format: date-time }
+        delivery_fee: { type: [string, number, "null"] }
+        discount:
+          type: [object, "null"]
+          additionalProperties: false
+          required: [kind, value]
+          properties:
+            name: { type: string }
+            kind: { type: string, enum: [percent, amount] }
+            value: { type: [string, number] }
+        rate_plan_uuid: { type: [string, "null"], format: uuid, description: Apply this plan's draft }
+        rate_plan_draft:
+          type: [object, "null"]
+          additionalProperties: false
+          required: [scope, bands]
+          properties:
+            scope: { type: string, enum: [common, branch, channel, branch_channel] }
+            branch_uuid: { type: [string, "null"], format: uuid }
+            channel: { type: [string, "null"] }
+            priority: { type: integer, minimum: 0, maximum: 1000 }
+            bands:
+              type: array
+              items: { $ref: "#/components/schemas/RateBandInput" }
+        date_rule_uuid: { type: [string, "null"], format: uuid, description: Apply this rule's draft }
+        date_rule_draft:
+          type: [object, "null"]
+          additionalProperties: false
+          properties: *dateRuleWriteProperties
+
+    PricingRuleRef:
+      type: object
+      required: [id, version_id, version, name, kind, priority]
+      properties:
+        id: { type: string }
+        version_id: { type: string }
+        version: { type: integer }
+        name: { type: string }
+        kind: { type: string, enum: [percent, amount] }
+        percent: { type: string }
+        amount: { type: string }
+        priority: { type: integer }
+
+    PricingBreakdown:
+      type: object
+      required: [currency, starts_at, ends_at, billing_days, plan, band, days, rules, rental_subtotal, discount, rental_total, lines, vat_rate, base_total, vat_total, total, prepayment, prepayment_rule]
+      properties:
+        currency: { type: string, example: TRY }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+        billing_days: { type: integer }
+        plan:
+          type: object
+          required: [id, version_id, version, name, scope, priority]
+          properties:
+            id: { type: string }
+            version_id: { type: string }
+            version: { type: integer }
+            name: { type: string }
+            scope: { type: string }
+            priority: { type: integer }
+        band: { $ref: "#/components/schemas/RateBand" }
+        days:
+          type: array
+          items:
+            type: object
+            required: [index, date, starts_at, base_price, rule, adjustment, unit_price]
+            properties:
+              index: { type: integer }
+              date: { type: string, format: date, description: Istanbul date the billing day starts on }
+              starts_at: { type: string, format: date-time }
+              base_price: { type: string }
+              rule:
+                oneOf:
+                  - $ref: "#/components/schemas/PricingRuleRef"
+                  - type: "null"
+              adjustment: { type: string }
+              unit_price: { type: string }
+        rules:
+          type: array
+          items: { $ref: "#/components/schemas/PricingRuleRef" }
+        rental_subtotal: { type: string }
+        discount:
+          type: [object, "null"]
+          required: [code, name, kind, amount]
+          properties:
+            code: { type: string }
+            name: { type: string }
+            kind: { type: string }
+            percent: { type: string }
+            amount: { type: string }
+        rental_total: { type: string }
+        lines:
+          type: array
+          items:
+            type: object
+            required: [kind, quantity, gross, base, vat]
+            properties:
+              kind: { type: string, enum: [rental, extra, one_way, delivery] }
+              code: { type: string }
+              name: { type: string }
+              quantity: { type: integer }
+              gross: { type: string, description: VAT included }
+              base: { type: string, description: Matrah }
+              vat: { type: string }
+        vat_rate: { type: [string, "null"], description: null = VAT rate not configured (no split) }
+        base_total: { type: string }
+        vat_total: { type: string }
+        total: { type: string }
+        prepayment: { type: string }
+        prepayment_rule: { type: string, enum: [none, fixed, percent, full] }
+
+    PricingPreviewSide:
+      type: object
+      required: [breakdown, error]
+      properties:
+        breakdown:
+          oneOf:
+            - $ref: "#/components/schemas/PricingBreakdown"
+            - type: "null"
+        error:
+          type: [object, "null"]
+          required: [code, message, refs]
+          properties:
+            code: { type: string, description: "no_plan, ambiguous_plan, no_band, ambiguous_band, ambiguous_rule, invalid_input" }
+            message: { type: string }
+            refs:
+              type: array
+              items: { type: string }
+
+    PricingPreview:
+      type: object
+      required: [current, proposed, difference, warnings]
+      properties:
+        current: { $ref: "#/components/schemas/PricingPreviewSide" }
+        proposed: { $ref: "#/components/schemas/PricingPreviewSide" }
+        difference: { type: [string, "null"], description: Proposed total minus current total }
+        warnings:
+          type: array
+          description: "vat_rate_missing, one_way_not_allowed, one_way_unavailable, no_changes"
+          items: { type: string }
+
+    EnvelopeRatePlan:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/RatePlan" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeRatePlanPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/RatePlanPage" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeRatePlanFacets:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/RatePlanFacets" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeRatePlanVersions:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/RatePlanVersion" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeActivationCheck:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/ActivationCheck" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeRatePlanMatrix:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/RatePlanMatrix" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeRatePlanMatrixSaveResult:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/RatePlanMatrixSaveResult" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeRatePlanMatrixActivateResult:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/RatePlanMatrixActivateResult" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeDateRule:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/DateRule" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeDateRulePage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/DateRulePage" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeDateRuleFacets:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/DateRuleFacets" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeDateRuleVersions:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/DateRuleVersion" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopePricingPreview:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/PricingPreview" }
         meta: { $ref: "#/components/schemas/ResponseMeta" }
