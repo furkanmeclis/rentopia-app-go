@@ -110,6 +110,17 @@ type CalendarAllocation struct {
 	ExpiresAt    *time.Time `json:"expires_at"`
 	PlateFixed   bool       `json:"plate_fixed"`
 	Channel      string     `json:"channel"`
+	// Reservation is the reservation the allocation belongs to (TEC-706);
+	// nil for a plain hold. Its bar may be dragged onto another vehicle
+	// row while the plate is not fixed (POST …/reservations/{uuid}/plate).
+	Reservation *CalendarReservation `json:"reservation"`
+}
+
+// CalendarReservation is the reservation of an allocation bar.
+type CalendarReservation struct {
+	UUID      uuid.UUID `json:"uuid"`
+	Reference string    `json:"reference"`
+	Status    string    `json:"status"`
 }
 
 // CalendarInterval is one bar. StartsAt / EndsAt are the real bounds (EndsAt

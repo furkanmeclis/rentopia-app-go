@@ -133,7 +133,18 @@ type Service struct {
 	repo     *repository.Postgres
 	vehicles *vehicleusecase.Service
 	now      func() time.Time
+	affected AffectedHandler
 }
+
+// AffectedHandler reacts to sold capacity a block now overlaps
+// (reservations, TEC-698: re-plan automatically, otherwise open a
+// resolution task). It runs after the block is committed.
+type AffectedHandler interface {
+	AllocationsAffected(ctx context.Context, orgID int64, sourceType string, source uuid.UUID, allocations []uuid.UUID)
+}
+
+// SetAffectedHandler wires the reservations hook (optional).
+func (s *Service) SetAffectedHandler(h AffectedHandler) { s.affected = h }
 
 // New builds the service. vehicles applies vehicle status / branch changes.
 func New(repo *repository.Postgres, vehicles *vehicleusecase.Service) *Service {

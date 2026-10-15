@@ -187,6 +187,11 @@ func CalendarIntervalFromRow(ctx context.Context, row repository.CalendarInterva
 				UUID: row.AllocationProductUuid.Bytes, Code: row.AllocationProductCode.String, Title: row.AllocationProductTitle.String,
 			}
 		}
+		if row.ReservationUuid.Valid {
+			a.Reservation = &model.CalendarReservation{
+				UUID: row.ReservationUuid.Bytes, Reference: row.ReservationReference.String, Status: row.ReservationStatus.String,
+			}
+		}
 		item.Allocation = a
 	}
 	return item

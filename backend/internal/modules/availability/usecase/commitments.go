@@ -709,6 +709,7 @@ func (s *Service) ReleaseWith(ctx context.Context, orgID int64, id uuid.UUID, re
 		}
 		var cs *componentState
 		var res engine.ReleaseResult
+		lapsed := false
 		w := &writer{ctx: ctx, q: q, tx: tx, orgID: orgID, cs: &componentState{allocs: map[int64]db.ListAvailabilityAllocationsRow{}}}
 		if comp := snap.component[ref.VehicleID]; comp != 0 {
 			if err := s.lock(ctx, q, orgID, comp); err != nil {
@@ -718,6 +719,13 @@ func (s *Service) ReleaseWith(ctx context.Context, orgID int64, id uuid.UUID, re
 				return err
 			}
 			w.cs = cs
+			for _, id := range cs.due {
+				if id == ref.ID {
+					// The allocation is a lapsed hold: expiring it below is
+					// its one transition out of "active".
+					lapsed = true
+				}
+			}
 			affected, err := w.expireDue(now, s.opts)
 			if err != nil {
 				return err
@@ -737,7 +745,10 @@ func (s *Service) ReleaseWith(ctx context.Context, orgID int64, id uuid.UUID, re
 		if err != nil {
 			return err
 		}
-		if n != 1 {
+		// A hook caller (a reservation leaving its waiting state) accepts a
+		// lapsed hold expired just above as the release: the allocation
+		// left "active" exactly once, in this transaction.
+		if n != 1 && (!lapsed || hook == nil) {
 			return ErrNotActive
 		}
 		out.Reassigned = len(res.Moves)
