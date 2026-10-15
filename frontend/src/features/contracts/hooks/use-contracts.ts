@@ -12,6 +12,7 @@ import type {
   ListTemplatesParams,
 } from "@/features/contracts/types";
 import { useTenant } from "@/features/tenant/components/tenant-provider";
+import { ApiError } from "@/lib/api";
 import { useLocale } from "@/providers/locale-provider";
 import { appToast } from "@/providers/toast-provider";
 
@@ -279,6 +280,7 @@ export function useApproveVersion() {
 export function useDownloadPdf() {
   const { slug } = useTenant();
   const { t } = useLocale();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
       doc,
@@ -303,6 +305,16 @@ export function useDownloadPdf() {
       link.remove();
       URL.revokeObjectURL(href);
     },
-    onError: () => appToast.error(t("contracts.toast.download_failed")),
+    onError: (error) => {
+      // Not rendered yet: the API queued it; the version polls its status.
+      if (error instanceof ApiError && error.code === "PDF_NOT_READY") {
+        appToast.info(t("contracts.toast.pdf_pending"));
+        void queryClient.invalidateQueries({
+          queryKey: contractKeys.documents(slug),
+        });
+        return;
+      }
+      appToast.error(t("contracts.toast.download_failed"));
+    },
   });
 }

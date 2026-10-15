@@ -181,6 +181,7 @@
   "toast.deleted": "Taslak silindi",
   "toast.download_failed": "PDF indirilemedi",
   "toast.issued": "Sürüm yayınlandı",
+  "toast.pdf_pending": "PDF hazırlanıyor; birazdan tekrar deneyin",
   "toast.new_version": "Yeni sürüm oluşturuldu",
   "toast.saved": "Şablon kaydedildi",
   "toast.up_to_date": "Belge zaten güncel",

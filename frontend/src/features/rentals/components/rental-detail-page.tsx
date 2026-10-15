@@ -58,6 +58,7 @@ import {
   CHARGE_KIND_LABEL_KEYS,
   RENTAL_STATUS_LABEL_KEYS,
   eventLabel,
+  eventReason,
 } from "@/features/rentals/constants";
 import {
   useCancelRental,
@@ -731,7 +732,7 @@ function EventsCard({ uuid }: { uuid: string }) {
           accessorKey: "reason",
           labelKey: "rentals.events.columns.reason",
           enableSorting: false,
-          cell: ({ row }) => row.original.reason || "—",
+          cell: ({ row }) => eventReason(t, row.original.reason),
         }),
         createColumn<RentalEvent>({
           id: "actor",

@@ -376,7 +376,7 @@ function DocumentDialog({
             {t("contracts.actions.close")}
           </Button>
           {version &&
-          version.pdf_status === "ready" &&
+          version.pdf_status !== "pending" &&
           can(permissions.tenant.document.download) ? (
             <Button
               type="button"
@@ -641,7 +641,7 @@ export function DocumentsSection({
                         },
                       ]
                     : []),
-                  ...(d.version_uuid && d.pdf_status === "ready"
+                  ...(d.version_uuid && d.pdf_status !== "pending"
                     ? [
                         {
                           id: "pdf",

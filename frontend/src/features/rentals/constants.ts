@@ -131,3 +131,20 @@ export function eventLabel(t: (key: string) => string, action: string) {
   const key = EVENT_LABEL_KEYS[action];
   return key ? t(key) : action;
 }
+
+/** System reason codes of timeline rows (free-text reasons pass through). */
+export const EVENT_REASON_KEYS: Record<string, string> = {
+  rental_created: "rentals.events.reasons.rental_created",
+  handover: "rentals.events.reasons.handover",
+  return: "rentals.events.reasons.return",
+  plate_changed: "rentals.events.reasons.plate_changed",
+  vehicle_swapped: "rentals.events.reasons.vehicle_swapped",
+  changed: "rentals.events.reasons.changed",
+  drivers_changed: "rentals.events.reasons.drivers_changed",
+};
+
+export function eventReason(t: (key: string) => string, reason: string) {
+  if (!reason) return "—";
+  const key = EVENT_REASON_KEYS[reason];
+  return key ? t(key) : reason;
+}

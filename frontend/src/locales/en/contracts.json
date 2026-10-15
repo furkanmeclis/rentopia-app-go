@@ -181,6 +181,7 @@
   "toast.deleted": "Draft deleted",
   "toast.download_failed": "The PDF could not be downloaded",
   "toast.issued": "Version issued",
+  "toast.pdf_pending": "The PDF is being rendered; try again shortly",
   "toast.new_version": "New version created",
   "toast.saved": "Template saved",
   "toast.up_to_date": "The document is up to date",

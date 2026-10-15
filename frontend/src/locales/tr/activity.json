@@ -225,7 +225,7 @@
   "actions.rentals.vehicle_swapped": "Kiralamada araç değiştirildi",
   "actions.rentals.charge_proposed": "Kiralama ücreti önerildi",
   "actions.rentals.charge_approved": "Kiralama ücreti onaylandı",
-  "actions.rentals.charge_waived": "Kiralama ücretinden vazgeçildi",
+  "actions.rentals.charge_waived": "Kiralama ücretinden feragat edildi",
   "actions.operation_tasks.assigned": "Operasyon görevine sorumlu atandı",
   "actions.operation_tasks.started": "Operasyon görevi başlatıldı",
   "actions.operation_tasks.completed": "Operasyon görevi tamamlandı",
