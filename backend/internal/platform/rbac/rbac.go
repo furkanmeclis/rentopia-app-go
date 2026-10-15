@@ -143,7 +143,7 @@ const (
 	PermTenantPaymentsRead        = "tenant.payments.read"
 	PermTenantPaymentsCreateLink  = "tenant.payments.create_link"
 	PermTenantReservationsApprove = "tenant.reservations.approve"
-	// Toll passes (TEC-725, migration 000401). Vehicle tags use
+	// Toll passes (TEC-725, migration 000094). Vehicle tags use
 	// PermTenantVehiclesWrite, the processing fee PermTenantSettingsWrite.
 	PermTenantTollsRead   = "tenant.tolls.read"
 	PermTenantTollsExport = "tenant.tolls.export"

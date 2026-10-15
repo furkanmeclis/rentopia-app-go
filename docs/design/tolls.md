@@ -13,7 +13,7 @@ Code:
 | Hourly schedule | `backend/internal/queue/tolls.go` (`app:tolls:fetch`) |
 | Panel | `frontend/src/features/tolls` (list, review queue, pass detail, vehicle tab, rental section, nav badge) |
 
-## 1. Tables (migrations 000400 – 000401; renumbered at merge)
+## 1. Tables (migrations 000093 – 000094)
 
 | Table | Notes |
 |-------|-------|
@@ -25,7 +25,7 @@ Code:
 | `rental_charges` | New kinds `toll`, `toll_fee`; source `toll`; `toll_pass_id`; `reversal_of_id` (a reversal has a non-positive amount; `uq_rental_charges_reversal` allows one reversal per charge). |
 | `integration_accounts` | Kind `toll`, provider `hgs_fake`. |
 
-Every table follows the tenant rules (organization first in every index, composite FKs, `tenant_tables.txt`). The down migration drops the toll tables, deletes every toll / toll_fee charge (reversals included), the toll accounts and their jobs, and restores the old CHECKs (stated in the file). 000401 seeds the permissions (§6).
+Every table follows the tenant rules (organization first in every index, composite FKs, `tenant_tables.txt`). The down migration drops the toll tables, deletes every toll / toll_fee charge (reversals included), the toll accounts and their jobs, and restores the old CHECKs (stated in the file). 000094 seeds the permissions (§6).
 
 ## 2. Statuses
 
@@ -147,4 +147,4 @@ Rental charges (`GET /v1/tenant/rentals/{uuid}`) carry `toll_pass_uuid`, `revers
 - Choose the real provider (TEC-683: PTT / bank API, tag coverage, test account) and implement its `tolls.Provider`; until then production organizations use the file import.
 - Plug the finance ledger (TEC-717) through `SetLedger`.
 - Plate history: matching uses the vehicle's current plate; a re-plated vehicle's old passes need the tag or a manual assignment.
-- Merge note: 000400 replaces the `integration_accounts` kind / provider and `rental_charges` kind CHECKs with full lists; parallel migrations that touch the same CHECKs must be merged into one list.
+- Merge note: 000093 replaces the `integration_accounts` kind / provider and `rental_charges` kind CHECKs with full lists; parallel migrations that touch the same CHECKs must be merged into one list.
