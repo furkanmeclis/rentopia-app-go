@@ -109,7 +109,7 @@ func (h *Handler) CreateHold(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	h.record(r, "created", model.ResourceHolds, res.Allocation.UUID, map[string]any{
+	h.record(r, "availability_holds.created", model.ResourceHolds, res.Allocation.UUID, map[string]any{
 		"product": res.Allocation.Product.Code, "starts_at": res.Allocation.StartsAt, "ends_at": res.Allocation.EndsAt,
 		"reassigned": res.Reassigned,
 	})
@@ -154,7 +154,7 @@ func (h *Handler) ReleaseHold(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	h.record(r, "released", model.ResourceHolds, id, map[string]any{"reassigned": res.Reassigned, "affected": len(res.Affected)})
+	h.record(r, "availability_holds.released", model.ResourceHolds, id, map[string]any{"reassigned": res.Reassigned, "affected": len(res.Affected)})
 	h.publish(r, model.ResourceHolds, resourceevents.ActionUpdated, id)
 	response.JSON(w, r, http.StatusOK, res)
 }
@@ -174,7 +174,7 @@ func (h *Handler) ExtendHold(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	h.record(r, "extended", model.ResourceHolds, id, map[string]any{"minutes": in.Minutes, "expires_at": a.ExpiresAt})
+	h.record(r, "availability_holds.extended", model.ResourceHolds, id, map[string]any{"minutes": in.Minutes, "expires_at": a.ExpiresAt})
 	h.publish(r, model.ResourceHolds, resourceevents.ActionUpdated, id)
 	response.JSON(w, r, http.StatusOK, a)
 }
@@ -228,7 +228,7 @@ func (h *Handler) CreateRule(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	h.record(r, "created", model.ResourceCapacityRules, rule.UUID, map[string]any{"rule_type": rule.RuleType, "quantity": rule.Quantity})
+	h.record(r, "capacity_rules.created", model.ResourceCapacityRules, rule.UUID, map[string]any{"rule_type": rule.RuleType, "quantity": rule.Quantity})
 	h.publish(r, model.ResourceCapacityRules, resourceevents.ActionCreated, rule.UUID)
 	response.JSON(w, r, http.StatusCreated, rule)
 }
@@ -248,7 +248,7 @@ func (h *Handler) UpdateRule(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	h.record(r, "updated", model.ResourceCapacityRules, rule.UUID, map[string]any{"rule_type": rule.RuleType, "quantity": rule.Quantity})
+	h.record(r, "capacity_rules.updated", model.ResourceCapacityRules, rule.UUID, map[string]any{"rule_type": rule.RuleType, "quantity": rule.Quantity})
 	h.publish(r, model.ResourceCapacityRules, resourceevents.ActionUpdated, rule.UUID)
 	response.JSON(w, r, http.StatusOK, rule)
 }
@@ -263,7 +263,7 @@ func (h *Handler) DeleteRule(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	h.record(r, "deleted", model.ResourceCapacityRules, id, nil)
+	h.record(r, "capacity_rules.deleted", model.ResourceCapacityRules, id, nil)
 	h.publish(r, model.ResourceCapacityRules, resourceevents.ActionDeleted, id)
 	response.JSON(w, r, http.StatusOK, map[string]string{"status": "deleted"})
 }
