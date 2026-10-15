@@ -71,5 +71,6 @@
   "resources.tenant.vehicle_documents": "Araç belgeleri",
   "resources.tenant.vehicle_maintenance": "Araç bakımları",
   "resources.tenant.transfers": "Transferler",
-  "resources.tenant.one_way_rules": "Tek yön kuralları"
+  "resources.tenant.one_way_rules": "Tek yön kuralları",
+  "resources.platform.organizations": "Firmalar"
 }

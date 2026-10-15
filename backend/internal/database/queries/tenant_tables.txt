@@ -24,3 +24,5 @@ vehicle_transfers
 one_way_rules
 vehicle_busy_intervals
 organization_members
+organization_invitation_roles
+organization_invitation_branches

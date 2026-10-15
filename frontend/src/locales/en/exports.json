@@ -71,5 +71,6 @@
   "resources.tenant.vehicle_documents": "Vehicle documents",
   "resources.tenant.vehicle_maintenance": "Vehicle maintenance",
   "resources.tenant.transfers": "Transfers",
-  "resources.tenant.one_way_rules": "One-way rules"
+  "resources.tenant.one_way_rules": "One-way rules",
+  "resources.platform.organizations": "Organizations"
 }

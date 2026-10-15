@@ -5,8 +5,6 @@ import (
 	"net/http"
 	"path"
 	"strings"
-
-	"github.com/google/uuid"
 )
 
 // MaxLogoBytes is the maximum accepted logo upload size (2 MiB).
@@ -80,10 +78,4 @@ func ValidateLogoSize(size int64) error {
 		return fmt.Errorf("logo must be at most 2 MiB")
 	}
 	return nil
-}
-
-// OrganizationLogoObjectKey builds organizations/{orgUUID}/branding/logo.{ext}
-// (under the organization prefix, see OrganizationPrefix).
-func OrganizationLogoObjectKey(orgUUID uuid.UUID, ext string) string {
-	return fmt.Sprintf("%sbranding/logo.%s", OrganizationPrefix(orgUUID.String()), strings.TrimPrefix(ext, "."))
 }

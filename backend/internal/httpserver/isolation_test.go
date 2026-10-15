@@ -69,6 +69,9 @@ var isolationAllowlist = map[string]string{
 	"POST /v1/tenant/notifications/read-all": "marks the caller's rows of the current organization (notifications scope test)",
 	"POST /v1/tenant/branches/import":        "imports match natural keys inside the organization (adapter tests); the job is the {uuid} cases",
 	"POST /v1/tenant/vehicles/import":        "imports match natural keys inside the organization (adapter tests); the job is the {uuid} cases",
+	"PATCH /v1/tenant/organization":          "profile of the caller's organization (name only); no foreign references",
+	"PUT /v1/tenant/organization/logo":       "logo of the caller's organization; the key is built from the scope (storage prefix check)",
+	"DELETE /v1/tenant/organization/logo":    "logo of the caller's organization; no ids",
 }
 
 type isoOrg struct {
@@ -302,6 +305,10 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		ids["role"] = str(must(call(o, http.MethodPost, "/v1/tenant/roles", map[string]any{
 			"key": "iso_role", "name": m + " Rol", "permissions": []string{rbac.PermTenantMembersRead},
 		}), http.StatusCreated, "create role"), "uuid")
+		ids["invitation"] = str(must(call(o, http.MethodPost, "/v1/tenant/invitations", map[string]any{
+			"email": strings.ToLower(m) + "-invitee@iso.test", "role_uuids": []string{ids["role"]},
+			"branch_scope": "selected", "branch_uuids": []string{ids["branch"]},
+		}), http.StatusCreated, "create invitation"), "uuid")
 		settings := must(call(o, http.MethodGet, "/v1/tenant/settings", nil), http.StatusOK, "settings")
 		doc := settings.data.(map[string]any)["settings"].(map[string]any)
 		doc["company"] = map[string]any{"legal_name": m + " A.Ş.", "tax_number": "4540536920", "tax_office": "Kadıköy", "address": "", "phone": "", "email": "info@iso.test"}
@@ -551,6 +558,9 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		{"POST /v1/tenant/vehicles/bulk", map[string]any{"action": "set_status", "params": map[string]any{"status": "maintenance"},
 			"target": map[string]any{"scope": "ids", "ids": []string{orgB.ids["vehicle"]}}}, nil},
 		{"POST /v1/tenant/one-way-rules/bulk", bulkIDs("rule"), nil},
+		{"POST /v1/tenant/invitations", map[string]any{"email": "x1@iso.test", "role_uuids": []string{orgB.ids["role"]}, "branch_scope": "all"}, reject},
+		{"POST /v1/tenant/invitations", map[string]any{"email": "x2@iso.test", "role_uuids": []string{orgA.ids["role"]},
+			"branch_scope": "selected", "branch_uuids": []string{orgB.ids["branch"]}}, reject},
 		// Action parameters naming B's records, on A's vehicle.
 		{"POST /v1/tenant/vehicles/bulk", map[string]any{"action": "move_branch", "params": map[string]any{"branch_uuid": orgB.ids["branch"]},
 			"target": map[string]any{"scope": "ids", "ids": []string{orgA.ids["vehicle"]}}}, reject},
@@ -761,6 +771,8 @@ func paramKey(prev, name string) string {
 		return "role"
 	case "members/userUuid":
 		return "member"
+	case "invitations/uuid":
+		return "invitation"
 	case "exports/uuid":
 		return "exportJob"
 	case "imports/uuid":

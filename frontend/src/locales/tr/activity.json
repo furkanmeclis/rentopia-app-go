@@ -125,5 +125,17 @@
   "actions.transfers.cancelled": "Transfer iptal edildi",
   "actions.one_way_rules.created": "Tek yön kuralı eklendi",
   "actions.one_way_rules.updated": "Tek yön kuralı güncellendi",
-  "actions.one_way_rules.deleted": "Tek yön kuralı silindi"
+  "actions.one_way_rules.deleted": "Tek yön kuralı silindi",
+  "resources.tenant.invitations": "Firma davetleri",
+  "resources.tenant.organization": "Firma profili",
+  "actions.organizations.invitation_created": "Firma daveti gönderildi",
+  "actions.organizations.invitation_revoked": "Firma daveti iptal edildi",
+  "actions.organizations.invitation_resent": "Firma daveti yeniden gönderildi",
+  "actions.invitations.created": "Davet gönderildi",
+  "actions.invitations.revoked": "Davet iptal edildi",
+  "actions.invitations.resent": "Davet yeniden gönderildi",
+  "actions.invitations.accepted": "Davet kabul edildi",
+  "actions.organization.updated": "Firma adı güncellendi",
+  "actions.organization.logo_updated": "Firma logosu güncellendi",
+  "actions.organization.logo_removed": "Firma logosu kaldırıldı"
 }

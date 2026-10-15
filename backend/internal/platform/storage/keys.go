@@ -10,6 +10,13 @@ func AppLogoObjectKey(ext string) string {
 	return fmt.Sprintf("app/branding/logo.%s", trimExt(ext))
 }
 
+// OrganizationLogoObjectKey builds
+// organizations/{orgUUID}/branding/logo-{versionUUID}.{ext}. Every upload
+// gets a new version so the API logo URL changes with it (cache busting).
+func OrganizationLogoObjectKey(orgUUID, versionUUID, ext string) string {
+	return fmt.Sprintf("organizations/%s/branding/logo-%s.%s", orgUUID, versionUUID, trimExt(ext))
+}
+
 // ExportObjectKey builds exports/{jobUUID}/export.{ext}.
 func ExportObjectKey(jobUUID, ext string) string {
 	return fmt.Sprintf("exports/%s/export.%s", jobUUID, trimExt(ext))

@@ -5,6 +5,7 @@ const RESOURCE_LABEL_KEYS: Record<IoResource, string> = {
   "platform.roles": "roles.title",
   "platform.notifications": "notifications.title",
   "platform.activity": "activity.title",
+  "platform.organizations": "organizations.title",
   "tenant.branches": "branches.title",
   "tenant.segments": "fleet.segments.title",
   "tenant.rental_groups": "fleet.groups.title",

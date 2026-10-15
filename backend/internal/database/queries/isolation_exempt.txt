@@ -40,7 +40,6 @@ ListStuckProcessingNotificationIDs delivery sweep over every row
 
 # Organization invitations: the token / uuid flows compare the invitation's
 # organization with the caller's scope in the organizations use case.
-GetOrganizationInvitationByUUID caller compares organization_id with the scope
 
 # Platform roles: user_roles and auth_settings only ever reference platform
 # roles (tenant roles are assigned through organization_member_roles).

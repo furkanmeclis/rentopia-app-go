@@ -103,6 +103,7 @@ export type IoResource =
   | "platform.roles"
   | "platform.notifications"
   | "platform.activity"
+  | "platform.organizations"
   | "tenant.branches"
   | "tenant.segments"
   | "tenant.rental_groups"
@@ -118,6 +119,7 @@ export const EXPORT_PATHS: Record<IoResource, string> = {
   "platform.roles": "/v1/platform/roles/export",
   "platform.notifications": "/v1/platform/notifications/export",
   "platform.activity": "/v1/platform/activity/export",
+  "platform.organizations": "/v1/platform/organizations/export",
   "tenant.branches": "/v1/tenant/branches/export",
   "tenant.segments": "/v1/tenant/segments/export",
   "tenant.rental_groups": "/v1/tenant/rental-groups/export",
