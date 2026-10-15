@@ -634,3 +634,22 @@ func (q *Queries) MarkQuoteUsed(ctx context.Context, arg MarkQuoteUsedParams) (i
 	}
 	return result.RowsAffected(), nil
 }
+
+const reopenQuote = `-- name: ReopenQuote :exec
+UPDATE quotes
+SET status = 'open', used_at = NULL
+WHERE organization_id = $1
+  AND id = $2
+  AND status = 'used'
+`
+
+type ReopenQuoteParams struct {
+	OrganizationID int64 `json:"organization_id"`
+	ID             int64 `json:"id"`
+}
+
+// Compensation of a failed create: the quote is usable again.
+func (q *Queries) ReopenQuote(ctx context.Context, arg ReopenQuoteParams) error {
+	_, err := q.db.Exec(ctx, reopenQuote, arg.OrganizationID, arg.ID)
+	return err
+}

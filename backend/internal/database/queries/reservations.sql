@@ -46,7 +46,7 @@ SELECT r.id, r.uuid, r.reference, r.status, r.payment_status, r.capacity_commitm
     r.rental_product_id, r.product_version, r.sold_rental_product_id, r.sold_product_version, r.guarantee_type,
     r.customer_id, r.channel, r.total_amount, r.prepayment_amount, r.paid_amount, r.commission_amount,
     r.collecting_party, r.quote_id, r.quote_snapshot, r.settings_version, r.review_deadline, r.payment_deadline,
-    r.assigned_user_id, r.currency, r.product_snapshot,
+    r.assigned_user_id, r.currency, r.product_snapshot, r.equipment_allocations,
     a.uuid AS allocation_uuid, a.status AS allocation_status, a.kind AS allocation_kind,
     a.vehicle_id AS allocation_vehicle_id, a.plate_fixed AS allocation_plate_fixed, a.expires_at AS allocation_expires_at,
     p.uuid AS product_uuid
@@ -291,6 +291,12 @@ SET assigned_user_id = sqlc.narg(assigned_user_id)
 WHERE organization_id = sqlc.arg(organization_id)
   AND id = sqlc.arg(id);
 
+-- name: SetReservationEquipment :exec
+UPDATE reservations
+SET equipment_allocations = sqlc.arg(equipment_allocations)::uuid[]
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id);
+
 -- name: SetReservationPayment :execrows
 -- Payment progress (M3 payments call it through PaymentStatusSetter).
 UPDATE reservations
@@ -380,6 +386,13 @@ FROM vehicles v
 WHERE v.organization_id = sqlc.arg(organization_id)
   AND v.id = sqlc.arg(id);
 
+-- name: GetReservationVehicleByUUID :one
+SELECT v.id, v.uuid, v.plate
+FROM vehicles v
+WHERE v.organization_id = sqlc.arg(organization_id)
+  AND v.uuid = sqlc.arg(uuid)
+  AND v.deleted_at IS NULL;
+
 -- name: ListReservationTargetUUIDs :many
 -- Bulk "all matching": the uuids of the list filter in the branch scope.
 SELECT r.uuid
@@ -444,7 +457,7 @@ LIMIT 500;
 SELECT pv.id, pv.uuid, pv.version, pv.guarantee_type, pv.guarantee_label, pv.deposit_amount, pv.min_driver_age,
     pv.min_license_years, pv.included_km_per_day, pv.extra_km_fee, pv.fuel_policy,
     p.id AS product_id, p.uuid AS product_uuid, p.code AS product_code, p.title AS product_title,
-    p.status AS product_status, p.is_active AS product_is_active, p.current_version
+    p.status AS product_status, p.is_active AS product_is_active, p.current_version, p.segment_id
 FROM rental_product_versions pv
 JOIN rental_products p ON p.organization_id = pv.organization_id AND p.id = pv.product_id
 WHERE pv.organization_id = sqlc.arg(organization_id)
@@ -453,7 +466,7 @@ WHERE pv.organization_id = sqlc.arg(organization_id)
   AND pv.version = sqlc.arg(version);
 
 -- name: GetReservationProductByUUID :one
-SELECT p.id, p.uuid, p.code, p.title, p.status, p.is_active, p.current_version
+SELECT p.id, p.uuid, p.code, p.title, p.status, p.is_active, p.current_version, p.segment_id
 FROM rental_products p
 WHERE p.organization_id = sqlc.arg(organization_id)
   AND p.uuid = sqlc.arg(uuid)
@@ -494,6 +507,13 @@ WHERE d.organization_id = sqlc.arg(organization_id)
 DELETE FROM reservation_drivers
 WHERE organization_id = sqlc.arg(organization_id)
   AND reservation_id = sqlc.arg(reservation_id);
+
+-- name: DeleteReservation :execrows
+-- Compensation of a create whose follow-up (equipment) failed: the row
+-- never became visible as a sale.
+DELETE FROM reservations
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id);
 
 -- name: GetReservationUserInOrganization :one
 -- A member of the organization (staff assignment, task assignee).

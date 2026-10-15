@@ -381,6 +381,30 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		}), http.StatusCreated, "create customer document"), "uuid")
 		must(upload(o, http.MethodPut, c+"/documents/"+ids["customerDocument"]+"/file", "file", "ehliyet.png", png, nil),
 			http.StatusOK, "upload customer document file")
+		// Reservations (TEC-704 / TEC-706 / TEC-698): a quote at the transfer's
+		// destination after the hold, a reservation from it (confirmed: auto
+		// approval, no prepayment), an open quote, and a resolution task from
+		// a block over the reservation (the only vehicle cannot be re-planned).
+		ids["quote"] = str(must(call(o, http.MethodPost, "/v1/tenant/quotes", map[string]any{
+			"pickup_branch_uuid": ids["branch"], "starts_at": day(6), "ends_at": day(7), "product_uuid": ids["product"],
+			"customer_uuid": ids["customer"],
+		}), http.StatusCreated, "create quote"), "uuid")
+		ids["reservation"] = str(must(call(o, http.MethodPost, "/v1/tenant/reservations", map[string]any{
+			"quote_uuid": ids["quote"], "customer_uuid": ids["customer"], "drivers": []map[string]any{{"driver_uuid": ids["driver"]}},
+			"note": m,
+		}), http.StatusCreated, "create reservation"), "uuid")
+		ids["quoteOpen"] = str(must(call(o, http.MethodPost, "/v1/tenant/quotes", map[string]any{
+			"pickup_branch_uuid": ids["branch"], "starts_at": day(8), "ends_at": day(9), "product_uuid": ids["product"],
+		}), http.StatusCreated, "create open quote"), "uuid")
+		must(call(o, http.MethodPost, v+"/blocks", map[string]any{
+			"kind": "damage", "reason": m, "starts_at": day(6), "ends_at": day(7),
+		}), http.StatusCreated, "block over the reservation")
+		tasks := must(call(o, http.MethodGet, "/v1/tenant/resolution-tasks?reservation="+ids["reservation"], nil), http.StatusOK, "tasks")
+		taskItems := pageItems(t, tasks.data)
+		if len(taskItems) != 1 {
+			t.Fatalf("resolution task from the block: %s", tasks.raw)
+		}
+		ids["task"] = taskItems[0].(map[string]any)["uuid"].(string)
 		ids["exportJob"] = str(must(call(o, http.MethodPost, "/v1/tenant/branches/export", map[string]any{"format": "csv"}),
 			http.StatusAccepted, "export"), "uuid")
 		ids["importJob"] = str(must(upload(o, http.MethodPost, "/v1/tenant/branches/import", "file", "branches.csv",
@@ -569,6 +593,11 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		"GET /v1/tenant/rate-plans":            {"?rental_product=" + b["product"], "?branch=" + b["branch"]},
 		"GET /v1/tenant/equipment-allocations": {"?extra=" + b["extra"], "?branch=" + b["branch"]},
 		"GET /v1/tenant/customers":             {"?q=" + orgB.marker, "?tag=" + orgB.marker, "?q=4540536920"},
+		"GET /v1/tenant/reservations": {
+			"?product=" + b["product"], "?customer=" + b["customer"], "?branch=" + b["branch"], "?q=" + orgB.marker,
+		},
+		"GET /v1/tenant/quotes":           {"?reservation=" + b["reservation"], "?product=" + b["product"]},
+		"GET /v1/tenant/resolution-tasks": {"?reservation=" + b["reservation"], "?assignee=" + bob.Uuid.String()},
 		"GET /v1/tenant/rate-plans/matrix": {
 			"?scope=branch&branch=" + b["branch"],
 			"?scope=branch_channel&branch=" + b["home"] + "&channel=web",
@@ -635,6 +664,26 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		{"POST /v1/tenant/one-way-rules/bulk", bulkIDs("rule"), nil},
 		{"POST /v1/tenant/customers/bulk", map[string]any{"action": "add_tag", "params": map[string]any{"tag": "x"},
 			"target": map[string]any{"scope": "ids", "ids": []string{orgB.ids["customer"]}}}, nil},
+		// Reservations: quotes / reservations / bulk naming B's records.
+		{"POST /v1/tenant/quotes", map[string]any{"pickup_branch_uuid": orgA.ids["branch"], "starts_at": day(20), "ends_at": day(21),
+			"product_uuid": orgB.ids["product"]}, reject},
+		{"POST /v1/tenant/quotes", map[string]any{"pickup_branch_uuid": orgB.ids["branch"], "starts_at": day(20), "ends_at": day(21),
+			"product_uuid": orgA.ids["product"]}, reject},
+		{"POST /v1/tenant/quotes", map[string]any{"pickup_branch_uuid": orgA.ids["branch"], "starts_at": day(20), "ends_at": day(21),
+			"product_uuid": orgA.ids["product"], "customer_uuid": orgB.ids["customer"]}, reject},
+		{"POST /v1/tenant/quotes/search", map[string]any{"pickup_branch_uuid": orgB.ids["branch"], "starts_at": day(20), "ends_at": day(21)}, reject},
+		{"POST /v1/tenant/quotes/search", map[string]any{"pickup_branch_uuid": orgA.ids["branch"], "starts_at": day(20), "ends_at": day(21),
+			"product_uuids": []string{orgB.ids["product"]}}, reject},
+		{"POST /v1/tenant/reservations", map[string]any{"quote_uuid": orgB.ids["quoteOpen"], "customer_uuid": orgA.ids["customer"]}, reject},
+		{"POST /v1/tenant/reservations", map[string]any{"quote_uuid": orgA.ids["quoteOpen"], "customer_uuid": orgB.ids["customer"]}, reject},
+		{"POST /v1/tenant/reservations", map[string]any{"quote_uuid": orgA.ids["quoteOpen"], "customer_uuid": orgA.ids["customer"],
+			"invoice_customer_uuid": orgB.ids["customer"]}, reject},
+		{"POST /v1/tenant/reservations", map[string]any{"quote_uuid": orgA.ids["quoteOpen"], "customer_uuid": orgA.ids["customer"],
+			"drivers": []map[string]any{{"driver_uuid": orgB.ids["driver"]}}}, reject},
+		{"POST /v1/tenant/reservations/bulk", map[string]any{"action": "cancel",
+			"target": map[string]any{"scope": "ids", "ids": []string{orgB.ids["reservation"]}, "params": map[string]any{"reason": "izolasyon"}}}, nil},
+		{"POST /v1/tenant/reservations/bulk", map[string]any{"action": "assign_staff",
+			"target": map[string]any{"scope": "ids", "ids": []string{orgA.ids["reservation"]}, "params": map[string]any{"user_uuid": bob.Uuid.String()}}}, nil},
 		{"POST /v1/tenant/invitations", map[string]any{"email": "x1@iso.test", "role_uuids": []string{orgB.ids["role"]}, "branch_scope": "all"}, reject},
 		{"POST /v1/tenant/invitations", map[string]any{"email": "x2@iso.test", "role_uuids": []string{orgA.ids["role"]},
 			"branch_scope": "selected", "branch_uuids": []string{orgB.ids["branch"]}}, reject},
@@ -725,6 +774,14 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 	}
 	// Mutations on A's own records whose body names B's records.
 	ownCases := []bodyCase{
+		{"POST /v1/tenant/reservations/" + orgA.ids["reservation"] + "/plate", map[string]any{"vehicle_uuid": orgB.ids["vehicle"]}, reject},
+		{"POST /v1/tenant/reservations/" + orgA.ids["reservation"] + "/change", map[string]any{"quote_uuid": orgB.ids["quoteOpen"]}, reject},
+		{"POST /v1/tenant/reservations/" + orgA.ids["reservation"] + "/quotes", map[string]any{"product_uuid": orgB.ids["product"]}, reject},
+		{"POST /v1/tenant/reservations/" + orgA.ids["reservation"] + "/quotes", map[string]any{"pickup_branch_uuid": orgB.ids["branch"]}, reject},
+		{"PUT /v1/tenant/reservations/" + orgA.ids["reservation"] + "/drivers", map[string]any{
+			"drivers": []map[string]any{{"driver_uuid": orgB.ids["driver"]}}}, reject},
+		{"POST /v1/tenant/reservations/" + orgA.ids["reservation"] + "/assign", map[string]any{"user_uuid": bob.Uuid}, reject},
+		{"POST /v1/tenant/resolution-tasks/" + orgA.ids["task"] + "/assign", map[string]any{"user_uuid": carol.Uuid}, reject},
 		{"PATCH /v1/tenant/rental-groups/" + orgA.ids["group"], map[string]any{"segment_uuid": orgB.ids["segment"]}, reject},
 		{"PATCH /v1/tenant/products/" + orgA.ids["product"], map[string]any{"segment_uuid": orgB.ids["segment"]}, reject},
 		{"PATCH /v1/tenant/vehicles/" + orgA.ids["vehicle"], map[string]any{"home_branch_uuid": orgB.ids["home"]}, reject},
@@ -962,6 +1019,12 @@ func paramKey(prev, name string) string {
 		return "equipmentAllocation"
 	case "campaigns/uuid":
 		return "campaign"
+	case "reservations/uuid":
+		return "reservation"
+	case "quotes/uuid":
+		return "quote"
+	case "resolution-tasks/uuid":
+		return "task"
 	}
 	return ""
 }

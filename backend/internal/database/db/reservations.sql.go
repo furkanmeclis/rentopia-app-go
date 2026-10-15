@@ -29,6 +29,27 @@ func (q *Queries) CountReservationEvents(ctx context.Context, arg CountReservati
 	return column_1, err
 }
 
+const deleteReservation = `-- name: DeleteReservation :execrows
+DELETE FROM reservations
+WHERE organization_id = $1
+  AND id = $2
+`
+
+type DeleteReservationParams struct {
+	OrganizationID int64 `json:"organization_id"`
+	ID             int64 `json:"id"`
+}
+
+// Compensation of a create whose follow-up (equipment) failed: the row
+// never became visible as a sale.
+func (q *Queries) DeleteReservation(ctx context.Context, arg DeleteReservationParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteReservation, arg.OrganizationID, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteReservationDrivers = `-- name: DeleteReservationDrivers :exec
 DELETE FROM reservation_drivers
 WHERE organization_id = $1
@@ -173,7 +194,7 @@ SELECT r.id, r.uuid, r.reference, r.status, r.payment_status, r.capacity_commitm
     r.rental_product_id, r.product_version, r.sold_rental_product_id, r.sold_product_version, r.guarantee_type,
     r.customer_id, r.channel, r.total_amount, r.prepayment_amount, r.paid_amount, r.commission_amount,
     r.collecting_party, r.quote_id, r.quote_snapshot, r.settings_version, r.review_deadline, r.payment_deadline,
-    r.assigned_user_id, r.currency, r.product_snapshot,
+    r.assigned_user_id, r.currency, r.product_snapshot, r.equipment_allocations,
     a.uuid AS allocation_uuid, a.status AS allocation_status, a.kind AS allocation_kind,
     a.vehicle_id AS allocation_vehicle_id, a.plate_fixed AS allocation_plate_fixed, a.expires_at AS allocation_expires_at,
     p.uuid AS product_uuid
@@ -224,6 +245,7 @@ type GetReservationCoreRow struct {
 	AssignedUserID       pgtype.Int8        `json:"assigned_user_id"`
 	Currency             string             `json:"currency"`
 	ProductSnapshot      []byte             `json:"product_snapshot"`
+	EquipmentAllocations []uuid.UUID        `json:"equipment_allocations"`
 	AllocationUuid       pgtype.UUID        `json:"allocation_uuid"`
 	AllocationStatus     pgtype.Text        `json:"allocation_status"`
 	AllocationKind       pgtype.Text        `json:"allocation_kind"`
@@ -271,6 +293,7 @@ func (q *Queries) GetReservationCore(ctx context.Context, arg GetReservationCore
 		&i.AssignedUserID,
 		&i.Currency,
 		&i.ProductSnapshot,
+		&i.EquipmentAllocations,
 		&i.AllocationUuid,
 		&i.AllocationStatus,
 		&i.AllocationKind,
@@ -421,7 +444,7 @@ func (q *Queries) GetReservationPointByUUID(ctx context.Context, arg GetReservat
 }
 
 const getReservationProductByUUID = `-- name: GetReservationProductByUUID :one
-SELECT p.id, p.uuid, p.code, p.title, p.status, p.is_active, p.current_version
+SELECT p.id, p.uuid, p.code, p.title, p.status, p.is_active, p.current_version, p.segment_id
 FROM rental_products p
 WHERE p.organization_id = $1
   AND p.uuid = $2
@@ -441,6 +464,7 @@ type GetReservationProductByUUIDRow struct {
 	Status         string    `json:"status"`
 	IsActive       bool      `json:"is_active"`
 	CurrentVersion int32     `json:"current_version"`
+	SegmentID      int64     `json:"segment_id"`
 }
 
 func (q *Queries) GetReservationProductByUUID(ctx context.Context, arg GetReservationProductByUUIDParams) (GetReservationProductByUUIDRow, error) {
@@ -454,6 +478,7 @@ func (q *Queries) GetReservationProductByUUID(ctx context.Context, arg GetReserv
 		&i.Status,
 		&i.IsActive,
 		&i.CurrentVersion,
+		&i.SegmentID,
 	)
 	return i, err
 }
@@ -462,7 +487,7 @@ const getReservationProductVersion = `-- name: GetReservationProductVersion :one
 SELECT pv.id, pv.uuid, pv.version, pv.guarantee_type, pv.guarantee_label, pv.deposit_amount, pv.min_driver_age,
     pv.min_license_years, pv.included_km_per_day, pv.extra_km_fee, pv.fuel_policy,
     p.id AS product_id, p.uuid AS product_uuid, p.code AS product_code, p.title AS product_title,
-    p.status AS product_status, p.is_active AS product_is_active, p.current_version
+    p.status AS product_status, p.is_active AS product_is_active, p.current_version, p.segment_id
 FROM rental_product_versions pv
 JOIN rental_products p ON p.organization_id = pv.organization_id AND p.id = pv.product_id
 WHERE pv.organization_id = $1
@@ -496,6 +521,7 @@ type GetReservationProductVersionRow struct {
 	ProductStatus    string         `json:"product_status"`
 	ProductIsActive  bool           `json:"product_is_active"`
 	CurrentVersion   int32          `json:"current_version"`
+	SegmentID        int64          `json:"segment_id"`
 }
 
 // Guarantee and conditions of a product version (reservation snapshot).
@@ -521,6 +547,7 @@ func (q *Queries) GetReservationProductVersion(ctx context.Context, arg GetReser
 		&i.ProductStatus,
 		&i.ProductIsActive,
 		&i.CurrentVersion,
+		&i.SegmentID,
 	)
 	return i, err
 }
@@ -582,6 +609,32 @@ type GetReservationVehicleByIDRow struct {
 func (q *Queries) GetReservationVehicleByID(ctx context.Context, arg GetReservationVehicleByIDParams) (GetReservationVehicleByIDRow, error) {
 	row := q.db.QueryRow(ctx, getReservationVehicleByID, arg.OrganizationID, arg.ID)
 	var i GetReservationVehicleByIDRow
+	err := row.Scan(&i.ID, &i.Uuid, &i.Plate)
+	return i, err
+}
+
+const getReservationVehicleByUUID = `-- name: GetReservationVehicleByUUID :one
+SELECT v.id, v.uuid, v.plate
+FROM vehicles v
+WHERE v.organization_id = $1
+  AND v.uuid = $2
+  AND v.deleted_at IS NULL
+`
+
+type GetReservationVehicleByUUIDParams struct {
+	OrganizationID int64     `json:"organization_id"`
+	Uuid           uuid.UUID `json:"uuid"`
+}
+
+type GetReservationVehicleByUUIDRow struct {
+	ID    int64     `json:"id"`
+	Uuid  uuid.UUID `json:"uuid"`
+	Plate string    `json:"plate"`
+}
+
+func (q *Queries) GetReservationVehicleByUUID(ctx context.Context, arg GetReservationVehicleByUUIDParams) (GetReservationVehicleByUUIDRow, error) {
+	row := q.db.QueryRow(ctx, getReservationVehicleByUUID, arg.OrganizationID, arg.Uuid)
+	var i GetReservationVehicleByUUIDRow
 	err := row.Scan(&i.ID, &i.Uuid, &i.Plate)
 	return i, err
 }
@@ -1802,6 +1855,24 @@ func (q *Queries) SetReservationAssignee(ctx context.Context, arg SetReservation
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const setReservationEquipment = `-- name: SetReservationEquipment :exec
+UPDATE reservations
+SET equipment_allocations = $1::uuid[]
+WHERE organization_id = $2
+  AND id = $3
+`
+
+type SetReservationEquipmentParams struct {
+	EquipmentAllocations []uuid.UUID `json:"equipment_allocations"`
+	OrganizationID       int64       `json:"organization_id"`
+	ID                   int64       `json:"id"`
+}
+
+func (q *Queries) SetReservationEquipment(ctx context.Context, arg SetReservationEquipmentParams) error {
+	_, err := q.db.Exec(ctx, setReservationEquipment, arg.EquipmentAllocations, arg.OrganizationID, arg.ID)
+	return err
 }
 
 const setReservationPayment = `-- name: SetReservationPayment :execrows

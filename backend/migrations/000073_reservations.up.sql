@@ -93,6 +93,9 @@ CREATE TABLE reservations (
     -- Deadline of the current waiting state (review / payment window).
     review_deadline TIMESTAMPTZ NULL,
     payment_deadline TIMESTAMPTZ NULL,
+    -- Equipment holds (extras module, TEC-702) tied to the allocation; a
+    -- date change / upgrade re-reserves them for the new allocation.
+    equipment_allocations UUID[] NOT NULL DEFAULT '{}',
     -- Staff member responsible (bulk "assign staff").
     assigned_user_id BIGINT NULL REFERENCES users (id) ON DELETE SET NULL,
     note TEXT NOT NULL DEFAULT '',

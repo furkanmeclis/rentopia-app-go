@@ -99,6 +99,10 @@ import (
 	pricingrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/repository"
 	pricingusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/qrlogin"
+	reservationsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations"
+	reservationadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/adapters"
+	reservationhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/handler"
+	reservationusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/usecase"
 	searchmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/search"
 	searchhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/search/handler"
 	searchusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/search/usecase"
@@ -392,6 +396,15 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	pricingSvc.SetCouponEvaluator(pricingadapters.NewCoupons(campaignsSvc))
 	// Availability engine (TEC-697): capacity search, holds, channel rules.
 	availabilitySvc := availabilityusecase.New(deps.DB, deps.Queries, vehicleSvc, orgSettingsSvc)
+	// Reservations (TEC-704 / TEC-706 / TEC-698): quotes, the state machine
+	// on the engine, plate plan, resolution tasks. Equipment (TEC-702) and
+	// campaigns (TEC-703) plug in through narrow ports; blocks over sold
+	// capacity re-plan reservations or open resolution tasks.
+	reservationSvc := reservationusecase.New(deps.DB, deps.Queries, availabilitySvc, pricingSvc, orgSettingsSvc)
+	reservationSvc.SetEquipment(reservationadapters.NewEquipment(extrasSvc))
+	reservationSvc.SetCoupons(reservationadapters.NewCoupons(campaignsSvc))
+	reservationSvc.SetResourceEvents(resourceEvents)
+	fleetOpsSvc.SetAffectedHandler(reservationadapters.NewAffected(reservationSvc))
 
 	// Live lists of tenant resources: org:{org_uuid}:resource:{name}, open to
 	// members whose tenant role grants the resource's read permission.
@@ -406,6 +419,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	customersmodule.RegisterLiveResources(tenantLive)
 	extrasmodule.RegisterLiveResources(tenantLive)
 	campaignsmodule.RegisterLiveResources(tenantLive)
+	reservationsmodule.RegisterLiveResources(tenantLive)
 	resourceEvents.AddResolver(tenantmodule.ChannelResolver(tenantmodule.QueriesLookup(deps.Queries)))
 	uc.AddChannelRules(tenantmodule.ChannelRule(tenantLive, tenantResolver))
 	catalogmodule.RegisterLiveResources(liveResources)
@@ -457,6 +471,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		pricingadapters.NewDateRulesIO(pricingSvc),
 		extrasadapters.NewIO(extrasSvc),
 		campaignsadapters.NewIO(campaignsSvc),
+		reservationadapters.NewIO(reservationSvc),
 		orgadapters.NewIO(orgSvc),
 		customeradapters.NewIO(customerSvc),
 	)
@@ -475,6 +490,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		fleetopsadapters.NewOneWayBulk(fleetOpsSvc),
 		extrasadapters.NewBulk(extrasSvc),
 		campaignsadapters.NewBulk(campaignsSvc),
+		reservationadapters.NewBulk(reservationSvc),
 		orgadapters.NewBulk(orgSvc),
 		customeradapters.NewBulk(customerSvc),
 	)
@@ -591,6 +607,10 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	campaignsmodule.RegisterRoutes(mux, campaignsH, campaignsmodule.EngineHandlers{
 		Export: exportH.TenantExport(campaignsmodule.Resource, campaignsmodule.ExportQueryKeys...),
 		Bulk:   bulkH.TenantExecute(campaignsmodule.Resource),
+	}, tokens, loader, tenantResolver)
+	reservationsmodule.RegisterRoutes(mux, reservationhandler.New(reservationSvc, activityRec), reservationsmodule.EngineHandlers{
+		Export: exportH.TenantExport(reservationsmodule.Resource, reservationsmodule.ExportQueryKeys...),
+		Bulk:   bulkH.TenantExecute(reservationsmodule.Resource),
 	}, tokens, loader, tenantResolver)
 	settingsmodule.RegisterRoutes(mux, settingshandler.New(
 		settingsusecase.New(deps.Queries),

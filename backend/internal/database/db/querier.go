@@ -254,6 +254,9 @@ type Querier interface {
 	DeleteRentalGroupCatalogModels(ctx context.Context, arg DeleteRentalGroupCatalogModelsParams) error
 	DeleteRentalGroupCatalogTypes(ctx context.Context, arg DeleteRentalGroupCatalogTypesParams) error
 	DeleteRentalProductImage(ctx context.Context, arg DeleteRentalProductImageParams) (int64, error)
+	// Compensation of a create whose follow-up (equipment) failed: the row
+	// never became visible as a sale.
+	DeleteReservation(ctx context.Context, arg DeleteReservationParams) (int64, error)
 	DeleteReservationDrivers(ctx context.Context, arg DeleteReservationDriversParams) error
 	DeleteRole(ctx context.Context, argUuid uuid.UUID) error
 	DeleteServicePoint(ctx context.Context, arg DeleteServicePointParams) (int64, error)
@@ -435,6 +438,7 @@ type Querier interface {
 	// A member of the organization (staff assignment, task assignee).
 	GetReservationUserInOrganization(ctx context.Context, arg GetReservationUserInOrganizationParams) (GetReservationUserInOrganizationRow, error)
 	GetReservationVehicleByID(ctx context.Context, arg GetReservationVehicleByIDParams) (GetReservationVehicleByIDRow, error)
+	GetReservationVehicleByUUID(ctx context.Context, arg GetReservationVehicleByUUIDParams) (GetReservationVehicleByUUIDRow, error)
 	// One reservation with everything the detail page shows.
 	GetReservationView(ctx context.Context, arg GetReservationViewParams) (GetReservationViewRow, error)
 	GetResolutionTask(ctx context.Context, arg GetResolutionTaskParams) (GetResolutionTaskRow, error)
@@ -652,6 +656,8 @@ type Querier interface {
 	// and active allocations - holds / reservations, TEC-697) of the given
 	// vehicles that overlap [from_at, to_at), with the block / transfer /
 	// allocation details the calendar bars show.
+	// Reservation of an allocation (TEC-706): the bar links to it and is
+	// draggable while its plate is not fixed.
 	ListFleetCalendarIntervals(ctx context.Context, arg ListFleetCalendarIntervalsParams) ([]ListFleetCalendarIntervalsRow, error)
 	// Maintenance of the given vehicles on a day in [from_day, to_day): open
 	// plans by their planned date, done items by their done date. Plans with a
@@ -925,6 +931,8 @@ type Querier interface {
 	RemoveVehicleRentalGroup(ctx context.Context, arg RemoveVehicleRentalGroupParams) (int64, error)
 	RentalGroupCodeTaken(ctx context.Context, arg RentalGroupCodeTakenParams) (bool, error)
 	RentalProductCodeTaken(ctx context.Context, arg RentalProductCodeTakenParams) (bool, error)
+	// Compensation of a failed create: the quote is usable again.
+	ReopenQuote(ctx context.Context, arg ReopenQuoteParams) error
 	ReplaceUserRoles(ctx context.Context, userID int64) error
 	// Date change / plate assignment / product change of one allocation (same
 	// optimistic check).
@@ -973,6 +981,7 @@ type Querier interface {
 	SetRentalProductActive(ctx context.Context, arg SetRentalProductActiveParams) (RentalProduct, error)
 	SetRentalProductImageSort(ctx context.Context, arg SetRentalProductImageSortParams) (int64, error)
 	SetReservationAssignee(ctx context.Context, arg SetReservationAssigneeParams) (int64, error)
+	SetReservationEquipment(ctx context.Context, arg SetReservationEquipmentParams) error
 	// Payment progress (M3 payments call it through PaymentStatusSetter).
 	SetReservationPayment(ctx context.Context, arg SetReservationPaymentParams) (int64, error)
 	SetRolePermissions(ctx context.Context, roleID int64) error

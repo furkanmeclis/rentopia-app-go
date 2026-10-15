@@ -77,7 +77,8 @@ SELECT bi.vehicle_id, bi.kind, bi.ref_uuid,
     COALESCE(al.channel, '')::text AS allocation_channel,
     ap.uuid AS allocation_product_uuid, ap.code AS allocation_product_code, ap.title AS allocation_product_title,
     apb.uuid AS allocation_pickup_uuid, apb.code AS allocation_pickup_code, apb.name AS allocation_pickup_name,
-    arb.uuid AS allocation_return_uuid, arb.code AS allocation_return_code, arb.name AS allocation_return_name
+    arb.uuid AS allocation_return_uuid, arb.code AS allocation_return_code, arb.name AS allocation_return_name,
+    rv.uuid AS reservation_uuid, rv.reference AS reservation_reference, rv.status AS reservation_status
 FROM vehicle_busy_intervals bi
 LEFT JOIN vehicle_blocks b
     ON bi.kind = 'block' AND b.organization_id = bi.organization_id AND b.uuid = bi.ref_uuid
@@ -90,6 +91,10 @@ LEFT JOIN vehicle_allocations al
 LEFT JOIN rental_products ap ON ap.organization_id = al.organization_id AND ap.id = al.rental_product_id
 LEFT JOIN branches apb ON apb.organization_id = al.organization_id AND apb.id = al.pickup_branch_id
 LEFT JOIN branches arb ON arb.organization_id = al.organization_id AND arb.id = al.return_branch_id
+-- Reservation of an allocation (TEC-706): the bar links to it and is
+-- draggable while its plate is not fixed.
+LEFT JOIN reservations rv
+    ON al.ref_type = 'reservation' AND rv.organization_id = al.organization_id AND rv.uuid = al.ref_uuid
 WHERE bi.organization_id = sqlc.arg(organization_id)
   AND bi.vehicle_id = ANY(sqlc.arg(vehicle_ids)::bigint[])
   AND NOT isempty(bi.during)

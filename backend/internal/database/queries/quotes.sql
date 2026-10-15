@@ -135,6 +135,14 @@ WHERE organization_id = sqlc.arg(organization_id)
   AND id = sqlc.arg(id)
   AND status = 'open';
 
+-- name: ReopenQuote :exec
+-- Compensation of a failed create: the quote is usable again.
+UPDATE quotes
+SET status = 'open', used_at = NULL
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND status = 'used';
+
 -- name: MarkQuoteSuperseded :exec
 UPDATE quotes
 SET status = 'superseded'
