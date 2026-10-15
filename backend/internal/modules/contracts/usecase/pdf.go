@@ -143,6 +143,7 @@ func (s *Service) OpenPDF(ctx context.Context, orgID int64, docID, id uuid.UUID)
 	}
 	rc, size, err := s.storage.Download(ctx, v.PdfObjectKey.String)
 	if err != nil {
+		s.log.Error("document_pdf_download_failed", "version", id.String(), "error", err)
 		return PDFFile{}, ErrPDFNotReady
 	}
 	if size <= 0 {

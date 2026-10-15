@@ -44,6 +44,10 @@ type Chromium struct {
 	mu      sync.Mutex
 	r       *chromium.Renderer
 	timeout time.Duration
+	// compat is set once Chromium refused go-ubltr's request blocking
+	// (Network.setBlockedURLs urlPatterns needs Chrome 142+); later prints
+	// use the Fetch-based printer of compat.go.
+	compat bool
 }
 
 // NewChromium builds the renderer (nothing starts until the first print).
@@ -57,15 +61,25 @@ func (c *Chromium) RenderPDF(ctx context.Context, html []byte) ([]byte, error) {
 	if !Available() {
 		return nil, ErrUnavailable
 	}
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
 	c.mu.Lock()
+	compat := c.compat
 	if c.r == nil {
 		c.r = chromium.New(context.Background())
 	}
 	r := c.r
 	c.mu.Unlock()
-	ctx, cancel := context.WithTimeout(ctx, c.timeout)
-	defer cancel()
+	if compat {
+		return printCompat(ctx, html, options)
+	}
 	out, err := r.RenderPDF(ctx, html, options)
+	if err != nil && unsupportedBlocking(err) {
+		c.mu.Lock()
+		c.compat = true
+		c.mu.Unlock()
+		return printCompat(ctx, html, options)
+	}
 	if err != nil {
 		// A crashed browser is restarted on the next print.
 		c.mu.Lock()

@@ -91,6 +91,7 @@ Version timeline entries:
 - Each print has a 60 s timeout.
 - The page is A4 with 15 mm margins.
 - Network loads are blocked.
+- **Compatibility fallback** (`pdfrender/compat.go`). go-ubltr blocks loads with `Network.setBlockedURLs` `urlPatterns`, which needs Chrome 142+. Chromium 141 (Playwright 1194) answers `Invalid parameters (-32602)` and nothing is printed. The first time that happens, the renderer switches to its own chromedp print with the same A4 page and margins, and blocks loads through the Fetch domain instead. `pdfrender_test.go` prints a Turkish page with a remote image when a Chromium is on PATH, and is skipped in CI.
 
 **When it runs.**
 - With a queue, rendering runs in the **worker**: task `app:documents:render-pdf` on the exports queue, enqueued after the version is created.
