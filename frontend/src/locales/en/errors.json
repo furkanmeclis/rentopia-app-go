@@ -50,5 +50,13 @@
   "codes.INVITATION_REVOKED": "This invitation was revoked.",
   "codes.INVITATION_EMAIL_MISMATCH": "This invitation was sent to another e-mail address.",
   "codes.ACCOUNT_EXISTS": "An account with this e-mail already exists.",
-  "codes.CAPACITY_UNAVAILABLE": "No vehicle can serve this request for the whole range."
+  "codes.CAPACITY_UNAVAILABLE": "No vehicle can serve this request for the whole range.",
+  "codes.QUOTE_EXPIRED": "The quote expired; price it again.",
+  "codes.QUOTE_USED": "This quote was already used.",
+  "codes.QUOTE_PRICE_CHANGED": "The price changed since the quote.",
+  "codes.DRIVER_NOT_ELIGIBLE": "The drivers do not meet the product's age or licence rules.",
+  "codes.EXTENSION_CONFLICT": "The extension does not fit the current vehicle; alternatives were offered.",
+  "codes.INVALID_STATE": "The reservation is not in a state that allows this action.",
+  "codes.PRICING_UNAVAILABLE": "No price was found for this product and range.",
+  "codes.EQUIPMENT_UNAVAILABLE": "Not enough equipment in stock."
 }

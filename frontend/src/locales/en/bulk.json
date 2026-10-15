@@ -47,5 +47,8 @@
   "confirm.extras.archive": "Archive {{count}} selected extras? Archived extras are not sold.",
   "actions.campaigns.activate": "Activate campaigns",
   "actions.campaigns.deactivate": "Deactivate campaigns",
-  "confirm.campaigns.deactivate": "Deactivate {{count}} selected campaigns? Their codes are no longer accepted."
+  "confirm.campaigns.deactivate": "Deactivate {{count}} selected campaigns? Their codes are no longer accepted.",
+  "actions.reservations.cancel": "Cancel reservations",
+  "actions.reservations.assign_staff": "Assign staff",
+  "confirm.reservations.cancel": "Cancel the {{count}} selected reservations? Capacity is released; this cannot be undone."
 }

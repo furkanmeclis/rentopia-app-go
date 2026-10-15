@@ -322,7 +322,27 @@ function AllocationDetails({
           />
         ) : null}
       </div>
-      {can(permissions.tenant.availability.read) ? (
+      {allocation.reservation && can(permissions.tenant.reservations.read) ? (
+        <>
+          <Separator />
+          <Field
+            label={t("fleet_calendar.details.reservation")}
+            value={allocation.reservation.reference}
+          />
+          <Button asChild size="sm" variant="ghost">
+            <Link
+              href={routes.tenant.reservations.detail(
+                slug,
+                allocation.reservation.uuid,
+              )}
+            >
+              <ExternalLink className="size-4" />
+              {t("fleet_calendar.details.open_reservation")}
+            </Link>
+          </Button>
+        </>
+      ) : null}
+      {!allocation.reservation && can(permissions.tenant.availability.read) ? (
         <>
           <Separator />
           <Button asChild size="sm" variant="ghost">

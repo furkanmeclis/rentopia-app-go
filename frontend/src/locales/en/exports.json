@@ -77,5 +77,6 @@
   "resources.tenant.date_rules": "Date rules",
   "resources.tenant.customers": "Customers",
   "resources.tenant.extras": "Extras",
-  "resources.tenant.campaigns": "Campaigns"
+  "resources.tenant.campaigns": "Campaigns",
+  "resources.tenant.reservations": "Reservations"
 }

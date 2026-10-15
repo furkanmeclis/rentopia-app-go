@@ -148,8 +148,9 @@ export function CalendarNavigation({
 }
 
 /**
- * Colour legend. Reservations (M2), rentals and preparation (M3) are
- * placeholders shown disabled; so is drag & drop ("plaka değişimi").
+ * Colour legend. Rentals and preparation (M3) are placeholders shown
+ * disabled. Reservation bars with a provisional plate can be dragged onto
+ * another vehicle row ("plaka değişimi").
  */
 export function CalendarLegend({ className }: { className?: string }) {
   const { t } = useLocale();
@@ -207,16 +208,9 @@ export function CalendarLegend({ className }: { className?: string }) {
       <li>
         <Tooltip>
           <TooltipTrigger asChild>
-            <span
-              tabIndex={0}
-              aria-disabled="true"
-              className="inline-flex items-center gap-1 opacity-50"
-            >
+            <span tabIndex={0} className="inline-flex items-center gap-1">
               <GripVertical className="size-3.5" aria-hidden />
               {t("fleet_calendar.legend.drag")}
-              <Badge variant="outline" className="px-1 py-0 text-[10px]">
-                M2
-              </Badge>
             </span>
           </TooltipTrigger>
           <TooltipContent className="max-w-xs">

@@ -148,5 +148,8 @@
   "profile.validation.name_too_long": "Name can be at most 255 characters.",
   "profile.toast.renamed": "Organization name updated.",
   "profile.toast.logo_uploaded": "Logo uploaded.",
-  "profile.toast.logo_removed": "Logo removed."
+  "profile.toast.logo_removed": "Logo removed.",
+  "fields.reference_prefix": "Reservation reference prefix",
+  "fields.reference_prefix_hint": "e.g. IDS → IDS-2026-000123. Empty = derived from the organization slug.",
+  "validation.reference_prefix": "2-6 capital letters or digits starting with a letter"
 }

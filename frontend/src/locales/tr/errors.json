@@ -50,5 +50,13 @@
   "codes.INVITATION_REVOKED": "Bu davet iptal edildi.",
   "codes.INVITATION_EMAIL_MISMATCH": "Bu davet başka bir e-posta adresine gönderildi.",
   "codes.ACCOUNT_EXISTS": "Bu e-posta ile bir hesap zaten var.",
-  "codes.CAPACITY_UNAVAILABLE": "Bu talep için aralığın tamamını karşılayabilecek araç yok."
+  "codes.CAPACITY_UNAVAILABLE": "Bu talep için aralığın tamamını karşılayabilecek araç yok.",
+  "codes.QUOTE_EXPIRED": "Teklifin süresi doldu; yeniden fiyatlayın.",
+  "codes.QUOTE_USED": "Bu teklif zaten kullanıldı.",
+  "codes.QUOTE_PRICE_CHANGED": "Teklif verildiğinden beri fiyat değişti.",
+  "codes.DRIVER_NOT_ELIGIBLE": "Sürücüler ürünün yaş veya ehliyet kurallarına uymuyor.",
+  "codes.EXTENSION_CONFLICT": "Uzatma mevcut araçla yapılamıyor; alternatifler sunuldu.",
+  "codes.INVALID_STATE": "Rezervasyon bu işlem için uygun durumda değil.",
+  "codes.PRICING_UNAVAILABLE": "Bu ürün ve aralık için fiyat bulunamadı.",
+  "codes.EQUIPMENT_UNAVAILABLE": "Ekipman stoğu yetersiz."
 }
