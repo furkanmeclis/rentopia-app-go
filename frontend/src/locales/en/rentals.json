@@ -255,6 +255,8 @@
   "tasks.complete_cleaning_hint": "The vehicle becomes available when cleaning is done.",
   "tasks.complete_title": "Complete the task",
   "tasks.description": "Preparation, handover, return and cleaning work of the branches.",
+  "tasks.due_window": "Due: {{from}} – {{to}}",
+  "tasks.due_window_clear": "Clear the due filter",
   "tasks.empty_description": "Preparation and handover tasks open when a rental is created.",
   "tasks.empty_title": "No tasks",
   "tasks.facets.branch": "Branch",

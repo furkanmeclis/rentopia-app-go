@@ -32,7 +32,7 @@ export function ResolutionTasksPage() {
         { label: t("reservations.tasks.title") },
       ]}
     >
-      <TasksTable persistKey="tenant-resolution-tasks-v1" />
+      <TasksTable persistKey="tenant-resolution-tasks-v1" fromUrl />
     </EntityPage>
   );
 }

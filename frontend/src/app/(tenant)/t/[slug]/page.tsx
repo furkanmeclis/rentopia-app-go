@@ -1,7 +1,7 @@
 "use client";
 
-import { TenantOverviewPage } from "@/features/tenant";
+import { OperationsOverviewPage } from "@/features/overview";
 
 export default function TenantHomePage() {
-  return <TenantOverviewPage />;
+  return <OperationsOverviewPage />;
 }

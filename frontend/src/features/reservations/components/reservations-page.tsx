@@ -13,6 +13,7 @@ import {
   EntityTable,
   EntityToolbar,
   useServerListState,
+  useUrlListDefaults,
 } from "@/components/entity";
 import { createColumn, createSelectColumnDef } from "@/components/tables";
 import { Badge } from "@/components/ui/badge";
@@ -83,8 +84,13 @@ export function ReservationsPage() {
   const { t, locale } = useLocale();
   const { slug, organization } = useTenant();
   const router = useRouter();
+  const urlDefaults = useUrlListDefaults(
+    ["status", "payment_status", "channel", "branch"],
+    ["reference", "status", "starts_at", "ends_at", "created_at"],
+  );
   const listState = useServerListState({
-    initialSort: "-created_at",
+    initialSort: urlDefaults.initialSort ?? "-created_at",
+    initialColumnFilters: urlDefaults.initialColumnFilters,
     initialPageSize: 20,
     realtime: tenantLiveList(organization, RESERVATIONS_RESOURCE),
   });

@@ -2222,6 +2222,72 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenant/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Operations overview (tenant home page)
+         * @description Requirement §15.1 "Operasyon özeti" (TEC-716). One aggregated answer
+         *     for the panel home page: KPIs and the sections that need attention
+         *     today. Any member may call it; each KPI and section is computed only
+         *     when the caller's tenant role grants the permission behind it and is
+         *     `null` otherwise (the panel hides it):
+         *
+         *     | Field | Permission |
+         *     |-------|-----------|
+         *     | `kpis.occupancy` | `tenant.rentals.read` + `tenant.vehicles.read` |
+         *     | `kpis.active_rentals`, `today_operations`, `overdue_returns` | `tenant.rentals.read` |
+         *     | `kpis.collections_today` | `tenant.payments.read` |
+         *     | `approvals` | `tenant.reservations.read` + `tenant.reservations.approve` |
+         *     | `awaiting_payment` | `tenant.reservations.read` |
+         *     | `availability_problems` | `tenant.resolution_tasks.read` |
+         *     | `integration_jobs` | `tenant.integrations.manage` (organization-wide) |
+         *     | `documents` | `tenant.contracts.read` |
+         *
+         *     Every count and row is limited to the caller's branch scope (the
+         *     visibility rule of the module that owns the data); `branch` narrows
+         *     it to one branch of the scope. "Today" is the Europe/Istanbul
+         *     calendar day. Compact sections return at most 5 rows with the full
+         *     `total`; `today_operations` returns up to 100 rows.
+         */
+        get: operations["getTenantOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/overview/badges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sidebar badge counts
+         * @description Counts behind the organization sidebar badges, in the caller's branch
+         *     scope. `approvals` (the approval queue: request + awaiting_review,
+         *     and how many passed their SLA) needs `tenant.reservations.read` +
+         *     `tenant.reservations.approve`; `resolution_tasks` (open tasks) needs
+         *     `tenant.resolution_tasks.read`. A field is `null` without its
+         *     permission.
+         */
+        get: operations["getTenantOverviewBadges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenant/members/meta": {
         parameters: {
             query?: never;
@@ -16874,6 +16940,277 @@ export interface components {
             data: components["schemas"]["OperationTask"];
             meta: components["schemas"]["ResponseMeta"];
         };
+        OverviewBranchRef: {
+            /** Format: uuid */
+            uuid: string;
+            code: string;
+            name: string;
+        };
+        OverviewWindow: {
+            /** Format: date-time */
+            start: string;
+            /**
+             * Format: date-time
+             * @description Exclusive.
+             */
+            end: string;
+        };
+        OverviewTaskCounts: {
+            /** Format: int64 */
+            total: number;
+            /** Format: int64 */
+            done: number;
+            /**
+             * Format: int64
+             * @description Open or in progress.
+             */
+            open: number;
+        };
+        OverviewOperationItem: {
+            /**
+             * Format: uuid
+             * @description Operation task uuid.
+             */
+            uuid: string;
+            /** @enum {string} */
+            task_type: "handover" | "return";
+            /** @enum {string} */
+            status: "open" | "in_progress" | "done";
+            /** Format: date-time */
+            due_at: string;
+            /** Format: date-time */
+            completed_at: string | null;
+            branch: components["schemas"]["OverviewBranchRef"];
+            rental: {
+                /** Format: uuid */
+                uuid: string;
+                reference: string;
+                status?: string;
+            };
+            /** Format: uuid */
+            reservation_uuid: string;
+            plate: string;
+            customer_name: string;
+        };
+        OverviewOverdueItem: {
+            /**
+             * Format: uuid
+             * @description Rental uuid.
+             */
+            uuid: string;
+            reference: string;
+            /** Format: uuid */
+            reservation_uuid: string;
+            /** Format: date-time */
+            planned_return_at: string;
+            /**
+             * Format: date-time
+             * @description Set by the overdue sweep (planned return + grace).
+             */
+            overdue_at: string | null;
+            /** Format: int64 */
+            late_minutes: number;
+            return_branch: components["schemas"]["OverviewBranchRef"];
+            plate: string;
+            customer_name: string;
+        };
+        OverviewWaitingItem: {
+            /**
+             * Format: uuid
+             * @description Reservation uuid.
+             */
+            uuid: string;
+            reference: string;
+            /** @enum {string} */
+            status: "request" | "awaiting_review" | "awaiting_payment";
+            channel: string;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            /**
+             * Format: date-time
+             * @description Review deadline (SLA) in the approval queue, payment deadline when awaiting payment.
+             */
+            deadline: string | null;
+            pickup_branch: components["schemas"]["OverviewBranchRef"];
+            customer_name: string;
+            currency: string;
+            /** @description Decimal string (pkg/money), e.g. "4500.00". */
+            total_amount: string;
+            /** @description Prepayment still due: prepayment − paid, not below zero. */
+            amount_due: string;
+        };
+        OverviewWaitingSection: {
+            /** Format: int64 */
+            total: number;
+            /**
+             * Format: int64
+             * @description Deadline passed.
+             */
+            overdue: number;
+            items: components["schemas"]["OverviewWaitingItem"][];
+        };
+        OverviewResolutionItem: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            task_type: "block_conflict" | "release_conflict" | "extension_conflict" | "replan_failed" | "late_return" | "late_payment";
+            reason: string;
+            /** Format: date-time */
+            created_at: string;
+            reservation: components["schemas"]["OverviewReservationRef"];
+            pickup_branch: components["schemas"]["OverviewBranchRef"];
+        };
+        OverviewReservationRef: {
+            /** Format: uuid */
+            uuid: string;
+            reference: string;
+            /** Format: date-time */
+            starts_at: string;
+        };
+        OverviewJobItem: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            direction: "inbound" | "outbound";
+            /** @description iyzico, netgsm, … (KABİS, e-document providers later) */
+            provider: string;
+            /** @description sms.send, payment.webhook, payment.refund, … */
+            kind: string;
+            /** @enum {string} */
+            status: "failed" | "needs_verification";
+            attempts: number;
+            /** @description Trimmed to 200 characters. */
+            last_error: string;
+            ref_type: string;
+            /** Format: uuid */
+            ref_uuid: string | null;
+            account: {
+                /** Format: uuid */
+                uuid: string;
+                kind: string;
+                name: string;
+            } | null;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        OverviewDocumentItem: {
+            reservation: components["schemas"]["OverviewReservationRef"];
+            pickup_branch: components["schemas"]["OverviewBranchRef"];
+            customer_name: string;
+            rental: {
+                /** Format: uuid */
+                uuid: string;
+                reference: string;
+            } | null;
+            /** @description The live rental contract; null when none was prepared yet. */
+            document: {
+                /** Format: uuid */
+                uuid: string;
+                /** @enum {string} */
+                status: "draft";
+            } | null;
+        };
+        TenantOverview: {
+            /** Format: date-time */
+            generated_at: string;
+            today: components["schemas"]["OverviewWindow"];
+            /** @enum {string} */
+            branch_scope: "all" | "selected";
+            /** @description The applied branch filter. */
+            branch: components["schemas"]["OverviewBranchRef"] | null;
+            /** @description Branches the caller may filter by (their branch scope). */
+            branches: components["schemas"]["OverviewBranchRef"][];
+            kpis: {
+                /** @description Vehicles out on an active rental ÷ rentable vehicles today. */
+                occupancy: {
+                    /** Format: int64 */
+                    rented: number;
+                    /** Format: int64 */
+                    rentable: number;
+                    /** @description Percent, one decimal. */
+                    rate: number;
+                } | null;
+                active_rentals: {
+                    /** Format: int64 */
+                    active: number;
+                    /** Format: int64 */
+                    overdue: number;
+                } | null;
+                collections_today: {
+                    /** @enum {string} */
+                    currency: "TRY";
+                    /** Format: int64 */
+                    count: number;
+                    /** @description Payments confirmed today. */
+                    amount: string;
+                    /** @description Refunds that succeeded today. */
+                    refunded: string;
+                    net: string;
+                } | null;
+            };
+            today_operations: {
+                /** Format: int64 */
+                total: number;
+                handovers: components["schemas"]["OverviewTaskCounts"];
+                returns: components["schemas"]["OverviewTaskCounts"];
+                items: components["schemas"]["OverviewOperationItem"][];
+            } | null;
+            overdue_returns: {
+                /** Format: int64 */
+                total: number;
+                items: components["schemas"]["OverviewOverdueItem"][];
+            } | null;
+            approvals: components["schemas"]["OverviewWaitingSection"] | null;
+            awaiting_payment: components["schemas"]["OverviewWaitingSection"] | null;
+            availability_problems: {
+                /** Format: int64 */
+                total: number;
+                by_type: {
+                    [key: string]: number;
+                };
+                items: components["schemas"]["OverviewResolutionItem"][];
+            } | null;
+            integration_jobs: {
+                /** Format: int64 */
+                total: number;
+                items: components["schemas"]["OverviewJobItem"][];
+            } | null;
+            documents: {
+                /** @description False when no rental contract template is active (handovers need no approved contract). */
+                required: boolean;
+                window_hours: number;
+                window: components["schemas"]["OverviewWindow"];
+                /** Format: int64 */
+                total: number;
+                items: components["schemas"]["OverviewDocumentItem"][];
+            } | null;
+        };
+        EnvelopeTenantOverview: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["TenantOverview"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        TenantOverviewBadges: {
+            approvals: {
+                /** Format: int64 */
+                pending: number;
+                /** Format: int64 */
+                overdue: number;
+            } | null;
+            resolution_tasks: {
+                /** Format: int64 */
+                open: number;
+            } | null;
+        };
+        EnvelopeTenantOverviewBadges: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["TenantOverviewBadges"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
         EnvelopeOperationTaskPage: {
             /** @enum {boolean} */
             success: true;
@@ -21958,6 +22295,69 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EnvelopeTenantContext"];
+                };
+            };
+            400: components["responses"]["OrganizationRequired"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getTenantOverview: {
+        parameters: {
+            query?: {
+                /** @description Branch uuid in the caller's scope. Unknown or out of scope → 400 with a `not_found` detail on `branch`. */
+                branch?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Overview */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeTenantOverview"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getTenantOverviewBadges: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Badge counts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeTenantOverviewBadges"];
                 };
             };
             400: components["responses"]["OrganizationRequired"];
