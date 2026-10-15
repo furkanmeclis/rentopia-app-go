@@ -12,6 +12,7 @@ import (
 )
 
 type Querier interface {
+	ActivateContractTemplate(ctx context.Context, arg ActivateContractTemplateParams) (int64, error)
 	ActivateDateRuleVersion(ctx context.Context, arg ActivateDateRuleVersionParams) (int64, error)
 	ActivateRatePlanVersion(ctx context.Context, arg ActivateRatePlanVersionParams) (int64, error)
 	AddInvitationBranch(ctx context.Context, arg AddInvitationBranchParams) error
@@ -25,10 +26,14 @@ type Querier interface {
 	AnonymizeCustomer(ctx context.Context, arg AnonymizeCustomerParams) (int64, error)
 	// Data subject request: wipes the drivers of a customer and soft-deletes them.
 	AnonymizeCustomerDrivers(ctx context.Context, arg AnonymizeCustomerDriversParams) error
+	ApproveDocumentVersion(ctx context.Context, arg ApproveDocumentVersionParams) (int64, error)
+	ArchiveActiveContractTemplate(ctx context.Context, arg ArchiveActiveContractTemplateParams) error
+	AssignOperationTask(ctx context.Context, arg AssignOperationTaskParams) (int64, error)
 	AssignResolutionTask(ctx context.Context, arg AssignResolutionTaskParams) (int64, error)
 	AssignUserRoleBySlug(ctx context.Context, arg AssignUserRoleBySlugParams) error
 	BranchCodeTaken(ctx context.Context, arg BranchCodeTakenParams) (bool, error)
 	CampaignFacets(ctx context.Context, arg CampaignFacetsParams) ([]CampaignFacetsRow, error)
+	CancelRental(ctx context.Context, arg CancelRentalParams) (int64, error)
 	CancelVehicleTransfer(ctx context.Context, arg CancelVehicleTransferParams) (int64, error)
 	CatalogDisplayBrandSlugTaken(ctx context.Context, arg CatalogDisplayBrandSlugTakenParams) (bool, error)
 	// Moves an import into a working state only from an allowed state, so two
@@ -39,9 +44,13 @@ type Querier interface {
 	ClaimVehicleReminder(ctx context.Context, arg ClaimVehicleReminderParams) (int64, error)
 	ClearAppSettingsLogo(ctx context.Context) (AppSetting, error)
 	ClearPrimaryCustomerContact(ctx context.Context, arg ClearPrimaryCustomerContactParams) error
+	// An extension past now ends the overdue state.
+	ClearRentalOverdue(ctx context.Context, arg ClearRentalOverdueParams) (int64, error)
 	ClearVehicleRentalGroups(ctx context.Context, arg ClearVehicleRentalGroupsParams) error
 	// Ends the row that is effective at from_at (a price change from from_at).
 	CloseExtraPrice(ctx context.Context, arg CloseExtraPriceParams) (int64, error)
+	// Return of the current leg (the open one of the vehicle).
+	CloseRentalVehicleLeg(ctx context.Context, arg CloseRentalVehicleLegParams) (int64, error)
 	CompleteVehicleTransfer(ctx context.Context, arg CompleteVehicleTransferParams) (int64, error)
 	// Hold -> confirmed reservation (TEC-706): same row, so capacity is never
 	// consumed twice.
@@ -55,6 +64,7 @@ type Querier interface {
 	// New draft version N+1 from an existing version (targets copied apart).
 	CopyDateRuleVersion(ctx context.Context, arg CopyDateRuleVersionParams) (CopyDateRuleVersionRow, error)
 	CopyRateBands(ctx context.Context, arg CopyRateBandsParams) error
+	CopyReservationDriversToRental(ctx context.Context, arg CopyReservationDriversToRentalParams) error
 	CountActivityEvents(ctx context.Context, arg CountActivityEventsParams) (int64, error)
 	CountAllBulkJobs(ctx context.Context) (int64, error)
 	CountAllExportJobs(ctx context.Context) (int64, error)
@@ -81,6 +91,7 @@ type Querier interface {
 	CountExtras(ctx context.Context, arg CountExtrasParams) (int64, error)
 	CountImportJobsForActor(ctx context.Context, actorID int64) (int64, error)
 	CountInvitations(ctx context.Context, arg CountInvitationsParams) (int64, error)
+	CountLivePolicyLateCharges(ctx context.Context, arg CountLivePolicyLateChargesParams) (int64, error)
 	CountNotificationsForUser(ctx context.Context, arg CountNotificationsForUserParams) (int64, error)
 	CountOneWayRules(ctx context.Context, arg CountOneWayRulesParams) (int64, error)
 	CountOrganizationMembersByOrg(ctx context.Context, arg CountOrganizationMembersByOrgParams) (int64, error)
@@ -94,6 +105,7 @@ type Querier interface {
 	CountPlatformNotifications(ctx context.Context, arg CountPlatformNotificationsParams) (int64, error)
 	CountPlatformOrganizationActivity(ctx context.Context, arg CountPlatformOrganizationActivityParams) (int64, error)
 	CountRatePlans(ctx context.Context, arg CountRatePlansParams) (int64, error)
+	CountRentalEvents(ctx context.Context, arg CountRentalEventsParams) (int64, error)
 	// Live products whose current version guarantees each group.
 	CountRentalGroupProducts(ctx context.Context, arg CountRentalGroupProductsParams) ([]CountRentalGroupProductsRow, error)
 	CountRentalGroups(ctx context.Context, arg CountRentalGroupsParams) (int64, error)
@@ -221,6 +233,7 @@ type Querier interface {
 	DateRuleNameTaken(ctx context.Context, arg DateRuleNameTakenParams) (bool, error)
 	// Self-service account deletion: keep every row, mark the user disabled.
 	DeactivateUser(ctx context.Context, id int64) (User, error)
+	DecideRentalCharge(ctx context.Context, arg DecideRentalChargeParams) (int64, error)
 	DecrementCampaignUsage(ctx context.Context, arg DecrementCampaignUsageParams) (int64, error)
 	DeleteAppLogByUUID(ctx context.Context, argUuid uuid.UUID) (int64, error)
 	DeleteAppLogsByUUIDs(ctx context.Context, uuids []uuid.UUID) (int64, error)
@@ -229,6 +242,7 @@ type Querier interface {
 	DeleteCampaignTargets(ctx context.Context, arg DeleteCampaignTargetsParams) error
 	DeleteCatalogDisplayBrand(ctx context.Context, id int64) (int64, error)
 	DeleteCatalogModel(ctx context.Context, id int64) (int64, error)
+	DeleteContractTemplate(ctx context.Context, arg DeleteContractTemplateParams) (int64, error)
 	DeleteCustomer(ctx context.Context, arg DeleteCustomerParams) (int64, error)
 	DeleteCustomerContact(ctx context.Context, arg DeleteCustomerContactParams) (int64, error)
 	DeleteCustomerContacts(ctx context.Context, arg DeleteCustomerContactsParams) error
@@ -245,12 +259,15 @@ type Querier interface {
 	DeleteOAuthAccountByProviderAccount(ctx context.Context, arg DeleteOAuthAccountByProviderAccountParams) error
 	DeleteOAuthAccountByUserProvider(ctx context.Context, arg DeleteOAuthAccountByUserProviderParams) error
 	DeleteOrganizationMember(ctx context.Context, arg DeleteOrganizationMemberParams) (int64, error)
+	// A re-computed late fee replaces the proposal (approved fees stay).
+	DeleteProposedPolicyLateCharge(ctx context.Context, arg DeleteProposedPolicyLateChargeParams) error
 	DeletePushDeviceForUser(ctx context.Context, arg DeletePushDeviceForUserParams) (int64, error)
 	DeletePushSubscription(ctx context.Context, arg DeletePushSubscriptionParams) error
 	DeletePushTickets(ctx context.Context, ids []int64) error
 	DeleteRateBand(ctx context.Context, arg DeleteRateBandParams) (int64, error)
 	DeleteRateBands(ctx context.Context, arg DeleteRateBandsParams) error
 	DeleteRatePlanDraft(ctx context.Context, arg DeleteRatePlanDraftParams) (int64, error)
+	DeleteRentalDrivers(ctx context.Context, arg DeleteRentalDriversParams) error
 	DeleteRentalGroupCatalogModels(ctx context.Context, arg DeleteRentalGroupCatalogModelsParams) error
 	DeleteRentalGroupCatalogTypes(ctx context.Context, arg DeleteRentalGroupCatalogTypesParams) error
 	DeleteRentalProductImage(ctx context.Context, arg DeleteRentalProductImageParams) (int64, error)
@@ -287,6 +304,10 @@ type Querier interface {
 	FindVehicleCatalogTypesByNames(ctx context.Context, arg FindVehicleCatalogTypesByNamesParams) ([]FindVehicleCatalogTypesByNamesRow, error)
 	// Import: a live branch of the organization by code or name (code first).
 	FindVehicleImportBranch(ctx context.Context, arg FindVehicleImportBranchParams) (Branch, error)
+	FinishOperationTask(ctx context.Context, arg FinishOperationTaskParams) (int64, error)
+	// Closes the live tasks of a rental of one type (optionally one vehicle):
+	// the matching fact was recorded (handover, return) or the rental ended.
+	FinishRentalTasks(ctx context.Context, arg FinishRentalTasksParams) ([]uuid.UUID, error)
 	FleetCatalogModelRefsByIDs(ctx context.Context, ids []int64) ([]FleetCatalogModelRefsByIDsRow, error)
 	// ------------------------------------------- platform catalog references
 	// (catalog tables are platform data, not organization scoped)
@@ -299,6 +320,7 @@ type Querier interface {
 	// Resolves a tenant brand reference: a display brand uuid, or (older
 	// clients) a TSB brand uuid mapped to its display brand.
 	GetActiveCatalogDisplayBrandForTenant(ctx context.Context, ref uuid.UUID) (GetActiveCatalogDisplayBrandForTenantRow, error)
+	GetActiveContractTemplate(ctx context.Context, arg GetActiveContractTemplateParams) (GetActiveContractTemplateRow, error)
 	GetActiveOTPByEmailType(ctx context.Context, arg GetActiveOTPByEmailTypeParams) (OtpCode, error)
 	GetAllocation(ctx context.Context, arg GetAllocationParams) (GetAllocationRow, error)
 	// The planning facts of one allocation by uuid.
@@ -341,6 +363,7 @@ type Querier interface {
 	// under the TSB brands of the model's display brand.
 	GetCatalogModelGroup(ctx context.Context, argUuid uuid.UUID) (GetCatalogModelGroupRow, error)
 	GetCatalogTypeByUUID(ctx context.Context, argUuid uuid.UUID) (GetCatalogTypeByUUIDRow, error)
+	GetContractTemplate(ctx context.Context, arg GetContractTemplateParams) (GetContractTemplateRow, error)
 	// Versioned organization settings. Rows are immutable; the current settings
 	// are the highest version of the organization.
 	GetCurrentOrganizationSettings(ctx context.Context, organizationID int64) (GetCurrentOrganizationSettingsRow, error)
@@ -352,6 +375,13 @@ type Querier interface {
 	GetCustomerSearchDocument(ctx context.Context, arg GetCustomerSearchDocumentParams) (GetCustomerSearchDocumentRow, error)
 	GetDateRule(ctx context.Context, arg GetDateRuleParams) (GetDateRuleRow, error)
 	GetDateRuleVersionByStatus(ctx context.Context, arg GetDateRuleVersionByStatusParams) (GetDateRuleVersionByStatusRow, error)
+	GetDocument(ctx context.Context, arg GetDocumentParams) (GetDocumentRow, error)
+	GetDocumentOrganization(ctx context.Context, organizationID int64) (GetDocumentOrganizationRow, error)
+	// The live rental of a reservation as documents render it.
+	GetDocumentRentalFacts(ctx context.Context, arg GetDocumentRentalFactsParams) (GetDocumentRentalFactsRow, error)
+	GetDocumentReservationRef(ctx context.Context, arg GetDocumentReservationRefParams) (GetDocumentReservationRefRow, error)
+	GetDocumentVersion(ctx context.Context, arg GetDocumentVersionParams) (GetDocumentVersionRow, error)
+	GetDocumentVersionByID(ctx context.Context, arg GetDocumentVersionByIDParams) (GetDocumentVersionByIDRow, error)
 	// Reservations resolve a driver_uuid of the organization (customer joined).
 	GetDriverByUUID(ctx context.Context, arg GetDriverByUUIDParams) (GetDriverByUUIDRow, error)
 	// The price row of one extra and product (NULL product = default)
@@ -377,9 +407,11 @@ type Querier interface {
 	GetImportJobByUUID(ctx context.Context, argUuid uuid.UUID) (ImportJob, error)
 	GetInvitationByUUID(ctx context.Context, arg GetInvitationByUUIDParams) (OrganizationInvitation, error)
 	GetInvitationPreviewByTokenHash(ctx context.Context, tokenHash string) (GetInvitationPreviewByTokenHashRow, error)
+	GetLiveDocument(ctx context.Context, arg GetLiveDocumentParams) (GetLiveDocumentRow, error)
 	// The reserved / consumed redemption of a reservation, locked.
 	GetLiveRedemptionForReservation(ctx context.Context, arg GetLiveRedemptionForReservationParams) (GetLiveRedemptionForReservationRow, error)
 	GetLiveRentalGroupForVehicles(ctx context.Context, arg GetLiveRentalGroupForVehiclesParams) (GetLiveRentalGroupForVehiclesRow, error)
+	GetLiveRentalUUIDByReservation(ctx context.Context, arg GetLiveRentalUUIDByReservationParams) (uuid.UUID, error)
 	GetLogPurgeRuleByUUID(ctx context.Context, argUuid uuid.UUID) (LogPurgeRule, error)
 	GetNotificationByID(ctx context.Context, id int64) (Notification, error)
 	GetNotificationByUUID(ctx context.Context, argUuid uuid.UUID) (Notification, error)
@@ -388,6 +420,7 @@ type Querier interface {
 	GetOAuthAccountByUserProvider(ctx context.Context, arg GetOAuthAccountByUserProviderParams) (GetOAuthAccountByUserProviderRow, error)
 	GetOAuthProviderSettings(ctx context.Context, provider string) (OauthProviderSetting, error)
 	GetOneWayRule(ctx context.Context, arg GetOneWayRuleParams) (GetOneWayRuleRow, error)
+	GetOperationTask(ctx context.Context, arg GetOperationTaskParams) (GetOperationTaskRow, error)
 	GetOrganizationByID(ctx context.Context, id int64) (Organization, error)
 	GetOrganizationBySlug(ctx context.Context, slug string) (Organization, error)
 	GetOrganizationByUUID(ctx context.Context, argUuid uuid.UUID) (Organization, error)
@@ -415,12 +448,29 @@ type Querier interface {
 	GetRateBand(ctx context.Context, arg GetRateBandParams) (GetRateBandRow, error)
 	GetRatePlan(ctx context.Context, arg GetRatePlanParams) (GetRatePlanRow, error)
 	GetRatePlanVersionByStatus(ctx context.Context, arg GetRatePlanVersionByStatusParams) (GetRatePlanVersionByStatusRow, error)
+	// ------------------------------------------------- rentals (TEC-709)
+	// The facts of an allocation a rental works on (with its related record).
+	GetRentalAllocationRef(ctx context.Context, arg GetRentalAllocationRefParams) (GetRentalAllocationRefRow, error)
+	// A live branch of the organization by uuid (with its preparation time).
+	GetRentalBranch(ctx context.Context, arg GetRentalBranchParams) (GetRentalBranchRow, error)
+	GetRentalBranchByID(ctx context.Context, arg GetRentalBranchByIDParams) (GetRentalBranchByIDRow, error)
+	GetRentalCharge(ctx context.Context, arg GetRentalChargeParams) (GetRentalChargeRow, error)
+	// The lifecycle facts of one rental (decisions; no display joins).
+	GetRentalCore(ctx context.Context, arg GetRentalCoreParams) (GetRentalCoreRow, error)
 	GetRentalGroupByUUID(ctx context.Context, arg GetRentalGroupByUUIDParams) (RentalGroup, error)
 	GetRentalProductByUUID(ctx context.Context, arg GetRentalProductByUUIDParams) (RentalProduct, error)
 	GetRentalProductByUUIDForUpdate(ctx context.Context, arg GetRentalProductByUUIDForUpdateParams) (RentalProduct, error)
 	GetRentalProductImage(ctx context.Context, arg GetRentalProductImageParams) (RentalProductImage, error)
 	GetRentalProductSearchDocument(ctx context.Context, arg GetRentalProductSearchDocumentParams) (GetRentalProductSearchDocumentRow, error)
 	GetRentalProductVersionByUUID(ctx context.Context, arg GetRentalProductVersionByUUIDParams) (RentalProductVersion, error)
+	// The reservation side a rental is created from / acts on.
+	GetRentalReservationFacts(ctx context.Context, arg GetRentalReservationFactsParams) (GetRentalReservationFactsRow, error)
+	// Branches that decide the visibility of a rental.
+	GetRentalScope(ctx context.Context, arg GetRentalScopeParams) (GetRentalScopeRow, error)
+	// A live vehicle of the organization (swap target).
+	GetRentalVehicleByUUID(ctx context.Context, arg GetRentalVehicleByUUIDParams) (GetRentalVehicleByUUIDRow, error)
+	// One rental with everything the detail page shows.
+	GetRentalView(ctx context.Context, arg GetRentalViewParams) (GetRentalViewRow, error)
 	GetReservationBranchByUUID(ctx context.Context, arg GetReservationBranchByUUIDParams) (GetReservationBranchByUUIDRow, error)
 	GetReservationByAllocation(ctx context.Context, arg GetReservationByAllocationParams) (GetReservationByAllocationRow, error)
 	GetReservationByAllocationUUID(ctx context.Context, arg GetReservationByAllocationUUIDParams) (GetReservationByAllocationUUIDRow, error)
@@ -490,11 +540,26 @@ type Querier interface {
 	InsertBulkChange(ctx context.Context, arg InsertBulkChangeParams) (BulkChange, error)
 	InsertCampaignRedemption(ctx context.Context, arg InsertCampaignRedemptionParams) (InsertCampaignRedemptionRow, error)
 	InsertCampaignTarget(ctx context.Context, arg InsertCampaignTargetParams) error
+	// Contract templates, documents, versions and approvals (TEC-710). Every
+	// query filters by organization_id; documents follow the branch scope of
+	// their reservation (pick-up OR return branch, or the rental's actual
+	// return branch), applied by the list query and checked by the use case.
+	// The next version number of the kind is taken inside the insert; a
+	// concurrent insert of the same kind hits the unique (kind, version) and
+	// retries.
+	InsertContractTemplate(ctx context.Context, arg InsertContractTemplateParams) (InsertContractTemplateRow, error)
 	InsertDateRuleTarget(ctx context.Context, arg InsertDateRuleTargetParams) error
+	InsertDocument(ctx context.Context, arg InsertDocumentParams) (InsertDocumentRow, error)
+	InsertDocumentApproval(ctx context.Context, arg InsertDocumentApprovalParams) (uuid.UUID, error)
+	InsertDocumentVersion(ctx context.Context, arg InsertDocumentVersionParams) (InsertDocumentVersionRow, error)
 	InsertEquipmentAllocation(ctx context.Context, arg InsertEquipmentAllocationParams) (InsertEquipmentAllocationRow, error)
 	InsertExtraPrice(ctx context.Context, arg InsertExtraPriceParams) (uuid.UUID, error)
 	InsertImportChange(ctx context.Context, arg InsertImportChangeParams) (ImportChange, error)
 	InsertNotificationHistory(ctx context.Context, arg InsertNotificationHistoryParams) (NotificationHistory, error)
+	// Operation tasks (TEC-709). Branch scope: t.branch_id.
+	// A live task per rental, type and vehicle at most (the partial unique
+	// index): a second open of the same task is a no-op (no row returned).
+	InsertOperationTask(ctx context.Context, arg InsertOperationTaskParams) (uuid.UUID, error)
 	InsertOrganizationSettingsVersion(ctx context.Context, arg InsertOrganizationSettingsVersionParams) (OrganizationSettingsVersion, error)
 	InsertOutboxEvent(ctx context.Context, arg InsertOutboxEventParams) (OutboxEvent, error)
 	InsertPushTicket(ctx context.Context, arg InsertPushTicketParams) error
@@ -504,8 +569,15 @@ type Querier interface {
 	InsertQuote(ctx context.Context, arg InsertQuoteParams) (InsertQuoteRow, error)
 	InsertQuoteLine(ctx context.Context, arg InsertQuoteLineParams) error
 	InsertRateBand(ctx context.Context, arg InsertRateBandParams) error
+	// Rentals (TEC-709). Every query filters by organization_id; branch scope
+	// (planned pick-up OR planned return OR actual return branch) is applied by
+	// the list queries and checked by the use case on single rows.
+	InsertRental(ctx context.Context, arg InsertRentalParams) (InsertRentalRow, error)
+	InsertRentalCharge(ctx context.Context, arg InsertRentalChargeParams) (uuid.UUID, error)
+	InsertRentalEvent(ctx context.Context, arg InsertRentalEventParams) error
 	InsertRentalGroupCatalogModels(ctx context.Context, arg InsertRentalGroupCatalogModelsParams) error
 	InsertRentalGroupCatalogTypes(ctx context.Context, arg InsertRentalGroupCatalogTypesParams) error
+	InsertRentalVehicle(ctx context.Context, arg InsertRentalVehicleParams) (InsertRentalVehicleRow, error)
 	InsertReservation(ctx context.Context, arg InsertReservationParams) (int64, error)
 	InsertReservationDriver(ctx context.Context, arg InsertReservationDriverParams) error
 	InsertReservationEvent(ctx context.Context, arg InsertReservationEventParams) error
@@ -525,6 +597,8 @@ type Querier interface {
 	InsertVehicleAssignment(ctx context.Context, arg InsertVehicleAssignmentParams) error
 	InsertVehicleEvent(ctx context.Context, arg InsertVehicleEventParams) (VehicleEvent, error)
 	InvalidateActiveOTPs(ctx context.Context, arg InvalidateActiveOTPsParams) error
+	InvalidateDocumentApprovals(ctx context.Context, arg InvalidateDocumentApprovalsParams) error
+	IssueDocumentVersion(ctx context.Context, arg IssueDocumentVersionParams) (int64, error)
 	LatestOrganizationSettingsVersion(ctx context.Context, organizationID int64) (int32, error)
 	// ------------------------------------------------- channel capacity rules
 	ListActiveCapacityRules(ctx context.Context, organizationID int64) ([]ListActiveCapacityRulesRow, error)
@@ -602,6 +676,7 @@ type Querier interface {
 	ListCatalogValuationsByPeriod(ctx context.Context, period string) ([]ListCatalogValuationsByPeriodRow, error)
 	// Platform catalog: kasko value history of one type and model year.
 	ListCatalogValuationsForVehicle(ctx context.Context, arg ListCatalogValuationsForVehicleParams) ([]ListCatalogValuationsForVehicleRow, error)
+	ListContractTemplates(ctx context.Context, arg ListContractTemplatesParams) ([]ListContractTemplatesRow, error)
 	ListCurrentRentalProductVersions(ctx context.Context, arg ListCurrentRentalProductVersionsParams) ([]RentalProductVersion, error)
 	// --- marketing consents -----------------------------------------------------------
 	ListCustomerConsents(ctx context.Context, arg ListCustomerConsentsParams) ([]ListCustomerConsentsRow, error)
@@ -626,6 +701,9 @@ type Querier interface {
 	// effective range [start, end) overlaps [date_from, date_to].
 	ListDateRules(ctx context.Context, arg ListDateRulesParams) ([]ListDateRulesRow, error)
 	ListDateRulesForExport(ctx context.Context, arg ListDateRulesForExportParams) ([]ListDateRulesForExportRow, error)
+	ListDocumentApprovals(ctx context.Context, arg ListDocumentApprovalsParams) ([]ListDocumentApprovalsRow, error)
+	ListDocumentVersions(ctx context.Context, arg ListDocumentVersionsParams) ([]ListDocumentVersionsRow, error)
+	ListDocuments(ctx context.Context, arg ListDocumentsParams) ([]ListDocumentsRow, error)
 	ListDueEquipmentOrganizations(ctx context.Context, nowAt pgtype.Timestamptz) ([]int64, error)
 	// Organizations with active holds past their expiry (expiry sweep).
 	ListDueHoldOrganizations(ctx context.Context, nowAt pgtype.Timestamptz) ([]int64, error)
@@ -680,6 +758,7 @@ type Querier interface {
 	ListInvitations(ctx context.Context, arg ListInvitationsParams) ([]ListInvitationsRow, error)
 	// Latest earlier reminder of each subject (since a cutoff day).
 	ListLastVehicleReminders(ctx context.Context, arg ListLastVehicleRemindersParams) ([]ListLastVehicleRemindersRow, error)
+	ListLiveDocumentKinds(ctx context.Context, arg ListLiveDocumentKindsParams) ([]string, error)
 	ListLiveOrganizationIDs(ctx context.Context) ([]int64, error)
 	// Every live rental group of the organization (eligibility candidates).
 	ListLiveRentalGroupsForVehicles(ctx context.Context, organizationID int64) ([]ListLiveRentalGroupsForVehiclesRow, error)
@@ -705,6 +784,8 @@ type Querier interface {
 	// Active rules of a route: the product rule (when product_id is given)
 	// first, then the generic rule. The use case takes the first row.
 	ListOneWayRulesForRoute(ctx context.Context, arg ListOneWayRulesForRouteParams) ([]ListOneWayRulesForRouteRow, error)
+	ListOperationTaskFacets(ctx context.Context, arg ListOperationTaskFacetsParams) ([]ListOperationTaskFacetsRow, error)
+	ListOperationTasks(ctx context.Context, arg ListOperationTasksParams) ([]ListOperationTasksRow, error)
 	ListOrganizationBranchOptions(ctx context.Context, organizationID int64) ([]ListOrganizationBranchOptionsRow, error)
 	ListOrganizationMembersByOrg(ctx context.Context, arg ListOrganizationMembersByOrgParams) ([]ListOrganizationMembersByOrgRow, error)
 	ListOrganizationMembershipsByUser(ctx context.Context, userID int64) ([]ListOrganizationMembershipsByUserRow, error)
@@ -715,6 +796,10 @@ type Querier interface {
 	// Access state: 'upcoming' before access_starts_at, 'expired' after
 	// access_ends_at, 'open' otherwise. Window: 'unlimited' without an end.
 	ListOrganizationsWithStats(ctx context.Context, arg ListOrganizationsWithStatsParams) ([]ListOrganizationsWithStatsRow, error)
+	// Organizations with active rentals whose vehicle should be back by now
+	// (planned return + late tolerance passed and the engine allocation ended).
+	ListOverdueRentalOrganizations(ctx context.Context, nowAt pgtype.Timestamptz) ([]int64, error)
+	ListOverdueRentals(ctx context.Context, arg ListOverdueRentalsParams) ([]uuid.UUID, error)
 	// ----------------------------------------------------------- allocations
 	// Active allocations of extras at a branch overlapping [from_at, to_at);
 	// lapsed holds no longer count (lazy expiry).
@@ -757,6 +842,11 @@ type Querier interface {
 	// Live plans of one scope target (matrix cells, import upserts) with their
 	// draft / active version ids.
 	ListRatePlansForTarget(ctx context.Context, arg ListRatePlansForTargetParams) ([]ListRatePlansForTargetRow, error)
+	ListRentalCharges(ctx context.Context, arg ListRentalChargesParams) ([]ListRentalChargesRow, error)
+	ListRentalDrivers(ctx context.Context, arg ListRentalDriversParams) ([]ListRentalDriversRow, error)
+	ListRentalEvents(ctx context.Context, arg ListRentalEventsParams) ([]ListRentalEventsRow, error)
+	// Facet counts over the caller's branch scope: (facet, value, label, count).
+	ListRentalFacets(ctx context.Context, arg ListRentalFacetsParams) ([]ListRentalFacetsRow, error)
 	// One row per (attribute, value) in use: transmission, fuel, body_type.
 	ListRentalGroupAttributeFacets(ctx context.Context, organizationID int64) ([]ListRentalGroupAttributeFacetsRow, error)
 	ListRentalGroupCatalogModelIDs(ctx context.Context, arg ListRentalGroupCatalogModelIDsParams) ([]ListRentalGroupCatalogModelIDsRow, error)
@@ -771,6 +861,10 @@ type Querier interface {
 	ListRentalProductStatusFacets(ctx context.Context, organizationID int64) ([]ListRentalProductStatusFacetsRow, error)
 	ListRentalProductVersions(ctx context.Context, arg ListRentalProductVersionsParams) ([]RentalProductVersion, error)
 	ListRentalProducts(ctx context.Context, arg ListRentalProductsParams) ([]RentalProduct, error)
+	ListRentalVehicles(ctx context.Context, arg ListRentalVehiclesParams) ([]ListRentalVehiclesRow, error)
+	// One page of rentals in the caller's branch scope with the list filters;
+	// total is the window count.
+	ListRentals(ctx context.Context, arg ListRentalsParams) ([]ListRentalsRow, error)
 	// Active repeat-customer campaigns (eligibility is evaluated in Go).
 	ListRepeatCustomerCampaigns(ctx context.Context, organizationID int64) ([]ListRepeatCustomerCampaignsRow, error)
 	ListReservationDriverIDs(ctx context.Context, arg ListReservationDriverIDsParams) ([]int64, error)
@@ -821,6 +915,9 @@ type Querier interface {
 	// Busy intervals of one vehicle that overlap [from_at, to_at) (NULL end =
 	// unbounded), from the vehicle_busy_intervals view; kinds NULL = all.
 	ListVehicleBusyIntervals(ctx context.Context, arg ListVehicleBusyIntervalsParams) ([]ListVehicleBusyIntervalsRow, error)
+	// Active allocations of a vehicle (other than one) whose period ends after
+	// from_at, in time order: what a rental's longer or moved end runs into.
+	ListVehicleCommitmentsAfter(ctx context.Context, arg ListVehicleCommitmentsAfterParams) ([]ListVehicleCommitmentsAfterRow, error)
 	// Current documents (latest valid_until per vehicle and type) of live,
 	// active vehicles that expire on or before due_before (today + horizon).
 	ListVehicleDocumentAlerts(ctx context.Context, arg ListVehicleDocumentAlertsParams) ([]ListVehicleDocumentAlertsRow, error)
@@ -874,6 +971,9 @@ type Querier interface {
 	// reservation inside the caller's transaction).
 	LockReservation(ctx context.Context, arg LockReservationParams) (LockReservationRow, error)
 	MarkAllNotificationsReadForUser(ctx context.Context, arg MarkAllNotificationsReadForUserParams) (int64, error)
+	// Handover: the confirmed reservation's allocation becomes the rental's
+	// (same row, the plate is promised from now on).
+	MarkAllocationRental(ctx context.Context, arg MarkAllocationRentalParams) (int64, error)
 	MarkBulkJobCompleted(ctx context.Context, arg MarkBulkJobCompletedParams) (BulkJob, error)
 	MarkBulkJobFailed(ctx context.Context, arg MarkBulkJobFailedParams) (BulkJob, error)
 	MarkBulkJobProcessing(ctx context.Context, id int64) (BulkJob, error)
@@ -937,6 +1037,8 @@ type Querier interface {
 	// Date change / plate assignment / product change of one allocation (same
 	// optimistic check).
 	ReplanAllocation(ctx context.Context, arg ReplanAllocationParams) (int64, error)
+	// The planned pick-up / return moved: live tasks of the type follow.
+	RescheduleRentalTasks(ctx context.Context, arg RescheduleRentalTasksParams) error
 	// For each extra: the price of the product effective at now_at, else the
 	// default price (product rows sort first).
 	ResolveExtraPrices(ctx context.Context, arg ResolveExtraPricesParams) ([]ResolveExtraPricesRow, error)
@@ -966,6 +1068,11 @@ type Querier interface {
 	SetCustomerDocumentFile(ctx context.Context, arg SetCustomerDocumentFileParams) (CustomerDocument, error)
 	SetCustomerTags(ctx context.Context, arg SetCustomerTagsParams) (Customer, error)
 	SetDateRuleState(ctx context.Context, arg SetDateRuleStateParams) (int64, error)
+	SetDocumentCurrent(ctx context.Context, arg SetDocumentCurrentParams) (int64, error)
+	SetDocumentStatus(ctx context.Context, arg SetDocumentStatusParams) (int64, error)
+	SetDocumentVersionPDF(ctx context.Context, arg SetDocumentVersionPDFParams) (int64, error)
+	SetDocumentVersionPDFFailed(ctx context.Context, arg SetDocumentVersionPDFFailedParams) (int64, error)
+	SetDocumentVersionPDFPending(ctx context.Context, arg SetDocumentVersionPDFPendingParams) (int64, error)
 	SetExtraStatus(ctx context.Context, arg SetExtraStatusParams) (int64, error)
 	// Moves the expiry of an active hold (reservation review -> payment
 	// window); the new expiry must lie in the future.
@@ -977,9 +1084,17 @@ type Querier interface {
 	SetOrganizationLogo(ctx context.Context, arg SetOrganizationLogoParams) (Organization, error)
 	SetOrganizationStatus(ctx context.Context, arg SetOrganizationStatusParams) (Organization, error)
 	SetRatePlanState(ctx context.Context, arg SetRatePlanStateParams) (int64, error)
+	SetRentalChecked(ctx context.Context, arg SetRentalCheckedParams) (int64, error)
 	SetRentalGroupActive(ctx context.Context, arg SetRentalGroupActiveParams) (RentalGroup, error)
+	SetRentalHandover(ctx context.Context, arg SetRentalHandoverParams) (int64, error)
+	SetRentalOverdue(ctx context.Context, arg SetRentalOverdueParams) (int64, error)
 	SetRentalProductActive(ctx context.Context, arg SetRentalProductActiveParams) (RentalProduct, error)
 	SetRentalProductImageSort(ctx context.Context, arg SetRentalProductImageSortParams) (int64, error)
+	SetRentalReturn(ctx context.Context, arg SetRentalReturnParams) (int64, error)
+	// Current vehicle / allocation (plate change before the handover, swap).
+	SetRentalVehicle(ctx context.Context, arg SetRentalVehicleParams) (int64, error)
+	// Swap: the reservation follows the rental to the new allocation.
+	SetReservationAllocationForRental(ctx context.Context, arg SetReservationAllocationForRentalParams) (int64, error)
 	SetReservationAssignee(ctx context.Context, arg SetReservationAssigneeParams) (int64, error)
 	SetReservationEquipment(ctx context.Context, arg SetReservationEquipmentParams) error
 	// Payment progress (M3 payments call it through PaymentStatusSetter).
@@ -1009,8 +1124,10 @@ type Querier interface {
 	SoftDeleteVehicleDocument(ctx context.Context, arg SoftDeleteVehicleDocumentParams) (int64, error)
 	SoftDeleteVehicleMaintenance(ctx context.Context, arg SoftDeleteVehicleMaintenanceParams) (int64, error)
 	SoftDeleteVehicleSegment(ctx context.Context, arg SoftDeleteVehicleSegmentParams) (int64, error)
+	StartOperationTask(ctx context.Context, arg StartOperationTaskParams) (int64, error)
 	StartVehicleTransfer(ctx context.Context, arg StartVehicleTransferParams) (int64, error)
 	SupersedeDateRuleVersion(ctx context.Context, arg SupersedeDateRuleVersionParams) (int64, error)
+	SupersedeDocumentVersion(ctx context.Context, arg SupersedeDocumentVersionParams) (int64, error)
 	SupersedeRatePlanVersion(ctx context.Context, arg SupersedeRatePlanVersionParams) (int64, error)
 	SyncCatalogBrandsDisplayName(ctx context.Context, displayBrandID int64) (int64, error)
 	TenantCountCatalogBrands(ctx context.Context, arg TenantCountCatalogBrandsParams) (int64, error)
@@ -1039,6 +1156,7 @@ type Querier interface {
 	UpdateCatalogImportState(ctx context.Context, arg UpdateCatalogImportStateParams) (CatalogImport, error)
 	UpdateCatalogModel(ctx context.Context, arg UpdateCatalogModelParams) (CatalogModel, error)
 	UpdateCatalogType(ctx context.Context, arg UpdateCatalogTypeParams) (int64, error)
+	UpdateContractTemplate(ctx context.Context, arg UpdateContractTemplateParams) (int64, error)
 	UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) (Customer, error)
 	UpdateCustomerContact(ctx context.Context, arg UpdateCustomerContactParams) (CustomerContact, error)
 	UpdateDateRuleDraft(ctx context.Context, arg UpdateDateRuleDraftParams) (int64, error)
@@ -1103,6 +1221,7 @@ type Querier interface {
 	// live, active vehicles.
 	VehiclePlateTaken(ctx context.Context, arg VehiclePlateTakenParams) (bool, error)
 	VehicleSegmentCodeTaken(ctx context.Context, arg VehicleSegmentCodeTakenParams) (bool, error)
+	VoidRentalDocuments(ctx context.Context, arg VoidRentalDocumentsParams) ([]uuid.UUID, error)
 	WithdrawAllCustomerConsents(ctx context.Context, arg WithdrawAllCustomerConsentsParams) error
 	WithdrawCustomerConsent(ctx context.Context, arg WithdrawCustomerConsentParams) (int64, error)
 }

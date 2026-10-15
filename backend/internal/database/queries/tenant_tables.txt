@@ -54,3 +54,13 @@ equipment_allocations
 campaigns
 campaign_targets
 campaign_redemptions
+rentals
+rental_vehicles
+rental_drivers
+rental_events
+rental_charges
+operation_tasks
+contract_templates
+documents
+document_versions
+document_approvals

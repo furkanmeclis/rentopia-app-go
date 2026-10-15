@@ -358,3 +358,37 @@ SET deleted_at = NOW()
 WHERE organization_id = sqlc.arg(organization_id)
   AND uuid = sqlc.arg(uuid)
   AND deleted_at IS NULL;
+
+-- ------------------------------------------------- rentals (TEC-709)
+
+-- name: GetRentalAllocationRef :one
+-- The facts of an allocation a rental works on (with its related record).
+SELECT a.id, a.uuid, a.vehicle_id, a.rental_product_id, a.product_version, a.kind, a.status, a.starts_at, a.ends_at,
+    a.pickup_branch_id, a.return_branch_id, a.pickup_point_id, a.return_point_id, a.plate_fixed,
+    a.channel, a.fleet_pool, a.ref_type, a.ref_uuid
+FROM vehicle_allocations a
+WHERE a.organization_id = sqlc.arg(organization_id)
+  AND a.uuid = sqlc.arg(uuid);
+
+-- name: MarkAllocationRental :execrows
+-- Handover: the confirmed reservation's allocation becomes the rental's
+-- (same row, the plate is promised from now on).
+UPDATE vehicle_allocations
+SET kind = 'rental', plate_fixed = TRUE, expires_at = NULL
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND status = 'active'
+  AND kind = 'reservation';
+
+-- name: ListVehicleCommitmentsAfter :many
+-- Active allocations of a vehicle (other than one) whose period ends after
+-- from_at, in time order: what a rental's longer or moved end runs into.
+SELECT a.id, a.uuid, a.kind, a.starts_at, lower(a.period)::timestamptz AS period_start,
+    upper(a.period)::timestamptz AS period_end, a.pickup_branch_id
+FROM vehicle_allocations a
+WHERE a.organization_id = sqlc.arg(organization_id)
+  AND a.vehicle_id = sqlc.arg(vehicle_id)
+  AND a.id <> sqlc.arg(exclude_id)
+  AND a.status = 'active'
+  AND upper(a.period) > sqlc.arg(from_at)::timestamptz
+ORDER BY lower(a.period);
