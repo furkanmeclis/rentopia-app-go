@@ -70,6 +70,8 @@ export const FIELD_LABEL_KEYS: Record<string, string> = {
     "tenant_settings.fields.payment_hold_minutes",
   "reservation.quote_validity_minutes":
     "tenant_settings.fields.quote_validity_minutes",
+  "reservation.max_online_rental_days":
+    "tenant_settings.fields.max_online_rental_days",
   "payment.prepayment_rule": "tenant_settings.fields.prepayment_rule",
   "payment.prepayment_value": "tenant_settings.fields.prepayment_value",
   "payment.full_payment_allowed": "tenant_settings.fields.full_payment_allowed",
