@@ -495,6 +495,35 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			"point_uuid": ids["point"], "note": m, "assignee_uuid": o.owner.Uuid,
 		}), http.StatusCreated, "create field task"), "uuid")
 		ids["charge"] = uuid.NewString()
+		// KABİS (TEC-726): a start notification of the rental with its
+		// integration job, waiting on a dependency (the handover hook and
+		// the runner are covered by the kabis tests; the seed stores the
+		// rows the routes read).
+		var kRental, kBranch, kJob int64
+		if err := pool.QueryRow(ctx, `SELECT r.id, res.pickup_branch_id FROM rentals r
+			JOIN reservations res ON res.organization_id = r.organization_id AND res.id = r.reservation_id
+			WHERE r.organization_id = $1 AND res.organization_id = $1 AND r.uuid = $2`, o.org.ID, ids["rental"]).Scan(&kRental, &kBranch); err != nil {
+			t.Fatal(err)
+		}
+		ids["kabisNotification"] = uuid.NewString()
+		if err := pool.QueryRow(ctx, `INSERT INTO integration_jobs (organization_id, direction, provider, kind, idempotency_key, status,
+			payload, ref_type, ref_uuid, last_error)
+			VALUES ($1, 'outbound', 'kabis', 'kabis.rental_start', $2, 'waiting_dependency', $3, 'kabis_notification', $4, 'waiting on dependency')
+			RETURNING id`, o.org.ID, fmt.Sprintf("org:%d:kabis:%s", o.org.ID, ids["kabisNotification"]),
+			fmt.Sprintf(`{"notification_uuid": %q, "rental_reference": %q}`, ids["kabisNotification"], m), ids["kabisNotification"]).Scan(&kJob); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(ctx, `INSERT INTO kabis_notifications (uuid, organization_id, rental_id, branch_id, rental_branch_id, event,
+			cause, integration_job_id, occurred_at, plate, summary, hold_reason)
+			VALUES ($1, $2, $3, $4, $4, 'rental_start', 'handover', $5, NOW(), '34 ISO 1', $6, 'no_account')`,
+			ids["kabisNotification"], o.org.ID, kRental, kBranch, kJob,
+			fmt.Sprintf(`{"renter": {"first_name": %q}, "vehicle": {"plate": "34 ISO 1"}}`, m)); err != nil {
+			t.Fatal(err)
+		}
+		// Reported through the manual channel with a receipt (the
+		// attachment route streams it).
+		must(upload(o, http.MethodPost, "/v1/tenant/kabis-notifications/"+ids["kabisNotification"]+"/mark-manual", "file", "makbuz.png", png,
+			map[string]string{"reason": m + " elle bildirildi", "reference": m + "-KBS"}), http.StatusOK, "kabis mark manual")
 		// Inspections (TEC-712 / TEC-714): the handover form of the rental
 		// with a damage and an uploaded photo; its template is the default
 		// one created on first use.
@@ -746,6 +775,9 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		"GET /v1/tenant/inspections":      {"?rental=" + b["rental"]},
 		"GET /v1/tenant/toll-passes": {
 			"?vehicle=" + b["vehicle"], "?rental=" + b["rental"], "?q=" + orgB.marker, "?review=1",
+		},
+		"GET /v1/tenant/kabis-notifications": {
+			"?rental=" + b["rental"], "?q=" + orgB.marker, "?needs_action=1", "?status=waiting_dependency",
 		},
 		// Operations overview (TEC-716): B's branches as the filter are
 		// unknown in A (not_found); the plain call and the badges are
@@ -1255,6 +1287,8 @@ func paramKey(prev, name string) string {
 		return "tollPass"
 	case "toll-tags/tagUuid":
 		return "tollTag"
+	case "kabis-notifications/uuid":
+		return "kabisNotification"
 	}
 	return ""
 }

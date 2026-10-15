@@ -155,6 +155,11 @@ const (
 	PermTenantTollsExport = "tenant.tolls.export"
 	PermTenantTollsImport = "tenant.tolls.import"
 	PermTenantTollsReview = "tenant.tolls.review"
+	// KABİS notifications (TEC-726, migration 000501). The KABİS account
+	// itself is an integration account (PermTenantIntegrationsManage).
+	PermTenantKabisRead      = "tenant.kabis.read"
+	PermTenantKabisRetry     = "tenant.kabis.retry"
+	PermTenantKabisReconcile = "tenant.kabis.reconcile"
 )
 
 // Tenant template role keys seeded by migrations 000030 and 000041.

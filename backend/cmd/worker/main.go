@@ -39,6 +39,8 @@ import (
 	importusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/imports/usecase"
 	integrationaccountsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/accounts/usecase"
 	integrationjobsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/jobs/usecase"
+	kabismodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/kabis"
+	kabisusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/kabis/usecase"
 	logsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/logs/usecase"
 	notifmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications/providers"
@@ -213,8 +215,12 @@ func main() {
 	smsProviders := smsmodule.Providers(cfg.SMS, cfg.App.Env, log)
 	// Toll providers (TEC-725): the fake outside production only.
 	tollProviders := tollsmodule.Providers(cfg.App.Env, log)
+	// KABİS adapters (TEC-726): the official slot and the fake outside
+	// production only.
+	kabisProviders := kabismodule.Providers(cfg.App.Env, log)
 	integrationAdapters := append([]integrations.Adapter{iyzicoAdapter}, smsmodule.Adapters(smsProviders)...)
 	integrationAdapters = append(integrationAdapters, tollsmodule.Adapters(tollProviders)...)
+	integrationAdapters = append(integrationAdapters, kabismodule.Adapters(kabisProviders)...)
 	integrationAccountsSvc := integrationaccountsusecase.New(queries, integrationVault,
 		integrations.NewRegistry(integrationAdapters...))
 	integrationOps := integrations.NewOperationRegistry()
@@ -252,6 +258,17 @@ func main() {
 	// fetch schedule and re-match, file imports.
 	tollsSvc := tollsusecase.New(pool, queries, integrationAccountsSvc, integrationRunner, integrationOps, tollProviders...)
 	tollsSvc.SetLogger(log)
+	// KABİS notifications (TEC-726): send / status-check steps (runner
+	// operations), the release of waiting notifications in the minute
+	// sweep, corrections from reservation changes handled here.
+	kabisSvc, err := kabisusecase.New(pool, queries, fieldCipher, integrationRunner, integrationOps, kabisProviders...)
+	if err != nil {
+		log.Error("kabis_init_failed", "error", err)
+		exit(1)
+	}
+	kabisSvc.SetStore(store)
+	kabisSvc.SetLogger(log)
+	rentalsSvc.SetKabis(kabisSvc)
 	// Bulk rental group changes go through the engine like the API.
 	vehicleSvc.SetMembershipGuard(availabilitySvc)
 	availabilitySvc.SetPlanMovedHandler(reservationSvc)
@@ -352,6 +369,7 @@ func main() {
 	fieldTasksSvc.SetResourceEvents(resourceEvents)
 	contractsSvc.SetResourceEvents(resourceEvents)
 	tollsSvc.SetResourceEvents(resourceEvents)
+	kabisSvc.SetResourceEvents(resourceEvents)
 
 	worker := queue.NewWorker(cfg, log, notifSvc.Deliver).
 		WithExport(exportSvc.ProcessExport).
@@ -395,7 +413,16 @@ func main() {
 				return nil
 			}
 			return err
-		}, integrationRunner.RunDue).
+		}, func(ctx context.Context) (int, error) {
+			// Waiting KABİS notifications whose organization now has a
+			// working adapter, then the due runner steps.
+			released, err := kabisSvc.ReleaseWaiting(ctx)
+			if err != nil {
+				log.Warn("kabis_release_failed", "error", err)
+			}
+			n, err := integrationRunner.RunDue(ctx)
+			return released + n, err
+		}).
 		WithTolls(tollsSvc.ScheduleFetches, tollsSvc.RematchDue).
 		WithDocumentPDF(contractsSvc.RenderPDF).
 		WithSearch(

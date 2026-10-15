@@ -126,9 +126,10 @@ type Scanner interface {
 
 // HandoverListener is told about a finalized handover (after commit).
 //
-// TODO(M4, KABİS): the rental notification to KABİS (the police vehicle
-// rental reporting system) hooks in here: enqueue the integration job with
-// the rental, the drivers and the handover time. Nothing is sent in M3.
+// KABİS (TEC-726) does not use it: the rental start notification is
+// recorded by the rentals Handover use case inside the handover
+// transaction (rentals usecase.KabisRecorder), so a form-based handover
+// and a direct one are reported the same way, exactly once.
 type HandoverListener interface {
 	HandedOver(ctx context.Context, orgID int64, rental, inspection uuid.UUID, at time.Time)
 }
@@ -177,7 +178,7 @@ func (s *Service) SetContracts(c Contracts) { s.contracts = c }
 // SetScanner wires the optional malware scanner.
 func (s *Service) SetScanner(sc Scanner) { s.scanner = sc }
 
-// SetHandoverListener wires the handover listener (KABİS, M4).
+// SetHandoverListener wires the handover listener.
 func (s *Service) SetHandoverListener(l HandoverListener) {
 	if l != nil {
 		s.listener = l
