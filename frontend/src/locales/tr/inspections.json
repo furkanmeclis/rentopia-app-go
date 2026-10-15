@@ -305,5 +305,10 @@
   "zones.trunk": "Bagaj",
   "zones.windshield": "Ön cam",
   "detail.yes": "Evet",
-  "detail.no": "Hayır"
+  "detail.no": "Hayır",
+  "charges.reason_late": "Geç iade (koşul sürümüne göre)",
+  "charges.reason_mileage": "Kilometre aşımı (ürün koşuluna göre)",
+  "charges.reason_fuel": "Eksik yakıt (yakıt politikasına göre)",
+  "charges.reason_policy": "Koşullara göre hesaplandı",
+  "charges.reason_equipment": "Eksik ekipman: {{item}}"
 }

@@ -29,6 +29,7 @@ import type { StepProps } from "@/features/inspections/components/wizard-steps";
 import {
   VEHICLE_STATUSES_AFTER,
   VEHICLE_STATUS_AFTER_LABEL_KEYS,
+  zoneLabel,
 } from "@/features/inspections/constants";
 import { useInspectionCharges } from "@/features/inspections/hooks/use-inspections";
 import type {
@@ -40,6 +41,12 @@ import { CHARGE_KIND_LABEL_KEYS } from "@/features/rentals/constants";
 import { currency } from "@/lib/utils/format";
 import { useLocale } from "@/providers/locale-provider";
 import { usePermission } from "@/providers/permission-provider";
+
+const POLICY_REASON_KEYS: Record<string, string> = {
+  late_return: "inspections.charges.reason_late",
+  mileage: "inspections.charges.reason_mileage",
+  fuel: "inspections.charges.reason_fuel",
+};
 
 /**
  * Return step: the charges computed from the policy snapshot (late, km,
@@ -64,6 +71,26 @@ export function ChargesStep({ ins, readOnly, commit }: StepProps) {
   const fmt = (v: string, code: string) => {
     const n = Number(v);
     return Number.isFinite(n) ? currency(n, code || "TRY", locale) : v;
+  };
+
+  /** Staff reason when given; otherwise what the line is, localized. */
+  const lineText = (line: InspectionChargeLine) => {
+    const override = ins.charge_overrides.find((o) => o.key === line.key);
+    if (override?.reason) return override.reason;
+    const [kind, ref] = line.key.split(":");
+    if (kind === "damage") {
+      const damage = ins.damages.find((d) => d.uuid === ref);
+      return damage
+        ? `${zoneLabel(t, damage.zone)}${damage.description ? ` · ${damage.description}` : ""}`
+        : line.reason;
+    }
+    if (kind === "equipment") {
+      const item = ins.template.checklist.find((i) => i.key === ref);
+      return t("inspections.charges.reason_equipment", {
+        item: item?.label ?? ref,
+      });
+    }
+    return t(POLICY_REASON_KEYS[kind] ?? "inspections.charges.reason_policy");
   };
 
   const save = async () => {
@@ -131,7 +158,9 @@ export function ChargesStep({ ins, readOnly, commit }: StepProps) {
           labelKey: "inspections.charges.columns.reason",
           enableSorting: false,
           cell: ({ row }) => (
-            <span className="line-clamp-2 text-sm">{row.original.reason}</span>
+            <span className="line-clamp-2 text-sm">
+              {lineText(row.original)}
+            </span>
           ),
         }),
         createColumn<InspectionChargeLine>({
@@ -166,7 +195,7 @@ export function ChargesStep({ ins, readOnly, commit }: StepProps) {
         }),
       ] as ColumnDef<InspectionChargeLine, unknown>[],
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fmt follows locale
-    [ins.charge_overrides, locale, overridePerm, readOnly, t],
+    [ins, locale, overridePerm, readOnly, t],
   );
 
   const data = preview.data;

@@ -305,5 +305,10 @@
   "zones.trunk": "Trunk",
   "zones.windshield": "Windshield",
   "detail.yes": "Yes",
-  "detail.no": "No"
+  "detail.no": "No",
+  "charges.reason_late": "Late return (by the terms version)",
+  "charges.reason_mileage": "Km overage (by the product terms)",
+  "charges.reason_fuel": "Missing fuel (by the fuel policy)",
+  "charges.reason_policy": "Computed from the terms",
+  "charges.reason_equipment": "Missing equipment: {{item}}"
 }

@@ -202,6 +202,11 @@ export function InspectionWizard({
   };
 
   const pendingUploads = queue.items.filter((i) => i.status !== "done").length;
+  const finalized = Boolean(ins && ins.status !== "draft");
+  const { clearDone } = queue;
+  useEffect(() => {
+    if (finalized) void clearDone();
+  }, [clearDone, finalized]);
   const slotLabel = useMemo(() => {
     const labels = new Map(
       (ins?.template.photo_slots ?? []).map((s) => [s.key, s.label]),

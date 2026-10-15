@@ -86,6 +86,7 @@ export function SignatureStep({
             src={url}
             alt={t("inspections.signature.title")}
             className="aspect-[3/1] bg-white"
+            fit="contain"
           />
           <p className="text-muted-foreground text-xs">
             {t("inspections.signature.evidence", {

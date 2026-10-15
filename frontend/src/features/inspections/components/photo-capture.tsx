@@ -38,10 +38,13 @@ export function PhotoThumb({
   src,
   alt,
   className,
+  fit = "cover",
 }: {
   src: string | null | undefined;
   alt: string;
   className?: string;
+  /** "contain" for drawings (the signature). */
+  fit?: "cover" | "contain";
 }) {
   return (
     <div
@@ -52,7 +55,14 @@ export function PhotoThumb({
     >
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element -- API media link or local blob preview
-        <img src={src} alt={alt} className="size-full object-cover" />
+        <img
+          src={src}
+          alt={alt}
+          className={cn(
+            "size-full",
+            fit === "contain" ? "object-contain" : "object-cover",
+          )}
+        />
       ) : (
         <ImageOff className="size-6" aria-hidden />
       )}
