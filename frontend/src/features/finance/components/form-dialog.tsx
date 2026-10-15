@@ -52,7 +52,7 @@ export function FinanceFormDialog<T extends FieldValues>({
       onOpenChange={onOpenChange}
       title={title}
       description={description}
-      className="sm:max-w-lg"
+      className="max-h-[90dvh] overflow-y-auto sm:max-w-lg"
       footer={
         <>
           <Button

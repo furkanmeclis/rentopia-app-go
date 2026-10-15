@@ -61,7 +61,7 @@ export function MovementsPage() {
   const [reverse, setReverse] = useState<CashMovement | null>(null);
   const listState = useServerListState({
     initialSort: "-movement_date",
-    initialPageSize: 25,
+    initialPageSize: 30,
     realtime: tenantLiveList(organization, MOVEMENTS_RESOURCE),
   });
   const accounts = useCashAccountsList({ limit: 100, offset: 0, sort: "code" });
@@ -179,7 +179,7 @@ export function MovementsPage() {
         }
         pageCount={Math.max(
           1,
-          Math.ceil(total / (listState.pagination.pageSize || 25)),
+          Math.ceil(total / (listState.pagination.pageSize || 30)),
         )}
         state={{
           ...listState.tableState,

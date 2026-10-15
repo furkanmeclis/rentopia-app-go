@@ -321,7 +321,7 @@ function StatementTable({
   const { t } = useLocale();
   const listState = useServerListState({
     initialSort: "-entry_date",
-    initialPageSize: 25,
+    initialPageSize: 30,
     realtime: tenantLiveList(liveOrg, ENTRIES_RESOURCE),
   });
   const kinds = useMemo(() => {
@@ -351,7 +351,7 @@ function StatementTable({
         emptyTitle={t("finance.statement.empty")}
         pageCount={Math.max(
           1,
-          Math.ceil(total / (listState.pagination.pageSize || 25)),
+          Math.ceil(total / (listState.pagination.pageSize || 30)),
         )}
         state={listState.tableState}
         features={{ persistKey: "tenant-finance-statement-v1", sorting: false }}

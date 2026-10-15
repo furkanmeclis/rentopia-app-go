@@ -59,7 +59,7 @@ export function CashAccountDetailPage({ uuid }: { uuid: string }) {
   const write = can(permissions.tenant.finance.cash.write);
   const listState = useServerListState({
     initialSort: "-movement_date",
-    initialPageSize: 25,
+    initialPageSize: 30,
     realtime: tenantLiveList(organization, MOVEMENTS_RESOURCE),
   });
   const kinds = useMemo(() => {
@@ -225,7 +225,7 @@ export function CashAccountDetailPage({ uuid }: { uuid: string }) {
               emptyTitle={t("finance.movements.empty")}
               pageCount={Math.max(
                 1,
-                Math.ceil(total / (listState.pagination.pageSize || 25)),
+                Math.ceil(total / (listState.pagination.pageSize || 30)),
               )}
               state={listState.tableState}
               features={{
