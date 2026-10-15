@@ -11,6 +11,8 @@ import {
   FormSection,
 } from "@/components/forms";
 import {
+  APPROVAL_PROTOCOL_LABEL_KEYS,
+  APPROVAL_PROTOCOLS,
   INVOICE_ITEM_LABEL_KEYS,
   INVOICE_ITEM_TYPES,
   SALES_CHANNELS,
@@ -273,13 +275,24 @@ export function ChannelsSection({ disabled }: SectionProps) {
       columns={2}
     >
       {SALES_CHANNELS.map((code, index) => (
-        <AppSwitch
-          key={code}
-          name={`sales_channels.${index}.is_active`}
-          label={t(SALES_CHANNEL_LABEL_KEYS[code])}
-          description={t(SALES_CHANNEL_HINT_KEYS[code])}
-          disabled={disabled}
-        />
+        <div key={code} className="space-y-3 rounded-md border p-3">
+          <AppSwitch
+            name={`sales_channels.${index}.is_active`}
+            label={t(SALES_CHANNEL_LABEL_KEYS[code])}
+            description={t(SALES_CHANNEL_HINT_KEYS[code])}
+            disabled={disabled}
+          />
+          <AppSelect
+            name={`sales_channels.${index}.approval_protocol`}
+            label={t("tenant_settings.fields.approval_protocol")}
+            description={t("tenant_settings.fields.approval_protocol_hint")}
+            options={APPROVAL_PROTOCOLS.map((p) => ({
+              value: p,
+              label: t(APPROVAL_PROTOCOL_LABEL_KEYS[p]),
+            }))}
+            disabled={disabled}
+          />
+        </div>
       ))}
     </FormSection>
   );

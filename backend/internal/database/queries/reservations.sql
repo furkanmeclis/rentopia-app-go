@@ -23,7 +23,7 @@ INSERT INTO reservations (
     customer_id, invoice_customer_id, channel, external_reference, collecting_party, commission_amount,
     net_receivable, currency, total_amount, prepayment_amount, quote_id, quote_snapshot,
     settings_version, policy_snapshot, review_deadline, payment_deadline, note, eligibility_override,
-    confirmed_at, created_by
+    confirmed_at, created_by, approval_protocol
 ) VALUES (
     sqlc.arg(uuid), sqlc.arg(organization_id), sqlc.arg(reference), sqlc.arg(status), 'unpaid',
     sqlc.arg(capacity_commitment), sqlc.narg(allocation_id),
@@ -35,7 +35,8 @@ INSERT INTO reservations (
     sqlc.arg(collecting_party), sqlc.arg(commission_amount), sqlc.arg(net_receivable), sqlc.arg(currency),
     sqlc.arg(total_amount), sqlc.arg(prepayment_amount), sqlc.narg(quote_id), sqlc.arg(quote_snapshot),
     sqlc.arg(settings_version), sqlc.arg(policy_snapshot), sqlc.narg(review_deadline), sqlc.narg(payment_deadline),
-    sqlc.arg(note), sqlc.narg(eligibility_override), sqlc.narg(confirmed_at), sqlc.narg(created_by)
+    sqlc.arg(note), sqlc.narg(eligibility_override), sqlc.narg(confirmed_at), sqlc.narg(created_by),
+    sqlc.arg(approval_protocol)
 )
 RETURNING id;
 
@@ -46,7 +47,7 @@ SELECT r.id, r.uuid, r.reference, r.status, r.payment_status, r.capacity_commitm
     r.rental_product_id, r.product_version, r.sold_rental_product_id, r.sold_product_version, r.guarantee_type,
     r.customer_id, r.channel, r.total_amount, r.prepayment_amount, r.paid_amount, r.commission_amount,
     r.collecting_party, r.quote_id, r.quote_snapshot, r.settings_version, r.review_deadline, r.payment_deadline,
-    r.assigned_user_id, r.currency, r.product_snapshot, r.equipment_allocations,
+    r.assigned_user_id, r.currency, r.product_snapshot, r.equipment_allocations, r.approval_protocol,
     a.uuid AS allocation_uuid, a.status AS allocation_status, a.kind AS allocation_kind,
     a.vehicle_id AS allocation_vehicle_id, a.plate_fixed AS allocation_plate_fixed, a.expires_at AS allocation_expires_at,
     p.uuid AS product_uuid
@@ -88,7 +89,7 @@ SELECT r.id, r.uuid, r.reference, r.status, r.payment_status, r.capacity_commitm
     r.channel, r.external_reference, r.collecting_party, r.commission_amount, r.net_receivable,
     r.currency, r.total_amount, r.prepayment_amount, r.paid_amount, r.quote_snapshot,
     r.settings_version, r.policy_snapshot, r.review_deadline, r.payment_deadline, r.note, r.eligibility_override,
-    r.confirmed_at, r.cancelled_at, r.cancel_reason, r.created_at, r.updated_at,
+    r.confirmed_at, r.cancelled_at, r.cancel_reason, r.created_at, r.updated_at, r.approval_protocol,
     pb.uuid AS pickup_branch_uuid, pb.code AS pickup_branch_code, pb.name AS pickup_branch_name,
     rb.uuid AS return_branch_uuid, rb.code AS return_branch_code, rb.name AS return_branch_name,
     pp.uuid AS pickup_point_uuid, pp.name AS pickup_point_name,
@@ -140,7 +141,7 @@ WHERE r.organization_id = sqlc.arg(organization_id)
 -- branch), with the list filters; total is the window count.
 SELECT r.uuid, r.reference, r.status, r.payment_status, r.capacity_commitment, r.starts_at, r.ends_at,
     r.channel, r.external_reference, r.currency, r.total_amount, r.paid_amount, r.created_at, r.updated_at,
-    r.review_deadline, r.payment_deadline,
+    r.review_deadline, r.payment_deadline, r.prepayment_amount, r.approval_protocol,
     pb.uuid AS pickup_branch_uuid, pb.code AS pickup_branch_code, pb.name AS pickup_branch_name,
     rb.uuid AS return_branch_uuid, rb.code AS return_branch_code, rb.name AS return_branch_name,
     p.uuid AS product_uuid, p.code AS product_code, p.title AS product_title,
@@ -204,6 +205,8 @@ ORDER BY
     CASE WHEN sqlc.arg(sort_field)::text = 'total_amount' AND sqlc.arg(sort_desc)::boolean THEN r.total_amount END DESC,
     CASE WHEN sqlc.arg(sort_field)::text = 'created_at' AND NOT sqlc.arg(sort_desc)::boolean THEN r.created_at END ASC,
     CASE WHEN sqlc.arg(sort_field)::text = 'created_at' AND sqlc.arg(sort_desc)::boolean THEN r.created_at END DESC,
+    CASE WHEN sqlc.arg(sort_field)::text = 'review_deadline' AND NOT sqlc.arg(sort_desc)::boolean THEN r.review_deadline END ASC NULLS LAST,
+    CASE WHEN sqlc.arg(sort_field)::text = 'review_deadline' AND sqlc.arg(sort_desc)::boolean THEN r.review_deadline END DESC NULLS LAST,
     r.id DESC
 LIMIT sqlc.arg(limit_count) OFFSET sqlc.arg(offset_count);
 
@@ -528,3 +531,21 @@ JOIN users u ON u.id = om.user_id
 WHERE om.organization_id = sqlc.arg(organization_id)
   AND u.uuid = sqlc.arg(uuid)
   AND u.deleted_at IS NULL;
+
+-- name: ReinstateReservation :execrows
+-- A late payment re-secured capacity for an expired reservation (TEC-708):
+-- expired → confirmed on the new firm allocation; the cancellation facts
+-- of the expiry are cleared (the timeline keeps them).
+UPDATE reservations
+SET status = 'confirmed',
+    capacity_commitment = 'firm',
+    allocation_id = sqlc.arg(allocation_id),
+    review_deadline = NULL,
+    payment_deadline = NULL,
+    confirmed_at = sqlc.arg(confirmed_at),
+    cancelled_at = NULL,
+    cancel_reason = ''
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND status = 'expired';
+

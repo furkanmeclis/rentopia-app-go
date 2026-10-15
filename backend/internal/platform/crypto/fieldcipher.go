@@ -40,6 +40,7 @@ type FieldCipher struct {
 	current  int
 	aeads    map[int]cipher.AEAD
 	master   []byte
+	masters  map[int][]byte
 	mu       sync.Mutex
 	bidxKeys map[string][]byte
 }
@@ -61,7 +62,10 @@ func NewFieldCipherVersion(keyMaterial string, version int) (*FieldCipher, error
 	if err != nil {
 		return nil, err
 	}
-	c := &FieldCipher{current: version, aeads: map[int]cipher.AEAD{}, master: master, bidxKeys: map[string][]byte{}}
+	c := &FieldCipher{
+		current: version, aeads: map[int]cipher.AEAD{}, master: master, masters: map[int][]byte{},
+		bidxKeys: map[string][]byte{},
+	}
 	if err := c.addKey(version, master); err != nil {
 		return nil, err
 	}
@@ -81,20 +85,29 @@ func (c *FieldCipher) AddKey(version int, keyMaterial string) error {
 }
 
 func (c *FieldCipher) addKey(version int, master []byte) error {
-	key, err := hkdf.Key(sha256.New, master, nil, "pii/enc/v"+strconv.Itoa(version), 32)
+	gcm, err := deriveAEAD(master, "pii/enc/v"+strconv.Itoa(version))
 	if err != nil {
-		return fmt.Errorf("fieldcipher: derive: %w", err)
+		return err
+	}
+	c.aeads[version] = gcm
+	c.masters[version] = master
+	return nil
+}
+
+func deriveAEAD(master []byte, info string) (cipher.AEAD, error) {
+	key, err := hkdf.Key(sha256.New, master, nil, info, 32)
+	if err != nil {
+		return nil, fmt.Errorf("fieldcipher: derive: %w", err)
 	}
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return fmt.Errorf("fieldcipher: cipher: %w", err)
+		return nil, fmt.Errorf("fieldcipher: cipher: %w", err)
 	}
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return fmt.Errorf("fieldcipher: gcm: %w", err)
+		return nil, fmt.Errorf("fieldcipher: gcm: %w", err)
 	}
-	c.aeads[version] = gcm
-	return nil
+	return gcm, nil
 }
 
 // CurrentVersion is the key version new ciphertexts use.
@@ -103,20 +116,28 @@ func (c *FieldCipher) CurrentVersion() int { return c.current }
 // Encrypt seals plaintext for the column / owner named by aad. An empty
 // plaintext stays empty (no value).
 func (c *FieldCipher) Encrypt(plaintext, aad string) (string, error) {
+	return seal(c.aeads, c.current, plaintext, aad)
+}
+
+func seal(aeads map[int]cipher.AEAD, current int, plaintext, aad string) (string, error) {
 	if plaintext == "" {
 		return "", nil
 	}
-	gcm := c.aeads[c.current]
+	gcm := aeads[current]
 	nonce := make([]byte, gcm.NonceSize())
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
 		return "", fmt.Errorf("fieldcipher: nonce: %w", err)
 	}
 	sealed := gcm.Seal(nonce, nonce, []byte(plaintext), []byte(aad))
-	return "v" + strconv.Itoa(c.current) + ":" + base64.StdEncoding.EncodeToString(sealed), nil
+	return "v" + strconv.Itoa(current) + ":" + base64.StdEncoding.EncodeToString(sealed), nil
 }
 
 // Decrypt opens a ciphertext of Encrypt with the same aad.
 func (c *FieldCipher) Decrypt(encoded, aad string) (string, error) {
+	return open(c.aeads, encoded, aad)
+}
+
+func open(aeads map[int]cipher.AEAD, encoded, aad string) (string, error) {
 	if encoded == "" {
 		return "", nil
 	}
@@ -128,7 +149,7 @@ func (c *FieldCipher) Decrypt(encoded, aad string) (string, error) {
 	if err != nil {
 		return "", ErrInvalidInput
 	}
-	gcm, ok := c.aeads[version]
+	gcm, ok := aeads[version]
 	if !ok {
 		return "", ErrUnknownKeyVersion
 	}
@@ -184,4 +205,46 @@ func (c *FieldCipher) BlindIndex(purpose, scope, normalized string) string {
 	_, _ = mac.Write([]byte{0})
 	_, _ = mac.Write([]byte(normalized))
 	return hex.EncodeToString(mac.Sum(nil))
+}
+
+// Sealer encrypts the values of one purpose (for example the credentials of
+// integration accounts) with keys of their own: HKDF(master_N, info
+// "purpose/<name>/enc/v<N>"), separate from the personal data column keys,
+// the blind index keys and every other purpose. The ciphertext format and
+// key rotation are the FieldCipher's; the associated data still binds a
+// value to its row and owner.
+type Sealer struct {
+	purpose string
+	current int
+	aeads   map[int]cipher.AEAD
+}
+
+// Sealer returns the purpose-separated cipher for name (every registered
+// key version decrypts; new values use the current version).
+func (c *FieldCipher) Sealer(purpose string) (*Sealer, error) {
+	if strings.TrimSpace(purpose) == "" || strings.ContainsAny(purpose, "/ ") {
+		return nil, fmt.Errorf("fieldcipher: invalid purpose %q", purpose)
+	}
+	s := &Sealer{purpose: purpose, current: c.current, aeads: map[int]cipher.AEAD{}}
+	for v, master := range c.masters {
+		gcm, err := deriveAEAD(master, "purpose/"+purpose+"/enc/v"+strconv.Itoa(v))
+		if err != nil {
+			return nil, err
+		}
+		s.aeads[v] = gcm
+	}
+	return s, nil
+}
+
+// Purpose names the sealer's purpose.
+func (s *Sealer) Purpose() string { return s.purpose }
+
+// Seal encrypts plaintext bound to aad ("" stays "").
+func (s *Sealer) Seal(plaintext, aad string) (string, error) {
+	return seal(s.aeads, s.current, plaintext, aad)
+}
+
+// Open decrypts a Seal ciphertext with the same aad.
+func (s *Sealer) Open(encoded, aad string) (string, error) {
+	return open(s.aeads, encoded, aad)
 }

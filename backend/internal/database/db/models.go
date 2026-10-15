@@ -560,6 +560,49 @@ type ImportJob struct {
 	OrganizationID pgtype.Int8        `json:"organization_id"`
 }
 
+type IntegrationAccount struct {
+	ID                    int64              `json:"id"`
+	Uuid                  uuid.UUID          `json:"uuid"`
+	OrganizationID        int64              `json:"organization_id"`
+	Kind                  string             `json:"kind"`
+	Provider              string             `json:"provider"`
+	DisplayName           string             `json:"display_name"`
+	Mode                  string             `json:"mode"`
+	Status                string             `json:"status"`
+	CredentialsCiphertext string             `json:"credentials_ciphertext"`
+	CredentialsHint       []byte             `json:"credentials_hint"`
+	Settings              []byte             `json:"settings"`
+	LastCheckedAt         pgtype.Timestamptz `json:"last_checked_at"`
+	LastCheckStatus       string             `json:"last_check_status"`
+	LastCheckError        string             `json:"last_check_error"`
+	CreatedBy             pgtype.Int8        `json:"created_by"`
+	UpdatedBy             pgtype.Int8        `json:"updated_by"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+}
+
+type IntegrationJob struct {
+	ID                   int64              `json:"id"`
+	Uuid                 uuid.UUID          `json:"uuid"`
+	OrganizationID       pgtype.Int8        `json:"organization_id"`
+	IntegrationAccountID pgtype.Int8        `json:"integration_account_id"`
+	Direction            string             `json:"direction"`
+	Provider             string             `json:"provider"`
+	Kind                 string             `json:"kind"`
+	IdempotencyKey       string             `json:"idempotency_key"`
+	Status               string             `json:"status"`
+	Attempts             int32              `json:"attempts"`
+	Deliveries           int32              `json:"deliveries"`
+	LastError            string             `json:"last_error"`
+	Payload              []byte             `json:"payload"`
+	Result               []byte             `json:"result"`
+	RefType              string             `json:"ref_type"`
+	RefUuid              pgtype.UUID        `json:"ref_uuid"`
+	CompletedAt          pgtype.Timestamptz `json:"completed_at"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
 type LogPurgeRule struct {
 	ID               int64              `json:"id"`
 	Uuid             uuid.UUID          `json:"uuid"`
@@ -796,6 +839,75 @@ type OutboxEvent struct {
 	AvailableAt pgtype.Timestamptz `json:"available_at"`
 	PublishedAt pgtype.Timestamptz `json:"published_at"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type Payment struct {
+	ID                   int64              `json:"id"`
+	Uuid                 uuid.UUID          `json:"uuid"`
+	OrganizationID       int64              `json:"organization_id"`
+	SubjectType          string             `json:"subject_type"`
+	ReservationID        pgtype.Int8        `json:"reservation_id"`
+	PaymentLinkID        pgtype.Int8        `json:"payment_link_id"`
+	IntegrationAccountID pgtype.Int8        `json:"integration_account_id"`
+	Provider             string             `json:"provider"`
+	Method               string             `json:"method"`
+	Status               string             `json:"status"`
+	Currency             string             `json:"currency"`
+	Amount               pgtype.Numeric     `json:"amount"`
+	GrossAmount          pgtype.Numeric     `json:"gross_amount"`
+	CommissionAmount     pgtype.Numeric     `json:"commission_amount"`
+	NetAmount            pgtype.Numeric     `json:"net_amount"`
+	RefundedAmount       pgtype.Numeric     `json:"refunded_amount"`
+	ConversationID       string             `json:"conversation_id"`
+	ProviderToken        pgtype.Text        `json:"provider_token"`
+	ProviderPaymentID    pgtype.Text        `json:"provider_payment_id"`
+	ProviderStatus       string             `json:"provider_status"`
+	ProviderData         []byte             `json:"provider_data"`
+	FailureReason        string             `json:"failure_reason"`
+	VerifiedVia          string             `json:"verified_via"`
+	VerifiedAt           pgtype.Timestamptz `json:"verified_at"`
+	AppliedAt            pgtype.Timestamptz `json:"applied_at"`
+	Outcome              string             `json:"outcome"`
+	Note                 string             `json:"note"`
+	CreatedBy            pgtype.Int8        `json:"created_by"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+type PaymentLink struct {
+	ID                   int64              `json:"id"`
+	Uuid                 uuid.UUID          `json:"uuid"`
+	OrganizationID       int64              `json:"organization_id"`
+	Token                string             `json:"token"`
+	SubjectType          string             `json:"subject_type"`
+	ReservationID        pgtype.Int8        `json:"reservation_id"`
+	IntegrationAccountID int64              `json:"integration_account_id"`
+	Purpose              string             `json:"purpose"`
+	Amount               pgtype.Numeric     `json:"amount"`
+	Currency             string             `json:"currency"`
+	Status               string             `json:"status"`
+	ExpiresAt            pgtype.Timestamptz `json:"expires_at"`
+	PaidAt               pgtype.Timestamptz `json:"paid_at"`
+	CancelledAt          pgtype.Timestamptz `json:"cancelled_at"`
+	CreatedBy            pgtype.Int8        `json:"created_by"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+type PaymentRefund struct {
+	ID               int64              `json:"id"`
+	Uuid             uuid.UUID          `json:"uuid"`
+	OrganizationID   int64              `json:"organization_id"`
+	PaymentID        int64              `json:"payment_id"`
+	Amount           pgtype.Numeric     `json:"amount"`
+	Currency         string             `json:"currency"`
+	Status           string             `json:"status"`
+	ProviderRefundID pgtype.Text        `json:"provider_refund_id"`
+	Reason           string             `json:"reason"`
+	FailureReason    string             `json:"failure_reason"`
+	CreatedBy        pgtype.Int8        `json:"created_by"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Permission struct {
@@ -1107,6 +1219,7 @@ type Reservation struct {
 	CreatedBy            pgtype.Int8        `json:"created_by"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	ApprovalProtocol     string             `json:"approval_protocol"`
 }
 
 type ReservationDriver struct {

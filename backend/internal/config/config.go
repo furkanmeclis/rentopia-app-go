@@ -32,6 +32,16 @@ type Config struct {
 	Search     SearchConfig
 	Sentry     SentryConfig
 	Tenancy    TenancyConfig
+	Payments   PaymentsConfig
+}
+
+// PaymentsConfig holds the provider endpoints (TEC-707). Credentials are
+// per organization (integration accounts), never in the environment; the
+// base URLs only exist so a sandbox / proxy can be pointed at. Empty values
+// use the provider defaults.
+type PaymentsConfig struct {
+	IyzicoSandboxBaseURL string
+	IyzicoLiveBaseURL    string
 }
 
 // TenancyConfig controls organizations (the multi-tenant shell). See
@@ -334,6 +344,10 @@ func Load() (Config, error) {
 			Enabled:   getBool("TENANCY_ENABLED", false),
 			SelfServe: getBool("TENANCY_SELF_SERVE", false),
 			CacheTTL:  getDuration("TENANCY_CACHE_TTL", 60*time.Second),
+		},
+		Payments: PaymentsConfig{
+			IyzicoSandboxBaseURL: getEnv("IYZICO_SANDBOX_BASE_URL", "https://sandbox-api.iyzipay.com"),
+			IyzicoLiveBaseURL:    getEnv("IYZICO_LIVE_BASE_URL", "https://api.iyzipay.com"),
 		},
 	}
 

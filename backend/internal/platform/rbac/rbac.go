@@ -127,6 +127,13 @@ const (
 	PermTenantSignatureWaive   = "tenant.signature.waive"
 	PermTenantDocumentDownload = "tenant.document.download"
 	PermTenantReportExport     = "tenant.report.export"
+	// Integrations, payments and staff approval (TEC-676 / TEC-707 /
+	// TEC-708, migration 000080). Collecting at the branch and refunds keep
+	// PermTenantPaymentCollect / PermTenantPaymentRefund.
+	PermTenantIntegrationsManage  = "tenant.integrations.manage"
+	PermTenantPaymentsRead        = "tenant.payments.read"
+	PermTenantPaymentsCreateLink  = "tenant.payments.create_link"
+	PermTenantReservationsApprove = "tenant.reservations.approve"
 )
 
 // Tenant template role keys seeded by migrations 000030 and 000041.

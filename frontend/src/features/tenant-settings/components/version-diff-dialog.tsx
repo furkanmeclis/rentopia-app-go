@@ -69,9 +69,12 @@ export function VersionDiffDialog({
     if (known) return t(known);
     const [section, a, b, c] = path.split(".");
     if (section === "sales_channels") {
-      return `${t("tenant_settings.tabs.channels")} · ${t(
+      const channel = `${t("tenant_settings.tabs.channels")} · ${t(
         SALES_CHANNEL_LABEL_KEYS[a as SalesChannelCode] ?? a,
       )}`;
+      return b === "approval_protocol"
+        ? `${channel} · ${t("tenant_settings.fields.approval_protocol")}`
+        : channel;
     }
     if (section === "tax" && a === "invoice_item_mappings") {
       return `${t(INVOICE_ITEM_LABEL_KEYS[b as InvoiceItemType] ?? b)} · ${t(

@@ -6127,7 +6127,7 @@ export interface paths {
         put?: never;
         /**
          * Approve (staff review)
-         * @description `tenant.reservations.confirm`. awaiting_review → awaiting_payment (prepayment due; the option moves to the payment window) or confirmed.
+         * @description `tenant.reservations.approve`. awaiting_review → awaiting_payment (prepayment due; the option moves to the payment window) or confirmed. See also `/accept` (requests too, payment link).
          */
         post: operations["postTenantReservationApprove"];
         delete?: never;
@@ -6541,6 +6541,453 @@ export interface paths {
          * @description `tenant.resolution_tasks.write`. Re-plans the reservation's allocation as it is; success resolves the task.
          */
         post: operations["postTenantResolutionTaskReplan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reservations/{uuid}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept a request / review (staff approval queue)
+         * @description `tenant.reservations.approve` (TEC-708). A `request` (no stock yet) reserves capacity now at the
+         *     current price: a changed price answers `409 QUOTE_PRICE_CHANGED` with a change quote in `data`;
+         *     sending its `quote_uuid` accepts at that price. A prepayment due → `awaiting_payment` on an
+         *     option that lasts the payment window, else `confirmed`. An `awaiting_review` keeps its option
+         *     (moved to the payment window). `send_payment_link` (needs `tenant.payments.create_link` and an
+         *     active payment account) creates a pay-by-link link for the prepayment due.
+         */
+        post: operations["postTenantReservationAccept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reservations/{uuid}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject a request / review
+         * @description `tenant.reservations.approve`. request / awaiting_review → cancelled with the reason (an option is released once).
+         */
+        post: operations["postTenantReservationReject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reservations/{uuid}/payment-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a pay-by-link link
+         * @description `tenant.payments.create_link` (TEC-707). The reservation must be awaiting payment or confirmed and
+         *     the organization must have an active payment account (`422 PAYMENT_ACCOUNT_REQUIRED`). The amount
+         *     defaults to the prepayment due (awaiting_payment) or the balance and never exceeds the balance;
+         *     the link expires with the payment window at the latest (else 24 h, or `expires_in_minutes`).
+         *     A new link cancels the reservation's active one.
+         */
+        post: operations["postTenantReservationPaymentLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reservations/{uuid}/collections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record a collection at the branch
+         * @description `tenant.payment.collect`. Cash / card POS / bank transfer taken at the branch (manual payment, confirmed at once). Amount defaults to the balance.
+         */
+        post: operations["postTenantReservationCollection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List payments
+         * @description `tenant.payments.read`. Payments of reservations in the caller's branch scope.
+         */
+        get: operations["getTenantPayments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/payments/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Payment detail (with refunds)
+         * @description `tenant.payments.read`.
+         */
+        get: operations["getTenantPayment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/payments/{uuid}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify a pending checkout with the provider
+         * @description `tenant.payments.read` + `tenant.payments.create_link`. A provider retrieve; a matching success confirms the payment (idempotent).
+         */
+        post: operations["postTenantPaymentVerify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/payments/{uuid}/refund": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refund a payment (partial or full)
+         * @description `tenant.payments.read` + `tenant.payment.refund`. Through the provider (manual payments are recorded). Amount defaults to the refundable rest.
+         */
+        post: operations["postTenantPaymentRefund"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/payment-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List pay-by-link links
+         * @description `tenant.payments.read`.
+         */
+        get: operations["getTenantPaymentLinks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/payment-links/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Payment link
+         * @description `tenant.payments.read`.
+         */
+        get: operations["getTenantPaymentLink"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/payment-links/{uuid}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel an active link
+         * @description `tenant.payments.create_link`.
+         */
+        post: operations["postTenantPaymentLinkCancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/integrations/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Connectable providers
+         * @description `tenant.integrations.manage`. Providers with their credential fields and modes.
+         */
+        get: operations["getTenantIntegrationsMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/integrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List integration accounts
+         * @description `tenant.integrations.manage`. Credentials are never returned (masked hints only).
+         */
+        get: operations["getTenantIntegrations"];
+        put?: never;
+        /**
+         * Connect a provider account
+         * @description `tenant.integrations.manage`. Stores the organization's own credentials sealed with the field
+         *     cipher (purpose `integration.credentials`, bound to the organization and the account). One active
+         *     account per kind (`409`). Use `/test` to check the connection.
+         */
+        post: operations["postTenantIntegration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/integrations/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Integration account
+         * @description `tenant.integrations.manage`.
+         */
+        get: operations["getTenantIntegration"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Rename, switch mode, rotate credentials
+         * @description `tenant.integrations.manage`. Only the given credential keys are replaced; a rotation or mode change resets the last check.
+         */
+        patch: operations["patchTenantIntegration"];
+        trace?: never;
+    };
+    "/v1/tenant/integrations/{uuid}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test the connection
+         * @description `tenant.integrations.manage`. An authenticated provider call that moves no money; the result is stored on the account. A failure answers `422 INTEGRATION_CHECK_FAILED` with the account in `data`.
+         */
+        post: operations["postTenantIntegrationTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/integrations/{uuid}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disable an account
+         * @description `tenant.integrations.manage`. New links / checkouts need an active account; pending payments still verify on it.
+         */
+        post: operations["postTenantIntegrationDisable"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/integrations/{uuid}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enable an account
+         * @description `tenant.integrations.manage`. `409` when another account of the kind is active.
+         */
+        post: operations["postTenantIntegrationEnable"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/integrations/{uuid}/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Integration jobs of an account
+         * @description `tenant.integrations.manage`. Outbound calls and inbound notifications (idempotency key, attempts, deliveries, status).
+         */
+        get: operations["getTenantIntegrationJobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/pay/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Pay-by-link page data
+         * @description No auth (the token is the bearer); rate-limited per IP. Organization name, reservation reference,
+         *     dates, amount and the state from verified records only (`ready`, `processing`, `paid`, `failed`,
+         *     `expired`, `cancelled`). `verify=1` asks the provider about a pending checkout first (page poll;
+         *     rate-limited per token). The provider's return is never proof.
+         */
+        get: operations["getPublicPayLink"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/pay/{token}/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start the hosted checkout
+         * @description No auth; rate-limited per IP and token. Opens the provider's hosted 3DS checkout (iyzico Checkout Form) on the organization's active account and returns its URL. No card data reaches Rentopia.
+         */
+        post: operations["postPublicPayCheckout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/payments/iyzico/webhook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * iyzico payment notification
+         * @description No auth; rate-limited per IP. The body's `paymentConversationId` names our payment (and so the
+         *     organization); `X-IYZ-SIGNATURE-V3` must verify with that organization's secret key (401
+         *     otherwise). The payment is then confirmed only by a provider retrieve matching order reference,
+         *     amount, currency and token. The same notification delivered again is one integration job
+         *     (`duplicate: true`): one payment, one reservation change (RT-A16). Non-2xx answers make iyzico
+         *     retry.
+         */
+        post: operations["postPublicIyzicoWebhook"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10369,6 +10816,11 @@ export interface components {
             /** @enum {string} */
             code: "web" | "widget" | "api" | "branch" | "yolcu360" | "obilet";
             is_active: boolean;
+            /**
+             * @description '' follows the organization's approval mode; channel = the sales channel confirms on its side (TEC-708)
+             * @enum {string}
+             */
+            approval_protocol?: "" | "auto" | "staff" | "channel";
         };
         OrganizationInvoiceItemMapping: {
             /** @enum {string} */
@@ -13123,6 +13575,7 @@ export interface components {
         ReservationActions: {
             submit: boolean;
             approve: boolean;
+            reject: boolean;
             confirm: boolean;
             cancel: boolean;
             no_show: boolean;
@@ -13154,6 +13607,8 @@ export interface components {
             invoice_customer: components["schemas"]["ReservationCustomerRef"] | null;
             drivers: components["schemas"]["ReservationDriver"][];
             channel: string;
+            /** @enum {string} */
+            approval_protocol: "auto" | "staff" | "channel";
             external_reference: string | null;
             /** @enum {string} */
             collecting_party: "us" | "channel";
@@ -13162,6 +13617,9 @@ export interface components {
                 total: string;
                 prepayment: string;
                 paid: string;
+                /** @description Prepayment still missing (paid online) */
+                prepayment_due: string;
+                /** @description Remaining rent (total - paid), collected at the branch */
                 balance: string;
                 commission: string;
                 net_receivable: string;
@@ -13264,6 +13722,14 @@ export interface components {
             open_tasks: number;
             /** Format: date-time */
             deadline: string | null;
+            /**
+             * Format: date-time
+             * @description Staff SLA of a request / review
+             */
+            review_deadline: string | null;
+            prepayment_amount: string;
+            /** @enum {string} */
+            approval_protocol: "auto" | "staff" | "channel";
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -13328,7 +13794,7 @@ export interface components {
             /** Format: uuid */
             uuid: string;
             /** @enum {string} */
-            task_type: "block_conflict" | "release_conflict" | "extension_conflict" | "replan_failed" | "late_return";
+            task_type: "block_conflict" | "release_conflict" | "extension_conflict" | "replan_failed" | "late_return" | "late_payment";
             /** @enum {string} */
             status: "open" | "resolved";
             reason: string;
@@ -14554,6 +15020,287 @@ export interface components {
             data: components["schemas"]["PricingPreview"];
             meta: components["schemas"]["ResponseMeta"];
         };
+        PaymentActor: {
+            /** Format: uuid */
+            uuid: string;
+            name: string;
+            surname: string;
+            email: string;
+        };
+        PaymentReservationRef: {
+            /** Format: uuid */
+            uuid: string;
+            reference: string;
+        };
+        PaymentRefund: {
+            /** Format: uuid */
+            uuid: string;
+            amount: string;
+            currency: string;
+            /** @enum {string} */
+            status: "pending" | "succeeded" | "failed";
+            provider_refund_id: string | null;
+            reason: string;
+            failure_reason: string;
+            created_by: components["schemas"]["PaymentActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        /** @description Gross (what the customer paid on the provider), commission, net payout and refunds are separate. No card data; `provider_data` holds masked facts only. */
+        Payment: {
+            /** Format: uuid */
+            uuid: string;
+            reservation: components["schemas"]["PaymentReservationRef"];
+            /** Format: uuid */
+            link_uuid: string | null;
+            /** @enum {string} */
+            provider: "iyzico" | "manual";
+            /** @enum {string} */
+            method: "checkout_form" | "cash" | "card_pos" | "bank_transfer";
+            /** @enum {string} */
+            status: "pending" | "succeeded" | "partially_refunded" | "refunded" | "failed" | "cancelled";
+            currency: string;
+            amount: string;
+            gross_amount: string;
+            commission_amount: string;
+            net_amount: string;
+            refunded_amount: string;
+            refundable: string;
+            provider_payment_id: string | null;
+            provider_status?: string;
+            provider_data?: Record<string, never>;
+            failure_reason: string;
+            /** @enum {string} */
+            verified_via: "" | "webhook" | "retrieve" | "manual";
+            /** Format: date-time */
+            verified_at: string | null;
+            /** @description recorded, confirmed, reinstated, late_payment_task ('' until applied) */
+            outcome: string;
+            note: string;
+            refunds?: components["schemas"]["PaymentRefund"][];
+            created_by: components["schemas"]["PaymentActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        EnvelopePayment: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["Payment"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopePaymentPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["Payment"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        PaymentLink: {
+            /** Format: uuid */
+            uuid: string;
+            /** @description Public page (/pay/{token}) on the app origin */
+            url: string;
+            reservation: components["schemas"]["PaymentReservationRef"];
+            /** @enum {string} */
+            purpose: "prepayment" | "balance" | "custom";
+            amount: string;
+            currency: string;
+            /** @enum {string} */
+            status: "active" | "paid" | "expired" | "cancelled";
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            paid_at: string | null;
+            /** Format: date-time */
+            cancelled_at: string | null;
+            created_by: components["schemas"]["PaymentActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        EnvelopePaymentLink: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["PaymentLink"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopePaymentLinkPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["PaymentLink"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        ReservationPaymentLinkRef: {
+            /** Format: uuid */
+            uuid: string;
+            url: string;
+            amount: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        ReservationAcceptResult: {
+            reservation: components["schemas"]["Reservation"];
+            payment_link: components["schemas"]["ReservationPaymentLinkRef"] | null;
+            payment_link_error?: string;
+            warnings: string[];
+        };
+        EnvelopeReservationAccept: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["ReservationAcceptResult"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        IntegrationField: {
+            key: string;
+            label_key: string;
+            secret: boolean;
+            required: boolean;
+        };
+        IntegrationProvider: {
+            /** @enum {string} */
+            kind: "payment";
+            /** @enum {string} */
+            provider: "iyzico";
+            fields: components["schemas"]["IntegrationField"][];
+            modes: ("sandbox" | "live")[];
+        };
+        EnvelopeIntegrationsMeta: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                providers: components["schemas"]["IntegrationProvider"][];
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        /** @description Never carries secrets: `credentials_hint` holds masked values. */
+        IntegrationAccount: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            kind: "payment";
+            /** @enum {string} */
+            provider: "iyzico";
+            display_name: string;
+            /** @enum {string} */
+            mode: "sandbox" | "live";
+            /** @enum {string} */
+            status: "active" | "disabled";
+            credentials_hint: {
+                [key: string]: string;
+            };
+            /** Format: date-time */
+            last_checked_at: string | null;
+            /** @enum {string} */
+            last_check_status: "" | "ok" | "failed";
+            last_check_error: string;
+            fields?: components["schemas"]["IntegrationField"][];
+            created_by?: components["schemas"]["PaymentActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        EnvelopeIntegrationAccount: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["IntegrationAccount"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeIntegrationAccountPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["IntegrationAccount"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        IntegrationJob: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            direction: "inbound" | "outbound";
+            provider: string;
+            kind: string;
+            /** @enum {string} */
+            status: "pending" | "processing" | "succeeded" | "failed" | "ignored";
+            attempts: number;
+            deliveries: number;
+            last_error: string;
+            ref_type: string;
+            /** Format: uuid */
+            ref_uuid: string | null;
+            /** Format: date-time */
+            completed_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        EnvelopeIntegrationJobPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["IntegrationJob"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        PublicPayLink: {
+            organization_name: string;
+            reference: string;
+            product_title: string;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            amount: string;
+            currency: string;
+            /** Format: date-time */
+            expires_at: string;
+            /** @enum {string} */
+            state: "ready" | "processing" | "paid" | "failed" | "expired" | "cancelled";
+            /** @description Reservation outcome of the verified payment: confirmed, reinstated, late_payment_task, recorded or '' */
+            result: string;
+            failure_reason?: string;
+        };
+        EnvelopePublicPayLink: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["PublicPayLink"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopePayCheckout: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                payment_page_url: string;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeWebhookResult: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                duplicate: boolean;
+                status: string;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
     };
     responses: {
         /** @description `PRICING_UNAVAILABLE` (no rate plan / band prices it) or `DRIVER_NOT_ELIGIBLE` (`data` = drivers with reasons) */
@@ -14590,6 +15337,33 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["EnvelopeReservationChange"];
+            };
+        };
+        /** @description Payment */
+        PaymentOK: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["EnvelopePayment"];
+            };
+        };
+        /** @description Integration account */
+        IntegrationAccountOK: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["EnvelopeIntegrationAccount"];
+            };
+        };
+        /** @description The payment provider refused or failed (PAYMENT_PROVIDER_ERROR); details carry the provider code */
+        PaymentProviderError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
             };
         };
         /** @description Resolution task */
@@ -25989,7 +26763,7 @@ export interface operations {
                 limit?: components["parameters"]["Limit"];
                 offset?: components["parameters"]["Offset"];
                 q?: components["parameters"]["Q"];
-                /** @description One of `reference`, `status`, `starts_at`, `ends_at`, `total_amount`, `created_at`; prefix `-` for descending. Default `-created_at`. */
+                /** @description One of `reference`, `status`, `starts_at`, `ends_at`, `total_amount`, `created_at`, `review_deadline` (approval queue SLA); prefix `-` for descending. Default `-created_at`. */
                 sort?: string;
                 /** @description request, awaiting_review, awaiting_payment, confirmed, cancelled, expired, no_show */
                 status?: string;
@@ -26934,6 +27708,759 @@ export interface operations {
             403: components["responses"]["TenantForbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantReservationAccept: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    quote_uuid?: string | null;
+                    send_payment_link?: boolean;
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeReservationAccept"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantReservationReject: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["ReservationOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantReservationPaymentLink: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @example 500.00 */
+                    amount?: string | null;
+                    expires_in_minutes?: number | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Link */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePaymentLink"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    postTenantReservationCollection: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    amount?: string | null;
+                    /** @enum {string} */
+                    method: "cash" | "card_pos" | "bank_transfer";
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            201: components["responses"]["PaymentOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantPayments: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description `amount` or `created_at`; prefix `-` for descending. Default `-created_at`. */
+                sort?: string;
+                /** @description pending, succeeded, partially_refunded, refunded, failed, cancelled */
+                status?: string;
+                /** @description iyzico, manual */
+                provider?: string;
+                /** @description Reservation uuids */
+                reservation?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Payment page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePaymentPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantPayment: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["PaymentOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantPaymentVerify: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["PaymentOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["PaymentProviderError"];
+        };
+    };
+    postTenantPaymentRefund: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    amount?: string | null;
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["PaymentOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            502: components["responses"]["PaymentProviderError"];
+        };
+    };
+    getTenantPaymentLinks: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                /** @description active, paid, expired, cancelled */
+                status?: string;
+                /** @description Reservation uuids */
+                reservation?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Link page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePaymentLinkPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantPaymentLink: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Link */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePaymentLink"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantPaymentLinkCancel: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Link */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePaymentLink"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantIntegrationsMeta: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Providers */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeIntegrationsMeta"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantIntegrations: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description `display_name` or `created_at`; prefix `-` for descending. */
+                sort?: string;
+                /** @description active, disabled */
+                status?: string;
+                /** @description payment */
+                kind?: string;
+                /** @description iyzico */
+                provider?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Account page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeIntegrationAccountPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantIntegration: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    kind?: "payment";
+                    /** @enum {string} */
+                    provider: "iyzico";
+                    display_name: string;
+                    /** @enum {string} */
+                    mode?: "sandbox" | "live";
+                    /** @description iyzico: `api_key`, `secret_key` */
+                    credentials: {
+                        [key: string]: string;
+                    };
+                };
+            };
+        };
+        responses: {
+            201: components["responses"]["IntegrationAccountOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantIntegration: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["IntegrationAccountOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchTenantIntegration: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    display_name?: string | null;
+                    /** @enum {string|null} */
+                    mode?: "sandbox" | "live" | null;
+                    credentials?: {
+                        [key: string]: string;
+                    } | null;
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["IntegrationAccountOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantIntegrationTest: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["IntegrationAccountOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    postTenantIntegrationDisable: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["IntegrationAccountOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantIntegrationEnable: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["IntegrationAccountOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantIntegrationJobs: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Job page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeIntegrationJobPage"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getPublicPayLink: {
+        parameters: {
+            query?: {
+                verify?: "1";
+            };
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pay page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicPayLink"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    postPublicPayCheckout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    locale?: "tr" | "en";
+                };
+            };
+        };
+        responses: {
+            /** @description Checkout */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePayCheckout"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+            502: components["responses"]["PaymentProviderError"];
+        };
+    };
+    postPublicIyzicoWebhook: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-IYZ-SIGNATURE-V3": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    iyziEventType?: string;
+                    iyziEventTime?: number;
+                    iyziReferenceCode?: string;
+                    iyziPaymentId?: string | number;
+                    token?: string;
+                    paymentConversationId?: string;
+                    merchantId?: string | number;
+                    status?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Processed (or a duplicate) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeWebhookResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     listTenantCapacityRules: {

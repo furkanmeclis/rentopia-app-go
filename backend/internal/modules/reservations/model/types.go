@@ -71,6 +71,7 @@ const (
 	TaskExtensionConflict = "extension_conflict"
 	TaskReplanFailed      = "replan_failed"
 	TaskLateReturn        = "late_return"
+	TaskLatePayment       = "late_payment"
 
 	TaskOpen     = "open"
 	TaskResolved = "resolved"
@@ -78,7 +79,7 @@ const (
 
 // TaskTypes / TaskStatuses in display order.
 var (
-	TaskTypes    = []string{TaskBlockConflict, TaskReleaseConflict, TaskExtensionConflict, TaskReplanFailed, TaskLateReturn}
+	TaskTypes    = []string{TaskBlockConflict, TaskReleaseConflict, TaskExtensionConflict, TaskReplanFailed, TaskLateReturn, TaskLatePayment}
 	TaskStatuses = []string{TaskOpen, TaskResolved}
 )
 
@@ -93,6 +94,16 @@ const (
 	SourceReplan    = "replan"
 	SourceUpgrade   = "upgrade"
 	SourceExtension = "extension"
+)
+
+// Approval protocols (reservations.approval_protocol, TEC-708): the rule a
+// reservation was created under. The channel's protocol in the settings
+// (sales_channels[].approval_protocol) decides; "" there follows the
+// organization's approval mode.
+const (
+	ProtocolAuto    = "auto"
+	ProtocolStaff   = "staff"
+	ProtocolChannel = "channel"
 )
 
 // Defaults when the settings leave a window unset (minutes).
@@ -534,10 +545,13 @@ type Assignment struct {
 
 // Price is the price snapshot of a reservation.
 type Price struct {
-	Currency      string        `json:"currency"`
-	Total         money.Money   `json:"total"`
-	Prepayment    money.Money   `json:"prepayment"`
-	Paid          money.Money   `json:"paid"`
+	Currency   string      `json:"currency"`
+	Total      money.Money `json:"total"`
+	Prepayment money.Money `json:"prepayment"`
+	Paid       money.Money `json:"paid"`
+	// PrepaymentDue is what is still missing of the prepayment (online);
+	// Balance the remaining rent (total − paid), collected at the branch.
+	PrepaymentDue money.Money   `json:"prepayment_due"`
 	Balance       money.Money   `json:"balance"`
 	Commission    money.Money   `json:"commission"`
 	NetReceivable money.Money   `json:"net_receivable"`
@@ -572,6 +586,8 @@ type PriceSnapshot struct {
 type Actions struct {
 	Submit  bool `json:"submit"`
 	Approve bool `json:"approve"`
+	// Reject: a request / review can be refused by staff (reason).
+	Reject  bool `json:"reject"`
 	Confirm bool `json:"confirm"`
 	Cancel  bool `json:"cancel"`
 	NoShow  bool `json:"no_show"`
@@ -598,6 +614,7 @@ type Reservation struct {
 	InvoiceCustomer     *CustomerRef        `json:"invoice_customer"`
 	Drivers             []ReservationDriver `json:"drivers"`
 	Channel             string              `json:"channel"`
+	ApprovalProtocol    string              `json:"approval_protocol"`
 	ExternalReference   *string             `json:"external_reference"`
 	CollectingParty     string              `json:"collecting_party"`
 	Price               Price               `json:"price"`
@@ -643,8 +660,13 @@ type ListItem struct {
 	AssignedUser       *Actor      `json:"assigned_user"`
 	OpenTasks          int64       `json:"open_tasks"`
 	Deadline           *time.Time  `json:"deadline"`
-	CreatedAt          time.Time   `json:"created_at"`
-	UpdatedAt          time.Time   `json:"updated_at"`
+	// ReviewDeadline is the staff SLA of a request / review (approval
+	// queue countdown); PrepaymentAmount what the customer pays online.
+	ReviewDeadline   *time.Time  `json:"review_deadline"`
+	PrepaymentAmount money.Money `json:"prepayment_amount"`
+	ApprovalProtocol string      `json:"approval_protocol"`
+	CreatedAt        time.Time   `json:"created_at"`
+	UpdatedAt        time.Time   `json:"updated_at"`
 }
 
 // ListFilter selects a page of reservations.
@@ -667,7 +689,7 @@ type ListFilter struct {
 // Sortable maps the sortable reservation list fields.
 var Sortable = map[string]string{
 	"reference": "reference", "status": "status", "starts_at": "starts_at", "ends_at": "ends_at",
-	"total_amount": "total_amount", "created_at": "created_at",
+	"total_amount": "total_amount", "created_at": "created_at", "review_deadline": "review_deadline",
 }
 
 // QueryKeys are the list filters (comma-separated multi values).

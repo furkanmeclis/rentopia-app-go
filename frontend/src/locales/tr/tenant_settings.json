@@ -151,5 +151,11 @@
   "profile.toast.logo_removed": "Logo kaldırıldı.",
   "fields.reference_prefix": "Rezervasyon referans öneki",
   "fields.reference_prefix_hint": "Örn. IDS → IDS-2026-000123. Boş bırakılırsa firma kısa adından türetilir.",
-  "validation.reference_prefix": "Harfle başlayan 2-6 büyük harf veya rakam"
+  "validation.reference_prefix": "Harfle başlayan 2-6 büyük harf veya rakam",
+  "fields.approval_protocol": "Onay protokolü",
+  "fields.approval_protocol_hint": "Bu kanaldan gelen rezervasyonlar nasıl onaylanır.",
+  "approval_protocols.org": "Firma onay modu",
+  "approval_protocols.auto": "Otomatik (ödemeyle)",
+  "approval_protocols.staff": "Personel onayı",
+  "approval_protocols.channel": "Kanal onaylar"
 }

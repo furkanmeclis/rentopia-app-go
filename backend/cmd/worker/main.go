@@ -33,6 +33,7 @@ import (
 	fleetopsrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleetops/repository"
 	fleetopsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleetops/usecase"
 	importusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/imports/usecase"
+	integrationaccountsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/accounts/usecase"
 	logsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/logs/usecase"
 	notifmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications/providers"
@@ -42,6 +43,7 @@ import (
 	orgusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/usecase"
 	orgsettingsrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/repository"
 	orgsettingsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/usecase"
+	paymentsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/payments/usecase"
 	pricingadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/adapters"
 	pricingrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/repository"
 	pricingusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/usecase"
@@ -60,11 +62,13 @@ import (
 	bulkadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/bulkengine/adapters"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/crypto"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/events"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/integrations"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/ioengine"
 	ioadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/ioengine/adapters"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/mail"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx/orgcache"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/outbox"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/payments/iyzico"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/resourceevents"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/searchengine"
 	searchadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/searchengine/adapters"
@@ -181,6 +185,21 @@ func main() {
 	reservationSvc.SetEquipment(reservationadapters.NewEquipment(extrasSvc))
 	reservationSvc.SetCoupons(reservationadapters.NewCoupons(campaignsSvc))
 	fleetOpsSvc.SetAffectedHandler(reservationadapters.NewAffected(reservationSvc))
+	// Payments: the reconciliation sweep retrieves checkouts whose webhook
+	// never arrived (runs with the minute hold expiry).
+	integrationVault, err := integrations.NewVault(fieldCipher)
+	if err != nil {
+		log.Error("integration_vault_init_failed", "error", err)
+		exit(1)
+	}
+	iyzicoAdapter := iyzico.New(iyzico.Config{
+		SandboxBaseURL: cfg.Payments.IyzicoSandboxBaseURL, LiveBaseURL: cfg.Payments.IyzicoLiveBaseURL,
+	})
+	integrationAccountsSvc := integrationaccountsusecase.New(queries, integrationVault, integrations.NewRegistry(iyzicoAdapter))
+	paymentsSvc := paymentsusecase.New(pool, queries, integrationAccountsSvc, reservationSvc,
+		paymentsusecase.Config{PublicBaseURL: cfg.Auth.FrontendURL}, iyzicoAdapter)
+	paymentsSvc.SetLogger(log)
+	reservationSvc.SetPaymentLinks(paymentsSvc)
 	// Bulk rental group changes go through the engine like the API.
 	vehicleSvc.SetMembershipGuard(availabilitySvc)
 	availabilitySvc.SetPlanMovedHandler(reservationSvc)
@@ -271,6 +290,7 @@ func main() {
 	importSvc.SetResourceEvents(resourceEvents)
 	bulkSvc.SetResourceEvents(resourceEvents)
 	reservationSvc.SetResourceEvents(resourceEvents)
+	paymentsSvc.SetResourceEvents(resourceEvents)
 
 	worker := queue.NewWorker(cfg, log, notifSvc.Deliver).
 		WithExport(exportSvc.ProcessExport).
@@ -294,7 +314,13 @@ func main() {
 				return r + n, err
 			}
 			m, err := extrasSvc.ExpireDue(ctx)
-			return r + n + m, err
+			if err != nil {
+				return r + n + m, err
+			}
+			// Pending checkouts (lost webhooks) after the expiries: a late
+			// payment is then re-validated against current capacity.
+			p, err := paymentsSvc.ReconcilePending(ctx)
+			return r + n + m + p, err
 		}).
 		WithSearch(
 			searchIndexer.ProcessUpsert,

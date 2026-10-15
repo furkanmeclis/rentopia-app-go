@@ -164,6 +164,7 @@ func Normalize(in model.Settings) (model.Settings, error) {
 
 	// --- sales channels: every known channel exactly once, in order.
 	active := map[string]bool{}
+	protocol := map[string]string{}
 	seen := map[string]bool{}
 	for i, ch := range s.SalesChannels {
 		code := strings.TrimSpace(ch.Code)
@@ -173,12 +174,18 @@ func Normalize(in model.Settings) (model.Settings, error) {
 		case seen[code]:
 			ve.add(fmt.Sprintf("sales_channels.%d.code", i), "duplicate", "sales channel is listed twice")
 		}
+		p := strings.TrimSpace(ch.ApprovalProtocol)
+		if !slices.Contains(model.ApprovalProtocols, p) {
+			ve.add(fmt.Sprintf("sales_channels.%d.approval_protocol", i), "invalid",
+				"approval protocol must be empty (organization setting), auto, staff or channel")
+		}
 		seen[code] = true
 		active[code] = ch.IsActive
+		protocol[code] = p
 	}
 	s.SalesChannels = make([]model.SalesChannel, 0, len(model.SalesChannels))
 	for _, code := range model.SalesChannels {
-		s.SalesChannels = append(s.SalesChannels, model.SalesChannel{Code: code, IsActive: active[code]})
+		s.SalesChannels = append(s.SalesChannels, model.SalesChannel{Code: code, IsActive: active[code], ApprovalProtocol: protocol[code]})
 	}
 
 	// --- tax

@@ -416,6 +416,11 @@ function isQRSessionCreatePath(path: string, method: string) {
   return method.toUpperCase() === "POST" && path === "auth/qr/sessions";
 }
 
+/** Signature header of each payment provider webhook path (TEC-707). */
+const PAYMENT_WEBHOOK_SIGNATURE_HEADERS: Record<string, string> = {
+  "public/payments/iyzico/webhook": "x-iyz-signature-v3",
+};
+
 /** Organization (tenant) of a /v1/tenant/* request: slug or uuid. */
 const ORGANIZATION_HEADER = "X-Organization";
 
@@ -484,6 +489,14 @@ export async function proxyToUpstream(
       const value = request.headers.get(name);
       if (value) headers.set(name, value);
     }
+  }
+  // Payment provider webhooks are verified by the API with the
+  // organization's secret: forward their signature header (and only on
+  // the webhook path).
+  const webhookSignature = PAYMENT_WEBHOOK_SIGNATURE_HEADERS[path];
+  if (webhookSignature) {
+    const value = request.headers.get(webhookSignature);
+    if (value) headers.set(webhookSignature, value);
   }
   // Only tenant routes read the organization header; it is never forwarded
   // elsewhere.

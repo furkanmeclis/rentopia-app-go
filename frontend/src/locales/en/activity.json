@@ -211,5 +211,20 @@
   "actions.quotes.created": "Quote created",
   "actions.resolution_tasks.resolved": "Resolution task resolved",
   "actions.resolution_tasks.assigned": "Resolution task assigned",
-  "actions.resolution_tasks.replan": "Resolution task re-planned"
+  "actions.resolution_tasks.replan": "Resolution task re-planned",
+  "actions.integrations.connected": "Integration connected",
+  "actions.integrations.updated": "Integration updated",
+  "actions.integrations.tested": "Integration tested",
+  "actions.integrations.disabled": "Integration disabled",
+  "actions.integrations.enabled": "Integration enabled",
+  "actions.payments.verified": "Payment verified",
+  "actions.payments.refunded": "Payment refunded",
+  "actions.payments.collected": "Collected at the branch",
+  "actions.payment_links.created": "Payment link created",
+  "actions.payment_links.cancelled": "Payment link cancelled",
+  "actions.reservations.accepted": "Reservation request accepted",
+  "actions.reservations.rejected": "Reservation request rejected",
+  "resources.tenant.integrations": "Integrations",
+  "resources.tenant.payments": "Payments",
+  "resources.tenant.payment_links": "Payment links"
 }

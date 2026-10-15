@@ -426,5 +426,12 @@
   "wizard.steps.product": "Product",
   "wizard.steps.search": "Search",
   "wizard.steps.summary": "Summary",
-  "wizard.title": "New reservation"
+  "wizard.title": "New reservation",
+  "tasks.types.late_payment": "Late payment",
+  "events.reject": "Rejected",
+  "events.reinstate": "Re-confirmed by a late payment",
+  "events.late_payment": "Late payment",
+  "events.payment_link_created": "Payment link created",
+  "events.payment_link_cancelled": "Payment link cancelled",
+  "events.payment_refunded": "Payment refunded"
 }
