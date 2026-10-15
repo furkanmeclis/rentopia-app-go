@@ -1,6 +1,6 @@
 # Fleet availability inputs — blocks, transfers, one-way rules
 
-Status: **implemented** (TEC-694, TEC-695). Consumer: the M2 availability / capacity engine (TEC-697). This page is the contract between the two: what the engine reads, where it reads it and which rules are already enforced by the time it runs.
+Status: **implemented** (TEC-694, TEC-695; allocations joined in TEC-697). Consumer: the availability / capacity engine ([availability-engine.md](./availability-engine.md)). This page is the contract between the two: what the engine reads, where it reads it and which rules are already enforced by the time it runs.
 
 ## 1. One place for "when is vehicle V busy"
 
@@ -9,8 +9,8 @@ Status: **implemented** (TEC-694, TEC-695). Consumer: the M2 availability / capa
 CREATE VIEW vehicle_busy_intervals (
   organization_id BIGINT,
   vehicle_id      BIGINT,
-  kind            TEXT,       -- block | transfer   (M2 adds: reservation)
-  ref_uuid        UUID,       -- vehicle_blocks.uuid / vehicle_transfers.uuid
+  kind            TEXT,       -- block | transfer | hold | reservation | rental
+  ref_uuid        UUID,       -- vehicle_blocks / vehicle_transfers / vehicle_allocations uuid
   during          TSTZRANGE,  -- half-open [start, end); upper NULL = until further notice
   branch_after_id BIGINT      -- where the vehicle is when the interval ends (NULL = unchanged)
 );
@@ -35,9 +35,11 @@ WHERE organization_id = $1 AND vehicle_id = $2
 | `transfer` (in transit) | `status = 'in_transit'` | `[actual_departure, max(planned arrival, now))` — a late vehicle stays busy until someone completes the transfer | `to_branch_id` |
 | `transfer` (completed) | `status = 'completed'` | `[actual_departure, actual_arrival)` | `to_branch_id` |
 
+| `hold` / `reservation` / `rental` (TEC-697) | `vehicle_allocations.status = 'active'` (holds only until `expires_at`) | `period` = pick-up → return + preparation of the return branch | `return_branch_id` |
+
 Cancelled transfers and deleted blocks are not busy. Released blocks keep their (now closed) range: history stays visible to the engine and the UI.
 
-**M2: adding reservations.** Append a third `UNION ALL` branch to the view (`'reservation'`, the reservation uuid, its pick-up → return range plus preparation buffer, `branch_after_id` = return branch) in the M2 migration (`CREATE OR REPLACE VIEW`, same column list and order). Nothing else in this page changes.
+**Allocations (migration 000065).** The third `UNION ALL` branch carries the availability engine's commitments (`kind` = allocation kind). Readers that only want operational constraints filter `kind IN ('block', 'transfer')`: transfers check overlaps with `kind = 'block'` only, and the engine reads blocks / transfers from the view but its own allocations from `vehicle_allocations` (inside the component lock). Blocks and transfers never refuse an allocation; a block reports the allocations it overlaps (§2).
 
 ## 2. Blocks (TEC-694)
 
@@ -46,7 +48,7 @@ Cancelled transfers and deleted blocks are not busy. Released blocks keep their 
 - `during` is `[start, end)`; start is finite, end may be unbounded ("Bakıma al" = from now, open-ended).
 - **No overlap per vehicle**: `EXCLUDE USING gist (organization_id WITH =, vehicle_id WITH =, during WITH &&) WHERE (deleted_at IS NULL)` (needs `btree_gist`, created in 000052). Why not allow overlap: one reason at a time keeps the engine trivial (no merging / ranking) and the UI unambiguous; extending or re-classifying a block is an update of the same row. The use case pre-checks and answers `409 CONFLICT` (`block_overlap`) with the colliding blocks; the constraint covers races.
 - "Engeli kapat" sets the upper bound to now (`released_at/by`). A block that has not started is deleted instead.
-- Every mutation returns `affected[]` = open transfers the block now overlaps (`kind: "transfer"`). M2 adds `kind: "reservation"` there; the frontend already renders the list generically.
+- Every mutation returns `affected[]` = open transfers (`kind: "transfer"`) and active holds / reservations (`kind: "hold"` / `"reservation"`, label = product code) the block now overlaps. A block always wins: the engine never plans on a blocked vehicle, the overlapped allocations stay for a person (TEC-706) to re-plan.
 - Vehicle status sync is explicit (`sync_status`): on create, when the block covers now, the vehicle status becomes maintenance / damaged / cleaning / out_of_service (vehicle event through the vehicles use case, same transaction); on release it goes back to `available` if it is still the block's status. Blocks never change the status by themselves — the engine must read blocks, not the status.
 
 ## 3. Transfers (TEC-695)
@@ -66,6 +68,8 @@ Cancelled transfers and deleted blocks are not busy. Released blocks keep their 
 - Movements are half-open like the intervals: at the arrival instant the vehicle is at the destination.
 
 The only thing that changes where a vehicle is, is a movement. Creating a transfer defaults `from_branch` to `LocationAt(planned_departure)` and refuses another origin (`400 not_at_branch`). The engine should call `LocationAt` (or replay `branch_after_id` of the busy intervals) instead of trusting `current_branch_id` for future times.
+
+**Allocations.** The availability engine applies the same rule with allocations added: an allocation moves the vehicle to its return branch (after the preparation buffer it is sellable there), and a future allocation must start where the vehicle is (`engine.State.violations`).
 
 **M3 note.** One-way rentals are movements too (`picked at A, returned at B` → at B after the return; RT-A05 is a unit test of `ResolveLocation`). Whether the engine uses the planned or the actual return branch of a rental — and what happens when a customer returns elsewhere — is decided in M3; `MovementsFromTransfers` is the only adapter today.
 
@@ -89,4 +93,4 @@ Slugs (migration 000055): `tenant.blocks.read|write`, `tenant.transfers.read|wri
 
 `GET /v1/tenant/fleet/calendar?from=&to=` (`tenant.vehicles.read`) is the second reader of the view: one page of vehicles (plate order, default 50) in the caller's branch scope and, for those vehicles only, the busy intervals overlapping `[from, to)` plus maintenance days. Three queries, `organization_id` first (`queries/fleet_calendar.sql`): the vehicle page (window `COUNT(*) OVER ()` for the total), `vehicle_busy_intervals` with `vehicle_id = ANY($ids) AND during && tstzrange($from, $to, '[)')` joined to the block / transfer rows for their details, and `vehicle_maintenance` by planned / done day. The window is at most 93 days; bars carry the real bounds and the bounds clipped to the window. Block and transfer layers additionally need `tenant.blocks.read` / `tenant.transfers.read` (`layers` in the answer).
 
-**M2 / M3.** A reservation row added to the view (§1) appears on the calendar once `kind = 'reservation'` is added to the layers in `usecase.CalendarLayers` and the frontend legend (`features/fleet-calendar/constants.ts`, today a disabled "M2" entry; rentals and preparation are "M3"). The timeline already exposes a drag extension point (`FleetTimeline` `onBarDrop`, disabled): moving a reservation bar onto another vehicle row is the "plaka değişimi" of the issue and must call the reservation API, which does not exist yet. Blocks and transfers are not draggable.
+**Holds and reservations (TEC-697).** `usecase.CalendarLayers` adds `hold` and `reservation` for members with `tenant.availability.read`; the bars come from the view (§1) joined to `vehicle_allocations` (product, places, customer range, expiry, plate state) and span the period with the preparation buffer. The legend shows "Opsiyon" (dashed) and the reservation colour (still marked M2 until TEC-706 creates reservations); rentals and preparation are "M3". The timeline's drag extension point (`FleetTimeline` `onBarDrop`, disabled) stays disabled: moving a reservation bar onto another vehicle row is the "plaka değişimi" and will call the engine's `AssignPlate` through the reservation API. Blocks, transfers and holds are not draggable.
