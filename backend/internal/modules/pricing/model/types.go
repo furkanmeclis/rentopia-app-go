@@ -460,12 +460,47 @@ type PreviewInput struct {
 	RatePlanDraft     *PlanDraftInput `json:"rate_plan_draft"`
 	DateRuleUUID      *uuid.UUID      `json:"date_rule_uuid"`
 	DateRuleDraft     *RuleDraftInput `json:"date_rule_draft"`
+	// Extras are the selected extras (TEC-702): priced per rental product
+	// with the charge type, quantity bounds and line cap of the catalog.
+	Extras []PreviewExtraInput `json:"extras"`
+	// CouponCode is a campaign code (TEC-703); without one, the
+	// repeat-customer campaigns of CustomerUUID are tried. Not combined
+	// with a manual Discount.
+	CouponCode string `json:"coupon_code"`
+	// CustomerUUID is the customer of the sale (customer scope,
+	// per-customer limits, repeat-customer campaigns). No foreign key until
+	// customers exist (TEC-705).
+	CustomerUUID *uuid.UUID `json:"customer_uuid"`
+}
+
+// PreviewExtraInput is one selected extra.
+type PreviewExtraInput struct {
+	ExtraUUID *uuid.UUID `json:"extra_uuid"`
+	Quantity  *int       `json:"quantity"`
+}
+
+// CouponResult explains whether the coupon code (or an automatic
+// campaign) applies to one side of the preview: status "applied" or
+// "rejected" with the reason (not_found, inactive, not_started, expired,
+// channel, scope, customer_scope, customer_required, customer_limit,
+// limit, min_amount, corporate, not_eligible) and its params.
+type CouponResult struct {
+	Code         string            `json:"code"`
+	CampaignUUID *uuid.UUID        `json:"campaign_uuid"`
+	CampaignName string            `json:"campaign_name"`
+	CampaignType string            `json:"campaign_type,omitempty"`
+	Status       string            `json:"status"`
+	Reason       string            `json:"reason"`
+	Params       map[string]string `json:"params"`
 }
 
 // PreviewSide is one priced variant: a breakdown or the engine error.
 type PreviewSide struct {
 	Breakdown *pricing.Breakdown `json:"breakdown"`
 	Error     *PreviewError      `json:"error"`
+	// Coupon is the coupon / campaign decision of this side (nil = no code
+	// and no automatic campaign).
+	Coupon *CouponResult `json:"coupon"`
 }
 
 // PreviewError is a pricing engine refusal (no plan, ambiguity …).

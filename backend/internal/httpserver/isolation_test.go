@@ -73,6 +73,7 @@ var isolationAllowlist = map[string]string{
 	"PUT /v1/tenant/organization/logo":       "logo of the caller's organization; the key is built from the scope (storage prefix check)",
 	"DELETE /v1/tenant/organization/logo":    "logo of the caller's organization; no ids",
 	"POST /v1/tenant/rate-plans/import":      "price list rows match product / branch codes inside the organization (pricing usecase tests); the job is the {uuid} cases",
+	"POST /v1/tenant/extras":                 "body has no foreign references (code, name, enums, channel codes, default price)",
 }
 
 type isoOrg struct {
@@ -326,6 +327,26 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		ids["capacityRule"] = str(must(call(o, http.MethodPost, "/v1/tenant/capacity-rules", map[string]any{
 			"rule_type": "safety_margin", "quantity": 0, "product_uuid": ids["product"], "note": m,
 		}), http.StatusCreated, "create capacity rule"), "uuid")
+		// Extras (TEC-702): a physical child seat with a product price, stock
+		// at the second branch and an equipment hold there.
+		ids["extra"] = str(must(call(o, http.MethodPost, "/v1/tenant/extras", map[string]any{
+			"code": "SEAT", "name": m + " Koltuk", "extra_type": "child_seat", "charge_type": "per_day", "max_quantity": 2,
+			"is_physical": true, "status": "published", "default_price": "100",
+		}), http.StatusCreated, "create extra"), "uuid")
+		must(call(o, http.MethodPut, "/v1/tenant/extras/"+ids["extra"]+"/prices", map[string]any{
+			"items": []map[string]any{{"rental_product_uuid": ids["product"], "price": "150"}},
+		}), http.StatusOK, "extra prices")
+		must(call(o, http.MethodPut, "/v1/tenant/extras/"+ids["extra"]+"/stock", map[string]any{
+			"items": []map[string]any{{"branch_uuid": ids["branch"], "quantity": 2}},
+		}), http.StatusOK, "extra stock")
+		ids["equipmentAllocation"] = str(must(call(o, http.MethodPost, "/v1/tenant/equipment-allocations", map[string]any{
+			"extra_uuid": ids["extra"], "branch_uuid": ids["branch"], "starts_at": day(4), "ends_at": day(5), "hold_minutes": 600, "note": m,
+		}), http.StatusCreated, "equipment hold"), "uuid")
+		// Campaigns (TEC-703): a coupon scoped to the product.
+		ids["campaign"] = str(must(call(o, http.MethodPost, "/v1/tenant/campaigns", map[string]any{
+			"name": m + " Kampanya", "campaign_type": "coupon", "code": "ISO10", "discount_kind": "percent", "discount_value": "10",
+			"product_scope": "products", "rental_product_uuids": []string{ids["product"]}, "usage_limit": 5,
+		}), http.StatusCreated, "create campaign"), "uuid")
 		ids["role"] = str(must(call(o, http.MethodPost, "/v1/tenant/roles", map[string]any{
 			"key": "iso_role", "name": m + " Rol", "permissions": []string{rbac.PermTenantMembersRead},
 		}), http.StatusCreated, "create role"), "uuid")
@@ -515,14 +536,15 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			"?from=" + day(0) + "&to=" + day(14) + "&vehicle=" + b["vehicle"],
 			"?from=" + day(0) + "&to=" + day(14) + "&home_branch=" + b["home"] + "&rental_group=" + b["group"] + "&segment=" + b["segment"],
 		},
-		"GET /v1/tenant/vehicles":      {"?home_branch=" + b["home"], "?rental_group=" + b["group"], "?segment=" + b["segment"]},
-		"GET /v1/tenant/transfers":     {"?vehicle=" + b["vehicle"], "?from_branch=" + b["home"], "?to_branch=" + b["branch"]},
-		"GET /v1/tenant/one-way-rules": {"?from_branch=" + b["home"], "?to_branch=" + b["branch"]},
-		"GET /v1/tenant/products":      {"?segment=" + b["segment"], "?rental_group=" + b["group"]},
-		"GET /v1/tenant/rental-groups": {"?segment=" + b["segment"]},
-		"GET /v1/tenant/fleet/alerts":  {"?vehicle=" + b["vehicle"]},
-		"GET /v1/tenant/search":        {"?q=" + orgB.marker},
-		"GET /v1/tenant/rate-plans":    {"?rental_product=" + b["product"], "?branch=" + b["branch"]},
+		"GET /v1/tenant/vehicles":              {"?home_branch=" + b["home"], "?rental_group=" + b["group"], "?segment=" + b["segment"]},
+		"GET /v1/tenant/transfers":             {"?vehicle=" + b["vehicle"], "?from_branch=" + b["home"], "?to_branch=" + b["branch"]},
+		"GET /v1/tenant/one-way-rules":         {"?from_branch=" + b["home"], "?to_branch=" + b["branch"]},
+		"GET /v1/tenant/products":              {"?segment=" + b["segment"], "?rental_group=" + b["group"]},
+		"GET /v1/tenant/rental-groups":         {"?segment=" + b["segment"]},
+		"GET /v1/tenant/fleet/alerts":          {"?vehicle=" + b["vehicle"]},
+		"GET /v1/tenant/search":                {"?q=" + orgB.marker},
+		"GET /v1/tenant/rate-plans":            {"?rental_product=" + b["product"], "?branch=" + b["branch"]},
+		"GET /v1/tenant/equipment-allocations": {"?extra=" + b["extra"], "?branch=" + b["branch"]},
 		"GET /v1/tenant/rate-plans/matrix": {
 			"?scope=branch&branch=" + b["branch"],
 			"?scope=branch_channel&branch=" + b["home"] + "&channel=web",
@@ -635,6 +657,24 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			"product_uuid": orgB.ids["product"]}, reject},
 		{"POST /v1/tenant/capacity-rules", map[string]any{"rule_type": "safety_margin", "quantity": 1,
 			"branch_uuid": orgB.ids["branch"]}, reject},
+		// Extras / equipment / campaigns / preview extras naming B's records.
+		{"POST /v1/tenant/extras/availability", map[string]any{"branch_uuid": orgB.ids["branch"], "starts_at": day(20), "ends_at": day(21)}, reject},
+		{"POST /v1/tenant/extras/availability", map[string]any{"branch_uuid": orgA.ids["branch"], "starts_at": day(20), "ends_at": day(21),
+			"extra_uuids": []string{orgB.ids["extra"]}}, reject},
+		{"POST /v1/tenant/extras/bulk", map[string]any{"action": "archive", "target": map[string]any{"scope": "ids", "ids": []string{orgB.ids["extra"]}}}, nil},
+		{"POST /v1/tenant/equipment-allocations", map[string]any{"extra_uuid": orgB.ids["extra"], "branch_uuid": orgA.ids["branch"],
+			"starts_at": day(20), "ends_at": day(21)}, reject},
+		{"POST /v1/tenant/equipment-allocations", map[string]any{"extra_uuid": orgA.ids["extra"], "branch_uuid": orgB.ids["branch"],
+			"starts_at": day(20), "ends_at": day(21)}, reject},
+		{"POST /v1/tenant/equipment-allocations", map[string]any{"extra_uuid": orgA.ids["extra"], "vehicle_allocation_uuid": orgB.ids["hold"]}, reject},
+		{"POST /v1/tenant/campaigns", map[string]any{"name": "X1", "campaign_type": "coupon", "code": "XB1", "discount_kind": "amount",
+			"discount_value": 10, "product_scope": "products", "rental_product_uuids": []string{orgB.ids["product"]}}, reject},
+		{"POST /v1/tenant/campaigns", map[string]any{"name": "X2", "campaign_type": "coupon", "code": "XB2", "discount_kind": "amount",
+			"discount_value": 10, "product_scope": "segments", "segment_uuids": []string{orgB.ids["segment"]}}, reject},
+		{"POST /v1/tenant/campaigns/bulk", bulkIDs("campaign"), nil},
+		{"POST /v1/tenant/pricing/preview", previewBody(orgA.ids["product"], orgA.ids["home"], map[string]any{
+			"extras": []map[string]any{{"extra_uuid": orgB.ids["extra"], "quantity": 1}},
+		}), reject},
 		// Action parameters naming B's records, on A's vehicle.
 		{"POST /v1/tenant/vehicles/bulk", map[string]any{"action": "move_branch", "params": map[string]any{"branch_uuid": orgB.ids["branch"]},
 			"target": map[string]any{"scope": "ids", "ids": []string{orgA.ids["vehicle"]}}}, reject},
@@ -673,6 +713,12 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		{"PATCH /v1/tenant/date-rules/" + orgA.ids["dateRule"], map[string]any{"all_branches": false, "branch_uuids": []string{orgB.ids["home"]}}, reject},
 		{"PUT /v1/tenant/capacity-rules/" + orgA.ids["capacityRule"], map[string]any{"rule_type": "safety_margin", "quantity": 1,
 			"product_uuid": orgB.ids["product"]}, reject},
+		{"PUT /v1/tenant/extras/" + orgA.ids["extra"] + "/prices", map[string]any{
+			"items": []map[string]any{{"rental_product_uuid": orgB.ids["product"], "price": "1"}}}, reject},
+		{"PUT /v1/tenant/extras/" + orgA.ids["extra"] + "/stock", map[string]any{
+			"items": []map[string]any{{"branch_uuid": orgB.ids["branch"], "quantity": 1}}}, reject},
+		{"PATCH /v1/tenant/campaigns/" + orgA.ids["campaign"], map[string]any{"product_scope": "segments", "segment_uuids": []string{orgB.ids["segment"]}}, reject},
+		{"PATCH /v1/tenant/campaigns/" + orgA.ids["campaign"], map[string]any{"rental_product_uuids": []string{orgB.ids["product"]}}, reject},
 	}
 	for _, c := range ownCases {
 		method, path, _ := strings.Cut(c.route, " ")
@@ -683,6 +729,14 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		if !containsInt(c.want, r.code) {
 			t.Errorf("%s naming B's records = %d, want one of %v: %s", c.route, r.code, c.want, r.raw)
 		}
+	}
+
+	// A coupon code of B is unknown in A: the preview answers, the coupon is
+	// rejected and nothing of B leaks.
+	if r := call(orgA, http.MethodPost, "/v1/tenant/pricing/preview", previewBody(orgA.ids["product"], orgA.ids["home"], map[string]any{
+		"coupon_code": "NOTINA",
+	})); r.code != http.StatusOK || leaked(r.raw) != "" || !strings.Contains(string(r.raw), `"not_found"`) {
+		t.Errorf("preview with an unknown coupon code = %d: %s", r.code, r.raw)
 	}
 
 	// 5. Exports of A contain A's rows only (the worker context is scoped
@@ -867,6 +921,12 @@ func paramKey(prev, name string) string {
 		return "ratePlan"
 	case "date-rules/uuid":
 		return "dateRule"
+	case "extras/uuid":
+		return "extra"
+	case "equipment-allocations/uuid":
+		return "equipmentAllocation"
+	case "campaigns/uuid":
+		return "campaign"
 	}
 	return ""
 }

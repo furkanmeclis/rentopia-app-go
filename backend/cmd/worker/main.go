@@ -16,9 +16,13 @@ import (
 	branchrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/branches/repository"
 	branchusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/branches/usecase"
 	bulkusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/bulk/usecase"
+	campaignsadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/campaigns/adapters"
+	campaignsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/campaigns/usecase"
 	catalogrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/repository"
 	catalogusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/usecase"
 	exportusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/exports/usecase"
+	extrasadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/extras/adapters"
+	extrasusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/extras/usecase"
 	fleetadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleet/adapters"
 	fleetrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleet/repository"
 	fleetusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleet/usecase"
@@ -153,6 +157,10 @@ func main() {
 	// Availability engine: the minute hold expiry sweep.
 	availabilitySvc := availabilityusecase.New(pool, queries, vehicleSvc,
 		orgsettingsusecase.New(orgsettingsrepository.NewPostgres(pool, queries)))
+	// Extras (equipment hold sweep, export, bulk) and campaigns (export,
+	// bulk).
+	extrasSvc := extrasusecase.New(pool, queries)
+	campaignsSvc := campaignsusecase.New(pool, queries)
 	vehicleBulk := vehicleadapters.NewBulk(vehicleSvc)
 	vehicleBulk.SetMaintenance(fleetopsadapters.NewMaintenance(fleetOpsSvc))
 	// Platform organizations (export, bulk activate / suspend). Status
@@ -180,6 +188,8 @@ func main() {
 		fleetopsadapters.NewOneWayIO(fleetOpsSvc),
 		pricingadapters.NewRatePlansIO(pricingSvc),
 		pricingadapters.NewDateRulesIO(pricingSvc),
+		extrasadapters.NewIO(extrasSvc),
+		campaignsadapters.NewIO(campaignsSvc),
 		orgadapters.NewIO(jobScopes),
 	)
 	exportSvc := exportusecase.New(queries, store, ioReg, nil, notifSvc, activityRec, log)
@@ -192,6 +202,8 @@ func main() {
 		fleetadapters.NewProductsBulk(fleetSvc),
 		vehicleBulk,
 		fleetopsadapters.NewOneWayBulk(fleetOpsSvc),
+		extrasadapters.NewBulk(extrasSvc),
+		campaignsadapters.NewBulk(campaignsSvc),
 		orgadapters.NewBulk(jobScopes),
 	)
 	bulkSvc := bulkusecase.New(queries, bulkReg, nil, notifSvc, activityRec, cfg.Bulk, log)
@@ -238,7 +250,16 @@ func main() {
 		WithMobilePush(notifSvc.SendMobilePush, notifSvc.ProcessPushReceipts).
 		WithCatalogImport(catalogSvc.ProcessImport).
 		WithVehicleReminders(vehicleRecordsSvc.RunReminders).
-		WithExpireHolds(availabilitySvc.ExpireDue).
+		WithExpireHolds(func(ctx context.Context) (int, error) {
+			// Vehicle holds first (their equipment expires with them via
+			// the database trigger), then standalone equipment holds.
+			n, err := availabilitySvc.ExpireDue(ctx)
+			if err != nil {
+				return n, err
+			}
+			m, err := extrasSvc.ExpireDue(ctx)
+			return n + m, err
+		}).
 		WithSearch(
 			searchIndexer.ProcessUpsert,
 			searchIndexer.ProcessDelete,

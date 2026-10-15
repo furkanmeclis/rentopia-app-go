@@ -38,6 +38,10 @@ import (
 	bulkmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/bulk"
 	bulkhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/bulk/handler"
 	bulkusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/bulk/usecase"
+	campaignsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/campaigns"
+	campaignsadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/campaigns/adapters"
+	campaignshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/campaigns/handler"
+	campaignsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/campaigns/usecase"
 	catalogmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog"
 	cataloghandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/handler"
 	catalogrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/repository"
@@ -45,6 +49,10 @@ import (
 	exportmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/exports"
 	exporthandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/exports/handler"
 	exportusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/exports/usecase"
+	extrasmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/extras"
+	extrasadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/extras/adapters"
+	extrashandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/extras/handler"
+	extrasusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/extras/usecase"
 	fleetmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleet"
 	fleetadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleet/adapters"
 	fleethandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleet/handler"
@@ -360,6 +368,12 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	// Pricing (TEC-700 / TEC-701): rate plans, date rules, preview.
 	pricingSvc := pricingusecase.New(pricingrepository.NewPostgres(deps.DB, deps.Queries), orgSettingsSvc)
 	pricingSvc.SetOneWayResolver(pricingadapters.NewOneWay(fleetOpsSvc))
+	// Extras (TEC-702) and campaigns (TEC-703) feed the engine's extras and
+	// discount hooks.
+	extrasSvc := extrasusecase.New(deps.DB, deps.Queries)
+	campaignsSvc := campaignsusecase.New(deps.DB, deps.Queries)
+	pricingSvc.SetExtrasResolver(pricingadapters.NewExtras(extrasSvc))
+	pricingSvc.SetCouponEvaluator(pricingadapters.NewCoupons(campaignsSvc))
 	// Availability engine (TEC-697): capacity search, holds, channel rules.
 	availabilitySvc := availabilityusecase.New(deps.DB, deps.Queries, vehicleSvc, orgSettingsSvc)
 
@@ -373,6 +387,8 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	fleetopsmodule.RegisterLiveResources(tenantLive)
 	pricingmodule.RegisterLiveResources(tenantLive)
 	availabilitymodule.RegisterLiveResources(tenantLive)
+	extrasmodule.RegisterLiveResources(tenantLive)
+	campaignsmodule.RegisterLiveResources(tenantLive)
 	resourceEvents.AddResolver(tenantmodule.ChannelResolver(tenantmodule.QueriesLookup(deps.Queries)))
 	uc.AddChannelRules(tenantmodule.ChannelRule(tenantLive, tenantResolver))
 	catalogmodule.RegisterLiveResources(liveResources)
@@ -422,6 +438,8 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		fleetopsadapters.NewOneWayIO(fleetOpsSvc),
 		pricingadapters.NewRatePlansIO(pricingSvc),
 		pricingadapters.NewDateRulesIO(pricingSvc),
+		extrasadapters.NewIO(extrasSvc),
+		campaignsadapters.NewIO(campaignsSvc),
 		orgadapters.NewIO(orgSvc),
 	)
 	exportSvc := exportusecase.New(deps.Queries, deps.Storage, ioReg, jobQueue, notifSvc, activityRec, log)
@@ -437,6 +455,8 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		fleetadapters.NewProductsBulk(fleetSvc),
 		vehicleBulk,
 		fleetopsadapters.NewOneWayBulk(fleetOpsSvc),
+		extrasadapters.NewBulk(extrasSvc),
+		campaignsadapters.NewBulk(campaignsSvc),
 		orgadapters.NewBulk(orgSvc),
 	)
 	bulkSvc := bulkusecase.New(deps.Queries, bulkReg, jobQueue, notifSvc, activityRec, cfg.Bulk, log)
@@ -533,6 +553,18 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	availabilityH := availabilityhandler.New(availabilitySvc, activityRec)
 	availabilityH.SetResourceEvents(resourceEvents)
 	availabilitymodule.RegisterRoutes(mux, availabilityH, tokens, loader, tenantResolver)
+	extrasH := extrashandler.New(extrasSvc, activityRec)
+	extrasH.SetResourceEvents(resourceEvents)
+	extrasmodule.RegisterRoutes(mux, extrasH, extrasmodule.EngineHandlers{
+		Export: exportH.TenantExport(extrasmodule.Resource, extrasmodule.ExportQueryKeys...),
+		Bulk:   bulkH.TenantExecute(extrasmodule.Resource),
+	}, tokens, loader, tenantResolver)
+	campaignsH := campaignshandler.New(campaignsSvc, activityRec)
+	campaignsH.SetResourceEvents(resourceEvents)
+	campaignsmodule.RegisterRoutes(mux, campaignsH, campaignsmodule.EngineHandlers{
+		Export: exportH.TenantExport(campaignsmodule.Resource, campaignsmodule.ExportQueryKeys...),
+		Bulk:   bulkH.TenantExecute(campaignsmodule.Resource),
+	}, tokens, loader, tenantResolver)
 	settingsmodule.RegisterRoutes(mux, settingshandler.New(
 		settingsusecase.New(deps.Queries),
 		deps.Storage,

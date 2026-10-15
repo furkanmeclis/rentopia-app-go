@@ -53,6 +53,7 @@ const (
 	CodeAlreadyMember             = "ALREADY_MEMBER"
 	CodeAccountExists             = "ACCOUNT_EXISTS"
 	CodeCapacityUnavailable       = "CAPACITY_UNAVAILABLE"
+	CodeEquipmentUnavailable      = "EQUIPMENT_UNAVAILABLE"
 )
 
 // RequestIDFunc resolves the correlation id from request context.

@@ -6042,6 +6042,514 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenant/extras/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Extras table contract
+         * @description `tenant.extras.read`.
+         */
+        get: operations["getTenantExtrasMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/extras/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Extra filter options
+         * @description `tenant.extras.read`.
+         */
+        get: operations["getTenantExtraFacets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/extras/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Free equipment units at a branch for a range
+         * @description `tenant.extras.read`. For the published physical extras (or `extra_uuids`) at the branch:
+         *     stock, the peak of confirmed (`reserved`) and held units over `[starts_at, ends_at)` and
+         *     `available` = stock - peak. Lapsed holds no longer count. Read-only. The branch must be in
+         *     the caller's branch scope (`400` `not_found`).
+         */
+        post: operations["postTenantExtrasAvailability"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/extras": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List extras
+         * @description `tenant.extras.read`. `default_price` is the default price effective now.
+         */
+        get: operations["getTenantExtras"];
+        put?: never;
+        /**
+         * Create an extra
+         * @description `tenant.extras.write`. Codes are unique per organization among live extras, case-insensitive
+         *     (`409` `code` / `taken`). `per_rental` extras always have quantity 1. `default_price`
+         *     optionally sets the first default price row.
+         */
+        post: operations["postTenantExtra"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/extras/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export extras
+         * @description `tenant.extras.read`. `query` honours `q` and the list filters.
+         */
+        post: operations["postTenantExtrasExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/extras/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a bulk action on extras
+         * @description `publish` / `archive` (`tenant.extras.write`), reversible. Targets are resolved inside the
+         *     organization.
+         */
+        post: operations["postTenantExtrasBulk"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/extras/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an extra
+         * @description `tenant.extras.read`.
+         */
+        get: operations["getTenantExtra"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete an extra (soft)
+         * @description `tenant.extras.write`. Prices and allocations stay for history.
+         */
+        delete: operations["deleteTenantExtra"];
+        options?: never;
+        head?: never;
+        /**
+         * Change an extra
+         * @description `tenant.extras.write`. Absent fields are unchanged; prices change through `PUT …/prices`.
+         */
+        patch: operations["patchTenantExtra"];
+        trace?: never;
+    };
+    "/v1/tenant/extras/{uuid}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Audit events of an extra
+         * @description `tenant.extras.read`. Price, stock and allocation changes are recorded on the extra.
+         */
+        get: operations["getTenantExtraActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/extras/{uuid}/prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Price matrix of an extra
+         * @description `tenant.extras.read`. The default price and every live rental product with its own price
+         *     effective now (`source` = `product`), the default fallback (`default`) or none (`none`: the
+         *     extra cannot be sold with that product), plus scheduled future rows.
+         */
+        get: operations["getTenantExtraPrices"];
+        /**
+         * Set prices of an extra
+         * @description `tenant.extras.write`. Only the listed rows change, from `effective_from` (default now, never
+         *     in the past). Price rows are immutable: the row effective then is closed, rows that would
+         *     start later are dropped and a new row starts. `price: null` removes a product price (the
+         *     product falls back to the default). Every product uuid is resolved inside the organization
+         *     (`400` `not_found`).
+         */
+        put: operations["putTenantExtraPrices"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/extras/{uuid}/price-history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Price rows of an extra (newest first)
+         * @description `tenant.extras.read`.
+         */
+        get: operations["getTenantExtraPriceHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/extras/{uuid}/stock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Branch stock of a physical extra
+         * @description `tenant.extras.read`. Every branch in the caller's branch scope with its count, the units in
+         *     use now and the committed peak (next 366 days).
+         */
+        get: operations["getTenantExtraStock"];
+        /**
+         * Set branch stock counts
+         * @description `tenant.extras.write`. Physical extras only (`400` `not_physical`); branches inside the
+         *     caller's branch scope (`400` `not_found`). A count below the committed peak is recorded and
+         *     reported in `warnings` (`below_committed`); new sales are refused until stock is back.
+         */
+        put: operations["putTenantExtraStock"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/equipment-allocations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List equipment allocations
+         * @description `tenant.extras.read`. Allocations at branches inside the caller's branch scope.
+         */
+        get: operations["getTenantEquipmentAllocations"];
+        put?: never;
+        /**
+         * Reserve equipment (ReserveEquipment)
+         * @description `tenant.extras.read` + `tenant.availability.hold`. Allocates units of a physical extra at a
+         *     branch for `[starts_at, ends_at)` as a `hold` (expires after `hold_minutes`, default 30) or a
+         *     `reservation`. Writers serialise on the branch stock row; `409 EQUIPMENT_UNAVAILABLE` when
+         *     the branch has fewer free units for the whole range (`data` = stock / available /
+         *     requested; nothing written). With `vehicle_allocation_uuid` (an availability hold or
+         *     reservation) the equipment takes its kind and expiry, defaults to its pick-up branch and
+         *     range, and is released, confirmed and extended together with it.
+         */
+        post: operations["postTenantEquipmentAllocation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/equipment-allocations/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an equipment allocation
+         * @description `tenant.extras.read`. Outside the caller's branch scope answers `404`.
+         */
+        get: operations["getTenantEquipmentAllocation"];
+        put?: never;
+        post?: never;
+        /**
+         * Release equipment (ReleaseEquipment)
+         * @description `tenant.extras.read` + `tenant.availability.hold`. Frees the units exactly once (`409`
+         *     `not_active` afterwards).
+         */
+        delete: operations["deleteTenantEquipmentAllocation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/equipment-allocations/{uuid}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm an equipment hold (ConfirmEquipment)
+         * @description `tenant.extras.read` + `tenant.availability.hold`. An active, unexpired hold becomes a
+         *     reservation on the same row (`409` `hold_expired` / `not_hold` / `not_active`).
+         */
+        post: operations["postTenantEquipmentAllocationConfirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/campaigns/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Campaigns table contract
+         * @description `tenant.campaigns.read`.
+         */
+        get: operations["getTenantCampaignsMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/campaigns/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Campaign filter options
+         * @description `tenant.campaigns.read`. `state` is computed for today (Istanbul).
+         */
+        get: operations["getTenantCampaignFacets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/campaigns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List campaigns
+         * @description `tenant.campaigns.read`.
+         */
+        get: operations["getTenantCampaigns"];
+        put?: never;
+        /**
+         * Create a campaign
+         * @description `tenant.campaigns.write`. A coupon needs a code (3-32 letters, digits, `-`, `_`; stored upper
+         *     case, unique per organization among live campaigns: `409` `code` / `taken`). Products and
+         *     segments are resolved inside the organization (`400` `not_found`). `customer_uuids` has no
+         *     foreign key until customers exist (TEC-705).
+         */
+        post: operations["postTenantCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/campaigns/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export campaigns
+         * @description `tenant.campaigns.read`. `query` honours `q` and the list filters.
+         */
+        post: operations["postTenantCampaignsExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/campaigns/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a bulk action on campaigns
+         * @description `activate` / `deactivate` (`tenant.campaigns.write`), reversible.
+         */
+        post: operations["postTenantCampaignsBulk"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/campaigns/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a campaign
+         * @description `tenant.campaigns.read`.
+         */
+        get: operations["getTenantCampaign"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a campaign (soft)
+         * @description `tenant.campaigns.write`. Redemptions stay.
+         */
+        delete: operations["deleteTenantCampaign"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a campaign
+         * @description `tenant.campaigns.write`. Absent fields are unchanged; `usage_limit` may not go below the uses
+         *     so far (`400` `below_used`).
+         */
+        patch: operations["patchTenantCampaign"];
+        trace?: never;
+    };
+    "/v1/tenant/campaigns/{uuid}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Audit events of a campaign
+         * @description `tenant.campaigns.read`.
+         */
+        get: operations["getTenantCampaignActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/campaigns/{uuid}/redemptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Redemptions of a campaign
+         * @description `tenant.campaigns.read`. One row per reservation that used the campaign: `reserved` →
+         *     `consumed` / `released` (`usage_returned` when the campaign gives the use back on cancel).
+         */
+        get: operations["getTenantCampaignRedemptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -10927,6 +11435,20 @@ export interface components {
                 priority?: number;
                 change_note?: string;
             } | null;
+            /** @description Selected extras (TEC-702): the price of the rental product effective now (else the default price), the charge type, quantity bounds and fee cap. Problems are `400` details on `extras.N.extra_uuid` / `extras.N.quantity` (not_found, not_available, channel_not_allowed, out_of_range, duplicate, no_price). */
+            extras?: {
+                /** Format: uuid */
+                extra_uuid: string;
+                /** @description Default min_quantity */
+                quantity?: number;
+            }[];
+            /** @description Campaign code (TEC-703), case-insensitive. Checked per side against its rental subtotal; `coupon` explains an applied or rejected code. Not combined with `discount`. */
+            coupon_code?: string;
+            /**
+             * Format: uuid
+             * @description Customer of the sale (customer scope, per-customer limits, repeat-customer campaigns)
+             */
+            customer_uuid?: string | null;
         };
         PricingRuleRef: {
             id: string;
@@ -10973,6 +11495,10 @@ export interface components {
             rules: components["schemas"]["PricingRuleRef"][];
             rental_subtotal: string;
             discount: {
+                /** @description Campaign uuid (empty for a manual discount) */
+                campaign_id?: string;
+                /** @description The campaign's max discount limited it */
+                capped?: boolean;
                 code: string;
                 name: string;
                 kind: string;
@@ -10986,6 +11512,14 @@ export interface components {
                 code?: string;
                 name?: string;
                 quantity: number;
+                /** @description Unit price of an extra line */
+                unit_price?: string;
+                /** @description The extra's fee cap limited the line */
+                capped?: boolean;
+                /** @description Extra uuid */
+                extra_id?: string;
+                /** @description Effective-dated price row uuid (quote snapshot) */
+                price_id?: string;
                 /** @description VAT included */
                 gross: string;
                 /** @description Matrah */
@@ -11009,14 +11543,577 @@ export interface components {
                 message: string;
                 refs: string[];
             } | null;
+            coupon?: components["schemas"]["PricingCouponResult"] | null;
         };
         PricingPreview: {
             current: components["schemas"]["PricingPreviewSide"];
             proposed: components["schemas"]["PricingPreviewSide"];
             /** @description Proposed total minus current total */
             difference: string | null;
-            /** @description vat_rate_missing, one_way_not_allowed, one_way_unavailable, no_changes */
+            /** @description vat_rate_missing, one_way_not_allowed, one_way_unavailable, no_changes, coupons_unavailable */
             warnings: string[];
+        };
+        PricingCouponResult: {
+            code: string;
+            /** Format: uuid */
+            campaign_uuid: string | null;
+            campaign_name: string;
+            /** @enum {string} */
+            campaign_type?: "coupon" | "repeat_customer";
+            /** @enum {string} */
+            status: "applied" | "rejected";
+            /** @description Empty when applied; otherwise not_found, inactive, not_started, expired, channel, scope, customer_scope, customer_required, customer_limit, limit, min_amount, corporate, not_eligible */
+            reason: string;
+            /** @description Numbers of a rejection: min_subtotal, subtotal, start_date, end_date, channel, per_customer_limit, min_completed_rentals */
+            params: {
+                [key: string]: string;
+            };
+        };
+        ExtraRef: {
+            /** Format: uuid */
+            uuid: string;
+            code: string;
+            name: string;
+        };
+        ExtraBranchRef: {
+            /** Format: uuid */
+            uuid: string;
+            code: string;
+            name: string;
+        };
+        Extra: {
+            /** Format: uuid */
+            uuid: string;
+            /** @example CHILD_SEAT */
+            code: string;
+            /** @example Çocuk koltuğu */
+            name: string;
+            description: string;
+            /** @enum {string} */
+            extra_type: "additional_driver" | "child_seat" | "km_package" | "delivery" | "other";
+            /**
+             * @description per_day = price x quantity x billing days; per_unit = price x quantity; per_rental = price once (quantity 1)
+             * @enum {string}
+             */
+            charge_type: "per_day" | "per_unit" | "per_rental";
+            min_quantity: number;
+            max_quantity: number;
+            /** @description Cap of the line total */
+            max_total: string | null;
+            /** @description null = every sales channel */
+            channels: string[] | null;
+            /** @enum {string} */
+            status: "draft" | "published" | "archived";
+            /** @description Physical equipment with branch stock */
+            is_physical: boolean;
+            sort_order: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** @description Default price effective now */
+            default_price: string | null;
+            /**
+             * Format: int64
+             * @description Products with their own price (lists)
+             */
+            product_price_count: number;
+            /**
+             * Format: int64
+             * @description Owned units over every branch (lists)
+             */
+            stock_total: number;
+        };
+        ExtraPage: {
+            items: components["schemas"]["Extra"][];
+            /** Format: int64 */
+            total: number;
+            limit: number;
+            offset: number;
+        };
+        ExtraFacets: {
+            extra_type: components["schemas"]["FleetFacet"][];
+            charge_type: components["schemas"]["FleetFacet"][];
+            status: components["schemas"]["FleetFacet"][];
+            is_physical: components["schemas"]["FleetFacet"][];
+        };
+        ExtraPatchRequest: {
+            code?: string;
+            name?: string;
+            description?: string;
+            /** @enum {string} */
+            extra_type?: "additional_driver" | "child_seat" | "km_package" | "delivery" | "other";
+            /** @enum {string} */
+            charge_type?: "per_day" | "per_unit" | "per_rental";
+            min_quantity?: number;
+            max_quantity?: number;
+            /** @description null or "" clears the cap */
+            max_total?: string | number | null;
+            channels?: string[] | null;
+            /** @enum {string} */
+            status?: "draft" | "published" | "archived";
+            is_physical?: boolean;
+            sort_order?: number;
+        };
+        ExtraCreateRequest: {
+            code: string;
+            name: string;
+            description?: string;
+            /** @enum {string} */
+            extra_type: "additional_driver" | "child_seat" | "km_package" | "delivery" | "other";
+            /** @enum {string} */
+            charge_type: "per_day" | "per_unit" | "per_rental";
+            min_quantity?: number;
+            max_quantity?: number;
+            max_total?: string | number | null;
+            channels?: string[] | null;
+            /** @enum {string} */
+            status?: "draft" | "published" | "archived";
+            is_physical?: boolean;
+            sort_order?: number;
+            /** @description First default price row (optional) */
+            default_price?: string | number | null;
+        };
+        ExtraPriceRow: {
+            /**
+             * Format: uuid
+             * @description Price row a quote snapshots
+             */
+            uuid: string;
+            price: string;
+            /** Format: date-time */
+            valid_from: string;
+            /** Format: date-time */
+            valid_to: string | null;
+        };
+        ExtraProductPrice: {
+            product: {
+                /** Format: uuid */
+                uuid: string;
+                code: string;
+                title: string;
+                status?: string;
+                /** Format: uuid */
+                segment_uuid?: string;
+                segment_name?: string;
+            };
+            price: components["schemas"]["ExtraPriceRow"] | null;
+            effective: string | null;
+            /** @enum {string} */
+            source: "product" | "default" | "none";
+        };
+        ExtraPriceMatrix: {
+            default: components["schemas"]["ExtraPriceRow"] | null;
+            items: components["schemas"]["ExtraProductPrice"][];
+            scheduled: {
+                /** Format: uuid */
+                uuid: string;
+                /**
+                 * Format: uuid
+                 * @description null = default price
+                 */
+                product_uuid: string | null;
+                price: string;
+                /** Format: date-time */
+                valid_from: string;
+                /** Format: date-time */
+                valid_to: string | null;
+            }[];
+        };
+        ExtraPricesRequest: {
+            /** @description Set (value) or remove (null) the default price */
+            default_price?: string | number | null;
+            items?: {
+                /** Format: uuid */
+                rental_product_uuid: string;
+                /** @description null removes the product price */
+                price?: string | number | null;
+            }[];
+            /**
+             * Format: date-time
+             * @description Default now
+             */
+            effective_from?: string | null;
+        };
+        ExtraPriceHistoryPage: {
+            items: {
+                /** Format: uuid */
+                uuid: string;
+                product: {
+                    /** Format: uuid */
+                    uuid: string;
+                    code: string;
+                    title: string;
+                } | null;
+                price: string;
+                /** Format: date-time */
+                valid_from: string;
+                /** Format: date-time */
+                valid_to: string | null;
+                /** Format: date-time */
+                created_at: string;
+                actor: components["schemas"]["PricingActor"] | null;
+            }[];
+            /** Format: int64 */
+            total: number;
+            limit: number;
+            offset: number;
+        };
+        ExtraStockRow: {
+            branch: components["schemas"]["ExtraBranchRef"];
+            branch_active: boolean;
+            quantity: number;
+            /** Format: date-time */
+            updated_at: string | null;
+            in_use_now: number;
+            /** @description Highest concurrent use of future commitments */
+            peak_committed: number;
+        };
+        ExtraStockRequest: {
+            items: {
+                /** Format: uuid */
+                branch_uuid: string;
+                quantity: number;
+            }[];
+        };
+        ExtraStockResult: {
+            items: components["schemas"]["ExtraStockRow"][];
+            warnings: {
+                /** Format: uuid */
+                branch_uuid: string;
+                /** @enum {string} */
+                code: "below_committed";
+                quantity: number;
+                peak_committed: number;
+            }[];
+        };
+        ExtrasAvailabilityRequest: {
+            /** Format: uuid */
+            branch_uuid: string;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            /** @description Physical extras to check (default every published physical extra) */
+            extra_uuids?: string[];
+        };
+        ExtrasAvailability: {
+            branch: components["schemas"]["ExtraBranchRef"];
+            items: {
+                extra: components["schemas"]["ExtraRef"];
+                stock: number;
+                reserved: number;
+                held: number;
+                available: number;
+            }[];
+        };
+        EquipmentAllocation: {
+            /** Format: uuid */
+            uuid: string;
+            extra: components["schemas"]["ExtraRef"];
+            branch: components["schemas"]["ExtraBranchRef"];
+            quantity: number;
+            /** @enum {string} */
+            kind: "hold" | "reservation" | "rental";
+            /** @enum {string} */
+            status: "active" | "released" | "expired";
+            /** @description Active hold past expires_at (no longer counts) */
+            lapsed: boolean;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            /** Format: date-time */
+            expires_at: string | null;
+            /** Format: uuid */
+            vehicle_allocation_uuid: string | null;
+            ref_type: string | null;
+            /** Format: uuid */
+            ref_uuid: string | null;
+            note: string;
+            /** Format: date-time */
+            released_at: string | null;
+            release_reason: string;
+            created_by: components["schemas"]["PricingActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        EquipmentAllocationPage: {
+            items: components["schemas"]["EquipmentAllocation"][];
+            /** Format: int64 */
+            total: number;
+            limit: number;
+            offset: number;
+        };
+        EquipmentReserveRequest: {
+            /** Format: uuid */
+            extra_uuid: string;
+            /**
+             * Format: uuid
+             * @description Required without vehicle_allocation_uuid
+             */
+            branch_uuid?: string | null;
+            quantity?: number;
+            /** Format: date-time */
+            starts_at?: string | null;
+            /** Format: date-time */
+            ends_at?: string | null;
+            /** @enum {string} */
+            kind?: "hold" | "reservation";
+            hold_minutes?: number;
+            /**
+             * Format: uuid
+             * @description Availability hold / reservation the equipment follows
+             */
+            vehicle_allocation_uuid?: string | null;
+            ref_type?: string;
+            /** Format: uuid */
+            ref_uuid?: string | null;
+            note?: string;
+        };
+        EquipmentConfirmRequest: {
+            ref_type?: string;
+            /** Format: uuid */
+            ref_uuid?: string | null;
+        };
+        Campaign: {
+            /** Format: uuid */
+            uuid: string;
+            name: string;
+            description: string;
+            /** @enum {string} */
+            campaign_type: "coupon" | "repeat_customer";
+            /** @example YAZ20 */
+            code: string | null;
+            /** @enum {string} */
+            discount_kind: "percent" | "amount";
+            /** @description Percent (0-100) or TRY amount */
+            discount_value: string;
+            max_discount: string | null;
+            min_subtotal: string | null;
+            /** Format: date */
+            start_date: string | null;
+            /**
+             * Format: date
+             * @description Inclusive (Istanbul calendar)
+             */
+            end_date: string | null;
+            channels: string[] | null;
+            /** @enum {string} */
+            product_scope: "all" | "segments" | "products";
+            products: {
+                /** Format: uuid */
+                uuid: string;
+                code: string;
+                title: string;
+            }[];
+            segments: {
+                /** Format: uuid */
+                uuid: string;
+                code: string;
+                name: string;
+            }[];
+            /** @description null = every customer */
+            customer_uuids: string[] | null;
+            usage_limit: number | null;
+            per_customer_limit: number | null;
+            used_count: number;
+            remaining: number | null;
+            min_completed_rentals: number;
+            release_on_cancel: boolean;
+            corporate_eligible: boolean;
+            is_active: boolean;
+            /** @enum {string} */
+            state: "active" | "scheduled" | "exhausted" | "expired" | "inactive";
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        CampaignPage: {
+            items: components["schemas"]["Campaign"][];
+            /** Format: int64 */
+            total: number;
+            limit: number;
+            offset: number;
+        };
+        CampaignFacets: {
+            campaign_type: components["schemas"]["FleetFacet"][];
+            discount_kind: components["schemas"]["FleetFacet"][];
+            state: components["schemas"]["FleetFacet"][];
+        };
+        CampaignPatchRequest: {
+            name?: string;
+            description?: string;
+            /** @enum {string} */
+            campaign_type?: "coupon" | "repeat_customer";
+            code?: string | null;
+            /** @enum {string} */
+            discount_kind?: "percent" | "amount";
+            discount_value?: string | number;
+            max_discount?: string | number | null;
+            min_subtotal?: string | number | null;
+            /** Format: date */
+            start_date?: string | null;
+            /** Format: date */
+            end_date?: string | null;
+            channels?: string[] | null;
+            /** @enum {string} */
+            product_scope?: "all" | "segments" | "products";
+            rental_product_uuids?: string[];
+            segment_uuids?: string[];
+            customer_uuids?: string[] | null;
+            usage_limit?: number | null;
+            per_customer_limit?: number | null;
+            min_completed_rentals?: number;
+            release_on_cancel?: boolean;
+            corporate_eligible?: boolean;
+            is_active?: boolean;
+        };
+        CampaignCreateRequest: {
+            name: string;
+            description?: string;
+            /** @enum {string} */
+            campaign_type: "coupon" | "repeat_customer";
+            code?: string | null;
+            /** @enum {string} */
+            discount_kind: "percent" | "amount";
+            discount_value: string | number;
+            max_discount?: string | number | null;
+            min_subtotal?: string | number | null;
+            /** Format: date */
+            start_date?: string | null;
+            /** Format: date */
+            end_date?: string | null;
+            channels?: string[] | null;
+            /** @enum {string} */
+            product_scope?: "all" | "segments" | "products";
+            rental_product_uuids?: string[];
+            segment_uuids?: string[];
+            customer_uuids?: string[] | null;
+            usage_limit?: number | null;
+            per_customer_limit?: number | null;
+            min_completed_rentals?: number;
+            release_on_cancel?: boolean;
+            corporate_eligible?: boolean;
+            is_active?: boolean;
+        };
+        CampaignRedemption: {
+            /** Format: uuid */
+            uuid: string;
+            /** Format: uuid */
+            reservation_uuid: string;
+            /** Format: uuid */
+            customer_uuid: string | null;
+            code: string | null;
+            subtotal: string;
+            discount_amount: string;
+            /** @enum {string} */
+            status: "reserved" | "consumed" | "released";
+            release_reason: string;
+            usage_returned: boolean;
+            created_by: components["schemas"]["PricingActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            consumed_at: string | null;
+            /** Format: date-time */
+            released_at: string | null;
+        };
+        CampaignRedemptionPage: {
+            items: components["schemas"]["CampaignRedemption"][];
+            /** Format: int64 */
+            total: number;
+            limit: number;
+            offset: number;
+        };
+        EnvelopeExtraFacets: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["ExtraFacets"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeExtrasAvailability: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["ExtrasAvailability"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeExtraPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["ExtraPage"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeExtra: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["Extra"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeExtraPriceMatrix: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["ExtraPriceMatrix"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeExtraPriceHistoryPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["ExtraPriceHistoryPage"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeExtraStockResult: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["ExtraStockResult"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeEquipmentAllocationPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["EquipmentAllocationPage"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeEquipmentAllocation: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["EquipmentAllocation"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCampaignFacets: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["CampaignFacets"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCampaignPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["CampaignPage"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCampaign: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["Campaign"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCampaignRedemptionPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["CampaignRedemptionPage"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeExtraStockList: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["ExtraStockRow"][];
+            };
+            meta: components["schemas"]["ResponseMeta"];
         };
         EnvelopeRatePlan: {
             /** @enum {boolean} */
@@ -22576,6 +23673,1118 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantExtrasMeta: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource meta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantExtraFacets: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Facets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExtraFacets"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantExtrasAvailability: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtrasAvailabilityRequest"];
+            };
+        };
+        responses: {
+            /** @description Availability */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExtrasAvailability"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantExtras: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description One of `code`, `name`, `extra_type`, `status`, `default_price`, `sort_order`, `created_at`, `updated_at`; prefix `-` for descending. Default `-created_at`. */
+                sort?: string;
+                /** @description Comma-separated */
+                extra_type?: string;
+                /** @description Comma-separated */
+                charge_type?: string;
+                /** @description Comma-separated */
+                status?: string;
+                is_physical?: boolean;
+                /** @description Extras sold through this channel */
+                channel?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Extra page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExtraPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantExtra: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtraCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Extra */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExtra"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantExtrasExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Export job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantExtrasBulk: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkExecuteRequest"];
+            };
+        };
+        responses: {
+            /** @description Sync bulk result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeBulkSyncResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantExtra: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Extra */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExtra"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteTenantExtra: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeStatus"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchTenantExtra: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtraPatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Extra */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExtra"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantExtraActivity: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Activity page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFleetActivityPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantExtraPrices: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Price matrix */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExtraPriceMatrix"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putTenantExtraPrices: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtraPricesRequest"];
+            };
+        };
+        responses: {
+            /** @description Price matrix */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExtraPriceMatrix"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantExtraPriceHistory: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Price history page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExtraPriceHistoryPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantExtraStock: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stock rows */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExtraStockList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putTenantExtraStock: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtraStockRequest"];
+            };
+        };
+        responses: {
+            /** @description Stock rows and warnings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExtraStockResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantEquipmentAllocations: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description starts_at, ends_at, quantity, created_at (prefix - for descending). Default -starts_at. */
+                sort?: string;
+                /** @description Extra uuid */
+                extra?: string;
+                /** @description Branch uuids; comma-separated */
+                branch?: string;
+                /** @description active, released, expired; comma-separated */
+                status?: string;
+                /** @description hold, reservation, rental; comma-separated */
+                kind?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Allocation page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeEquipmentAllocationPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantEquipmentAllocation: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EquipmentReserveRequest"];
+            };
+        };
+        responses: {
+            /** @description Allocation */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeEquipmentAllocation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantEquipmentAllocation: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Allocation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeEquipmentAllocation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteTenantEquipmentAllocation: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Released allocation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeEquipmentAllocation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantEquipmentAllocationConfirm: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["EquipmentConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description Allocation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeEquipmentAllocation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantCampaignsMeta: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource meta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantCampaignFacets: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Facets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCampaignFacets"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantCampaigns: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description One of `name`, `code`, `start_date`, `end_date`, `used_count`, `created_at`, `updated_at`; prefix `-` for descending. Default `-created_at`. */
+                sort?: string;
+                /** @description coupon, repeat_customer; comma-separated */
+                campaign_type?: string;
+                /** @description percent, amount; comma-separated */
+                discount_kind?: string;
+                /** @description active, scheduled, exhausted, expired, inactive; comma-separated */
+                state?: string;
+                /** @description Campaigns valid for this channel */
+                channel?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Campaign page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCampaignPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantCampaign: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CampaignCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Campaign */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCampaign"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantCampaignsExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Export job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantCampaignsBulk: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkExecuteRequest"];
+            };
+        };
+        responses: {
+            /** @description Sync bulk result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeBulkSyncResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantCampaign: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Campaign */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCampaign"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteTenantCampaign: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeStatus"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchTenantCampaign: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CampaignPatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Campaign */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCampaign"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantCampaignActivity: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Activity page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFleetActivityPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantCampaignRedemptions: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                /** @description reserved, consumed, released; comma-separated */
+                status?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redemption page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCampaignRedemptionPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
 }
