@@ -113,6 +113,10 @@ export const Permission = {
   TenantSignatureWaive: "tenant.signature.waive",
   TenantDocumentDownload: "tenant.document.download",
   TenantReportExport: "tenant.report.export",
+  TenantIntegrationsManage: "tenant.integrations.manage",
+  TenantPaymentsRead: "tenant.payments.read",
+  TenantPaymentsCreateLink: "tenant.payments.create_link",
+  TenantReservationsApprove: "tenant.reservations.approve",
 } as const;
 
 export type PermissionSlug = (typeof Permission)[keyof typeof Permission];
@@ -309,6 +313,8 @@ export const permissions = {
       confirm: Permission.TenantReservationsConfirm,
       export: Permission.TenantReservationsExport,
       overrideEligibility: Permission.TenantReservationsOverrideEligibility,
+      /** Staff approval queue: accept / reject requests and reviews. */
+      approve: Permission.TenantReservationsApprove,
     },
     /** Quotes (priced searches; no capacity). */
     quotes: {
@@ -339,9 +345,22 @@ export const permissions = {
     discount: {
       apply: Permission.TenantDiscountApply,
     },
+    /**
+     * Payments: `collect` records a collection at the branch, `refund`
+     * refunds through the provider (TEC-689 slugs reused).
+     */
     payment: {
       collect: Permission.TenantPaymentCollect,
       refund: Permission.TenantPaymentRefund,
+    },
+    /** Payments list / detail and pay-by-link links (TEC-707). */
+    payments: {
+      read: Permission.TenantPaymentsRead,
+      createLink: Permission.TenantPaymentsCreateLink,
+    },
+    /** Provider accounts (iyzico …): connect, test, disable (TEC-676). */
+    integrations: {
+      manage: Permission.TenantIntegrationsManage,
     },
     damage: {
       approve: Permission.TenantDamageApprove,

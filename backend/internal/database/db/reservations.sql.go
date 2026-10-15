@@ -194,7 +194,7 @@ SELECT r.id, r.uuid, r.reference, r.status, r.payment_status, r.capacity_commitm
     r.rental_product_id, r.product_version, r.sold_rental_product_id, r.sold_product_version, r.guarantee_type,
     r.customer_id, r.channel, r.total_amount, r.prepayment_amount, r.paid_amount, r.commission_amount,
     r.collecting_party, r.quote_id, r.quote_snapshot, r.settings_version, r.review_deadline, r.payment_deadline,
-    r.assigned_user_id, r.currency, r.product_snapshot, r.equipment_allocations,
+    r.assigned_user_id, r.currency, r.product_snapshot, r.equipment_allocations, r.approval_protocol,
     a.uuid AS allocation_uuid, a.status AS allocation_status, a.kind AS allocation_kind,
     a.vehicle_id AS allocation_vehicle_id, a.plate_fixed AS allocation_plate_fixed, a.expires_at AS allocation_expires_at,
     p.uuid AS product_uuid
@@ -246,6 +246,7 @@ type GetReservationCoreRow struct {
 	Currency             string             `json:"currency"`
 	ProductSnapshot      []byte             `json:"product_snapshot"`
 	EquipmentAllocations []uuid.UUID        `json:"equipment_allocations"`
+	ApprovalProtocol     string             `json:"approval_protocol"`
 	AllocationUuid       pgtype.UUID        `json:"allocation_uuid"`
 	AllocationStatus     pgtype.Text        `json:"allocation_status"`
 	AllocationKind       pgtype.Text        `json:"allocation_kind"`
@@ -294,6 +295,7 @@ func (q *Queries) GetReservationCore(ctx context.Context, arg GetReservationCore
 		&i.Currency,
 		&i.ProductSnapshot,
 		&i.EquipmentAllocations,
+		&i.ApprovalProtocol,
 		&i.AllocationUuid,
 		&i.AllocationStatus,
 		&i.AllocationKind,
@@ -657,7 +659,7 @@ SELECT r.id, r.uuid, r.reference, r.status, r.payment_status, r.capacity_commitm
     r.channel, r.external_reference, r.collecting_party, r.commission_amount, r.net_receivable,
     r.currency, r.total_amount, r.prepayment_amount, r.paid_amount, r.quote_snapshot,
     r.settings_version, r.policy_snapshot, r.review_deadline, r.payment_deadline, r.note, r.eligibility_override,
-    r.confirmed_at, r.cancelled_at, r.cancel_reason, r.created_at, r.updated_at,
+    r.confirmed_at, r.cancelled_at, r.cancel_reason, r.created_at, r.updated_at, r.approval_protocol,
     pb.uuid AS pickup_branch_uuid, pb.code AS pickup_branch_code, pb.name AS pickup_branch_name,
     rb.uuid AS return_branch_uuid, rb.code AS return_branch_code, rb.name AS return_branch_name,
     pp.uuid AS pickup_point_uuid, pp.name AS pickup_point_name,
@@ -747,6 +749,7 @@ type GetReservationViewRow struct {
 	CancelReason         string             `json:"cancel_reason"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	ApprovalProtocol     string             `json:"approval_protocol"`
 	PickupBranchUuid     uuid.UUID          `json:"pickup_branch_uuid"`
 	PickupBranchCode     string             `json:"pickup_branch_code"`
 	PickupBranchName     string             `json:"pickup_branch_name"`
@@ -837,6 +840,7 @@ func (q *Queries) GetReservationView(ctx context.Context, arg GetReservationView
 		&i.CancelReason,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ApprovalProtocol,
 		&i.PickupBranchUuid,
 		&i.PickupBranchCode,
 		&i.PickupBranchName,
@@ -897,7 +901,7 @@ INSERT INTO reservations (
     customer_id, invoice_customer_id, channel, external_reference, collecting_party, commission_amount,
     net_receivable, currency, total_amount, prepayment_amount, quote_id, quote_snapshot,
     settings_version, policy_snapshot, review_deadline, payment_deadline, note, eligibility_override,
-    confirmed_at, created_by
+    confirmed_at, created_by, approval_protocol
 ) VALUES (
     $1, $2, $3, $4, 'unpaid',
     $5, $6,
@@ -909,7 +913,8 @@ INSERT INTO reservations (
     $21, $22, $23, $24,
     $25, $26, $27, $28,
     $29, $30, $31, $32,
-    $33, $34, $35, $36
+    $33, $34, $35, $36,
+    $37
 )
 RETURNING id
 `
@@ -951,6 +956,7 @@ type InsertReservationParams struct {
 	EligibilityOverride []byte             `json:"eligibility_override"`
 	ConfirmedAt         pgtype.Timestamptz `json:"confirmed_at"`
 	CreatedBy           pgtype.Int8        `json:"created_by"`
+	ApprovalProtocol    string             `json:"approval_protocol"`
 }
 
 func (q *Queries) InsertReservation(ctx context.Context, arg InsertReservationParams) (int64, error) {
@@ -991,6 +997,7 @@ func (q *Queries) InsertReservation(ctx context.Context, arg InsertReservationPa
 		arg.EligibilityOverride,
 		arg.ConfirmedAt,
 		arg.CreatedBy,
+		arg.ApprovalProtocol,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -1507,7 +1514,7 @@ func (q *Queries) ListReservationTargetUUIDs(ctx context.Context, arg ListReserv
 const listReservations = `-- name: ListReservations :many
 SELECT r.uuid, r.reference, r.status, r.payment_status, r.capacity_commitment, r.starts_at, r.ends_at,
     r.channel, r.external_reference, r.currency, r.total_amount, r.paid_amount, r.created_at, r.updated_at,
-    r.review_deadline, r.payment_deadline,
+    r.review_deadline, r.payment_deadline, r.prepayment_amount, r.approval_protocol,
     pb.uuid AS pickup_branch_uuid, pb.code AS pickup_branch_code, pb.name AS pickup_branch_name,
     rb.uuid AS return_branch_uuid, rb.code AS return_branch_code, rb.name AS return_branch_name,
     p.uuid AS product_uuid, p.code AS product_code, p.title AS product_title,
@@ -1571,6 +1578,8 @@ ORDER BY
     CASE WHEN $13::text = 'total_amount' AND $14::boolean THEN r.total_amount END DESC,
     CASE WHEN $13::text = 'created_at' AND NOT $14::boolean THEN r.created_at END ASC,
     CASE WHEN $13::text = 'created_at' AND $14::boolean THEN r.created_at END DESC,
+    CASE WHEN $13::text = 'review_deadline' AND NOT $14::boolean THEN r.review_deadline END ASC NULLS LAST,
+    CASE WHEN $13::text = 'review_deadline' AND $14::boolean THEN r.review_deadline END DESC NULLS LAST,
     r.id DESC
 LIMIT $16 OFFSET $15
 `
@@ -1611,6 +1620,8 @@ type ListReservationsRow struct {
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 	ReviewDeadline       pgtype.Timestamptz `json:"review_deadline"`
 	PaymentDeadline      pgtype.Timestamptz `json:"payment_deadline"`
+	PrepaymentAmount     pgtype.Numeric     `json:"prepayment_amount"`
+	ApprovalProtocol     string             `json:"approval_protocol"`
 	PickupBranchUuid     uuid.UUID          `json:"pickup_branch_uuid"`
 	PickupBranchCode     string             `json:"pickup_branch_code"`
 	PickupBranchName     string             `json:"pickup_branch_name"`
@@ -1680,6 +1691,8 @@ func (q *Queries) ListReservations(ctx context.Context, arg ListReservationsPara
 			&i.UpdatedAt,
 			&i.ReviewDeadline,
 			&i.PaymentDeadline,
+			&i.PrepaymentAmount,
+			&i.ApprovalProtocol,
 			&i.PickupBranchUuid,
 			&i.PickupBranchCode,
 			&i.PickupBranchName,
@@ -1845,6 +1858,44 @@ func (q *Queries) NextReservationNumber(ctx context.Context, arg NextReservation
 	var last_value int64
 	err := row.Scan(&last_value)
 	return last_value, err
+}
+
+const reinstateReservation = `-- name: ReinstateReservation :execrows
+UPDATE reservations
+SET status = 'confirmed',
+    capacity_commitment = 'firm',
+    allocation_id = $1,
+    review_deadline = NULL,
+    payment_deadline = NULL,
+    confirmed_at = $2,
+    cancelled_at = NULL,
+    cancel_reason = ''
+WHERE organization_id = $3
+  AND id = $4
+  AND status = 'expired'
+`
+
+type ReinstateReservationParams struct {
+	AllocationID   pgtype.Int8        `json:"allocation_id"`
+	ConfirmedAt    pgtype.Timestamptz `json:"confirmed_at"`
+	OrganizationID int64              `json:"organization_id"`
+	ID             int64              `json:"id"`
+}
+
+// A late payment re-secured capacity for an expired reservation (TEC-708):
+// expired → confirmed on the new firm allocation; the cancellation facts
+// of the expiry are cleared (the timeline keeps them).
+func (q *Queries) ReinstateReservation(ctx context.Context, arg ReinstateReservationParams) (int64, error) {
+	result, err := q.db.Exec(ctx, reinstateReservation,
+		arg.AllocationID,
+		arg.ConfirmedAt,
+		arg.OrganizationID,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const setReservationAssignee = `-- name: SetReservationAssignee :execrows
