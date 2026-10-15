@@ -130,5 +130,11 @@
   "labels.tenant.capacity_rules.read": "View channel capacity rules",
   "labels.tenant.capacity_rules.write": "Manage channel capacity rules",
   "groups.tenant_availability": "Availability",
-  "groups.tenant_capacity_rules": "Channel capacity rules"
+  "groups.tenant_capacity_rules": "Channel capacity rules",
+  "labels.tenant.extras.read": "View extras (prices, stock, allocations)",
+  "labels.tenant.extras.write": "Manage extras, their prices and branch stock",
+  "groups.tenant_extras": "Extras",
+  "labels.tenant.campaigns.read": "View campaigns",
+  "labels.tenant.campaigns.write": "Manage campaigns and coupon codes",
+  "groups.tenant_campaigns": "Campaigns"
 }

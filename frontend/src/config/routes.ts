@@ -89,6 +89,19 @@ export const routes = {
       },
       preview: (slug: string) =>
         `/t/${encodeURIComponent(slug)}/pricing/preview`,
+      /** Extras ("Ek hizmetler"): catalog, prices, stock, allocations. */
+      extras: {
+        root: (slug: string) => `/t/${encodeURIComponent(slug)}/pricing/extras`,
+        detail: (slug: string, uuid: string) =>
+          `/t/${encodeURIComponent(slug)}/pricing/extras/${uuid}`,
+      },
+      /** Campaigns and coupons ("Kampanyalar"). */
+      campaigns: {
+        root: (slug: string) =>
+          `/t/${encodeURIComponent(slug)}/pricing/campaigns`,
+        detail: (slug: string, uuid: string) =>
+          `/t/${encodeURIComponent(slug)}/pricing/campaigns/${uuid}`,
+      },
     },
     /** Availability search and holds ("Müsaitlik"). */
     availability: (slug: string) =>

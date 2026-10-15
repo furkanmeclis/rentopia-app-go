@@ -55,5 +55,7 @@
   "nav_pricing_rules": "Tarih kuralları",
   "nav_pricing_preview": "Fiyat önizleme",
   "nav_availability": "Müsaitlik",
-  "nav_fleet_capacity_rules": "Kanal kapasite kuralları"
+  "nav_fleet_capacity_rules": "Kanal kapasite kuralları",
+  "nav_pricing_extras": "Ek hizmetler",
+  "nav_pricing_campaigns": "Kampanyalar"
 }

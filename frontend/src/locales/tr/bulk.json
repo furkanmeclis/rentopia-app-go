@@ -39,5 +39,11 @@
   "confirm.one_way_rules.deactivate": "Seçili {{count}} kural pasifleştirilsin mi? Bu güzergâhlarda tek yön iade kapanır.",
   "actions.organizations.activate": "Firmaları etkinleştir",
   "actions.organizations.suspend": "Firmaları askıya al",
-  "confirm.organizations.suspend": "Seçili {{count}} firma askıya alınsın mı? Üyelerin erişimi hemen kapanır."
+  "confirm.organizations.suspend": "Seçili {{count}} firma askıya alınsın mı? Üyelerin erişimi hemen kapanır.",
+  "actions.extras.publish": "Yayına al",
+  "actions.extras.archive": "Arşivle",
+  "confirm.extras.archive": "Seçili {{count}} ek hizmet arşivlensin mi? Arşivdeki ek hizmetler satılmaz.",
+  "actions.campaigns.activate": "Kampanyaları aktifleştir",
+  "actions.campaigns.deactivate": "Kampanyaları pasifleştir",
+  "confirm.campaigns.deactivate": "Seçili {{count}} kampanya pasifleştirilsin mi? Kodları artık kabul edilmez."
 }

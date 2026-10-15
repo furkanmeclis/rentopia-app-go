@@ -1,6 +1,7 @@
 import {
   Activity,
   ArrowLeftRight,
+  Baby,
   BadgePercent,
   Banknote,
   Bell,
@@ -30,6 +31,7 @@ import {
   Sparkles,
   Store,
   Tags,
+  TicketPercent,
   Upload,
   Users,
 } from "lucide-react";
@@ -396,6 +398,20 @@ export function tenantNav(slug: string): NavCatalog {
             href: routes.tenant.pricing.rules.root(slug),
             icon: CalendarDays,
             permission: permissions.tenant.pricing.read,
+          },
+          {
+            id: "pricing-extras",
+            titleKey: "layout.nav_pricing_extras",
+            href: routes.tenant.pricing.extras.root(slug),
+            icon: Baby,
+            permission: permissions.tenant.extras.read,
+          },
+          {
+            id: "pricing-campaigns",
+            titleKey: "layout.nav_pricing_campaigns",
+            href: routes.tenant.pricing.campaigns.root(slug),
+            icon: TicketPercent,
+            permission: permissions.tenant.campaigns.read,
           },
           {
             id: "pricing-preview",

@@ -84,6 +84,10 @@ export const Permission = {
   TenantAvailabilityHold: "tenant.availability.hold",
   TenantCapacityRulesRead: "tenant.capacity_rules.read",
   TenantCapacityRulesWrite: "tenant.capacity_rules.write",
+  TenantExtrasRead: "tenant.extras.read",
+  TenantExtrasWrite: "tenant.extras.write",
+  TenantCampaignsRead: "tenant.campaigns.read",
+  TenantCampaignsWrite: "tenant.campaigns.write",
   TenantPriceOverride: "tenant.price.override",
   TenantDiscountApply: "tenant.discount.apply",
   TenantPaymentCollect: "tenant.payment.collect",
@@ -262,6 +266,19 @@ export const permissions = {
     capacityRules: {
       read: Permission.TenantCapacityRulesRead,
       write: Permission.TenantCapacityRulesWrite,
+    },
+    /**
+     * Extras catalog, per-product prices and branch stock. Equipment holds
+     * use `availability.hold`.
+     */
+    extras: {
+      read: Permission.TenantExtrasRead,
+      write: Permission.TenantExtrasWrite,
+    },
+    /** Campaigns and coupon codes; using a code at sale time needs none. */
+    campaigns: {
+      read: Permission.TenantCampaignsRead,
+      write: Permission.TenantCampaignsWrite,
     },
     price: {
       override: Permission.TenantPriceOverride,

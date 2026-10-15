@@ -39,5 +39,11 @@
   "confirm.one_way_rules.deactivate": "Deactivate {{count}} selected rules? One-way returns on these routes close.",
   "actions.organizations.activate": "Activate organizations",
   "actions.organizations.suspend": "Suspend organizations",
-  "confirm.organizations.suspend": "Suspend {{count}} selected organizations? Their members lose access immediately."
+  "confirm.organizations.suspend": "Suspend {{count}} selected organizations? Their members lose access immediately.",
+  "actions.extras.publish": "Publish",
+  "actions.extras.archive": "Archive",
+  "confirm.extras.archive": "Archive {{count}} selected extras? Archived extras are not sold.",
+  "actions.campaigns.activate": "Activate campaigns",
+  "actions.campaigns.deactivate": "Deactivate campaigns",
+  "confirm.campaigns.deactivate": "Deactivate {{count}} selected campaigns? Their codes are no longer accepted."
 }

@@ -130,5 +130,11 @@
   "labels.tenant.capacity_rules.read": "Kanal kapasite kurallarını görüntüle",
   "labels.tenant.capacity_rules.write": "Kanal kapasite kurallarını yönet",
   "groups.tenant_availability": "Müsaitlik",
-  "groups.tenant_capacity_rules": "Kanal kapasite kuralları"
+  "groups.tenant_capacity_rules": "Kanal kapasite kuralları",
+  "labels.tenant.extras.read": "Ek hizmetleri görüntüle (fiyat, stok, ayırma)",
+  "labels.tenant.extras.write": "Ek hizmetleri, fiyatlarını ve şube stokunu yönet",
+  "groups.tenant_extras": "Ek hizmetler",
+  "labels.tenant.campaigns.read": "Kampanyaları görüntüle",
+  "labels.tenant.campaigns.write": "Kampanyaları ve kupon kodlarını yönet",
+  "groups.tenant_campaigns": "Kampanyalar"
 }

@@ -160,5 +160,19 @@
   "actions.availability_holds.extended": "Hold extended",
   "actions.capacity_rules.created": "Channel rule created",
   "actions.capacity_rules.updated": "Channel rule updated",
-  "actions.capacity_rules.deleted": "Channel rule deleted"
+  "actions.capacity_rules.deleted": "Channel rule deleted",
+  "resources.tenant.extras": "Extras",
+  "resources.tenant.campaigns": "Campaigns",
+  "resources.tenant.equipment_allocations": "Equipment allocations",
+  "actions.extras.created": "Extra created",
+  "actions.extras.updated": "Extra updated",
+  "actions.extras.deleted": "Extra deleted",
+  "actions.extras.prices_updated": "Extra prices updated",
+  "actions.extras.stock_updated": "Branch stock updated",
+  "actions.extras.allocation_created": "Equipment reserved",
+  "actions.extras.allocation_confirmed": "Equipment hold confirmed",
+  "actions.extras.allocation_released": "Equipment allocation released",
+  "actions.campaigns.created": "Campaign created",
+  "actions.campaigns.updated": "Campaign updated",
+  "actions.campaigns.deleted": "Campaign deleted"
 }

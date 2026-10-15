@@ -74,5 +74,7 @@
   "resources.tenant.one_way_rules": "One-way rules",
   "resources.platform.organizations": "Organizations",
   "resources.tenant.rate_plans": "Rate plans (price list)",
-  "resources.tenant.date_rules": "Date rules"
+  "resources.tenant.date_rules": "Date rules",
+  "resources.tenant.extras": "Extras",
+  "resources.tenant.campaigns": "Campaigns"
 }

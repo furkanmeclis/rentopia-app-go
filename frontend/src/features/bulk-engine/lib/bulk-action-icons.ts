@@ -1,4 +1,5 @@
 import {
+  Archive,
   ArrowRightLeft,
   CircleCheck,
   CircleOff,
@@ -55,6 +56,14 @@ const bulkActionIconCatalog: Record<
     start_maintenance: Hammer,
   },
   "tenant.one_way_rules": {
+    activate: CircleCheck,
+    deactivate: CircleOff,
+  },
+  "tenant.extras": {
+    publish: CircleCheck,
+    archive: Archive,
+  },
+  "tenant.campaigns": {
     activate: CircleCheck,
     deactivate: CircleOff,
   },
