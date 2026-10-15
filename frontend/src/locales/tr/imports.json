@@ -109,5 +109,6 @@
   "diff.columns.op": "İşlem",
   "diff.columns.changes": "Değişecek alanlar",
   "resources.tenant.transfers": "Transferler",
-  "resources.tenant.one_way_rules": "Tek yön kuralları"
+  "resources.tenant.one_way_rules": "Tek yön kuralları",
+  "resources.platform.organizations": "Firmalar"
 }

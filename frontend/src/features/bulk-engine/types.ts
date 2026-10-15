@@ -50,6 +50,7 @@ export type BulkExecuteSyncResult = {
 export type BulkResource =
   | "platform.users"
   | "platform.roles"
+  | "platform.organizations"
   | "tenant.branches"
   | "tenant.rental_groups"
   | "tenant.rental_products"
@@ -63,6 +64,7 @@ export type BulkResource =
 export const BULK_PATHS: Record<BulkResource, string> = {
   "platform.users": "/v1/platform/users/bulk",
   "platform.roles": "/v1/platform/roles/bulk",
+  "platform.organizations": "/v1/platform/organizations/bulk",
   "tenant.branches": "/v1/tenant/branches/bulk",
   "tenant.rental_groups": "/v1/tenant/rental-groups/bulk",
   "tenant.rental_products": "/v1/tenant/products/bulk",
