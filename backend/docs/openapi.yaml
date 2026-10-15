@@ -8168,7 +8168,15 @@ paths:
       tags: [Tenant]
       operationId: deleteTenantVehicleRentalGroup
       summary: Remove a vehicle from a rental group
-      description: "`tenant.vehicles.write`."
+      description: |
+        `tenant.vehicles.write`. Membership is what makes a vehicle sellable
+        for the group's GROUP products, so the availability engine re-plans
+        every future hold / reservation on the vehicle that relied on it
+        onto another eligible vehicle, in the same transaction (moved
+        reservations record `plan_moved`). When one of them cannot move (a
+        promised plate, a rental that already started, no other vehicle)
+        nothing changes: `409 MEMBERSHIP_IN_USE`, `data.allocations` lists
+        them.
       security:
         - bearerAuth: []
       parameters:
@@ -8189,6 +8197,12 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/TenantForbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: "`MEMBERSHIP_IN_USE`: `data.allocations` are the commitments that rely on the membership and cannot be re-planned"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MembershipInUseError"
 
   /v1/tenant/vehicles/{uuid}/kasko:
     get:
@@ -8679,8 +8693,10 @@ paths:
       description: |
         `tenant.vehicles.read`. Active vehicles in the caller's branch scope
         that satisfy the guarantee of the product's current version
-        (`EXACT_VEHICLE`, `EXACT_VARIANT` model / type, or the rental group's
-        protected attributes and catalog criteria), plate order.
+        (`EXACT_VEHICLE`, `EXACT_VARIANT` model / type, or `GROUP`: members
+        of the rental group that still have its protected attributes and
+        match its catalog criteria; membership is explicit, a group without
+        members keeps no promise), plate order.
       security:
         - bearerAuth: []
       parameters:
@@ -8695,6 +8711,66 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EnvelopeProductVehicles"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/rental-groups/{uuid}/members:
+    get:
+      tags: [Tenant]
+      operationId: getTenantRentalGroupMembers
+      summary: Member vehicles of a rental group
+      description: |
+        `tenant.vehicles.read`. The vehicles staff put in the group (caller's
+        branch scope, plate order) with their current eligibility: a member
+        that no longer has the protected attributes / catalog criteria
+        (`eligible: false`, `reasons`) does not count for GROUP products.
+        `eligible_total` counts the members that do; `candidates_total` the
+        active vehicles in scope that match the criteria but are not members
+        (what `add-eligible` would add).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Members
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeRentalGroupMembers"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/rental-groups/{uuid}/members/add-eligible:
+    post:
+      tags: [Tenant]
+      operationId: postTenantRentalGroupAddEligible
+      summary: Add every eligible vehicle to a rental group
+      description: |
+        `tenant.vehicles.write`. "Uygun araçların tümünü ekle": every active
+        vehicle in the caller's branch scope that has the group's protected
+        attributes and matches its catalog criteria, and is not a member
+        yet, becomes a member (one transaction). Membership stays explicit:
+        criteria never add a vehicle on their own.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Added vehicles
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeRentalGroupAddEligible"
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/TenantForbidden" }
@@ -15320,6 +15396,91 @@ components:
       properties:
         success: { type: boolean, enum: [true] }
         data: { $ref: "#/components/schemas/ProductVehicles" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    RentalGroupMember:
+      type: object
+      required: [vehicle, eligible, reasons, added_at]
+      properties:
+        vehicle: { $ref: "#/components/schemas/Vehicle" }
+        eligible: { type: boolean, description: The vehicle still meets the group criteria (only then it counts for GROUP products) }
+        reasons:
+          type: array
+          items: { type: string }
+        added_at: { type: string, format: date-time }
+
+    RentalGroupMembers:
+      type: object
+      required: [items, total, eligible_total, candidates_total, limit, offset]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/RentalGroupMember" }
+        total: { type: integer, format: int64 }
+        eligible_total: { type: integer, format: int64 }
+        candidates_total: { type: integer, format: int64 }
+        limit: { type: integer }
+        offset: { type: integer }
+
+    EnvelopeRentalGroupMembers:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/RentalGroupMembers" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    RentalGroupAddEligible:
+      type: object
+      required: [added, vehicle_uuids]
+      properties:
+        added: { type: integer, format: int64 }
+        vehicle_uuids:
+          type: array
+          items: { type: string, format: uuid }
+
+    EnvelopeRentalGroupAddEligible:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/RentalGroupAddEligible" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    MembershipBlockingAllocation:
+      type: object
+      required: [uuid, kind, starts_at, ends_at, reason, reservation]
+      properties:
+        uuid: { type: string, format: uuid }
+        kind: { type: string, enum: [hold, reservation, rental] }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+        reason:
+          type: string
+          enum: [plate_fixed, started, no_vehicle]
+          description: "`plate_fixed`: the plate is promised; `started`: already under way; `no_vehicle`: no other eligible vehicle can take it"
+        reservation:
+          oneOf:
+            - type: object
+              required: [uuid, reference]
+              properties:
+                uuid: { type: string, format: uuid }
+                reference: { type: string }
+            - type: "null"
+
+    MembershipInUseError:
+      type: object
+      required: [success, error, data, meta]
+      properties:
+        success: { type: boolean, enum: [false] }
+        error: { $ref: "#/components/schemas/ErrorBody" }
+        data:
+          type: object
+          required: [allocations]
+          properties:
+            allocations:
+              type: array
+              items: { $ref: "#/components/schemas/MembershipBlockingAllocation" }
         meta: { $ref: "#/components/schemas/ResponseMeta" }
 
     VehicleRecordActor:

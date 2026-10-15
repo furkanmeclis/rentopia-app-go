@@ -91,7 +91,7 @@ func (s *Service) Reserve(ctx context.Context, orgID int64, in model.ReserveInpu
 		if !allowed {
 			return &CapacityError{Reason: model.ReasonOneWayNotAllowed}
 		}
-		if err := s.lock(ctx, q, orgID, comp); err != nil {
+		if err := s.lockFresh(ctx, q, orgID, snap, comp); err != nil {
 			return err
 		}
 		now := s.clock()
@@ -256,7 +256,7 @@ func (s *Service) replan(ctx context.Context, orgID int64, id uuid.UUID, hook mo
 		if comp == 0 {
 			return &CapacityError{Reason: model.ReasonNoEligibleVehicle}
 		}
-		if err := s.lock(ctx, q, orgID, comp); err != nil {
+		if err := s.lockFresh(ctx, q, orgID, snap, comp); err != nil {
 			return err
 		}
 		now := s.clock()
@@ -712,7 +712,7 @@ func (s *Service) ReleaseWith(ctx context.Context, orgID int64, id uuid.UUID, re
 		lapsed := false
 		w := &writer{ctx: ctx, q: q, tx: tx, orgID: orgID, cs: &componentState{allocs: map[int64]db.ListAvailabilityAllocationsRow{}}}
 		if comp := snap.component[ref.VehicleID]; comp != 0 {
-			if err := s.lock(ctx, q, orgID, comp); err != nil {
+			if err := s.lockFresh(ctx, q, orgID, snap, comp); err != nil {
 				return err
 			}
 			if cs, err = s.loadComponent(ctx, q, orgID, snap, comp, now); err != nil {

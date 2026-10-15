@@ -86,6 +86,11 @@ func RegisterRoutes(
 
 	// Products tab "Taahhüt & uygun araçlar": vehicle data, so vehicles.read.
 	route("GET /v1/tenant/products/{uuid}/eligible-vehicles", h.ProductVehicles, read)
+	// Rental group detail "Araçlar": explicit memberships with their current
+	// eligibility, and "add all eligible vehicles" (memberships are vehicle
+	// data, so vehicles.read / vehicles.write).
+	route("GET /v1/tenant/rental-groups/{uuid}/members", h.GroupMembers, read)
+	route("POST /v1/tenant/rental-groups/{uuid}/members/add-eligible", h.AddEligibleMembers, write)
 }
 
 // RegisterLiveResources declares the vehicles list channel

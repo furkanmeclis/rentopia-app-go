@@ -19,14 +19,19 @@ import (
 
 // The eligibility graph: which vehicles keep the promise of which product
 // version, and its connected components (vehicles linked through any
-// version that accepts both). It changes only when vehicles, products,
-// versions or rental groups change, so it is cached per organization and
-// rebuilt when GetAvailabilityFingerprint changes (or after fleetCacheTTL,
-// which also covers platform catalog edits). A stale graph is safe: the
+// version that accepts both). A GROUP version accepts the members of its
+// rental group (vehicle_rental_groups) that still meet the group's
+// criteria (fleet/eligibility). The graph changes only when vehicles,
+// products, versions, rental groups, their criteria or their memberships
+// change, so it is cached per organization and rebuilt when
+// GetAvailabilityFingerprint changes (or after fleetCacheTTL, which also
+// covers platform catalog edits). A stale graph is safe: the
 // engine re-reads locations, blocks, transfers and allocations inside the
 // lock, the guard trigger refuses blocked / inactive vehicles and the
 // EXCLUDE constraint refuses double booking; staleness can only cost a
-// retry or a missed reassignment.
+// retry or a missed reassignment. Writers that place commitments also
+// re-check the fingerprint inside the lock (lockFresh), so a plan is never
+// written on a graph older than a committed membership removal.
 
 const fleetCacheTTL = 2 * time.Minute
 
@@ -48,6 +53,8 @@ type versionInfo struct {
 	Status         string
 	IsActive, Live bool
 	Current        bool
+	// RentalGroupID is the guaranteed group of a GROUP version (0 = none).
+	RentalGroupID int64
 }
 
 // onSale: the current version of a live, active, published product.
@@ -191,6 +198,7 @@ func (s *Service) buildSnapshot(ctx context.Context, orgID int64, fp string) (*f
 			ID: v.ID, ProductID: v.ProductID, ProductUUID: v.ProductUuid, Code: v.ProductCode, Title: v.ProductTitle,
 			Version: v.Version, GuaranteeType: v.GuaranteeType, Status: v.ProductStatus,
 			IsActive: v.ProductIsActive, Live: v.ProductLive, Current: v.Version == v.CurrentVersion,
+			RentalGroupID: v.RentalGroupID.Int64,
 		}
 		snap.versions[key] = info
 		set := map[int64]bool{}

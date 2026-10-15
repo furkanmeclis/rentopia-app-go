@@ -1,6 +1,13 @@
 // Package eligibility decides whether a physical vehicle can serve a rental
 // group or a product guarantee (TEC-691). It is pure: the vehicles module
-// (and later the capacity engine) loads the rows and calls these functions.
+// and the availability engine load the rows and call these functions.
+//
+// Rental group membership is explicit: a vehicle serves a GROUP guarantee
+// only when staff (or a deliberate bulk action) put it in the group
+// (vehicle_rental_groups) AND it still meets the group's criteria. The
+// criteria validate a membership; they never create one, so a group with
+// criteria but no members has no capacity, and a membership that no longer
+// matches (an attribute edit after it was added) does not count.
 //
 // Capacity is never stored; it is derived from the vehicles these checks
 // accept, so product resource sets may overlap.
@@ -27,6 +34,7 @@ const (
 	ReasonVariantUnset       = "guaranteed_variant_not_set"
 	ReasonUnknownGuarantee   = "unknown_guarantee_type"
 	ReasonGroupCriteriaUnset = "group_not_set"
+	ReasonNotGroupMember     = "not_group_member"
 )
 
 // VehicleAttributes are the facts of one physical vehicle that guarantees
@@ -93,7 +101,9 @@ func EligibleForGroup(vehicle VehicleAttributes, group GroupCriteria) (bool, []s
 }
 
 // Guarantee is the promise of a product version, in the terms the checks
-// need. Group is required for GROUP.
+// need. Group is required for GROUP; Members are the vehicles that are in
+// the group (vehicle_rental_groups, by vehicle uuid). A nil Members set has
+// no member: membership is never implied by the criteria.
 type Guarantee struct {
 	Type           string // EXACT_VEHICLE | EXACT_VARIANT | GROUP
 	VehicleID      *uuid.UUID
@@ -101,6 +111,7 @@ type Guarantee struct {
 	CatalogModelID int64
 	CatalogTypeID  int64
 	Group          *GroupCriteria
+	Members        map[uuid.UUID]bool
 }
 
 // SatisfiesGuarantee reports whether vehicle keeps the promise of a product
@@ -108,7 +119,9 @@ type Guarantee struct {
 //   - EXACT_VEHICLE: it is the guaranteed vehicle;
 //   - EXACT_VARIANT: it is of the guaranteed catalog model (level "model")
 //     or type (level "type");
-//   - GROUP: it is eligible for the guaranteed rental group.
+//   - GROUP: it is a member of the guaranteed rental group and still
+//     eligible for it (EligibleForGroup). A non-member fails with
+//     ReasonNotGroupMember first, followed by any criteria it misses.
 func SatisfiesGuarantee(vehicle VehicleAttributes, g Guarantee) (bool, []string) {
 	switch g.Type {
 	case "EXACT_VEHICLE":
@@ -143,7 +156,11 @@ func SatisfiesGuarantee(vehicle VehicleAttributes, g Guarantee) (bool, []string)
 		if g.Group == nil {
 			return false, []string{ReasonGroupCriteriaUnset}
 		}
-		return EligibleForGroup(vehicle, *g.Group)
+		ok, reasons := EligibleForGroup(vehicle, *g.Group)
+		if !g.Members[vehicle.ID] {
+			return false, append([]string{ReasonNotGroupMember}, reasons...)
+		}
+		return ok, reasons
 	}
 	return false, []string{ReasonUnknownGuarantee}
 }

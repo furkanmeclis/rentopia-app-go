@@ -451,6 +451,11 @@ func TestEquipmentFollowsVehicleAllocation(t *testing.T) {
 		home_branch_id, current_branch_id) VALUES ($1, '34 EX 1', TRUE, 'Fiat', 'Egea', 2024, $2, $2) RETURNING id`, f.org, f.branch.id).Scan(&vehicle); err != nil {
 		t.Fatal(err)
 	}
+	// Rental group membership is explicit: the vehicle joins the product's group.
+	if _, err := f.pool.Exec(f.ctx, `INSERT INTO vehicle_rental_groups (organization_id, vehicle_id, rental_group_id)
+		SELECT $1, $2, id FROM rental_groups WHERE organization_id = $1`, f.org, vehicle); err != nil {
+		t.Fatal(err)
+	}
 	av := avusecase.New(f.pool, f.q, vehicleusecase.New(vehiclerepository.NewPostgres(f.pool, f.q), nil),
 		orgsettingsusecase.New(orgsettingsrepository.NewPostgres(f.pool, f.q)))
 	hold := func() avmodel.PlanResult {

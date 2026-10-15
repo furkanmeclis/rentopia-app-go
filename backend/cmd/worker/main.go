@@ -181,6 +181,9 @@ func main() {
 	reservationSvc.SetEquipment(reservationadapters.NewEquipment(extrasSvc))
 	reservationSvc.SetCoupons(reservationadapters.NewCoupons(campaignsSvc))
 	fleetOpsSvc.SetAffectedHandler(reservationadapters.NewAffected(reservationSvc))
+	// Bulk rental group changes go through the engine like the API.
+	vehicleSvc.SetMembershipGuard(availabilitySvc)
+	availabilitySvc.SetPlanMovedHandler(reservationSvc)
 	vehicleBulk := vehicleadapters.NewBulk(vehicleSvc)
 	vehicleBulk.SetMaintenance(fleetopsadapters.NewMaintenance(fleetOpsSvc))
 	// Platform organizations (export, bulk activate / suspend). Status

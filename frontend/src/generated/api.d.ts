@@ -4906,7 +4906,14 @@ export interface paths {
         post?: never;
         /**
          * Remove a vehicle from a rental group
-         * @description `tenant.vehicles.write`.
+         * @description `tenant.vehicles.write`. Membership is what makes a vehicle sellable
+         *     for the group's GROUP products, so the availability engine re-plans
+         *     every future hold / reservation on the vehicle that relied on it
+         *     onto another eligible vehicle, in the same transaction (moved
+         *     reservations record `plan_moved`). When one of them cannot move (a
+         *     promised plate, a rental that already started, no other vehicle)
+         *     nothing changes: `409 MEMBERSHIP_IN_USE`, `data.allocations` lists
+         *     them.
          */
         delete: operations["deleteTenantVehicleRentalGroup"];
         options?: never;
@@ -5190,12 +5197,64 @@ export interface paths {
          * Vehicles that keep a product's promise
          * @description `tenant.vehicles.read`. Active vehicles in the caller's branch scope
          *     that satisfy the guarantee of the product's current version
-         *     (`EXACT_VEHICLE`, `EXACT_VARIANT` model / type, or the rental group's
-         *     protected attributes and catalog criteria), plate order.
+         *     (`EXACT_VEHICLE`, `EXACT_VARIANT` model / type, or `GROUP`: members
+         *     of the rental group that still have its protected attributes and
+         *     match its catalog criteria; membership is explicit, a group without
+         *     members keeps no promise), plate order.
          */
         get: operations["getTenantProductEligibleVehicles"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/rental-groups/{uuid}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Member vehicles of a rental group
+         * @description `tenant.vehicles.read`. The vehicles staff put in the group (caller's
+         *     branch scope, plate order) with their current eligibility: a member
+         *     that no longer has the protected attributes / catalog criteria
+         *     (`eligible: false`, `reasons`) does not count for GROUP products.
+         *     `eligible_total` counts the members that do; `candidates_total` the
+         *     active vehicles in scope that match the criteria but are not members
+         *     (what `add-eligible` would add).
+         */
+        get: operations["getTenantRentalGroupMembers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/rental-groups/{uuid}/members/add-eligible": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add every eligible vehicle to a rental group
+         * @description `tenant.vehicles.write`. "Uygun araçların tümünü ekle": every active
+         *     vehicle in the caller's branch scope that has the group's protected
+         *     attributes and matches its catalog criteria, and is not a member
+         *     yet, becomes a member (one transaction). Membership stays explicit:
+         *     criteria never add a vehicle on their own.
+         */
+        post: operations["postTenantRentalGroupAddEligible"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9803,6 +9862,71 @@ export interface components {
             /** @enum {boolean} */
             success: true;
             data: components["schemas"]["ProductVehicles"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        RentalGroupMember: {
+            vehicle: components["schemas"]["Vehicle"];
+            /** @description The vehicle still meets the group criteria (only then it counts for GROUP products) */
+            eligible: boolean;
+            reasons: string[];
+            /** Format: date-time */
+            added_at: string;
+        };
+        RentalGroupMembers: {
+            items: components["schemas"]["RentalGroupMember"][];
+            /** Format: int64 */
+            total: number;
+            /** Format: int64 */
+            eligible_total: number;
+            /** Format: int64 */
+            candidates_total: number;
+            limit: number;
+            offset: number;
+        };
+        EnvelopeRentalGroupMembers: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["RentalGroupMembers"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        RentalGroupAddEligible: {
+            /** Format: int64 */
+            added: number;
+            vehicle_uuids: string[];
+        };
+        EnvelopeRentalGroupAddEligible: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["RentalGroupAddEligible"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        MembershipBlockingAllocation: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            kind: "hold" | "reservation" | "rental";
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            /**
+             * @description `plate_fixed`: the plate is promised; `started`: already under way; `no_vehicle`: no other eligible vehicle can take it
+             * @enum {string}
+             */
+            reason: "plate_fixed" | "started" | "no_vehicle";
+            reservation: {
+                /** Format: uuid */
+                uuid: string;
+                reference: string;
+            } | null;
+        };
+        MembershipInUseError: {
+            /** @enum {boolean} */
+            success: false;
+            error: components["schemas"]["ErrorBody"];
+            data: {
+                allocations: components["schemas"]["MembershipBlockingAllocation"][];
+            };
             meta: components["schemas"]["ResponseMeta"];
         };
         VehicleRecordActor: {
@@ -23745,6 +23869,15 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["TenantForbidden"];
             404: components["responses"]["NotFound"];
+            /** @description `MEMBERSHIP_IN_USE`: `data.allocations` are the commitments that rely on the membership and cannot be re-planned */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipInUseError"];
+                };
+            };
         };
     };
     getTenantVehicleKasko: {
@@ -24348,6 +24481,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EnvelopeProductVehicles"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantRentalGroupMembers: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Members */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeRentalGroupMembers"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantRentalGroupAddEligible: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Added vehicles */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeRentalGroupAddEligible"];
                 };
             };
             400: components["responses"]["BadRequest"];

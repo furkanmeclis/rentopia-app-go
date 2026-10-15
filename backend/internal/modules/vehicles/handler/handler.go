@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/usecase"
@@ -24,6 +25,47 @@ import (
 // CodeNotEligible is the error code of a rental group membership the
 // vehicle does not qualify for (422); details list the failed criteria.
 const CodeNotEligible = "NOT_ELIGIBLE"
+
+// CodeMembershipInUse refuses a rental group membership removal (409):
+// future commitments on the vehicle rely on it and cannot be re-planned;
+// data.allocations lists them.
+const CodeMembershipInUse = "MEMBERSHIP_IN_USE"
+
+// blockingAllocation is one entry of data.allocations of a 409
+// MEMBERSHIP_IN_USE.
+type blockingAllocation struct {
+	UUID        uuid.UUID            `json:"uuid"`
+	Kind        string               `json:"kind"`
+	StartsAt    string               `json:"starts_at"`
+	EndsAt      string               `json:"ends_at"`
+	Reason      string               `json:"reason"`
+	Reservation *blockingReservation `json:"reservation"`
+}
+
+type blockingReservation struct {
+	UUID      uuid.UUID `json:"uuid"`
+	Reference string    `json:"reference"`
+}
+
+func membershipInUse(w http.ResponseWriter, r *http.Request, e *usecase.MembershipInUseError) {
+	out := make([]blockingAllocation, 0, len(e.Allocations))
+	details := make([]response.Detail, 0, len(e.Allocations))
+	for _, a := range e.Allocations {
+		b := blockingAllocation{
+			UUID: a.UUID, Kind: a.Kind, StartsAt: a.StartsAt.UTC().Format(time.RFC3339),
+			EndsAt: a.EndsAt.UTC().Format(time.RFC3339), Reason: a.Reason,
+		}
+		label := a.UUID.String()
+		if a.Reservation != nil {
+			b.Reservation = &blockingReservation{UUID: a.Reservation.UUID, Reference: a.Reservation.Reference}
+			label = a.Reservation.Reference
+		}
+		out = append(out, b)
+		details = append(details, response.Detail{Field: "allocations", Message: label, Code: a.Reason})
+	}
+	response.ErrorWithData(w, r, http.StatusConflict, CodeMembershipInUse, e.Error(), details,
+		map[string]any{"allocations": out})
+}
 
 // Handler serves /v1/tenant/vehicles.
 type Handler struct {
@@ -304,6 +346,43 @@ func (h *Handler) ProductVehicles(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, r, http.StatusOK, out)
 }
 
+// GroupMembers serves GET /v1/tenant/rental-groups/{uuid}/members: the
+// member vehicles of a rental group with their current eligibility.
+func (h *Handler) GroupMembers(w http.ResponseWriter, r *http.Request) {
+	scope := orgctx.Must(r.Context())
+	id, ok := pathUUID(w, r, "uuid")
+	if !ok {
+		return
+	}
+	q := apiquery.Parse(r.URL.Query())
+	out, err := h.svc.GroupMembers(r.Context(), scope.ID, id, q.Limit, q.Offset)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	response.JSON(w, r, http.StatusOK, out)
+}
+
+// AddEligibleMembers serves POST
+// /v1/tenant/rental-groups/{uuid}/members/add-eligible: every active
+// vehicle in scope that meets the group's criteria becomes a member.
+func (h *Handler) AddEligibleMembers(w http.ResponseWriter, r *http.Request) {
+	scope := orgctx.Must(r.Context())
+	id, ok := pathUUID(w, r, "uuid")
+	if !ok {
+		return
+	}
+	out, err := h.svc.AddEligibleMembers(r.Context(), scope.ID, id)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	for _, v := range out.VehicleUUIDs {
+		h.record(r, "vehicles.group_added", v, map[string]any{"rental_group_uuid": id.String(), "source": "add_eligible"})
+	}
+	response.JSON(w, r, http.StatusOK, out)
+}
+
 // record publishes the live list change and writes a fail-soft activity
 // event; the recorder stamps the organization from the request scope.
 func (h *Handler) record(r *http.Request, action string, id uuid.UUID, payload map[string]any) {
@@ -416,6 +495,11 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 			details = append(details, response.Detail{Field: d.Field, Message: d.Message, Code: d.Code})
 		}
 		response.ValidationError(w, r, details)
+		return
+	}
+	var mu *usecase.MembershipInUseError
+	if errors.As(err, &mu) {
+		membershipInUse(w, r, mu)
 		return
 	}
 	if ne, ok := usecase.IsNotEligible(err); ok {

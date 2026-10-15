@@ -16,6 +16,11 @@ export type VehicleGroupSuggestion = Schemas["VehicleGroupSuggestion"];
 export type VehicleKasko = Schemas["VehicleKasko"];
 export type VehicleValuation = Schemas["VehicleValuation"];
 export type ProductVehicles = Schemas["ProductVehicles"];
+export type RentalGroupMember = Schemas["RentalGroupMember"];
+export type RentalGroupMembers = Schemas["RentalGroupMembers"];
+export type RentalGroupAddEligible = Schemas["RentalGroupAddEligible"];
+export type MembershipBlockingAllocation =
+  Schemas["MembershipBlockingAllocation"];
 export type VehicleStatus = Vehicle["status"];
 export type VehicleOwnership = Vehicle["ownership"];
 
