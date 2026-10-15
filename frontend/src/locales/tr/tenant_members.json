@@ -40,5 +40,8 @@
   "remove.title": "{{name}} firmadan çıkarılsın mı?",
   "remove.description": "{{name}} bu firmaya artık erişemez. Hesabı silinmez; tekrar davet edilebilir.",
   "toast.updated": "Üye erişimi güncellendi",
-  "toast.removed": "Üye firmadan çıkarıldı"
+  "toast.removed": "Üye firmadan çıkarıldı",
+  "tabs.members": "Üyeler",
+  "tabs.invitations": "Davetler",
+  "columns.status": "Durum"
 }
