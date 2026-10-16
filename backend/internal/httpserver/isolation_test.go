@@ -881,6 +881,11 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		},
 		"GET /v1/tenant/finance/rental-balances":    {"?q=" + orgB.marker},
 		"GET /v1/tenant/finance/expense-categories": {"?q=" + orgB.marker},
+		// Vehicle profitability (TEC-727): B's branch / rental group as a
+		// filter is unknown in A (not_found); the plain call is leak-scanned.
+		"GET /v1/tenant/reports/vehicle-profitability": {
+			"?branch=" + b["home"], "?rental_group=" + b["group"], "?q=" + orgB.marker, "?basis=cash&allocation=revenue",
+		},
 		"GET /v1/tenant/rate-plans/matrix": {
 			"?scope=branch&branch=" + b["branch"],
 			"?scope=branch_channel&branch=" + b["home"] + "&channel=web",

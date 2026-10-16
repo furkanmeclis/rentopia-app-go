@@ -19374,6 +19374,90 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/TenantForbidden" }
 
+  /v1/tenant/reports/vehicle-profitability:
+    get:
+      tags: [Tenant]
+      operationId: getTenantVehicleProfitability
+      summary: Vehicle profitability report
+      description: |
+        `tenant.finance.reports.read`. Per vehicle and period: realized income (rent, extras, charges, toll fees), payment and
+        channel commissions, direct costs (expenses and supplier invoices on the vehicle, maintenance, transfers), the allocated
+        shared overhead and the operating contribution; refunds, deposits, pass-through tolls and vehicle procurement are kept
+        apart. Rows are the vehicles of the caller's branch scope (home or current branch) that were in service or moved money
+        in the period; the totals are the sum of the rows; the trend has one point per calendar month. A member limited to some
+        branches gets their branches' overhead only (`method.overhead_scope = branches`). See docs/design/vehicle-profitability.md.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - { name: from, in: query, schema: { type: string, format: date }, description: "First day (YYYY-MM-DD, Europe/Istanbul). Default: the first day of this month." }
+        - { name: to, in: query, schema: { type: string, format: date }, description: "Last day (YYYY-MM-DD). Default: today. The period is capped at 366 days." }
+        - { name: basis, in: query, schema: { type: string, enum: [accrual, cash] }, description: "accrual (default): ledger accruals net of reversals; cash: collections net of voids and refunds, expenses and supplier payments dated in the period." }
+        - { name: allocation, in: query, schema: { type: string, enum: [rental_days, vehicle_count, revenue] }, description: "Shared overhead allocation method (default rental_days)." }
+        - { name: branch, in: query, schema: { type: string }, description: "Home branch uuids, comma separated (unknown or outside the scope: 400 not_found)." }
+        - { name: rental_group, in: query, schema: { type: string }, description: "Rental group uuids, comma separated." }
+        - { name: q, in: query, schema: { type: string }, description: "Plate or model search." }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeVehicleProfitabilityReport" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/reports/vehicle-profitability/export:
+    post:
+      tags: [Tenant]
+      operationId: postTenantVehicleProfitabilityExport
+      summary: Export the vehicle profitability report
+      description: "`tenant.finance.reports.read` + `tenant.report.export`. `query` honours `from`, `to`, `basis`, `allocation`, `branch`, `rental_group`, `q`. One row per vehicle plus a totals row; the period, basis and allocation method are in every row and in the notes above the table (PDF is landscape). The job runs with the requester's branch scope."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExportRequest" }
+      responses:
+        "202":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeExportJob" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/reports/vehicle-profitability/vehicles/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantVehicleProfitabilityVehicle
+      summary: Profitability of one vehicle
+      description: "`tenant.finance.reports.read`. The vehicle detail \"Kârlılık\" tab: figures, monthly trend and the expense categories of the direct costs. A vehicle of another organization or outside the caller's branch scope answers 404."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - { name: from, in: query, schema: { type: string, format: date }, description: "First day (YYYY-MM-DD, Europe/Istanbul). Default: the first day of this month." }
+        - { name: to, in: query, schema: { type: string, format: date }, description: "Last day (YYYY-MM-DD). Default: today. The period is capped at 366 days." }
+        - { name: basis, in: query, schema: { type: string, enum: [accrual, cash] }, description: "accrual (default): ledger accruals net of reversals; cash: collections net of voids and refunds, expenses and supplier payments dated in the period." }
+        - { name: allocation, in: query, schema: { type: string, enum: [rental_days, vehicle_count, revenue] }, description: "Shared overhead allocation method (default rental_days)." }
+        - { name: uuid, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeVehicleProfitabilityVehicle" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
 components:
   securitySchemes:
     customerSession:
@@ -32940,6 +33024,134 @@ components:
       properties:
         success: { type: boolean, enum: [true] }
         data: { $ref: "#/components/schemas/Expense" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    VehicleProfitabilityFigures:
+      type: object
+      required: [rent, extras, charges, toll_fees, gross_income, payment_commission, channel_commission, commissions, expenses, maintenance, transfers, direct_costs, overhead, contribution, refunded, deposits_held, deposits_returned, pass_through, capex, margin, rental_days, available_days, occupancy, rental_count]
+      properties:
+        rent: { type: string, description: "TRY, VAT inclusive (decimal string)" }
+        extras: { type: string, description: "TRY, VAT inclusive (decimal string)" }
+        charges: { type: string, description: "TRY, VAT inclusive (decimal string)" }
+        toll_fees: { type: string, description: "TRY, VAT inclusive (decimal string)" }
+        gross_income: { type: string, description: "TRY, VAT inclusive (decimal string)" }
+        payment_commission: { type: string, description: "TRY, VAT inclusive (decimal string)" }
+        channel_commission: { type: string, description: "TRY, VAT inclusive (decimal string)" }
+        commissions: { type: string, description: "TRY, VAT inclusive (decimal string)" }
+        expenses: { type: string, description: "TRY, VAT inclusive (decimal string)" }
+        maintenance: { type: string, description: "TRY, VAT inclusive (decimal string)" }
+        transfers: { type: string, description: "TRY, VAT inclusive (decimal string)" }
+        direct_costs: { type: string, description: "TRY, VAT inclusive (decimal string)" }
+        overhead: { type: string, description: "TRY, VAT inclusive (decimal string)" }
+        contribution: { type: string, description: "TRY, VAT inclusive (decimal string)" }
+        refunded: { type: string, description: "TRY, VAT inclusive (decimal string)" }
+        deposits_held: { type: string, description: "TRY, VAT inclusive (decimal string)" }
+        deposits_returned: { type: string, description: "TRY, VAT inclusive (decimal string)" }
+        pass_through: { type: string, description: "TRY, VAT inclusive (decimal string)" }
+        capex: { type: string, description: "TRY, VAT inclusive (decimal string)" }
+        margin: { type: [number, "null"], description: "Contribution / gross income in percent (one decimal); null without income" }
+        rental_days: { type: number, description: "Rented time in days (two decimals)" }
+        available_days: { type: number, description: "In service, not blocked, in days (two decimals)" }
+        occupancy: { type: [number, "null"], description: "Rented / available in percent (one decimal)" }
+        rental_count: { type: integer }
+
+    VehicleProfitabilityVehicleRef:
+      type: object
+      required: [uuid, plate, label, home_branch]
+      properties:
+        uuid: { type: string, format: uuid }
+        plate: { type: string }
+        label: { type: string }
+        home_branch:
+          type: object
+          required: [uuid, code, name]
+          properties:
+            uuid: { type: string, format: uuid }
+            code: { type: string }
+            name: { type: string }
+
+    VehicleProfitabilityRow:
+      allOf:
+        - $ref: "#/components/schemas/VehicleProfitabilityFigures"
+        - type: object
+          required: [vehicle]
+          properties:
+            vehicle: { $ref: "#/components/schemas/VehicleProfitabilityVehicleRef" }
+
+    VehicleProfitabilityTrendPoint:
+      allOf:
+        - $ref: "#/components/schemas/VehicleProfitabilityFigures"
+        - type: object
+          required: [month, from, to]
+          properties:
+            month: { type: string, description: "YYYY-MM (Europe/Istanbul)" }
+            from: { type: string, format: date }
+            to: { type: string, format: date }
+
+    VehicleProfitabilityMethod:
+      type: object
+      required: [basis, allocation, timezone, currency, vat_inclusive, overhead_scope, allocation_fallback, unallocated_overhead]
+      properties:
+        basis: { type: string, enum: [accrual, cash] }
+        allocation: { type: string, enum: [rental_days, vehicle_count, revenue] }
+        timezone: { type: string }
+        currency: { type: string }
+        vat_inclusive: { type: boolean }
+        overhead_scope: { type: string, enum: [all, branches], description: "all: head office and every branch; branches: the caller's branches only" }
+        allocation_fallback: { type: boolean, description: "A pool without weight under the chosen method was shared by vehicle count" }
+        unallocated_overhead: { type: string, description: "Overhead of pools without a vehicle in service" }
+
+    VehicleProfitabilityReport:
+      type: object
+      required: [from, to, method, rows, totals, trend]
+      properties:
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        method: { $ref: "#/components/schemas/VehicleProfitabilityMethod" }
+        rows:
+          type: array
+          items: { $ref: "#/components/schemas/VehicleProfitabilityRow" }
+        totals: { $ref: "#/components/schemas/VehicleProfitabilityFigures" }
+        trend:
+          type: array
+          items: { $ref: "#/components/schemas/VehicleProfitabilityTrendPoint" }
+
+    VehicleProfitabilityVehicle:
+      type: object
+      required: [from, to, method, vehicle, figures, trend, categories]
+      properties:
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        method: { $ref: "#/components/schemas/VehicleProfitabilityMethod" }
+        vehicle: { $ref: "#/components/schemas/VehicleProfitabilityVehicleRef" }
+        figures: { $ref: "#/components/schemas/VehicleProfitabilityFigures" }
+        trend:
+          type: array
+          items: { $ref: "#/components/schemas/VehicleProfitabilityTrendPoint" }
+        categories:
+          type: array
+          items:
+            type: object
+            required: [code, name, amount]
+            properties:
+              code: { type: string }
+              name: { type: string }
+              amount: { type: string }
+
+    EnvelopeVehicleProfitabilityReport:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/VehicleProfitabilityReport" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeVehicleProfitabilityVehicle:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/VehicleProfitabilityVehicle" }
         meta: { $ref: "#/components/schemas/ResponseMeta" }
 
     EnvelopeFinanceReport:

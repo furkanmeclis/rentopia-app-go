@@ -130,6 +130,10 @@ import (
 	pricinghandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/handler"
 	pricingrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/repository"
 	pricingusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/usecase"
+	profitabilitymodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/profitability"
+	profitabilityadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/profitability/adapters"
+	profitabilityhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/profitability/handler"
+	profitabilityusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/profitability/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/qrlogin"
 	rentalsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/rentals"
 	rentaladapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/rentals/adapters"
@@ -656,6 +660,9 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	notifmodule.RegisterTenantRoutes(mux, nh, tokens, loader, tenantResolver)
 	notifmodule.RegisterEventHandlers(eventBus, notifSvc, log)
 
+	// Vehicle profitability report (TEC-727): read-only over the ledger,
+	// expenses and fleet tables.
+	profitabilitySvc := profitabilityusecase.New(deps.Queries)
 	ioReg := ioengine.NewRegistry(
 		ioadapters.NewUsers(deps.Queries),
 		ioadapters.NewRoles(deps.Queries),
@@ -689,6 +696,8 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		supplieradapters.NewIO(supplierSvc),
 		financeadapters.NewDepositsIO(financeSvc),
 		financeadapters.NewCollectionsIO(financeSvc),
+		// Vehicle profitability report (TEC-727).
+		profitabilityadapters.NewIO(profitabilitySvc),
 	)
 	exportSvc := exportusecase.New(deps.Queries, deps.Storage, ioReg, jobQueue, notifSvc, activityRec, log)
 	importSvc := importusecase.New(deps.Queries, deps.Storage, ioReg, jobQueue, notifSvc, activityRec, log)
@@ -853,6 +862,8 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	// Operations overview (TEC-716): the tenant home page and the sidebar
 	// badge counts, read-only over the modules above.
 	overviewmodule.RegisterRoutes(mux, overviewhandler.New(overviewusecase.New(deps.Queries)), tokens, loader, tenantResolver)
+	profitabilitymodule.RegisterRoutes(mux, profitabilityhandler.New(profitabilitySvc),
+		exportH.TenantExport(profitabilitymodule.Resource, profitabilitymodule.ExportQueryKeys...), tokens, loader, tenantResolver)
 	contractsH := contractshandler.New(contractsSvc, activityRec)
 	contractsH.SetRateLimiter(contractsmodule.Limiter{L: ratelimit.New(deps.Redis, cfg.App.Env)})
 	contractsmodule.RegisterRoutes(mux, contractsH, tokens, loader, tenantResolver)
