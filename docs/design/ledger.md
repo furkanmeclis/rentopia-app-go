@@ -12,7 +12,7 @@ Module: `backend/internal/modules/finance`. Panel: Finans → Cari hesaplar.
 |-------|---------|
 | `accounts` | One account per party. `party_kind` is `customer` (with `customer_id`) or `supplier` (with `supplier_id`, nullable, no FK yet). Also holds the code `CR-000001` (a per-organization sequence serialised by an advisory lock), the branch, the currency, `payment_term_days`, and `status` (`active` / `archived`). |
 | `ledger_entries` | The ledger itself (see the column list below). |
-| `ledger_entry_links` | Links an entry to an outside document: `document_type` is `invoice`, `statement` or `toll_charge`, plus `document_ref`. Invoicing (TEC-722) hangs off this table. |
+| `ledger_entry_links` | Links an entry to an outside document: `document_type` is `invoice`, `statement` or `toll_charge`, plus `document_ref`. Invoicing (TEC-722) hangs off this table: `invoice_id`, `amount`, `released_at` / `release_reason` ([einvoice.md](./einvoice.md)). |
 
 Columns of `ledger_entries`:
 
@@ -139,7 +139,7 @@ Toll posting is tested in `internal/modules/tolls/ledger_integration_test.go`. `
 ## Open items
 
 - **TEC-721:** Reservations collected by a channel (`collecting_party <> 'us'`) are not accrued. They belong on the partner's account once partner accounts exist.
-- **TEC-722:** Invoices link to entries through `ledger_entry_links`. There is no invoice table or FK yet.
+- **TEC-722 (done):** Invoices link to entries through `ledger_entry_links`, which now carries `invoice_id`, the linked `amount` and a release (`released_at`, `release_reason`). One live invoice link per entry (`uq_ledger_entry_links_invoiced`). An invoice never posts to the ledger; see [einvoice.md](./einvoice.md).
 - **TEC-718 / TEC-721:** Supplier accounts exist only as `party_kind = 'supplier'` with a nullable `supplier_id`. The supplier FK arrives with the supplier table.
 - **TEC-719 (done):** security deposits post through the ledger with the deposit purpose kept outside the balance ([deposits.md](./deposits.md)). Before TEC-719 a deposit collection reduced the balance; existing rows follow the new rule as soon as the queries run.
 - The pay link sent with a statement covers one reservation's open balance. A pay link for the whole account has to be added in payments.
