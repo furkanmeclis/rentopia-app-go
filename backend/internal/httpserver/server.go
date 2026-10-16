@@ -100,6 +100,10 @@ import (
 	oauthprovidermodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/oauthprovider"
 	oauthproviderhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/oauthprovider/handler"
 	oauthproviderusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/oauthprovider/usecase"
+	invoicesmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/invoices"
+	invoiceadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/invoices/adapters"
+	invoicehandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/invoices/handler"
+	invoiceusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/invoices/usecase"
 	kabismodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/kabis"
 	kabishandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/kabis/handler"
 	kabisusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/kabis/usecase"
@@ -486,6 +490,10 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	integrationAdapters := append([]integrations.Adapter{iyzicoAdapter}, smsmodule.Adapters(smsProviders)...)
 	integrationAdapters = append(integrationAdapters, tollsmodule.Adapters(tollProviders)...)
 	integrationAdapters = append(integrationAdapters, kabismodule.Adapters(kabisProviders)...)
+	// E-invoice integrators (TEC-722): the official slot (waiting on
+	// dependency until TEC-685) and the fake outside production only.
+	invoiceProviders := invoicesmodule.Providers(cfg.App.Env, log)
+	integrationAdapters = append(integrationAdapters, invoicesmodule.Adapters(invoiceProviders)...)
 	integrationAccountsSvc := integrationaccountsusecase.New(deps.Queries, integrationVault,
 		integrations.NewRegistry(integrationAdapters...))
 	// Generic integration job runner (TEC-751): steps go to the
@@ -589,6 +597,18 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	// organization's payment account (iyzico pre-auth / post-auth / cancel).
 	financeSvc.SetPreAuth(integrationAccountsSvc, cfg.Auth.FrontendURL, iyzicoAdapter)
 	financeSvc.SetPayments(paymentsSvc)
+	// E-invoices / e-archive (TEC-722): drafts link the ledger's accruals,
+	// go-ubltr builds and validates the UBL-TR XML, sending runs on the
+	// integration runner.
+	invoicesSvc, err := invoiceusecase.New(deps.DB, deps.Queries, fieldCipher, orgSettingsSvc, integrationAccountsSvc,
+		integrationRunner, integrationOps, invoiceProviders...)
+	if err != nil {
+		return nil, fmt.Errorf("httpserver: invoices: %w", err)
+	}
+	invoicesSvc.SetStore(deps.Storage)
+	invoicesSvc.SetPDFRenderer(pdfrender.NewChromium())
+	invoicesSvc.SetResourceEvents(resourceEvents)
+	invoicesSvc.SetLogger(log)
 	// Customer portal (TEC-715): reference + contact + one-time code, a
 	// customer session of its own, documents, pay remaining, requests.
 	portalSvc := customerportalusecase.New(deps.DB, deps.Queries, smsSvc, reservationSvc)
@@ -597,6 +617,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	portalSvc.SetActivity(activityRec)
 	portalSvc.SetResourceEvents(resourceEvents)
 	portalSvc.SetLogger(log)
+	portalSvc.SetInvoices(invoicesSvc)
 	// Rental group membership removals re-plan the commitments that relied
 	// on them (or are refused); moved reservations record plan_moved.
 	vehicleSvc.SetMembershipGuard(availabilitySvc)
@@ -626,6 +647,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	financemodule.RegisterLiveResources(tenantLive)
 	tollsmodule.RegisterLiveResources(tenantLive)
 	kabismodule.RegisterLiveResources(tenantLive)
+	invoicesmodule.RegisterLiveResources(tenantLive)
 	suppliersmodule.RegisterLiveResources(tenantLive)
 	resourceEvents.AddResolver(tenantmodule.ChannelResolver(tenantmodule.QueriesLookup(deps.Queries)))
 	uc.AddChannelRules(tenantmodule.ChannelRule(tenantLive, tenantResolver))
@@ -696,6 +718,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		supplieradapters.NewIO(supplierSvc),
 		financeadapters.NewDepositsIO(financeSvc),
 		financeadapters.NewCollectionsIO(financeSvc),
+		invoiceadapters.NewIO(invoicesSvc),
 		// Vehicle profitability report (TEC-727).
 		profitabilityadapters.NewIO(profitabilitySvc),
 	)
@@ -722,6 +745,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		financeadapters.NewExpensesBulk(financeSvc),
 		supplieradapters.NewBulk(supplierSvc),
 		financeadapters.NewCollectionsBulk(financeSvc),
+		invoiceadapters.NewBulk(invoicesSvc),
 	)
 	bulkSvc := bulkusecase.New(deps.Queries, bulkReg, jobQueue, notifSvc, activityRec, cfg.Bulk, log)
 	// Tenant jobs run with the requester's current membership (permissions
@@ -911,6 +935,10 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		Import: importH.TenantUpload(suppliersmodule.Resource),
 		Sample: importH.TenantSample(suppliersmodule.Resource),
 		Bulk:   bulkH.TenantExecute(suppliersmodule.Resource),
+	}, tokens, loader, tenantResolver)
+	invoicesmodule.RegisterRoutes(mux, invoicehandler.New(invoicesSvc, activityRec), invoicesmodule.Engines{
+		Export: exportH.TenantExport(invoicesmodule.Resource, invoicesmodule.ExportQueryKeys...),
+		Bulk:   bulkH.TenantExecute(invoicesmodule.Resource),
 	}, tokens, loader, tenantResolver)
 	portalH := customerportalhandler.New(portalSvc, activityRec)
 	portalH.SetRateLimiter(customerportalmodule.Limiter{L: ratelimit.New(deps.Redis, cfg.App.Env)})

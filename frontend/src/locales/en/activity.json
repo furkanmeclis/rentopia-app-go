@@ -372,5 +372,15 @@
   "actions.finance.collection_allocation_released": "Collection allocation released",
   "actions.finance.collection_refunded": "Collection refunded",
   "actions.finance.collection_voided": "Collection voided",
+  "resources.tenant.invoices": "Invoice",
+  "actions.invoices.created": "Invoice draft created",
+  "actions.invoices.updated": "Invoice draft updated",
+  "actions.invoices.validated": "Invoice validated",
+  "actions.invoices.finalized": "Invoice finalized",
+  "actions.invoices.retried": "Invoice send retried",
+  "actions.invoices.cancelled": "Invoice cancelled",
+  "actions.invoices.return_created": "Return invoice created",
+  "actions.invoices.downloaded": "Invoice downloaded",
+  "actions.invoices.settings_updated": "Invoice settings updated",
   "resources.tenant.vehicle_profitability": "Vehicle profitability"
 }

@@ -300,5 +300,11 @@
   "integrations.jobs.statuses.reconciled": "Reconciled",
   "integrations.jobs.kinds.kabis_rental_start": "KABİS rental start",
   "integrations.jobs.kinds.kabis_rental_end": "KABİS rental end",
-  "integrations.jobs.kinds.kabis_correction": "KABİS correction"
+  "integrations.jobs.kinds.kabis_correction": "KABİS correction",
+  "integrations.providers.einvoice": "e-Invoice integrator (official)",
+  "integrations.providers.einvoice_fake": "e-Invoice test integrator",
+  "integrations.provider_hints.einvoice": "Waiting on the private integrator (TEC-685); sends wait until then.",
+  "integrations.provider_hints.einvoice_fake": "Test environments only: documents do not reach GİB.",
+  "integrations.jobs.kinds.einvoice_send": "e-Invoice send",
+  "integrations.jobs.kinds.einvoice_cancel": "e-Invoice cancellation"
 }

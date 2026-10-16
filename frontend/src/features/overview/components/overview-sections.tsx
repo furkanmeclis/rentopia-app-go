@@ -534,7 +534,11 @@ export function IntegrationJobsCard({ data, slug }: SectionProps) {
         <Row
           key={it.uuid}
           href={
-            it.kind.startsWith("kabis.") ? routes.tenant.kabis.root(slug) : href
+            it.kind.startsWith("kabis.")
+              ? routes.tenant.kabis.root(slug)
+              : it.kind.startsWith("einvoice.")
+                ? `${routes.tenant.invoices.root(slug)}?needs_action=true`
+                : href
           }
           title={
             <>

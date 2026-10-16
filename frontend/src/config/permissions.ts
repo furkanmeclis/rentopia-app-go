@@ -155,6 +155,13 @@ export const Permission = {
   TenantKabisRead: "tenant.kabis.read",
   TenantKabisRetry: "tenant.kabis.retry",
   TenantKabisReconcile: "tenant.kabis.reconcile",
+  TenantInvoicesRead: "tenant.invoices.read",
+  TenantInvoicesWrite: "tenant.invoices.write",
+  TenantInvoicesCancel: "tenant.invoices.cancel",
+  TenantInvoicesExport: "tenant.invoices.export",
+  TenantInvoicesSettings: "tenant.invoices.settings",
+  TenantInvoicesBulkCreateForRentals: "tenant.invoices.bulk.create_for_rentals",
+  TenantInvoicesBulkSend: "tenant.invoices.bulk.send",
   TenantSuppliersRead: "tenant.suppliers.read",
   TenantSuppliersWrite: "tenant.suppliers.write",
   TenantSuppliersExport: "tenant.suppliers.export",
@@ -456,6 +463,20 @@ export const permissions = {
       read: Permission.TenantKabisRead,
       retry: Permission.TenantKabisRetry,
       reconcile: Permission.TenantKabisReconcile,
+    },
+    /**
+     * E-invoices / e-archive (TEC-722): list, detail, preview, downloads
+     * (`read`), drafts / finalize / retry (`write`), cancel and IADE
+     * returns (`cancel`), export, the settings and tax mapping, bulk.
+     */
+    invoices: {
+      read: Permission.TenantInvoicesRead,
+      write: Permission.TenantInvoicesWrite,
+      cancel: Permission.TenantInvoicesCancel,
+      export: Permission.TenantInvoicesExport,
+      settings: Permission.TenantInvoicesSettings,
+      bulkCreateForRentals: Permission.TenantInvoicesBulkCreateForRentals,
+      bulkSend: Permission.TenantInvoicesBulkSend,
     },
     damage: {
       approve: Permission.TenantDamageApprove,

@@ -65,6 +65,7 @@ import type { NavCatalog } from "@/features/nav-engine";
 import { usersNavItem } from "@/features/users/nav";
 import { customerRequestsNavItem } from "@/features/customer-portal/nav";
 import { TollReviewNavAdornment } from "@/features/tolls/nav";
+import { InvoicesNavAdornment } from "@/features/invoices/nav";
 import { KabisNavAdornment } from "@/features/kabis/nav";
 import { PayablesNavAdornment } from "@/features/suppliers/nav";
 import { MyFieldTasksNavAdornment } from "@/features/field-tasks/nav";
@@ -473,6 +474,14 @@ export function tenantNav(slug: string): NavCatalog {
             permission: permissions.tenant.finance.accounts.read,
           },
           {
+            id: "finance-invoices",
+            titleKey: "layout.nav_finance_invoices",
+            href: routes.tenant.invoices.root(slug),
+            icon: FileText,
+            permission: permissions.tenant.invoices.read,
+            Adornment: InvoicesNavAdornment,
+          },
+          {
             id: "finance-cash-accounts",
             titleKey: "layout.nav_finance_cash_accounts",
             href: routes.tenant.finance.cashAccounts(slug),
@@ -714,6 +723,13 @@ export function tenantNav(slug: string): NavCatalog {
             href: routes.tenant.settings.integrations(slug),
             icon: Plug,
             permission: permissions.tenant.integrations.manage,
+          },
+          {
+            id: "settings-invoices",
+            titleKey: "layout.nav_tenant_settings_invoices",
+            href: routes.tenant.invoices.settings(slug),
+            icon: ReceiptText,
+            permission: permissions.tenant.invoices.settings,
           },
           {
             id: "settings-inspection-templates",

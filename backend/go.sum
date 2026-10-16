@@ -52,6 +52,8 @@ github.com/dlclark/regexp2 v1.12.0 h1:0j4c5qQmnC6XOWNjP3PIXURXN2gWx76rd3KvgdPkCz
 github.com/dlclark/regexp2 v1.12.0/go.mod h1:DHkYz0B9wPfa6wondMfaivmHpzrQ3v9q8cnmRbL6yW8=
 github.com/frankban/quicktest v1.14.6 h1:7Xjx+VpznH+oBnejlPUj8oUpdxnVs4f8XU8WnHkI4W8=
 github.com/frankban/quicktest v1.14.6/go.mod h1:4ptaffx2x8+WTWXmUCuVU6aPUX1/Mz7zb5vbUoiM6w0=
+github.com/furkanmeclis/go-ubltr v0.0.0-20260816110918-5b412e96178d h1:AhdFFRCXeNgK0ZybmDEuWfq37Nqw9YODrPYx8Piz66s=
+github.com/furkanmeclis/go-ubltr v0.0.0-20260816110918-5b412e96178d/go.mod h1:jOWBVxnjvwa5sC1BmJBbiSq1rK6AnueUUZXYdpDJmzU=
 github.com/furkanmeclis/go-ubltr/render v0.0.0-20260816110918-5b412e96178d h1:Wl6tWSv9sIJEE4vgXfjWiQSzC289yOO84mxYwze/IYA=
 github.com/furkanmeclis/go-ubltr/render v0.0.0-20260816110918-5b412e96178d/go.mod h1:o1tCD6PgfN5l/1qPbguaueb50aj9WGMC9Ki1kMU8jbA=
 github.com/furkanmeclis/go-ubltr/render/chromium v0.0.0-20260816110918-5b412e96178d h1:yn+pj7opzhVs9exdqUHEpWNz8xpyt+/2j5RKWZdRxHI=
@@ -147,6 +149,8 @@ github.com/robfig/cron/v3 v3.0.1 h1:WdRxkvbJztn8LMz/QEvLN5sBU+xKpSqwwUO1Pjr4qDs=
 github.com/robfig/cron/v3 v3.0.1/go.mod h1:eQICP3HwyT7UooqI/z+Ov+PtYAWygg1TEWWzGIFLtro=
 github.com/rogpeppe/go-internal v1.14.1 h1:UQB4HGPB6osV0SQTLymcB4TgvyWu6ZyliaW0tI/otEQ=
 github.com/rogpeppe/go-internal v1.14.1/go.mod h1:MaRKkUm5W0goXpeCfT7UZI6fk/L7L7so1lCWt35ZSgc=
+github.com/shopspring/decimal v1.4.0 h1:bxl37RwXBklmTi0C79JfXCEBD1cqqHt0bbgBAGFp81k=
+github.com/shopspring/decimal v1.4.0/go.mod h1:gawqmDU56v4yIKSwfBSFip1HdCCXN8/+DMd9qYNcwME=
 github.com/spf13/cast v1.10.0 h1:h2x0u2shc1QuLHfxi+cTJvs30+ZAHOGRic8uyGTDWxY=
 github.com/spf13/cast v1.10.0/go.mod h1:jNfB8QC9IA6ZuY2ZjDp0KtFO2LZZlg4S/7bzP6qqeHo=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=

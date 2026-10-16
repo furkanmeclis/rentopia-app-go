@@ -372,5 +372,15 @@
   "actions.finance.collection_allocation_released": "Tahsilat dağıtımı geri alındı",
   "actions.finance.collection_refunded": "Tahsilat iade edildi",
   "actions.finance.collection_voided": "Tahsilat iptal edildi",
+  "resources.tenant.invoices": "Fatura",
+  "actions.invoices.created": "Fatura taslağı oluşturuldu",
+  "actions.invoices.updated": "Fatura taslağı güncellendi",
+  "actions.invoices.validated": "Fatura doğrulandı",
+  "actions.invoices.finalized": "Fatura kesinleştirildi",
+  "actions.invoices.retried": "Fatura gönderimi yeniden denendi",
+  "actions.invoices.cancelled": "Fatura iptal edildi",
+  "actions.invoices.return_created": "İade faturası oluşturuldu",
+  "actions.invoices.downloaded": "Fatura indirildi",
+  "actions.invoices.settings_updated": "Fatura ayarları güncellendi",
   "resources.tenant.vehicle_profitability": "Araç kârlılığı"
 }

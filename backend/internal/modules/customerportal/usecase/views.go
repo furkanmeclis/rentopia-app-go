@@ -11,6 +11,7 @@ import (
 	contractsmodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/contracts/model"
 	contractsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/contracts/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/customerportal/model"
+	invoicesusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/invoices/usecase"
 	resmodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/integrations"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/pkg/money"
@@ -151,7 +152,7 @@ func (s *Service) Reservation(ctx context.Context, p Principal, id uuid.UUID) (m
 			PickupBranch: r.PickupBranch.Name, ReturnBranch: r.ReturnBranch.Name, Product: r.Plan.SoldProduct.Title,
 			Price: price(r.Price.Currency, r.Price.Total, r.Price.Prepayment, r.Price.Paid),
 		},
-		Drivers: []string{}, Extras: []model.Extra{}, Documents: []model.Document{}, Requests: []model.Request{},
+		Drivers: []string{}, Extras: []model.Extra{}, Documents: []model.Document{}, Invoices: []model.Invoice{}, Requests: []model.Request{},
 		PaymentDeadline: r.PaymentDeadline,
 	}
 	if r.PickupPoint != nil {
@@ -200,7 +201,50 @@ func (s *Service) Reservation(ctx context.Context, p Principal, id uuid.UUID) (m
 		return model.Reservation{}, err
 	}
 	out.Documents = docs
+	// Invoices are the renter's financial documents: a driver session does
+	// not see them.
+	if s.invoices != nil && p.Role == model.RoleRenter {
+		prefix := "customer/" + p.Org.Slug + "/reservations/" + row.Uuid.String()
+		invs, err := s.invoices.PortalInvoices(octx, p.Org.ID, row.ID, prefix)
+		if err != nil {
+			return model.Reservation{}, err
+		}
+		for _, i := range invs {
+			out.Invoices = append(out.Invoices, model.Invoice{
+				UUID: i.UUID, Number: i.Number, Profile: i.Profile, Type: i.Type, IssueDate: i.IssueDate,
+				Payable: i.Payable, Currency: i.Currency, DownloadPath: i.DownloadPath,
+			})
+		}
+	}
 	return out, nil
+}
+
+// InvoicePDF returns the PDF of an issued invoice of one of the renter
+// session's reservations (404 for any other invoice, and for driver
+// sessions).
+func (s *Service) InvoicePDF(ctx context.Context, p Principal, reservationID, invoiceID uuid.UUID, client model.ClientInfo) ([]byte, string, error) {
+	row, err := s.scoped(ctx, p, reservationID)
+	if err != nil {
+		return nil, "", err
+	}
+	if s.invoices == nil || p.Role != model.RoleRenter {
+		return nil, "", ErrNotFound
+	}
+	octx := orgContext(ctx, p.Org)
+	data, name, err := s.invoices.PortalInvoicePDF(octx, p.Org.ID, row.ID, invoiceID)
+	if err != nil {
+		if errors.Is(err, invoicesusecase.ErrNotFound) || errors.Is(err, invoicesusecase.ErrNoDocument) {
+			return nil, "", ErrNotFound
+		}
+		if errors.Is(err, invoicesusecase.ErrPDFUnavailable) || errors.Is(err, invoicesusecase.ErrStorageUnavailable) {
+			return nil, "", ErrPDFNotReady
+		}
+		return nil, "", err
+	}
+	s.audit(octx, "customer_portal.invoice_downloaded", model.ResourcePortal, &row.Uuid, map[string]any{
+		"invoice_uuid": invoiceID, "session_uuid": p.SessionUUID, "role": p.Role,
+	}, &client)
+	return data, name, nil
 }
 
 func (s *Service) requests(ctx context.Context, orgID, reservationID int64) ([]model.Request, error) {
