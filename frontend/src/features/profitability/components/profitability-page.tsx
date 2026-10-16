@@ -155,7 +155,7 @@ export function ProfitabilityPage() {
           cell: ({ row }) => (
             <div className="flex flex-col">
               <Link
-                className="font-medium underline-offset-2 hover:underline"
+                className="font-medium whitespace-nowrap underline-offset-2 hover:underline"
                 href={`${routes.tenant.fleet.vehicles.detail(slug, row.original.vehicle.uuid)}?tab=profitability`}
               >
                 {row.original.vehicle.plate}

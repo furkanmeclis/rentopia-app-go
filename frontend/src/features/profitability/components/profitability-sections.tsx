@@ -301,7 +301,7 @@ export function ContributionChart({
               dataKey="label"
               tickLine={false}
               axisLine={false}
-              width={84}
+              width={96}
             />
             <ChartTooltip
               cursor={false}
