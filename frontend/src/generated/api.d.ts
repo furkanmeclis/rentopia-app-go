@@ -11760,6 +11760,471 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenant/suppliers/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Suppliers list metadata
+         * @description `tenant.suppliers.read`. Table contract of the list (columns, filters, bulk actions).
+         */
+        get: operations["getTenantSuppliersMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/suppliers/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Supplier filter options
+         * @description `tenant.suppliers.read`. Counts per type, status and city.
+         */
+        get: operations["getTenantSuppliersFacets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/suppliers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List suppliers
+         * @description `tenant.suppliers.read`. `q` searches title, code, tax number, e-mail,
+         *     phone, city and contact persons. `balance` / `payable` come from the
+         *     supplier's ledger account over the entries in the caller's branch
+         *     scope; the due figures from its open invoices (also branch scoped).
+         */
+        get: operations["getTenantSuppliers"];
+        put?: never;
+        /**
+         * Create a supplier
+         * @description `tenant.suppliers.write`. Without a code one is generated
+         *     (`TED-000001`). The tax number is a VKN (10 digits) or TCKN (11
+         *     digits) with a valid checksum, unique among active suppliers (409 on
+         *     `tax_number`); the IBAN is checked with mod-97. The new card adopts
+         *     the vehicles and expenses that name it in free text.
+         */
+        post: operations["postTenantSupplier"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/suppliers/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export suppliers
+         * @description `tenant.suppliers.read` + `tenant.suppliers.export`. `query` honours `q`, `supplier_type`, `status`, `city`, `due_state`.
+         */
+        post: operations["postTenantSuppliersExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/suppliers/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload a suppliers import file
+         * @description `tenant.suppliers.write` + `tenant.suppliers.import`. A row updates the supplier with the same code (else the same tax number) or creates one; a rollback restores updated cards and removes created ones (archives them when already referenced). Continue with `/v1/tenant/imports/{uuid}/mapping`, `/preview` and `/confirm`.
+         */
+        post: operations["postTenantSuppliersImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/suppliers/import/sample": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Suppliers import sample
+         * @description `tenant.suppliers.import`.
+         */
+        get: operations["getTenantSuppliersImportSample"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/suppliers/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk archive suppliers
+         * @description Action `archive` (`tenant.suppliers.bulk.archive`, reversible: the rollback restores each previous status).
+         */
+        post: operations["postTenantSuppliersBulk"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/suppliers/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Supplier
+         * @description `tenant.suppliers.read`. Another organization's uuid answers 404.
+         */
+        get: operations["getTenantSupplier"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a supplier
+         * @description `tenant.suppliers.write`. A new title follows onto the free-text supplier names of the linked vehicles / expenses and onto the ledger account (with the payment terms).
+         */
+        patch: operations["patchTenantSupplier"];
+        trace?: never;
+    };
+    "/v1/tenant/suppliers/{uuid}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Supplier activity
+         * @description `tenant.suppliers.read`. Audit trail of the card.
+         */
+        get: operations["getTenantSupplierActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/finance/payables/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Due supplier payments
+         * @description `tenant.finance.expenses.read`. Open supplier invoices overdue and due within `window` days (default 7), in the caller's branch scope (the "Vadesi yaklaşan ödemeler" card and badge).
+         */
+        get: operations["getTenantPayablesSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/finance/supplier-invoices/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Supplier invoices list metadata
+         * @description `tenant.finance.expenses.read`. Table contract of the list.
+         */
+        get: operations["getTenantSupplierInvoicesMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/finance/supplier-invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List supplier invoices
+         * @description `tenant.finance.expenses.read`. Head office invoices need every branch. `due_state` is computed against today (Europe/Istanbul) and `window` days.
+         */
+        get: operations["getTenantSupplierInvoices"];
+        put?: never;
+        /**
+         * Record a supplier invoice
+         * @description `tenant.finance.expenses.write`. Lines (each with its VAT rate) or a
+         *     header net / total with one rate. The due date defaults to the invoice
+         *     date plus the supplier's payment terms. In one transaction: the
+         *     invoice, its payable accrual (credit) on the supplier's ledger account
+         *     (opened on first use) and its expense row. The number is unique per
+         *     supplier among live invoices (409 on `invoice_no`).
+         */
+        post: operations["postTenantSupplierInvoice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/finance/supplier-invoices/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export supplier invoices
+         * @description `tenant.finance.expenses.read` + `tenant.finance.expenses.export`. `query` honours the list filters; the job runs with the requester's branch scope.
+         */
+        post: operations["postTenantSupplierInvoicesExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/finance/supplier-invoices/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Supplier invoice
+         * @description `tenant.finance.expenses.read`. With its lines and the payments allocated to it.
+         */
+        get: operations["getTenantSupplierInvoice"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a supplier invoice
+         * @description `tenant.finance.expenses.write`. Number, due date, category, branch, vehicle and description; a moved due date reverses the accrual and posts it again. Supplier, amounts, lines, invoice date and currency are fixed (void and record again).
+         */
+        patch: operations["patchTenantSupplierInvoice"];
+        trace?: never;
+    };
+    "/v1/tenant/finance/supplier-invoices/{uuid}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Void a supplier invoice
+         * @description `tenant.finance.expenses.write`. With a reason; the accrual is reversed and the expense row voided in the same transaction. An invoice with live payments answers 409 `invoice_has_payments`.
+         */
+        post: operations["postTenantSupplierInvoiceVoid"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/finance/supplier-invoices/{uuid}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download the invoice file
+         * @description `tenant.finance.expenses.read`. Streamed by the API from private storage (`inline=1` for inline display); never a storage URL.
+         */
+        get: operations["getTenantSupplierInvoiceFile"];
+        /**
+         * Upload the invoice file
+         * @description `tenant.finance.expenses.write`. PDF, JPEG, PNG or WebP (sniffed), at most 10 MiB; replaces the previous file.
+         */
+        put: operations["putTenantSupplierInvoiceFile"];
+        post?: never;
+        /**
+         * Remove the invoice file
+         * @description `tenant.finance.expenses.write`.
+         */
+        delete: operations["deleteTenantSupplierInvoiceFile"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/finance/supplier-payments/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Supplier payments list metadata
+         * @description `tenant.finance.cash.read`. Table contract of the list.
+         */
+        get: operations["getTenantSupplierPaymentsMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/finance/supplier-payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List supplier payments
+         * @description `tenant.finance.cash.read`. Payments from cash accounts of the caller's branches (head office accounts need every branch).
+         */
+        get: operations["getTenantSupplierPayments"];
+        put?: never;
+        /**
+         * Pay a supplier
+         * @description `tenant.finance.cash.write`. From a cash or bank account (a till
+         *     cannot go negative). In one transaction: the cash movement
+         *     (`supplier_payment`), the ledger entry (`payment`, debit) on the
+         *     supplier's account and the allocations. Without `allocations` the
+         *     amount pays the supplier's open invoices oldest due date first
+         *     (`auto_allocate`, default true); what is left is an advance.
+         */
+        post: operations["postTenantSupplierPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/finance/supplier-payments/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export supplier payments
+         * @description `tenant.finance.cash.read` + `tenant.finance.cash.export`. `query` honours the list filters.
+         */
+        post: operations["postTenantSupplierPaymentsExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/finance/supplier-payments/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Supplier payment
+         * @description `tenant.finance.cash.read`. With its allocations.
+         */
+        get: operations["getTenantSupplierPayment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/finance/supplier-payments/{uuid}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Void a supplier payment
+         * @description `tenant.finance.cash.write`. With a reason; the ledger entry and the cash movement are reversed and the allocations stop counting (the invoices reopen).
+         */
+        post: operations["postTenantSupplierPaymentVoid"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenant/finance/reports/expenses": {
         parameters: {
             query?: never;
@@ -13207,6 +13672,12 @@ export interface components {
             /** Format: date-time */
             created_at: string;
         };
+        VehicleSupplierRef: {
+            /** Format: uuid */
+            uuid: string;
+            code: string;
+            name: string;
+        };
         VehicleBranchRef: {
             /** Format: uuid */
             uuid: string;
@@ -13283,6 +13754,8 @@ export interface components {
             /** @enum {string} */
             ownership: "owned" | "supplied";
             supplier_name: string;
+            /** @description Supplier card of a supplied vehicle (TEC-721) */
+            supplier?: components["schemas"]["VehicleSupplierRef"] | null;
             /** Format: date */
             in_service_date: string | null;
             /** Format: date */
@@ -13816,8 +14289,13 @@ export interface components {
             fleet_pool?: string;
             /** @enum {string} */
             ownership?: "owned" | "supplied";
-            /** @description Required when ownership is supplied */
+            /** @description Required when ownership is supplied (or supplier_uuid); alone it links the one active supplier with this title */
             supplier_name?: string;
+            /**
+             * Format: uuid
+             * @description Supplier card (null clears); its title becomes supplier_name
+             */
+            supplier_uuid?: string | null;
             /** Format: date */
             in_service_date?: string | null;
             /** Format: date */
@@ -13857,8 +14335,13 @@ export interface components {
             fleet_pool?: string;
             /** @enum {string} */
             ownership?: "owned" | "supplied";
-            /** @description Required when ownership is supplied */
+            /** @description Required when ownership is supplied (or supplier_uuid); alone it links the one active supplier with this title */
             supplier_name?: string;
+            /**
+             * Format: uuid
+             * @description Supplier card (null clears); its title becomes supplier_name
+             */
+            supplier_uuid?: string | null;
             /** Format: date */
             in_service_date?: string | null;
             /** Format: date */
@@ -21734,6 +22217,8 @@ export interface components {
             name: string;
             customer: components["schemas"]["FinanceRef"] | null;
             customer_type?: string;
+            /** @description The supplier card of a supplier account */
+            supplier?: components["schemas"]["FinanceRef"] | null;
             branch: components["schemas"]["FinanceRef"] | null;
             currency: string;
             payment_term_days: number;
@@ -21974,6 +22459,10 @@ export interface components {
             due_soon: string;
             /** @description Decimal amount (2 decimals) */
             deposit_held: string;
+            /** @description Overdue part of the supplier payables (overdue / due_soon / by_due cover customer receivables) */
+            payable_overdue: string;
+            /** @description Supplier payables due within 7 days */
+            payable_due_soon: string;
             accounts_by_status: {
                 [key: string]: number;
             };
@@ -22087,6 +22576,11 @@ export interface components {
             category_uuid?: string;
             /** Format: uuid */
             ledger_entry_uuid?: string;
+            /**
+             * Format: uuid
+             * @description supplier_payment only: recorded as a supplier payment (ledger entry, FIFO allocation to open invoices)
+             */
+            supplier_uuid?: string;
         };
         CashTransferRequest: {
             /** Format: uuid */
@@ -22157,6 +22651,10 @@ export interface components {
             cash_account: components["schemas"]["FinanceRef"] | null;
             /** Format: uuid */
             movement_uuid: string | null;
+            /** @description The supplier card (TEC-721) */
+            supplier?: components["schemas"]["FinanceRef"] | null;
+            /** @description The supplier invoice the row was generated from (then read-only; change or void the invoice) */
+            supplier_invoice?: components["schemas"]["FinanceRef"] | null;
             attachment: components["schemas"]["ExpenseAttachment"] | null;
             /** @enum {string} */
             status: "recorded" | "void";
@@ -22175,7 +22673,14 @@ export interface components {
             /** Format: date */
             expense_date?: string;
             description?: string;
+            /** @description Free text; links the one active supplier with this title */
             supplier_name?: string;
+            /**
+             * Format: uuid
+             * @description Supplier card; its title becomes supplier_name
+             */
+            supplier_uuid?: string;
+            clear_supplier?: boolean;
             document_no?: string;
             currency?: string;
             /** @description Decimal amount (2 decimals) */
@@ -22192,6 +22697,349 @@ export interface components {
             clear_vehicle?: boolean;
             /** Format: uuid */
             cash_account_uuid?: string;
+        };
+        SupplierContact: {
+            name: string;
+            role: string;
+            /** @description Normalized +<digits> */
+            phone: string;
+            email: string;
+        };
+        Supplier: {
+            /** Format: uuid */
+            uuid: string;
+            /** @example TED-000001 */
+            code: string;
+            title: string;
+            /** @enum {string} */
+            supplier_type: "service" | "insurance" | "vehicle_supplier" | "parts" | "fuel" | "other";
+            /** @description VKN (10 digits) or TCKN (11 digits); empty when unknown */
+            tax_number: string;
+            /** @enum {string} */
+            tax_kind: "vkn" | "tckn" | "";
+            tax_office: string;
+            phone: string;
+            email: string;
+            website: string;
+            address: string;
+            city: string;
+            billing_address: string;
+            billing_email: string;
+            e_invoice: boolean;
+            bank_name: string;
+            iban: string;
+            payment_term_days: number;
+            contacts: components["schemas"]["SupplierContact"][];
+            /** @enum {string} */
+            status: "active" | "archived";
+            note: string;
+            /** @description The supplier's ledger account (null until the first invoice / payment) */
+            account: components["schemas"]["FinanceRef"] | null;
+            /** @description Ledger balance (debit - credit); negative = we owe */
+            balance: string;
+            /** @description What we owe (0 when the balance is not negative) */
+            payable: string;
+            /** @description Open amount of the supplier's open invoices */
+            open_amount: string;
+            overdue_amount: string;
+            /** @description Due within 7 days */
+            due_soon_amount: string;
+            /** Format: int64 */
+            open_invoices: number;
+            /** Format: date */
+            next_due_date: string | null;
+            /** Format: int64 */
+            vehicle_count: number;
+            /** @enum {string} */
+            due_state: "overdue" | "due_soon" | "open" | "settled";
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        SupplierInput: {
+            /** @description Empty on create = generated */
+            code?: string;
+            title?: string;
+            /** @enum {string} */
+            supplier_type?: "service" | "insurance" | "vehicle_supplier" | "parts" | "fuel" | "other";
+            /** @description VKN or TCKN (checksum validated) */
+            tax_number?: string;
+            tax_office?: string;
+            phone?: string;
+            email?: string;
+            website?: string;
+            address?: string;
+            city?: string;
+            billing_address?: string;
+            billing_email?: string;
+            e_invoice?: boolean;
+            bank_name?: string;
+            iban?: string;
+            payment_term_days?: number;
+            contacts?: components["schemas"]["SupplierContact"][];
+            /** @enum {string} */
+            status?: "active" | "archived";
+            note?: string;
+        };
+        SupplierFacet: {
+            value: string;
+            /** Format: int64 */
+            count: number;
+        };
+        SupplierFacets: {
+            supplier_type: components["schemas"]["SupplierFacet"][];
+            status: components["schemas"]["SupplierFacet"][];
+            city: components["schemas"]["SupplierFacet"][];
+        };
+        SupplierInvoiceLine: {
+            line_no: number;
+            description: string;
+            net_amount: string;
+            /** @description Percent (20.00) */
+            vat_rate: string;
+            vat_amount: string;
+            total_amount: string;
+        };
+        SupplierInvoicePayment: {
+            /** Format: uuid */
+            payment_uuid: string;
+            /** Format: date */
+            payment_date: string;
+            /** @enum {string} */
+            status: "posted" | "void";
+            method: string;
+            amount: string;
+            cash_account: components["schemas"]["FinanceRef"];
+        };
+        SupplierInvoice: {
+            /** Format: uuid */
+            uuid: string;
+            invoice_no: string;
+            /** Format: date */
+            invoice_date: string;
+            /** Format: date */
+            due_date: string;
+            supplier: components["schemas"]["FinanceRef"];
+            account: components["schemas"]["FinanceRef"];
+            category: components["schemas"]["FinanceRef"];
+            branch: components["schemas"]["FinanceRef"] | null;
+            vehicle: components["schemas"]["FinanceRef"] | null;
+            description: string;
+            currency: string;
+            net_amount: string;
+            vat_amount: string;
+            total_amount: string;
+            paid_amount: string;
+            open_amount: string;
+            /** @enum {string} */
+            status: "open" | "partially_paid" | "paid" | "void";
+            /** @enum {string} */
+            due_state: "overdue" | "due_soon" | "later" | "settled";
+            /**
+             * Format: uuid
+             * @description The expense row the invoice is the source of
+             */
+            expense_uuid: string | null;
+            attachment: components["schemas"]["ExpenseAttachment"] | null;
+            lines: components["schemas"]["SupplierInvoiceLine"][];
+            /** @description Filled on the single-invoice read */
+            payments: components["schemas"]["SupplierInvoicePayment"][];
+            void_reason: string;
+            /** Format: date-time */
+            voided_at: string | null;
+            created_by?: components["schemas"]["FinanceActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        SupplierInvoiceLineInput: {
+            description?: string;
+            /** @description Decimal amount (2 decimals) */
+            net_amount: string;
+            /** @description Percent (20) */
+            vat_rate?: string;
+        };
+        SupplierInvoiceInput: {
+            /** Format: uuid */
+            supplier_uuid?: string;
+            invoice_no?: string;
+            /** Format: date */
+            invoice_date?: string;
+            /** Format: date */
+            due_date?: string;
+            currency?: string;
+            /** Format: uuid */
+            category_uuid?: string;
+            /** Format: uuid */
+            branch_uuid?: string;
+            clear_branch?: boolean;
+            /** Format: uuid */
+            vehicle_uuid?: string;
+            clear_vehicle?: boolean;
+            description?: string;
+            /** @description Header net (without lines) */
+            net_amount?: string;
+            /** @description Header total incl. VAT (without lines) */
+            total_amount?: string;
+            /** @description Header VAT percent (without lines) */
+            vat_rate?: string;
+            lines?: components["schemas"]["SupplierInvoiceLineInput"][];
+        };
+        SupplierPaymentAllocation: {
+            /** Format: uuid */
+            invoice_uuid: string;
+            invoice_no: string;
+            /** Format: date */
+            due_date: string;
+            amount: string;
+        };
+        SupplierPayment: {
+            /** Format: uuid */
+            uuid: string;
+            supplier: components["schemas"]["FinanceRef"];
+            account: components["schemas"]["FinanceRef"];
+            cash_account: components["schemas"]["FinanceRef"];
+            /** @enum {string} */
+            cash_account_kind: "cash" | "bank";
+            amount: string;
+            allocated_amount: string;
+            /** @description Advance on the supplier's account */
+            unallocated_amount: string;
+            currency: string;
+            /** Format: date */
+            payment_date: string;
+            /** @enum {string} */
+            method: "bank_transfer" | "cash" | "card" | "cheque" | "other";
+            reference: string;
+            description: string;
+            branch: components["schemas"]["FinanceRef"] | null;
+            /** Format: uuid */
+            ledger_entry_uuid: string | null;
+            /** Format: uuid */
+            movement_uuid: string | null;
+            allocations: components["schemas"]["SupplierPaymentAllocation"][];
+            /** @enum {string} */
+            status: "posted" | "void";
+            void_reason: string;
+            /** Format: date-time */
+            voided_at: string | null;
+            created_by?: components["schemas"]["FinanceActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        SupplierPaymentAllocationInput: {
+            /** Format: uuid */
+            invoice_uuid: string;
+            amount: string;
+        };
+        SupplierPaymentInput: {
+            /** Format: uuid */
+            supplier_uuid: string;
+            /** Format: uuid */
+            cash_account_uuid: string;
+            /** @description Decimal amount (2 decimals) */
+            amount: string;
+            /** Format: date */
+            payment_date?: string;
+            /** @enum {string} */
+            method?: "bank_transfer" | "cash" | "card" | "cheque" | "other";
+            reference?: string;
+            description?: string;
+            allocations?: components["schemas"]["SupplierPaymentAllocationInput"][];
+            /** @description Without allocations: pay open invoices oldest due date first (default true) */
+            auto_allocate?: boolean;
+        };
+        PayablesSummary: {
+            currency: string;
+            window_days: number;
+            overdue_amount: string;
+            /** Format: int64 */
+            overdue_count: number;
+            due_soon_amount: string;
+            /** Format: int64 */
+            due_soon_count: number;
+            open_amount: string;
+            /** Format: int64 */
+            open_count: number;
+            /**
+             * Format: int64
+             * @description overdue_count + due_soon_count (badge)
+             */
+            attention_count: number;
+        };
+        EnvelopeSupplier: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["Supplier"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeSupplierFacets: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["SupplierFacets"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeSupplierPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["Supplier"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeSupplierActivityPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["BranchActivityPage"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeSupplierInvoice: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["SupplierInvoice"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeSupplierInvoicePage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["SupplierInvoice"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeSupplierPayment: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["SupplierPayment"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeSupplierPaymentPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["SupplierPayment"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopePayablesSummary: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["PayablesSummary"];
+            meta: components["schemas"]["ResponseMeta"];
         };
         FinanceReportRow: {
             key: string;
@@ -31426,6 +32274,8 @@ export interface operations {
                 segment?: string;
                 /** @description Home branch uuids; comma-separated */
                 home_branch?: string;
+                /** @description Supplier uuids (supplied vehicles); comma-separated */
+                supplier?: string;
                 /** @description Current branch uuids; comma-separated */
                 current_branch?: string;
                 /** @description `owned`, `supplied`; comma-separated */
@@ -44037,6 +44887,8 @@ export interface operations {
                 branch?: string;
                 /** @description Vehicle uuids */
                 vehicle?: string;
+                /** @description Supplier uuids */
+                supplier?: string;
                 /** @description recorded, void */
                 status?: string;
                 /** @description YYYY-MM-DD */
@@ -44456,6 +45308,996 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["TenantForbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantSuppliersMeta: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            400: components["responses"]["OrganizationRequired"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantSuppliersFacets: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSupplierFacets"];
+                };
+            };
+            400: components["responses"]["OrganizationRequired"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantSuppliers: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description `code`, `title`, `balance`, `open_amount`, `overdue_amount`, `next_due_date` or `created_at`; prefix `-` for descending. Default `title`. */
+                sort?: string;
+                /** @description service, insurance, vehicle_supplier, parts, fuel, other (comma-separated) */
+                supplier_type?: string;
+                /** @description active, archived */
+                status?: string;
+                /** @description Cities (comma-separated) */
+                city?: string;
+                /** @description overdue, due_soon, open, settled */
+                due_state?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSupplierPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantSupplier: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupplierInput"];
+            };
+        };
+        responses: {
+            /** @description Supplier */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSupplier"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantSuppliersExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Export job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantSuppliersImport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportUploadForm"];
+            };
+        };
+        responses: {
+            /** @description Import job */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeImportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantSuppliersImportSample: {
+        parameters: {
+            query?: {
+                format?: "json" | "xlsx" | "csv" | "tsv";
+                locale?: "tr" | "en";
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sample file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantSuppliersBulk: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkExecuteRequest"];
+            };
+        };
+        responses: {
+            /** @description Sync bulk result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeBulkSyncResult"];
+                };
+            };
+            /** @description Async bulk job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeBulkJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantSupplier: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSupplier"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchTenantSupplier: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupplierInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSupplier"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantSupplierActivity: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSupplierActivityPage"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantPayablesSummary: {
+        parameters: {
+            query?: {
+                /** @description Due-soon window in days */
+                window?: number;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePayablesSummary"];
+                };
+            };
+            400: components["responses"]["OrganizationRequired"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantSupplierInvoicesMeta: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            400: components["responses"]["OrganizationRequired"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantSupplierInvoices: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description `invoice_date`, `due_date`, `total_amount`, `open_amount` or `created_at`; prefix `-` for descending. Default `-invoice_date`. */
+                sort?: string;
+                /** @description Supplier uuids */
+                supplier?: string;
+                /** @description open, partially_paid, paid, void */
+                status?: string;
+                /** @description overdue, due_soon, later, settled */
+                due_state?: string;
+                /** @description Expense category uuids */
+                category?: string;
+                /** @description Branch uuids */
+                branch?: string;
+                /** @description Invoice date from (YYYY-MM-DD) */
+                from?: string;
+                /** @description Invoice date to (YYYY-MM-DD) */
+                to?: string;
+                /** @description Due on or before (YYYY-MM-DD) */
+                due_to?: string;
+                /** @description Due-soon window in days (default 7) */
+                window?: number;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSupplierInvoicePage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantSupplierInvoice: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupplierInvoiceInput"];
+            };
+        };
+        responses: {
+            /** @description Supplier invoice */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSupplierInvoice"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantSupplierInvoicesExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Export job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantSupplierInvoice: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSupplierInvoice"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchTenantSupplierInvoice: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupplierInvoiceInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSupplierInvoice"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantSupplierInvoiceVoid: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinanceReverseRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSupplierInvoice"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantSupplierInvoiceFile: {
+        parameters: {
+            query?: {
+                /** @description 1 = inline disposition */
+                inline?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description File */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putTenantSupplierInvoiceFile: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSupplierInvoice"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteTenantSupplierInvoiceFile: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSupplierInvoice"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantSupplierPaymentsMeta: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            400: components["responses"]["OrganizationRequired"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantSupplierPayments: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description `payment_date`, `amount` or `created_at`; prefix `-` for descending. Default `-payment_date`. */
+                sort?: string;
+                /** @description Supplier uuids */
+                supplier?: string;
+                /** @description Cash / bank account uuids */
+                cash_account?: string;
+                /** @description posted, void */
+                status?: string;
+                /** @description bank_transfer, cash, card, cheque, other */
+                method?: string;
+                /** @description Payments allocated to this invoice */
+                invoice?: string;
+                /** @description YYYY-MM-DD */
+                from?: string;
+                /** @description YYYY-MM-DD */
+                to?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSupplierPaymentPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantSupplierPayment: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupplierPaymentInput"];
+            };
+        };
+        responses: {
+            /** @description Supplier payment */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSupplierPayment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantSupplierPaymentsExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Export job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantSupplierPayment: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSupplierPayment"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantSupplierPaymentVoid: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinanceReverseRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSupplierPayment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     getTenantFinanceExpenseReport: {

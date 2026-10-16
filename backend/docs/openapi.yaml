@@ -7848,6 +7848,10 @@ paths:
           in: query
           description: Home branch uuids; comma-separated
           schema: { type: string }
+        - name: supplier
+          in: query
+          description: Supplier uuids (supplied vehicles); comma-separated
+          schema: { type: string }
         - name: current_branch
           in: query
           description: Current branch uuids; comma-separated
@@ -17714,6 +17718,7 @@ paths:
         - { name: category, in: query, schema: { type: string }, description: "Category uuids" }
         - { name: branch, in: query, schema: { type: string }, description: "Branch uuids" }
         - { name: vehicle, in: query, schema: { type: string }, description: "Vehicle uuids" }
+        - { name: supplier, in: query, schema: { type: string }, description: "Supplier uuids" }
         - { name: status, in: query, schema: { type: string }, description: "recorded, void" }
         - { name: from, in: query, schema: { type: string }, description: "YYYY-MM-DD" }
         - { name: to, in: query, schema: { type: string }, description: "YYYY-MM-DD" }
@@ -18000,6 +18005,711 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/TenantForbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/suppliers/meta:
+    get:
+      tags: [Tenant]
+      operationId: getTenantSuppliersMeta
+      summary: Suppliers list metadata
+      description: "`tenant.suppliers.read`. Table contract of the list (columns, filters, bulk actions)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeResourceMeta" }
+        "400": { $ref: "#/components/responses/OrganizationRequired" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/suppliers/facets:
+    get:
+      tags: [Tenant]
+      operationId: getTenantSuppliersFacets
+      summary: Supplier filter options
+      description: "`tenant.suppliers.read`. Counts per type, status and city."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSupplierFacets" }
+        "400": { $ref: "#/components/responses/OrganizationRequired" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/suppliers:
+    get:
+      tags: [Tenant]
+      operationId: getTenantSuppliers
+      summary: List suppliers
+      description: |
+        `tenant.suppliers.read`. `q` searches title, code, tax number, e-mail,
+        phone, city and contact persons. `balance` / `payable` come from the
+        supplier's ledger account over the entries in the caller's branch
+        scope; the due figures from its open invoices (also branch scoped).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - { name: sort, in: query, schema: { type: string }, description: "`code`, `title`, `balance`, `open_amount`, `overdue_amount`, `next_due_date` or `created_at`; prefix `-` for descending. Default `title`." }
+        - { name: supplier_type, in: query, schema: { type: string }, description: "service, insurance, vehicle_supplier, parts, fuel, other (comma-separated)" }
+        - { name: status, in: query, schema: { type: string }, description: "active, archived" }
+        - { name: city, in: query, schema: { type: string }, description: "Cities (comma-separated)" }
+        - { name: due_state, in: query, schema: { type: string }, description: "overdue, due_soon, open, settled" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSupplierPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantSupplier
+      summary: Create a supplier
+      description: |
+        `tenant.suppliers.write`. Without a code one is generated
+        (`TED-000001`). The tax number is a VKN (10 digits) or TCKN (11
+        digits) with a valid checksum, unique among active suppliers (409 on
+        `tax_number`); the IBAN is checked with mod-97. The new card adopts
+        the vehicles and expenses that name it in free text.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SupplierInput" }
+      responses:
+        "201":
+          description: Supplier
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSupplier" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/suppliers/export:
+    post:
+      tags: [Tenant]
+      operationId: postTenantSuppliersExport
+      summary: Export suppliers
+      description: "`tenant.suppliers.read` + `tenant.suppliers.export`. `query` honours `q`, `supplier_type`, `status`, `city`, `due_state`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExportRequest" }
+      responses:
+        "202":
+          description: Export job queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeExportJob" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/suppliers/import:
+    post:
+      tags: [Tenant]
+      operationId: postTenantSuppliersImport
+      summary: Upload a suppliers import file
+      description: "`tenant.suppliers.write` + `tenant.suppliers.import`. A row updates the supplier with the same code (else the same tax number) or creates one; a rollback restores updated cards and removes created ones (archives them when already referenced). Continue with `/v1/tenant/imports/{uuid}/mapping`, `/preview` and `/confirm`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ImportUploadForm" }
+      responses:
+        "201":
+          description: Import job
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeImportJob" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/suppliers/import/sample:
+    get:
+      tags: [Tenant]
+      operationId: getTenantSuppliersImportSample
+      summary: Suppliers import sample
+      description: "`tenant.suppliers.import`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - name: format
+          in: query
+          schema: { type: string, enum: [json, xlsx, csv, tsv], default: xlsx }
+        - name: locale
+          in: query
+          schema: { type: string, enum: [tr, en], default: tr }
+      responses:
+        "200":
+          description: Sample file
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/suppliers/bulk:
+    post:
+      tags: [Tenant]
+      operationId: postTenantSuppliersBulk
+      summary: Bulk archive suppliers
+      description: "Action `archive` (`tenant.suppliers.bulk.archive`, reversible: the rollback restores each previous status)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BulkExecuteRequest" }
+      responses:
+        "200":
+          description: Sync bulk result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeBulkSyncResult" }
+        "202":
+          description: Async bulk job queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeBulkJob" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/suppliers/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantSupplier
+      summary: Supplier
+      description: "`tenant.suppliers.read`. Another organization's uuid answers 404."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSupplier" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantSupplier
+      summary: Change a supplier
+      description: "`tenant.suppliers.write`. A new title follows onto the free-text supplier names of the linked vehicles / expenses and onto the ledger account (with the payment terms)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SupplierInput" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSupplier" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/suppliers/{uuid}/activity:
+    get:
+      tags: [Tenant]
+      operationId: getTenantSupplierActivity
+      summary: Supplier activity
+      description: "`tenant.suppliers.read`. Audit trail of the card."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSupplierActivityPage" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/finance/payables/summary:
+    get:
+      tags: [Tenant]
+      operationId: getTenantPayablesSummary
+      summary: Due supplier payments
+      description: "`tenant.finance.expenses.read`. Open supplier invoices overdue and due within `window` days (default 7), in the caller's branch scope (the \"Vadesi yaklaşan ödemeler\" card and badge)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - { name: window, in: query, schema: { type: integer, minimum: 1, maximum: 365 }, description: "Due-soon window in days" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopePayablesSummary" }
+        "400": { $ref: "#/components/responses/OrganizationRequired" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/finance/supplier-invoices/meta:
+    get:
+      tags: [Tenant]
+      operationId: getTenantSupplierInvoicesMeta
+      summary: Supplier invoices list metadata
+      description: "`tenant.finance.expenses.read`. Table contract of the list."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeResourceMeta" }
+        "400": { $ref: "#/components/responses/OrganizationRequired" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/finance/supplier-invoices:
+    get:
+      tags: [Tenant]
+      operationId: getTenantSupplierInvoices
+      summary: List supplier invoices
+      description: "`tenant.finance.expenses.read`. Head office invoices need every branch. `due_state` is computed against today (Europe/Istanbul) and `window` days."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - { name: sort, in: query, schema: { type: string }, description: "`invoice_date`, `due_date`, `total_amount`, `open_amount` or `created_at`; prefix `-` for descending. Default `-invoice_date`." }
+        - { name: supplier, in: query, schema: { type: string }, description: "Supplier uuids" }
+        - { name: status, in: query, schema: { type: string }, description: "open, partially_paid, paid, void" }
+        - { name: due_state, in: query, schema: { type: string }, description: "overdue, due_soon, later, settled" }
+        - { name: category, in: query, schema: { type: string }, description: "Expense category uuids" }
+        - { name: branch, in: query, schema: { type: string }, description: "Branch uuids" }
+        - { name: from, in: query, schema: { type: string }, description: "Invoice date from (YYYY-MM-DD)" }
+        - { name: to, in: query, schema: { type: string }, description: "Invoice date to (YYYY-MM-DD)" }
+        - { name: due_to, in: query, schema: { type: string }, description: "Due on or before (YYYY-MM-DD)" }
+        - { name: window, in: query, schema: { type: integer }, description: "Due-soon window in days (default 7)" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSupplierInvoicePage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantSupplierInvoice
+      summary: Record a supplier invoice
+      description: |
+        `tenant.finance.expenses.write`. Lines (each with its VAT rate) or a
+        header net / total with one rate. The due date defaults to the invoice
+        date plus the supplier's payment terms. In one transaction: the
+        invoice, its payable accrual (credit) on the supplier's ledger account
+        (opened on first use) and its expense row. The number is unique per
+        supplier among live invoices (409 on `invoice_no`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SupplierInvoiceInput" }
+      responses:
+        "201":
+          description: Supplier invoice
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSupplierInvoice" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/finance/supplier-invoices/export:
+    post:
+      tags: [Tenant]
+      operationId: postTenantSupplierInvoicesExport
+      summary: Export supplier invoices
+      description: "`tenant.finance.expenses.read` + `tenant.finance.expenses.export`. `query` honours the list filters; the job runs with the requester's branch scope."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExportRequest" }
+      responses:
+        "202":
+          description: Export job queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeExportJob" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/finance/supplier-invoices/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantSupplierInvoice
+      summary: Supplier invoice
+      description: "`tenant.finance.expenses.read`. With its lines and the payments allocated to it."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSupplierInvoice" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantSupplierInvoice
+      summary: Change a supplier invoice
+      description: "`tenant.finance.expenses.write`. Number, due date, category, branch, vehicle and description; a moved due date reverses the accrual and posts it again. Supplier, amounts, lines, invoice date and currency are fixed (void and record again)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SupplierInvoiceInput" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSupplierInvoice" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/finance/supplier-invoices/{uuid}/void:
+    post:
+      tags: [Tenant]
+      operationId: postTenantSupplierInvoiceVoid
+      summary: Void a supplier invoice
+      description: "`tenant.finance.expenses.write`. With a reason; the accrual is reversed and the expense row voided in the same transaction. An invoice with live payments answers 409 `invoice_has_payments`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FinanceReverseRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSupplierInvoice" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/finance/supplier-invoices/{uuid}/file:
+    get:
+      tags: [Tenant]
+      operationId: getTenantSupplierInvoiceFile
+      summary: Download the invoice file
+      description: "`tenant.finance.expenses.read`. Streamed by the API from private storage (`inline=1` for inline display); never a storage URL."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - { name: inline, in: query, schema: { type: string }, description: "1 = inline disposition" }
+      responses:
+        "200":
+          description: File
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [Tenant]
+      operationId: putTenantSupplierInvoiceFile
+      summary: Upload the invoice file
+      description: "`tenant.finance.expenses.write`. PDF, JPEG, PNG or WebP (sniffed), at most 10 MiB; replaces the previous file."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSupplierInvoice" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantSupplierInvoiceFile
+      summary: Remove the invoice file
+      description: "`tenant.finance.expenses.write`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSupplierInvoice" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/finance/supplier-payments/meta:
+    get:
+      tags: [Tenant]
+      operationId: getTenantSupplierPaymentsMeta
+      summary: Supplier payments list metadata
+      description: "`tenant.finance.cash.read`. Table contract of the list."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeResourceMeta" }
+        "400": { $ref: "#/components/responses/OrganizationRequired" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/finance/supplier-payments:
+    get:
+      tags: [Tenant]
+      operationId: getTenantSupplierPayments
+      summary: List supplier payments
+      description: "`tenant.finance.cash.read`. Payments from cash accounts of the caller's branches (head office accounts need every branch)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - { name: sort, in: query, schema: { type: string }, description: "`payment_date`, `amount` or `created_at`; prefix `-` for descending. Default `-payment_date`." }
+        - { name: supplier, in: query, schema: { type: string }, description: "Supplier uuids" }
+        - { name: cash_account, in: query, schema: { type: string }, description: "Cash / bank account uuids" }
+        - { name: status, in: query, schema: { type: string }, description: "posted, void" }
+        - { name: method, in: query, schema: { type: string }, description: "bank_transfer, cash, card, cheque, other" }
+        - { name: invoice, in: query, schema: { type: string, format: uuid }, description: "Payments allocated to this invoice" }
+        - { name: from, in: query, schema: { type: string }, description: "YYYY-MM-DD" }
+        - { name: to, in: query, schema: { type: string }, description: "YYYY-MM-DD" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSupplierPaymentPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantSupplierPayment
+      summary: Pay a supplier
+      description: |
+        `tenant.finance.cash.write`. From a cash or bank account (a till
+        cannot go negative). In one transaction: the cash movement
+        (`supplier_payment`), the ledger entry (`payment`, debit) on the
+        supplier's account and the allocations. Without `allocations` the
+        amount pays the supplier's open invoices oldest due date first
+        (`auto_allocate`, default true); what is left is an advance.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SupplierPaymentInput" }
+      responses:
+        "201":
+          description: Supplier payment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSupplierPayment" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/finance/supplier-payments/export:
+    post:
+      tags: [Tenant]
+      operationId: postTenantSupplierPaymentsExport
+      summary: Export supplier payments
+      description: "`tenant.finance.cash.read` + `tenant.finance.cash.export`. `query` honours the list filters."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExportRequest" }
+      responses:
+        "202":
+          description: Export job queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeExportJob" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/finance/supplier-payments/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantSupplierPayment
+      summary: Supplier payment
+      description: "`tenant.finance.cash.read`. With its allocations."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSupplierPayment" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/finance/supplier-payments/{uuid}/void:
+    post:
+      tags: [Tenant]
+      operationId: postTenantSupplierPaymentVoid
+      summary: Void a supplier payment
+      description: "`tenant.finance.cash.write`. With a reason; the ledger entry and the cash movement are reversed and the allocations stop counting (the invoices reopen)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FinanceReverseRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSupplierPayment" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
 
   /v1/tenant/finance/reports/expenses:
     get:
@@ -20073,6 +20783,14 @@ components:
         applied_at: { type: [string, "null"], format: date-time }
         created_at: { type: string, format: date-time }
 
+    VehicleSupplierRef:
+      type: object
+      required: [uuid, code, name]
+      properties:
+        uuid: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+
     VehicleBranchRef:
       type: object
       required: [uuid, code, name]
@@ -20184,6 +20902,11 @@ components:
         fleet_pool: { type: string, description: "Pool code; pools never share capacity", example: MAIN }
         ownership: { type: string, enum: [owned, supplied] }
         supplier_name: { type: string }
+        supplier:
+          description: Supplier card of a supplied vehicle (TEC-721)
+          oneOf:
+            - $ref: "#/components/schemas/VehicleSupplierRef"
+            - type: "null"
         in_service_date: { type: [string, "null"], format: date }
         out_of_service_date: { type: [string, "null"], format: date }
         in_service: { type: boolean, description: Active and today within the service dates }
@@ -20704,7 +21427,8 @@ components:
         current_branch_uuid: { type: string, format: uuid }
         fleet_pool: { type: string, maxLength: 32 }
         ownership: { type: string, enum: [owned, supplied] }
-        supplier_name: { type: string, maxLength: 255, description: Required when ownership is supplied }
+        supplier_name: { type: string, maxLength: 255, description: "Required when ownership is supplied (or supplier_uuid); alone it links the one active supplier with this title" }
+        supplier_uuid: { type: [string, "null"], format: uuid, description: "Supplier card (null clears); its title becomes supplier_name" }
         in_service_date: { type: [string, "null"], format: date }
         out_of_service_date: { type: [string, "null"], format: date }
         odometer_km: { type: integer, minimum: 0, maximum: 5000000 }
@@ -30143,6 +30867,11 @@ components:
             - $ref: "#/components/schemas/FinanceRef"
             - type: "null"
         customer_type: { type: string }
+        supplier:
+          description: The supplier card of a supplier account
+          oneOf:
+            - $ref: "#/components/schemas/FinanceRef"
+            - type: "null"
         branch:
           oneOf:
             - $ref: "#/components/schemas/FinanceRef"
@@ -30392,7 +31121,7 @@ components:
 
     FinanceSummary:
       type: object
-      required: [currency, receivable, payable, net, overdue, due_soon, deposit_held, accounts_by_status, by_branch, by_due]
+      required: [currency, receivable, payable, net, overdue, due_soon, deposit_held, payable_overdue, payable_due_soon, accounts_by_status, by_branch, by_due]
       properties:
         currency: { type: string }
         receivable: { type: string, description: "Decimal amount (2 decimals)" }
@@ -30401,6 +31130,8 @@ components:
         overdue: { type: string, description: "Decimal amount (2 decimals)" }
         due_soon: { type: string, description: "Decimal amount (2 decimals)" }
         deposit_held: { type: string, description: "Decimal amount (2 decimals)" }
+        payable_overdue: { type: string, description: "Overdue part of the supplier payables (overdue / due_soon / by_due cover customer receivables)" }
+        payable_due_soon: { type: string, description: "Supplier payables due within 7 days" }
         accounts_by_status:
           type: object
           additionalProperties: { type: integer, format: int64 }
@@ -30506,6 +31237,7 @@ components:
         reason: { type: string, maxLength: 500 }
         category_uuid: { type: string, format: uuid }
         ledger_entry_uuid: { type: string, format: uuid }
+        supplier_uuid: { type: string, format: uuid, description: "supplier_payment only: recorded as a supplier payment (ledger entry, FIFO allocation to open invoices)" }
 
     CashTransferRequest:
       type: object
@@ -30586,6 +31318,16 @@ components:
             - $ref: "#/components/schemas/FinanceRef"
             - type: "null"
         movement_uuid: { type: [string, "null"], format: uuid }
+        supplier:
+          description: The supplier card (TEC-721)
+          oneOf:
+            - $ref: "#/components/schemas/FinanceRef"
+            - type: "null"
+        supplier_invoice:
+          description: The supplier invoice the row was generated from (then read-only; change or void the invoice)
+          oneOf:
+            - $ref: "#/components/schemas/FinanceRef"
+            - type: "null"
         attachment:
           oneOf:
             - $ref: "#/components/schemas/ExpenseAttachment"
@@ -30607,7 +31349,9 @@ components:
         category_uuid: { type: string, format: uuid }
         expense_date: { type: string, format: date }
         description: { type: string, maxLength: 1000 }
-        supplier_name: { type: string, maxLength: 255 }
+        supplier_name: { type: string, maxLength: 255, description: "Free text; links the one active supplier with this title" }
+        supplier_uuid: { type: string, format: uuid, description: "Supplier card; its title becomes supplier_name" }
+        clear_supplier: { type: boolean }
         document_no: { type: string, maxLength: 64 }
         currency: { type: string }
         net_amount: { type: string, description: "Decimal amount (2 decimals)" }
@@ -30618,6 +31362,381 @@ components:
         vehicle_uuid: { type: string, format: uuid }
         clear_vehicle: { type: boolean }
         cash_account_uuid: { type: string, format: uuid }
+
+    SupplierContact:
+      type: object
+      required: [name, role, phone, email]
+      properties:
+        name: { type: string, maxLength: 128 }
+        role: { type: string, maxLength: 128 }
+        phone: { type: string, description: "Normalized +<digits>" }
+        email: { type: string }
+
+    Supplier:
+      type: object
+      required: [uuid, code, title, supplier_type, tax_number, tax_kind, tax_office, phone, email, website, address, city, billing_address, billing_email, e_invoice, bank_name, iban, payment_term_days, contacts, status, note, account, balance, payable, open_amount, overdue_amount, due_soon_amount, open_invoices, next_due_date, vehicle_count, due_state, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        code: { type: string, example: TED-000001 }
+        title: { type: string }
+        supplier_type: { type: string, enum: [service, insurance, vehicle_supplier, parts, fuel, other] }
+        tax_number: { type: string, description: "VKN (10 digits) or TCKN (11 digits); empty when unknown" }
+        tax_kind: { type: string, enum: [vkn, tckn, ""] }
+        tax_office: { type: string }
+        phone: { type: string }
+        email: { type: string }
+        website: { type: string }
+        address: { type: string }
+        city: { type: string }
+        billing_address: { type: string }
+        billing_email: { type: string }
+        e_invoice: { type: boolean }
+        bank_name: { type: string }
+        iban: { type: string }
+        payment_term_days: { type: integer }
+        contacts:
+          type: array
+          items: { $ref: "#/components/schemas/SupplierContact" }
+        status: { type: string, enum: [active, archived] }
+        note: { type: string }
+        account:
+          description: The supplier's ledger account (null until the first invoice / payment)
+          oneOf:
+            - $ref: "#/components/schemas/FinanceRef"
+            - type: "null"
+        balance: { type: string, description: "Ledger balance (debit - credit); negative = we owe" }
+        payable: { type: string, description: "What we owe (0 when the balance is not negative)" }
+        open_amount: { type: string, description: "Open amount of the supplier's open invoices" }
+        overdue_amount: { type: string }
+        due_soon_amount: { type: string, description: "Due within 7 days" }
+        open_invoices: { type: integer, format: int64 }
+        next_due_date: { type: [string, "null"], format: date }
+        vehicle_count: { type: integer, format: int64 }
+        due_state: { type: string, enum: [overdue, due_soon, open, settled] }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    SupplierInput:
+      type: object
+      additionalProperties: false
+      properties:
+        code: { type: string, maxLength: 32, description: "Empty on create = generated" }
+        title: { type: string, maxLength: 255 }
+        supplier_type: { type: string, enum: [service, insurance, vehicle_supplier, parts, fuel, other] }
+        tax_number: { type: string, description: "VKN or TCKN (checksum validated)" }
+        tax_office: { type: string, maxLength: 128 }
+        phone: { type: string }
+        email: { type: string }
+        website: { type: string }
+        address: { type: string, maxLength: 1000 }
+        city: { type: string, maxLength: 64 }
+        billing_address: { type: string, maxLength: 1000 }
+        billing_email: { type: string }
+        e_invoice: { type: boolean }
+        bank_name: { type: string, maxLength: 128 }
+        iban: { type: string }
+        payment_term_days: { type: integer, minimum: 0, maximum: 365 }
+        contacts:
+          type: array
+          maxItems: 10
+          items: { $ref: "#/components/schemas/SupplierContact" }
+        status: { type: string, enum: [active, archived] }
+        note: { type: string, maxLength: 2000 }
+
+    SupplierFacet:
+      type: object
+      required: [value, count]
+      properties:
+        value: { type: string }
+        count: { type: integer, format: int64 }
+
+    SupplierFacets:
+      type: object
+      required: [supplier_type, status, city]
+      properties:
+        supplier_type: { type: array, items: { $ref: "#/components/schemas/SupplierFacet" } }
+        status: { type: array, items: { $ref: "#/components/schemas/SupplierFacet" } }
+        city: { type: array, items: { $ref: "#/components/schemas/SupplierFacet" } }
+
+    SupplierInvoiceLine:
+      type: object
+      required: [line_no, description, net_amount, vat_rate, vat_amount, total_amount]
+      properties:
+        line_no: { type: integer }
+        description: { type: string }
+        net_amount: { type: string }
+        vat_rate: { type: string, description: "Percent (20.00)" }
+        vat_amount: { type: string }
+        total_amount: { type: string }
+
+    SupplierInvoicePayment:
+      type: object
+      required: [payment_uuid, payment_date, status, method, amount, cash_account]
+      properties:
+        payment_uuid: { type: string, format: uuid }
+        payment_date: { type: string, format: date }
+        status: { type: string, enum: [posted, void] }
+        method: { type: string }
+        amount: { type: string }
+        cash_account: { $ref: "#/components/schemas/FinanceRef" }
+
+    SupplierInvoice:
+      type: object
+      required: [uuid, invoice_no, invoice_date, due_date, supplier, account, category, branch, vehicle, description, currency, net_amount, vat_amount, total_amount, paid_amount, open_amount, status, due_state, expense_uuid, attachment, lines, payments, void_reason, voided_at, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        invoice_no: { type: string }
+        invoice_date: { type: string, format: date }
+        due_date: { type: string, format: date }
+        supplier: { $ref: "#/components/schemas/FinanceRef" }
+        account: { $ref: "#/components/schemas/FinanceRef" }
+        category: { $ref: "#/components/schemas/FinanceRef" }
+        branch:
+          oneOf:
+            - $ref: "#/components/schemas/FinanceRef"
+            - type: "null"
+        vehicle:
+          oneOf:
+            - $ref: "#/components/schemas/FinanceRef"
+            - type: "null"
+        description: { type: string }
+        currency: { type: string }
+        net_amount: { type: string }
+        vat_amount: { type: string }
+        total_amount: { type: string }
+        paid_amount: { type: string }
+        open_amount: { type: string }
+        status: { type: string, enum: [open, partially_paid, paid, void] }
+        due_state: { type: string, enum: [overdue, due_soon, later, settled] }
+        expense_uuid: { type: [string, "null"], format: uuid, description: "The expense row the invoice is the source of" }
+        attachment:
+          oneOf:
+            - $ref: "#/components/schemas/ExpenseAttachment"
+            - type: "null"
+        lines:
+          type: array
+          items: { $ref: "#/components/schemas/SupplierInvoiceLine" }
+        payments:
+          type: array
+          description: Filled on the single-invoice read
+          items: { $ref: "#/components/schemas/SupplierInvoicePayment" }
+        void_reason: { type: string }
+        voided_at: { type: [string, "null"], format: date-time }
+        created_by:
+          oneOf:
+            - $ref: "#/components/schemas/FinanceActor"
+            - type: "null"
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    SupplierInvoiceLineInput:
+      type: object
+      additionalProperties: false
+      required: [net_amount]
+      properties:
+        description: { type: string, maxLength: 500 }
+        net_amount: { type: string, description: "Decimal amount (2 decimals)" }
+        vat_rate: { type: string, description: "Percent (20)" }
+
+    SupplierInvoiceInput:
+      type: object
+      additionalProperties: false
+      properties:
+        supplier_uuid: { type: string, format: uuid }
+        invoice_no: { type: string, maxLength: 64 }
+        invoice_date: { type: string, format: date }
+        due_date: { type: string, format: date }
+        currency: { type: string }
+        category_uuid: { type: string, format: uuid }
+        branch_uuid: { type: string, format: uuid }
+        clear_branch: { type: boolean }
+        vehicle_uuid: { type: string, format: uuid }
+        clear_vehicle: { type: boolean }
+        description: { type: string, maxLength: 1000 }
+        net_amount: { type: string, description: "Header net (without lines)" }
+        total_amount: { type: string, description: "Header total incl. VAT (without lines)" }
+        vat_rate: { type: string, description: "Header VAT percent (without lines)" }
+        lines:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/SupplierInvoiceLineInput" }
+
+    SupplierPaymentAllocation:
+      type: object
+      required: [invoice_uuid, invoice_no, due_date, amount]
+      properties:
+        invoice_uuid: { type: string, format: uuid }
+        invoice_no: { type: string }
+        due_date: { type: string, format: date }
+        amount: { type: string }
+
+    SupplierPayment:
+      type: object
+      required: [uuid, supplier, account, cash_account, cash_account_kind, amount, allocated_amount, unallocated_amount, currency, payment_date, method, reference, description, branch, ledger_entry_uuid, movement_uuid, allocations, status, void_reason, voided_at, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        supplier: { $ref: "#/components/schemas/FinanceRef" }
+        account: { $ref: "#/components/schemas/FinanceRef" }
+        cash_account: { $ref: "#/components/schemas/FinanceRef" }
+        cash_account_kind: { type: string, enum: [cash, bank] }
+        amount: { type: string }
+        allocated_amount: { type: string }
+        unallocated_amount: { type: string, description: "Advance on the supplier's account" }
+        currency: { type: string }
+        payment_date: { type: string, format: date }
+        method: { type: string, enum: [bank_transfer, cash, card, cheque, other] }
+        reference: { type: string }
+        description: { type: string }
+        branch:
+          oneOf:
+            - $ref: "#/components/schemas/FinanceRef"
+            - type: "null"
+        ledger_entry_uuid: { type: [string, "null"], format: uuid }
+        movement_uuid: { type: [string, "null"], format: uuid }
+        allocations:
+          type: array
+          items: { $ref: "#/components/schemas/SupplierPaymentAllocation" }
+        status: { type: string, enum: [posted, void] }
+        void_reason: { type: string }
+        voided_at: { type: [string, "null"], format: date-time }
+        created_by:
+          oneOf:
+            - $ref: "#/components/schemas/FinanceActor"
+            - type: "null"
+        created_at: { type: string, format: date-time }
+
+    SupplierPaymentAllocationInput:
+      type: object
+      additionalProperties: false
+      required: [invoice_uuid, amount]
+      properties:
+        invoice_uuid: { type: string, format: uuid }
+        amount: { type: string }
+
+    SupplierPaymentInput:
+      type: object
+      additionalProperties: false
+      required: [supplier_uuid, cash_account_uuid, amount]
+      properties:
+        supplier_uuid: { type: string, format: uuid }
+        cash_account_uuid: { type: string, format: uuid }
+        amount: { type: string, description: "Decimal amount (2 decimals)" }
+        payment_date: { type: string, format: date }
+        method: { type: string, enum: [bank_transfer, cash, card, cheque, other] }
+        reference: { type: string, maxLength: 64 }
+        description: { type: string, maxLength: 500 }
+        allocations:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/SupplierPaymentAllocationInput" }
+        auto_allocate: { type: boolean, description: "Without allocations: pay open invoices oldest due date first (default true)" }
+
+    PayablesSummary:
+      type: object
+      required: [currency, window_days, overdue_amount, overdue_count, due_soon_amount, due_soon_count, open_amount, open_count, attention_count]
+      properties:
+        currency: { type: string }
+        window_days: { type: integer }
+        overdue_amount: { type: string }
+        overdue_count: { type: integer, format: int64 }
+        due_soon_amount: { type: string }
+        due_soon_count: { type: integer, format: int64 }
+        open_amount: { type: string }
+        open_count: { type: integer, format: int64 }
+        attention_count: { type: integer, format: int64, description: "overdue_count + due_soon_count (badge)" }
+
+    EnvelopeSupplier:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/Supplier" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeSupplierFacets:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/SupplierFacets" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeSupplierPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/Supplier" } }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeSupplierActivityPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/BranchActivityPage" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeSupplierInvoice:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/SupplierInvoice" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeSupplierInvoicePage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/SupplierInvoice" } }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeSupplierPayment:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/SupplierPayment" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeSupplierPaymentPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/SupplierPayment" } }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopePayablesSummary:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/PayablesSummary" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
 
     FinanceReportRow:
       type: object
