@@ -770,6 +770,8 @@ func (s *Service) Reverse(ctx context.Context, orgID int64, id uuid.UUID, in mod
 		return model.Entry{}, stateErr("accrual_managed_by_rental", "accruals follow their rental: waive the charge or change the rental, or post an adjustment")
 	case e.Kind == model.KindOffset:
 		return model.Entry{}, stateErr("offset_pair", "an offset is one of a pair; post an adjustment instead")
+	case e.SourceType == model.SourceSecurityDeposit:
+		return model.Entry{}, stateErr("deposit_managed", "deposit postings follow their deposit; post an adjustment instead")
 	case e.Reversed:
 		return model.Entry{}, stateErr("already_reversed", "the entry is already reversed")
 	}

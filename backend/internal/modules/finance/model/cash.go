@@ -28,6 +28,7 @@ const (
 // MovementKinds in display order.
 var MovementKinds = []string{
 	MoveCollection, MoveExpense, MoveRefund, MoveSupplierPayment, MoveTransferIn, MoveTransferOut, MoveAdjustment, MoveReversal,
+	MoveDepositIn, MoveDepositOut,
 }
 
 // ManualMovementKinds can be entered on an account (transfers, expenses and

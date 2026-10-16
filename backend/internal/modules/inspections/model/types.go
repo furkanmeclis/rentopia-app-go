@@ -309,9 +309,13 @@ type Amounts struct {
 	Balance       money.Money `json:"balance"`
 	PaymentStatus string      `json:"payment_status"`
 	DepositAmount string      `json:"deposit_amount"`
-	// DepositStatus: not_tracked (deposits / provisions are taken at the
-	// branch; payments keeps no deposit record yet).
+	// DepositStatus: none (no deposit taken yet) or the status of the
+	// rental's latest security deposit (TEC-719: pending, held,
+	// partially_captured, released, refunded, cancelled).
 	DepositStatus string `json:"deposit_status"`
+	// DepositUUID / DepositMethod name that deposit (nil / empty: none).
+	DepositUUID   *uuid.UUID `json:"deposit_uuid"`
+	DepositMethod string     `json:"deposit_method"`
 }
 
 // RentalSummary is what the wizard shows of the rental.

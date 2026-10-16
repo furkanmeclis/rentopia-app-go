@@ -117,6 +117,7 @@ type Service struct {
 	events  resourceevents.Publisher
 	links   PayLinks
 	sms     SMS
+	preauth *preAuthDeps
 	log     *slog.Logger
 	now     func() time.Time
 }
