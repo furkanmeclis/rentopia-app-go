@@ -334,6 +334,20 @@ type RentalDeposits struct {
 	// DepositTask is the live deposit operation task of the rental (the
 	// return opened it; resolving the deposit completes it).
 	DepositTask *uuid.UUID `json:"deposit_task_uuid"`
+	// CashAccounts are the active tills / bank accounts of the caller's
+	// scope a deposit can go into or be paid back from (counter staff need
+	// no cash book access to pick one).
+	CashAccounts []DepositCashAccount `json:"cash_accounts"`
+}
+
+// DepositCashAccount is a till / bank account option of the deposit card.
+type DepositCashAccount struct {
+	UUID     uuid.UUID  `json:"uuid"`
+	Code     string     `json:"code"`
+	Name     string     `json:"name"`
+	Kind     string     `json:"kind"`
+	Currency string     `json:"currency"`
+	Branch   *model.Ref `json:"branch"`
 }
 
 // productDeposit reads the deposit amount of the reservation's product
@@ -397,6 +411,23 @@ func (s *Service) DepositsForRental(ctx context.Context, orgID int64, rentalID u
 	out.CanTake = out.Open == nil && rentalTakesDeposit[r.Status] && has(ctx, rbac.PermTenantFinanceDepositsWrite)
 	if _, _, ok, err := s.onlineAccount(ctx, orgID); err == nil && ok {
 		out.OnlineEnabled = true
+	}
+	out.CashAccounts = []DepositCashAccount{}
+	if has(ctx, rbac.PermTenantFinanceDepositsWrite) {
+		cash, _, err := s.ListCashAccounts(ctx, orgID, model.CashAccountFilter{
+			Statuses: []string{model.AccountActive}, Limit: 100, SortField: "code",
+		})
+		if err != nil {
+			return out, err
+		}
+		for _, c := range cash {
+			if c.Currency != r.Currency {
+				continue
+			}
+			out.CashAccounts = append(out.CashAccounts, DepositCashAccount{
+				UUID: c.UUID, Code: c.Code, Name: c.Name, Kind: c.Kind, Currency: c.Currency, Branch: c.Branch,
+			})
+		}
 	}
 	tasks, err := s.q.ListLiveDepositTasks(ctx, db.ListLiveDepositTasksParams{OrganizationID: orgID, RentalID: int8Of(r.ID)})
 	if err != nil {

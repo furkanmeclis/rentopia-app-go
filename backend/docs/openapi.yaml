@@ -31205,7 +31205,7 @@ components:
 
     RentalDeposits:
       type: object
-      required: [rental_uuid, reference, rental_status, default_amount, currency, can_take, online_enabled, open_deposit_uuid, items, deposit_task_uuid]
+      required: [rental_uuid, reference, rental_status, default_amount, currency, can_take, online_enabled, open_deposit_uuid, items, deposit_task_uuid, cash_accounts]
       properties:
         rental_uuid: { type: string, format: uuid }
         reference: { type: string }
@@ -31219,6 +31219,24 @@ components:
           type: array
           items: { $ref: "#/components/schemas/SecurityDeposit" }
         deposit_task_uuid: { type: [string, "null"], format: uuid }
+        cash_accounts:
+          type: array
+          description: "Active tills / bank accounts of the caller's scope in the rental's currency (empty without deposits.write)"
+          items: { $ref: "#/components/schemas/DepositCashAccount" }
+
+    DepositCashAccount:
+      type: object
+      required: [uuid, code, name, kind, currency, branch]
+      properties:
+        uuid: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        kind: { type: string, enum: [cash, bank] }
+        currency: { type: string }
+        branch:
+          oneOf:
+            - $ref: "#/components/schemas/FinanceRef"
+            - type: "null"
 
     EnvelopeSecurityDeposit:
       type: object
