@@ -23,5 +23,7 @@
   "specs_vehicles": "Vehicles",
   "prefix_vehicles": "vehicle",
   "specs_customers": "Customers",
-  "prefix_customers": "customer"
+  "prefix_customers": "customer",
+  "specs_suppliers": "Suppliers",
+  "prefix_suppliers": "supplier"
 }

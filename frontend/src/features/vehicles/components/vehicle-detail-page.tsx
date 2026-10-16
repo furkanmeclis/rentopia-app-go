@@ -155,6 +155,7 @@ function VehicleSummaryTab({
 }) {
   const { t, locale } = useLocale();
   const { slug } = useTenant();
+  const { can } = usePermission();
   const unknown = t("vehicles.form.unknown");
   return (
     <div className="space-y-6">
@@ -372,9 +373,27 @@ function VehicleSummaryTab({
                     key: "ownership",
                     label: t("vehicles.fields.ownership"),
                     value:
-                      vehicle.ownership === "supplied"
-                        ? `${t(OWNERSHIP_LABEL_KEYS.supplied)} · ${vehicle.supplier_name}`
-                        : t(OWNERSHIP_LABEL_KEYS.owned),
+                      vehicle.ownership === "supplied" ? (
+                        <span className="flex flex-wrap items-center gap-1">
+                          {t(OWNERSHIP_LABEL_KEYS.supplied)} ·{" "}
+                          {vehicle.supplier &&
+                          can(permissions.tenant.suppliers.read) ? (
+                            <Link
+                              href={routes.tenant.finance.supplier(
+                                slug,
+                                vehicle.supplier.uuid,
+                              )}
+                              className="font-medium hover:underline"
+                            >
+                              {vehicle.supplier.name}
+                            </Link>
+                          ) : (
+                            vehicle.supplier_name
+                          )}
+                        </span>
+                      ) : (
+                        t(OWNERSHIP_LABEL_KEYS.owned)
+                      ),
                   },
                   {
                     key: "service",

@@ -85,5 +85,8 @@
   "resources.tenant.ledger_entries": "Ledger entries",
   "resources.tenant.cash_accounts": "Tills and bank accounts",
   "resources.tenant.cash_movements": "Cash movements",
-  "resources.tenant.expenses": "Expenses"
+  "resources.tenant.expenses": "Expenses",
+  "resources.tenant.suppliers": "Suppliers",
+  "resources.tenant.supplier_invoices": "Supplier invoices",
+  "resources.tenant.supplier_payments": "Supplier payments"
 }

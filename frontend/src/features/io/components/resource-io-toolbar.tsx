@@ -45,6 +45,9 @@ const EXPORT_PERM: Partial<Record<IoResource, string>> = {
   "tenant.cash_movements": permissions.tenant.finance.cash.export,
   "tenant.expenses": permissions.tenant.finance.expenses.export,
   "tenant.toll_passes": permissions.tenant.tolls.export,
+  "tenant.suppliers": permissions.tenant.suppliers.export,
+  "tenant.supplier_invoices": permissions.tenant.finance.expenses.export,
+  "tenant.supplier_payments": permissions.tenant.finance.cash.export,
 };
 
 const IMPORT_PERM: Partial<Record<IoResource, string>> = {
@@ -59,6 +62,7 @@ const IMPORT_PERM: Partial<Record<IoResource, string>> = {
   "tenant.cash_movements": permissions.tenant.finance.cash.import,
   "tenant.expenses": permissions.tenant.finance.expenses.import,
   "tenant.toll_passes": permissions.tenant.tolls.import,
+  "tenant.suppliers": permissions.tenant.suppliers.import,
 };
 
 export function ResourceIOToolbar({

@@ -8,6 +8,7 @@ import { AppDialog } from "@/components/dialogs/app-dialog";
 import { AppForm } from "@/components/forms";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { useLocale } from "@/providers/locale-provider";
 
 type FinanceFormDialogProps<T extends FieldValues> = {
@@ -24,6 +25,8 @@ type FinanceFormDialogProps<T extends FieldValues> = {
   onSubmit: (values: T) => Promise<void>;
   children: ReactNode;
   destructive?: boolean;
+  /** Wider dialogs (forms with line items) pass e.g. `sm:max-w-3xl`. */
+  className?: string;
 };
 
 /**
@@ -44,6 +47,7 @@ export function FinanceFormDialog<T extends FieldValues>({
   onSubmit,
   children,
   destructive,
+  className,
 }: FinanceFormDialogProps<T>) {
   const { t } = useLocale();
   return (
@@ -52,7 +56,7 @@ export function FinanceFormDialog<T extends FieldValues>({
       onOpenChange={onOpenChange}
       title={title}
       description={description}
-      className="max-h-[90dvh] overflow-y-auto sm:max-w-lg"
+      className={cn("max-h-[90dvh] overflow-y-auto sm:max-w-lg", className)}
       footer={
         <>
           <Button

@@ -23,5 +23,7 @@
   "specs_vehicles": "Araçlar",
   "prefix_vehicles": "araç",
   "specs_customers": "Müşteriler",
-  "prefix_customers": "müşteri"
+  "prefix_customers": "müşteri",
+  "specs_suppliers": "Tedarikçiler",
+  "prefix_suppliers": "tedarikçi"
 }

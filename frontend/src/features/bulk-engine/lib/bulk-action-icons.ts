@@ -86,6 +86,9 @@ const bulkActionIconCatalog: Record<
   "tenant.field_tasks": {
     assign: UserCheck,
   },
+  "tenant.suppliers": {
+    archive: Archive,
+  },
 };
 
 export function resolveBulkActionIcon(

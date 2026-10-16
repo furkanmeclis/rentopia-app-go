@@ -329,5 +329,8 @@
   "validation.required": "Required",
   "validation.same_account": "The from and to accounts must differ.",
   "validation.sort_order": "Enter a number between 0 and 9999.",
-  "validation.term": "Enter a number of days between 0 and 365."
+  "validation.term": "Enter a number of days between 0 and 365.",
+  "reason.invoice_voided": "Invoice voided",
+  "reason.due_changed": "Due date changed",
+  "expenses.from_invoice": "From a supplier invoice"
 }

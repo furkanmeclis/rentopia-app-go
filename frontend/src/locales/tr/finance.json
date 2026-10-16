@@ -329,5 +329,8 @@
   "validation.required": "Zorunlu alan",
   "validation.same_account": "Kaynak ve hedef hesap aynı olamaz.",
   "validation.sort_order": "0 ile 9999 arasında bir sayı girin.",
-  "validation.term": "0 ile 365 arasında bir gün sayısı girin."
+  "validation.term": "0 ile 365 arasında bir gün sayısı girin.",
+  "reason.invoice_voided": "Fatura iptal edildi",
+  "reason.due_changed": "Vade değişti",
+  "expenses.from_invoice": "Gider faturasından"
 }

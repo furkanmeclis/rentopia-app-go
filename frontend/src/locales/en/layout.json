@@ -85,5 +85,9 @@
   "nav_finance_expenses": "Expenses",
   "nav_finance_categories": "Expense categories",
   "nav_finance_reports": "Finance reports",
-  "nav_kabis": "KABİS notifications"
+  "nav_kabis": "KABİS notifications",
+  "nav_finance_suppliers": "Suppliers",
+  "nav_finance_supplier_invoices": "Supplier invoices",
+  "nav_finance_supplier_payments": "Supplier payments",
+  "nav_finance_payables": "Due supplier payments"
 }

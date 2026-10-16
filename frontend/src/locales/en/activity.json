@@ -347,5 +347,17 @@
   "actions.kabis.retried": "KABİS notification retried",
   "actions.kabis.reported_manually": "KABİS notification marked reported manually",
   "actions.kabis.reconciled": "KABİS notification reconciled",
-  "actions.kabis.attachment_downloaded": "KABİS notification attachment downloaded"
+  "actions.kabis.attachment_downloaded": "KABİS notification attachment downloaded",
+  "resources.tenant.suppliers": "Suppliers",
+  "resources.tenant.supplier_invoices": "Supplier invoices",
+  "resources.tenant.supplier_payments": "Supplier payments",
+  "actions.suppliers.created": "Supplier created",
+  "actions.suppliers.updated": "Supplier updated",
+  "actions.finance.supplier_invoice_created": "Supplier invoice recorded",
+  "actions.finance.supplier_invoice_updated": "Supplier invoice updated",
+  "actions.finance.supplier_invoice_voided": "Supplier invoice voided",
+  "actions.finance.supplier_invoice_attachment_uploaded": "Invoice file uploaded",
+  "actions.finance.supplier_invoice_attachment_deleted": "Invoice file removed",
+  "actions.finance.supplier_payment_recorded": "Supplier payment recorded",
+  "actions.finance.supplier_payment_voided": "Supplier payment voided"
 }

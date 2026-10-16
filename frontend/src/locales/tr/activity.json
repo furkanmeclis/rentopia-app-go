@@ -347,5 +347,17 @@
   "actions.kabis.retried": "KABİS bildirimi yeniden denendi",
   "actions.kabis.reported_manually": "KABİS bildirimi manuel bildirildi olarak işaretlendi",
   "actions.kabis.reconciled": "KABİS bildirimi uzlaştırıldı",
-  "actions.kabis.attachment_downloaded": "KABİS bildirim eki indirildi"
+  "actions.kabis.attachment_downloaded": "KABİS bildirim eki indirildi",
+  "resources.tenant.suppliers": "Tedarikçiler",
+  "resources.tenant.supplier_invoices": "Gider faturaları",
+  "resources.tenant.supplier_payments": "Tedarikçi ödemeleri",
+  "actions.suppliers.created": "Tedarikçi eklendi",
+  "actions.suppliers.updated": "Tedarikçi güncellendi",
+  "actions.finance.supplier_invoice_created": "Gider faturası kaydedildi",
+  "actions.finance.supplier_invoice_updated": "Gider faturası güncellendi",
+  "actions.finance.supplier_invoice_voided": "Gider faturası iptal edildi",
+  "actions.finance.supplier_invoice_attachment_uploaded": "Fatura belgesi yüklendi",
+  "actions.finance.supplier_invoice_attachment_deleted": "Fatura belgesi kaldırıldı",
+  "actions.finance.supplier_payment_recorded": "Tedarikçi ödemesi kaydedildi",
+  "actions.finance.supplier_payment_voided": "Tedarikçi ödemesi iptal edildi"
 }

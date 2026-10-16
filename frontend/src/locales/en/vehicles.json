@@ -274,5 +274,8 @@
   "odometer.source_maintenance": "Maintenance",
   "odometer.empty_title": "No km / fuel readings",
   "odometer.empty_description": "Km and fuel entered on status changes or when completing maintenance show up here.",
-  "tabs.tolls": "Tolls"
+  "tabs.tolls": "Tolls",
+  "fields.supplier": "Supplier card",
+  "fields.supplier_none": "No card (free text)",
+  "fields.supplier_hint": "The chosen supplier's legal name becomes the supplier name."
 }

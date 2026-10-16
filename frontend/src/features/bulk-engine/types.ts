@@ -62,7 +62,8 @@ export type BulkResource =
   | "tenant.reservations"
   | "tenant.cash_movements"
   | "tenant.expenses"
-  | "tenant.field_tasks";
+  | "tenant.field_tasks"
+  | "tenant.suppliers";
 
 /**
  * Execute route per resource. `tenant.*` resources are organization-scoped:
@@ -84,6 +85,7 @@ export const BULK_PATHS: Record<BulkResource, string> = {
   "tenant.cash_movements": "/v1/tenant/finance/movements/bulk",
   "tenant.expenses": "/v1/tenant/finance/expenses/bulk",
   "tenant.field_tasks": "/v1/tenant/field-tasks/bulk",
+  "tenant.suppliers": "/v1/tenant/suppliers/bulk",
 };
 
 export type SelectionScope =
