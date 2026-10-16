@@ -388,12 +388,17 @@ func (s *Service) Create(ctx context.Context, orgID int64, in model.CreateInput)
 	if err != nil {
 		return model.Reservation{}, err
 	}
-	status, protocol, reviewDeadline, payDeadline := s.waitingStatus(settings.Settings, quote.Prepayment, row.Channel)
+	prepayment := quote.Prepayment
+	if collecting == model.CollectorChannel {
+		// The channel collected from the customer (TEC-736): nothing is
+		// due online and the customer is never sent to a payment.
+		prepayment = money.NewIn(0, prepayment.Currency())
+	}
+	status, protocol, reviewDeadline, payDeadline := s.waitingStatus(settings.Settings, prepayment, row.Channel)
 	// Open account (TEC-723): the agreement lets the sale be confirmed
 	// without prepayment while the customer's exposure stays within the
 	// credit limit; above it the confirmation is refused.
 	openAccount := ag != nil && ag.OpenAccount && !in.RequestOnly && (in.UseOpenAccount == nil || *in.UseOpenAccount)
-	prepayment := quote.Prepayment
 	if openAccount {
 		if err := s.checkCredit(ctx, nil, orgID, ag, quote.Total, 0); err != nil {
 			return model.Reservation{}, err

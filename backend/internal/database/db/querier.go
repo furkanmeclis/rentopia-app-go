@@ -36,6 +36,7 @@ type Querier interface {
 	AnonymizeCustomer(ctx context.Context, arg AnonymizeCustomerParams) (int64, error)
 	// Data subject request: wipes the drivers of a customer and soft-deletes them.
 	AnonymizeCustomerDrivers(ctx context.Context, arg AnonymizeCustomerDriversParams) error
+	ApplyChannelReservation(ctx context.Context, arg ApplyChannelReservationParams) error
 	ApproveDocumentApprovalLink(ctx context.Context, arg ApproveDocumentApprovalLinkParams) (int64, error)
 	ApproveDocumentVersion(ctx context.Context, arg ApproveDocumentVersionParams) (int64, error)
 	ArchiveActiveContractTemplate(ctx context.Context, arg ArchiveActiveContractTemplateParams) error
@@ -61,17 +62,40 @@ type Querier interface {
 	// Movements grouped by account, branch or month and kind inside a period.
 	CashFlowReport(ctx context.Context, arg CashFlowReportParams) ([]CashFlowReportRow, error)
 	CatalogDisplayBrandSlugTaken(ctx context.Context, arg CatalogDisplayBrandSlugTakenParams) (bool, error)
+	// ---------------------------------------------------------------- bookings
+	// Serialises the messages of one external booking (transaction-scoped).
+	ChannelBookingLock(ctx context.Context, lockKey string) error
+	ChannelBranchByUUID(ctx context.Context, arg ChannelBranchByUUIDParams) (ChannelBranchByUUIDRow, error)
+	ChannelCustomerIDByUUID(ctx context.Context, arg ChannelCustomerIDByUUIDParams) (int64, error)
+	ChannelExtraByUUID(ctx context.Context, arg ChannelExtraByUUIDParams) (ChannelExtraByUUIDRow, error)
+	// ---------------------------------------------------------------- platform health
+	// Platform health (TEC-739): channel accounts of every organization.
+	ChannelHealthCounts(ctx context.Context, now pgtype.Timestamptz) (ChannelHealthCountsRow, error)
+	ChannelMappingFacets(ctx context.Context, organizationID int64) ([]ChannelMappingFacetsRow, error)
+	ChannelMessageFacets(ctx context.Context, organizationID int64) ([]ChannelMessageFacetsRow, error)
+	ChannelProductByUUID(ctx context.Context, arg ChannelProductByUUIDParams) (ChannelProductByUUIDRow, error)
+	// A reservation created for the booking whose link was not stored (the
+	// process stopped between the two writes).
+	ChannelReservationByExternalReference(ctx context.Context, arg ChannelReservationByExternalReferenceParams) (ChannelReservationByExternalReferenceRow, error)
 	// Moves an import into a working state only from an allowed state, so two
 	// apply requests cannot run at once.
 	ClaimCatalogImport(ctx context.Context, arg ClaimCatalogImportParams) (CatalogImport, error)
+	// Worker sweep over every organization: takes due deliveries for a lease
+	// (a crashed attempt is retried when the lease ends).
+	ClaimDueWebhookDeliveries(ctx context.Context, arg ClaimDueWebhookDeliveriesParams) ([]ClaimDueWebhookDeliveriesRow, error)
 	// Moves a pending / failed job to processing (one worker at a time).
 	ClaimIntegrationJob(ctx context.Context, arg ClaimIntegrationJobParams) (int64, error)
 	ClaimOutboxEvents(ctx context.Context, arg ClaimOutboxEventsParams) ([]OutboxEvent, error)
 	// One caller tells the reservation (concurrent deliveries / polls): the
 	// claim lapses after two minutes so a crashed apply is retried.
 	ClaimPaymentApply(ctx context.Context, arg ClaimPaymentApplyParams) (int64, error)
+	// Starts a write; no row means the key is already taken (see
+	// GetPublicIdempotency).
+	ClaimPublicIdempotency(ctx context.Context, arg ClaimPublicIdempotencyParams) (int64, error)
 	// Idempotency: 1 when this subject was not reminded yet today.
 	ClaimVehicleReminder(ctx context.Context, arg ClaimVehicleReminderParams) (int64, error)
+	// One delivery now (panel test / retry), unless another attempt holds it.
+	ClaimWebhookDelivery(ctx context.Context, arg ClaimWebhookDeliveryParams) (ClaimWebhookDeliveryRow, error)
 	ClearAppSettingsLogo(ctx context.Context) (AppSetting, error)
 	ClearPrimaryCustomerContact(ctx context.Context, arg ClearPrimaryCustomerContactParams) error
 	// An extension past now ends the overdue state.
@@ -89,6 +113,7 @@ type Querier interface {
 	CloseRentalVehicleLeg(ctx context.Context, arg CloseRentalVehicleLegParams) (int64, error)
 	CollectionAllocated(ctx context.Context, arg CollectionAllocatedParams) (pgtype.Numeric, error)
 	CompleteInspectionPhoto(ctx context.Context, arg CompleteInspectionPhotoParams) (int64, error)
+	CompletePublicIdempotency(ctx context.Context, arg CompletePublicIdempotencyParams) error
 	CompleteVehicleTransfer(ctx context.Context, arg CompleteVehicleTransferParams) (int64, error)
 	// Hold -> confirmed reservation (TEC-706): same row, so capacity is never
 	// consumed twice.
@@ -156,6 +181,11 @@ type Querier interface {
 	CountPermissions(ctx context.Context, q_ pgtype.Text) (int64, error)
 	CountPlatformNotifications(ctx context.Context, arg CountPlatformNotificationsParams) (int64, error)
 	CountPlatformOrganizationActivity(ctx context.Context, arg CountPlatformOrganizationActivityParams) (int64, error)
+	CountPublicAPIKeys(ctx context.Context, arg CountPublicAPIKeysParams) (int64, error)
+	CountPublicWebhookDeliveries(ctx context.Context, arg CountPublicWebhookDeliveriesParams) (int64, error)
+	// Panel header: failed deliveries of the last 7 days.
+	CountPublicWebhookDeliveryStats(ctx context.Context, arg CountPublicWebhookDeliveryStatsParams) (CountPublicWebhookDeliveryStatsRow, error)
+	CountPublicWebhookEndpoints(ctx context.Context, arg CountPublicWebhookEndpointsParams) (int64, error)
 	CountRatePlans(ctx context.Context, arg CountRatePlansParams) (int64, error)
 	CountRentalEvents(ctx context.Context, arg CountRentalEventsParams) (int64, error)
 	// Live products whose current version guarantees each group.
@@ -241,6 +271,15 @@ type Querier interface {
 	// caller's scope (branch_ids NULL = every branch).
 	CreateOneWayRule(ctx context.Context, arg CreateOneWayRuleParams) (uuid.UUID, error)
 	CreateOrganization(ctx context.Context, arg CreateOrganizationParams) (Organization, error)
+	// Public booking API (TEC-728, docs/design/public-api.md): keys,
+	// idempotency, the quotes / reservations the API made, the public catalog
+	// and signed reservation webhooks. Every query on a tenant table names
+	// organization_id; the key lookup by hash is global by design (it resolves
+	// the organization), like the customer portal session token.
+	// ---------------------------------------------------------------- keys
+	CreatePublicAPIKey(ctx context.Context, arg CreatePublicAPIKeyParams) (PublicApiKey, error)
+	// ------------------------------------------------------------ webhooks
+	CreatePublicWebhookEndpoint(ctx context.Context, arg CreatePublicWebhookEndpointParams) (PublicWebhookEndpoint, error)
 	// --------------------------------------------------------------- rate plans
 	CreateRatePlan(ctx context.Context, arg CreateRatePlanParams) (CreateRatePlanRow, error)
 	CreateRatePlanVersion(ctx context.Context, arg CreateRatePlanVersionParams) (CreateRatePlanVersionRow, error)
@@ -308,6 +347,7 @@ type Querier interface {
 	DeleteCampaignTargets(ctx context.Context, arg DeleteCampaignTargetsParams) error
 	DeleteCatalogDisplayBrand(ctx context.Context, id int64) (int64, error)
 	DeleteCatalogModel(ctx context.Context, id int64) (int64, error)
+	DeleteChannelMapping(ctx context.Context, arg DeleteChannelMappingParams) (int64, error)
 	DeleteContractTemplate(ctx context.Context, arg DeleteContractTemplateParams) (int64, error)
 	DeleteCustomer(ctx context.Context, arg DeleteCustomerParams) (int64, error)
 	DeleteCustomerContact(ctx context.Context, arg DeleteCustomerContactParams) (int64, error)
@@ -318,6 +358,10 @@ type Querier interface {
 	DeleteDateRuleDraft(ctx context.Context, arg DeleteDateRuleDraftParams) (int64, error)
 	DeleteDateRuleTargets(ctx context.Context, arg DeleteDateRuleTargetsParams) error
 	DeleteDriver(ctx context.Context, arg DeleteDriverParams) (int64, error)
+	DeleteExpiredChannelOffers(ctx context.Context, arg DeleteExpiredChannelOffersParams) (int64, error)
+	// ------------------------------------------------------- idempotency
+	// A key may be reused once its record expired.
+	DeleteExpiredPublicIdempotencyKey(ctx context.Context, arg DeleteExpiredPublicIdempotencyKeyParams) error
 	// Drops rows that would only start at or after from_at (never quoted:
 	// quotes use the row effective at the quote time).
 	DeleteFutureExtraPrices(ctx context.Context, arg DeleteFutureExtraPricesParams) (int64, error)
@@ -339,6 +383,9 @@ type Querier interface {
 	DeleteProposedInspectionPolicyCharges(ctx context.Context, arg DeleteProposedInspectionPolicyChargesParams) error
 	// A re-computed late fee replaces the proposal (approved fees stay).
 	DeleteProposedPolicyLateCharge(ctx context.Context, arg DeleteProposedPolicyLateChargeParams) error
+	// A failed write (5xx) frees its key for a retry.
+	DeletePublicIdempotency(ctx context.Context, arg DeletePublicIdempotencyParams) error
+	DeletePublicWebhookEndpoint(ctx context.Context, arg DeletePublicWebhookEndpointParams) (int64, error)
 	DeletePushDeviceForUser(ctx context.Context, arg DeletePushDeviceForUserParams) (int64, error)
 	DeletePushSubscription(ctx context.Context, arg DeletePushSubscriptionParams) error
 	DeletePushTickets(ctx context.Context, ids []int64) error
@@ -365,6 +412,9 @@ type Querier interface {
 	// Import rollback of a created card: removed only while nothing refers to
 	// it (no ledger account, vehicle or expense); otherwise it is archived.
 	DeleteUnreferencedSupplier(ctx context.Context, arg DeleteUnreferencedSupplierParams) (int64, error)
+	// Undo of a public booking that failed after its customer was created: the
+	// customer (and its drivers, cascade) is removed while nothing refers to it.
+	DeleteUnusedPublicCustomer(ctx context.Context, arg DeleteUnusedPublicCustomerParams) (int64, error)
 	DeleteUserTOTP(ctx context.Context, userID int64) error
 	DeleteVehicleTollTag(ctx context.Context, arg DeleteVehicleTollTagParams) (int64, error)
 	DeleteWebAuthnCredentialByCredentialID(ctx context.Context, credentialID string) error
@@ -377,6 +427,10 @@ type Querier interface {
 	// Creates a runner job once per provider and idempotency key; a repeated
 	// key returns the existing row (inserted = false) and sends nothing again.
 	EnqueueIntegrationJob(ctx context.Context, arg EnqueueIntegrationJobParams) (EnqueueIntegrationJobRow, error)
+	EnsureChannelAccount(ctx context.Context, arg EnsureChannelAccountParams) error
+	// Sync state rows for every channel account of the organization (the
+	// channel code is the provider without its "_fake" suffix).
+	EnsureChannelAccountsForOrganization(ctx context.Context, organizationID int64) error
 	// Finance ledger (TEC-717): customer / supplier accounts and append-only
 	// entries. Balances are sums of entries; the aging rule (overdue / due
 	// soon) applies settlements (credits) to the oldest charges (debits) first:
@@ -404,9 +458,12 @@ type Querier interface {
 	ExpireDueEquipment(ctx context.Context, arg ExpireDueEquipmentParams) (int64, error)
 	ExpireOTPChallenge(ctx context.Context, arg ExpireOTPChallengeParams) error
 	ExpirePaymentLink(ctx context.Context, arg ExpirePaymentLinkParams) (int64, error)
+	// Rotation: the old key keeps working until expires_at (never extended).
+	ExpirePublicAPIKey(ctx context.Context, arg ExpirePublicAPIKeyParams) (int64, error)
 	ExtendHold(ctx context.Context, arg ExtendHoldParams) (int64, error)
 	ExtensionExists(ctx context.Context, extname string) (bool, error)
 	ExtraFacets(ctx context.Context, organizationID int64) ([]ExtraFacetsRow, error)
+	FailChannelReservation(ctx context.Context, arg FailChannelReservationParams) error
 	FailPayment(ctx context.Context, arg FailPaymentParams) (int64, error)
 	FinalizeInspection(ctx context.Context, arg FinalizeInspectionParams) (int64, error)
 	// draft → queued: the number, the stored XML and the send job.
@@ -427,6 +484,7 @@ type Querier interface {
 	FindVehicleCatalogTypesByNames(ctx context.Context, arg FindVehicleCatalogTypesByNamesParams) ([]FindVehicleCatalogTypesByNamesRow, error)
 	// Import: a live branch of the organization by code or name (code first).
 	FindVehicleImportBranch(ctx context.Context, arg FindVehicleImportBranchParams) (Branch, error)
+	FinishChannelSyncRun(ctx context.Context, arg FinishChannelSyncRunParams) error
 	// The deposit is resolved: the rental's live deposit operation task(s)
 	// are completed with the resolution as note.
 	FinishDepositTasks(ctx context.Context, arg FinishDepositTasksParams) ([]uuid.UUID, error)
@@ -438,6 +496,7 @@ type Querier interface {
 	// Closes the live tasks of a rental of one type (optionally one vehicle):
 	// the matching fact was recorded (handover, return) or the rental ended.
 	FinishRentalTasks(ctx context.Context, arg FinishRentalTasksParams) ([]uuid.UUID, error)
+	FinishWebhookDelivery(ctx context.Context, arg FinishWebhookDeliveryParams) error
 	FleetCatalogModelRefsByIDs(ctx context.Context, ids []int64) ([]FleetCatalogModelRefsByIDsRow, error)
 	// ------------------------------------------- platform catalog references
 	// (catalog tables are platform data, not organization scoped)
@@ -523,6 +582,14 @@ type Querier interface {
 	// under the TSB brands of the model's display brand.
 	GetCatalogModelGroup(ctx context.Context, argUuid uuid.UUID) (GetCatalogModelGroupRow, error)
 	GetCatalogTypeByUUID(ctx context.Context, argUuid uuid.UUID) (GetCatalogTypeByUUIDRow, error)
+	GetChannelAccount(ctx context.Context, arg GetChannelAccountParams) (GetChannelAccountRow, error)
+	GetChannelAccountState(ctx context.Context, arg GetChannelAccountStateParams) (GetChannelAccountStateRow, error)
+	GetChannelMapping(ctx context.Context, arg GetChannelMappingParams) (GetChannelMappingRow, error)
+	GetChannelMessage(ctx context.Context, arg GetChannelMessageParams) (GetChannelMessageRow, error)
+	GetChannelMessageForProcessing(ctx context.Context, arg GetChannelMessageForProcessingParams) (GetChannelMessageForProcessingRow, error)
+	GetChannelMessageIDByUUID(ctx context.Context, arg GetChannelMessageIDByUUIDParams) (GetChannelMessageIDByUUIDRow, error)
+	GetChannelOffer(ctx context.Context, arg GetChannelOfferParams) (GetChannelOfferRow, error)
+	GetChannelReservationByExternal(ctx context.Context, arg GetChannelReservationByExternalParams) (GetChannelReservationByExternalRow, error)
 	GetCollectionByIdempotencyKey(ctx context.Context, arg GetCollectionByIdempotencyKeyParams) (GetCollectionByIdempotencyKeyRow, error)
 	GetCollectionIDByEntry(ctx context.Context, arg GetCollectionIDByEntryParams) (GetCollectionIDByEntryRow, error)
 	GetCollectionIDByPayment(ctx context.Context, arg GetCollectionIDByPaymentParams) (GetCollectionIDByPaymentRow, error)
@@ -744,6 +811,7 @@ type Querier interface {
 	GetPaymentLinkPublic(ctx context.Context, arg GetPaymentLinkPublicParams) (GetPaymentLinkPublicRow, error)
 	GetPaymentSettlementFacts(ctx context.Context, arg GetPaymentSettlementFactsParams) (GetPaymentSettlementFactsRow, error)
 	GetPermissionBySlug(ctx context.Context, slug string) (Permission, error)
+	GetPlatformHealthAlertCursor(ctx context.Context, source string) (GetPlatformHealthAlertCursorRow, error)
 	// Channel, contact hash and time of a verified challenge (the session binds
 	// the code to the contact the customer typed).
 	GetPortalOTPBinding(ctx context.Context, arg GetPortalOTPBindingParams) (GetPortalOTPBindingRow, error)
@@ -774,8 +842,23 @@ type Querier interface {
 	GetPricingProductByCode(ctx context.Context, arg GetPricingProductByCodeParams) (RentalProduct, error)
 	GetPricingProductByUUID(ctx context.Context, arg GetPricingProductByUUIDParams) (GetPricingProductByUUIDRow, error)
 	GetProviderSettlementAccount(ctx context.Context, arg GetProviderSettlementAccountParams) (GetProviderSettlementAccountRow, error)
+	GetPublicAPIKey(ctx context.Context, arg GetPublicAPIKeyParams) (GetPublicAPIKeyRow, error)
+	// The key of a bearer secret / publishable key with its organization
+	// (global lookup by the key hash; the organization comes from the row).
+	GetPublicAPIKeyByHash(ctx context.Context, keyHash string) (GetPublicAPIKeyByHashRow, error)
+	// The key a booking session token names (organization + key id from the
+	// verified token).
+	GetPublicAPIKeyByID(ctx context.Context, arg GetPublicAPIKeyByIDParams) (GetPublicAPIKeyByIDRow, error)
+	GetPublicIdempotency(ctx context.Context, arg GetPublicIdempotencyParams) (GetPublicIdempotencyRow, error)
+	GetPublicQuote(ctx context.Context, arg GetPublicQuoteParams) (GetPublicQuoteRow, error)
 	// Public media stream: the organization is named by its uuid in the URL.
 	GetPublicRentalProductImage(ctx context.Context, arg GetPublicRentalProductImageParams) (GetPublicRentalProductImageRow, error)
+	// A reservation the public API made, by its reference.
+	GetPublicReservationByReference(ctx context.Context, arg GetPublicReservationByReferenceParams) (GetPublicReservationByReferenceRow, error)
+	GetPublicReservationByUUID(ctx context.Context, arg GetPublicReservationByUUIDParams) (GetPublicReservationByUUIDRow, error)
+	GetPublicWebhookDelivery(ctx context.Context, arg GetPublicWebhookDeliveryParams) (GetPublicWebhookDeliveryRow, error)
+	GetPublicWebhookEndpoint(ctx context.Context, arg GetPublicWebhookEndpointParams) (PublicWebhookEndpoint, error)
+	GetPublicWebhookEndpointByID(ctx context.Context, arg GetPublicWebhookEndpointByIDParams) (PublicWebhookEndpoint, error)
 	GetQuote(ctx context.Context, arg GetQuoteParams) (GetQuoteRow, error)
 	GetRateBand(ctx context.Context, arg GetRateBandParams) (GetRateBandRow, error)
 	GetRatePlan(ctx context.Context, arg GetRatePlanParams) (GetRatePlanRow, error)
@@ -931,6 +1014,7 @@ type Querier interface {
 	GetWhatsAppSessionByWebhook(ctx context.Context, webhookTokenHash string) (WhatsappSession, error)
 	GrantCustomerConsent(ctx context.Context, arg GrantCustomerConsentParams) (CustomerMarketingConsent, error)
 	HasActivePushDevices(ctx context.Context, userID int64) (bool, error)
+	IgnoreChannelMessage(ctx context.Context, arg IgnoreChannelMessageParams) (int64, error)
 	// ------------------------------------------------------------ redemptions
 	// The atomic usage counter (RT-A12): never passes usage_limit; no row =
 	// the limit is reached (or the campaign is gone / inactive).
@@ -948,6 +1032,14 @@ type Querier interface {
 	// Cash / bank accounts, movements, expense categories, expenses (TEC-720).
 	InsertCashAccount(ctx context.Context, arg InsertCashAccountParams) (InsertCashAccountRow, error)
 	InsertCashMovement(ctx context.Context, arg InsertCashMovementParams) (InsertCashMovementRow, error)
+	InsertChannelMapping(ctx context.Context, arg InsertChannelMappingParams) (uuid.UUID, error)
+	// ---------------------------------------------------------------- messages
+	// Stored once per account and message id: a repeat only counts a delivery
+	// (inserted = false).
+	InsertChannelMessage(ctx context.Context, arg InsertChannelMessageParams) (InsertChannelMessageRow, error)
+	InsertChannelReservation(ctx context.Context, arg InsertChannelReservationParams) error
+	// ---------------------------------------------------------------- sync log
+	InsertChannelSyncRun(ctx context.Context, arg InsertChannelSyncRunParams) (InsertChannelSyncRunRow, error)
 	InsertCollection(ctx context.Context, arg InsertCollectionParams) (InsertCollectionRow, error)
 	InsertCollectionAllocation(ctx context.Context, arg InsertCollectionAllocationParams) (InsertCollectionAllocationRow, error)
 	InsertCollectionRefundEntry(ctx context.Context, arg InsertCollectionRefundEntryParams) (InsertCollectionRefundEntryRow, error)
@@ -1046,6 +1138,10 @@ type Querier interface {
 	// Idempotent: one refund entry per payment refund.
 	InsertPaymentRefundEntry(ctx context.Context, arg InsertPaymentRefundEntryParams) (InsertPaymentRefundEntryRow, error)
 	InsertPortalSession(ctx context.Context, arg InsertPortalSessionParams) (InsertPortalSessionRow, error)
+	// ------------------------------------------------- quotes, reservations
+	InsertPublicQuote(ctx context.Context, arg InsertPublicQuoteParams) error
+	InsertPublicReservation(ctx context.Context, arg InsertPublicReservationParams) error
+	InsertPublicWebhookDelivery(ctx context.Context, arg InsertPublicWebhookDeliveryParams) (PublicWebhookDelivery, error)
 	InsertPushTicket(ctx context.Context, arg InsertPushTicketParams) error
 	// Quotes (TEC-704): priced search answers; consume no capacity. Every
 	// query filters by organization_id first; lists apply the caller's branch
@@ -1110,6 +1206,13 @@ type Querier interface {
 	InsertVehicleTollTag(ctx context.Context, arg InsertVehicleTollTagParams) (uuid.UUID, error)
 	InsertWhatsAppMessage(ctx context.Context, arg InsertWhatsAppMessageParams) (WhatsappMessage, error)
 	InsertWhatsAppSession(ctx context.Context, arg InsertWhatsAppSessionParams) (WhatsappSession, error)
+	// Connected provider accounts of live organizations by check state.
+	IntegrationAccountHealthCounts(ctx context.Context) (IntegrationAccountHealthCountsRow, error)
+	// Integration jobs of live organizations (and platform jobs, organization
+	// NULL) by state: final failures and successes since since_at, everything
+	// currently stuck in a state that needs attention, and due work that is
+	// overdue by more than stale_before.
+	IntegrationJobHealthCounts(ctx context.Context, arg IntegrationJobHealthCountsParams) (IntegrationJobHealthCountsRow, error)
 	InvalidateActiveOTPs(ctx context.Context, arg InvalidateActiveOTPsParams) error
 	InvalidateDocumentApprovals(ctx context.Context, arg InvalidateDocumentApprovalsParams) error
 	InvoiceBranchFacets(ctx context.Context, arg InvoiceBranchFacetsParams) ([]InvoiceBranchFacetsRow, error)
@@ -1119,6 +1222,8 @@ type Querier interface {
 	IssueDocumentVersion(ctx context.Context, arg IssueDocumentVersionParams) (int64, error)
 	KabisEventFacets(ctx context.Context, arg KabisEventFacetsParams) ([]KabisEventFacetsRow, error)
 	KabisStatusFacets(ctx context.Context, arg KabisStatusFacetsParams) ([]KabisStatusFacetsRow, error)
+	// The newest offer pushed for an external code at a location on a day.
+	LatestChannelOffer(ctx context.Context, arg LatestChannelOfferParams) (LatestChannelOfferRow, error)
 	// The newest challenge of a purpose and subject (resend cooldown).
 	LatestOTPChallenge(ctx context.Context, arg LatestOTPChallengeParams) (LatestOTPChallengeRow, error)
 	LatestOrganizationSettingsVersion(ctx context.Context, organizationID int64) (int32, error)
@@ -1137,6 +1242,11 @@ type Querier interface {
 	ListAccounts(ctx context.Context, arg ListAccountsParams) ([]ListAccountsRow, error)
 	// ------------------------------------------------- channel capacity rules
 	ListActiveCapacityRules(ctx context.Context, organizationID int64) ([]ListActiveCapacityRulesRow, error)
+	// Worker sweep: every active channel account of every organization.
+	ListActiveChannelIntegrationAccounts(ctx context.Context) ([]ListActiveChannelIntegrationAccountsRow, error)
+	// Push and booking resolution: the account's active mappings with the
+	// internal uuids and codes.
+	ListActiveChannelMappings(ctx context.Context, arg ListActiveChannelMappingsParams) ([]ListActiveChannelMappingsRow, error)
 	// Active versions of active rules whose range overlaps [date_from, date_to)
 	// (NULL bounds = unbounded): engine candidates and activation overlaps.
 	ListActiveDateRuleVersions(ctx context.Context, arg ListActiveDateRuleVersionsParams) ([]ListActiveDateRuleVersionsRow, error)
@@ -1232,6 +1342,24 @@ type Querier interface {
 	ListCatalogValuationsByPeriod(ctx context.Context, period string) ([]ListCatalogValuationsByPeriodRow, error)
 	// Platform catalog: kasko value history of one type and model year.
 	ListCatalogValuationsForVehicle(ctx context.Context, arg ListCatalogValuationsForVehicleParams) ([]ListCatalogValuationsForVehicleRow, error)
+	// Channel manager (TEC-736, docs/design/channel-manager.md): channel
+	// accounts (integration accounts of kind channel + their sync state),
+	// mappings, offers, channel bookings, inbound messages and the sync log.
+	// Every table is organization-owned; every query filters by
+	// organization_id (the worker sweep selects it to re-scope).
+	// ---------------------------------------------------------------- accounts
+	ListChannelAccounts(ctx context.Context, organizationID int64) ([]ListChannelAccountsRow, error)
+	// Active channel accounts whose last sync failed, whose pushed capacity
+	// expired or that hold failed messages (newest first).
+	ListChannelHealthIssues(ctx context.Context, arg ListChannelHealthIssuesParams) ([]ListChannelHealthIssuesRow, error)
+	// ---------------------------------------------------------------- mappings
+	ListChannelMappings(ctx context.Context, arg ListChannelMappingsParams) ([]ListChannelMappingsRow, error)
+	ListChannelMessages(ctx context.Context, arg ListChannelMessagesParams) ([]ListChannelMessagesRow, error)
+	// Final results the channel has not been told yet (failed messages wait
+	// for a retry or a dismissal).
+	ListChannelMessagesToAck(ctx context.Context, arg ListChannelMessagesToAckParams) ([]ListChannelMessagesToAckRow, error)
+	ListChannelReservationsForReconciliation(ctx context.Context, arg ListChannelReservationsForReconciliationParams) ([]ListChannelReservationsForReconciliationRow, error)
+	ListChannelSyncRuns(ctx context.Context, arg ListChannelSyncRunsParams) ([]ListChannelSyncRunsRow, error)
 	// The net allocations of one collection per open item, the most recently
 	// allocated first (a refund releases from the newest).
 	ListCollectionAllocationPairs(ctx context.Context, arg ListCollectionAllocationPairsParams) ([]ListCollectionAllocationPairsRow, error)
@@ -1328,6 +1456,8 @@ type Querier interface {
 	// default_price: the current default price row; stock_total: owned units
 	// over every branch (physical extras).
 	ListExtras(ctx context.Context, arg ListExtrasParams) ([]ListExtrasRow, error)
+	// Active accounts whose last connection test failed, newest first.
+	ListFailingIntegrationAccounts(ctx context.Context, rowLimit int32) ([]ListFailingIntegrationAccountsRow, error)
 	// Members whose roles let them work field tasks (pickers, the per-staff
 	// day timeline), with their branch scope.
 	ListFieldAssignees(ctx context.Context, arg ListFieldAssigneesParams) ([]ListFieldAssigneesRow, error)
@@ -1355,6 +1485,8 @@ type Querier interface {
 	// One page of live vehicles, plate order. total is the number of matching
 	// vehicles (window count, one round trip).
 	ListFleetCalendarVehicles(ctx context.Context, arg ListFleetCalendarVehiclesParams) ([]ListFleetCalendarVehiclesRow, error)
+	// Names of the organizations an issue list refers to.
+	ListHealthOrganizations(ctx context.Context, ids []int64) ([]ListHealthOrganizationsRow, error)
 	ListImportChangesForJob(ctx context.Context, jobID int64) ([]ImportChange, error)
 	ListImportJobsForActor(ctx context.Context, arg ListImportJobsForActorParams) ([]ImportJob, error)
 	ListInspectionDamages(ctx context.Context, arg ListInspectionDamagesParams) ([]ListInspectionDamagesRow, error)
@@ -1465,6 +1597,15 @@ type Querier interface {
 	ListOrganizationMembershipsByUser(ctx context.Context, userID int64) ([]ListOrganizationMembershipsByUserRow, error)
 	ListOrganizationResourceActivity(ctx context.Context, arg ListOrganizationResourceActivityParams) ([]ListOrganizationResourceActivityRow, error)
 	ListOrganizationSettingsVersions(ctx context.Context, arg ListOrganizationSettingsVersionsParams) ([]ListOrganizationSettingsVersionsRow, error)
+	// Platform usage and connection health (TEC-739). Platform-wide reads:
+	// every query below spans all organizations on purpose and is mounted
+	// only behind platform.health.read; per-organization figures are grouped
+	// by organization_id.
+	// One row per organization: active vehicles (not deleted, active, not out
+	// of service), reservations created in [month_start, month_end), members,
+	// the newest member sign-in and the file bytes recorded on the tenant
+	// tables that keep a size (documents, photos, attachments, PDFs).
+	ListOrganizationUsage(ctx context.Context, arg ListOrganizationUsageParams) ([]ListOrganizationUsageRow, error)
 	// Organizations that have passes waiting in the review queue (the
 	// periodic re-match walks them).
 	ListOrganizationsWithReviewTollPasses(ctx context.Context, since pgtype.Timestamptz) ([]int64, error)
@@ -1502,12 +1643,16 @@ type Querier interface {
 	ListPermissionSlugsByRoleID(ctx context.Context, roleID int64) ([]string, error)
 	ListPermissionSlugsByRoleSlug(ctx context.Context, slug string) ([]string, error)
 	ListPermissionsFiltered(ctx context.Context, arg ListPermissionsFilteredParams) ([]Permission, error)
+	ListPlatformHealthAlertCursors(ctx context.Context) ([]ListPlatformHealthAlertCursorsRow, error)
 	// Platform rows only: organization-stamped notifications show in their
 	// organization's panel (/v1/tenant/notifications), never here.
 	ListPlatformNotifications(ctx context.Context, arg ListPlatformNotificationsParams) ([]Notification, error)
 	ListPlatformNotificationsForExport(ctx context.Context, arg ListPlatformNotificationsForExportParams) ([]Notification, error)
 	// Platform operations on the organization plus everything recorded inside it.
 	ListPlatformOrganizationActivity(ctx context.Context, arg ListPlatformOrganizationActivityParams) ([]ListPlatformOrganizationActivityRow, error)
+	// Active platform users holding a permission through a platform role
+	// (the alert recipients).
+	ListPlatformUsersWithPermission(ctx context.Context, slug string) ([]ListPlatformUsersWithPermissionRow, error)
 	// Who may sign in for a reservation: the renter (the contract party) and
 	// the drivers on it, with their contact values (plain in the database,
 	// compared through keyed hashes in the use case). Anonymized / deleted
@@ -1524,9 +1669,23 @@ type Querier interface {
 	ListPricingProducts(ctx context.Context, organizationID int64) ([]ListPricingProductsRow, error)
 	ListPricingProductsByUUIDs(ctx context.Context, arg ListPricingProductsByUUIDsParams) ([]ListPricingProductsByUUIDsRow, error)
 	ListPricingSegmentsByUUIDs(ctx context.Context, arg ListPricingSegmentsByUUIDsParams) ([]ListPricingSegmentsByUUIDsRow, error)
+	// Jobs that need attention, newest first: failures since since_at and
+	// every job waiting on verification, a dependency or a block.
+	ListProblemIntegrationJobs(ctx context.Context, arg ListProblemIntegrationJobsParams) ([]ListProblemIntegrationJobsRow, error)
 	// Active, unexpired allocations of a product whose customer range overlaps
 	// [from_at, to_at): channel rule accounting.
 	ListProductCommitments(ctx context.Context, arg ListProductCommitmentsParams) ([]ListProductCommitmentsRow, error)
+	ListPublicAPIKeys(ctx context.Context, arg ListPublicAPIKeysParams) ([]ListPublicAPIKeysRow, error)
+	// ------------------------------------------------------------ catalog
+	ListPublicBranches(ctx context.Context, organizationID int64) ([]ListPublicBranchesRow, error)
+	// Published extras sold on the channel (channels NULL = every channel).
+	ListPublicExtras(ctx context.Context, arg ListPublicExtrasParams) ([]ListPublicExtrasRow, error)
+	ListPublicServicePoints(ctx context.Context, organizationID int64) ([]ListPublicServicePointsRow, error)
+	ListPublicSubgroupImages(ctx context.Context, arg ListPublicSubgroupImagesParams) ([]ListPublicSubgroupImagesRow, error)
+	// Products on sale (published, active) with their current conditions.
+	ListPublicSubgroups(ctx context.Context, organizationID int64) ([]ListPublicSubgroupsRow, error)
+	ListPublicWebhookDeliveries(ctx context.Context, arg ListPublicWebhookDeliveriesParams) ([]ListPublicWebhookDeliveriesRow, error)
+	ListPublicWebhookEndpoints(ctx context.Context, arg ListPublicWebhookEndpointsParams) ([]PublicWebhookEndpoint, error)
 	ListPushSubscriptionsByUser(ctx context.Context, userID int64) ([]PushSubscription, error)
 	ListQuoteLines(ctx context.Context, arg ListQuoteLinesParams) ([]ListQuoteLinesRow, error)
 	// One page of quotes in the caller's branch scope, newest first.
@@ -1732,6 +1891,7 @@ type Querier interface {
 	ListWaitingKabisJobs(ctx context.Context, limitCount int32) ([]ListWaitingKabisJobsRow, error)
 	ListWebAuthnCredentialsByUserID(ctx context.Context, userID int64) ([]WebauthnCredential, error)
 	ListWebAuthnCredentialsForUserIDs(ctx context.Context, userIds []int64) ([]WebauthnCredential, error)
+	ListWebhookEndpointsForEvent(ctx context.Context, arg ListWebhookEndpointsForEventParams) ([]int64, error)
 	// Members who manage integrations (they can reconnect the session).
 	ListWhatsAppAlertRecipients(ctx context.Context, arg ListWhatsAppAlertRecipientsParams) ([]ListWhatsAppAlertRecipientsRow, error)
 	ListWhatsAppMessages(ctx context.Context, arg ListWhatsAppMessagesParams) ([]ListWhatsAppMessagesRow, error)
@@ -1756,6 +1916,7 @@ type Querier interface {
 	// Transfers lock both accounts in id order (no deadlock between two
 	// opposite transfers).
 	LockCashAccounts(ctx context.Context, arg LockCashAccountsParams) ([]LockCashAccountsRow, error)
+	LockChannelAccount(ctx context.Context, arg LockChannelAccountParams) (int64, error)
 	LockCollection(ctx context.Context, arg LockCollectionParams) (LockCollectionRow, error)
 	LockDateRule(ctx context.Context, arg LockDateRuleParams) (int64, error)
 	LockDocument(ctx context.Context, arg LockDocumentParams) (LockDocumentRow, error)
@@ -1936,6 +2097,8 @@ type Querier interface {
 	// Open supplier invoices by due state (caller's branch scope).
 	PayablesSummary(ctx context.Context, arg PayablesSummaryParams) (PayablesSummaryRow, error)
 	PingDB(ctx context.Context) (int32, error)
+	// Platform-wide totals of the usage list (live organizations only).
+	PlatformUsageTotals(ctx context.Context, arg PlatformUsageTotalsParams) (PlatformUsageTotalsRow, error)
 	// Live (unreversed) debit accruals of rentals, all dates: what each rental
 	// billed, by purpose and charge kind.
 	ProfitBilledAccruals(ctx context.Context, arg ProfitBilledAccrualsParams) ([]ProfitBilledAccrualsRow, error)
@@ -1986,12 +2149,18 @@ type Querier interface {
 	// income or costs in a past period). The service window and the home
 	// branch drive occupancy and the overhead pools.
 	ProfitVehicles(ctx context.Context, organizationID int64) ([]ProfitVehiclesRow, error)
+	// The key and every key it was rotated from (a successor keeps access to
+	// its predecessors' reservations).
+	PublicAPIKeyLineage(ctx context.Context, arg PublicAPIKeyLineageParams) ([]int64, error)
 	PurgeCustomerDocuments(ctx context.Context, arg PurgeCustomerDocumentsParams) error
+	// Worker sweep over every organization's expired records.
+	PurgeExpiredPublicIdempotency(ctx context.Context, now pgtype.Timestamptz) (int64, error)
 	QueueImportJob(ctx context.Context, argUuid uuid.UUID) (ImportJob, error)
 	ReassignCatalogModelRules(ctx context.Context, arg ReassignCatalogModelRulesParams) (int64, error)
 	ReassignCatalogTypesModel(ctx context.Context, arg ReassignCatalogTypesModelParams) (int64, error)
 	RecordDocumentApprovalLinkFailure(ctx context.Context, arg RecordDocumentApprovalLinkFailureParams) error
 	RecordOTPAttempt(ctx context.Context, arg RecordOTPAttemptParams) error
+	RecordWebhookEndpointResult(ctx context.Context, arg RecordWebhookEndpointResultParams) error
 	// A notification that was not sent yet takes the current data.
 	RefreshKabisNotification(ctx context.Context, arg RefreshKabisNotificationParams) (int64, error)
 	// A late payment re-secured capacity for an expired reservation (TEC-708):
@@ -2051,6 +2220,11 @@ type Querier interface {
 	ReportIncomeFacts(ctx context.Context, arg ReportIncomeFactsParams) ([]ReportIncomeFactsRow, error)
 	// Rental group memberships of the organization's vehicles.
 	ReportVehicleGroups(ctx context.Context, organizationID int64) ([]ReportVehicleGroupsRow, error)
+	// An event changed sellable capacity: every channel account of the
+	// organization pushes at the next sweep.
+	RequestChannelPush(ctx context.Context, arg RequestChannelPushParams) error
+	// Panel retry of a failed delivery.
+	RequeuePublicWebhookDelivery(ctx context.Context, arg RequeuePublicWebhookDeliveryParams) (int64, error)
 	RescheduleFieldTask(ctx context.Context, arg RescheduleFieldTaskParams) error
 	// The planned pick-up / return moved: live tasks of the type follow.
 	RescheduleRentalTasks(ctx context.Context, arg RescheduleRentalTasksParams) error
@@ -2086,11 +2260,13 @@ type Querier interface {
 	RevokeOpenInvitationsForEmail(ctx context.Context, arg RevokeOpenInvitationsForEmailParams) (int64, error)
 	RevokeOtherRefreshTokensForUser(ctx context.Context, arg RevokeOtherRefreshTokensForUserParams) error
 	RevokePortalSession(ctx context.Context, arg RevokePortalSessionParams) (int64, error)
+	RevokePublicAPIKey(ctx context.Context, arg RevokePublicAPIKeyParams) (int64, error)
 	RevokeRefreshTokenByHash(ctx context.Context, tokenHash string) (int64, error)
 	RevokeRefreshTokenByUUIDForUser(ctx context.Context, arg RevokeRefreshTokenByUUIDForUserParams) (int64, error)
 	RevokeStorageLink(ctx context.Context, argUuid uuid.UUID) (StorageLink, error)
 	// Resend: a new token (the old link stops working) and a fresh expiry.
 	RotateInvitationToken(ctx context.Context, arg RotateInvitationTokenParams) (OrganizationInvitation, error)
+	RotatePublicWebhookSecret(ctx context.Context, arg RotatePublicWebhookSecretParams) (int64, error)
 	// Moves a job that has sent nothing yet (waiting, or pending with no
 	// attempt) to a new route. A job a worker holds, or one that made a call,
 	// is left alone (0 rows).
@@ -2099,6 +2275,12 @@ type Querier interface {
 	// no attempt) to its new state and route. A job a worker holds, or one
 	// that already made a call, is left alone (0 rows).
 	RouteKabisJob(ctx context.Context, arg RouteKabisJobParams) (int64, error)
+	SaveChannelMessageAck(ctx context.Context, arg SaveChannelMessageAckParams) error
+	SaveChannelMessageResult(ctx context.Context, arg SaveChannelMessageResultParams) error
+	SaveChannelPullState(ctx context.Context, arg SaveChannelPullStateParams) error
+	// ok: the push was accepted (pushed_valid_until moves, failures reset); a
+	// request made after the push started stays pending.
+	SaveChannelPushState(ctx context.Context, arg SaveChannelPushStateParams) error
 	// Stores the outcome of a provider call and releases the claim.
 	SaveRunnerJob(ctx context.Context, arg SaveRunnerJobParams) error
 	// Open deposits by status and method in the caller's branch scope, and
@@ -2170,6 +2352,9 @@ type Querier interface {
 	// Swap: the reservation follows the rental to the new allocation.
 	SetReservationAllocationForRental(ctx context.Context, arg SetReservationAllocationForRentalParams) (int64, error)
 	SetReservationAssignee(ctx context.Context, arg SetReservationAssigneeParams) (int64, error)
+	// A channel booking's commission changed (channel manager, TEC-736): the
+	// net receivable follows the current total.
+	SetReservationCommission(ctx context.Context, arg SetReservationCommissionParams) (int64, error)
 	SetReservationEquipment(ctx context.Context, arg SetReservationEquipmentParams) error
 	// Payment progress (M3 payments call it through PaymentStatusSetter).
 	SetReservationPayment(ctx context.Context, arg SetReservationPaymentParams) (int64, error)
@@ -2240,6 +2425,8 @@ type Querier interface {
 	SyncInvoiceSendState(ctx context.Context, arg SyncInvoiceSendStateParams) error
 	// Keeps the account's display name and terms in step with the card.
 	SyncSupplierAccount(ctx context.Context, arg SyncSupplierAccountParams) error
+	// A write that never finished (crash) may be retried after a while.
+	TakeOverPublicIdempotency(ctx context.Context, arg TakeOverPublicIdempotencyParams) (int64, error)
 	TenantCountCatalogBrands(ctx context.Context, arg TenantCountCatalogBrandsParams) (int64, error)
 	TenantCountCatalogModels(ctx context.Context, arg TenantCountCatalogModelsParams) (int64, error)
 	TenantCountCatalogTypes(ctx context.Context, arg TenantCountCatalogTypesParams) (int64, error)
@@ -2259,6 +2446,8 @@ type Querier interface {
 	TouchKabisVerified(ctx context.Context, arg TouchKabisVerifiedParams) error
 	// Slides the idle expiry (never beyond the hard cap).
 	TouchPortalSession(ctx context.Context, arg TouchPortalSessionParams) (int64, error)
+	// Records use at most once a minute.
+	TouchPublicAPIKey(ctx context.Context, arg TouchPublicAPIKeyParams) error
 	TouchRatePlan(ctx context.Context, arg TouchRatePlanParams) error
 	TouchRentalProduct(ctx context.Context, arg TouchRentalProductParams) error
 	TouchTollPassFetched(ctx context.Context, arg TouchTollPassFetchedParams) error
@@ -2267,6 +2456,7 @@ type Querier interface {
 	TransitionFieldTask(ctx context.Context, arg TransitionFieldTaskParams) (int64, error)
 	// Moves the status (optimistic: only from the expected status).
 	TransitionReservation(ctx context.Context, arg TransitionReservationParams) (int64, error)
+	UnlockChannelAccount(ctx context.Context, arg UnlockChannelAccountParams) error
 	UnlockRunnerJob(ctx context.Context, arg UnlockRunnerJobParams) error
 	UpdateAccount(ctx context.Context, arg UpdateAccountParams) (int64, error)
 	UpdateAgreement(ctx context.Context, arg UpdateAgreementParams) (int64, error)
@@ -2281,6 +2471,10 @@ type Querier interface {
 	UpdateCatalogImportState(ctx context.Context, arg UpdateCatalogImportStateParams) (CatalogImport, error)
 	UpdateCatalogModel(ctx context.Context, arg UpdateCatalogModelParams) (CatalogModel, error)
 	UpdateCatalogType(ctx context.Context, arg UpdateCatalogTypeParams) (int64, error)
+	UpdateChannelAccountSettings(ctx context.Context, arg UpdateChannelAccountSettingsParams) (int64, error)
+	UpdateChannelMapping(ctx context.Context, arg UpdateChannelMappingParams) (int64, error)
+	// The newest message seen (not necessarily applied).
+	UpdateChannelReservationReceived(ctx context.Context, arg UpdateChannelReservationReceivedParams) error
 	UpdateContractTemplate(ctx context.Context, arg UpdateContractTemplateParams) (int64, error)
 	UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) (Customer, error)
 	UpdateCustomerContact(ctx context.Context, arg UpdateCustomerContactParams) (CustomerContact, error)
@@ -2312,6 +2506,8 @@ type Querier interface {
 	UpdateOneWayRule(ctx context.Context, arg UpdateOneWayRuleParams) (int64, error)
 	UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) (Organization, error)
 	UpdateOrganizationMemberRole(ctx context.Context, arg UpdateOrganizationMemberRoleParams) (OrganizationMember, error)
+	UpdatePublicAPIKey(ctx context.Context, arg UpdatePublicAPIKeyParams) (int64, error)
+	UpdatePublicWebhookEndpoint(ctx context.Context, arg UpdatePublicWebhookEndpointParams) (int64, error)
 	UpdateRateBandPrice(ctx context.Context, arg UpdateRateBandPriceParams) (int64, error)
 	UpdateRatePlanDraft(ctx context.Context, arg UpdateRatePlanDraftParams) (int64, error)
 	UpdateRatePlanName(ctx context.Context, arg UpdateRatePlanNameParams) (int64, error)
@@ -2351,6 +2547,8 @@ type Querier interface {
 	UpdateWebAuthnCredentialCounter(ctx context.Context, arg UpdateWebAuthnCredentialCounterParams) error
 	UpdateWebAuthnCredentialName(ctx context.Context, arg UpdateWebAuthnCredentialNameParams) (WebauthnCredential, error)
 	UpsertCatalogModelRule(ctx context.Context, arg UpsertCatalogModelRuleParams) (CatalogModelRule, error)
+	// ---------------------------------------------------------------- offers
+	UpsertChannelOffer(ctx context.Context, arg UpsertChannelOfferParams) error
 	// Customer web push -----------------------------------------------------
 	UpsertCustomerPushSubscription(ctx context.Context, arg UpsertCustomerPushSubscriptionParams) (CustomerPushSubscription, error)
 	UpsertEInvoiceTaxpayer(ctx context.Context, arg UpsertEInvoiceTaxpayerParams) error
@@ -2363,6 +2561,7 @@ type Querier interface {
 	UpsertNotificationMessageTemplate(ctx context.Context, arg UpsertNotificationMessageTemplateParams) (NotificationMessageTemplate, error)
 	UpsertNotificationPreferences(ctx context.Context, arg UpsertNotificationPreferencesParams) (NotificationPreference, error)
 	UpsertNotificationRule(ctx context.Context, arg UpsertNotificationRuleParams) (NotificationRule, error)
+	UpsertPlatformHealthAlertCursor(ctx context.Context, arg UpsertPlatformHealthAlertCursorParams) error
 	// Mobile push devices (Expo) and their pending push tickets.
 	// A token moves to the calling user when the device switches accounts and is
 	// re-enabled on every registration.

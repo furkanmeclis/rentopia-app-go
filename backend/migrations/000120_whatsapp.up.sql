@@ -4,13 +4,16 @@
 -- credentials), the session state and the message log with delivery and
 -- read receipts.
 
+-- Full lists rewritten (previous: 000118).
 ALTER TABLE integration_accounts DROP CONSTRAINT integration_accounts_kind_check;
 ALTER TABLE integration_accounts ADD CONSTRAINT integration_accounts_kind_check
-    CHECK (kind IN ('payment', 'sms', 'toll', 'kabis', 'einvoice', 'whatsapp'));
+    CHECK (kind IN ('payment', 'sms', 'toll', 'kabis', 'einvoice', 'channel', 'whatsapp'));
 ALTER TABLE integration_accounts DROP CONSTRAINT integration_accounts_provider_check;
 ALTER TABLE integration_accounts ADD CONSTRAINT integration_accounts_provider_check
-    CHECK (provider IN ('iyzico', 'netgsm', 'log', 'hgs_fake', 'kabis', 'kabis_fake', 'einvoice', 'einvoice_fake',
-                        'wuzapi', 'whatsapp_fake'));
+    CHECK (provider IN (
+        'iyzico', 'netgsm', 'log', 'hgs_fake', 'kabis', 'kabis_fake', 'einvoice', 'einvoice_fake',
+        'yolcu360', 'yolcu360_fake', 'wuzapi', 'whatsapp_fake'
+    ));
 
 CREATE TABLE whatsapp_sessions (
     id                     BIGSERIAL PRIMARY KEY,

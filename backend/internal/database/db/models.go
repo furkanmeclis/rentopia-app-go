@@ -341,6 +341,39 @@ type CatalogValuation struct {
 	Value     pgtype.Numeric `json:"value"`
 }
 
+type ChannelAccount struct {
+	ID                   int64              `json:"id"`
+	OrganizationID       int64              `json:"organization_id"`
+	IntegrationAccountID int64              `json:"integration_account_id"`
+	Channel              string             `json:"channel"`
+	PushEnabled          bool               `json:"push_enabled"`
+	PullEnabled          bool               `json:"pull_enabled"`
+	StopSale             bool               `json:"stop_sale"`
+	HorizonDays          int32              `json:"horizon_days"`
+	PushIntervalMinutes  int32              `json:"push_interval_minutes"`
+	PullIntervalMinutes  int32              `json:"pull_interval_minutes"`
+	ValidityMinutes      int32              `json:"validity_minutes"`
+	OfflinePolicy        string             `json:"offline_policy"`
+	OfflineQuota         int32              `json:"offline_quota"`
+	CollectedBy          string             `json:"collected_by"`
+	CommissionRate       pgtype.Numeric     `json:"commission_rate"`
+	PushRequestedAt      pgtype.Timestamptz `json:"push_requested_at"`
+	LastPushAt           pgtype.Timestamptz `json:"last_push_at"`
+	LastPushOkAt         pgtype.Timestamptz `json:"last_push_ok_at"`
+	LastPushStatus       string             `json:"last_push_status"`
+	LastPushError        string             `json:"last_push_error"`
+	PushedValidUntil     pgtype.Timestamptz `json:"pushed_valid_until"`
+	LastPullAt           pgtype.Timestamptz `json:"last_pull_at"`
+	LastPullOkAt         pgtype.Timestamptz `json:"last_pull_ok_at"`
+	LastPullStatus       string             `json:"last_pull_status"`
+	LastPullError        string             `json:"last_pull_error"`
+	PullCursor           string             `json:"pull_cursor"`
+	ConsecutiveFailures  int32              `json:"consecutive_failures"`
+	LockedUntil          pgtype.Timestamptz `json:"locked_until"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
 type ChannelCapacityRule struct {
 	ID              int64              `json:"id"`
 	Uuid            uuid.UUID          `json:"uuid"`
@@ -356,6 +389,128 @@ type ChannelCapacityRule struct {
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type ChannelMapping struct {
+	ID                   int64              `json:"id"`
+	Uuid                 uuid.UUID          `json:"uuid"`
+	OrganizationID       int64              `json:"organization_id"`
+	IntegrationAccountID int64              `json:"integration_account_id"`
+	EntityType           string             `json:"entity_type"`
+	BranchID             pgtype.Int8        `json:"branch_id"`
+	RentalProductID      pgtype.Int8        `json:"rental_product_id"`
+	ExtraID              pgtype.Int8        `json:"extra_id"`
+	ExternalCode         string             `json:"external_code"`
+	ExternalName         string             `json:"external_name"`
+	Priority             int32              `json:"priority"`
+	StopSale             bool               `json:"stop_sale"`
+	MaxQuota             pgtype.Int4        `json:"max_quota"`
+	IsActive             bool               `json:"is_active"`
+	Note                 string             `json:"note"`
+	CreatedBy            pgtype.Int8        `json:"created_by"`
+	UpdatedBy            pgtype.Int8        `json:"updated_by"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ChannelMessage struct {
+	ID                   int64              `json:"id"`
+	Uuid                 uuid.UUID          `json:"uuid"`
+	OrganizationID       int64              `json:"organization_id"`
+	IntegrationAccountID int64              `json:"integration_account_id"`
+	ChannelReservationID pgtype.Int8        `json:"channel_reservation_id"`
+	Channel              string             `json:"channel"`
+	MessageKey           string             `json:"message_key"`
+	ExternalRef          string             `json:"external_ref"`
+	MessageType          string             `json:"message_type"`
+	Version              int64              `json:"version"`
+	OccurredAt           pgtype.Timestamptz `json:"occurred_at"`
+	Source               string             `json:"source"`
+	Status               string             `json:"status"`
+	ErrorCode            string             `json:"error_code"`
+	ErrorMessage         string             `json:"error_message"`
+	Attempts             int32              `json:"attempts"`
+	Deliveries           int32              `json:"deliveries"`
+	ProcessedAt          pgtype.Timestamptz `json:"processed_at"`
+	AckedAt              pgtype.Timestamptz `json:"acked_at"`
+	AckError             string             `json:"ack_error"`
+	PayloadEnc           string             `json:"payload_enc"`
+	Summary              []byte             `json:"summary"`
+	ResolvedBy           pgtype.Int8        `json:"resolved_by"`
+	ResolvedAt           pgtype.Timestamptz `json:"resolved_at"`
+	ResolutionNote       string             `json:"resolution_note"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ChannelOffer struct {
+	ID                   int64              `json:"id"`
+	OrganizationID       int64              `json:"organization_id"`
+	IntegrationAccountID int64              `json:"integration_account_id"`
+	OfferRef             string             `json:"offer_ref"`
+	MappingID            int64              `json:"mapping_id"`
+	RentalProductID      int64              `json:"rental_product_id"`
+	ProductVersion       int32              `json:"product_version"`
+	BranchID             int64              `json:"branch_id"`
+	ExternalCode         string             `json:"external_code"`
+	LocationCode         string             `json:"location_code"`
+	StayDate             pgtype.Date        `json:"stay_date"`
+	DailyPrice           pgtype.Numeric     `json:"daily_price"`
+	Currency             string             `json:"currency"`
+	Available            int32              `json:"available"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+}
+
+type ChannelReservation struct {
+	ID                   int64              `json:"id"`
+	Uuid                 uuid.UUID          `json:"uuid"`
+	OrganizationID       int64              `json:"organization_id"`
+	IntegrationAccountID int64              `json:"integration_account_id"`
+	Channel              string             `json:"channel"`
+	ExternalRef          string             `json:"external_ref"`
+	ReservationID        pgtype.Int8        `json:"reservation_id"`
+	CustomerID           pgtype.Int8        `json:"customer_id"`
+	Status               string             `json:"status"`
+	ChannelStatus        string             `json:"channel_status"`
+	LastVersion          int64              `json:"last_version"`
+	AppliedVersion       int64              `json:"applied_version"`
+	ProductCode          string             `json:"product_code"`
+	PickupCode           string             `json:"pickup_code"`
+	ReturnCode           string             `json:"return_code"`
+	OfferRef             string             `json:"offer_ref"`
+	RentalProductID      pgtype.Int8        `json:"rental_product_id"`
+	StartsAt             pgtype.Timestamptz `json:"starts_at"`
+	EndsAt               pgtype.Timestamptz `json:"ends_at"`
+	CollectedBy          string             `json:"collected_by"`
+	Currency             string             `json:"currency"`
+	GrossAmount          pgtype.Numeric     `json:"gross_amount"`
+	CommissionAmount     pgtype.Numeric     `json:"commission_amount"`
+	NetAmount            pgtype.Numeric     `json:"net_amount"`
+	PrepaidAmount        pgtype.Numeric     `json:"prepaid_amount"`
+	LocalTotal           pgtype.Numeric     `json:"local_total"`
+	PriceDifference      pgtype.Numeric     `json:"price_difference"`
+	LastMessageAt        pgtype.Timestamptz `json:"last_message_at"`
+	LastErrorCode        string             `json:"last_error_code"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ChannelSyncRun struct {
+	ID                   int64              `json:"id"`
+	Uuid                 uuid.UUID          `json:"uuid"`
+	OrganizationID       int64              `json:"organization_id"`
+	IntegrationAccountID int64              `json:"integration_account_id"`
+	Direction            string             `json:"direction"`
+	Trigger              string             `json:"trigger"`
+	Status               string             `json:"status"`
+	ItemsTotal           int32              `json:"items_total"`
+	ItemsOk              int32              `json:"items_ok"`
+	ItemsFailed          int32              `json:"items_failed"`
+	Error                string             `json:"error"`
+	Details              []byte             `json:"details"`
+	ActorID              pgtype.Int8        `json:"actor_id"`
+	StartedAt            pgtype.Timestamptz `json:"started_at"`
+	FinishedAt           pgtype.Timestamptz `json:"finished_at"`
 }
 
 type Collection struct {
@@ -1819,6 +1974,112 @@ type Permission struct {
 
 type PgExtension struct {
 	Extname string `json:"extname"`
+}
+
+type PlatformHealthAlertCursor struct {
+	Source         string             `json:"source"`
+	LastSeenAt     pgtype.Timestamptz `json:"last_seen_at"`
+	LastAlertAt    pgtype.Timestamptz `json:"last_alert_at"`
+	LastAlertCount int32              `json:"last_alert_count"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type PublicApiIdempotency struct {
+	ID             int64              `json:"id"`
+	OrganizationID int64              `json:"organization_id"`
+	KeyID          int64              `json:"key_id"`
+	Subject        string             `json:"subject"`
+	IdempotencyKey string             `json:"idempotency_key"`
+	Method         string             `json:"method"`
+	Path           string             `json:"path"`
+	RequestHash    string             `json:"request_hash"`
+	State          string             `json:"state"`
+	ResponseStatus pgtype.Int4        `json:"response_status"`
+	ResponseEnc    string             `json:"response_enc"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
+}
+
+type PublicApiKey struct {
+	ID                 int64              `json:"id"`
+	Uuid               uuid.UUID          `json:"uuid"`
+	OrganizationID     int64              `json:"organization_id"`
+	Kind               string             `json:"kind"`
+	Name               string             `json:"name"`
+	Channel            string             `json:"channel"`
+	KeyPrefix          string             `json:"key_prefix"`
+	KeyLast4           string             `json:"key_last4"`
+	KeyHash            string             `json:"key_hash"`
+	PublishableKey     pgtype.Text        `json:"publishable_key"`
+	Scopes             []string           `json:"scopes"`
+	AllowedOrigins     []string           `json:"allowed_origins"`
+	RateLimitPerMinute int32              `json:"rate_limit_per_minute"`
+	Status             string             `json:"status"`
+	ExpiresAt          pgtype.Timestamptz `json:"expires_at"`
+	RotatedFromID      pgtype.Int8        `json:"rotated_from_id"`
+	LastUsedAt         pgtype.Timestamptz `json:"last_used_at"`
+	LastUsedIp         *netip.Addr        `json:"last_used_ip"`
+	CreatedBy          pgtype.Int8        `json:"created_by"`
+	RevokedAt          pgtype.Timestamptz `json:"revoked_at"`
+	RevokedBy          pgtype.Int8        `json:"revoked_by"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+type PublicQuote struct {
+	ID             int64              `json:"id"`
+	OrganizationID int64              `json:"organization_id"`
+	QuoteID        int64              `json:"quote_id"`
+	KeyID          pgtype.Int8        `json:"key_id"`
+	Channel        string             `json:"channel"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type PublicReservation struct {
+	ID              int64              `json:"id"`
+	OrganizationID  int64              `json:"organization_id"`
+	ReservationID   int64              `json:"reservation_id"`
+	KeyID           pgtype.Int8        `json:"key_id"`
+	Channel         string             `json:"channel"`
+	AccessTokenHash string             `json:"access_token_hash"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
+type PublicWebhookDelivery struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	EndpointID     int64              `json:"endpoint_id"`
+	EventType      string             `json:"event_type"`
+	EventUuid      uuid.UUID          `json:"event_uuid"`
+	Payload        []byte             `json:"payload"`
+	Status         string             `json:"status"`
+	Attempts       int32              `json:"attempts"`
+	NextAttemptAt  pgtype.Timestamptz `json:"next_attempt_at"`
+	LastStatusCode pgtype.Int4        `json:"last_status_code"`
+	LastError      string             `json:"last_error"`
+	DeliveredAt    pgtype.Timestamptz `json:"delivered_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type PublicWebhookEndpoint struct {
+	ID                  int64              `json:"id"`
+	Uuid                uuid.UUID          `json:"uuid"`
+	OrganizationID      int64              `json:"organization_id"`
+	Name                string             `json:"name"`
+	Url                 string             `json:"url"`
+	SecretEnc           string             `json:"secret_enc"`
+	SecretLast4         string             `json:"secret_last4"`
+	Events              []string           `json:"events"`
+	Status              string             `json:"status"`
+	LastSuccessAt       pgtype.Timestamptz `json:"last_success_at"`
+	LastFailureAt       pgtype.Timestamptz `json:"last_failure_at"`
+	ConsecutiveFailures int32              `json:"consecutive_failures"`
+	CreatedBy           pgtype.Int8        `json:"created_by"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 }
 
 type PushDevice struct {

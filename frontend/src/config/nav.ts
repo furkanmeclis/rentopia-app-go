@@ -30,6 +30,7 @@ import {
   Landmark,
   Receipt,
   Wallet,
+  Webhook,
   FilePen,
   FileText,
   Gauge,
@@ -39,6 +40,7 @@ import {
   ListChecks,
   LayoutDashboard,
   LogIn,
+  Network,
   NotebookPen,
   Palette,
   MessageCircle,
@@ -70,6 +72,7 @@ import { customerRequestsNavItem } from "@/features/customer-portal/nav";
 import { TollReviewNavAdornment } from "@/features/tolls/nav";
 import { InvoicesNavAdornment } from "@/features/invoices/nav";
 import { KabisNavAdornment } from "@/features/kabis/nav";
+import { ChannelsNavAdornment } from "@/features/channels/nav";
 import { PayablesNavAdornment } from "@/features/suppliers/nav";
 import { MyFieldTasksNavAdornment } from "@/features/field-tasks/nav";
 import {
@@ -271,6 +274,13 @@ export const platformNav = defineNav({
           icon: Building2,
           permission: permissions.organizations.read,
         },
+        {
+          id: "health",
+          titleKey: "layout.nav_platform_health",
+          href: routes.platform.health,
+          icon: Activity,
+          permission: permissions.platformHealth.read,
+        },
         usersNavItem,
         {
           id: "catalog",
@@ -387,6 +397,14 @@ export function tenantNav(slug: string): NavCatalog {
             Adornment: ResolutionTasksNavAdornment,
           },
           customerRequestsNavItem(slug),
+          {
+            id: "reservations-channels",
+            titleKey: "layout.nav_channels",
+            href: routes.tenant.channels.root(slug),
+            icon: Network,
+            permission: permissions.tenant.channels.read,
+            Adornment: ChannelsNavAdornment,
+          },
         ],
       },
       {
@@ -784,6 +802,13 @@ export function tenantNav(slug: string): NavCatalog {
             href: routes.tenant.settings.integrations(slug),
             icon: Plug,
             permission: permissions.tenant.integrations.manage,
+          },
+          {
+            id: "settings-public-api",
+            titleKey: "layout.nav_tenant_settings_public_api",
+            href: routes.tenant.settings.publicApi(slug),
+            icon: Webhook,
+            permission: permissions.tenant.publicApi.read,
           },
           {
             id: "settings-invoices",

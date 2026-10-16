@@ -204,6 +204,10 @@ export const routes = {
       detail: (slug: string, uuid: string) =>
         `/t/${encodeURIComponent(slug)}/agreements/${uuid}`,
     },
+    /** Channel manager (TEC-736): Yolcu360, later Obilet. */
+    channels: {
+      root: (slug: string) => `/t/${encodeURIComponent(slug)}/channels`,
+    },
     kabis: {
       root: (slug: string) => `/t/${encodeURIComponent(slug)}/kabis`,
       detail: (slug: string, uuid: string) =>
@@ -248,6 +252,9 @@ export const routes = {
       /** Provider accounts ("Entegrasyonlar", TEC-676). */
       integrations: (slug: string) =>
         `/t/${encodeURIComponent(slug)}/settings/integrations`,
+      /** Public booking API keys and webhooks (TEC-728). */
+      publicApi: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/settings/public-api`,
       roles: {
         root: (slug: string) => `/t/${encodeURIComponent(slug)}/settings/roles`,
         create: (slug: string) =>
@@ -311,6 +318,8 @@ export const routes = {
       detail: (uuid: string) => `/platform/organizations/${uuid}`,
       edit: (uuid: string) => `/platform/organizations/${uuid}/edit`,
     },
+    /** Usage per organization and connection health (TEC-739). */
+    health: "/platform/health",
     users: {
       root: "/platform/users",
       create: "/platform/users/create",

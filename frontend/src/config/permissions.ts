@@ -46,6 +46,7 @@ export const Permission = {
   PlatformIntegrationsAppleWrite: "platform.integrations.apple.write",
   PlatformAuthSettingsRead: "platform.auth.settings.read",
   PlatformAuthSettingsWrite: "platform.auth.settings.write",
+  PlatformHealthRead: "platform.health.read",
 
   AuthSession: "auth.session",
 
@@ -155,6 +156,9 @@ export const Permission = {
   TenantKabisRead: "tenant.kabis.read",
   TenantKabisRetry: "tenant.kabis.retry",
   TenantKabisReconcile: "tenant.kabis.reconcile",
+  TenantChannelsRead: "tenant.channels.read",
+  TenantChannelsWrite: "tenant.channels.write",
+  TenantChannelsSync: "tenant.channels.sync",
   TenantAgreementsRead: "tenant.agreements.read",
   TenantAgreementsWrite: "tenant.agreements.write",
   TenantAgreementsExport: "tenant.agreements.export",
@@ -170,6 +174,8 @@ export const Permission = {
   TenantSuppliersExport: "tenant.suppliers.export",
   TenantSuppliersImport: "tenant.suppliers.import",
   TenantSuppliersBulkArchive: "tenant.suppliers.bulk.archive",
+  TenantPublicAPIRead: "tenant.public_api.read",
+  TenantPublicAPIManage: "tenant.public_api.manage",
   TenantNotificationSettingsRead: "tenant.notification_settings.read",
   TenantNotificationSettingsWrite: "tenant.notification_settings.write",
 } as const;
@@ -213,6 +219,10 @@ export const permissions = {
   catalog: {
     read: Permission.PlatformCatalogRead,
     write: Permission.PlatformCatalogWrite,
+  },
+  /** Usage and connection health dashboard + failed-work alerts (TEC-739). */
+  platformHealth: {
+    read: Permission.PlatformHealthRead,
   },
   notifications: {
     read: Permission.NotificationsRead,
@@ -488,6 +498,18 @@ export const permissions = {
       reconcile: Permission.TenantKabisReconcile,
     },
     /**
+     * Channel manager (TEC-736): accounts and sync state, mappings, the
+     * message / error queue, sync log and reconciliation (`read`),
+     * mappings and sync settings (`write`), push / pull now, retry /
+     * dismiss a message and simulate a booking (`sync`). The channel
+     * account itself is an integration account (`integrations.manage`).
+     */
+    channels: {
+      read: Permission.TenantChannelsRead,
+      write: Permission.TenantChannelsWrite,
+      sync: Permission.TenantChannelsSync,
+    },
+    /**
      * E-invoices / e-archive (TEC-722): list, detail, preview, downloads
      * (`read`), drafts / finalize / retry (`write`), cancel and IADE
      * returns (`cancel`), export, the settings and tax mapping, bulk.
@@ -573,6 +595,15 @@ export const permissions = {
       export: Permission.TenantSuppliersExport,
       import: Permission.TenantSuppliersImport,
       bulkArchive: Permission.TenantSuppliersBulkArchive,
+    },
+    /**
+     * Public booking API (TEC-728): `read` = keys (masked), webhook
+     * endpoints and deliveries; `manage` = issue / rotate / revoke keys and
+     * manage webhooks.
+     */
+    publicApi: {
+      read: Permission.TenantPublicAPIRead,
+      manage: Permission.TenantPublicAPIManage,
     },
   },
 } as const;

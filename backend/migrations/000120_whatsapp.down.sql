@@ -8,7 +8,10 @@ DELETE FROM integration_accounts WHERE kind = 'whatsapp';
 
 ALTER TABLE integration_accounts DROP CONSTRAINT integration_accounts_kind_check;
 ALTER TABLE integration_accounts ADD CONSTRAINT integration_accounts_kind_check
-    CHECK (kind IN ('payment', 'sms', 'toll', 'kabis', 'einvoice'));
+    CHECK (kind IN ('payment', 'sms', 'toll', 'kabis', 'einvoice', 'channel'));
 ALTER TABLE integration_accounts DROP CONSTRAINT integration_accounts_provider_check;
 ALTER TABLE integration_accounts ADD CONSTRAINT integration_accounts_provider_check
-    CHECK (provider IN ('iyzico', 'netgsm', 'log', 'hgs_fake', 'kabis', 'kabis_fake', 'einvoice', 'einvoice_fake'));
+    CHECK (provider IN (
+        'iyzico', 'netgsm', 'log', 'hgs_fake', 'kabis', 'kabis_fake', 'einvoice', 'einvoice_fake',
+        'yolcu360', 'yolcu360_fake'
+    ));
