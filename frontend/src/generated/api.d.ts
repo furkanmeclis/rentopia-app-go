@@ -10128,6 +10128,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/customer/{orgSlug}/reservations/{uuid}/invoices/{invoiceUuid}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download an invoice of the reservation
+         * @description Renter sessions only (a driver session gets 404). The PDF of an issued invoice of the session's own
+         *     reservation (rendered once from the stored UBL-TR XML; 409 `PDF_NOT_READY` while it cannot be rendered).
+         *     The browser never sees a storage key.
+         */
+        get: operations["getCustomerReservationInvoicePdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/customer/{orgSlug}/reservations/{uuid}/documents/{documentUuid}/pdf": {
         parameters: {
             query?: never;
@@ -10798,6 +10820,377 @@ export interface paths {
          *     `mark-manual`; the job ends as `reconciled`. Audited.
          */
         post: operations["postTenantKabisNotificationReconcile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/invoices/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Invoice list contract
+         * @description `tenant.invoices.read`. Columns, filters, sortable fields and bulk actions of the invoice list.
+         */
+        get: operations["getTenantInvoicesMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/invoices/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Invoice counts
+         * @description `tenant.invoices.read`. Status, profile and branch counts in the caller's branch scope; `needs_action` (failed sends, sends waiting for a person or a dependency) is the nav / finance badge.
+         */
+        get: operations["getTenantInvoicesFacets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/invoices/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Invoiceable ledger items
+         * @description `tenant.invoices.read`. The live accruals (rent, approved charges) of an account or a rental that no
+         *     standing invoice covers, inside the caller's branch scope — what "Fatura kes" can cover. One of
+         *     `account` or `rental` is required.
+         */
+        get: operations["getTenantInvoiceItems"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/invoices/uninvoiced-rentals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rentals with invoiceable items
+         * @description `tenant.invoices.read`. The picker of the bulk action `create_for_rentals`: rentals with at least one invoiceable item, in the caller's branch scope.
+         */
+        get: operations["getTenantUninvoicedRentals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/invoices/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Invoice settings
+         * @description `tenant.invoices.read`. Series, supplier data (company settings + district / city), what is still missing, the tax mapping per line kind (defaults: 20 % KDV) and the integrator connection state (none, waiting = TEC-685, test, unavailable, ready).
+         */
+        get: operations["getTenantInvoiceSettings"];
+        /**
+         * Save invoice settings
+         * @description `tenant.invoices.settings`. Fields left out stay; `tax_mappings` replace the named line kinds (a 0 % rate needs a GİB exemption code and reason). Audited.
+         */
+        put: operations["putTenantInvoiceSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List invoices
+         * @description `tenant.invoices.read`. Invoices of the branches in the caller's scope.
+         */
+        get: operations["getTenantInvoices"];
+        put?: never;
+        /**
+         * Cut a draft invoice ("Fatura kes")
+         * @description `tenant.invoices.write`. A draft from a rental's invoiceable items, or from an account's (all, or the
+         *     `entry_uuids` named). The draft links the items through `ledger_entry_links` and posts nothing to the
+         *     ledger (RT-A22). The receiver is the account's customer; the taxpayer lookup decides TEMELFATURA
+         *     (e-Fatura) or EARSIVFATURA. A repeated `idempotency_key` (or `Idempotency-Key` header) answers the first
+         *     draft. Errors: `409 NOTHING_TO_INVOICE` (all invoiced / nothing accrued), `409 ALREADY_INVOICED`
+         *     (a concurrent draft took an item), `400` with `not_invoiceable` / `not_found` details.
+         */
+        post: operations["postTenantInvoice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/invoices/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export invoices
+         * @description `tenant.invoices.read` + `tenant.invoices.export`. `query` honours the list filters; the job runs with the requester's branch scope.
+         */
+        post: operations["postTenantInvoicesExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/invoices/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk invoice actions
+         * @description `create_for_rentals` (`tenant.invoices.bulk.create_for_rentals`, reversible: the rollback cancels drafts
+         *     that were not finalized): targets are rental uuids (or the uninvoiced-rentals query); one draft per rental.
+         *     `send` (`tenant.invoices.bulk.send`): finalizes and sends drafts (invoice uuids or the list query).
+         */
+        post: operations["postTenantInvoicesBulk"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/invoices/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an invoice
+         * @description `tenant.invoices.read`. Receiver (identity hint only), lines, ledger links, validation problems per field, the send / cancel jobs with their attempt history, and the actions the invoice allows.
+         */
+        get: operations["getTenantInvoice"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit a draft invoice
+         * @description `tenant.invoices.write`. Drafts only (`409 INVOICE_NOT_DRAFT`): issue date (today or up to 7 days back), note, profile (must match the receiver's e-Fatura registration), receiver (a new identity number repeats the taxpayer lookup), line names / VAT / exemption; `remove_entry_uuids` takes items off (their links are released). Amounts follow the ledger items.
+         */
+        patch: operations["patchTenantInvoice"];
+        trace?: never;
+    };
+    "/v1/tenant/invoices/{uuid}/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate a draft
+         * @description `tenant.invoices.write`. Builds the draft with go-ubltr under a placeholder number and checks it (module checks, GİB XSD, Schematron — e-Arşiv rules for EARSIVFATURA). The problems are stored on the draft and returned per form field.
+         */
+        post: operations["postTenantInvoiceValidate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/invoices/{uuid}/finalize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finalize and send
+         * @description `tenant.invoices.write`. Numbers the draft (series + year + sequence), builds the UBL-TR XML with go-ubltr,
+         *     validates it (XSD + Schematron), stores it privately and queues the send on the integration runner — all
+         *     or nothing: problems answer `422 INVOICE_DOCUMENT_INVALID` with the problems per field, and nothing is
+         *     numbered or sent. Without a working integrator the send waits (`queued`, `hold_reason`). A finalized
+         *     invoice answers as it is (idempotent).
+         */
+        post: operations["postTenantInvoiceFinalize"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/invoices/{uuid}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry a send
+         * @description `tenant.invoices.write`. Audited. Waiting on the dependency: the integrator is looked up again
+         *     (`rerouted`; still none `409 EINVOICE_DEPENDENCY_PENDING`). Otherwise a status check first: the document is
+         *     sent again only when the integrator confirms it does not have it (`already_done`, `in_progress`,
+         *     `resubmitted`); an unknown answer sends nothing (`409 INVOICE_UNVERIFIED`, the invoice in `data`).
+         */
+        post: operations["postTenantInvoiceRetry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/invoices/{uuid}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel an invoice
+         * @description `tenant.invoices.cancel`. A draft, an unsent invoice (the send has not started) and a failed one are
+         *     cancelled at once; an issued e-Arşiv invoice is cancelled through the integrator (a cancel job; the invoice
+         *     becomes `cancelled` when confirmed); an issued e-Fatura answers `409 USE_RETURN_INVOICE`. The items are
+         *     freed for a new invoice. A reason (3-500) is required except for drafts.
+         */
+        post: operations["postTenantInvoiceCancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/invoices/{uuid}/return": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create the return (IADE) invoice
+         * @description `tenant.invoices.cancel`. The IADE draft of an issued sales invoice: same receiver and lines, TEMELFATURA instead of TICARIFATURA, a billing reference to the returned invoice. When it is issued the returned invoice is marked returned and its items are freed. Nothing is posted to the ledger. A second call answers the existing return.
+         */
+        post: operations["postTenantInvoiceReturn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/invoices/{uuid}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * HTML preview
+         * @description `tenant.invoices.read`. The go-ubltr HTML render (the module's XSLT; no scripts, CSP sandbox): the stored document of a finalized invoice, or the draft under a placeholder number. A draft that cannot be built yet answers `422`.
+         */
+        get: operations["getTenantInvoicePreview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/invoices/{uuid}/xml": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download the UBL-TR XML
+         * @description `tenant.invoices.read`. Streamed by the API from private storage; `409 INVOICE_NO_DOCUMENT` for a draft. Audited.
+         */
+        get: operations["getTenantInvoiceXml"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/invoices/{uuid}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download the PDF
+         * @description `tenant.invoices.read`. Rendered once from the stored XML (go-ubltr HTML, headless Chromium) and kept privately; `503 PDF_UNAVAILABLE` without Chromium, `409 INVOICE_NO_DOCUMENT` for a draft. Audited.
+         */
+        get: operations["getTenantInvoicePdf"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -21587,6 +21980,8 @@ export interface components {
                 request_cancel: boolean;
             };
             documents: components["schemas"]["PortalDocument"][];
+            /** @description Issued invoices (renter sessions only) */
+            invoices: components["schemas"]["PortalInvoice"][];
             requests: components["schemas"]["CustomerRequest"][];
         };
         EnvelopeCustomerReservation: {
@@ -22056,6 +22451,454 @@ export interface components {
                 /** @enum {string} */
                 action: "revalidated" | "already_done" | "in_progress" | "resubmitted";
                 notification: components["schemas"]["KabisNotificationDetail"];
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        /**
+         * @description draft (editable, unnumbered), queued (numbered, the send waits or is due; `hold_reason` when it waits on
+         *     the integrator dependency), sent (outcome being verified), awaiting_result (the integrator accepted it,
+         *     GİB has not answered), succeeded (issued), failed (the integrator confirmed it was not issued), cancelled.
+         * @enum {string}
+         */
+        InvoiceStatus: "draft" | "queued" | "sent" | "awaiting_result" | "succeeded" | "failed" | "cancelled";
+        /** @enum {string} */
+        InvoiceProfile: "TEMELFATURA" | "TICARIFATURA" | "EARSIVFATURA";
+        /** @enum {string} */
+        InvoiceLineKind: "rent" | "extra" | "one_way" | "charge" | "toll";
+        InvoiceRef: {
+            /** Format: uuid */
+            uuid: string;
+            code: string;
+            name: string;
+        };
+        InvoiceRentalRef: {
+            /** Format: uuid */
+            uuid: string;
+            reference: string;
+        };
+        InvoiceOtherRef: {
+            /** Format: uuid */
+            uuid: string;
+            number: string | null;
+            status?: string;
+        };
+        Invoice: {
+            /**
+             * Format: uuid
+             * @description The ETTN (sent unchanged on every attempt)
+             */
+            uuid: string;
+            /** @description SSSYYYYNNNNNNNNN, set when finalized */
+            number: string | null;
+            profile: components["schemas"]["InvoiceProfile"];
+            /** @enum {string} */
+            invoice_type: "SATIS" | "IADE";
+            status: components["schemas"]["InvoiceStatus"];
+            /** Format: date */
+            issue_date: string;
+            currency: string;
+            /** @enum {string} */
+            receiver_type: "individual" | "corporate";
+            receiver_name: string;
+            receiver_identity_hint: string;
+            /** @description The receiver is an e-Fatura taxpayer */
+            receiver_einvoice: boolean;
+            line_extension_amount: string;
+            tax_amount: string;
+            payable_amount: string;
+            /** @description Sum of the ledger items the invoice covers */
+            linked_amount: string;
+            /** @description payable − linked (VAT rounding; 0 unless unavoidable) */
+            rounding_amount: string;
+            branch: components["schemas"]["InvoiceRef"];
+            account: components["schemas"]["InvoiceRef"] | null;
+            rental: components["schemas"]["InvoiceRentalRef"] | null;
+            returns: components["schemas"]["InvoiceOtherRef"] | null;
+            /** @description The integrator's reference */
+            external_ref: string;
+            /** @description no_account, adapter_unverified, adapter_unavailable */
+            hold_reason: string;
+            last_error: string;
+            /** @description Integration job status of the send */
+            job_status: string | null;
+            attempts: number;
+            needs_action: boolean;
+            problem_count: number;
+            returned: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        InvoiceReceiver: {
+            /** @enum {string} */
+            type: "individual" | "corporate";
+            /** @enum {string|null} */
+            identity_type: "vkn" | "tckn" | null;
+            /** @description Masked; the number itself is never returned */
+            identity_hint: string;
+            name: string;
+            first_name: string;
+            last_name: string;
+            tax_office: string;
+            address: string;
+            district: string;
+            city: string;
+            postal_code: string;
+            country: string;
+            email: string;
+            einvoice: boolean;
+            alias: string;
+            /** @enum {string} */
+            taxpayer_source: "" | "provider" | "cache" | "customer_flag";
+            /** Format: date-time */
+            taxpayer_checked_at: string | null;
+        };
+        InvoiceLine: {
+            /** Format: uuid */
+            uuid: string;
+            position: number;
+            kind: components["schemas"]["InvoiceLineKind"];
+            name: string;
+            /** @description Quantity in days (rent); 0 = one piece */
+            days: number;
+            /** Format: uuid */
+            entry_uuid: string | null;
+            /** @description The ledger part the line carries */
+            gross_amount: string;
+            net_amount: string;
+            vat_rate: string;
+            vat_amount: string;
+            total_amount: string;
+            exemption_code: string;
+            exemption_reason: string;
+        };
+        InvoiceLink: {
+            /** Format: uuid */
+            entry_uuid: string;
+            entry_kind: string;
+            purpose: string;
+            entry_amount: string;
+            amount: string;
+            /** Format: date */
+            entry_date: string;
+            description: string;
+            rental: components["schemas"]["InvoiceRentalRef"] | null;
+            released: boolean;
+            /** Format: date-time */
+            released_at: string | null;
+            /** @enum {string} */
+            release_reason: "" | "cancelled" | "returned" | "removed";
+        };
+        InvoiceProblem: {
+            /** @enum {string} */
+            layer: "check" | "builder" | "xsd" | "schematron";
+            /** @description Form field (receiver.district, lines.0.vat_rate, supplier.tax_number, document …) */
+            field: string;
+            code: string;
+            message: string;
+            path?: string;
+        };
+        InvoiceJobState: {
+            /** Format: uuid */
+            uuid: string;
+            status: string;
+            attempts: number;
+            max_attempts: number;
+            last_error: string;
+            provider: string;
+            provider_ref: string;
+            /** Format: date-time */
+            next_attempt_at: string | null;
+            busy: boolean;
+        };
+        InvoiceActor: {
+            /** Format: uuid */
+            uuid: string;
+            name: string;
+            surname: string;
+            email?: string;
+        };
+        InvoiceDetail: components["schemas"]["Invoice"] & {
+            receiver: components["schemas"]["InvoiceReceiver"];
+            note: string;
+            lines: components["schemas"]["InvoiceLine"][];
+            links: components["schemas"]["InvoiceLink"][];
+            validation_errors: components["schemas"]["InvoiceProblem"][];
+            /** Format: date-time */
+            validated_at: string | null;
+            returned_by: components["schemas"]["InvoiceOtherRef"] | null;
+            job: components["schemas"]["InvoiceJobState"] | null;
+            cancel_job: components["schemas"]["InvoiceJobState"] | null;
+            attempt_log: components["schemas"]["IntegrationAttempt"][];
+            cancel_attempt_log: components["schemas"]["IntegrationAttempt"][];
+            actions: {
+                edit: boolean;
+                validate: boolean;
+                finalize: boolean;
+                retry: boolean;
+                cancel: boolean;
+                return: boolean;
+                download_xml: boolean;
+                download_pdf: boolean;
+                preview: boolean;
+            };
+            cancel_reason: string;
+            /** Format: date-time */
+            cancelled_at: string | null;
+            cancelled_by: components["schemas"]["InvoiceActor"] | null;
+            /** Format: date-time */
+            finalized_at: string | null;
+            /** Format: date-time */
+            sent_at: string | null;
+            /** Format: date-time */
+            succeeded_at: string | null;
+            /** Format: date-time */
+            returned_at: string | null;
+            created_by: components["schemas"]["InvoiceActor"] | null;
+        };
+        InvoiceItem: {
+            /** Format: uuid */
+            entry_uuid: string;
+            purpose: string;
+            line_kind: components["schemas"]["InvoiceLineKind"];
+            charge_kind: string | null;
+            amount: string;
+            currency: string;
+            /** Format: date */
+            entry_date: string;
+            description: string;
+            account: components["schemas"]["InvoiceRef"];
+            rental: components["schemas"]["InvoiceRentalRef"] | null;
+            branch: components["schemas"]["InvoiceRef"] | null;
+        };
+        UninvoicedRental: {
+            /** Format: uuid */
+            uuid: string;
+            reference: string;
+            status: string;
+            customer_name: string;
+            branch: components["schemas"]["InvoiceRef"];
+            open_amount: string;
+            /** Format: int64 */
+            item_count: number;
+            /** Format: date */
+            first_date: string;
+            /** Format: date-time */
+            actual_pickup_at: string | null;
+            /** Format: date-time */
+            actual_return_at: string | null;
+        };
+        InvoiceFacet: {
+            value: string;
+            label?: string;
+            /** Format: int64 */
+            count: number;
+        };
+        InvoiceFacets: {
+            status: components["schemas"]["InvoiceFacet"][];
+            profile: components["schemas"]["InvoiceFacet"][];
+            branch: components["schemas"]["InvoiceFacet"][];
+            /** Format: int64 */
+            needs_action: number;
+        };
+        InvoiceCreateRequest: {
+            /** Format: uuid */
+            rental_uuid?: string | null;
+            /** Format: uuid */
+            account_uuid?: string | null;
+            /** @description With account_uuid: only these items */
+            entry_uuids?: string[];
+            /**
+             * Format: uuid
+             * @description Issuing branch (default: the rental's pick-up branch / the items' branch)
+             */
+            branch_uuid?: string | null;
+            /** Format: date */
+            issue_date?: string | null;
+            note?: string | null;
+            idempotency_key?: string;
+        };
+        InvoiceReceiverInput: {
+            /** @enum {string} */
+            type?: "individual" | "corporate";
+            /** @enum {string} */
+            identity_type?: "vkn" | "tckn";
+            /** @description Write-only; sealed at rest */
+            identity_number?: string;
+            name?: string;
+            first_name?: string;
+            last_name?: string;
+            tax_office?: string;
+            address?: string;
+            district?: string;
+            city?: string;
+            postal_code?: string;
+            country?: string;
+            email?: string;
+        };
+        InvoiceLinePatch: {
+            /** Format: uuid */
+            uuid: string;
+            name?: string;
+            vat_rate?: string;
+            exemption_code?: string;
+            exemption_reason?: string;
+        };
+        InvoicePatchRequest: {
+            /** Format: date */
+            issue_date?: string;
+            note?: string;
+            profile?: components["schemas"]["InvoiceProfile"];
+            receiver?: components["schemas"]["InvoiceReceiverInput"];
+            lines?: components["schemas"]["InvoiceLinePatch"][];
+            remove_entry_uuids?: string[];
+        };
+        InvoiceCancelRequest: {
+            reason?: string;
+        };
+        InvoiceReturnRequest: {
+            reason: string;
+            /** Format: date */
+            issue_date?: string | null;
+        };
+        InvoiceTaxMapping: {
+            line_kind: components["schemas"]["InvoiceLineKind"];
+            vat_rate: string;
+            exemption_code: string;
+            exemption_reason: string;
+            /** @description The Turkish default (never saved) */
+            default: boolean;
+        };
+        InvoiceSupplier: {
+            legal_name: string;
+            tax_number: string;
+            tax_office: string;
+            address: string;
+            district: string;
+            city: string;
+            postal_code: string;
+            email: string;
+            phone: string;
+        };
+        InvoiceConnection: {
+            /** @enum {string} */
+            state: "none" | "waiting" | "test" | "unavailable" | "ready";
+            /** Format: uuid */
+            account_uuid: string | null;
+            provider: string;
+            name: string;
+        };
+        InvoiceSettings: {
+            efatura_series: string;
+            earsiv_series: string;
+            supplier_district: string;
+            supplier_city: string;
+            supplier_postal_code: string;
+            default_note: string;
+            taxpayer_cache_hours: number;
+            tax_mappings: components["schemas"]["InvoiceTaxMapping"][];
+            supplier: components["schemas"]["InvoiceSupplier"];
+            missing: string[];
+            connection: components["schemas"]["InvoiceConnection"];
+            /** Format: date-time */
+            updated_at: string | null;
+        };
+        InvoiceTaxMappingInput: {
+            line_kind: components["schemas"]["InvoiceLineKind"];
+            vat_rate: string;
+            exemption_code?: string;
+            exemption_reason?: string;
+        };
+        InvoiceSettingsRequest: {
+            efatura_series?: string;
+            earsiv_series?: string;
+            supplier_district?: string;
+            supplier_city?: string;
+            supplier_postal_code?: string;
+            default_note?: string;
+            taxpayer_cache_hours?: number;
+            tax_mappings?: components["schemas"]["InvoiceTaxMappingInput"][];
+        };
+        PortalInvoice: {
+            /** Format: uuid */
+            uuid: string;
+            number: string;
+            profile: string;
+            invoice_type: string;
+            /** Format: date */
+            issue_date: string;
+            payable_amount: string;
+            currency: string;
+            /** @description API path relative to /v1 */
+            download_path: string;
+        };
+        EnvelopeInvoice: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["InvoiceDetail"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeInvoicePage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["Invoice"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeInvoiceFacets: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["InvoiceFacets"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeInvoiceItems: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["InvoiceItem"][];
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeUninvoicedRentalPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["UninvoicedRental"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeInvoiceSettings: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["InvoiceSettings"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeInvoiceValidation: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                valid: boolean;
+                problems: components["schemas"]["InvoiceProblem"][];
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeInvoiceRetry: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                /** @enum {string} */
+                action: "rerouted" | "already_done" | "in_progress" | "resubmitted";
+                invoice: components["schemas"]["InvoiceDetail"];
             };
             meta: components["schemas"]["ResponseMeta"];
         };
@@ -23253,6 +24096,15 @@ export interface components {
         };
     };
     responses: {
+        /** @description Invoice */
+        InvoiceOK: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["EnvelopeInvoice"];
+            };
+        };
         /** @description KABİS notification */
         KabisNotificationOK: {
             headers: {
@@ -42288,6 +43140,35 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getCustomerReservationInvoicePdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization slug of the customer portal */
+                orgSlug: components["parameters"]["PortalOrgSlug"];
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                invoiceUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PDF */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            401: components["responses"]["CustomerSessionRequired"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
     getCustomerReservationDocumentPdf: {
         parameters: {
             query?: never;
@@ -43358,6 +44239,655 @@ export interface operations {
         };
         responses: {
             200: components["responses"]["KabisNotificationOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantInvoicesMeta: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource meta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantInvoicesFacets: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Facets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeInvoiceFacets"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantInvoiceItems: {
+        parameters: {
+            query?: {
+                /** @description Customer account uuid */
+                account?: string;
+                /** @description Rental uuid */
+                rental?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Items */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeInvoiceItems"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantUninvoicedRentals: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rental page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeUninvoicedRentalPage"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantInvoiceSettings: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeInvoiceSettings"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    putTenantInvoiceSettings: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description Settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeInvoiceSettings"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantInvoices: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description `issue_date`, `created_at`, `number` or `payable_amount`; prefix `-` for descending (default `-issue_date`). */
+                sort?: string;
+                /** @description draft, queued, sent, awaiting_result, succeeded, failed, cancelled (comma separated) */
+                status?: string;
+                /** @description TEMELFATURA, TICARIFATURA, EARSIVFATURA (comma separated) */
+                profile?: string;
+                /** @description SATIS, IADE */
+                invoice_type?: string;
+                /** @description Branch uuids (comma separated) */
+                branch?: string;
+                /** @description Customer account uuid */
+                account?: string;
+                /** @description Rental uuid (its invoice and every invoice covering one of its items) */
+                rental?: string;
+                /** @description Issue date from */
+                from?: string;
+                /** @description Issue date to (inclusive) */
+                to?: string;
+                /** @description `true` = failed sends and sends waiting for a person / dependency */
+                needs_action?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Invoice page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeInvoicePage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantInvoice: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceCreateRequest"];
+            };
+        };
+        responses: {
+            201: components["responses"]["InvoiceOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantInvoicesExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Export job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantInvoicesBulk: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkExecuteRequest"];
+            };
+        };
+        responses: {
+            /** @description Sync bulk result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeBulkSyncResult"];
+                };
+            };
+            /** @description Async bulk job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeBulkJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantInvoice: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["InvoiceOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchTenantInvoice: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoicePatchRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["InvoiceOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantInvoiceValidate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Validation result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeInvoiceValidation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantInvoiceFinalize: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["InvoiceOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    postTenantInvoiceRetry: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What the retry did */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeInvoiceRetry"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantInvoiceCancel: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["InvoiceCancelRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["InvoiceOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantInvoiceReturn: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceReturnRequest"];
+            };
+        };
+        responses: {
+            201: components["responses"]["InvoiceOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantInvoicePreview: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description HTML document */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getTenantInvoiceXml: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description XML */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/xml": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantInvoicePdf: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PDF */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["TenantForbidden"];

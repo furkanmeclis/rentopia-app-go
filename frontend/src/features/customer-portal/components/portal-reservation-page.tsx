@@ -51,6 +51,7 @@ import { portalService } from "@/features/customer-portal/services/portal.servic
 import type {
   CustomerRequestType,
   PortalDocument,
+  PortalInvoice,
   PortalRequest,
   PortalReservation,
 } from "@/features/customer-portal/types";
@@ -64,7 +65,7 @@ import type {
   ReservationStatus,
 } from "@/features/reservations/types";
 import { ApiError } from "@/lib/api";
-import { datetime } from "@/lib/utils/format";
+import { date, datetime } from "@/lib/utils/format";
 import { useLocale } from "@/providers/locale-provider";
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
@@ -352,6 +353,96 @@ function DocumentsCard({ r }: { r: PortalReservation }) {
   );
 }
 
+function InvoicesCard({ r }: { r: PortalReservation }) {
+  const { t, locale } = useLocale();
+  const columns = useMemo(
+    () =>
+      [
+        createColumn<PortalInvoice>({
+          accessorKey: "number",
+          labelKey: "customer_portal.invoices.number",
+          gridPrimary: true,
+          cell: ({ row }) => (
+            <span className="font-mono text-xs font-medium">
+              {row.original.number}
+            </span>
+          ),
+        }),
+        createColumn<PortalInvoice>({
+          accessorKey: "issue_date",
+          labelKey: "customer_portal.invoices.issue_date",
+          cell: ({ row }) =>
+            date(row.original.issue_date, "d MMM yyyy", locale),
+        }),
+        createColumn<PortalInvoice>({
+          accessorKey: "invoice_type",
+          labelKey: "customer_portal.invoices.type",
+          cell: ({ row }) =>
+            row.original.invoice_type === "IADE" ? (
+              <Badge variant="secondary">
+                {t("customer_portal.invoices.return")}
+              </Badge>
+            ) : (
+              <Badge variant="outline">
+                {row.original.profile === "EARSIVFATURA"
+                  ? t("customer_portal.invoices.earsiv")
+                  : t("customer_portal.invoices.efatura")}
+              </Badge>
+            ),
+        }),
+        createColumn<PortalInvoice>({
+          accessorKey: "payable_amount",
+          labelKey: "customer_portal.invoices.amount",
+          cell: ({ row }) => (
+            <span className="tabular-nums">
+              {moneyText(row.original.payable_amount, locale)}
+            </span>
+          ),
+        }),
+        createColumn<PortalInvoice>({
+          id: "actions",
+          labelKey: "customer_portal.invoices.actions",
+          enableHiding: false,
+          cell: ({ row }) => (
+            <Button asChild size="sm" variant="outline">
+              <a
+                href={portalService.downloadUrl(row.original.download_path)}
+                download
+                rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Download className="size-4" />
+                {t("customer_portal.invoices.download")}
+              </a>
+            </Button>
+          ),
+        }),
+      ] as ColumnDef<PortalInvoice, unknown>[],
+    [locale, t],
+  );
+  if (r.invoices.length === 0) return null;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">
+          {t("customer_portal.invoices.title")}
+        </CardTitle>
+        <CardDescription>
+          {t("customer_portal.invoices.description")}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <PortalTable
+          columns={columns}
+          data={r.invoices}
+          getRowId={(row) => row.uuid}
+          emptyTitle={t("customer_portal.invoices.empty")}
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
 function RequestsCard({
   r,
   onRequest,
@@ -484,6 +575,7 @@ export function PortalReservationPage({
         <PaymentCard orgSlug={orgSlug} r={r} />
         <ExtrasCard r={r} />
         <DocumentsCard r={r} />
+        <InvoicesCard r={r} />
         <RequestsCard r={r} onRequest={setRequest} />
         <PortalRequestDialog
           orgSlug={orgSlug}

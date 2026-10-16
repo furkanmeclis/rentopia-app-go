@@ -300,5 +300,11 @@
   "integrations.jobs.statuses.reconciled": "Uzlaştırıldı",
   "integrations.jobs.kinds.kabis_rental_start": "KABİS kiralama başlangıcı",
   "integrations.jobs.kinds.kabis_rental_end": "KABİS kiralama bitişi",
-  "integrations.jobs.kinds.kabis_correction": "KABİS düzeltme"
+  "integrations.jobs.kinds.kabis_correction": "KABİS düzeltme",
+  "integrations.providers.einvoice": "e-Fatura entegratörü (resmi)",
+  "integrations.providers.einvoice_fake": "e-Fatura test entegratörü",
+  "integrations.provider_hints.einvoice": "Özel entegratör bağlantısı bekleniyor (TEC-685); gönderimler o zamana kadar bekler.",
+  "integrations.provider_hints.einvoice_fake": "Yalnızca test ortamı: belgeler GİB'e iletilmez.",
+  "integrations.jobs.kinds.einvoice_send": "e-Fatura gönderimi",
+  "integrations.jobs.kinds.einvoice_cancel": "e-Fatura iptali"
 }

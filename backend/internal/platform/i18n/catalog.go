@@ -445,6 +445,18 @@ var trCatalog = map[string]string{
 	"finance.cash_kind.clearing":                    "Sağlayıcı (ara hesap)",
 	"export.title.tenant.finance_collections":       "Tahsilatlar dışa aktarma",
 	"resources.tenant.finance_collections":          "Tahsilatlar",
+	// E-invoices / e-archive invoices (TEC-722).
+	"invoices.number": "Fatura no", "invoices.issue_date": "Düzenleme tarihi", "invoices.profile": "Senaryo",
+	"invoices.invoice_type": "Fatura tipi", "invoices.status": "Durum", "invoices.receiver_name": "Alıcı",
+	"invoices.receiver_identity_hint": "VKN / TCKN", "invoices.branch": "Şube", "invoices.rental": "Kiralama",
+	"invoices.line_extension_amount": "Matrah", "invoices.tax_amount": "KDV", "invoices.payable_amount": "Ödenecek tutar",
+	"invoices.currency": "Para birimi", "invoices.external_ref": "Entegratör referansı", "invoices.last_error": "Son hata",
+	"invoices.uuid":         "ETTN",
+	"invoices.status.draft": "Taslak", "invoices.status.queued": "Kuyrukta", "invoices.status.sent": "Gönderildi",
+	"invoices.status.awaiting_result": "Sonuç bekleniyor", "invoices.status.succeeded": "Kesildi",
+	"invoices.status.failed": "Başarısız", "invoices.status.cancelled": "İptal edildi",
+	"export.title.tenant.invoices": "Faturalar dışa aktarma",
+	"resources.tenant.invoices":    "Faturalar",
 }
 
 var enCatalog = map[string]string{
@@ -854,4 +866,16 @@ var enCatalog = map[string]string{
 	"finance.cash_kind.clearing":                    "Provider (clearing)",
 	"export.title.tenant.finance_collections":       "Collections export",
 	"resources.tenant.finance_collections":          "Collections",
+	// E-invoices / e-archive invoices (TEC-722).
+	"invoices.number": "Invoice no", "invoices.issue_date": "Issue date", "invoices.profile": "Profile",
+	"invoices.invoice_type": "Invoice type", "invoices.status": "Status", "invoices.receiver_name": "Receiver",
+	"invoices.receiver_identity_hint": "Tax / national ID", "invoices.branch": "Branch", "invoices.rental": "Rental",
+	"invoices.line_extension_amount": "Net amount", "invoices.tax_amount": "VAT", "invoices.payable_amount": "Payable amount",
+	"invoices.currency": "Currency", "invoices.external_ref": "Integrator reference", "invoices.last_error": "Last error",
+	"invoices.uuid":         "ETTN",
+	"invoices.status.draft": "Draft", "invoices.status.queued": "Queued", "invoices.status.sent": "Sent",
+	"invoices.status.awaiting_result": "Awaiting result", "invoices.status.succeeded": "Issued",
+	"invoices.status.failed": "Failed", "invoices.status.cancelled": "Cancelled",
+	"export.title.tenant.invoices": "Invoices export",
+	"resources.tenant.invoices":    "Invoices",
 }

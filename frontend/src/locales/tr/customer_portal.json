@@ -130,5 +130,17 @@
   "staff.actions.resolve": "Sonuçlandır",
   "staff.actions.reject": "Reddet",
   "staff.toast.resolved": "Talep sonuçlandırıldı",
-  "staff.toast.rejected": "Talep reddedildi"
+  "staff.toast.rejected": "Talep reddedildi",
+  "invoices.title": "Faturalar",
+  "invoices.description": "Bu rezervasyon için kesilen faturalar.",
+  "invoices.empty": "Fatura yok",
+  "invoices.number": "Fatura no",
+  "invoices.issue_date": "Tarih",
+  "invoices.type": "Tür",
+  "invoices.amount": "Tutar",
+  "invoices.actions": "İşlemler",
+  "invoices.download": "PDF indir",
+  "invoices.efatura": "e-Fatura",
+  "invoices.earsiv": "e-Arşiv",
+  "invoices.return": "İade faturası"
 }

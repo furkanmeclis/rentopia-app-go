@@ -55,5 +55,9 @@
   "actions.cash_movements.set_category": "Kategori ata",
   "actions.expenses.set_category": "Kategori ata",
   "actions.finance_collections.allocate": "Alacağı dağıt",
-  "confirm.finance_collections.allocate": "Seçili {{count}} tahsilatın kalan alacağı en eski açık kalemlere dağıtılsın mı?"
+  "confirm.finance_collections.allocate": "Seçili {{count}} tahsilatın kalan alacağı en eski açık kalemlere dağıtılsın mı?",
+  "actions.invoices.create_for_rentals": "Seçili kiralamaları faturala",
+  "actions.invoices.send": "Taslakları kesinleştir ve gönder",
+  "confirm.invoices.create_for_rentals": "Seçili {{count}} kiralama için fatura taslağı oluşturulsun mu?",
+  "confirm.invoices.send": "Seçili {{count}} taslak kesinleştirilip gönderilsin mi? Numara alan faturalar geri alınamaz."
 }

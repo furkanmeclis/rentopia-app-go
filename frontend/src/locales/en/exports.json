@@ -87,5 +87,6 @@
   "resources.tenant.cash_movements": "Cash movements",
   "resources.tenant.expenses": "Expenses",
   "resources.tenant.security_deposits": "Security deposits",
-  "resources.tenant.finance_collections": "Collections"
+  "resources.tenant.finance_collections": "Collections",
+  "resources.tenant.invoices": "Invoices"
 }

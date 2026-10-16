@@ -204,5 +204,13 @@
   "labels.tenant.kabis.retry": "KABİS bildirimlerini yeniden dene",
   "labels.tenant.kabis.reconcile": "KABİS bildirimlerini manuel bildirildi / uzlaştırıldı olarak işaretle",
   "groups.tenant_kabis": "KABİS bildirimleri",
-  "labels.tenant.finance.collections.bulk.allocate": "Tahsilatları toplu dağıt"
+  "labels.tenant.finance.collections.bulk.allocate": "Tahsilatları toplu dağıt",
+  "groups.tenant_invoices": "Faturalar",
+  "labels.tenant.invoices.read": "Faturaları görüntüle",
+  "labels.tenant.invoices.write": "Fatura taslağı oluştur ve kesinleştir",
+  "labels.tenant.invoices.cancel": "Fatura iptal et / iade faturası kes",
+  "labels.tenant.invoices.export": "Faturaları dışa aktar",
+  "labels.tenant.invoices.settings": "Fatura ayarlarını yönet",
+  "labels.tenant.invoices.bulk.create_for_rentals": "Kiralamaları toplu faturala",
+  "labels.tenant.invoices.bulk.send": "Faturaları toplu gönder"
 }

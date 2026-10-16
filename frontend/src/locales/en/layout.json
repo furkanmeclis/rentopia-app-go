@@ -87,5 +87,7 @@
   "nav_finance_categories": "Expense categories",
   "nav_finance_reports": "Finance reports",
   "nav_kabis": "KABİS notifications",
-  "nav_finance_collections": "Collections"
+  "nav_finance_collections": "Collections",
+  "nav_finance_invoices": "Invoices",
+  "nav_tenant_settings_invoices": "Invoice settings"
 }

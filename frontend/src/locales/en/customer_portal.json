@@ -130,5 +130,17 @@
   "staff.actions.resolve": "Resolve",
   "staff.actions.reject": "Reject",
   "staff.toast.resolved": "Request resolved",
-  "staff.toast.rejected": "Request rejected"
+  "staff.toast.rejected": "Request rejected",
+  "invoices.title": "Invoices",
+  "invoices.description": "Invoices issued for this reservation.",
+  "invoices.empty": "No invoices",
+  "invoices.number": "Invoice no",
+  "invoices.issue_date": "Date",
+  "invoices.type": "Type",
+  "invoices.amount": "Amount",
+  "invoices.actions": "Actions",
+  "invoices.download": "Download PDF",
+  "invoices.efatura": "e-Invoice",
+  "invoices.earsiv": "e-Archive",
+  "invoices.return": "Return invoice"
 }

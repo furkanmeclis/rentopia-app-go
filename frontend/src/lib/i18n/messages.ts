@@ -53,6 +53,7 @@ import enCustomers from "@/locales/en/customers.json";
 import enReservations from "@/locales/en/reservations.json";
 import enRentals from "@/locales/en/rentals.json";
 import enTolls from "@/locales/en/tolls.json";
+import enInvoices from "@/locales/en/invoices.json";
 import enKabis from "@/locales/en/kabis.json";
 import enDeposits from "@/locales/en/deposits.json";
 import enContracts from "@/locales/en/contracts.json";
@@ -112,6 +113,7 @@ import trCustomers from "@/locales/tr/customers.json";
 import trReservations from "@/locales/tr/reservations.json";
 import trRentals from "@/locales/tr/rentals.json";
 import trTolls from "@/locales/tr/tolls.json";
+import trInvoices from "@/locales/tr/invoices.json";
 import trKabis from "@/locales/tr/kabis.json";
 import trDeposits from "@/locales/tr/deposits.json";
 import trContracts from "@/locales/tr/contracts.json";
@@ -146,6 +148,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     reservations: trReservations,
     rentals: trRentals,
     tolls: trTolls,
+    invoices: trInvoices,
     kabis: trKabis,
     deposits: trDeposits,
     contracts: trContracts,
@@ -207,6 +210,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     reservations: enReservations,
     rentals: enRentals,
     tolls: enTolls,
+    invoices: enInvoices,
     kabis: enKabis,
     deposits: enDeposits,
     contracts: enContracts,

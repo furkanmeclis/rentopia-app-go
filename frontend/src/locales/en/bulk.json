@@ -55,5 +55,9 @@
   "actions.cash_movements.set_category": "Set category",
   "actions.expenses.set_category": "Set category",
   "actions.finance_collections.allocate": "Allocate credit",
-  "confirm.finance_collections.allocate": "Allocate the remaining credit of {{count}} selected collections to the oldest open items?"
+  "confirm.finance_collections.allocate": "Allocate the remaining credit of {{count}} selected collections to the oldest open items?",
+  "actions.invoices.create_for_rentals": "Invoice the selected rentals",
+  "actions.invoices.send": "Finalize and send drafts",
+  "confirm.invoices.create_for_rentals": "Create invoice drafts for the {{count}} selected rentals?",
+  "confirm.invoices.send": "Finalize and send the {{count}} selected drafts? Numbered invoices cannot be undone."
 }

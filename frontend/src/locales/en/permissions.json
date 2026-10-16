@@ -204,5 +204,13 @@
   "labels.tenant.kabis.retry": "Retry KABİS notifications",
   "labels.tenant.kabis.reconcile": "Mark KABİS notifications reported manually / reconciled",
   "groups.tenant_kabis": "KABİS notifications",
-  "labels.tenant.finance.collections.bulk.allocate": "Bulk allocate collections"
+  "labels.tenant.finance.collections.bulk.allocate": "Bulk allocate collections",
+  "groups.tenant_invoices": "Invoices",
+  "labels.tenant.invoices.read": "View invoices",
+  "labels.tenant.invoices.write": "Create and finalize invoice drafts",
+  "labels.tenant.invoices.cancel": "Cancel invoices / issue return invoices",
+  "labels.tenant.invoices.export": "Export invoices",
+  "labels.tenant.invoices.settings": "Manage invoice settings",
+  "labels.tenant.invoices.bulk.create_for_rentals": "Invoice rentals in bulk",
+  "labels.tenant.invoices.bulk.send": "Send invoices in bulk"
 }

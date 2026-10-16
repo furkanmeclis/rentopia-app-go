@@ -47,6 +47,7 @@ import { routes } from "@/config/routes";
 import { DocumentsSection } from "@/features/contracts/components/documents-section";
 import { RentalDepositCard } from "@/features/deposits/components/rental-deposit-card";
 import { RentalLedgerCard } from "@/features/finance/components/rental-ledger-card";
+import { InvoicesCard } from "@/features/invoices/components/invoices-card";
 import { RentalTollCharges } from "@/features/tolls/components/rental-toll-charges";
 import { RentalKabisChip } from "@/features/kabis/components/rental-kabis-chip";
 import {
@@ -1174,7 +1175,10 @@ export function RentalDetailPage({ uuid }: { uuid: string }) {
               ) : null}
               {can(permissions.tenant.finance.accounts.read) ? (
                 <TabsContent value="ledger">
-                  <RentalLedgerCard rentalUuid={r.uuid} />
+                  <div className="space-y-4">
+                    <RentalLedgerCard rentalUuid={r.uuid} />
+                    <InvoicesCard rental={r.uuid} />
+                  </div>
                 </TabsContent>
               ) : null}
               <TabsContent value="tasks">
