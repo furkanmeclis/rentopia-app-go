@@ -99,6 +99,22 @@ export function todayISO(): string {
   }).format(new Date());
 }
 
+/** An API timestamp (UTC) as "dd.MM.yyyy HH:mm" in Istanbul time. */
+export function istanbulDateTime(value: string, locale: AppLocale): string {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat(locale === "en" ? "en-GB" : "tr-TR", {
+    timeZone: "Europe/Istanbul",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+    .format(d)
+    .replace(",", "");
+}
+
 /** First day of the current month (Istanbul) as yyyy-MM-dd. */
 export function monthStartISO(): string {
   return `${todayISO().slice(0, 8)}01`;

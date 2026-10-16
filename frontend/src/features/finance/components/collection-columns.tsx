@@ -29,6 +29,8 @@ type Option = { uuid: string; code: string; name: string };
 type Options = {
   selectable?: boolean;
   showAccount?: boolean;
+  /** Method / status / allocation facets (list page). */
+  facets?: boolean;
   branches?: Option[];
   cashAccounts?: Option[];
 };
@@ -57,6 +59,7 @@ export function AllocationStatusChip({ c }: { c: FinanceCollection }) {
 export function useCollectionColumns({
   selectable = false,
   showAccount = true,
+  facets = true,
   branches,
   cashAccounts,
 }: Options) {
@@ -127,7 +130,7 @@ export function useCollectionColumns({
         accessorKey: "method",
         labelKey: "finance.columns.method",
         enableSorting: false,
-        filterVariant: "faceted",
+        filterVariant: facets ? "faceted" : undefined,
         filterOptions: ALL_COLLECTION_METHODS.map((m) => ({
           value: m,
           labelKey: METHOD_LABEL_KEYS[m],
@@ -240,7 +243,7 @@ export function useCollectionColumns({
         accessorKey: "status",
         labelKey: "finance.columns.status",
         enableSorting: false,
-        filterVariant: "faceted",
+        filterVariant: facets ? "faceted" : undefined,
         filterOptions: COLLECTION_STATUSES.map((s) => ({
           value: s,
           labelKey: COLLECTION_STATUS_LABEL_KEYS[s],
@@ -253,7 +256,7 @@ export function useCollectionColumns({
         labelKey: "finance.columns.allocation_status",
         enableSorting: false,
         defaultHidden: true,
-        filterVariant: "faceted",
+        filterVariant: facets ? "faceted" : undefined,
         filterOptions: ALLOCATION_STATUSES.map((s) => ({
           value: s,
           labelKey: ALLOCATION_STATUS_LABEL_KEYS[s],
@@ -263,5 +266,14 @@ export function useCollectionColumns({
       }),
     );
     return cols;
-  }, [branches, cashAccounts, locale, selectable, showAccount, slug, t]);
+  }, [
+    branches,
+    cashAccounts,
+    facets,
+    locale,
+    selectable,
+    showAccount,
+    slug,
+    t,
+  ]);
 }

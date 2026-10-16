@@ -233,15 +233,21 @@ export function useFinanceReport(
 function useFinanceMutation<V, R>(
   fn: (slug: string, vars: V) => Promise<R>,
   toastKey: string,
+  /** The dialog renders the error inline (no global error toast). */
+  silent = false,
 ) {
   const { slug } = useTenant();
   const { t } = useLocale();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (vars: V) => fn(slug, vars),
+    meta: silent ? { silent: true } : undefined,
     onSuccess: () => {
       appToast.success(t(toastKey));
-      // Rentals / customers show finance cards too.
+    },
+    // Rentals / customers show finance cards too; a refused provider refund
+    // still leaves a failed refund row to show.
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: financeKeys.all(slug) });
     },
   });
@@ -286,6 +292,7 @@ export const useCreateCollection = () =>
     (slug, body: FinanceCollectionCreate) =>
       financeService.createCollection(slug, body),
     "finance.toast.collection_recorded",
+    true,
   );
 
 export const useAllocateCollection = (uuid: string) =>
@@ -293,6 +300,7 @@ export const useAllocateCollection = (uuid: string) =>
     (slug, body: FinanceAllocateRequest) =>
       financeService.allocateCollection(slug, uuid, body),
     "finance.toast.collection_allocated",
+    true,
   );
 
 export const useReleaseAllocation = (uuid: string) =>
@@ -300,6 +308,7 @@ export const useReleaseAllocation = (uuid: string) =>
     (slug, body: FinanceReleaseRequest) =>
       financeService.releaseAllocation(slug, uuid, body),
     "finance.toast.allocation_released",
+    true,
   );
 
 export const useRefundCollection = (uuid: string) =>
@@ -307,6 +316,7 @@ export const useRefundCollection = (uuid: string) =>
     (slug, body: FinanceCollectionRefundRequest) =>
       financeService.refundCollection(slug, uuid, body),
     "finance.toast.collection_refunded",
+    true,
   );
 
 export const useVoidCollection = (uuid: string) =>
@@ -314,6 +324,7 @@ export const useVoidCollection = (uuid: string) =>
     (slug, body: { reason: string }) =>
       financeService.voidCollection(slug, uuid, body),
     "finance.toast.collection_voided",
+    true,
   );
 
 export const useCreateAccount = () =>

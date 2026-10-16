@@ -39,6 +39,7 @@ import type {
   FinanceCollection,
   FinanceCollectionAllocation,
 } from "@/features/finance/types";
+import { ApiError } from "@/lib/api";
 import { useLocale } from "@/providers/locale-provider";
 
 type Props = {
@@ -267,7 +268,11 @@ export function RefundCollectionDialog({
           });
           close(false);
         } catch (error) {
-          setProblem(errorText(error, t("finance.errors.save_failed")));
+          setProblem(
+            error instanceof ApiError && error.status === 502
+              ? t("finance.collection_refund.provider_failed")
+              : errorText(error, t("finance.errors.save_failed")),
+          );
         }
       }}
     >

@@ -440,5 +440,6 @@
   "toast.collection_allocated": "Payment allocated",
   "toast.allocation_released": "Allocation released",
   "toast.collection_refunded": "Refund processed",
-  "toast.collection_voided": "Payment voided"
+  "toast.collection_voided": "Payment voided",
+  "collection_refund.provider_failed": "The payment provider refused the refund; nothing was booked. The failed refund is listed below."
 }

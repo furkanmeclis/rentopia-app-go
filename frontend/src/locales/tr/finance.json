@@ -440,5 +440,6 @@
   "toast.collection_allocated": "Tahsilat dağıtıldı",
   "toast.allocation_released": "Dağıtım geri alındı",
   "toast.collection_refunded": "İade işlendi",
-  "toast.collection_voided": "Tahsilat iptal edildi"
+  "toast.collection_voided": "Tahsilat iptal edildi",
+  "collection_refund.provider_failed": "Ödeme sağlayıcısı iadeyi reddetti; finans kaydı oluşmadı. Başarısız iade aşağıdaki listede görünür."
 }

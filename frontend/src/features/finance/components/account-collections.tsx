@@ -76,7 +76,10 @@ export function AccountCollectionsCard({
   });
   const params = { ...listState.params, account: accountUuid };
   const query = useCollectionsList(params);
-  const columns = useCollectionColumns({ showAccount: false });
+  const columns = useCollectionColumns({
+    showAccount: false,
+    facets: false,
+  });
   const total = query.data?.total ?? 0;
   return (
     <EntitySectionCard title={t("finance.collections.title")} badge={total}>

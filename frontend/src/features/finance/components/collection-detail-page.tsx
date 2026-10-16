@@ -43,7 +43,7 @@ import {
   SETTLEMENT_STATUS_LABEL_KEYS,
 } from "@/features/finance/constants";
 import { useCollection } from "@/features/finance/hooks/use-finance";
-import { reasonText } from "@/features/finance/lib/format";
+import { istanbulDateTime, reasonText } from "@/features/finance/lib/format";
 import type {
   EntryPurpose,
   FinanceCollection,
@@ -51,7 +51,7 @@ import type {
   FinanceCollectionRefund,
 } from "@/features/finance/types";
 import { useTenant } from "@/features/tenant/components/tenant-provider";
-import { date, datetime } from "@/lib/utils/format";
+import { date } from "@/lib/utils/format";
 import { useLocale } from "@/providers/locale-provider";
 import { usePermission } from "@/providers/permission-provider";
 
@@ -321,13 +321,13 @@ function CollectionFacts({ c }: { c: FinanceCollection }) {
     },
     {
       label: t("finance.fields.recorded_at"),
-      value: datetime(c.created_at, undefined, locale),
+      value: istanbulDateTime(c.created_at, locale),
     },
   ];
   if (c.settled_at) {
     rows.push({
       label: t("finance.fields.settled_at"),
-      value: datetime(c.settled_at, undefined, locale),
+      value: istanbulDateTime(c.settled_at, locale),
     });
   }
   if (c.voided_at) {
@@ -515,7 +515,7 @@ function RefundsCard({ c }: { c: FinanceCollection }) {
         gridPrimary: true,
         cell: ({ row }) => (
           <span className="whitespace-nowrap tabular-nums">
-            {datetime(row.original.created_at, undefined, locale)}
+            {istanbulDateTime(row.original.created_at, locale)}
           </span>
         ),
       }),
