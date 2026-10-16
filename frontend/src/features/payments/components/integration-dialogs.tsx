@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { z } from "zod";
 
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { AppDialog } from "@/components/dialogs/app-dialog";
 import { AppForm, AppInput, AppPassword, AppSwitch } from "@/components/forms";
 import { Button } from "@/components/ui/button";
@@ -261,7 +262,10 @@ function ProviderPicker({
         <SelectContent>
           {options.map((o) => (
             <SelectItem key={o.value} value={o.value}>
-              {o.label}
+              <span className="flex items-center gap-2">
+                <BrandLogo provider={o.value} className="h-6 w-10" />
+                {o.label}
+              </span>
             </SelectItem>
           ))}
         </SelectContent>

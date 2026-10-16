@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { ErrorState } from "@/components/common/error-state";
 import { StatusChip } from "@/components/common/status-chip";
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog";
@@ -92,15 +93,18 @@ export function IntegrationsPage() {
           enableSorting: true,
           gridPrimary: true,
           cell: ({ row }) => (
-            <div className="flex flex-col">
-              <span className="font-medium">{row.original.display_name}</span>
-              <span className="text-muted-foreground text-xs">
-                {reasonText(
-                  t,
-                  INTEGRATION_PROVIDER_LABEL_KEYS,
-                  row.original.provider,
-                )}
-              </span>
+            <div className="flex items-center gap-3">
+              <BrandLogo provider={row.original.provider} />
+              <div className="flex min-w-0 flex-col">
+                <span className="font-medium">{row.original.display_name}</span>
+                <span className="text-muted-foreground text-xs">
+                  {reasonText(
+                    t,
+                    INTEGRATION_PROVIDER_LABEL_KEYS,
+                    row.original.provider,
+                  )}
+                </span>
+              </div>
             </div>
           ),
         }),
