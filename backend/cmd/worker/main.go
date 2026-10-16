@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/cache"
@@ -63,6 +64,7 @@ import (
 	pricingusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/usecase"
 	profitabilityadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/profitability/adapters"
 	profitabilityusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/profitability/usecase"
+	publicapiusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/publicapi/usecase"
 	rentaladapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/rentals/adapters"
 	rentalusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/rentals/usecase"
 	reservationadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/adapters"
@@ -280,7 +282,18 @@ func main() {
 	fieldTasksSvc.SetNotifier(notifSvc)
 	fieldTasksSvc.SetLogger(log)
 	reservationSvc.SetDeliveryQuoter(fieldTasksSvc)
-	reservationSvc.SetLifecycleListener(reservationusecase.Listeners{rentalsSvc, fieldTasksSvc})
+	// Public booking API (TEC-728): lifecycle events of its reservations
+	// (expiry and cancellations run here too) become webhook deliveries;
+	// the minute sweep sends them. No booking runs in the worker.
+	publicAPISvc, err := publicapiusecase.New(pool, queries, fieldCipher,
+		orgsettingsusecase.New(orgsettingsrepository.NewPostgres(pool, queries)), reservationSvc, customerSvc, nil)
+	if err != nil {
+		log.Error("public_api_init_failed", "error", err)
+		exit(1)
+	}
+	publicAPISvc.SetLogger(log)
+	publicAPISvc.AllowPrivateWebhooks(!strings.EqualFold(strings.TrimSpace(cfg.App.Env), "production"))
+	reservationSvc.SetLifecycleListener(reservationusecase.Listeners{rentalsSvc, fieldTasksSvc, publicAPISvc})
 	// Toll passes (TEC-725): fetch steps (runner operations), the hourly
 	// fetch schedule and re-match, file imports.
 	tollsSvc := tollsusecase.New(pool, queries, integrationAccountsSvc, integrationRunner, integrationOps, tollProviders...)
@@ -499,6 +512,7 @@ func main() {
 		}).
 		WithTolls(tollsSvc.ScheduleFetches, tollsSvc.RematchDue).
 		WithAgreementPeriods(financeSvc.AccruePeriods).
+		WithPublicWebhooks(publicAPISvc.DeliverDue).
 		WithDocumentPDF(contractsSvc.RenderPDF).
 		WithSearch(
 			searchIndexer.ProcessUpsert,
@@ -537,6 +551,10 @@ func main() {
 	}
 	if err := queue.RegisterAgreementPeriodsSchedule(scheduler); err != nil {
 		log.Error("agreement_periods_scheduler_failed", "error", err)
+		exit(1)
+	}
+	if err := queue.RegisterPublicWebhooksSchedule(scheduler); err != nil {
+		log.Error("public_webhooks_scheduler_failed", "error", err)
 		exit(1)
 	}
 	go func() {

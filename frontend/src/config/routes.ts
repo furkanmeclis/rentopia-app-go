@@ -235,6 +235,9 @@ export const routes = {
       /** Provider accounts ("Entegrasyonlar", TEC-676). */
       integrations: (slug: string) =>
         `/t/${encodeURIComponent(slug)}/settings/integrations`,
+      /** Public booking API keys and webhooks (TEC-728). */
+      publicApi: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/settings/public-api`,
       roles: {
         root: (slug: string) => `/t/${encodeURIComponent(slug)}/settings/roles`,
         create: (slug: string) =>

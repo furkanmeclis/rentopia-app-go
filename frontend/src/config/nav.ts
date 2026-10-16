@@ -29,6 +29,7 @@ import {
   Landmark,
   Receipt,
   Wallet,
+  Webhook,
   FilePen,
   FileText,
   Gauge,
@@ -731,6 +732,13 @@ export function tenantNav(slug: string): NavCatalog {
             href: routes.tenant.settings.integrations(slug),
             icon: Plug,
             permission: permissions.tenant.integrations.manage,
+          },
+          {
+            id: "settings-public-api",
+            titleKey: "layout.nav_tenant_settings_public_api",
+            href: routes.tenant.settings.publicApi(slug),
+            icon: Webhook,
+            permission: permissions.tenant.publicApi.read,
           },
           {
             id: "settings-invoices",

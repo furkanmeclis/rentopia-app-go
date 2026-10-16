@@ -391,5 +391,16 @@
   "actions.agreements.contact_added": "Yetkili kişi eklendi",
   "actions.agreements.contact_removed": "Yetkili kişi kaldırıldı",
   "actions.agreements.driver_added": "İzinli sürücü eklendi",
-  "actions.agreements.driver_removed": "İzinli sürücü kaldırıldı"
+  "actions.agreements.driver_removed": "İzinli sürücü kaldırıldı",
+  "resources.tenant.public_api_keys": "Public API anahtarları",
+  "resources.tenant.public_webhooks": "Public API webhook'ları",
+  "actions.public_api.key_created": "API anahtarı oluşturuldu",
+  "actions.public_api.key_updated": "API anahtarı güncellendi",
+  "actions.public_api.key_rotated": "API anahtarı yenilendi",
+  "actions.public_api.key_revoked": "API anahtarı iptal edildi",
+  "actions.public_api.webhook_created": "Webhook eklendi",
+  "actions.public_api.webhook_updated": "Webhook güncellendi",
+  "actions.public_api.webhook_deleted": "Webhook silindi",
+  "actions.public_api.webhook_secret_rotated": "Webhook imza anahtarı yenilendi",
+  "actions.public_api.webhook_retried": "Webhook teslimatı yeniden denendi"
 }

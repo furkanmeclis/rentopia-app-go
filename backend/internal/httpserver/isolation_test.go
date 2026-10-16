@@ -89,6 +89,8 @@ var isolationAllowlist = map[string]string{
 	"PUT /v1/tenant/invoices/settings":             "invoice settings of the caller's organization (series, supplier address, tax mapping); no foreign references",
 	"POST /v1/tenant/suppliers":                    "body has no foreign references (title, tax number, contact and billing values)",
 	"POST /v1/tenant/suppliers/import":             "rows match supplier code / tax number inside the organization (suppliers adapters); the job is the {uuid} cases",
+	"POST /v1/tenant/public-api/keys":              "body has no foreign references (kind, name, channel, scopes, origins, rate limit)",
+	"POST /v1/tenant/public-api/webhooks":          "body has no foreign references (name, URL, event names)",
 }
 
 type isoOrg struct {
@@ -614,6 +616,16 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		ids["supplierPayment"] = str(must(call(o, http.MethodPost, "/v1/tenant/finance/supplier-payments", map[string]any{
 			"supplier_uuid": ids["supplier"], "cash_account_uuid": ids["bankAccount"], "amount": "100", "description": m + " ödeme",
 		}), http.StatusCreated, "create supplier payment"), "uuid")
+		// Public booking API (TEC-728): a key, a webhook endpoint and its
+		// test delivery (the target refuses the connection).
+		ids["publicKey"] = str(must(call(o, http.MethodPost, "/v1/tenant/public-api/keys", map[string]any{
+			"kind": "publishable", "name": m + " Site", "channel": "web", "allowed_origins": []string{"https://" + strings.ToLower(m) + ".example"},
+		}), http.StatusCreated, "create public api key"), "key", "uuid")
+		ids["webhook"] = str(must(call(o, http.MethodPost, "/v1/tenant/public-api/webhooks", map[string]any{
+			"name": m + " ERP", "url": "http://127.0.0.1:9/" + m,
+		}), http.StatusCreated, "create webhook"), "endpoint", "uuid")
+		ids["webhookDelivery"] = str(must(call(o, http.MethodPost, "/v1/tenant/public-api/webhooks/"+ids["webhook"]+"/test", nil),
+			http.StatusOK, "test webhook"), "uuid")
 		// Security deposits (TEC-719): a POS pre-auth resolved with one
 		// deduction (and its document), then a second one still held.
 		ids["deposit"] = str(must(call(o, http.MethodPost, "/v1/tenant/finance/deposits", map[string]any{
@@ -904,9 +916,12 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		// Operations overview (TEC-716): B's branches as the filter are
 		// unknown in A (not_found); the plain call and the badges are
 		// leak-scanned.
-		"GET /v1/tenant/overview":           {"?branch=" + b["branch"], "?branch=" + b["home"]},
-		"GET /v1/tenant/contract-templates": {"?q=" + orgB.marker},
-		"GET /v1/tenant/customer-requests":  {"?reservation=" + b["reservation"], "?q=" + orgB.marker},
+		"GET /v1/tenant/overview":                      {"?branch=" + b["branch"], "?branch=" + b["home"]},
+		"GET /v1/tenant/contract-templates":            {"?q=" + orgB.marker},
+		"GET /v1/tenant/customer-requests":             {"?reservation=" + b["reservation"], "?q=" + orgB.marker},
+		"GET /v1/tenant/public-api/keys":               {"?q=" + orgB.marker},
+		"GET /v1/tenant/public-api/webhooks":           {"?q=" + orgB.marker},
+		"GET /v1/tenant/public-api/webhook-deliveries": {"?endpoint=" + b["webhook"]},
 		// Finance: filters naming B's records are unknown in A.
 		"GET /v1/tenant/finance/accounts": {"?branch=" + b["home"], "?q=" + orgB.marker},
 		"GET /v1/tenant/finance/entries": {
@@ -1590,6 +1605,12 @@ func paramKey(prev, name string) string {
 		return "agreementDriver"
 	case "invoices/uuid":
 		return "invoice"
+	case "keys/uuid":
+		return "publicKey"
+	case "webhooks/uuid":
+		return "webhook"
+	case "webhook-deliveries/uuid":
+		return "webhookDelivery"
 	}
 	return ""
 }

@@ -170,6 +170,8 @@ export const Permission = {
   TenantSuppliersExport: "tenant.suppliers.export",
   TenantSuppliersImport: "tenant.suppliers.import",
   TenantSuppliersBulkArchive: "tenant.suppliers.bulk.archive",
+  TenantPublicAPIRead: "tenant.public_api.read",
+  TenantPublicAPIManage: "tenant.public_api.manage",
 } as const;
 
 export type PermissionSlug = (typeof Permission)[keyof typeof Permission];
@@ -563,6 +565,15 @@ export const permissions = {
       export: Permission.TenantSuppliersExport,
       import: Permission.TenantSuppliersImport,
       bulkArchive: Permission.TenantSuppliersBulkArchive,
+    },
+    /**
+     * Public booking API (TEC-728): `read` = keys (masked), webhook
+     * endpoints and deliveries; `manage` = issue / rotate / revoke keys and
+     * manage webhooks.
+     */
+    publicApi: {
+      read: Permission.TenantPublicAPIRead,
+      manage: Permission.TenantPublicAPIManage,
     },
   },
 } as const;

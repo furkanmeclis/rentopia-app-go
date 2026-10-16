@@ -111,3 +111,9 @@ invoice_sequences
 einvoice_taxpayers
 invoices
 invoice_lines
+public_api_keys
+public_api_idempotency
+public_quotes
+public_reservations
+public_webhook_endpoints
+public_webhook_deliveries

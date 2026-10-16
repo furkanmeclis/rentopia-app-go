@@ -391,5 +391,16 @@
   "actions.agreements.contact_added": "Contact added",
   "actions.agreements.contact_removed": "Contact removed",
   "actions.agreements.driver_added": "Driver permitted",
-  "actions.agreements.driver_removed": "Driver removed"
+  "actions.agreements.driver_removed": "Driver removed",
+  "resources.tenant.public_api_keys": "Public API keys",
+  "resources.tenant.public_webhooks": "Public API webhooks",
+  "actions.public_api.key_created": "API key created",
+  "actions.public_api.key_updated": "API key updated",
+  "actions.public_api.key_rotated": "API key rotated",
+  "actions.public_api.key_revoked": "API key revoked",
+  "actions.public_api.webhook_created": "Webhook added",
+  "actions.public_api.webhook_updated": "Webhook updated",
+  "actions.public_api.webhook_deleted": "Webhook deleted",
+  "actions.public_api.webhook_secret_rotated": "Webhook signing secret rotated",
+  "actions.public_api.webhook_retried": "Webhook delivery retried"
 }

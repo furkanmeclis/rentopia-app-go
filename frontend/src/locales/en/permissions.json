@@ -222,5 +222,8 @@
   "labels.tenant.agreements.read": "View corporate agreements",
   "labels.tenant.agreements.write": "Manage corporate agreements",
   "labels.tenant.agreements.export": "Export corporate agreements",
-  "groups.tenant_agreements": "Corporate agreements"
+  "groups.tenant_agreements": "Corporate agreements",
+  "labels.tenant.public_api.read": "View public API keys and webhooks",
+  "labels.tenant.public_api.manage": "Manage public API keys and webhooks",
+  "groups.tenant_public_api": "Public API"
 }

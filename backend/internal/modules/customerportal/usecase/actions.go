@@ -118,7 +118,7 @@ func (s *Service) CreateRequest(ctx context.Context, p Principal, id uuid.UUID, 
 	now := s.clock()
 	params := db.InsertCustomerRequestParams{
 		OrganizationID: p.Org.ID, ReservationID: row.ID, CustomerID: p.CustomerID, DriverID: p.DriverID,
-		SessionID: pgtype.Int8{Int64: p.SessionID, Valid: true}, RequestType: in.Type, Status: model.RequestOpen, Message: msg,
+		SessionID: pgtype.Int8{Int64: p.SessionID, Valid: p.SessionID != 0}, RequestType: in.Type, Status: model.RequestOpen, Message: msg,
 		RequestedStartsAt: tsPtr(in.RequestedStartsAt), RequestedEndsAt: tsPtr(in.RequestedEndsAt), Currency: r.Price.Currency,
 		ContactMasked: p.ContactMasked,
 	}

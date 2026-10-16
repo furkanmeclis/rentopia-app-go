@@ -142,6 +142,9 @@ import (
 	profitabilityadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/profitability/adapters"
 	profitabilityhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/profitability/handler"
 	profitabilityusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/profitability/usecase"
+	publicapimodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/publicapi"
+	publicapihandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/publicapi/handler"
+	publicapiusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/publicapi/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/qrlogin"
 	rentalsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/rentals"
 	rentaladapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/rentals/adapters"
@@ -557,7 +560,6 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	fieldTasksSvc.SetResourceEvents(resourceEvents)
 	fieldTasksSvc.SetLogger(log)
 	reservationSvc.SetDeliveryQuoter(fieldTasksSvc)
-	reservationSvc.SetLifecycleListener(reservationusecase.Listeners{rentalsSvc, fieldTasksSvc})
 	// Toll passes (TEC-725): provider fetch jobs on the integration runner,
 	// file import fallback, matching to rentals (toll charges), review
 	// queue. The finance ledger (TEC-717) plugs in with SetLedger.
@@ -626,6 +628,20 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	portalSvc.SetResourceEvents(resourceEvents)
 	portalSvc.SetLogger(log)
 	portalSvc.SetInvoices(invoicesSvc)
+	// Public booking API (TEC-728): /v1/public/* for the branded site, the
+	// widget and integrations, on the same quote / reservation use cases;
+	// lifecycle events of its reservations become signed webhooks.
+	publicAPISvc, err := publicapiusecase.New(deps.DB, deps.Queries, fieldCipher, orgSettingsSvc, reservationSvc, customerSvc, portalSvc)
+	if err != nil {
+		return nil, fmt.Errorf("httpserver: public api: %w", err)
+	}
+	publicAPISvc.SetActivity(activityRec)
+	publicAPISvc.SetResourceEvents(resourceEvents)
+	publicAPISvc.SetLogger(log)
+	publicAPISvc.SetBaseURL(strings.TrimRight(cfg.Auth.FrontendURL, "/") + "/api")
+	publicAPISvc.AllowPrivateWebhooks(!strings.EqualFold(strings.TrimSpace(cfg.App.Env), "production"))
+	publicAPISvc.SetImmediateDelivery(true)
+	reservationSvc.SetLifecycleListener(reservationusecase.Listeners{rentalsSvc, fieldTasksSvc, publicAPISvc})
 	// Rental group membership removals re-plan the commitments that relied
 	// on them (or are refused); moved reservations record plan_moved.
 	vehicleSvc.SetMembershipGuard(availabilitySvc)
@@ -652,6 +668,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	inspectionsmodule.RegisterLiveResources(tenantLive)
 	contractsmodule.RegisterLiveResources(tenantLive)
 	customerportalmodule.RegisterLiveResources(tenantLive)
+	publicapimodule.RegisterLiveResources(tenantLive)
 	financemodule.RegisterLiveResources(tenantLive)
 	tollsmodule.RegisterLiveResources(tenantLive)
 	kabismodule.RegisterLiveResources(tenantLive)
@@ -956,6 +973,9 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	portalH := customerportalhandler.New(portalSvc, activityRec)
 	portalH.SetRateLimiter(customerportalmodule.Limiter{L: ratelimit.New(deps.Redis, cfg.App.Env)})
 	customerportalmodule.RegisterRoutes(mux, portalH, tokens, loader, tenantResolver)
+	publicapimodule.RegisterRoutes(mux,
+		publicapihandler.NewPublic(publicAPISvc, ratelimit.New(deps.Redis, cfg.App.Env)),
+		publicapihandler.NewPanel(publicAPISvc, activityRec), tokens, loader, tenantResolver)
 	settingsmodule.RegisterRoutes(mux, settingshandler.New(
 		settingsusecase.New(deps.Queries),
 		deps.Storage,

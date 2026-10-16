@@ -40,6 +40,7 @@ import enTenantSettings from "@/locales/en/tenant_settings.json";
 import enPayments from "@/locales/en/payments.json";
 import enFinance from "@/locales/en/finance.json";
 import enSuppliers from "@/locales/en/suppliers.json";
+import enPublicApi from "@/locales/en/public_api.json";
 import enUsers from "@/locales/en/users.json";
 import enVehicleRecords from "@/locales/en/vehicle_records.json";
 import enOneWayRules from "@/locales/en/one_way_rules.json";
@@ -103,6 +104,7 @@ import trTenantSettings from "@/locales/tr/tenant_settings.json";
 import trPayments from "@/locales/tr/payments.json";
 import trFinance from "@/locales/tr/finance.json";
 import trSuppliers from "@/locales/tr/suppliers.json";
+import trPublicApi from "@/locales/tr/public_api.json";
 import trUsers from "@/locales/tr/users.json";
 import trVehicleRecords from "@/locales/tr/vehicle_records.json";
 import trOneWayRules from "@/locales/tr/one_way_rules.json";
@@ -194,6 +196,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     payments: trPayments,
     finance: trFinance,
     suppliers: trSuppliers,
+    public_api: trPublicApi,
   },
   en: {
     common: enCommon,
@@ -259,6 +262,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     payments: enPayments,
     finance: enFinance,
     suppliers: enSuppliers,
+    public_api: enPublicApi,
   },
 };
 export function loadMessages(locale: AppLocale) {
