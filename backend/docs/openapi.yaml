@@ -19976,6 +19976,271 @@ paths:
         "403": { $ref: "#/components/responses/TenantForbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/tenant/reports/occupancy:
+    get:
+      tags: [Tenant]
+      operationId: getTenantReportOccupancy
+      summary: Occupancy report
+      description: |
+        `tenant.finance.reports.read`. Rented time over available time (service life minus usage blocks) of the vehicles in the
+        caller's branch scope, by rental group (default), home branch or month, each row with its monthly trend. Uses the vehicle
+        profitability engine (same vehicles, same days). Vehicles in several rental groups count in each group
+        (`multi_group_vehicles`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - { name: from, in: query, schema: { type: string, format: date }, description: "First day (YYYY-MM-DD, Europe/Istanbul). Default: the first day of this month." }
+        - { name: to, in: query, schema: { type: string, format: date }, description: "Last day (YYYY-MM-DD). Default: today. The period is capped at 366 days." }
+        - { name: group_by, in: query, schema: { type: string, enum: [rental_group, branch, month] }, description: "Grouping (default rental_group)." }
+        - { name: branch, in: query, schema: { type: string }, description: "Home branch uuids, comma separated (unknown or outside the scope: 400 not_found)." }
+        - { name: rental_group, in: query, schema: { type: string }, description: "Rental group uuids, comma separated." }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeReportOccupancy" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/reports/occupancy/export:
+    post:
+      tags: [Tenant]
+      operationId: postTenantReportOccupancyExport
+      summary: Export the occupancy report
+      description: "`tenant.finance.reports.read` + `tenant.report.export`. `query` honours `from`, `to`, `branch`, `rental_group`, `group_by`. One row per group plus a totals row; the period and the method are in the notes above the table. The job runs with the requester's branch scope."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExportRequest" }
+      responses:
+        "202":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeExportJob" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/reports/income-expense:
+    get:
+      tags: [Tenant]
+      operationId: getTenantReportIncomeExpense
+      summary: Income / expense report
+      description: |
+        `tenant.finance.reports.read`. Income (rent and charge accruals of customer accounts, net of reversals, by entry date)
+        against expenses (recorded expenses by expense date, supplier invoices included) by category (default), branch or month,
+        with the monthly trend. Tolls passed through to the customer (`pass_through`) and vehicle procurement (`capex`) are kept
+        apart. A member limited to some branches sees their branches' records only (no head-office rows).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - { name: from, in: query, schema: { type: string, format: date }, description: "First day (YYYY-MM-DD, Europe/Istanbul). Default: the first day of this month." }
+        - { name: to, in: query, schema: { type: string, format: date }, description: "Last day (YYYY-MM-DD). Default: today. The period is capped at 366 days." }
+        - { name: group_by, in: query, schema: { type: string, enum: [category, branch, month] }, description: "Grouping (default category)." }
+        - { name: branch, in: query, schema: { type: string }, description: "Branch uuids of the entries / expenses, comma separated (unknown or outside the scope: 400 not_found)." }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeReportIncomeExpense" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/reports/income-expense/export:
+    post:
+      tags: [Tenant]
+      operationId: postTenantReportIncomeExpenseExport
+      summary: Export the income / expense report
+      description: "`tenant.finance.reports.read` + `tenant.report.export`. `query` honours `from`, `to`, `branch`, `group_by`. One row per category / branch / month plus a totals row; the period and the method are in the notes."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExportRequest" }
+      responses:
+        "202":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeExportJob" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/reports/channels:
+    get:
+      tags: [Tenant]
+      operationId: getTenantReportChannels
+      summary: Channel performance report
+      description: |
+        `tenant.finance.reports.read`. Reservations grouped by their sales channel (`reservations.channel`; channels imported by
+        the channel manager land in the same field): counts by status, cancellation rate (cancelled / all), revenue and channel
+        commission of confirmed reservations, net revenue, average booking value and length, by booking date (default) or
+        pick-up date, with the monthly trend per channel. Branch scope: pick-up or return branch.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - { name: from, in: query, schema: { type: string, format: date }, description: "First day (YYYY-MM-DD, Europe/Istanbul). Default: the first day of this month." }
+        - { name: to, in: query, schema: { type: string, format: date }, description: "Last day (YYYY-MM-DD). Default: today. The period is capped at 366 days." }
+        - { name: date_basis, in: query, schema: { type: string, enum: [booking, pickup] }, description: "booking (default): reservation created in the period; pickup: pick-up in the period." }
+        - { name: branch, in: query, schema: { type: string }, description: "Pick-up branch uuids, comma separated (unknown or outside the scope: 400 not_found)." }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeReportChannels" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/reports/channels/export:
+    post:
+      tags: [Tenant]
+      operationId: postTenantReportChannelsExport
+      summary: Export the channel performance report
+      description: "`tenant.finance.reports.read` + `tenant.report.export`. `query` honours `from`, `to`, `branch`, `date_basis`. One row per channel plus a totals row."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExportRequest" }
+      responses:
+        "202":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeExportJob" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/reports/aging:
+    get:
+      tags: [Tenant]
+      operationId: getTenantReportAging
+      summary: Receivable / payable aging report
+      description: |
+        `tenant.finance.reports.read`. Open amounts of customer (receivables, default) or supplier (payables) accounts as of a
+        date, by days past due (not due, 1–30, 31–60, 61–90, 90+); settlements pay the oldest charges first (FIFO), like the
+        ledger summary. Deposits are excluded; accounts with nothing open and no credit are left out. Branch scope applies to the
+        entries' branch.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - { name: as_of, in: query, schema: { type: string, format: date }, description: "Report date (YYYY-MM-DD, Europe/Istanbul): entries posted up to it. Default: today." }
+        - { name: party, in: query, schema: { type: string, enum: [customer, supplier] }, description: "customer (default) or supplier accounts." }
+        - { name: branch, in: query, schema: { type: string }, description: "Entry branch uuids, comma separated (unknown or outside the scope: 400 not_found)." }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeReportAging" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/reports/aging/export:
+    post:
+      tags: [Tenant]
+      operationId: postTenantReportAgingExport
+      summary: Export the aging report
+      description: "`tenant.finance.reports.read` + `tenant.report.export`. `query` honours `as_of`, `party`, `branch`. One row per account plus a totals row."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExportRequest" }
+      responses:
+        "202":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeExportJob" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/reports/branches:
+    get:
+      tags: [Tenant]
+      operationId: getTenantReportBranches
+      summary: Branch comparison report
+      description: |
+        `tenant.finance.reports.read`. The branches compared by their vehicles (home branch): vehicles, rentals, occupancy, gross
+        income, commissions, direct costs, allocated overhead and the operating contribution, i.e. the branch totals of the
+        vehicle profitability report under the chosen basis and allocation method.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - { name: from, in: query, schema: { type: string, format: date }, description: "First day (YYYY-MM-DD, Europe/Istanbul). Default: the first day of this month." }
+        - { name: to, in: query, schema: { type: string, format: date }, description: "Last day (YYYY-MM-DD). Default: today. The period is capped at 366 days." }
+        - { name: basis, in: query, schema: { type: string, enum: [accrual, cash] }, description: "Profitability basis (default accrual)." }
+        - { name: allocation, in: query, schema: { type: string, enum: [rental_days, vehicle_count, revenue] }, description: "Shared overhead allocation method (default rental_days)." }
+        - { name: branch, in: query, schema: { type: string }, description: "Home branch uuids, comma separated (unknown or outside the scope: 400 not_found)." }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeReportBranches" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/reports/branches/export:
+    post:
+      tags: [Tenant]
+      operationId: postTenantReportBranchesExport
+      summary: Export the branch comparison report
+      description: "`tenant.finance.reports.read` + `tenant.report.export`. `query` honours `from`, `to`, `branch`, `basis`, `allocation`. One row per branch plus a totals row."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExportRequest" }
+      responses:
+        "202":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeExportJob" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
   /v1/tenant/agreements/meta:
     get:
       tags: [Tenant]
@@ -34631,6 +34896,314 @@ components:
       properties:
         success: { type: boolean, enum: [true] }
         data: { $ref: "#/components/schemas/VehicleProfitabilityVehicle" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    ReportMethod:
+      type: object
+      required: [timezone, currency, vat_inclusive, branch_scope]
+      properties:
+        timezone: { type: string }
+        currency: { type: string }
+        vat_inclusive: { type: boolean }
+        branch_scope: { type: string, enum: [all, branches], description: "all: every branch and the head office; branches: the caller's branches only (no head-office records)" }
+
+    ReportRef:
+      type: object
+      required: [uuid, code, name]
+      properties:
+        uuid: { type: [string, "null"], format: uuid, description: "null for keys without a record (month, ungrouped vehicles)" }
+        code: { type: string }
+        name: { type: string }
+
+    ReportOccupancyFigures:
+      type: object
+      required: [vehicles, rental_days, available_days, occupancy, rental_count, gross_income, income_per_available_day]
+      properties:
+        vehicles: { type: integer }
+        rental_days: { type: number, description: "Rented time in days (two decimals)" }
+        available_days: { type: number, description: "In service, not blocked, in days (two decimals)" }
+        occupancy: { type: [number, "null"], description: "Rented / available in percent (one decimal)" }
+        rental_count: { type: integer, description: "Rentals of the group's vehicles (0 on month rows)" }
+        gross_income: { type: string, description: "TRY, VAT inclusive (decimal string), profitability accrual basis" }
+        income_per_available_day: { type: [string, "null"], description: "Gross income per available day" }
+
+    ReportOccupancyPoint:
+      type: object
+      required: [month, rental_days, available_days, occupancy]
+      properties:
+        month: { type: string, description: "YYYY-MM" }
+        rental_days: { type: number }
+        available_days: { type: number }
+        occupancy: { type: [number, "null"] }
+
+    ReportOccupancyRow:
+      allOf:
+        - $ref: "#/components/schemas/ReportOccupancyFigures"
+        - type: object
+          required: [key, group, trend]
+          properties:
+            key: { type: string, description: "Group uuid, `ungrouped` or YYYY-MM" }
+            group: { $ref: "#/components/schemas/ReportRef" }
+            trend:
+              type: array
+              items: { $ref: "#/components/schemas/ReportOccupancyPoint" }
+
+    ReportOccupancy:
+      type: object
+      required: [from, to, group_by, method, rows, totals, trend, multi_group_vehicles]
+      properties:
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        group_by: { type: string, enum: [rental_group, branch, month] }
+        method: { $ref: "#/components/schemas/ReportMethod" }
+        rows:
+          type: array
+          items: { $ref: "#/components/schemas/ReportOccupancyRow" }
+        totals: { $ref: "#/components/schemas/ReportOccupancyFigures" }
+        trend:
+          type: array
+          items: { $ref: "#/components/schemas/ReportOccupancyPoint" }
+        multi_group_vehicles: { type: integer }
+
+    ReportIncomeExpenseFigures:
+      type: object
+      required: [income, expense, net, pass_through, capex, margin]
+      properties:
+        income: { type: string, description: "TRY, VAT inclusive (decimal string)" }
+        expense: { type: string, description: "TRY, VAT inclusive (decimal string)" }
+        net: { type: string, description: "Income − expense" }
+        pass_through: { type: string, description: "Tolls passed through to the customer (never income)" }
+        capex: { type: string, description: "Vehicle procurement (never an expense)" }
+        margin: { type: [number, "null"], description: "Net / income in percent (one decimal)" }
+
+    ReportIncomeExpenseRow:
+      allOf:
+        - $ref: "#/components/schemas/ReportIncomeExpenseFigures"
+        - type: object
+          required: [key, kind, code, name, share]
+          properties:
+            key: { type: string }
+            kind: { type: string, enum: [income, expense, pass_through, capex, group] }
+            code: { type: string, description: "Income: rent / other / charge.<kind>; expense category code; branch code or YYYY-MM" }
+            name: { type: string, description: "Expense category / branch name; empty for income categories and the head office" }
+            share: { type: [number, "null"], description: "Share in the kind's total (category) or in the income (branch / month), percent" }
+
+    ReportIncomeExpensePoint:
+      allOf:
+        - $ref: "#/components/schemas/ReportIncomeExpenseFigures"
+        - type: object
+          required: [month]
+          properties:
+            month: { type: string, description: "YYYY-MM" }
+
+    ReportIncomeExpense:
+      type: object
+      required: [from, to, group_by, method, rows, totals, trend]
+      properties:
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        group_by: { type: string, enum: [category, branch, month] }
+        method: { $ref: "#/components/schemas/ReportMethod" }
+        rows:
+          type: array
+          items: { $ref: "#/components/schemas/ReportIncomeExpenseRow" }
+        totals: { $ref: "#/components/schemas/ReportIncomeExpenseFigures" }
+        trend:
+          type: array
+          items: { $ref: "#/components/schemas/ReportIncomeExpensePoint" }
+
+    ReportChannelFigures:
+      type: object
+      required: [reservations, confirmed, pending, cancelled, expired, no_show, cancellation_rate, revenue, commission, net_revenue, commission_rate, channel_collected, average_revenue, average_days, revenue_share]
+      properties:
+        reservations: { type: integer }
+        confirmed: { type: integer }
+        pending: { type: integer, description: "Request, awaiting review or payment" }
+        cancelled: { type: integer }
+        expired: { type: integer }
+        no_show: { type: integer }
+        cancellation_rate: { type: [number, "null"], description: "Cancelled / reservations in percent" }
+        revenue: { type: string, description: "Sold price of confirmed reservations (TRY, VAT inclusive)" }
+        commission: { type: string, description: "Channel commission of confirmed reservations" }
+        net_revenue: { type: string }
+        commission_rate: { type: [number, "null"] }
+        channel_collected: { type: string, description: "Revenue collected by the channel itself" }
+        average_revenue: { type: [string, "null"] }
+        average_days: { type: number }
+        revenue_share: { type: [number, "null"] }
+
+    ReportChannelRow:
+      allOf:
+        - $ref: "#/components/schemas/ReportChannelFigures"
+        - type: object
+          required: [channel]
+          properties:
+            channel: { type: string, description: "Sales channel code (web, widget, api, branch, yolcu360, obilet or a channel added later)" }
+
+    ReportChannelPoint:
+      type: object
+      required: [month, channel, reservations, cancelled, revenue]
+      properties:
+        month: { type: string }
+        channel: { type: string }
+        reservations: { type: integer }
+        cancelled: { type: integer }
+        revenue: { type: string }
+
+    ReportChannels:
+      type: object
+      required: [from, to, date_basis, method, source, rows, totals, trend]
+      properties:
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        date_basis: { type: string, enum: [booking, pickup] }
+        method: { $ref: "#/components/schemas/ReportMethod" }
+        source: { type: string, description: "Reservation field the channels come from" }
+        rows:
+          type: array
+          items: { $ref: "#/components/schemas/ReportChannelRow" }
+        totals: { $ref: "#/components/schemas/ReportChannelFigures" }
+        trend:
+          type: array
+          items: { $ref: "#/components/schemas/ReportChannelPoint" }
+
+    ReportAgingFigures:
+      type: object
+      required: [current, days_1_30, days_31_60, days_61_90, days_90_plus, overdue, open, credit]
+      properties:
+        current: { type: string, description: "Not yet due" }
+        days_1_30: { type: string }
+        days_31_60: { type: string }
+        days_61_90: { type: string }
+        days_90_plus: { type: string }
+        overdue: { type: string }
+        open: { type: string }
+        credit: { type: string, description: "Settlements not applied to any charge" }
+
+    ReportAgingRow:
+      allOf:
+        - $ref: "#/components/schemas/ReportAgingFigures"
+        - type: object
+          required: [uuid, code, name, party_kind, payment_term_days, balance, last_entry]
+          properties:
+            uuid: { type: string, format: uuid }
+            code: { type: string }
+            name: { type: string }
+            party_kind: { type: string, enum: [customer, supplier] }
+            payment_term_days: { type: integer }
+            balance: { type: string, description: "Customer: what the party owes; supplier: what we owe" }
+            last_entry: { type: [string, "null"], format: date }
+
+    ReportAgingBucket:
+      type: object
+      required: [key, amount]
+      properties:
+        key: { type: string, enum: [current, days_1_30, days_31_60, days_61_90, days_90_plus] }
+        amount: { type: string }
+
+    ReportAging:
+      type: object
+      required: [as_of, party, method, rows, totals, buckets]
+      properties:
+        as_of: { type: string, format: date }
+        party: { type: string, enum: [customer, supplier] }
+        method: { $ref: "#/components/schemas/ReportMethod" }
+        rows:
+          type: array
+          items: { $ref: "#/components/schemas/ReportAgingRow" }
+        totals: { $ref: "#/components/schemas/ReportAgingFigures" }
+        buckets:
+          type: array
+          items: { $ref: "#/components/schemas/ReportAgingBucket" }
+
+    ReportBranchFigures:
+      type: object
+      required: [vehicles, rental_count, rental_days, available_days, occupancy, gross_income, commissions, direct_costs, overhead, contribution, margin, income_per_vehicle, contribution_share]
+      properties:
+        vehicles: { type: integer }
+        rental_count: { type: integer }
+        rental_days: { type: number }
+        available_days: { type: number }
+        occupancy: { type: [number, "null"] }
+        gross_income: { type: string }
+        commissions: { type: string }
+        direct_costs: { type: string }
+        overhead: { type: string }
+        contribution: { type: string }
+        margin: { type: [number, "null"] }
+        income_per_vehicle: { type: [string, "null"] }
+        contribution_share: { type: [number, "null"], description: "Share of the total contribution (when positive), percent" }
+
+    ReportBranchRow:
+      allOf:
+        - $ref: "#/components/schemas/ReportBranchFigures"
+        - type: object
+          required: [branch]
+          properties:
+            branch: { $ref: "#/components/schemas/ReportRef" }
+
+    ReportBranchMethod:
+      allOf:
+        - $ref: "#/components/schemas/ReportMethod"
+        - type: object
+          required: [basis, allocation, overhead_scope, allocation_fallback, unallocated_overhead]
+          properties:
+            basis: { type: string, enum: [accrual, cash] }
+            allocation: { type: string, enum: [rental_days, vehicle_count, revenue] }
+            overhead_scope: { type: string, enum: [all, branches] }
+            allocation_fallback: { type: boolean }
+            unallocated_overhead: { type: string }
+
+    ReportBranches:
+      type: object
+      required: [from, to, method, rows, totals]
+      properties:
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        method: { $ref: "#/components/schemas/ReportBranchMethod" }
+        rows:
+          type: array
+          items: { $ref: "#/components/schemas/ReportBranchRow" }
+        totals: { $ref: "#/components/schemas/ReportBranchFigures" }
+
+    EnvelopeReportOccupancy:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/ReportOccupancy" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeReportIncomeExpense:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/ReportIncomeExpense" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeReportChannels:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/ReportChannels" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeReportAging:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/ReportAging" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeReportBranches:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/ReportBranches" }
         meta: { $ref: "#/components/schemas/ResponseMeta" }
 
     EnvelopeFinanceReport:

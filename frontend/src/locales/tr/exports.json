@@ -93,5 +93,10 @@
   "resources.tenant.finance_collections": "Tahsilatlar",
   "resources.tenant.invoices": "Faturalar",
   "resources.tenant.vehicle_profitability": "Araç kârlılığı",
+  "resources.tenant.report_occupancy": "Doluluk raporu",
+  "resources.tenant.report_income_expense": "Gelir / gider raporu",
+  "resources.tenant.report_channels": "Kanal performansı",
+  "resources.tenant.report_aging": "Cari / vade yaşlandırma",
+  "resources.tenant.report_branches": "Şube karşılaştırma",
   "resources.tenant.agreements": "Kurumsal anlaşmalar"
 }

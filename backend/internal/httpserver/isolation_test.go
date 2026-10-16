@@ -939,6 +939,15 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		"GET /v1/tenant/reports/vehicle-profitability": {
 			"?branch=" + b["home"], "?rental_group=" + b["group"], "?q=" + orgB.marker, "?basis=cash&allocation=revenue",
 		},
+		// Reports (TEC-738): B's branch / rental group as a filter is
+		// unknown in A (not_found); the plain calls are leak-scanned.
+		"GET /v1/tenant/reports/occupancy": {
+			"?branch=" + b["home"], "?rental_group=" + b["group"], "?group_by=branch", "?group_by=month",
+		},
+		"GET /v1/tenant/reports/income-expense": {"?branch=" + b["home"], "?group_by=branch", "?group_by=month"},
+		"GET /v1/tenant/reports/channels":       {"?branch=" + b["home"], "?date_basis=pickup"},
+		"GET /v1/tenant/reports/aging":          {"?branch=" + b["home"], "?party=supplier"},
+		"GET /v1/tenant/reports/branches":       {"?branch=" + b["home"], "?basis=cash&allocation=revenue"},
 		"GET /v1/tenant/rate-plans/matrix": {
 			"?scope=branch&branch=" + b["branch"],
 			"?scope=branch_channel&branch=" + b["home"] + "&channel=web",
