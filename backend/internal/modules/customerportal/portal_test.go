@@ -889,8 +889,11 @@ func TestPortalScoping(t *testing.T) {
 			route{http.MethodPost, base + "/reservations/" + res + "/pay"},
 			route{http.MethodPost, base + "/reservations/" + res + "/requests"},
 			route{http.MethodGet, base + "/reservations/" + res + "/documents/" + dx + "/pdf"},
+			route{http.MethodGet, base + "/reservations/" + res + "/invoices/" + uuid.NewString() + "/pdf"},
 		)
 	}
+	// X's own reservation with an invoice that is not one of its own.
+	routes = append(routes, route{http.MethodGet, base + "/reservations/" + rx.UUID.String() + "/invoices/" + uuid.NewString() + "/pdf"})
 	// X's own reservation with someone else's document.
 	for _, d := range []string{dy, dbB} {
 		routes = append(routes, route{http.MethodGet, base + "/reservations/" + rx.UUID.String() + "/documents/" + d + "/pdf"})

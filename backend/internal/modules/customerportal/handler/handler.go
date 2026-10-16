@@ -279,6 +279,36 @@ func (h *Handler) DocumentPDF(w http.ResponseWriter, r *http.Request) {
 	_, _ = io.Copy(w, f.Body)
 }
 
+// InvoicePDF serves GET
+// /v1/customer/{orgSlug}/reservations/{uuid}/invoices/{invoiceUuid}/pdf
+// (renter sessions; the PDF of an issued invoice of the reservation).
+func (h *Handler) InvoicePDF(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r, "uuid")
+	if !ok {
+		return
+	}
+	inv, ok := pathID(w, r, "invoiceUuid")
+	if !ok {
+		return
+	}
+	p := principal(r)
+	if !h.allow(w, r, limitPDF, p.SessionUUID.String()) {
+		return
+	}
+	data, name, err := h.svc.InvoicePDF(r.Context(), p, id, inv, client(r))
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": name}))
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Cache-Control", "private, no-store")
+	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
+
 // Pay serves POST /v1/customer/{orgSlug}/reservations/{uuid}/pay.
 func (h *Handler) Pay(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r, "uuid")

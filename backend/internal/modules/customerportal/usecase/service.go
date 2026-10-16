@@ -35,6 +35,7 @@ import (
 	contractsmodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/contracts/model"
 	contractsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/contracts/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/customerportal/model"
+	invoicemodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/invoices/model"
 	paymodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/payments/model"
 	resmodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/model"
 	smsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/sms/usecase"
@@ -158,6 +159,7 @@ type Service struct {
 	payments     Payments
 	accounts     Accounts
 	documents    Documents
+	invoices     Invoices
 	activity     *activity.Recorder
 	events       resourceevents.Publisher
 	log          *slog.Logger
@@ -179,6 +181,16 @@ func (s *Service) SetPayments(p Payments, a Accounts) { s.payments, s.accounts =
 
 // SetDocuments wires the documents view and downloads.
 func (s *Service) SetDocuments(d Documents) { s.documents = d }
+
+// Invoices is the invoices port (TEC-722): the issued invoices of a
+// reservation and their PDF.
+type Invoices interface {
+	PortalInvoices(ctx context.Context, orgID, reservationID int64, pathPrefix string) ([]invoicemodel.PortalInvoice, error)
+	PortalInvoicePDF(ctx context.Context, orgID, reservationID int64, invoiceUUID uuid.UUID) ([]byte, string, error)
+}
+
+// SetInvoices wires the invoices view and downloads.
+func (s *Service) SetInvoices(i Invoices) { s.invoices = i }
 
 // SetActivity records sign-in and request events.
 func (s *Service) SetActivity(r *activity.Recorder) { s.activity = r }
