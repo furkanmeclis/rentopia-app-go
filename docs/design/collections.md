@@ -4,7 +4,7 @@ Spec §11.2. A collection ("tahsilat") is one receipt of money from a party: cas
 
 Module: `backend/internal/modules/finance` (`usecase/collections.go`, `usecase/collection_money.go`). Panel: Finans → Tahsilatlar, and "Tahsilat al" on the rental "Cari" tab and the account detail.
 
-## Model (migration 000600)
+## Model (migration 000101)
 
 | Table | Purpose |
 |-------|---------|
@@ -15,7 +15,7 @@ Module: `backend/internal/modules/finance` (`usecase/collections.go`, `usecase/c
 
 Existing collection entries were backfilled as unallocated collections (method from the payment or `other`, status from reversals / refunds). Online payments posted before the migration are not settled retroactively (`settlement_status = none`).
 
-Migration 000601 seeds `tenant.finance.collections.bulk.allocate`. Everything else reuses existing slugs (below).
+Migration 000102 seeds `tenant.finance.collections.bulk.allocate`. Everything else reuses existing slugs (below).
 
 ## Open items and allocation
 

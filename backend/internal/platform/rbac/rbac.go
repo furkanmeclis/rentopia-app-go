@@ -181,7 +181,7 @@ const (
 	PermTenantKabisReconcile = "tenant.kabis.reconcile"
 )
 
-// Collections (TEC-718, migration 000601). Recording, allocating,
+// Collections (TEC-718, migration 000102). Recording, allocating,
 // refunding and voiding reuse PermTenantPaymentCollect,
 // PermTenantFinanceAccountsWrite, PermTenantPaymentRefund and
 // PermTenantFinanceLedgerAdjust.
