@@ -90,11 +90,14 @@ type Document struct {
 	Type      string
 	IssueDate string // YYYY-MM-DD (Europe/Istanbul)
 	IssueTime string // HH:MM:SS
-	Currency  string
-	Supplier  Party
-	Customer  Party
-	Lines     []Line
-	Notes     []string
+	// Today is the Istanbul business day the Schematron's "not in the
+	// future" check is decided against (empty = now).
+	Today    string
+	Currency string
+	Supplier Party
+	Customer Party
+	Lines    []Line
+	Notes    []string
 	// Returns is set on an IADE invoice.
 	Returns *Reference
 }
