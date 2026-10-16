@@ -85,5 +85,6 @@
   "resources.tenant.ledger_entries": "Cari hareketler",
   "resources.tenant.cash_accounts": "Kasa ve banka hesapları",
   "resources.tenant.cash_movements": "Kasa / banka hareketleri",
-  "resources.tenant.expenses": "Giderler"
+  "resources.tenant.expenses": "Giderler",
+  "resources.tenant.security_deposits": "Depozitolar"
 }

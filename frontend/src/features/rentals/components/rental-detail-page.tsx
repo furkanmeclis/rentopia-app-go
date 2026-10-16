@@ -45,6 +45,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { permissions } from "@/config/permissions";
 import { routes } from "@/config/routes";
 import { DocumentsSection } from "@/features/contracts/components/documents-section";
+import { RentalDepositCard } from "@/features/deposits/components/rental-deposit-card";
 import { RentalLedgerCard } from "@/features/finance/components/rental-ledger-card";
 import { RentalTollCharges } from "@/features/tolls/components/rental-toll-charges";
 import { RentalKabisChip } from "@/features/kabis/components/rental-kabis-chip";
@@ -1124,6 +1125,11 @@ export function RentalDetailPage({ uuid }: { uuid: string }) {
                     {t("rentals.tabs.documents")}
                   </TabsTrigger>
                 ) : null}
+                {can(permissions.tenant.finance.deposits.read) ? (
+                  <TabsTrigger value="deposit">
+                    {t("rentals.tabs.deposit")}
+                  </TabsTrigger>
+                ) : null}
                 {can(permissions.tenant.finance.accounts.read) ? (
                   <TabsTrigger value="ledger">
                     {t("rentals.tabs.ledger")}
@@ -1159,6 +1165,11 @@ export function RentalDetailPage({ uuid }: { uuid: string }) {
               {can(permissions.tenant.contracts.read) ? (
                 <TabsContent value="documents">
                   <DocumentsSection reservationUuid={r.reservation.uuid} />
+                </TabsContent>
+              ) : null}
+              {can(permissions.tenant.finance.deposits.read) ? (
+                <TabsContent value="deposit">
+                  <RentalDepositCard rentalUuid={r.uuid} />
                 </TabsContent>
               ) : null}
               {can(permissions.tenant.finance.accounts.read) ? (

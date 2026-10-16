@@ -154,6 +154,9 @@ export const routes = {
         `/t/${encodeURIComponent(slug)}/finance/expense-categories`,
       reports: (slug: string) =>
         `/t/${encodeURIComponent(slug)}/finance/reports`,
+      /** Security deposits; `?rental=` opens that rental's resolution. */
+      deposits: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/finance/deposits`,
     },
     /** HGS / OGS toll passes and their review queue (TEC-725). */
     kabis: {

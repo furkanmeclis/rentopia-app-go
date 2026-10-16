@@ -125,6 +125,7 @@ export type IoResource =
   | "tenant.cash_accounts"
   | "tenant.cash_movements"
   | "tenant.expenses"
+  | "tenant.security_deposits"
   | "tenant.toll_passes";
 
 export const EXPORT_PATHS: Record<IoResource, string> = {
@@ -154,6 +155,7 @@ export const EXPORT_PATHS: Record<IoResource, string> = {
   "tenant.cash_accounts": "/v1/tenant/finance/cash-accounts/export",
   "tenant.cash_movements": "/v1/tenant/finance/movements/export",
   "tenant.expenses": "/v1/tenant/finance/expenses/export",
+  "tenant.security_deposits": "/v1/tenant/finance/deposits/export",
   "tenant.toll_passes": "/v1/tenant/toll-passes/export",
 };
 
