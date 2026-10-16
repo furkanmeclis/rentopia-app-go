@@ -12,15 +12,10 @@ import {
 } from "@/components/forms";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { FinanceFormDialog } from "@/features/finance/components/form-dialog";
-import {
-  COLLECTION_METHODS,
-  METHOD_LABEL_KEYS,
-  PURPOSE_LABEL_KEYS,
-} from "@/features/finance/constants";
+import { PURPOSE_LABEL_KEYS } from "@/features/finance/constants";
 import {
   useAdjust,
   useCashAccountsList,
-  useCollect,
   useOffset,
   useRefund,
   useReverseEntry,
@@ -82,105 +77,6 @@ function useCashOptions(enabled: boolean) {
       })),
     ],
     [query.data?.items, t],
-  );
-}
-
-type CollectionValues = {
-  amount: string;
-  purpose: string;
-  method: string;
-  entry_date: string;
-  cash_account_uuid: string;
-  description: string;
-};
-
-export function CollectionDialog({ account, open, onOpenChange }: DialogProps) {
-  const { t } = useLocale();
-  const [problem, setProblem] = useState<string | null>(null);
-  const collect = useCollect(account.uuid);
-  const amount = useAmountSchema();
-  const cash = useCashOptions(open);
-  const schema = z.object({
-    amount,
-    purpose: z.string(),
-    method: z.string(),
-    entry_date: z.string(),
-    cash_account_uuid: z.string(),
-    description: z.string().max(500),
-  });
-  const close = (next: boolean) => {
-    if (!next) setProblem(null);
-    onOpenChange(next);
-  };
-  return (
-    <FinanceFormDialog<CollectionValues>
-      open={open}
-      onOpenChange={close}
-      formId="finance-collection-form"
-      title={t("finance.collection.title")}
-      description={t("finance.collection.description")}
-      submitLabel={t("finance.actions.collect")}
-      pending={collect.isPending}
-      problem={problem}
-      schema={schema}
-      defaultValues={{
-        amount:
-          Number(account.balance.balance) > 0 ? account.balance.balance : "",
-        purpose: "general",
-        method: "bank_transfer",
-        entry_date: todayISO(),
-        cash_account_uuid: NONE,
-        description: "",
-      }}
-      onSubmit={async (v) => {
-        try {
-          await collect.mutateAsync({
-            amount: normalizeAmount(v.amount),
-            purpose: v.purpose as "general",
-            method: v.method as "cash",
-            entry_date: v.entry_date || undefined,
-            cash_account_uuid:
-              v.cash_account_uuid !== NONE ? v.cash_account_uuid : undefined,
-            description: v.description.trim() || undefined,
-          });
-          close(false);
-        } catch (error) {
-          setProblem(errorText(error, t("finance.errors.save_failed")));
-        }
-      }}
-    >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <AppInput
-          name="amount"
-          label={t("finance.fields.amount")}
-          inputMode="decimal"
-        />
-        <AppDatePicker name="entry_date" label={t("finance.fields.date")} />
-        <AppSelect
-          name="purpose"
-          label={t("finance.fields.purpose")}
-          options={(["general", "prepayment", "deposit"] as const).map((p) => ({
-            value: p,
-            label: t(PURPOSE_LABEL_KEYS[p]),
-          }))}
-        />
-        <AppSelect
-          name="method"
-          label={t("finance.fields.method")}
-          options={COLLECTION_METHODS.map((m) => ({
-            value: m,
-            label: t(METHOD_LABEL_KEYS[m]),
-          }))}
-        />
-      </div>
-      <AppSelect
-        name="cash_account_uuid"
-        label={t("finance.fields.cash_account")}
-        description={t("finance.fields.cash_account_hint")}
-        options={cash}
-      />
-      <AppTextarea name="description" label={t("finance.fields.description")} />
-    </FinanceFormDialog>
   );
 }
 

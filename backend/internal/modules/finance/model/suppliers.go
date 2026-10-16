@@ -145,8 +145,8 @@ type SupplierInvoiceFilter struct {
 	IDs        []int64
 }
 
-// Allocation is the part of a payment applied to one invoice.
-type Allocation struct {
+// SupplierAllocation is the part of a payment applied to one invoice.
+type SupplierAllocation struct {
 	InvoiceUUID uuid.UUID   `json:"invoice_uuid"`
 	InvoiceNo   string      `json:"invoice_no"`
 	DueDate     Date        `json:"due_date"`
@@ -155,28 +155,28 @@ type Allocation struct {
 
 // SupplierPayment is one payment to a supplier.
 type SupplierPayment struct {
-	UUID            uuid.UUID    `json:"uuid"`
-	Supplier        Ref          `json:"supplier"`
-	Account         Ref          `json:"account"`
-	CashAccount     Ref          `json:"cash_account"`
-	CashAccountKind string       `json:"cash_account_kind"`
-	Amount          money.Money  `json:"amount"`
-	AllocatedAmount money.Money  `json:"allocated_amount"`
-	UnallocatedAmt  money.Money  `json:"unallocated_amount"`
-	Currency        string       `json:"currency"`
-	PaymentDate     Date         `json:"payment_date"`
-	Method          string       `json:"method"`
-	Reference       string       `json:"reference"`
-	Description     string       `json:"description"`
-	Branch          *Ref         `json:"branch"`
-	LedgerEntryUUID *uuid.UUID   `json:"ledger_entry_uuid"`
-	MovementUUID    *uuid.UUID   `json:"movement_uuid"`
-	Allocations     []Allocation `json:"allocations"`
-	Status          string       `json:"status"`
-	VoidReason      string       `json:"void_reason"`
-	VoidedAt        *time.Time   `json:"voided_at"`
-	CreatedBy       *Actor       `json:"created_by"`
-	CreatedAt       time.Time    `json:"created_at"`
+	UUID            uuid.UUID            `json:"uuid"`
+	Supplier        Ref                  `json:"supplier"`
+	Account         Ref                  `json:"account"`
+	CashAccount     Ref                  `json:"cash_account"`
+	CashAccountKind string               `json:"cash_account_kind"`
+	Amount          money.Money          `json:"amount"`
+	AllocatedAmount money.Money          `json:"allocated_amount"`
+	UnallocatedAmt  money.Money          `json:"unallocated_amount"`
+	Currency        string               `json:"currency"`
+	PaymentDate     Date                 `json:"payment_date"`
+	Method          string               `json:"method"`
+	Reference       string               `json:"reference"`
+	Description     string               `json:"description"`
+	Branch          *Ref                 `json:"branch"`
+	LedgerEntryUUID *uuid.UUID           `json:"ledger_entry_uuid"`
+	MovementUUID    *uuid.UUID           `json:"movement_uuid"`
+	Allocations     []SupplierAllocation `json:"allocations"`
+	Status          string               `json:"status"`
+	VoidReason      string               `json:"void_reason"`
+	VoidedAt        *time.Time           `json:"voided_at"`
+	CreatedBy       *Actor               `json:"created_by"`
+	CreatedAt       time.Time            `json:"created_at"`
 }
 
 // AllocationInput applies part of a payment to one invoice.

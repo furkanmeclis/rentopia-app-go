@@ -359,5 +359,10 @@
   "actions.finance.supplier_invoice_attachment_uploaded": "Fatura belgesi yüklendi",
   "actions.finance.supplier_invoice_attachment_deleted": "Fatura belgesi kaldırıldı",
   "actions.finance.supplier_payment_recorded": "Tedarikçi ödemesi kaydedildi",
-  "actions.finance.supplier_payment_voided": "Tedarikçi ödemesi iptal edildi"
+  "actions.finance.supplier_payment_voided": "Tedarikçi ödemesi iptal edildi",
+  "resources.tenant.finance_collections": "Tahsilatlar",
+  "actions.finance.collection_allocated": "Tahsilat dağıtıldı",
+  "actions.finance.collection_allocation_released": "Tahsilat dağıtımı geri alındı",
+  "actions.finance.collection_refunded": "Tahsilat iade edildi",
+  "actions.finance.collection_voided": "Tahsilat iptal edildi"
 }

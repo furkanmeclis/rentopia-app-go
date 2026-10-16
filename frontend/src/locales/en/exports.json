@@ -88,5 +88,6 @@
   "resources.tenant.expenses": "Expenses",
   "resources.tenant.suppliers": "Suppliers",
   "resources.tenant.supplier_invoices": "Supplier invoices",
-  "resources.tenant.supplier_payments": "Supplier payments"
+  "resources.tenant.supplier_payments": "Supplier payments",
+  "resources.tenant.finance_collections": "Collections"
 }

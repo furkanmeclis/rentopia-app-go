@@ -1,8 +1,12 @@
 import type {
+  AllocationStatus,
   BalanceStatus,
+  CollectionMethod,
+  CollectionStatus,
   EntryKind,
   EntryPurpose,
   MovementKind,
+  OpenItemStatus,
 } from "@/features/finance/types";
 
 /** Engine / live list resources. */
@@ -12,6 +16,7 @@ export const CASH_ACCOUNTS_RESOURCE = "tenant.cash_accounts";
 export const MOVEMENTS_RESOURCE = "tenant.cash_movements";
 export const EXPENSES_RESOURCE = "tenant.expenses";
 export const CATEGORIES_RESOURCE = "tenant.expense_categories";
+export const COLLECTIONS_RESOURCE = "tenant.finance_collections";
 
 type Tone = "default" | "success" | "warning" | "danger";
 
@@ -109,6 +114,7 @@ export const MANUAL_MOVEMENT_KINDS = [
 export const CASH_KIND_LABEL_KEYS = {
   cash: "finance.cash_kind.cash",
   bank: "finance.cash_kind.bank",
+  clearing: "finance.cash_kind.clearing",
 } as const;
 
 export const ACCOUNT_STATUS_LABEL_KEYS = {
@@ -137,6 +143,7 @@ export const SYSTEM_REASON_LABEL_KEYS: Record<string, string> = {
   "system:charge_reversed": "finance.reason.charge_reversed",
   "system:invoice_voided": "finance.reason.invoice_voided",
   "system:due_changed": "finance.reason.due_changed",
+  "system:payment_refund": "finance.reason.payment_refund",
 };
 
 export const COLLECTION_METHODS = [
@@ -146,14 +153,110 @@ export const COLLECTION_METHODS = [
   "other",
 ] as const;
 
-export const METHOD_LABEL_KEYS: Record<
-  (typeof COLLECTION_METHODS)[number],
-  string
-> = {
+/** In-branch collection methods in the "Tahsilat al" order. */
+export const BRANCH_METHODS = [
+  "cash",
+  "bank_transfer",
+  "card_pos",
+  "other",
+] as const;
+
+/** Every collection method (list filters). */
+export const ALL_COLLECTION_METHODS: CollectionMethod[] = [
+  "cash",
+  "bank_transfer",
+  "card_pos",
+  "online",
+  "other",
+];
+
+export const METHOD_LABEL_KEYS: Record<CollectionMethod, string> = {
   cash: "finance.method.cash",
   card_pos: "finance.method.card_pos",
   bank_transfer: "finance.method.bank_transfer",
+  online: "finance.method.online",
   other: "finance.method.other",
+};
+
+/** The reference label of each method (receipt, transfer, POS slip). */
+export const METHOD_REFERENCE_LABEL_KEYS: Record<CollectionMethod, string> = {
+  cash: "finance.collect.reference_cash",
+  bank_transfer: "finance.collect.reference_bank_transfer",
+  card_pos: "finance.collect.reference_card_pos",
+  online: "finance.collect.reference_online",
+  other: "finance.collect.reference_other",
+};
+
+export const COLLECTION_STATUSES: CollectionStatus[] = [
+  "recorded",
+  "partially_refunded",
+  "refunded",
+  "void",
+];
+
+export const COLLECTION_STATUS_LABEL_KEYS: Record<CollectionStatus, string> = {
+  recorded: "finance.collection_status.recorded",
+  partially_refunded: "finance.collection_status.partially_refunded",
+  refunded: "finance.collection_status.refunded",
+  void: "finance.collection_status.void",
+};
+
+export const COLLECTION_STATUS_TONES: Record<CollectionStatus, Tone> = {
+  recorded: "success",
+  partially_refunded: "warning",
+  refunded: "default",
+  void: "danger",
+};
+
+export const ALLOCATION_STATUSES: AllocationStatus[] = [
+  "unallocated",
+  "partially_allocated",
+  "allocated",
+  "not_allocatable",
+];
+
+export const ALLOCATION_STATUS_LABEL_KEYS: Record<AllocationStatus, string> = {
+  unallocated: "finance.allocation_status.unallocated",
+  partially_allocated: "finance.allocation_status.partially_allocated",
+  allocated: "finance.allocation_status.allocated",
+  not_allocatable: "finance.allocation_status.not_allocatable",
+};
+
+export const ALLOCATION_STATUS_TONES: Record<AllocationStatus, Tone> = {
+  unallocated: "warning",
+  partially_allocated: "warning",
+  allocated: "success",
+  not_allocatable: "default",
+};
+
+export const ITEM_STATUS_LABEL_KEYS: Record<OpenItemStatus, string> = {
+  open: "finance.item_status.open",
+  partially_paid: "finance.item_status.partially_paid",
+  paid: "finance.item_status.paid",
+};
+
+export const ITEM_STATUS_TONES: Record<OpenItemStatus, Tone> = {
+  open: "danger",
+  partially_paid: "warning",
+  paid: "success",
+};
+
+export const SETTLEMENT_STATUS_LABEL_KEYS: Record<string, string> = {
+  none: "finance.settlement_status.none",
+  pending: "finance.settlement_status.pending",
+  settled: "finance.settlement_status.settled",
+};
+
+export const REFUND_STATUS_LABEL_KEYS: Record<string, string> = {
+  pending: "finance.refund_status.pending",
+  succeeded: "finance.refund_status.succeeded",
+  failed: "finance.refund_status.failed",
+};
+
+export const REFUND_STATUS_TONES: Record<string, Tone> = {
+  pending: "warning",
+  succeeded: "success",
+  failed: "danger",
 };
 
 export const REPORT_GROUPS = {

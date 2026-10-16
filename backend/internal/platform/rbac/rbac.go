@@ -179,7 +179,7 @@ const (
 	PermTenantKabisRead      = "tenant.kabis.read"
 	PermTenantKabisRetry     = "tenant.kabis.retry"
 	PermTenantKabisReconcile = "tenant.kabis.reconcile"
-	// Suppliers (TEC-721, migration 000801). Supplier invoices use
+	// Suppliers (TEC-721, migration 000106). Supplier invoices use
 	// PermTenantFinanceExpenses*, supplier payments PermTenantFinanceCash*.
 	PermTenantSuppliersRead        = "tenant.suppliers.read"
 	PermTenantSuppliersWrite       = "tenant.suppliers.write"
@@ -187,6 +187,12 @@ const (
 	PermTenantSuppliersImport      = "tenant.suppliers.import"
 	PermTenantSuppliersBulkArchive = "tenant.suppliers.bulk.archive"
 )
+
+// Collections (TEC-718, migration 000102). Recording, allocating,
+// refunding and voiding reuse PermTenantPaymentCollect,
+// PermTenantFinanceAccountsWrite, PermTenantPaymentRefund and
+// PermTenantFinanceLedgerAdjust.
+const PermTenantFinanceCollectionsBulkAllocate = "tenant.finance.collections.bulk.allocate"
 
 // Tenant template role keys seeded by migrations 000030 and 000041.
 const (

@@ -208,6 +208,7 @@ type CashAccount struct {
 	CreatedBy      pgtype.Int8        `json:"created_by"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	Provider       pgtype.Text        `json:"provider"`
 }
 
 type CashMovement struct {
@@ -333,6 +334,60 @@ type ChannelCapacityRule struct {
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type Collection struct {
+	ID                  int64              `json:"id"`
+	Uuid                uuid.UUID          `json:"uuid"`
+	OrganizationID      int64              `json:"organization_id"`
+	Code                string             `json:"code"`
+	AccountID           int64              `json:"account_id"`
+	Method              string             `json:"method"`
+	Provider            string             `json:"provider"`
+	Purpose             string             `json:"purpose"`
+	Status              string             `json:"status"`
+	Currency            string             `json:"currency"`
+	Amount              pgtype.Numeric     `json:"amount"`
+	GrossAmount         pgtype.Numeric     `json:"gross_amount"`
+	CommissionAmount    pgtype.Numeric     `json:"commission_amount"`
+	NetAmount           pgtype.Numeric     `json:"net_amount"`
+	RefundedAmount      pgtype.Numeric     `json:"refunded_amount"`
+	CollectionDate      pgtype.Date        `json:"collection_date"`
+	ReferenceNo         string             `json:"reference_no"`
+	PayerName           string             `json:"payer_name"`
+	Note                string             `json:"note"`
+	BranchID            pgtype.Int8        `json:"branch_id"`
+	CashAccountID       pgtype.Int8        `json:"cash_account_id"`
+	RentalID            pgtype.Int8        `json:"rental_id"`
+	ReservationID       pgtype.Int8        `json:"reservation_id"`
+	PaymentID           pgtype.Int8        `json:"payment_id"`
+	LedgerEntryID       int64              `json:"ledger_entry_id"`
+	CashMovementID      pgtype.Int8        `json:"cash_movement_id"`
+	CommissionExpenseID pgtype.Int8        `json:"commission_expense_id"`
+	SettlementStatus    string             `json:"settlement_status"`
+	SettledAt           pgtype.Timestamptz `json:"settled_at"`
+	IdempotencyKey      pgtype.UUID        `json:"idempotency_key"`
+	VoidReason          string             `json:"void_reason"`
+	VoidedBy            pgtype.Int8        `json:"voided_by"`
+	VoidedAt            pgtype.Timestamptz `json:"voided_at"`
+	CreatedBy           pgtype.Int8        `json:"created_by"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CollectionAllocation struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	CollectionID   int64              `json:"collection_id"`
+	EntryID        int64              `json:"entry_id"`
+	Kind           string             `json:"kind"`
+	Amount         pgtype.Numeric     `json:"amount"`
+	Source         string             `json:"source"`
+	RequestKey     pgtype.UUID        `json:"request_key"`
+	Reason         string             `json:"reason"`
+	CreatedBy      pgtype.Int8        `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
 type ContractTemplate struct {
@@ -1086,6 +1141,7 @@ type LedgerEntry struct {
 	BranchID          pgtype.Int8        `json:"branch_id"`
 	CreatedBy         pgtype.Int8        `json:"created_by"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	CollectionID      pgtype.Int8        `json:"collection_id"`
 	SupplierInvoiceID pgtype.Int8        `json:"supplier_invoice_id"`
 	SupplierPaymentID pgtype.Int8        `json:"supplier_payment_id"`
 }

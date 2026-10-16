@@ -224,18 +224,19 @@ CREATE TABLE supplier_payment_allocations (
 
 CREATE INDEX idx_supplier_payment_allocations_invoice ON supplier_payment_allocations (organization_id, invoice_id);
 
--- Ledger: typed sources for supplier invoices and payments. The CHECK is
--- the full union of 000096's values and the two new ones.
+-- Ledger: typed sources for supplier invoices and payments.
 ALTER TABLE ledger_entries ADD COLUMN supplier_invoice_id BIGINT NULL;
 ALTER TABLE ledger_entries ADD COLUMN supplier_payment_id BIGINT NULL;
 ALTER TABLE ledger_entries ADD CONSTRAINT fk_ledger_entries_supplier_invoice
     FOREIGN KEY (organization_id, supplier_invoice_id) REFERENCES supplier_invoices (organization_id, id);
 ALTER TABLE ledger_entries ADD CONSTRAINT fk_ledger_entries_supplier_payment
     FOREIGN KEY (organization_id, supplier_payment_id) REFERENCES supplier_payments (organization_id, id);
+-- The full union: 000096 values, 'collection' (000101), 'security_deposit'
+-- (deposits, 000103) and the two supplier sources.
 ALTER TABLE ledger_entries DROP CONSTRAINT ledger_entries_source_type_check;
 ALTER TABLE ledger_entries ADD CONSTRAINT ledger_entries_source_type_check CHECK (source_type IN (
     'rental', 'rental_charge', 'reservation', 'payment', 'payment_refund', 'invoice', 'toll_charge',
-    'cash_movement', 'manual', 'supplier_invoice', 'supplier_payment'
+    'cash_movement', 'manual', 'collection', 'security_deposit', 'supplier_invoice', 'supplier_payment'
 ));
 -- One payment entry per supplier payment (idempotent posting).
 CREATE UNIQUE INDEX uq_ledger_entries_supplier_payment ON ledger_entries (organization_id, supplier_payment_id)

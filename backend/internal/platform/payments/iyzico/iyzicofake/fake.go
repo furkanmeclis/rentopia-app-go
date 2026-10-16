@@ -68,6 +68,9 @@ type Fake struct {
 	Retrieves   atomic.Int64
 	Initializes atomic.Int64
 	Refunds     atomic.Int64
+	// FailRefunds makes the refund endpoint refuse every refund (a
+	// provider-side failure in tests).
+	FailRefunds atomic.Bool
 }
 
 // New starts a fake (Close it with f.Server.Close()).
@@ -273,6 +276,10 @@ func (f *Fake) serve(w http.ResponseWriter, r *http.Request) {
 		c, ok := f.payments[s("paymentId")]
 		if !ok || c.APIKey != apiKey || err != nil || !amount.IsPositive() {
 			failure(w, "5093", "Ödeme bulunamadı")
+			return
+		}
+		if f.FailRefunds.Load() {
+			failure(w, "5095", "İade işlemi bankadan reddedildi")
 			return
 		}
 		if c.Refunded.Add(amount).Cmp(c.PaidPrice) > 0 {

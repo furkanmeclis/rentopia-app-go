@@ -13,7 +13,6 @@ export type FinanceSummary = Schemas["FinanceSummary"];
 export type FinanceRentalBalance = Schemas["FinanceRentalBalance"];
 export type FinanceRentalLedger = Schemas["FinanceRentalLedger"];
 export type FinanceCustomerLedger = Schemas["FinanceCustomerLedger"];
-export type CollectionRequest = Schemas["FinanceCollectionRequest"];
 export type RefundRequest = Schemas["FinanceRefundRequest"];
 export type AdjustmentRequest = Schemas["FinanceAdjustmentRequest"];
 export type OffsetRequest = Schemas["FinanceOffsetRequest"];
@@ -31,6 +30,21 @@ export type Expense = Schemas["Expense"];
 export type ExpenseInput = Schemas["ExpenseInput"];
 export type FinanceReport = Schemas["FinanceReport"];
 export type FinanceReportRow = Schemas["FinanceReportRow"];
+export type FinanceCollection = Schemas["FinanceCollection"];
+export type FinanceCollectionCreate = Schemas["FinanceCollectionCreate"];
+export type FinanceCollectionAllocation =
+  Schemas["FinanceCollectionAllocation"];
+export type FinanceCollectionRefund = Schemas["FinanceCollectionRefund"];
+export type FinanceAllocateRequest = Schemas["FinanceAllocateRequest"];
+export type FinanceReleaseRequest = Schemas["FinanceReleaseRequest"];
+export type FinanceCollectionRefundRequest =
+  Schemas["FinanceCollectionRefundRequest"];
+export type FinanceOpenItem = Schemas["FinanceOpenItem"];
+export type FinanceOpenItems = Schemas["FinanceOpenItems"];
+export type CollectionMethod = FinanceCollection["method"];
+export type CollectionStatus = FinanceCollection["status"];
+export type AllocationStatus = FinanceCollection["allocation_status"];
+export type OpenItemStatus = FinanceOpenItem["status"];
 
 export type Page<T> = {
   items: T[];

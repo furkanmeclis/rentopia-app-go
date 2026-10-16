@@ -1,7 +1,8 @@
 "use client";
 
-import { ExternalLink } from "lucide-react";
+import { ArrowDownToLine, ExternalLink } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 
 import { EmptyState } from "@/components/common/empty-state";
 import { ErrorState } from "@/components/common/error-state";
@@ -10,6 +11,7 @@ import { EntitySectionCard } from "@/components/entity";
 import { Button } from "@/components/ui/button";
 import { permissions } from "@/config/permissions";
 import { routes } from "@/config/routes";
+import { CollectDialog } from "@/features/finance/components/collect-dialog";
 import {
   LedgerEntriesTable,
   LedgerFigures,
@@ -25,6 +27,8 @@ export function RentalLedgerCard({ rentalUuid }: { rentalUuid: string }) {
   const { slug } = useTenant();
   const { can } = usePermission();
   const allowed = can(permissions.tenant.finance.accounts.read);
+  const canCollect = can(permissions.tenant.payment.collect);
+  const [collect, setCollect] = useState(false);
   const query = useRentalLedger(rentalUuid, allowed);
   const ledger = query.data;
   if (!allowed) return null;
@@ -34,16 +38,24 @@ export function RentalLedgerCard({ rentalUuid }: { rentalUuid: string }) {
       title={t("finance.rental_card.title")}
       badge={ledger?.entries.length}
       actions={
-        ledger?.account ? (
-          <Button asChild size="sm" variant="outline">
-            <Link
-              href={routes.tenant.finance.account(slug, ledger.account.uuid)}
-            >
-              <ExternalLink className="size-4" />
-              {t("finance.rental_card.open_account")}
-            </Link>
-          </Button>
-        ) : null
+        <div className="flex flex-wrap gap-2">
+          {canCollect && ledger ? (
+            <Button type="button" size="sm" onClick={() => setCollect(true)}>
+              <ArrowDownToLine className="size-4" />
+              {t("finance.actions.collect")}
+            </Button>
+          ) : null}
+          {ledger?.account ? (
+            <Button asChild size="sm" variant="outline">
+              <Link
+                href={routes.tenant.finance.account(slug, ledger.account.uuid)}
+              >
+                <ExternalLink className="size-4" />
+                {t("finance.rental_card.open_account")}
+              </Link>
+            </Button>
+          ) : null}
+        </div>
       }
     >
       {query.isLoading ? <Loading label={t("common.loading")} /> : null}
@@ -103,6 +115,18 @@ export function RentalLedgerCard({ rentalUuid }: { rentalUuid: string }) {
             />
           </div>
         )
+      ) : null}
+      {ledger ? (
+        <CollectDialog
+          open={collect}
+          onOpenChange={setCollect}
+          accountUuid={ledger.account?.uuid}
+          rentalUuid={rentalUuid}
+          subtitle={[ledger.reference, ledger.account?.name]
+            .filter(Boolean)
+            .join(" · ")}
+          payerName={ledger.account?.name ?? undefined}
+        />
       ) : null}
     </EntitySectionCard>
   );

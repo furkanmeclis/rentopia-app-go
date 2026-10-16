@@ -97,3 +97,5 @@ supplier_invoices
 supplier_invoice_lines
 supplier_payments
 supplier_payment_allocations
+collections
+collection_allocations

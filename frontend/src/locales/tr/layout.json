@@ -89,5 +89,6 @@
   "nav_finance_suppliers": "Tedarikçiler",
   "nav_finance_supplier_invoices": "Gider faturaları",
   "nav_finance_supplier_payments": "Tedarikçi ödemeleri",
-  "nav_finance_payables": "Vadesi yaklaşan ödemeler"
+  "nav_finance_payables": "Vadesi yaklaşan ödemeler",
+  "nav_finance_collections": "Tahsilatlar"
 }

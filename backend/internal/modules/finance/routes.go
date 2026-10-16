@@ -25,6 +25,8 @@ const (
 	// Supplier invoices and payments (TEC-721).
 	ResourceSupplierInvoices = model.ResourceSupplierInvoices
 	ResourceSupplierPayments = model.ResourceSupplierPayments
+	// ResourceCollections: collections (TEC-718).
+	ResourceCollections = model.ResourceCollections
 )
 
 // ResourceEngines are the engine handlers of one resource (nil members
@@ -40,6 +42,7 @@ type ResourceEngines struct {
 type EngineHandlers struct {
 	Accounts, Entries, CashAccounts, Movements, Expenses ResourceEngines
 	SupplierInvoices, SupplierPayments                   ResourceEngines
+	Collections                                          ResourceEngines
 }
 
 // RegisterRoutes mounts /v1/tenant/finance. A nil resolver (tenancy off)
@@ -93,8 +96,28 @@ func RegisterRoutes(
 	}
 	route("GET /v1/tenant/finance/entries/{uuid}", h.GetEntry, accRead)
 	route("POST /v1/tenant/finance/entries/{uuid}/reverse", h.ReverseEntry, accWrite)
+	route("GET /v1/tenant/finance/accounts/{uuid}/open-items", h.OpenItems, accRead)
 	route("GET /v1/tenant/finance/rentals/{uuid}", h.RentalLedger, accRead)
 	route("GET /v1/tenant/finance/customers/{uuid}", h.CustomerLedger, accRead)
+
+	// Collections, allocation to open items, refunds (TEC-718).
+	collect, refund := perm(rbac.PermTenantPaymentCollect), perm(rbac.PermTenantPaymentRefund)
+	adjust := perm(rbac.PermTenantFinanceLedgerAdjust)
+	route("GET /v1/tenant/finance/collections/meta", h.CollectionsMeta, accRead)
+	route("GET /v1/tenant/finance/collections", h.ListCollections, accRead)
+	route("POST /v1/tenant/finance/collections", h.CreateCollection, accRead, collect)
+	if engines.Collections.Export != nil {
+		route("POST /v1/tenant/finance/collections/export", engines.Collections.Export, accRead, accExport)
+	}
+	if engines.Collections.Bulk != nil {
+		// The bulk handler checks the per-action permission in the scope.
+		route("POST /v1/tenant/finance/collections/bulk", engines.Collections.Bulk, accRead)
+	}
+	route("GET /v1/tenant/finance/collections/{uuid}", h.GetCollection, accRead)
+	route("POST /v1/tenant/finance/collections/{uuid}/allocations", h.AllocateCollection, accWrite)
+	route("POST /v1/tenant/finance/collections/{uuid}/allocations/release", h.ReleaseAllocation, accWrite)
+	route("POST /v1/tenant/finance/collections/{uuid}/refund", h.RefundCollection, accRead, refund)
+	route("POST /v1/tenant/finance/collections/{uuid}/void", h.VoidCollection, accRead, adjust)
 
 	// Cash / bank accounts and movements.
 	route("GET /v1/tenant/finance/cash-accounts/meta", h.CashAccountsMeta, cashRead)
@@ -197,16 +220,20 @@ func RegisterLiveResources(reg *resourceevents.Registry) {
 	reg.Register(model.ResourceCategories, rbac.PermTenantFinanceExpensesRead)
 	reg.Register(model.ResourceSupplierInvoices, rbac.PermTenantFinanceExpensesRead)
 	reg.Register(model.ResourceSupplierPayments, rbac.PermTenantFinanceCashRead)
+	reg.Register(model.ResourceCollections, rbac.PermTenantFinanceAccountsRead)
 }
 
 // Export / bulk query keys per resource.
 var (
-	AccountQueryKeys  = []string{"q", "balance_status", "status", "party_kind", "branch", "due_before", "min_balance", "max_balance"}
-	EntryQueryKeys    = []string{"q", "account", "rental", "kind", "purpose", "direction", "branch", "from", "to"}
-	CashQueryKeys     = []string{"q", "kind", "status", "branch", "head_office"}
-	MovementQueryKeys = []string{"q", "account", "kind", "direction", "category", "branch", "from", "to"}
-	ExpenseQueryKeys  = []string{"q", "category", "branch", "vehicle", "supplier", "status", "from", "to"}
 	// Supplier invoices / payments (TEC-721).
 	SupplierInvoiceQueryKeys = []string{"q", "supplier", "status", "due_state", "category", "branch", "from", "to", "due_to", "window"}
 	SupplierPaymentQueryKeys = []string{"q", "supplier", "cash_account", "status", "method", "invoice", "from", "to"}
+	AccountQueryKeys         = []string{"q", "balance_status", "status", "party_kind", "branch", "due_before", "min_balance", "max_balance"}
+	EntryQueryKeys           = []string{"q", "account", "rental", "kind", "purpose", "direction", "branch", "from", "to"}
+	CashQueryKeys            = []string{"q", "kind", "status", "branch", "head_office"}
+	MovementQueryKeys        = []string{"q", "account", "kind", "direction", "category", "branch", "from", "to"}
+	ExpenseQueryKeys         = []string{"q", "category", "branch", "vehicle", "supplier", "status", "from", "to"}
+	CollectionQueryKeys      = []string{
+		"q", "method", "status", "allocation_status", "branch", "cash_account", "account", "rental", "from", "to",
+	}
 )

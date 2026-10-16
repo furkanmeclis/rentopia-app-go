@@ -55,5 +55,7 @@
   "actions.cash_movements.set_category": "Kategori ata",
   "actions.expenses.set_category": "Kategori ata",
   "actions.suppliers.archive": "Arşivle",
-  "confirm.suppliers.archive": "Seçili tedarikçiler arşivlenir ve yeni fatura alınamaz. Geri alma önceki durumlarını getirir."
+  "confirm.suppliers.archive": "Seçili tedarikçiler arşivlenir ve yeni fatura alınamaz. Geri alma önceki durumlarını getirir.",
+  "actions.finance_collections.allocate": "Alacağı dağıt",
+  "confirm.finance_collections.allocate": "Seçili {{count}} tahsilatın kalan alacağı en eski açık kalemlere dağıtılsın mı?"
 }

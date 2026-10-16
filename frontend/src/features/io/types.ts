@@ -128,7 +128,8 @@ export type IoResource =
   | "tenant.toll_passes"
   | "tenant.suppliers"
   | "tenant.supplier_invoices"
-  | "tenant.supplier_payments";
+  | "tenant.supplier_payments"
+  | "tenant.finance_collections";
 
 export const EXPORT_PATHS: Record<IoResource, string> = {
   "platform.users": "/v1/platform/users/export",
@@ -161,6 +162,7 @@ export const EXPORT_PATHS: Record<IoResource, string> = {
   "tenant.suppliers": "/v1/tenant/suppliers/export",
   "tenant.supplier_invoices": "/v1/tenant/finance/supplier-invoices/export",
   "tenant.supplier_payments": "/v1/tenant/finance/supplier-payments/export",
+  "tenant.finance_collections": "/v1/tenant/finance/collections/export",
 };
 
 export const IMPORT_PATHS: Partial<

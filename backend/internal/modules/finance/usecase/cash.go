@@ -56,7 +56,7 @@ func (s *Service) ListCashAccounts(ctx context.Context, orgID int64, f model.Cas
 		total = r.Total
 		out = append(out, model.CashAccount{
 			UUID: r.Uuid, Code: r.Code, Name: r.Name, Kind: r.Kind, Branch: refOf(r.BranchUuid, r.BranchCode, r.BranchName),
-			Currency: r.Currency, OpeningBalance: m(r.OpeningBalance), OpeningDate: dateString(r.OpeningDate),
+			Currency: r.Currency, Provider: textPtr(r.Provider), OpeningBalance: m(r.OpeningBalance), OpeningDate: dateString(r.OpeningDate),
 			BankName: r.BankName, IBAN: r.Iban, Status: r.Status, Note: r.Note, TotalIn: m(r.TotalIn), TotalOut: m(r.TotalOut),
 			Balance: m(r.Balance), MovementCount: r.MovementCount, LastMovementAt: timePtr(r.LastMovementAt),
 			CreatedAt: r.CreatedAt.Time.UTC(), UpdatedAt: r.UpdatedAt.Time.UTC(),
@@ -106,9 +106,10 @@ func (s *Service) CreateCashAccount(ctx context.Context, orgID int64, in model.C
 		ve.add("name", "required", "name is required (at most 128 characters)")
 	}
 	kind := deref(in.Kind)
-	if kind != model.CashKindCash && kind != model.CashKindBank {
-		ve.add("kind", "invalid", "kind must be cash or bank")
+	if !contains(model.CashKinds, kind) {
+		ve.add("kind", "invalid", "kind must be cash, bank or clearing")
 	}
+	provider := checkProvider(ve, kind, in.Provider)
 	currency := strings.ToUpper(strings.TrimSpace(deref(in.Currency)))
 	if currency == "" {
 		currency = string(money.TRY)
@@ -149,6 +150,11 @@ func (s *Service) CreateCashAccount(ctx context.Context, orgID int64, in model.C
 	}
 	if err != nil {
 		return model.CashAccount{}, err
+	}
+	if provider.Valid {
+		if err := s.setProvider(ctx, orgID, row.ID, provider); err != nil {
+			return model.CashAccount{}, err
+		}
 	}
 	s.publish(ctx, model.ResourceCashAccounts, "created", row.Uuid)
 	return s.GetCashAccount(ctx, orgID, row.Uuid)
@@ -207,6 +213,7 @@ func (s *Service) PatchCashAccount(ctx context.Context, orgID int64, id uuid.UUI
 	if in.Note != nil {
 		p.Note = strings.TrimSpace(*in.Note)
 	}
+	provider := checkProvider(ve, row.Kind, in.Provider)
 	if in.Status != nil {
 		if *in.Status != model.AccountActive && *in.Status != model.AccountArchived {
 			ve.add("status", "invalid", "status must be active or archived")
@@ -232,6 +239,11 @@ func (s *Service) PatchCashAccount(ctx context.Context, orgID int64, id uuid.UUI
 			return model.CashAccount{}, ErrCodeTaken
 		}
 		return model.CashAccount{}, err
+	}
+	if in.Provider != nil {
+		if err := s.setProvider(ctx, orgID, row.ID, provider); err != nil {
+			return model.CashAccount{}, err
+		}
 	}
 	s.publish(ctx, model.ResourceCashAccounts, "updated", id)
 	return s.GetCashAccount(ctx, orgID, id)
@@ -784,4 +796,37 @@ func deref(v *string) string {
 		return ""
 	}
 	return *v
+}
+
+// checkProvider validates the settlement provider of a cash account (a
+// bank or clearing account may receive a provider's net settlement).
+func checkProvider(ve *ValidationError, kind string, raw *string) pgtype.Text {
+	if raw == nil || strings.TrimSpace(*raw) == "" {
+		return pgtype.Text{}
+	}
+	v := strings.TrimSpace(*raw)
+	if !contains(model.SettlementProviders, v) {
+		ve.add("provider", "invalid", "unknown provider")
+	} else if kind != model.CashKindBank && kind != model.CashKindClearing {
+		ve.add("provider", "invalid", "only a bank or clearing account receives a provider settlement")
+	}
+	return pgtype.Text{String: v, Valid: true}
+}
+
+// setProvider marks (or clears) the settlement account of a provider; one
+// active account per provider.
+func (s *Service) setProvider(ctx context.Context, orgID, id int64, provider pgtype.Text) error {
+	_, err := s.q.SetCashAccountProvider(ctx, db.SetCashAccountProviderParams{OrganizationID: orgID, ID: id, Provider: provider})
+	if uniqueViolation(err) {
+		return validation("provider", "taken", "another active account already receives this provider's settlement")
+	}
+	return err
+}
+
+func textPtr(t pgtype.Text) *string {
+	if !t.Valid {
+		return nil
+	}
+	v := t.String
+	return &v
 }

@@ -93,6 +93,8 @@ const (
 	// Supplier invoices (payable accruals) and payments (TEC-721).
 	SourceSupplierInvoice = "supplier_invoice"
 	SourceSupplierPayment = "supplier_payment"
+	// SourceCollection: a collection document's entry (TEC-718).
+	SourceCollection = "collection"
 )
 
 // System reasons of automatic reversals (shown translated in the panel).

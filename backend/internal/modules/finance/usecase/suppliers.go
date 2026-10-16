@@ -722,7 +722,7 @@ func (s *Service) ListSupplierPayments(ctx context.Context, orgID int64, f model
 			UnallocatedAmt: m(r.Amount).Sub(allocated).ClampZero(), Currency: r.Currency, PaymentDate: dateString(r.PaymentDate),
 			Method: r.Method, Reference: r.Reference, Description: r.Description,
 			Branch: refOf(r.BranchUuid, r.BranchCode, r.BranchName), LedgerEntryUUID: uuidPtr(r.LedgerEntryUuid),
-			MovementUUID: uuidPtr(r.MovementUuid), Allocations: []model.Allocation{}, Status: r.Status,
+			MovementUUID: uuidPtr(r.MovementUuid), Allocations: []model.SupplierAllocation{}, Status: r.Status,
 			VoidReason: r.VoidReason, VoidedAt: timePtr(r.VoidedAt),
 			CreatedBy: actorOf(r.CreatedByUuid, r.CreatedByName, r.CreatedBySurname, r.CreatedByEmail), CreatedAt: r.CreatedAt.Time.UTC(),
 		})
@@ -734,7 +734,7 @@ func (s *Service) ListSupplierPayments(ctx context.Context, orgID int64, f model
 		}
 		for _, a := range allocs {
 			i := index[a.PaymentID]
-			out[i].Allocations = append(out[i].Allocations, model.Allocation{
+			out[i].Allocations = append(out[i].Allocations, model.SupplierAllocation{
 				InvoiceUUID: a.InvoiceUuid, InvoiceNo: a.InvoiceNo, DueDate: dateString(a.DueDate), Amount: m(a.Amount),
 			})
 		}

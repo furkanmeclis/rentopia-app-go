@@ -205,5 +205,6 @@
   "labels.tenant.suppliers.export": "Tedarikçileri dışa aktar",
   "labels.tenant.suppliers.import": "Tedarikçileri içe aktar",
   "labels.tenant.suppliers.bulk.archive": "Tedarikçileri toplu arşivle",
-  "groups.tenant_suppliers": "Tedarikçiler"
+  "groups.tenant_suppliers": "Tedarikçiler",
+  "labels.tenant.finance.collections.bulk.allocate": "Tahsilatları toplu dağıt"
 }

@@ -34,6 +34,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { permissions } from "@/config/permissions";
 import { routes } from "@/config/routes";
+import {
+  AccountCollectionsCard,
+  OpenItemsCard,
+} from "@/features/finance/components/account-collections";
+import { CollectDialog } from "@/features/finance/components/collect-dialog";
 import { useEntryColumns } from "@/features/finance/components/entry-columns";
 import {
   Amount,
@@ -42,7 +47,6 @@ import {
 import { FinanceFormDialog } from "@/features/finance/components/form-dialog";
 import {
   AdjustmentDialog,
-  CollectionDialog,
   OffsetDialog,
   RefundDialog,
   ReverseEntryDialog,
@@ -82,7 +86,7 @@ export function AccountDetailPage({ uuid }: { uuid: string }) {
   const a = query.data;
 
   const write = can(permissions.tenant.finance.accounts.write);
-  const canCollect = write && can(permissions.tenant.payment.collect);
+  const canCollect = can(permissions.tenant.payment.collect);
   const canRefund = write && can(permissions.tenant.payment.refund);
   const canAdjust = write && can(permissions.tenant.finance.ledger.adjust);
   const onOpen = (d: Dialog) => (open: boolean) => setDialog(open ? d : null);
@@ -107,9 +111,9 @@ export function AccountDetailPage({ uuid }: { uuid: string }) {
         { label: a?.code ?? "…" },
       ]}
       actions={
-        a && write ? (
+        a && (write || canCollect) ? (
           <EntityActions>
-            {canCollect ? (
+            {canCollect && a.party_kind === "customer" ? (
               <Button
                 type="button"
                 size="sm"
@@ -119,7 +123,7 @@ export function AccountDetailPage({ uuid }: { uuid: string }) {
                 {t("finance.actions.collect")}
               </Button>
             ) : null}
-            {a.party_kind === "customer" ? (
+            {write && a.party_kind === "customer" ? (
               <Button
                 type="button"
                 size="sm"
@@ -130,42 +134,44 @@ export function AccountDetailPage({ uuid }: { uuid: string }) {
                 {t("finance.actions.send_statement")}
               </Button>
             ) : null}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  aria-label={t("finance.actions.more")}
-                >
-                  <MoreHorizontal className="size-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {canRefund ? (
-                  <DropdownMenuItem onSelect={() => setDialog("refund")}>
-                    <ArrowUpFromLine className="size-4" />
-                    {t("finance.actions.refund")}
+            {write ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    aria-label={t("finance.actions.more")}
+                  >
+                    <MoreHorizontal className="size-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {canRefund ? (
+                    <DropdownMenuItem onSelect={() => setDialog("refund")}>
+                      <ArrowUpFromLine className="size-4" />
+                      {t("finance.actions.refund")}
+                    </DropdownMenuItem>
+                  ) : null}
+                  {canAdjust ? (
+                    <DropdownMenuItem onSelect={() => setDialog("adjust")}>
+                      <Scale className="size-4" />
+                      {t("finance.actions.adjust")}
+                    </DropdownMenuItem>
+                  ) : null}
+                  {canAdjust && Number(a.balance.deposit_held) > 0 ? (
+                    <DropdownMenuItem onSelect={() => setDialog("offset")}>
+                      <Handshake className="size-4" />
+                      {t("finance.actions.offset")}
+                    </DropdownMenuItem>
+                  ) : null}
+                  <DropdownMenuItem onSelect={() => setDialog("terms")}>
+                    <Pencil className="size-4" />
+                    {t("finance.actions.edit_terms")}
                   </DropdownMenuItem>
-                ) : null}
-                {canAdjust ? (
-                  <DropdownMenuItem onSelect={() => setDialog("adjust")}>
-                    <Scale className="size-4" />
-                    {t("finance.actions.adjust")}
-                  </DropdownMenuItem>
-                ) : null}
-                {canAdjust && Number(a.balance.deposit_held) > 0 ? (
-                  <DropdownMenuItem onSelect={() => setDialog("offset")}>
-                    <Handshake className="size-4" />
-                    {t("finance.actions.offset")}
-                  </DropdownMenuItem>
-                ) : null}
-                <DropdownMenuItem onSelect={() => setDialog("terms")}>
-                  <Pencil className="size-4" />
-                  {t("finance.actions.edit_terms")}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
           </EntityActions>
         ) : null
       }
@@ -245,14 +251,23 @@ export function AccountDetailPage({ uuid }: { uuid: string }) {
             ) : null}
           </EntityHeader>
 
+          {a.party_kind === "customer" ? (
+            <>
+              <OpenItemsCard accountUuid={a.uuid} />
+              <AccountCollectionsCard accountUuid={a.uuid} />
+            </>
+          ) : null}
+
           <StatementTable
             account={a}
             onReverse={canAdjust ? setReverse : undefined}
             liveOrg={organization}
           />
 
-          <CollectionDialog
-            account={a}
+          <CollectDialog
+            accountUuid={a.uuid}
+            subtitle={`${a.code} · ${a.name}`}
+            payerName={a.name}
             open={dialog === "collect"}
             onOpenChange={onOpen("collect")}
           />

@@ -133,6 +133,8 @@ func (s *Service) SyncRental(ctx context.Context, q *db.Queries, orgID, rentalID
 	}
 	today := s.today()
 	kept := map[string]bool{}
+	released := []int64{}
+	carried := map[string][]releasedPair{}
 	for _, l := range live {
 		key := l.AccrualKey.String
 		w, ok := desired[key]
@@ -153,6 +155,18 @@ func (s *Service) SyncRental(ctx context.Context, q *db.Queries, orgID, rentalID
 			kept[key] = true
 			continue
 		}
+		// What collections paid on the accrual goes back to them first
+		// (re-allocated below to the accrual that replaces it).
+		pairs, err := s.releaseEntry(ctx, q, orgID, l.ID, reason)
+		if err != nil {
+			return fmt.Errorf("finance: release allocations of %s: %w", key, err)
+		}
+		for _, p := range pairs {
+			released = append(released, p.collectionID)
+		}
+		if l.AccountID == acc.ID {
+			carried[key] = pairs
+		}
 		if _, err := q.InsertLedgerEntry(ctx, db.InsertLedgerEntryParams{
 			OrganizationID: orgID, AccountID: l.AccountID, Kind: model.KindReversal, Direction: model.Credit,
 			Purpose: l.Purpose, Amount: l.Amount, Currency: l.Currency, EntryDate: dateOf(today), DueDate: l.DueDate,
@@ -171,16 +185,31 @@ func (s *Service) SyncRental(ctx context.Context, q *db.Queries, orgID, rentalID
 		if w.purpose == model.PurposeRent && f.ActualPickupAt.Valid {
 			entryDate = day(f.ActualPickupAt.Time)
 		}
-		if _, err := q.InsertLedgerEntry(ctx, db.InsertLedgerEntryParams{
+		row, err := q.InsertLedgerEntry(ctx, db.InsertLedgerEntryParams{
 			OrganizationID: orgID, AccountID: acc.ID, Kind: model.KindAccrual, Direction: model.Debit, Purpose: w.purpose,
 			Amount: w.amount.Numeric(), Currency: f.Currency, EntryDate: dateOf(entryDate),
 			DueDate: dateOf(dueAfter(entryDate, acc.Term)), Description: w.desc, SourceType: sourceOfKey(int8Of(w.chargeID)),
 			SourceUuid: uuidOf(f.Uuid), RentalID: int8Of(f.ID), ReservationID: int8Of(f.ReservationID),
 			RentalChargeID: int8Of(w.chargeID), AccrualKey: pgtype.Text{String: key, Valid: true},
 			BranchID: int8Of(branchID), CreatedBy: actorID(ctx),
-		}); err != nil {
+		})
+		if err != nil {
 			return fmt.Errorf("finance: accrue %s: %w", key, err)
 		}
+		// The allocations of the accrual this one replaces follow it.
+		if err := s.carryAllocations(ctx, q, orgID, row.ID, w.amount, carried[key]); err != nil {
+			return fmt.Errorf("finance: carry allocations of %s: %w", key, err)
+		}
+	}
+	if acc.ID != 0 {
+		// The rental's own collections (prepayments) and the money just
+		// released pay its open items, oldest first.
+		if err := s.reallocateRental(ctx, q, orgID, acc.ID, f.ID, f.ReservationID, released); err != nil {
+			return fmt.Errorf("finance: allocate rental %d: %w", f.ID, err)
+		}
+	}
+	if len(released) > 0 {
+		s.publish(ctx, model.ResourceCollections, "updated")
 	}
 	s.publish(ctx, model.ResourceAccounts, "updated", acc.UUID)
 	s.publish(ctx, model.ResourceEntries, "created")
@@ -195,59 +224,37 @@ func sourceOfKey(chargeID pgtype.Int8) string {
 }
 
 // PostPayment posts the collection of a confirmed payment (payments calls
-// it when it applies a payment; the catch-up sweep calls it too). Posting
-// is idempotent: a payment has at most one collection entry.
+// it when it applies a payment; the catch-up sweep calls it too): the
+// collection entry and its collection document (TEC-718), allocated to the
+// open items of the reservation's rental and, for an online payment,
+// settled into the provider's settlement account when it is known. Posting
+// is idempotent: a payment has at most one collection entry and one
+// collection.
 func (s *Service) PostPayment(ctx context.Context, orgID, paymentID int64) error {
-	return s.tx(ctx, func(q *db.Queries) error {
-		p, err := q.GetPaymentForLedger(ctx, db.GetPaymentForLedgerParams{OrganizationID: orgID, ID: paymentID})
-		if notFound(err) {
-			return nil // not a reservation payment
-		}
-		if err != nil {
-			return err
-		}
-		switch p.Status {
-		case "succeeded", "partially_refunded", "refunded":
-		default:
-			return nil
-		}
-		customerID := p.CustomerID
-		if p.InvoiceCustomerID.Valid {
-			customerID = p.InvoiceCustomerID.Int64
-		}
-		acc, err := s.ensureCustomerAccount(ctx, q, orgID, customerID, p.PickupBranchID, p.Currency)
-		if err != nil {
-			return err
-		}
-		at := p.CreatedAt.Time
-		if p.VerifiedAt.Valid {
-			at = p.VerifiedAt.Time
-		}
-		purpose := model.PurposeGeneral
-		if p.LinkPurpose.String == "prepayment" {
-			purpose = model.PurposePrepayment
-		}
-		row, err := q.InsertPaymentCollectionEntry(ctx, db.InsertPaymentCollectionEntryParams{
-			OrganizationID: orgID, AccountID: acc.ID, Purpose: purpose, Amount: p.Amount, Currency: p.Currency,
-			EntryDate: dateOf(day(at)), Description: p.ReservationReference + " · " + p.Method,
-			SourceUuid: uuidOf(p.Uuid), ReservationID: p.ReservationID, PaymentID: int8Of(p.ID),
-			BranchID: int8Of(p.PickupBranchID), CreatedBy: p.CreatedBy,
-		})
-		if notFound(err) {
-			return nil // already posted
-		}
-		if err != nil {
-			return err
-		}
-		s.publish(ctx, model.ResourceAccounts, "updated", acc.UUID)
-		s.publish(ctx, model.ResourceEntries, "created", row.Uuid)
-		return nil
+	var accUUID uuid.UUID
+	var collID int64
+	err := s.tx(ctx, func(q *db.Queries) error {
+		var err error
+		collID, _, accUUID, err = s.postPaymentTx(ctx, q, orgID, paymentID)
+		return err
 	})
+	if err != nil {
+		return err
+	}
+	if collID != 0 {
+		s.publish(ctx, model.ResourceAccounts, "updated", accUUID)
+	}
+	return nil
 }
 
-// PostRefund posts a succeeded payment refund (idempotent).
+// PostRefund posts a succeeded payment refund (idempotent): the refund
+// entry naming the payment's collection, the collection's refunded amount
+// (allocations released newest first) and, when the collection was
+// settled, the money leaving the settlement account. Pending and failed
+// refunds post nothing.
 func (s *Service) PostRefund(ctx context.Context, orgID, refundID int64) error {
-	return s.tx(ctx, func(q *db.Queries) error {
+	var accUUID, collUUID, entryUUID uuid.UUID
+	err := s.tx(ctx, func(q *db.Queries) error {
 		f, err := q.GetRefundForLedger(ctx, db.GetRefundForLedgerParams{OrganizationID: orgID, ID: refundID})
 		if notFound(err) {
 			return nil
@@ -258,6 +265,11 @@ func (s *Service) PostRefund(ctx context.Context, orgID, refundID int64) error {
 		if f.Status != "succeeded" {
 			return nil
 		}
+		// The payment's collection first (it may not be posted yet).
+		collID, cu, au, err := s.postPaymentTx(ctx, q, orgID, f.PaymentID)
+		if err != nil {
+			return err
+		}
 		customerID := f.CustomerID
 		if f.InvoiceCustomerID.Valid {
 			customerID = f.InvoiceCustomerID.Int64
@@ -266,11 +278,15 @@ func (s *Service) PostRefund(ctx context.Context, orgID, refundID int64) error {
 		if err != nil {
 			return err
 		}
-		row, err := q.InsertPaymentRefundEntry(ctx, db.InsertPaymentRefundEntryParams{
+		if _, err := q.LockAccount(ctx, db.LockAccountParams{OrganizationID: orgID, ID: acc.ID}); err != nil {
+			return err
+		}
+		date := dateOf(day(f.CreatedAt.Time))
+		row, err := q.InsertPaymentRefundCollectionEntry(ctx, db.InsertPaymentRefundCollectionEntryParams{
 			OrganizationID: orgID, AccountID: acc.ID, Purpose: model.PurposeGeneral, Amount: f.Amount, Currency: f.Currency,
-			EntryDate: dateOf(day(f.CreatedAt.Time)), Description: f.ReservationReference, SourceUuid: uuidOf(f.Uuid),
+			EntryDate: date, Description: f.ReservationReference, SourceUuid: uuidOf(f.Uuid),
 			ReservationID: f.ReservationID, PaymentID: int8Of(f.PaymentID), PaymentRefundID: int8Of(f.ID),
-			BranchID: int8Of(f.PickupBranchID), CreatedBy: f.CreatedBy,
+			CollectionID: int8Of(collID), BranchID: int8Of(f.PickupBranchID), CreatedBy: f.CreatedBy,
 		})
 		if notFound(err) {
 			return nil
@@ -278,10 +294,28 @@ func (s *Service) PostRefund(ctx context.Context, orgID, refundID int64) error {
 		if err != nil {
 			return err
 		}
-		s.publish(ctx, model.ResourceAccounts, "updated", acc.UUID)
-		s.publish(ctx, model.ResourceEntries, "created", row.Uuid)
-		return nil
+		accUUID, entryUUID = acc.UUID, row.Uuid
+		if collID == 0 {
+			return nil
+		}
+		collUUID = cu
+		_ = au
+		if err := s.applyRefund(ctx, q, orgID, collID, m(f.Amount), "system:payment_refund"); err != nil {
+			return err
+		}
+		return s.refundSettled(ctx, q, orgID, collID, row.ID, m(f.Amount), date)
 	})
+	if err != nil {
+		return err
+	}
+	if entryUUID != uuid.Nil {
+		s.publish(ctx, model.ResourceAccounts, "updated", accUUID)
+		s.publish(ctx, model.ResourceEntries, "created", entryUUID)
+	}
+	if collUUID != uuid.Nil {
+		s.publish(ctx, model.ResourceCollections, "updated", collUUID)
+	}
+	return nil
 }
 
 // PostPending is the catch-up sweep (worker, every minute): confirmed
@@ -307,6 +341,31 @@ func (s *Service) PostPending(ctx context.Context) (int, error) {
 	for _, f := range refunds {
 		if err := s.PostRefund(orgctx.WithOrganizationID(ctx, f.OrganizationID), f.OrganizationID, f.ID); err != nil {
 			s.log.Warn("ledger_post_refund_failed", "organization_id", f.OrganizationID, "refund_id", f.ID, "error", err)
+			continue
+		}
+		n++
+	}
+	// Posted payments without their collection document (TEC-718).
+	missing, err := s.q.ListPaymentsWithoutCollection(ctx, 200)
+	if err != nil {
+		return n, err
+	}
+	for _, p := range missing {
+		if err := s.PostPayment(orgctx.WithOrganizationID(ctx, p.OrganizationID), p.OrganizationID, p.PaymentID.Int64); err != nil {
+			s.log.Warn("ledger_post_collection_failed", "organization_id", p.OrganizationID, "payment_id", p.PaymentID.Int64, "error", err)
+			continue
+		}
+		n++
+	}
+	// Online collections whose settlement account exists now.
+	pending, err := s.q.ListPendingSettlements(ctx, 200)
+	if err != nil {
+		return n, err
+	}
+	for _, c := range pending {
+		octx := orgctx.WithOrganizationID(ctx, c.OrganizationID)
+		if err := s.tx(octx, func(q *db.Queries) error { return s.settle(octx, q, c.OrganizationID, c.ID) }); err != nil {
+			s.log.Warn("collection_settlement_failed", "organization_id", c.OrganizationID, "collection_id", c.ID, "error", err)
 			continue
 		}
 		n++

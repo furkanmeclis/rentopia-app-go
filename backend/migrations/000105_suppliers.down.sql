@@ -45,10 +45,12 @@ ALTER TABLE expenses DROP COLUMN IF EXISTS supplier_id;
 
 DROP INDEX IF EXISTS idx_ledger_entries_organization_supplier_invoice;
 DROP INDEX IF EXISTS uq_ledger_entries_supplier_payment;
+-- Back to the union before 000105: 000096 values, 'collection' (000101) and
+-- 'security_deposit' (deposits, 000103).
 ALTER TABLE ledger_entries DROP CONSTRAINT IF EXISTS ledger_entries_source_type_check;
 ALTER TABLE ledger_entries ADD CONSTRAINT ledger_entries_source_type_check CHECK (source_type IN (
     'rental', 'rental_charge', 'reservation', 'payment', 'payment_refund', 'invoice', 'toll_charge',
-    'cash_movement', 'manual'
+    'cash_movement', 'manual', 'collection', 'security_deposit'
 ));
 ALTER TABLE ledger_entries DROP CONSTRAINT IF EXISTS fk_ledger_entries_supplier_payment;
 ALTER TABLE ledger_entries DROP CONSTRAINT IF EXISTS fk_ledger_entries_supplier_invoice;

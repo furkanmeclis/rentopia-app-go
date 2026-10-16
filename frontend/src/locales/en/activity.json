@@ -359,5 +359,10 @@
   "actions.finance.supplier_invoice_attachment_uploaded": "Invoice file uploaded",
   "actions.finance.supplier_invoice_attachment_deleted": "Invoice file removed",
   "actions.finance.supplier_payment_recorded": "Supplier payment recorded",
-  "actions.finance.supplier_payment_voided": "Supplier payment voided"
+  "actions.finance.supplier_payment_voided": "Supplier payment voided",
+  "resources.tenant.finance_collections": "Collections",
+  "actions.finance.collection_allocated": "Collection allocated",
+  "actions.finance.collection_allocation_released": "Collection allocation released",
+  "actions.finance.collection_refunded": "Collection refunded",
+  "actions.finance.collection_voided": "Collection voided"
 }

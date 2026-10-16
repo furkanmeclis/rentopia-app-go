@@ -88,5 +88,6 @@
   "resources.tenant.expenses": "Giderler",
   "resources.tenant.suppliers": "Tedarikçiler",
   "resources.tenant.supplier_invoices": "Gider faturaları",
-  "resources.tenant.supplier_payments": "Tedarikçi ödemeleri"
+  "resources.tenant.supplier_payments": "Tedarikçi ödemeleri",
+  "resources.tenant.finance_collections": "Tahsilatlar"
 }

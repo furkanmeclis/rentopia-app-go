@@ -7,7 +7,7 @@ What the organization owes: supplier cards ("Tedarikçi"), their invoices ("gide
 
 Panel: Finans → Tedarikçiler, Gider faturaları, Tedarikçi ödemeleri, Vadesi yaklaşan ödemeler.
 
-## Tables (migrations 000800, 000801)
+## Tables (migrations 000105, 000106)
 
 | Table | Purpose |
 |-------|---------|
@@ -90,11 +90,20 @@ A supplier account's credits are its charges. Aging and account status are party
 
 `/finance/summary` reports supplier payables separately, in `payable_overdue` and `payable_due_soon`, so they do not mix with customer receivables.
 
+### Collections (TEC-718)
+
+Collections are customer-side only:
+
+- **No collection documents.** A supplier payment is a `payment` entry with source `supplier_payment`. It never creates a collection document and does not appear in the collections list.
+- **No collections on supplier accounts.** Creating a collection (`/finance/collections`, or the account's `collections` route) and listing open items are refused with `supplier_account`.
+- **Not allocatable.** The `collection_allocations` guard accepts only live debit accruals on the collection's own account, so supplier invoice accruals (credits) can never be allocated.
+- **Aging.** Aging on balances stays party-aware as described above. Collections do not change it.
+
 ## Vehicles
 
 `vehicles.supplier_id` is set from the vehicle form's supplier combobox (`supplier_uuid`; `null` clears it). The vehicle detail links the supplier; the supplier detail lists its vehicles. The vehicle list filters on `supplier`.
 
-## Permissions (000801, `rbac.go`, `permissions.ts`)
+## Permissions (000106, `rbac.go`, `permissions.ts`)
 
 New slugs: `tenant.suppliers.read|write|export|import|bulk.archive`.
 

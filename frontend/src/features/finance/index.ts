@@ -8,3 +8,6 @@ export { CategoriesPage } from "./components/categories-page";
 export { ReportsPage } from "./components/reports-page";
 export { RentalLedgerCard } from "./components/rental-ledger-card";
 export { CustomerLedgerCard } from "./components/customer-ledger-card";
+export { CollectionsPage } from "./components/collections-page";
+export { CollectionDetailPage } from "./components/collection-detail-page";
+export { CollectDialog } from "./components/collect-dialog";

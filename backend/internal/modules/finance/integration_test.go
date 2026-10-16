@@ -142,6 +142,7 @@ func newFx(t *testing.T) *fx {
 	f.fin = usecase.New(pool, q, memDriver{m: storage.NewMemory()})
 	f.rentals.SetLedger(f.fin)
 	f.pay.SetLedger(f.fin)
+	f.fin.SetPayments(f.pay)
 
 	f.branch = f.newBranch("MRK")
 	f.other = f.newBranch("HVL")

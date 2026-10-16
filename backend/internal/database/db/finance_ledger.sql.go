@@ -868,7 +868,7 @@ SELECT e.account_id, e.party_kind,
 FROM (
     -- The aging side: a supplier account's charges are its credits
     -- (payables), its settlements the debits (payments).
-    SELECT le.id, le.uuid, le.organization_id, le.account_id, le.kind, le.direction, le.purpose, le.amount, le.currency, le.entry_date, le.due_date, le.description, le.reason, le.source_type, le.source_uuid, le.rental_id, le.reservation_id, le.rental_charge_id, le.payment_id, le.payment_refund_id, le.accrual_key, le.accrual_generation, le.reverses_entry_id, le.adjusts_entry_id, le.offset_group, le.branch_id, le.created_by, le.created_at, le.supplier_invoice_id, le.supplier_payment_id, pa.party_kind,
+    SELECT le.id, le.uuid, le.organization_id, le.account_id, le.kind, le.direction, le.purpose, le.amount, le.currency, le.entry_date, le.due_date, le.description, le.reason, le.source_type, le.source_uuid, le.rental_id, le.reservation_id, le.rental_charge_id, le.payment_id, le.payment_refund_id, le.accrual_key, le.accrual_generation, le.reverses_entry_id, le.adjusts_entry_id, le.offset_group, le.branch_id, le.created_by, le.created_at, le.collection_id, le.supplier_invoice_id, le.supplier_payment_id, pa.party_kind,
         (CASE WHEN pa.party_kind = 'supplier'
             THEN (CASE le.direction WHEN 'debit' THEN 'credit' ELSE 'debit' END)
             ELSE le.direction END)::text AS side
@@ -1025,7 +1025,7 @@ WITH agg AS (
     FROM (
         -- The aging side: a supplier account's charges are its credits
         -- (payables), its settlements the debits (payments).
-        SELECT le.id, le.uuid, le.organization_id, le.account_id, le.kind, le.direction, le.purpose, le.amount, le.currency, le.entry_date, le.due_date, le.description, le.reason, le.source_type, le.source_uuid, le.rental_id, le.reservation_id, le.rental_charge_id, le.payment_id, le.payment_refund_id, le.accrual_key, le.accrual_generation, le.reverses_entry_id, le.adjusts_entry_id, le.offset_group, le.branch_id, le.created_by, le.created_at, le.supplier_invoice_id, le.supplier_payment_id, pa.party_kind,
+        SELECT le.id, le.uuid, le.organization_id, le.account_id, le.kind, le.direction, le.purpose, le.amount, le.currency, le.entry_date, le.due_date, le.description, le.reason, le.source_type, le.source_uuid, le.rental_id, le.reservation_id, le.rental_charge_id, le.payment_id, le.payment_refund_id, le.accrual_key, le.accrual_generation, le.reverses_entry_id, le.adjusts_entry_id, le.offset_group, le.branch_id, le.created_by, le.created_at, le.collection_id, le.supplier_invoice_id, le.supplier_payment_id, pa.party_kind,
             (CASE WHEN pa.party_kind = 'supplier'
                 THEN (CASE le.direction WHEN 'debit' THEN 'credit' ELSE 'debit' END)
                 ELSE le.direction END)::text AS side
@@ -1231,7 +1231,7 @@ func (q *Queries) ListAccounts(ctx context.Context, arg ListAccountsParams) ([]L
 
 const listLedgerEntries = `-- name: ListLedgerEntries :many
 WITH scoped AS (
-    SELECT e.id, e.uuid, e.organization_id, e.account_id, e.kind, e.direction, e.purpose, e.amount, e.currency, e.entry_date, e.due_date, e.description, e.reason, e.source_type, e.source_uuid, e.rental_id, e.reservation_id, e.rental_charge_id, e.payment_id, e.payment_refund_id, e.accrual_key, e.accrual_generation, e.reverses_entry_id, e.adjusts_entry_id, e.offset_group, e.branch_id, e.created_by, e.created_at, e.supplier_invoice_id, e.supplier_payment_id,
+    SELECT e.id, e.uuid, e.organization_id, e.account_id, e.kind, e.direction, e.purpose, e.amount, e.currency, e.entry_date, e.due_date, e.description, e.reason, e.source_type, e.source_uuid, e.rental_id, e.reservation_id, e.rental_charge_id, e.payment_id, e.payment_refund_id, e.accrual_key, e.accrual_generation, e.reverses_entry_id, e.adjusts_entry_id, e.offset_group, e.branch_id, e.created_by, e.created_at, e.collection_id, e.supplier_invoice_id, e.supplier_payment_id,
         SUM(CASE WHEN e.direction = 'debit' THEN e.amount ELSE -e.amount END)
             OVER (PARTITION BY e.account_id ORDER BY e.entry_date, e.id)::numeric AS running_balance
     FROM ledger_entries e

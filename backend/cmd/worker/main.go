@@ -328,6 +328,7 @@ func main() {
 		financeadapters.NewSupplierInvoicesIO(financeSvc),
 		financeadapters.NewSupplierPaymentsIO(financeSvc),
 		supplieradapters.NewIO(supplierSvc),
+		financeadapters.NewCollectionsIO(financeSvc),
 	)
 	exportSvc := exportusecase.New(queries, store, ioReg, nil, notifSvc, activityRec, log)
 	importSvc := importusecase.New(queries, store, ioReg, nil, notifSvc, activityRec, log)
@@ -348,6 +349,7 @@ func main() {
 		financeadapters.NewMovementsBulk(financeSvc),
 		financeadapters.NewExpensesBulk(financeSvc),
 		supplieradapters.NewBulk(supplierSvc),
+		financeadapters.NewCollectionsBulk(financeSvc),
 	)
 	bulkSvc := bulkusecase.New(queries, bulkReg, nil, notifSvc, activityRec, cfg.Bulk, log)
 	// Tenant jobs run with the requester's current membership (permissions

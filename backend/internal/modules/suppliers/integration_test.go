@@ -530,6 +530,51 @@ func TestDueSoonPayables(t *testing.T) {
 
 // --------------------------------------------------------------- vehicles
 
+// TestSupplierPaymentsStayOutOfCollections: supplier payments are not
+// collection documents, and a supplier account takes no collections, so
+// its invoices are never collection open items (TEC-718 / TEC-721).
+func TestSupplierPaymentsStayOutOfCollections(t *testing.T) {
+	e := newEnv(t)
+	o := e.newOrg()
+	ctx := orgctx.WithScope(context.Background(), orgctx.Scope{
+		ID: o.id, UUID: o.uuid, Slug: o.slug, Status: orgctx.StatusActive,
+		Permissions: append([]string{rbac.PermTenantPaymentCollect}, perms...),
+	})
+	s := e.supplier(o, "Tahsilat Dışı Ltd.")
+	e.invoice(o, s.UUID, "C-1", "2026-04-01", "2026-04-30", "1000", nil)
+	p, err := e.fin.CreateSupplierPayment(ctx, o.id, finmodel.SupplierPaymentInput{
+		SupplierUUID: &s.UUID, CashAccountUUID: &o.bankUUID, Amount: mp("500"), PaymentDate: strp("2026-05-05"),
+	})
+	e.must(err)
+	acc := e.account(o, s)
+
+	list, total, err := e.fin.ListCollections(ctx, o.id, finmodel.CollectionFilter{Limit: 50})
+	e.must(err)
+	if total != 0 || len(list) != 0 {
+		t.Fatalf("supplier payment listed as a collection: %d %+v", total, list)
+	}
+	byAccount, total, err := e.fin.ListCollections(ctx, o.id, finmodel.CollectionFilter{Limit: 50, AccountUUID: &acc.UUID})
+	e.must(err)
+	if total != 0 || len(byAccount) != 0 {
+		t.Fatalf("supplier account has collections: %+v", byAccount)
+	}
+	_, err = e.fin.OpenItems(ctx, o.id, acc.UUID, nil, true)
+	expectCode(t, err, "account_uuid", "supplier_account")
+	_, _, err = e.fin.CreateCollection(ctx, o.id, finmodel.CollectionCreateInput{
+		AccountUUID: &acc.UUID, Amount: mp("100"), Method: "bank_transfer", CashAccountUUID: &o.bankUUID,
+	})
+	expectCode(t, err, "account_uuid", "supplier_account")
+	_, err = e.fin.Collect(ctx, o.id, acc.UUID, finmodel.CollectionInput{Amount: mp("100")})
+	expectCode(t, err, "account_uuid", "supplier_account")
+
+	// The payment entry stays a supplier payment entry.
+	entry, err := e.fin.GetEntry(ctx, o.id, *p.LedgerEntryUUID)
+	e.must(err)
+	if entry.Kind != finmodel.KindPayment || entry.SourceType != finmodel.SourceSupplierPayment {
+		t.Fatalf("payment entry: %s / %s", entry.Kind, entry.SourceType)
+	}
+}
+
 func TestSupplierOnVehicle(t *testing.T) {
 	e := newEnv(t)
 	o := e.newOrg()
@@ -704,9 +749,9 @@ func TestFreeTextSupplierMigration(t *testing.T) {
 			t.Fatalf("%s: %v", sql[:min(len(sql), 60)], err)
 		}
 	}
-	// Back to the state before 000800 (801 only seeds permissions).
-	exec(migration(t, "000801_seed_suppliers_rbac.down.sql"))
-	exec(migration(t, "000800_suppliers.down.sql"))
+	// Back to the state before 000105 (106 only seeds permissions).
+	exec(migration(t, "000106_seed_suppliers_rbac.down.sql"))
+	exec(migration(t, "000105_suppliers.down.sql"))
 	var orgID, branchID, catID int64
 	if err := conn.QueryRow(ctx, `INSERT INTO organizations (slug, name) VALUES ('mig-sup', 'Mig') RETURNING id`).Scan(&orgID); err != nil {
 		t.Fatal(err)
@@ -735,8 +780,8 @@ func TestFreeTextSupplierMigration(t *testing.T) {
 	exec(`INSERT INTO expenses (organization_id, category_id, expense_date, supplier_name, net_amount, total_amount)
 		VALUES ($1, $2, '2026-01-01', 'ACME FILO', 100, 100), ($1, $2, '2026-01-02', 'Opet', 50, 50), ($1, $2, '2026-01-03', '', 10, 10)`,
 		orgID, catID)
-	exec(migration(t, "000800_suppliers.up.sql"))
-	exec(migration(t, "000801_seed_suppliers_rbac.up.sql"))
+	exec(migration(t, "000105_suppliers.up.sql"))
+	exec(migration(t, "000106_seed_suppliers_rbac.up.sql"))
 
 	type sup struct {
 		code, title, kind  string

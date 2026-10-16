@@ -25,7 +25,7 @@ type FinanceFormDialogProps<T extends FieldValues> = {
   onSubmit: (values: T) => Promise<void>;
   children: ReactNode;
   destructive?: boolean;
-  /** Wider dialogs (forms with line items) pass e.g. `sm:max-w-3xl`. */
+  /** Extra dialog classes, merged over the default narrow form (e.g. `sm:max-w-3xl`). */
   className?: string;
 };
 

@@ -581,6 +581,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	supplierSvc := supplierusecase.New(deps.DB, deps.Queries, financeSvc, searchIndexer)
 	supplierSvc.SetResourceEvents(resourceEvents)
 	supplierSvc.SetLogger(log)
+	financeSvc.SetPayments(paymentsSvc)
 	// Customer portal (TEC-715): reference + contact + one-time code, a
 	// customer session of its own, documents, pay remaining, requests.
 	portalSvc := customerportalusecase.New(deps.DB, deps.Queries, smsSvc, reservationSvc)
@@ -683,6 +684,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		financeadapters.NewSupplierInvoicesIO(financeSvc),
 		financeadapters.NewSupplierPaymentsIO(financeSvc),
 		supplieradapters.NewIO(supplierSvc),
+		financeadapters.NewCollectionsIO(financeSvc),
 	)
 	exportSvc := exportusecase.New(deps.Queries, deps.Storage, ioReg, jobQueue, notifSvc, activityRec, log)
 	importSvc := importusecase.New(deps.Queries, deps.Storage, ioReg, jobQueue, notifSvc, activityRec, log)
@@ -706,6 +708,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		financeadapters.NewMovementsBulk(financeSvc),
 		financeadapters.NewExpensesBulk(financeSvc),
 		supplieradapters.NewBulk(supplierSvc),
+		financeadapters.NewCollectionsBulk(financeSvc),
 	)
 	bulkSvc := bulkusecase.New(deps.Queries, bulkReg, jobQueue, notifSvc, activityRec, cfg.Bulk, log)
 	// Tenant jobs run with the requester's current membership (permissions
@@ -873,6 +876,10 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 			Import: importH.TenantUpload(financemodule.ResourceExpenses),
 			Sample: importH.TenantSample(financemodule.ResourceExpenses),
 			Bulk:   bulkH.TenantExecute(financemodule.ResourceExpenses),
+		},
+		Collections: financemodule.ResourceEngines{
+			Export: exportH.TenantExport(financemodule.ResourceCollections, financemodule.CollectionQueryKeys...),
+			Bulk:   bulkH.TenantExecute(financemodule.ResourceCollections),
 		},
 		SupplierInvoices: financemodule.ResourceEngines{
 			Export: exportH.TenantExport(financemodule.ResourceSupplierInvoices, financemodule.SupplierInvoiceQueryKeys...),
