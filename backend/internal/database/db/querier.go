@@ -75,6 +75,7 @@ type Querier interface {
 	CloseOpenDocumentApprovalLinks(ctx context.Context, arg CloseOpenDocumentApprovalLinksParams) ([]uuid.UUID, error)
 	// Return of the current leg (the open one of the vehicle).
 	CloseRentalVehicleLeg(ctx context.Context, arg CloseRentalVehicleLegParams) (int64, error)
+	CollectionAllocated(ctx context.Context, arg CollectionAllocatedParams) (pgtype.Numeric, error)
 	CompleteInspectionPhoto(ctx context.Context, arg CompleteInspectionPhotoParams) (int64, error)
 	CompleteVehicleTransfer(ctx context.Context, arg CompleteVehicleTransferParams) (int64, error)
 	// Hold -> confirmed reservation (TEC-706): same row, so capacity is never
@@ -96,6 +97,7 @@ type Querier interface {
 	CountAllBulkJobs(ctx context.Context) (int64, error)
 	CountAllExportJobs(ctx context.Context) (int64, error)
 	CountAllImportJobs(ctx context.Context) (int64, error)
+	CountAllocationRequest(ctx context.Context, arg CountAllocationRequestParams) (int64, error)
 	CountAppLogs(ctx context.Context, arg CountAppLogsParams) (int64, error)
 	CountAppLogsByLevel(ctx context.Context) ([]CountAppLogsByLevelRow, error)
 	CountBranches(ctx context.Context, arg CountBranchesParams) (int64, error)
@@ -452,6 +454,7 @@ type Querier interface {
 	GetCampaignSegmentByUUID(ctx context.Context, arg GetCampaignSegmentByUUIDParams) (GetCampaignSegmentByUUIDRow, error)
 	GetCapacityRule(ctx context.Context, arg GetCapacityRuleParams) (GetCapacityRuleRow, error)
 	GetCashAccountByCode(ctx context.Context, arg GetCashAccountByCodeParams) (GetCashAccountByCodeRow, error)
+	GetCashAccountProvider(ctx context.Context, arg GetCashAccountProviderParams) (pgtype.Text, error)
 	GetCashAccountRow(ctx context.Context, arg GetCashAccountRowParams) (GetCashAccountRowRow, error)
 	GetCashMovementRow(ctx context.Context, arg GetCashMovementRowParams) (GetCashMovementRowRow, error)
 	GetCatalogBrandByUUID(ctx context.Context, argUuid uuid.UUID) (GetCatalogBrandByUUIDRow, error)
@@ -466,6 +469,12 @@ type Querier interface {
 	// under the TSB brands of the model's display brand.
 	GetCatalogModelGroup(ctx context.Context, argUuid uuid.UUID) (GetCatalogModelGroupRow, error)
 	GetCatalogTypeByUUID(ctx context.Context, argUuid uuid.UUID) (GetCatalogTypeByUUIDRow, error)
+	GetCollectionByIdempotencyKey(ctx context.Context, arg GetCollectionByIdempotencyKeyParams) (GetCollectionByIdempotencyKeyRow, error)
+	GetCollectionIDByEntry(ctx context.Context, arg GetCollectionIDByEntryParams) (GetCollectionIDByEntryRow, error)
+	GetCollectionIDByPayment(ctx context.Context, arg GetCollectionIDByPaymentParams) (GetCollectionIDByPaymentRow, error)
+	GetCollectionRow(ctx context.Context, arg GetCollectionRowParams) (GetCollectionRowRow, error)
+	GetCollectionRowByID(ctx context.Context, arg GetCollectionRowByIDParams) (GetCollectionRowByIDRow, error)
+	GetCommissionCategoryID(ctx context.Context, organizationID int64) (int64, error)
 	GetContractTemplate(ctx context.Context, arg GetContractTemplateParams) (GetContractTemplateRow, error)
 	// Versioned organization settings. Rows are immutable; the current settings
 	// are the highest version of the organization.
@@ -624,11 +633,13 @@ type Querier interface {
 	GetOrganizationUUIDForInspections(ctx context.Context, id int64) (uuid.UUID, error)
 	GetPayment(ctx context.Context, arg GetPaymentParams) (GetPaymentRow, error)
 	GetPaymentByID(ctx context.Context, arg GetPaymentByIDParams) (GetPaymentByIDRow, error)
+	GetPaymentCollectionEntry(ctx context.Context, arg GetPaymentCollectionEntryParams) (GetPaymentCollectionEntryRow, error)
 	GetPaymentForLedger(ctx context.Context, arg GetPaymentForLedgerParams) (GetPaymentForLedgerRow, error)
 	GetPaymentLink(ctx context.Context, arg GetPaymentLinkParams) (GetPaymentLinkRow, error)
 	// What the public pay page shows: organization name, reservation
 	// reference, dates, product title and the amount.
 	GetPaymentLinkPublic(ctx context.Context, arg GetPaymentLinkPublicParams) (GetPaymentLinkPublicRow, error)
+	GetPaymentSettlementFacts(ctx context.Context, arg GetPaymentSettlementFactsParams) (GetPaymentSettlementFactsRow, error)
 	GetPermissionBySlug(ctx context.Context, slug string) (Permission, error)
 	// Channel, contact hash and time of a verified challenge (the session binds
 	// the code to the contact the customer typed).
@@ -659,6 +670,7 @@ type Querier interface {
 	// ------------------------------------------------------------------ lookups
 	GetPricingProductByCode(ctx context.Context, arg GetPricingProductByCodeParams) (RentalProduct, error)
 	GetPricingProductByUUID(ctx context.Context, arg GetPricingProductByUUIDParams) (GetPricingProductByUUIDRow, error)
+	GetProviderSettlementAccount(ctx context.Context, arg GetProviderSettlementAccountParams) (GetProviderSettlementAccountRow, error)
 	// Public media stream: the organization is named by its uuid in the URL.
 	GetPublicRentalProductImage(ctx context.Context, arg GetPublicRentalProductImageParams) (GetPublicRentalProductImageRow, error)
 	GetQuote(ctx context.Context, arg GetQuoteParams) (GetQuoteRow, error)
@@ -712,6 +724,8 @@ type Querier interface {
 	// Guarantee and conditions of a product version (reservation snapshot).
 	GetReservationProductVersion(ctx context.Context, arg GetReservationProductVersionParams) (GetReservationProductVersionRow, error)
 	GetReservationRefByID(ctx context.Context, arg GetReservationRefByIDParams) (GetReservationRefByIDRow, error)
+	// The live rental of a reservation (prepayments are allocated to it).
+	GetReservationRentalID(ctx context.Context, arg GetReservationRentalIDParams) (int64, error)
 	// A member of the organization (staff assignment, task assignee).
 	GetReservationUserInOrganization(ctx context.Context, arg GetReservationUserInOrganizationParams) (GetReservationUserInOrganizationRow, error)
 	GetReservationVehicleByID(ctx context.Context, arg GetReservationVehicleByIDParams) (GetReservationVehicleByIDRow, error)
@@ -793,6 +807,9 @@ type Querier interface {
 	// Cash / bank accounts, movements, expense categories, expenses (TEC-720).
 	InsertCashAccount(ctx context.Context, arg InsertCashAccountParams) (InsertCashAccountRow, error)
 	InsertCashMovement(ctx context.Context, arg InsertCashMovementParams) (InsertCashMovementRow, error)
+	InsertCollection(ctx context.Context, arg InsertCollectionParams) (InsertCollectionRow, error)
+	InsertCollectionAllocation(ctx context.Context, arg InsertCollectionAllocationParams) (InsertCollectionAllocationRow, error)
+	InsertCollectionRefundEntry(ctx context.Context, arg InsertCollectionRefundEntryParams) (InsertCollectionRefundEntryRow, error)
 	// Contract templates, documents, versions and approvals (TEC-710). Every
 	// query filters by organization_id; documents follow the branch scope of
 	// their reservation (pick-up OR return branch, or the rental's actual
@@ -860,6 +877,8 @@ type Querier interface {
 	// scope everything after them.
 	InsertPaymentLink(ctx context.Context, arg InsertPaymentLinkParams) (int64, error)
 	InsertPaymentRefund(ctx context.Context, arg InsertPaymentRefundParams) (InsertPaymentRefundRow, error)
+	// Idempotent like InsertPaymentRefundEntry; names the collection.
+	InsertPaymentRefundCollectionEntry(ctx context.Context, arg InsertPaymentRefundCollectionEntryParams) (InsertPaymentRefundCollectionEntryRow, error)
 	// Idempotent: one refund entry per payment refund.
 	InsertPaymentRefundEntry(ctx context.Context, arg InsertPaymentRefundEntryParams) (InsertPaymentRefundEntryRow, error)
 	InsertPortalSession(ctx context.Context, arg InsertPortalSessionParams) (InsertPortalSessionRow, error)
@@ -953,6 +972,7 @@ type Querier interface {
 	// One page of allocations (newest first) in the caller's branch scope
 	// (pick-up OR return branch); the caller hydrates each with GetAllocation.
 	ListAllocationUUIDs(ctx context.Context, arg ListAllocationUUIDsParams) ([]ListAllocationUUIDsRow, error)
+	ListAllocationsByRequest(ctx context.Context, arg ListAllocationsByRequestParams) ([]ListAllocationsByRequestRow, error)
 	ListAppLogSources(ctx context.Context) ([]string, error)
 	ListAppLogs(ctx context.Context, arg ListAppLogsParams) ([]AppLog, error)
 	// Active allocations of the vehicles that end after now. Holds past their
@@ -1009,7 +1029,23 @@ type Querier interface {
 	ListCatalogValuationsByPeriod(ctx context.Context, period string) ([]ListCatalogValuationsByPeriodRow, error)
 	// Platform catalog: kasko value history of one type and model year.
 	ListCatalogValuationsForVehicle(ctx context.Context, arg ListCatalogValuationsForVehicleParams) ([]ListCatalogValuationsForVehicleRow, error)
+	// The net allocations of one collection per open item, the most recently
+	// allocated first (a refund releases from the newest).
+	ListCollectionAllocationPairs(ctx context.Context, arg ListCollectionAllocationPairsParams) ([]ListCollectionAllocationPairsRow, error)
+	// The open items a collection pays (net per item) for the detail page.
+	ListCollectionAllocations(ctx context.Context, arg ListCollectionAllocationsParams) ([]ListCollectionAllocationsRow, error)
+	// Refunds of one collection: provider refunds of its payment (any status,
+	// with the entry once it succeeded) and manual refunds (ledger entries
+	// naming the collection).
+	ListCollectionRefunds(ctx context.Context, arg ListCollectionRefundsParams) ([]ListCollectionRefundsRow, error)
+	// One page of collections with their allocation state. The branch scope
+	// applies to the collection's branch (head office collections need every
+	// branch).
+	ListCollections(ctx context.Context, arg ListCollectionsParams) ([]ListCollectionsRow, error)
 	ListContractTemplates(ctx context.Context, arg ListContractTemplatesParams) ([]ListContractTemplatesRow, error)
+	// Collections of an account with money left to allocate (the party's
+	// credit), oldest first. Deposits are not free credit.
+	ListCreditCollections(ctx context.Context, arg ListCreditCollectionsParams) ([]ListCreditCollectionsRow, error)
 	ListCurrentRentalProductVersions(ctx context.Context, arg ListCurrentRentalProductVersionsParams) ([]RentalProductVersion, error)
 	// --- marketing consents -----------------------------------------------------------
 	ListCustomerConsents(ctx context.Context, arg ListCustomerConsentsParams) ([]ListCustomerConsentsRow, error)
@@ -1057,6 +1093,9 @@ type Querier interface {
 	// (each row carries its organization_id; the runner re-scopes from it).
 	ListDueRunnerJobs(ctx context.Context, limitCount int32) ([]ListDueRunnerJobsRow, error)
 	ListEnabledLogPurgeRules(ctx context.Context) ([]LogPurgeRule, error)
+	// The collections allocated to one open item (released when the accrual
+	// is reversed).
+	ListEntryAllocationPairs(ctx context.Context, arg ListEntryAllocationPairsParams) ([]ListEntryAllocationPairsRow, error)
 	ListEquipmentAllocations(ctx context.Context, arg ListEquipmentAllocationsParams) ([]ListEquipmentAllocationsRow, error)
 	ListExpenseCategories(ctx context.Context, arg ListExpenseCategoriesParams) ([]ListExpenseCategoriesRow, error)
 	ListExpenses(ctx context.Context, arg ListExpensesParams) ([]ListExpensesRow, error)
@@ -1160,6 +1199,9 @@ type Querier interface {
 	// Active rules of a route: the product rule (when product_id is given)
 	// first, then the generic rule. The use case takes the first row.
 	ListOneWayRulesForRoute(ctx context.Context, arg ListOneWayRulesForRouteParams) ([]ListOneWayRulesForRouteRow, error)
+	// Open items of an account: live accruals (rent, charges) with what is
+	// allocated to them. Branch scope applies to the entry's branch.
+	ListOpenItems(ctx context.Context, arg ListOpenItemsParams) ([]ListOpenItemsRow, error)
 	ListOperationTaskFacets(ctx context.Context, arg ListOperationTaskFacetsParams) ([]ListOperationTaskFacetsRow, error)
 	ListOperationTasks(ctx context.Context, arg ListOperationTasksParams) ([]ListOperationTasksRow, error)
 	ListOrganizationBranchOptions(ctx context.Context, organizationID int64) ([]ListOrganizationBranchOptionsRow, error)
@@ -1192,10 +1234,14 @@ type Querier interface {
 	ListPaymentLinks(ctx context.Context, arg ListPaymentLinksParams) ([]ListPaymentLinksRow, error)
 	ListPaymentRefunds(ctx context.Context, arg ListPaymentRefundsParams) ([]ListPaymentRefundsRow, error)
 	ListPayments(ctx context.Context, arg ListPaymentsParams) ([]ListPaymentsRow, error)
+	// Sweep: posted payments whose collection document is missing.
+	ListPaymentsWithoutCollection(ctx context.Context, limitCount int32) ([]ListPaymentsWithoutCollectionRow, error)
 	// Reconciliation sweep: organizations with checkouts waiting longer than
 	// the grace period (a lost webhook is recovered by a provider retrieve).
 	ListPendingPaymentOrganizations(ctx context.Context, arg ListPendingPaymentOrganizationsParams) ([]int64, error)
 	ListPendingPayments(ctx context.Context, arg ListPendingPaymentsParams) ([]uuid.UUID, error)
+	// Sweep: online collections whose settlement account exists now.
+	ListPendingSettlements(ctx context.Context, limitCount int32) ([]ListPendingSettlementsRow, error)
 	ListPermissionSlugsByRoleID(ctx context.Context, roleID int64) ([]string, error)
 	ListPermissionSlugsByRoleSlug(ctx context.Context, slug string) ([]string, error)
 	ListPermissionsFiltered(ctx context.Context, arg ListPermissionsFilteredParams) ([]Permission, error)
@@ -1413,6 +1459,7 @@ type Querier interface {
 	// Transfers lock both accounts in id order (no deadlock between two
 	// opposite transfers).
 	LockCashAccounts(ctx context.Context, arg LockCashAccountsParams) ([]LockCashAccountsRow, error)
+	LockCollection(ctx context.Context, arg LockCollectionParams) (LockCollectionRow, error)
 	LockDateRule(ctx context.Context, arg LockDateRuleParams) (int64, error)
 	LockDocument(ctx context.Context, arg LockDocumentParams) (LockDocumentRow, error)
 	LockDocumentApprovalLink(ctx context.Context, arg LockDocumentApprovalLinkParams) (LockDocumentApprovalLinkRow, error)
@@ -1422,6 +1469,11 @@ type Querier interface {
 	// Serialises opening accounts of one organization (per-organization code
 	// sequence) for the rest of the transaction.
 	LockOrganizationAccountCodes(ctx context.Context, organizationID int64) error
+	// Collections, allocations to open items, refunds (TEC-718,
+	// docs/design/collections.md). Allocation sums are allocate - release.
+	// Serialises numbering the collections of one organization for the rest
+	// of the transaction.
+	LockOrganizationCollectionCodes(ctx context.Context, organizationID int64) error
 	LockOrganizationRow(ctx context.Context, id int64) (Organization, error)
 	// Serialises draft edits and activation of one plan.
 	LockRatePlan(ctx context.Context, arg LockRatePlanParams) (int64, error)
@@ -1624,6 +1676,7 @@ type Querier interface {
 	SetAppSettingsLogo(ctx context.Context, logoObjectKey pgtype.Text) (AppSetting, error)
 	SetBranchActive(ctx context.Context, arg SetBranchActiveParams) (Branch, error)
 	SetCampaignActive(ctx context.Context, arg SetCampaignActiveParams) (int64, error)
+	SetCashAccountProvider(ctx context.Context, arg SetCashAccountProviderParams) (int64, error)
 	SetCashAccountStatus(ctx context.Context, arg SetCashAccountStatusParams) (string, error)
 	SetCashMovementCategory(ctx context.Context, arg SetCashMovementCategoryParams) (pgtype.Int8, error)
 	// Points one TSB brand at a display brand; display_name mirrors its name.
@@ -1631,6 +1684,7 @@ type Querier interface {
 	SetCatalogDisplayBrandLogo(ctx context.Context, arg SetCatalogDisplayBrandLogoParams) (CatalogDisplayBrand, error)
 	SetCatalogImportFileKey(ctx context.Context, arg SetCatalogImportFileKeyParams) (CatalogImport, error)
 	SetCatalogTypesModel(ctx context.Context, arg SetCatalogTypesModelParams) (int64, error)
+	SetCollectionRefunded(ctx context.Context, arg SetCollectionRefundedParams) (int64, error)
 	SetCustomerDocumentFile(ctx context.Context, arg SetCustomerDocumentFileParams) (CustomerDocument, error)
 	SetCustomerTags(ctx context.Context, arg SetCustomerTagsParams) (Customer, error)
 	SetDateRuleState(ctx context.Context, arg SetDateRuleStateParams) (int64, error)
@@ -1690,6 +1744,7 @@ type Querier interface {
 	SetVehicleStatus(ctx context.Context, arg SetVehicleStatusParams) (Vehicle, error)
 	// Cost and note stay editable after departure (fuel, tolls, driver).
 	SetVehicleTransferCost(ctx context.Context, arg SetVehicleTransferCostParams) (int64, error)
+	SettleCollection(ctx context.Context, arg SettleCollectionParams) (int64, error)
 	SlugExists(ctx context.Context, slug string) (bool, error)
 	SoftDeleteBranch(ctx context.Context, arg SoftDeleteBranchParams) (int64, error)
 	SoftDeleteCampaign(ctx context.Context, arg SoftDeleteCampaignParams) (int64, error)
@@ -1843,6 +1898,7 @@ type Querier interface {
 	// live, active vehicles.
 	VehiclePlateTaken(ctx context.Context, arg VehiclePlateTakenParams) (bool, error)
 	VehicleSegmentCodeTaken(ctx context.Context, arg VehicleSegmentCodeTakenParams) (bool, error)
+	VoidCollection(ctx context.Context, arg VoidCollectionParams) (int64, error)
 	VoidExpense(ctx context.Context, arg VoidExpenseParams) (int64, error)
 	VoidRentalDocuments(ctx context.Context, arg VoidRentalDocumentsParams) ([]uuid.UUID, error)
 	WithdrawAllCustomerConsents(ctx context.Context, arg WithdrawAllCustomerConsentsParams) error

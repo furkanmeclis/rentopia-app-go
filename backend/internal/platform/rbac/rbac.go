@@ -181,6 +181,12 @@ const (
 	PermTenantKabisReconcile = "tenant.kabis.reconcile"
 )
 
+// Collections (TEC-718, migration 000601). Recording, allocating,
+// refunding and voiding reuse PermTenantPaymentCollect,
+// PermTenantFinanceAccountsWrite, PermTenantPaymentRefund and
+// PermTenantFinanceLedgerAdjust.
+const PermTenantFinanceCollectionsBulkAllocate = "tenant.finance.collections.bulk.allocate"
+
 // Tenant template role keys seeded by migrations 000030 and 000041.
 const (
 	TenantRoleOwner            = "owner"

@@ -1194,7 +1194,7 @@ func (q *Queries) ListAccounts(ctx context.Context, arg ListAccountsParams) ([]L
 
 const listLedgerEntries = `-- name: ListLedgerEntries :many
 WITH scoped AS (
-    SELECT e.id, e.uuid, e.organization_id, e.account_id, e.kind, e.direction, e.purpose, e.amount, e.currency, e.entry_date, e.due_date, e.description, e.reason, e.source_type, e.source_uuid, e.rental_id, e.reservation_id, e.rental_charge_id, e.payment_id, e.payment_refund_id, e.accrual_key, e.accrual_generation, e.reverses_entry_id, e.adjusts_entry_id, e.offset_group, e.branch_id, e.created_by, e.created_at,
+    SELECT e.id, e.uuid, e.organization_id, e.account_id, e.kind, e.direction, e.purpose, e.amount, e.currency, e.entry_date, e.due_date, e.description, e.reason, e.source_type, e.source_uuid, e.rental_id, e.reservation_id, e.rental_charge_id, e.payment_id, e.payment_refund_id, e.accrual_key, e.accrual_generation, e.reverses_entry_id, e.adjusts_entry_id, e.offset_group, e.branch_id, e.created_by, e.created_at, e.collection_id,
         SUM(CASE WHEN e.direction = 'debit' THEN e.amount ELSE -e.amount END)
             OVER (PARTITION BY e.account_id ORDER BY e.entry_date, e.id)::numeric AS running_balance
     FROM ledger_entries e

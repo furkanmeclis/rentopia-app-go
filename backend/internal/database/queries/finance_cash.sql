@@ -17,7 +17,7 @@ WHERE organization_id = sqlc.arg(organization_id)
 
 -- name: GetCashAccountRow :one
 SELECT c.id, c.uuid, c.code, c.name, c.kind, c.branch_id, c.currency, c.opening_balance, c.opening_date, c.bank_name,
-    c.iban, c.status, c.note, c.created_at, c.updated_at
+    c.iban, c.status, c.note, c.created_at, c.updated_at, c.provider
 FROM cash_accounts c
 WHERE c.organization_id = sqlc.arg(organization_id)
   AND c.uuid = sqlc.arg(uuid);
@@ -31,7 +31,7 @@ WHERE c.organization_id = sqlc.arg(organization_id)
 -- name: LockCashAccounts :many
 -- Transfers lock both accounts in id order (no deadlock between two
 -- opposite transfers).
-SELECT c.id, c.kind, c.currency, c.status, c.opening_balance
+SELECT c.id, c.kind, c.currency, c.status, c.opening_balance, c.branch_id
 FROM cash_accounts c
 WHERE c.organization_id = sqlc.arg(organization_id)
   AND c.id = ANY(sqlc.arg(ids)::bigint[])
@@ -59,7 +59,7 @@ WITH agg AS (
     GROUP BY m.cash_account_id
 )
 SELECT c.id, c.uuid, c.code, c.name, c.kind, c.currency, c.opening_balance, c.opening_date, c.bank_name, c.iban,
-    c.status, c.note, c.created_at, c.updated_at,
+    c.status, c.note, c.created_at, c.updated_at, c.provider,
     b.uuid AS branch_uuid, b.code AS branch_code, b.name AS branch_name,
     COALESCE(agg.total_in, 0)::numeric AS total_in, COALESCE(agg.total_out, 0)::numeric AS total_out,
     (c.opening_balance + COALESCE(agg.total_in, 0) - COALESCE(agg.total_out, 0))::numeric AS balance,
