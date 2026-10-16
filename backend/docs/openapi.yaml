@@ -16485,8 +16485,8 @@ paths:
         - { name: needs_action, in: query, schema: { type: string }, description: "`1` = blocked, waiting_dependency, failed and needs_verification" }
         - { name: event, in: query, schema: { type: string }, description: "rental_start, rental_end, correction (comma separated)" }
         - { name: rental, in: query, schema: { type: string, format: uuid }, description: Rental uuid (the rental detail chip) }
-        - { name: from, in: query, schema: { type: string }, description: "Events from this time (RFC 3339 or YYYY-MM-DD)" }
-        - { name: to, in: query, schema: { type: string }, description: "Events before this time (RFC 3339 or YYYY-MM-DD)" }
+        - { name: from, in: query, schema: { type: string }, description: "Events from this time (RFC 3339) or day (YYYY-MM-DD, Istanbul)" }
+        - { name: to, in: query, schema: { type: string }, description: "Events before this time (RFC 3339) or up to this day inclusive (YYYY-MM-DD, Istanbul)" }
       responses:
         "200":
           description: Notification page
@@ -27046,8 +27046,8 @@ components:
       type: object
       required: [kind, provider, fields, modes]
       properties:
-        kind: { type: string, enum: [payment, sms, toll] }
-        provider: { type: string, enum: [iyzico, netgsm, log, hgs_fake] }
+        kind: { type: string, enum: [payment, sms, toll, kabis] }
+        provider: { type: string, enum: [iyzico, netgsm, log, hgs_fake, kabis, kabis_fake] }
         fields:
           type: array
           items: { $ref: "#/components/schemas/IntegrationField" }
@@ -27075,8 +27075,8 @@ components:
       required: [uuid, kind, provider, display_name, mode, status, credentials_hint, last_checked_at, last_check_status, last_check_error, created_at, updated_at]
       properties:
         uuid: { type: string, format: uuid }
-        kind: { type: string, enum: [payment, sms, toll] }
-        provider: { type: string, enum: [iyzico, netgsm, log, hgs_fake] }
+        kind: { type: string, enum: [payment, sms, toll, kabis] }
+        provider: { type: string, enum: [iyzico, netgsm, log, hgs_fake, kabis, kabis_fake] }
         display_name: { type: string }
         mode: { type: string, enum: [sandbox, live] }
         status: { type: string, enum: [active, disabled] }

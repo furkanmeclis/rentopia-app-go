@@ -209,16 +209,29 @@ func split(v string) []string {
 	return out
 }
 
+func istanbul() *time.Location {
+	if loc, err := time.LoadLocation("Europe/Istanbul"); err == nil {
+		return loc
+	}
+	return time.FixedZone("TRT", 3*3600)
+}
+
 func parseTime(field, v string) (*time.Time, error) {
 	v = strings.TrimSpace(v)
 	if v == "" {
 		return nil, nil
 	}
-	for _, layout := range []string{time.RFC3339, "2006-01-02"} {
-		if t, err := time.Parse(layout, v); err == nil {
-			u := t.UTC()
-			return &u, nil
+	if t, err := time.Parse(time.RFC3339, v); err == nil {
+		u := t.UTC()
+		return &u, nil
+	}
+	if t, err := time.ParseInLocation("2006-01-02", v, istanbul()); err == nil {
+		// A day: from its start; "to" includes the whole day.
+		if field == "to" {
+			t = t.AddDate(0, 0, 1)
 		}
+		u := t.UTC()
+		return &u, nil
 	}
 	return nil, &QueryError{Field: field, Message: field + " must be RFC 3339 or YYYY-MM-DD"}
 }
