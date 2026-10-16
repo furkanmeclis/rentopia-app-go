@@ -325,5 +325,6 @@
   "tasks.statuses.issue_reported": "Sorun bildirildi",
   "tasks.statuses.completed": "Tamamlandı",
   "tasks.types.transfer": "Transfer",
-  "tasks.types.other": "Diğer"
+  "tasks.types.other": "Diğer",
+  "tabs.ledger": "Cari"
 }

@@ -79,6 +79,13 @@ inspection_signatures
 document_approval_links
 customer_portal_sessions
 customer_requests
+accounts
+ledger_entries
+ledger_entry_links
+cash_accounts
+cash_movements
+expense_categories
+expenses
 vehicle_toll_tags
 toll_passes
 toll_pass_revisions

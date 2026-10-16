@@ -115,6 +115,14 @@ func InspectionSignatureObjectKey(orgUUID, rentalUUID, inspectionUUID, signature
 	return fmt.Sprintf("%srentals/%s/inspections/%s/signatures/%s.png", OrganizationPrefix(orgUUID), rentalUUID, inspectionUUID, signatureUUID)
 }
 
+// ExpenseAttachmentObjectKey builds
+// organizations/{orgUUID}/expenses/{expenseUUID}/{fileUUID}.{ext} for the
+// receipt / invoice of an expense (private: streamed by the API only). A
+// replaced file gets a new fileUUID.
+func ExpenseAttachmentObjectKey(orgUUID, expenseUUID, fileUUID, ext string) string {
+	return fmt.Sprintf("%sexpenses/%s/%s.%s", OrganizationPrefix(orgUUID), expenseUUID, fileUUID, trimExt(ext))
+}
+
 func trimExt(ext string) string {
 	for len(ext) > 0 && ext[0] == '.' {
 		ext = ext[1:]

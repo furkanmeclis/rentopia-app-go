@@ -282,6 +282,11 @@ func (s *Service) Refund(ctx context.Context, orgID int64, id uuid.UUID, in paym
 	if err != nil {
 		return paymodel.Payment{}, err
 	}
+	if s.ledger != nil {
+		if err := s.ledger.PostRefund(ctx, orgID, refund.ID); err != nil {
+			s.log.Warn("payment_refund_ledger_post_failed", "refund", refund.Uuid, "error", err)
+		}
+	}
 	p, err := s.q.GetPaymentByID(ctx, db.GetPaymentByIDParams{OrganizationID: orgID, ID: r.ID})
 	if err == nil {
 		if _, err := s.recount(ctx, orgID, p, uuid.Nil, money.Zero(), "refund"); err != nil {

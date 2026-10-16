@@ -136,6 +136,25 @@ export const routes = {
       detail: (slug: string, uuid: string) =>
         `/t/${encodeURIComponent(slug)}/rentals/${uuid}`,
     },
+    /** Finance ("Finans", TEC-717 / TEC-720). */
+    finance: {
+      accounts: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/finance/accounts`,
+      account: (slug: string, uuid: string) =>
+        `/t/${encodeURIComponent(slug)}/finance/accounts/${uuid}`,
+      cashAccounts: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/finance/cash-accounts`,
+      cashAccount: (slug: string, uuid: string) =>
+        `/t/${encodeURIComponent(slug)}/finance/cash-accounts/${uuid}`,
+      movements: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/finance/movements`,
+      expenses: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/finance/expenses`,
+      categories: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/finance/expense-categories`,
+      reports: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/finance/reports`,
+    },
     /** HGS / OGS toll passes and their review queue (TEC-725). */
     tolls: {
       root: (slug: string) => `/t/${encodeURIComponent(slug)}/tolls`,

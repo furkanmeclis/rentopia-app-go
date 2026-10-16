@@ -51,5 +51,7 @@
   "actions.reservations.cancel": "Cancel reservations",
   "actions.reservations.assign_staff": "Assign staff",
   "confirm.reservations.cancel": "Cancel the {{count}} selected reservations? Capacity is released; this cannot be undone.",
-  "actions.field_tasks.assign": "Assign to staff"
+  "actions.field_tasks.assign": "Assign to staff",
+  "actions.cash_movements.set_category": "Set category",
+  "actions.expenses.set_category": "Set category"
 }

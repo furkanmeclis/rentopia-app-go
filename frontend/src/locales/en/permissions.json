@@ -179,5 +179,21 @@
   "labels.tenant.field_tasks.read": "View the field task board",
   "labels.tenant.field_tasks.assign": "Plan and assign field tasks",
   "labels.tenant.field_tasks.execute": "Work own field tasks",
-  "groups.tenant_field_tasks": "Field tasks"
+  "groups.tenant_field_tasks": "Field tasks",
+  "labels.tenant.finance.accounts.read": "View customer accounts",
+  "labels.tenant.finance.accounts.write": "Record collections, refunds and statements",
+  "labels.tenant.finance.accounts.export": "Export customer accounts",
+  "labels.tenant.finance.ledger.adjust": "Post adjustments and reversals",
+  "labels.tenant.finance.cash.read": "View tills and bank accounts",
+  "labels.tenant.finance.cash.write": "Record cash movements and transfers",
+  "labels.tenant.finance.cash.export": "Export cash movements",
+  "labels.tenant.finance.cash.import": "Import cash movements",
+  "labels.tenant.finance.cash.bulk.set_category": "Bulk set movement category",
+  "labels.tenant.finance.expenses.read": "View expenses",
+  "labels.tenant.finance.expenses.write": "Manage expenses and categories",
+  "labels.tenant.finance.expenses.export": "Export expenses",
+  "labels.tenant.finance.expenses.import": "Import expenses",
+  "labels.tenant.finance.expenses.bulk.set_category": "Bulk set expense category",
+  "labels.tenant.finance.reports.read": "View finance reports",
+  "groups.tenant_finance": "Finance"
 }

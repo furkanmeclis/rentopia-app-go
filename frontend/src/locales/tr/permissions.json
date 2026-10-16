@@ -179,5 +179,21 @@
   "labels.tenant.field_tasks.read": "Görev panosunu görüntüle",
   "labels.tenant.field_tasks.assign": "Saha görevlerini planla ve ata",
   "labels.tenant.field_tasks.execute": "Kendi saha görevlerini yürüt",
-  "groups.tenant_field_tasks": "Saha görevleri"
+  "groups.tenant_field_tasks": "Saha görevleri",
+  "labels.tenant.finance.accounts.read": "Cari hesapları görüntüle",
+  "labels.tenant.finance.accounts.write": "Tahsilat, iade ve ekstre işlemleri",
+  "labels.tenant.finance.accounts.export": "Cari hesapları dışa aktar",
+  "labels.tenant.finance.ledger.adjust": "Düzeltme ve ters kayıt yap",
+  "labels.tenant.finance.cash.read": "Kasa ve bankaları görüntüle",
+  "labels.tenant.finance.cash.write": "Kasa hareketi ve virman yap",
+  "labels.tenant.finance.cash.export": "Kasa hareketlerini dışa aktar",
+  "labels.tenant.finance.cash.import": "Kasa hareketlerini içe aktar",
+  "labels.tenant.finance.cash.bulk.set_category": "Hareketlere toplu kategori ata",
+  "labels.tenant.finance.expenses.read": "Giderleri görüntüle",
+  "labels.tenant.finance.expenses.write": "Gider ve kategori yönet",
+  "labels.tenant.finance.expenses.export": "Giderleri dışa aktar",
+  "labels.tenant.finance.expenses.import": "Giderleri içe aktar",
+  "labels.tenant.finance.expenses.bulk.set_category": "Giderlere toplu kategori ata",
+  "labels.tenant.finance.reports.read": "Finans raporlarını görüntüle",
+  "groups.tenant_finance": "Finans"
 }

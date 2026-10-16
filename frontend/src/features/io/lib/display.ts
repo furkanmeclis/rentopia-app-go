@@ -22,6 +22,11 @@ const RESOURCE_LABEL_KEYS: Record<IoResource, string> = {
   "tenant.campaigns": "campaigns.title",
   "tenant.reservations": "reservations.title",
   "tenant.rentals": "rentals.title",
+  "tenant.finance_accounts": "finance.accounts.title",
+  "tenant.ledger_entries": "finance.entries.title",
+  "tenant.cash_accounts": "finance.cash.title",
+  "tenant.cash_movements": "finance.movements.title",
+  "tenant.expenses": "finance.expenses.title",
   "tenant.toll_passes": "tolls.title",
 };
 

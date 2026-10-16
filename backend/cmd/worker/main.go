@@ -30,6 +30,8 @@ import (
 	extrasusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/extras/usecase"
 	fieldtasksadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fieldtasks/adapters"
 	fieldtasksusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fieldtasks/usecase"
+	financeadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/finance/adapters"
+	financeusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/finance/usecase"
 	fleetadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleet/adapters"
 	fleetrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleet/repository"
 	fleetusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleet/usecase"
@@ -239,6 +241,12 @@ func main() {
 	contractsSvc.SetRenderer(pdfRenderer)
 	rentalsSvc := rentalusecase.New(pool, queries, availabilitySvc, rentaladapters.NewReservations(reservationSvc), vehicleSvc)
 	rentalsSvc.SetDocuments(contractsSvc)
+	// Finance: exports / imports / bulk of the ledger and cash book, the
+	// catch-up posting sweep; rentals and payments post here too.
+	financeSvc := financeusecase.New(pool, queries, store)
+	financeSvc.SetLogger(log)
+	rentalsSvc.SetLedger(financeSvc)
+	paymentsSvc.SetLedger(financeSvc)
 	// Field tasks (TEC-724): bulk cancellations re-plan delivery tasks,
 	// bulk assign runs here.
 	fieldTasksSvc := fieldtasksusecase.New(pool, queries)
@@ -252,6 +260,7 @@ func main() {
 	// fetch schedule and re-match, file imports.
 	tollsSvc := tollsusecase.New(pool, queries, integrationAccountsSvc, integrationRunner, integrationOps, tollProviders...)
 	tollsSvc.SetLogger(log)
+	tollsSvc.SetLedger(tollsadapters.Ledger{Finance: financeSvc})
 	// Bulk rental group changes go through the engine like the API.
 	vehicleSvc.SetMembershipGuard(availabilitySvc)
 	availabilitySvc.SetPlanMovedHandler(reservationSvc)
@@ -289,6 +298,11 @@ func main() {
 		tollsadapters.NewIO(tollsSvc),
 		orgadapters.NewIO(jobScopes),
 		customeradapters.NewIO(customerSvc),
+		financeadapters.NewAccountsIO(financeSvc),
+		financeadapters.NewEntriesIO(financeSvc),
+		financeadapters.NewCashAccountsIO(financeSvc),
+		financeadapters.NewMovementsIO(financeSvc),
+		financeadapters.NewExpensesIO(financeSvc),
 	)
 	exportSvc := exportusecase.New(queries, store, ioReg, nil, notifSvc, activityRec, log)
 	importSvc := importusecase.New(queries, store, ioReg, nil, notifSvc, activityRec, log)
@@ -306,6 +320,8 @@ func main() {
 		fieldtasksadapters.NewBulk(fieldTasksSvc),
 		orgadapters.NewBulk(jobScopes),
 		customeradapters.NewBulk(customerSvc),
+		financeadapters.NewMovementsBulk(financeSvc),
+		financeadapters.NewExpensesBulk(financeSvc),
 	)
 	bulkSvc := bulkusecase.New(queries, bulkReg, nil, notifSvc, activityRec, cfg.Bulk, log)
 	// Tenant jobs run with the requester's current membership (permissions
@@ -351,6 +367,7 @@ func main() {
 	rentalsSvc.SetResourceEvents(fieldtasksusecase.MirrorPublisher{Publisher: resourceEvents})
 	fieldTasksSvc.SetResourceEvents(resourceEvents)
 	contractsSvc.SetResourceEvents(resourceEvents)
+	financeSvc.SetResourceEvents(resourceEvents)
 	tollsSvc.SetResourceEvents(resourceEvents)
 
 	worker := queue.NewWorker(cfg, log, notifSvc.Deliver).
@@ -386,7 +403,13 @@ func main() {
 			}
 			// Late vehicles: keep them busy, re-plan or flag what follows.
 			o, err := rentalsSvc.SweepOverdue(ctx)
-			return r + n + m + p + o, err
+			if err != nil {
+				return r + n + m + p + o, err
+			}
+			// Confirmed payments / refunds whose ledger entry is missing
+			// (posting is idempotent).
+			l, err := financeSvc.PostPending(ctx)
+			return r + n + m + p + o + l, err
 		}).
 		WithIntegrations(func(ctx context.Context, orgID, jobID int64) error {
 			_, err := integrationRunner.Process(ctx, orgID, jobID, integrationjobsusecase.TriggerWorker)

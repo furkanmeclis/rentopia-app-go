@@ -103,6 +103,17 @@ type Reservations interface {
 	LateReturnTasks(ctx context.Context, orgID int64, rental uuid.UUID, allocations []uuid.UUID, data map[string]any) []uuid.UUID
 }
 
+// Ledger posts the money side of a rental (finance, TEC-717): it
+// reconciles the rent and approved-charge accruals with the rental's state
+// inside the caller's transaction (idempotent).
+type Ledger interface {
+	SyncRental(ctx context.Context, q *db.Queries, orgID, rentalID int64) error
+}
+
+type noLedger struct{}
+
+func (noLedger) SyncRental(context.Context, *db.Queries, int64, int64) error { return nil }
+
 // ExtendResult is what an extension changed on the reservation.
 type ExtendResult struct {
 	Difference string
@@ -117,6 +128,7 @@ type Service struct {
 	reservations Reservations
 	vehicles     *vehicleusecase.Service
 	documents    model.Documents
+	ledger       Ledger
 	events       resourceevents.Publisher
 	now          func() time.Time
 }
@@ -125,7 +137,7 @@ type Service struct {
 func New(pool *pgxpool.Pool, q *db.Queries, avail *availusecase.Service, reservations Reservations, vehicles *vehicleusecase.Service) *Service {
 	return &Service{
 		pool: pool, q: q, avail: avail, reservations: reservations, vehicles: vehicles,
-		documents: model.NoDocuments{}, events: resourceevents.Nop{}, now: time.Now,
+		documents: model.NoDocuments{}, ledger: noLedger{}, events: resourceevents.Nop{}, now: time.Now,
 	}
 }
 
@@ -133,6 +145,14 @@ func New(pool *pgxpool.Pool, q *db.Queries, avail *availusecase.Service, reserva
 func (s *Service) SetDocuments(d model.Documents) {
 	if d != nil {
 		s.documents = d
+	}
+}
+
+// SetLedger wires finance: the rent accrues at the handover, approved
+// charges when approved, and changes re-accrue (TEC-717).
+func (s *Service) SetLedger(l Ledger) {
+	if l != nil {
+		s.ledger = l
 	}
 }
 

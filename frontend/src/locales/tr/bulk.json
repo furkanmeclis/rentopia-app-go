@@ -51,5 +51,7 @@
   "actions.reservations.cancel": "Rezervasyonları iptal et",
   "actions.reservations.assign_staff": "Personel ata",
   "confirm.reservations.cancel": "Seçili {{count}} rezervasyon iptal edilsin mi? Kapasite serbest kalır; bu işlem geri alınamaz.",
-  "actions.field_tasks.assign": "Personele ata"
+  "actions.field_tasks.assign": "Personele ata",
+  "actions.cash_movements.set_category": "Kategori ata",
+  "actions.expenses.set_category": "Kategori ata"
 }

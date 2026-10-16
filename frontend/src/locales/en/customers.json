@@ -97,7 +97,6 @@
   "tabs.account": "Account",
   "tabs.activity": "Activity",
   "coming.rentals": "Rental history arrives with reservations and contracts (M3).",
-  "coming.account": "The account summary arrives with payments and invoices (M4).",
   "header.drivers": "{{count}} drivers",
   "detail.identity": "Identity",
   "detail.contact": "Contact",

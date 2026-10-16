@@ -114,7 +114,12 @@ func (s *Service) DecideCharge(ctx context.Context, orgID int64, id, chargeID uu
 		if n != 1 {
 			return ErrConcurrent
 		}
-		return event(ctx, q, orgID, c.ID, action, "", "", note, map[string]any{"charge_uuid": ch.Uuid, "kind": ch.Kind})
+		if err := event(ctx, q, orgID, c.ID, action, "", "", note, map[string]any{"charge_uuid": ch.Uuid, "kind": ch.Kind}); err != nil {
+			return err
+		}
+		// An approved charge is a firm debt (a disputed one only after the
+		// damage approver approved it, above).
+		return s.ledger.SyncRental(ctx, q, orgID, c.ID)
 	})
 	if err != nil {
 		return model.Rental{}, err
@@ -167,9 +172,12 @@ func (s *Service) OverrideCharge(ctx context.Context, orgID int64, id, chargeID 
 		if n != 1 {
 			return ErrConcurrent
 		}
-		return event(ctx, q, orgID, c.ID, model.EventChargeOverridden, "", "", reason, map[string]any{
+		if err := event(ctx, q, orgID, c.ID, model.EventChargeOverridden, "", "", reason, map[string]any{
 			"charge_uuid": ch.Uuid, "kind": ch.Kind, "from": from.String(), "to": in.Amount.String(),
-		})
+		}); err != nil {
+			return err
+		}
+		return s.ledger.SyncRental(ctx, q, orgID, c.ID)
 	})
 	if err != nil {
 		return model.Rental{}, err

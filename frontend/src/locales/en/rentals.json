@@ -325,5 +325,6 @@
   "tasks.statuses.issue_reported": "Issue reported",
   "tasks.statuses.completed": "Completed",
   "tasks.types.transfer": "Transfer",
-  "tasks.types.other": "Other"
+  "tasks.types.other": "Other",
+  "tabs.ledger": "Ledger"
 }

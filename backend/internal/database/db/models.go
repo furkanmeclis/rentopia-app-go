@@ -11,6 +11,25 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Account struct {
+	ID              int64              `json:"id"`
+	Uuid            uuid.UUID          `json:"uuid"`
+	OrganizationID  int64              `json:"organization_id"`
+	Code            string             `json:"code"`
+	PartyKind       string             `json:"party_kind"`
+	CustomerID      pgtype.Int8        `json:"customer_id"`
+	SupplierID      pgtype.Int8        `json:"supplier_id"`
+	Name            string             `json:"name"`
+	BranchID        pgtype.Int8        `json:"branch_id"`
+	Currency        string             `json:"currency"`
+	PaymentTermDays int32              `json:"payment_term_days"`
+	Status          string             `json:"status"`
+	Note            string             `json:"note"`
+	CreatedBy       pgtype.Int8        `json:"created_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
 type ActivityEvent struct {
 	ID             int64              `json:"id"`
 	Uuid           uuid.UUID          `json:"uuid"`
@@ -169,6 +188,50 @@ type CampaignTarget struct {
 	CampaignID      int64       `json:"campaign_id"`
 	RentalProductID pgtype.Int8 `json:"rental_product_id"`
 	SegmentID       pgtype.Int8 `json:"segment_id"`
+}
+
+type CashAccount struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	Code           string             `json:"code"`
+	Name           string             `json:"name"`
+	Kind           string             `json:"kind"`
+	BranchID       pgtype.Int8        `json:"branch_id"`
+	Currency       string             `json:"currency"`
+	OpeningBalance pgtype.Numeric     `json:"opening_balance"`
+	OpeningDate    pgtype.Date        `json:"opening_date"`
+	BankName       string             `json:"bank_name"`
+	Iban           string             `json:"iban"`
+	Status         string             `json:"status"`
+	Note           string             `json:"note"`
+	CreatedBy      pgtype.Int8        `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CashMovement struct {
+	ID                 int64              `json:"id"`
+	Uuid               uuid.UUID          `json:"uuid"`
+	OrganizationID     int64              `json:"organization_id"`
+	CashAccountID      int64              `json:"cash_account_id"`
+	Kind               string             `json:"kind"`
+	Direction          string             `json:"direction"`
+	Amount             pgtype.Numeric     `json:"amount"`
+	Currency           string             `json:"currency"`
+	MovementDate       pgtype.Date        `json:"movement_date"`
+	Description        string             `json:"description"`
+	Reason             string             `json:"reason"`
+	BranchID           pgtype.Int8        `json:"branch_id"`
+	CategoryID         pgtype.Int8        `json:"category_id"`
+	LedgerEntryID      pgtype.Int8        `json:"ledger_entry_id"`
+	ExpenseID          pgtype.Int8        `json:"expense_id"`
+	SupplierAccountID  pgtype.Int8        `json:"supplier_account_id"`
+	TransferGroup      pgtype.UUID        `json:"transfer_group"`
+	CounterAccountID   pgtype.Int8        `json:"counter_account_id"`
+	ReversesMovementID pgtype.Int8        `json:"reverses_movement_id"`
+	CreatedBy          pgtype.Int8        `json:"created_by"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
 type CatalogBrand struct {
@@ -620,6 +683,49 @@ type EquipmentAllocation struct {
 	UpdatedAt           pgtype.Timestamptz               `json:"updated_at"`
 }
 
+type Expense struct {
+	ID                    int64              `json:"id"`
+	Uuid                  uuid.UUID          `json:"uuid"`
+	OrganizationID        int64              `json:"organization_id"`
+	CategoryID            int64              `json:"category_id"`
+	ExpenseDate           pgtype.Date        `json:"expense_date"`
+	Description           string             `json:"description"`
+	SupplierName          string             `json:"supplier_name"`
+	DocumentNo            string             `json:"document_no"`
+	Currency              string             `json:"currency"`
+	NetAmount             pgtype.Numeric     `json:"net_amount"`
+	VatRate               pgtype.Numeric     `json:"vat_rate"`
+	VatAmount             pgtype.Numeric     `json:"vat_amount"`
+	TotalAmount           pgtype.Numeric     `json:"total_amount"`
+	BranchID              pgtype.Int8        `json:"branch_id"`
+	VehicleID             pgtype.Int8        `json:"vehicle_id"`
+	CashAccountID         pgtype.Int8        `json:"cash_account_id"`
+	AttachmentObjectKey   pgtype.Text        `json:"attachment_object_key"`
+	AttachmentName        string             `json:"attachment_name"`
+	AttachmentContentType string             `json:"attachment_content_type"`
+	AttachmentSizeBytes   int64              `json:"attachment_size_bytes"`
+	Status                string             `json:"status"`
+	VoidReason            string             `json:"void_reason"`
+	VoidedBy              pgtype.Int8        `json:"voided_by"`
+	VoidedAt              pgtype.Timestamptz `json:"voided_at"`
+	CreatedBy             pgtype.Int8        `json:"created_by"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ExpenseCategory struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	Code           string             `json:"code"`
+	Name           string             `json:"name"`
+	IsSystem       bool               `json:"is_system"`
+	IsActive       bool               `json:"is_active"`
+	SortOrder      int32              `json:"sort_order"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
 type ExportJob struct {
 	ID             int64              `json:"id"`
 	Uuid           uuid.UUID          `json:"uuid"`
@@ -914,6 +1020,47 @@ type IntegrationJob struct {
 	SubmittedAt          pgtype.Timestamptz `json:"submitted_at"`
 	LockedUntil          pgtype.Timestamptz `json:"locked_until"`
 	Priority             string             `json:"priority"`
+}
+
+type LedgerEntry struct {
+	ID                int64              `json:"id"`
+	Uuid              uuid.UUID          `json:"uuid"`
+	OrganizationID    int64              `json:"organization_id"`
+	AccountID         int64              `json:"account_id"`
+	Kind              string             `json:"kind"`
+	Direction         string             `json:"direction"`
+	Purpose           string             `json:"purpose"`
+	Amount            pgtype.Numeric     `json:"amount"`
+	Currency          string             `json:"currency"`
+	EntryDate         pgtype.Date        `json:"entry_date"`
+	DueDate           pgtype.Date        `json:"due_date"`
+	Description       string             `json:"description"`
+	Reason            string             `json:"reason"`
+	SourceType        string             `json:"source_type"`
+	SourceUuid        pgtype.UUID        `json:"source_uuid"`
+	RentalID          pgtype.Int8        `json:"rental_id"`
+	ReservationID     pgtype.Int8        `json:"reservation_id"`
+	RentalChargeID    pgtype.Int8        `json:"rental_charge_id"`
+	PaymentID         pgtype.Int8        `json:"payment_id"`
+	PaymentRefundID   pgtype.Int8        `json:"payment_refund_id"`
+	AccrualKey        pgtype.Text        `json:"accrual_key"`
+	AccrualGeneration pgtype.Int4        `json:"accrual_generation"`
+	ReversesEntryID   pgtype.Int8        `json:"reverses_entry_id"`
+	AdjustsEntryID    pgtype.Int8        `json:"adjusts_entry_id"`
+	OffsetGroup       pgtype.UUID        `json:"offset_group"`
+	BranchID          pgtype.Int8        `json:"branch_id"`
+	CreatedBy         pgtype.Int8        `json:"created_by"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
+type LedgerEntryLink struct {
+	ID             int64              `json:"id"`
+	OrganizationID int64              `json:"organization_id"`
+	EntryID        int64              `json:"entry_id"`
+	DocumentType   string             `json:"document_type"`
+	DocumentRef    string             `json:"document_ref"`
+	CreatedBy      pgtype.Int8        `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
 type LogPurgeRule struct {

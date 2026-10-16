@@ -126,6 +126,22 @@ export const Permission = {
   TenantPaymentsRead: "tenant.payments.read",
   TenantPaymentsCreateLink: "tenant.payments.create_link",
   TenantReservationsApprove: "tenant.reservations.approve",
+  TenantFinanceAccountsRead: "tenant.finance.accounts.read",
+  TenantFinanceAccountsWrite: "tenant.finance.accounts.write",
+  TenantFinanceAccountsExport: "tenant.finance.accounts.export",
+  TenantFinanceLedgerAdjust: "tenant.finance.ledger.adjust",
+  TenantFinanceCashRead: "tenant.finance.cash.read",
+  TenantFinanceCashWrite: "tenant.finance.cash.write",
+  TenantFinanceCashExport: "tenant.finance.cash.export",
+  TenantFinanceCashImport: "tenant.finance.cash.import",
+  TenantFinanceCashBulkSetCategory: "tenant.finance.cash.bulk.set_category",
+  TenantFinanceExpensesRead: "tenant.finance.expenses.read",
+  TenantFinanceExpensesWrite: "tenant.finance.expenses.write",
+  TenantFinanceExpensesExport: "tenant.finance.expenses.export",
+  TenantFinanceExpensesImport: "tenant.finance.expenses.import",
+  TenantFinanceExpensesBulkSetCategory:
+    "tenant.finance.expenses.bulk.set_category",
+  TenantFinanceReportsRead: "tenant.finance.reports.read",
   TenantTollsRead: "tenant.tolls.read",
   TenantTollsExport: "tenant.tolls.export",
   TenantTollsImport: "tenant.tolls.import",
@@ -428,6 +444,40 @@ export const permissions = {
     },
     report: {
       export: Permission.TenantReportExport,
+    },
+    /**
+     * Finance (TEC-717 / TEC-720): customer / supplier accounts and their
+     * ledger (`ledger.adjust` = reversals, adjustments, deposit offsets),
+     * cash / bank accounts and movements, expenses, reports. Recording a
+     * collection / refund on an account also needs `payment.collect` /
+     * `payment.refund`.
+     */
+    finance: {
+      accounts: {
+        read: Permission.TenantFinanceAccountsRead,
+        write: Permission.TenantFinanceAccountsWrite,
+        export: Permission.TenantFinanceAccountsExport,
+      },
+      ledger: {
+        adjust: Permission.TenantFinanceLedgerAdjust,
+      },
+      cash: {
+        read: Permission.TenantFinanceCashRead,
+        write: Permission.TenantFinanceCashWrite,
+        export: Permission.TenantFinanceCashExport,
+        import: Permission.TenantFinanceCashImport,
+        bulkSetCategory: Permission.TenantFinanceCashBulkSetCategory,
+      },
+      expenses: {
+        read: Permission.TenantFinanceExpensesRead,
+        write: Permission.TenantFinanceExpensesWrite,
+        export: Permission.TenantFinanceExpensesExport,
+        import: Permission.TenantFinanceExpensesImport,
+        bulkSetCategory: Permission.TenantFinanceExpensesBulkSetCategory,
+      },
+      reports: {
+        read: Permission.TenantFinanceReportsRead,
+      },
     },
   },
 } as const;
