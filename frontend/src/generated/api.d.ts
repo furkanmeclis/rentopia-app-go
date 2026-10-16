@@ -13952,6 +13952,194 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenant/whatsapp/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * WhatsApp session state
+         * @description `tenant.integrations.manage`. The organization's WhatsApp Web session (one wuzapi user per organization):
+         *     `not_connected` (no WhatsApp account / session), `created`, `pairing` (waiting for the QR scan),
+         *     `connected`, `disconnected` (dropped; reconnect attempts run, staff were alerted) or `logged_out`. Lists the
+         *     selectable providers (`wuzapi`; `whatsapp_fake` outside production).
+         */
+        get: operations["getTenantWhatsAppSession"];
+        put?: never;
+        post?: never;
+        /**
+         * Remove the WhatsApp session
+         * @description `tenant.integrations.manage`. Unlinks the phone, deletes the wuzapi user and disables the WhatsApp
+         *     integration account. Connecting again starts with a new account and session.
+         */
+        delete: operations["deleteTenantWhatsAppSession"];
+        options?: never;
+        head?: never;
+        /**
+         * WhatsApp session settings
+         * @description `tenant.integrations.manage`. Messages per minute through the session (1 to 60).
+         */
+        patch: operations["patchTenantWhatsAppSession"];
+        trace?: never;
+    };
+    "/v1/tenant/whatsapp/session/connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Connect WhatsApp
+         * @description `tenant.integrations.manage`. `acknowledge_risk` must be true (the number risk notice: an unofficial
+         *     WhatsApp Web session; heavy or unsolicited sending can get the number banned). Creates the WhatsApp
+         *     integration account and the provider session when missing (the session token is generated and sealed in
+         *     the account), opens the socket; then poll `GET /session/qr` and show the code until `connected`.
+         *     `WHATSAPP_PROVIDER_UNAVAILABLE` (503) when the gateway is not configured, `WHATSAPP_PROVIDER_ERROR` (502)
+         *     when it refuses.
+         */
+        post: operations["postTenantWhatsAppConnect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/whatsapp/session/qr": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * WhatsApp pairing QR code
+         * @description `tenant.integrations.manage`. The current pairing code (PNG data URL) while the session waits for a phone;
+         *     the code changes about every 20 seconds, so poll. Once linked the answer is `connected` without a code.
+         *     `WHATSAPP_NOT_CONNECTED` (409) before `connect`.
+         */
+        get: operations["getTenantWhatsAppQR"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/whatsapp/session/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read the WhatsApp session state
+         * @description `tenant.integrations.manage`. Reads the state at the provider and records it.
+         */
+        post: operations["postTenantWhatsAppRefresh"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/whatsapp/session/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unlink the phone
+         * @description `tenant.integrations.manage`. The session stays; `connect` and a new QR scan link a phone again.
+         */
+        post: operations["postTenantWhatsAppLogout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/whatsapp/test-messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a WhatsApp test message
+         * @description `tenant.integrations.manage`. A fixed text to the number through the linked session (rate limits and the
+         *     number check apply; logged as a test). `WHATSAPP_NOT_CONNECTED` (409), `WHATSAPP_RATE_LIMITED` (429),
+         *     `WHATSAPP_NOT_ON_WHATSAPP` (422).
+         */
+        post: operations["postTenantWhatsAppTestMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/whatsapp/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * WhatsApp message log
+         * @description `tenant.integrations.manage`. One row per message: purpose (`notify.<event>` or `test`), masked
+         *     recipient, WhatsApp message id and receipts (`sent` → `delivered` → `read`; `failed` with the reason, also
+         *     when no delivery receipt came within 60 minutes). Message texts are kept in the notification delivery log
+         *     only.
+         */
+        get: operations["getTenantWhatsAppMessages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/whatsapp/webhook/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * WhatsApp gateway webhook
+         * @description No auth: called by the wuzapi server on the private network. The secret `token` (generated per session)
+         *     names the session and so the organization; an unknown token answers 404. Body: wuzapi event JSON
+         *     (`type` ReadReceipt / Connected / PairSuccess / LoggedOut / Disconnected, `state`, `event`) or a form with
+         *     `jsonData`. Receipts update the message log and settle the notification attempt; connection events
+         *     refresh the session state.
+         */
+        post: operations["postPublicWhatsAppWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -26885,8 +27073,143 @@ export interface components {
             };
             meta: components["schemas"]["ResponseMeta"];
         };
+        WhatsAppProvider: {
+            /** @enum {string} */
+            code: "wuzapi" | "whatsapp_fake";
+            configured: boolean;
+        };
+        WhatsAppSession: {
+            /** @enum {string} */
+            status: "not_connected" | "created" | "pairing" | "connected" | "disconnected" | "logged_out";
+            provider: string;
+            /** Format: uuid */
+            account_uuid: string | null;
+            phone_masked: string;
+            /** Format: date-time */
+            connected_at: string | null;
+            /** Format: date-time */
+            disconnected_at: string | null;
+            /** Format: date-time */
+            last_status_at: string | null;
+            last_error: string;
+            /** Format: int32 */
+            rate_limit_per_minute: number;
+            /** Format: date-time */
+            risk_acknowledged_at: string | null;
+            providers: components["schemas"]["WhatsAppProvider"][];
+        };
+        WhatsAppConnectInput: {
+            /** @description Provider of a new WhatsApp account (empty: the first configured one) */
+            provider?: string;
+            acknowledge_risk: boolean;
+        };
+        WhatsAppSettingsInput: {
+            /** Format: int32 */
+            rate_limit_per_minute?: number;
+        };
+        WhatsAppTestInput: {
+            phone: string;
+        };
+        WhatsAppMessage: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            kind: "text" | "document";
+            purpose: string;
+            /** Format: uuid */
+            delivery_uuid: string | null;
+            /** Format: uuid */
+            customer_uuid: string | null;
+            customer_name: string;
+            recipient_masked: string;
+            provider_message_id: string;
+            /** @enum {string} */
+            status: "queued" | "sent" | "delivered" | "read" | "failed";
+            error: string;
+            test: boolean;
+            /** Format: date-time */
+            sent_at: string | null;
+            /** Format: date-time */
+            delivered_at: string | null;
+            /** Format: date-time */
+            read_at: string | null;
+            /** Format: date-time */
+            failed_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        EnvelopeWhatsAppSession: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["WhatsAppSession"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeWhatsAppQR: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                /** @enum {string} */
+                status: "created" | "pairing" | "connected" | "disconnected" | "logged_out";
+                /** @description PNG data URL; empty once linked */
+                qr_code: string;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeWhatsAppMessage: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["WhatsAppMessage"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeWhatsAppMessagePage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["WhatsAppMessage"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeWhatsAppWebhook: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                received: boolean;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
     };
     responses: {
+        /** @description WhatsApp session */
+        WhatsAppSessionOK: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["EnvelopeWhatsAppSession"];
+            };
+        };
+        /** @description `WHATSAPP_PROVIDER_ERROR`: the WhatsApp gateway refused or failed */
+        WhatsAppProviderError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description `WHATSAPP_PROVIDER_UNAVAILABLE`: the WhatsApp gateway is not configured on this server */
+        WhatsAppUnavailable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
         /** @description Corporate agreement */
         AgreementOK: {
             headers: {
@@ -53117,6 +53440,287 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["CustomerSessionRequired"];
+        };
+    };
+    getTenantWhatsAppSession: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["WhatsAppSessionOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    deleteTenantWhatsAppSession: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["WhatsAppSessionOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    patchTenantWhatsAppSession: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WhatsAppSettingsInput"];
+            };
+        };
+        responses: {
+            200: components["responses"]["WhatsAppSessionOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantWhatsAppConnect: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WhatsAppConnectInput"];
+            };
+        };
+        responses: {
+            200: components["responses"]["WhatsAppSessionOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            502: components["responses"]["WhatsAppProviderError"];
+            503: components["responses"]["WhatsAppUnavailable"];
+        };
+    };
+    getTenantWhatsAppQR: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description QR state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeWhatsAppQR"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+            502: components["responses"]["WhatsAppProviderError"];
+            503: components["responses"]["WhatsAppUnavailable"];
+        };
+    };
+    postTenantWhatsAppRefresh: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["WhatsAppSessionOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantWhatsAppLogout: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["WhatsAppSessionOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+            502: components["responses"]["WhatsAppProviderError"];
+        };
+    };
+    postTenantWhatsAppTestMessage: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WhatsAppTestInput"];
+            };
+        };
+        responses: {
+            /** @description Logged message */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeWhatsAppMessage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+            502: components["responses"]["WhatsAppProviderError"];
+        };
+    };
+    getTenantWhatsAppMessages: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description `created_at`, `status` or `purpose`; prefix `-` for descending. */
+                sort?: string;
+                /** @description queued, sent, delivered, read, failed (comma separated) */
+                status?: string;
+                /** @description text, document (comma separated) */
+                kind?: string;
+                created_from?: string;
+                created_to?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Message page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeWhatsAppMessagePage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postPublicWhatsAppWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    type?: string;
+                    state?: string;
+                    event?: Record<string, never>;
+                };
+                "application/x-www-form-urlencoded": {
+                    jsonData?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Received */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeWhatsAppWebhook"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
         };
     };
 }

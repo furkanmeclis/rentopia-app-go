@@ -258,6 +258,9 @@ export const routes = {
       /** Notification rules, templates and history ("Bildirimler", TEC-733). */
       notifications: (slug: string) =>
         `/t/${encodeURIComponent(slug)}/settings/notifications`,
+      /** WhatsApp session and message log ("WhatsApp", TEC-735). */
+      whatsapp: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/settings/whatsapp`,
       /** Inspection templates ("Teslim / iade formları"). */
       inspectionTemplates: (slug: string) =>
         `/t/${encodeURIComponent(slug)}/settings/inspection-templates`,

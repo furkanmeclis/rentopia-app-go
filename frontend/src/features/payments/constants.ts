@@ -127,6 +127,8 @@ export const INTEGRATION_PROVIDER_LABEL_KEYS: Record<string, string> = {
   kabis_fake: "payments.integrations.providers.kabis_fake",
   einvoice: "payments.integrations.providers.einvoice",
   einvoice_fake: "payments.integrations.providers.einvoice_fake",
+  wuzapi: "payments.integrations.providers.wuzapi",
+  whatsapp_fake: "payments.integrations.providers.whatsapp_fake",
 };
 
 /** Connect form hint per provider (where the organization finds its keys). */
@@ -139,6 +141,8 @@ export const INTEGRATION_PROVIDER_HINT_KEYS: Record<string, string> = {
   kabis_fake: "payments.integrations.provider_hints.kabis_fake",
   einvoice: "payments.integrations.provider_hints.einvoice",
   einvoice_fake: "payments.integrations.provider_hints.einvoice_fake",
+  wuzapi: "payments.integrations.provider_hints.wuzapi",
+  whatsapp_fake: "payments.integrations.provider_hints.whatsapp_fake",
 };
 
 /** Live list resource of integration jobs (backend jobs usecase). */
