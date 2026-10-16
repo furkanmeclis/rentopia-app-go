@@ -52,6 +52,8 @@ import (
 	notifmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications/providers"
 	notifusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications/usecase"
+	notifyengineadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifyengine/adapters"
+	notifyengineusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifyengine/usecase"
 	orgadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/adapters"
 	orgrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/repository"
 	orgusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/usecase"
@@ -248,6 +250,18 @@ func main() {
 	}
 	smsSvc.SetActivity(activityRec)
 	smsSvc.SetLogger(log)
+	// Notification engine (TEC-733): reminders, sweep-detected events and
+	// due dispatches (minute sweep); SMS delivery reports run the fallback.
+	notifyEngine := notifyengineusecase.New(pool, queries, cfg.Auth.FrontendURL)
+	notifyEngine.SetActivity(activityRec)
+	notifyEngine.SetLogger(log)
+	notifySMS := notifyengineadapters.NewSMS(smsSvc, queries)
+	notifyEngine.Register(notifySMS, notifyengineadapters.NewEmail(mailer),
+		notifyengineadapters.NewPush(notifSvc, queries, notifyengineadapters.VAPID{
+			PublicKey: cfg.VAPID.PublicKey, PrivateKey: cfg.VAPID.PrivateKey, Subject: cfg.VAPID.Subject,
+		}))
+	integrationRunner.AddListener(notifySMS)
+	reservationSvc.SetTransitionNotifier(notifyEngine)
 	paymentsSvc := paymentsusecase.New(pool, queries, integrationAccountsSvc, reservationSvc,
 		paymentsusecase.Config{PublicBaseURL: cfg.Auth.FrontendURL}, iyzicoAdapter)
 	paymentsSvc.SetLogger(log)
@@ -499,6 +513,7 @@ func main() {
 		}).
 		WithTolls(tollsSvc.ScheduleFetches, tollsSvc.RematchDue).
 		WithAgreementPeriods(financeSvc.AccruePeriods).
+		WithNotifyEngine(notifyEngine.Sweep).
 		WithDocumentPDF(contractsSvc.RenderPDF).
 		WithSearch(
 			searchIndexer.ProcessUpsert,
@@ -537,6 +552,10 @@ func main() {
 	}
 	if err := queue.RegisterAgreementPeriodsSchedule(scheduler); err != nil {
 		log.Error("agreement_periods_scheduler_failed", "error", err)
+		exit(1)
+	}
+	if err := queue.RegisterNotifyEngineSchedule(scheduler); err != nil {
+		log.Error("notify_engine_scheduler_failed", "error", err)
 		exit(1)
 	}
 	go func() {

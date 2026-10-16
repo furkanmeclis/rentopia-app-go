@@ -157,6 +157,8 @@ type Service struct {
 	listener LifecycleListener
 	// delivery checks delivery points and prices their fees (TEC-724).
 	delivery DeliveryQuoter
+	// notifier records customer notifications with each transition (TEC-733).
+	notifier TransitionNotifier
 
 	now func() time.Time
 }

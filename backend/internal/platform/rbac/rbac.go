@@ -222,6 +222,13 @@ const (
 	PermTenantInvoicesBulkSend             = "tenant.invoices.bulk.send"
 )
 
+// Notification engine (TEC-733): rules, templates, delivery history and
+// test sends.
+const (
+	PermTenantNotificationSettingsRead  = "tenant.notification_settings.read"
+	PermTenantNotificationSettingsWrite = "tenant.notification_settings.write"
+)
+
 // Tenant template role keys seeded by migrations 000030 and 000041.
 const (
 	TenantRoleOwner            = "owner"
