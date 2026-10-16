@@ -592,6 +592,7 @@ export function PortalReservationPage({
   return (
     <PortalShell
       organizationName={info.data?.organization.name}
+      orgSlug={orgSlug}
       onSignOut={() => signOut.mutate()}
       signingOut={signOut.isPending}
     >

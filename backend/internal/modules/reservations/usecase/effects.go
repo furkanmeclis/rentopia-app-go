@@ -89,7 +89,10 @@ func (s *Service) apply(ctx context.Context, q *db.Queries, orgID int64, t trans
 			return err
 		}
 	}
-	return event(ctx, q, orgID, t.id, t.action, t.from, t.to, t.reason, t.data)
+	if err := event(ctx, q, orgID, t.id, t.action, t.from, t.to, t.reason, t.data); err != nil {
+		return err
+	}
+	return s.notifyTransition(ctx, q, orgID, t)
 }
 
 // planEffects records what an engine write did to OTHER reservations: the

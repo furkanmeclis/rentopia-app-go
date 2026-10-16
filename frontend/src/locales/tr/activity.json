@@ -396,5 +396,11 @@
   "actions.agreements.contact_added": "Yetkili kişi eklendi",
   "actions.agreements.contact_removed": "Yetkili kişi kaldırıldı",
   "actions.agreements.driver_added": "İzinli sürücü eklendi",
-  "actions.agreements.driver_removed": "İzinli sürücü kaldırıldı"
+  "actions.agreements.driver_removed": "İzinli sürücü kaldırıldı",
+  "resources.tenant.notification_settings": "Bildirim ayarları",
+  "actions.notification_rules.updated": "Bildirim kuralı güncellendi",
+  "actions.notification_rules.reset": "Bildirim kuralı varsayılana döndü",
+  "actions.notification_templates.updated": "Bildirim şablonu güncellendi",
+  "actions.notification_templates.reset": "Bildirim şablonu varsayılana döndü",
+  "actions.notifications.test_sent": "Test bildirimi gönderildi"
 }

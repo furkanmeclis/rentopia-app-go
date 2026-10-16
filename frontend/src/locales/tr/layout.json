@@ -102,5 +102,6 @@
   "nav_reports_channels": "Kanal performansı",
   "nav_reports_aging": "Cari / vade",
   "nav_reports_branches": "Şube karşılaştırma",
-  "nav_agreements": "Kurumsal anlaşmalar"
+  "nav_agreements": "Kurumsal anlaşmalar",
+  "nav_tenant_settings_notifications": "Bildirimler"
 }

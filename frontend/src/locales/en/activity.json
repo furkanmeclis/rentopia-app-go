@@ -396,5 +396,11 @@
   "actions.agreements.contact_added": "Contact added",
   "actions.agreements.contact_removed": "Contact removed",
   "actions.agreements.driver_added": "Driver permitted",
-  "actions.agreements.driver_removed": "Driver removed"
+  "actions.agreements.driver_removed": "Driver removed",
+  "resources.tenant.notification_settings": "Notification settings",
+  "actions.notification_rules.updated": "Notification rule updated",
+  "actions.notification_rules.reset": "Notification rule reset",
+  "actions.notification_templates.updated": "Notification template updated",
+  "actions.notification_templates.reset": "Notification template reset",
+  "actions.notifications.test_sent": "Test notification sent"
 }

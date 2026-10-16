@@ -496,6 +496,9 @@ func (s *Service) Create(ctx context.Context, orgID int64, in model.CreateInput)
 		if err := event(ctx, q, orgID, id, EventCreated, "", status, "", data); err != nil {
 			return err
 		}
+		if err := s.notifyTransition(ctx, q, orgID, transition{id: id, to: status, action: EventCreated}); err != nil {
+			return err
+		}
 		if r != nil {
 			allocUUID = r.AllocationUUID
 			if err := assignment(ctx, q, orgID, id, r.VehicleID, r.ProductID, r.ProductVersion, r.PlateFixed, model.SourceEngine, ""); err != nil {

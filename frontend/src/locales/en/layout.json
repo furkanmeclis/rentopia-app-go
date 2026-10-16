@@ -102,5 +102,6 @@
   "nav_reports_channels": "Channel performance",
   "nav_reports_aging": "Receivables / due dates",
   "nav_reports_branches": "Branch comparison",
-  "nav_agreements": "Corporate agreements"
+  "nav_agreements": "Corporate agreements",
+  "nav_tenant_settings_notifications": "Notifications"
 }

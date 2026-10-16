@@ -118,6 +118,10 @@ import (
 	notifhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications/handler"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications/providers"
 	notifusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications/usecase"
+	notifyenginemodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifyengine"
+	notifyengineadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifyengine/adapters"
+	notifyenginehandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifyengine/handler"
+	notifyengineusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifyengine/usecase"
 	organizationsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations"
 	orgadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/adapters"
 	orghandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/handler"
@@ -522,11 +526,24 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	// E-mail one-time codes (customer portal sign-in) go through the
 	// platform mailer.
 	smsSvc.SetMailer(mailer)
+	// Notification engine (TEC-733): rules, templates, delivery log; the
+	// reservation transitions record their customer notifications (sent by
+	// the worker sweep), test sends go out inline.
+	notifyEngine := notifyengineusecase.New(deps.DB, deps.Queries, cfg.Auth.FrontendURL)
+	notifyEngine.SetActivity(activityRec)
+	notifyEngine.SetLogger(log)
+	notifySMS := notifyengineadapters.NewSMS(smsSvc, deps.Queries)
+	notifyEngine.Register(notifySMS, notifyengineadapters.NewEmail(mailer),
+		notifyengineadapters.NewPush(notifSvc, deps.Queries, notifyengineadapters.VAPID{
+			PublicKey: cfg.VAPID.PublicKey, PrivateKey: cfg.VAPID.PrivateKey, Subject: cfg.VAPID.Subject,
+		}))
+	integrationRunner.AddListener(notifySMS)
 	paymentsSvc := paymentsusecase.New(deps.DB, deps.Queries, integrationAccountsSvc, reservationSvc,
 		paymentsusecase.Config{PublicBaseURL: cfg.Auth.FrontendURL}, iyzicoAdapter)
 	paymentsSvc.SetResourceEvents(resourceEvents)
 	paymentsSvc.SetLogger(log)
 	reservationSvc.SetPaymentLinks(paymentsSvc)
+	reservationSvc.SetTransitionNotifier(notifyEngine)
 	// Contracts (TEC-710): templates, rendered / hashed document versions,
 	// PDFs (headless Chromium; in the worker when a queue is wired).
 	contractsSvc := contractsusecase.New(deps.DB, deps.Queries, orgSettingsSvc, deps.Storage)
@@ -971,6 +988,11 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	portalH := customerportalhandler.New(portalSvc, activityRec)
 	portalH.SetRateLimiter(customerportalmodule.Limiter{L: ratelimit.New(deps.Redis, cfg.App.Env)})
 	customerportalmodule.RegisterRoutes(mux, portalH, tokens, loader, tenantResolver)
+	notifyH := notifyenginehandler.New(notifyEngine, cfg.VAPID.PublicKey)
+	notifyenginemodule.RegisterRoutes(mux, notifyH, tokens, loader, tenantResolver)
+	if tenantResolver != nil {
+		notifyenginemodule.RegisterCustomerRoutes(mux, notifyH, portalH.RequireSession)
+	}
 	settingsmodule.RegisterRoutes(mux, settingshandler.New(
 		settingsusecase.New(deps.Queries),
 		deps.Storage,

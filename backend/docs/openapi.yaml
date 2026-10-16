@@ -20636,6 +20636,372 @@ paths:
         "403": { $ref: "#/components/responses/TenantForbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/tenant/notification-events:
+    get:
+      tags: [Tenant]
+      operationId: getTenantNotificationEvents
+      summary: Notification events and rules
+      description: |
+        `tenant.notification_settings.read` (TEC-733). The event catalog (reservation result, payment pending,
+        pickup / return approaching, overdue, invoice, account due, field tasks) with the organization's effective
+        rule (ordered channels, fallback, reminder offsets in minutes before the deadline) and the default rule,
+        plus the channels a rule may use (`available` = an adapter is installed; an unavailable channel is skipped).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Channels and events
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeNotificationEvents" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/notification-rules:
+    put:
+      tags: [Tenant]
+      operationId: putTenantNotificationRule
+      summary: Replace an event's rule
+      description: |
+        `tenant.notification_settings.write`. Channels are tried in order; with `fallback` a failed or skipped
+        channel (no provider account, no number / address / subscription, undelivered report) moves on to the next
+        one. Reminder offsets (0 to 43200 minutes, at most 5) only for reminder events.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NotificationRuleInput" }
+      responses:
+        "200":
+          description: Event with its rule
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeNotificationEvent" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/notification-rules/reset:
+    post:
+      tags: [Tenant]
+      operationId: postTenantNotificationRuleReset
+      summary: Reset an event's rule to the default
+      description: "`tenant.notification_settings.write`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NotificationTemplateKey" }
+      responses:
+        "200":
+          description: Event with the default rule
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeNotificationEvent" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/notification-templates:
+    get:
+      tags: [Tenant]
+      operationId: getTenantNotificationTemplates
+      summary: Notification templates
+      description: |
+        `tenant.notification_settings.read`. Every event / channel / language (tr, en) template: the organization's
+        own (`custom`) or the default. Templates use `{{variable}}` placeholders of their event only.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - { name: event, in: query, schema: { type: string } }
+        - { name: channel, in: query, schema: { type: string, enum: [sms, email, whatsapp, push] } }
+        - { name: language, in: query, schema: { type: string, enum: [tr, en] } }
+      responses:
+        "200":
+          description: Templates
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeNotificationTemplates" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    put:
+      tags: [Tenant]
+      operationId: putTenantNotificationTemplate
+      summary: Replace a template
+      description: |
+        `tenant.notification_settings.write`. Unknown placeholders are refused (`unknown_variable`); an e-mail needs a
+        subject; an SMS is at most 900 characters.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NotificationTemplateInput" }
+      responses:
+        "200":
+          description: Template
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeNotificationTemplate" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/notification-templates/reset:
+    post:
+      tags: [Tenant]
+      operationId: postTenantNotificationTemplateReset
+      summary: Reset a template to the default
+      description: "`tenant.notification_settings.write`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NotificationTemplateKey" }
+      responses:
+        "200":
+          description: Default template
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeNotificationTemplate" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/notification-templates/preview:
+    post:
+      tags: [Tenant]
+      operationId: postTenantNotificationTemplatePreview
+      summary: Preview a template with sample values
+      description: "`tenant.notification_settings.read`. Without a body the effective template is rendered."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NotificationPreviewInput" }
+      responses:
+        "200":
+          description: Rendered template
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeNotificationPreview" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/notification-tests:
+    post:
+      tags: [Tenant]
+      operationId: postTenantNotificationTest
+      summary: Send a test notification
+      description: |
+        `tenant.notification_settings.write`. Sends the event with sample values: customer events to the given
+        customer, member events to the caller. Runs the organization's rule (fallback included) unless one channel
+        is chosen; logged like any send (marked test).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NotificationTestInput" }
+      responses:
+        "201":
+          description: Dispatch with its attempts
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeNotificationDispatch" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/notification-deliveries/meta:
+    get:
+      tags: [Tenant]
+      operationId: getTenantNotificationDeliveriesMeta
+      summary: Delivery history table contract
+      description: "`tenant.notification_settings.read`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Resource meta
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeResourceMeta" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/notification-deliveries/facets:
+    get:
+      tags: [Tenant]
+      operationId: getTenantNotificationDeliveriesFacets
+      summary: Delivery history facets
+      description: "`tenant.notification_settings.read`. Channel, status and event counts."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Facets
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeNotificationDeliveryFacets" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/notification-deliveries:
+    get:
+      tags: [Tenant]
+      operationId: getTenantNotificationDeliveries
+      summary: Delivery history
+      description: |
+        `tenant.notification_settings.read`. One row per channel attempt: channel, provider reference, masked
+        recipient, result and error. A dispatch is tried at most once per channel.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - name: sort
+          in: query
+          description: "`created_at`, `channel`, `status` or `event_code`; prefix `-` for descending."
+          schema: { type: string }
+        - { name: channel, in: query, schema: { type: string }, description: "sms, email, whatsapp, push (comma separated)" }
+        - { name: status, in: query, schema: { type: string }, description: "sending, sent, delivered, failed, skipped (comma separated)" }
+        - { name: event, in: query, schema: { type: string }, description: Event codes (comma separated) }
+        - { name: audience, in: query, schema: { type: string }, description: "customer, staff" }
+        - { name: created_from, in: query, schema: { type: string, format: date-time } }
+        - { name: created_to, in: query, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: Delivery page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeNotificationDeliveryPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/notification-dispatches/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantNotificationDispatch
+      summary: One dispatch with its channel attempts
+      description: "`tenant.notification_settings.read`. Another organization's dispatch answers 404."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - { name: uuid, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Dispatch
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeNotificationDispatch" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/customer/{orgSlug}/push/vapid-public-key:
+    get:
+      tags: [Customer]
+      operationId: getCustomerPushVapidKey
+      summary: Web push public key for the customer portal
+      description: Empty when web push is not configured.
+      security:
+        - customerSession: []
+      parameters:
+        - $ref: "#/components/parameters/PortalOrgSlug"
+      responses:
+        "200":
+          description: Public key
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeCustomerVapidKey" }
+        "401": { $ref: "#/components/responses/CustomerSessionRequired" }
+
+  /v1/customer/{orgSlug}/push-subscriptions:
+    post:
+      tags: [Customer]
+      operationId: postCustomerPushSubscription
+      summary: Subscribe the customer's browser to notifications
+      description: Customer subscriptions are kept apart from members' subscriptions.
+      security:
+        - customerSession: []
+      parameters:
+        - $ref: "#/components/parameters/PortalOrgSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CustomerPushSubscriptionInput" }
+      responses:
+        "200":
+          description: Subscribed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeCustomerPushState" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/CustomerSessionRequired" }
+        "503":
+          description: Web push is not configured (PUSH_NOT_CONFIGURED)
+    delete:
+      tags: [Customer]
+      operationId: deleteCustomerPushSubscription
+      summary: Unsubscribe the customer's browser
+      security:
+        - customerSession: []
+      parameters:
+        - $ref: "#/components/parameters/PortalOrgSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [endpoint]
+              properties:
+                endpoint: { type: string }
+      responses:
+        "200":
+          description: Unsubscribed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeCustomerPushState" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/CustomerSessionRequired" }
+
 components:
   securitySchemes:
     customerSession:
@@ -35755,4 +36121,297 @@ components:
       properties:
         success: { type: boolean, enum: [true] }
         data: { $ref: "#/components/schemas/AgreementStatement" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    NotificationChannelInfo:
+      type: object
+      required: [name, available]
+      properties:
+        name: { type: string, enum: [sms, email, whatsapp, push] }
+        available: { type: boolean }
+
+    NotificationRuleView:
+      type: object
+      required: [enabled, channels, fallback, reminder_offsets, custom]
+      properties:
+        enabled: { type: boolean }
+        channels: { type: array, items: { type: string, enum: [sms, email, whatsapp, push] } }
+        fallback: { type: boolean }
+        reminder_offsets: { type: array, items: { type: integer, format: int32 } }
+        custom: { type: boolean }
+
+    NotificationEvent:
+      type: object
+      required: [code, group, audience, instant, reminder, variables, rule, default_rule]
+      properties:
+        code: { type: string }
+        group: { type: string, enum: [reservations, rentals, finance, operations] }
+        audience: { type: string, enum: [customer, staff] }
+        instant: { type: boolean }
+        reminder: { type: boolean }
+        variables: { type: array, items: { type: string } }
+        rule: { $ref: "#/components/schemas/NotificationRuleView" }
+        default_rule: { $ref: "#/components/schemas/NotificationRuleView" }
+        updated_at: { type: string, format: date-time }
+
+    NotificationEvents:
+      type: object
+      required: [channels, events]
+      properties:
+        channels: { type: array, items: { $ref: "#/components/schemas/NotificationChannelInfo" } }
+        events: { type: array, items: { $ref: "#/components/schemas/NotificationEvent" } }
+
+    NotificationRuleInput:
+      type: object
+      required: [event, enabled, channels, fallback]
+      properties:
+        event: { type: string }
+        enabled: { type: boolean }
+        channels: { type: array, items: { type: string, enum: [sms, email, whatsapp, push] } }
+        fallback: { type: boolean }
+        reminder_offsets: { type: array, items: { type: integer, format: int32 } }
+
+    NotificationTemplateKey:
+      type: object
+      required: [event]
+      properties:
+        event: { type: string }
+        channel: { type: string, enum: [sms, email, whatsapp, push] }
+        language: { type: string, enum: [tr, en] }
+
+    NotificationTemplate:
+      type: object
+      required: [event, channel, language, subject, body, custom, variables]
+      properties:
+        event: { type: string }
+        channel: { type: string, enum: [sms, email, whatsapp, push] }
+        language: { type: string, enum: [tr, en] }
+        subject: { type: string }
+        body: { type: string }
+        custom: { type: boolean }
+        variables: { type: array, items: { type: string } }
+        updated_at: { type: string, format: date-time }
+
+    NotificationTemplateInput:
+      type: object
+      required: [event, channel, language, subject, body]
+      properties:
+        event: { type: string }
+        channel: { type: string, enum: [sms, email, whatsapp, push] }
+        language: { type: string, enum: [tr, en] }
+        subject: { type: string, maxLength: 200 }
+        body: { type: string, maxLength: 2000 }
+
+    NotificationPreviewInput:
+      type: object
+      required: [event]
+      properties:
+        event: { type: string }
+        channel: { type: string, enum: [sms, email, whatsapp, push] }
+        language: { type: string, enum: [tr, en] }
+        subject: { type: string }
+        body: { type: string }
+
+    NotificationPreview:
+      type: object
+      required: [subject, body, unknown]
+      properties:
+        subject: { type: string }
+        body: { type: string }
+        unknown: { type: array, items: { type: string } }
+
+    NotificationTestInput:
+      type: object
+      required: [event]
+      properties:
+        event: { type: string }
+        customer_uuid: { type: string, format: uuid }
+        channel: { type: string, enum: [sms, email, whatsapp, push] }
+
+    NotificationDelivery:
+      type: object
+      required: [uuid, dispatch_uuid, event, audience, channel, attempt_no, status, dispatch_status, provider, provider_ref,
+        recipient_masked, recipient_name, subject, error, ref_type, test, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        dispatch_uuid: { type: string, format: uuid }
+        event: { type: string }
+        audience: { type: string, enum: [customer, staff] }
+        channel: { type: string, enum: [sms, email, whatsapp, push] }
+        attempt_no: { type: integer, format: int32 }
+        status: { type: string, enum: [sending, sent, delivered, failed, skipped] }
+        dispatch_status: { type: string, enum: [pending, sending, delivered, failed, skipped] }
+        provider: { type: string }
+        provider_ref: { type: string }
+        recipient_masked: { type: string }
+        recipient_name: { type: string }
+        customer_uuid: { type: string, format: uuid }
+        user_uuid: { type: string, format: uuid }
+        subject: { type: string }
+        error: { type: string }
+        ref_type: { type: string }
+        ref_uuid: { type: string, format: uuid }
+        test: { type: boolean }
+        sent_at: { type: string, format: date-time }
+        finished_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+
+    NotificationAttempt:
+      type: object
+      required: [uuid, channel, attempt_no, status, provider, provider_ref, recipient_masked, subject, body, error, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        channel: { type: string, enum: [sms, email, whatsapp, push] }
+        attempt_no: { type: integer, format: int32 }
+        status: { type: string, enum: [sending, sent, delivered, failed, skipped] }
+        provider: { type: string }
+        provider_ref: { type: string }
+        recipient_masked: { type: string }
+        subject: { type: string }
+        body: { type: string }
+        error: { type: string }
+        sent_at: { type: string, format: date-time }
+        finished_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+
+    NotificationDispatch:
+      type: object
+      required: [uuid, event, audience, status, channels, fallback, language, recipient_name, ref_type, last_error, test,
+        scheduled_at, created_at, attempts]
+      properties:
+        uuid: { type: string, format: uuid }
+        event: { type: string }
+        audience: { type: string, enum: [customer, staff] }
+        status: { type: string, enum: [pending, sending, delivered, failed, skipped] }
+        channels: { type: array, items: { type: string } }
+        fallback: { type: boolean }
+        language: { type: string }
+        recipient_name: { type: string }
+        customer_uuid: { type: string, format: uuid }
+        user_uuid: { type: string, format: uuid }
+        ref_type: { type: string }
+        ref_uuid: { type: string, format: uuid }
+        last_error: { type: string }
+        test: { type: boolean }
+        scheduled_at: { type: string, format: date-time }
+        completed_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        attempts: { type: array, items: { $ref: "#/components/schemas/NotificationAttempt" } }
+
+    NotificationFacetValue:
+      type: object
+      required: [value, count]
+      properties:
+        value: { type: string }
+        count: { type: integer, format: int64 }
+
+    NotificationDeliveryFacets:
+      type: object
+      required: [channel, status, event]
+      properties:
+        channel: { type: array, items: { $ref: "#/components/schemas/NotificationFacetValue" } }
+        status: { type: array, items: { $ref: "#/components/schemas/NotificationFacetValue" } }
+        event: { type: array, items: { $ref: "#/components/schemas/NotificationFacetValue" } }
+
+    CustomerPushSubscriptionInput:
+      type: object
+      required: [endpoint, key_p256dh, key_auth]
+      properties:
+        endpoint: { type: string }
+        key_p256dh: { type: string }
+        key_auth: { type: string }
+
+    EnvelopeNotificationEvents:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/NotificationEvents" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeNotificationEvent:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/NotificationEvent" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeNotificationTemplates:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { type: array, items: { $ref: "#/components/schemas/NotificationTemplate" } }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeNotificationTemplate:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/NotificationTemplate" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeNotificationPreview:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/NotificationPreview" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeNotificationDispatch:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/NotificationDispatch" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeNotificationDeliveryFacets:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/NotificationDeliveryFacets" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeNotificationDeliveryPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/NotificationDelivery" } }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeCustomerVapidKey:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [vapid_public_key]
+          properties:
+            vapid_public_key: { type: string }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeCustomerPushState:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [subscribed]
+          properties:
+            subscribed: { type: boolean }
         meta: { $ref: "#/components/schemas/ResponseMeta" }

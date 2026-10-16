@@ -111,3 +111,8 @@ invoice_sequences
 einvoice_taxpayers
 invoices
 invoice_lines
+notification_rules
+notification_message_templates
+notification_dispatches
+notification_deliveries
+customer_push_subscriptions

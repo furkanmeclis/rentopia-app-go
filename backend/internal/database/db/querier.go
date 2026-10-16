@@ -167,6 +167,7 @@ type Querier interface {
 	CountRoles(ctx context.Context, q_ pgtype.Text) (int64, error)
 	// Sends of the organization (optionally to one number) since a time.
 	CountSMSMessagesSince(ctx context.Context, arg CountSMSMessagesSinceParams) (int64, error)
+	CountStaffPushTargets(ctx context.Context, userID int64) (int64, error)
 	CountStorageActivity(ctx context.Context, objectKey string) (int64, error)
 	CountStorageTrash(ctx context.Context) (int64, error)
 	CountTenantMembers(ctx context.Context, arg CountTenantMembersParams) (int64, error)
@@ -307,6 +308,8 @@ type Querier interface {
 	DeleteCustomerContact(ctx context.Context, arg DeleteCustomerContactParams) (int64, error)
 	DeleteCustomerContacts(ctx context.Context, arg DeleteCustomerContactsParams) error
 	DeleteCustomerDocument(ctx context.Context, arg DeleteCustomerDocumentParams) (int64, error)
+	DeleteCustomerPushSubscription(ctx context.Context, arg DeleteCustomerPushSubscriptionParams) (int64, error)
+	DeleteCustomerPushSubscriptionByID(ctx context.Context, arg DeleteCustomerPushSubscriptionByIDParams) error
 	DeleteDateRuleDraft(ctx context.Context, arg DeleteDateRuleDraftParams) (int64, error)
 	DeleteDateRuleTargets(ctx context.Context, arg DeleteDateRuleTargetsParams) error
 	DeleteDriver(ctx context.Context, arg DeleteDriverParams) (int64, error)
@@ -320,6 +323,8 @@ type Querier interface {
 	DeleteLogPurgeRule(ctx context.Context, argUuid uuid.UUID) (int64, error)
 	DeleteMemberBranches(ctx context.Context, arg DeleteMemberBranchesParams) error
 	DeleteMemberRoles(ctx context.Context, arg DeleteMemberRolesParams) error
+	DeleteNotificationMessageTemplate(ctx context.Context, arg DeleteNotificationMessageTemplateParams) (int64, error)
+	DeleteNotificationRule(ctx context.Context, arg DeleteNotificationRuleParams) (int64, error)
 	DeleteOAuthAccountByProviderAccount(ctx context.Context, arg DeleteOAuthAccountByProviderAccountParams) error
 	DeleteOAuthAccountByUserProvider(ctx context.Context, arg DeleteOAuthAccountByUserProviderParams) error
 	DeleteOrganizationMember(ctx context.Context, arg DeleteOrganizationMemberParams) (int64, error)
@@ -421,6 +426,8 @@ type Querier interface {
 	// are completed with the resolution as note.
 	FinishDepositTasks(ctx context.Context, arg FinishDepositTasksParams) ([]uuid.UUID, error)
 	FinishIntegrationJob(ctx context.Context, arg FinishIntegrationJobParams) error
+	// A delivery report: only a delivery still waiting for one changes.
+	FinishNotificationDelivery(ctx context.Context, arg FinishNotificationDeliveryParams) (int64, error)
 	FinishOperationTask(ctx context.Context, arg FinishOperationTaskParams) (int64, error)
 	FinishPaymentRefund(ctx context.Context, arg FinishPaymentRefundParams) error
 	// Closes the live tasks of a rental of one type (optionally one vehicle):
@@ -682,7 +689,24 @@ type Querier interface {
 	GetMovementByEntry(ctx context.Context, arg GetMovementByEntryParams) (GetMovementByEntryRow, error)
 	GetNotificationByID(ctx context.Context, id int64) (Notification, error)
 	GetNotificationByUUID(ctx context.Context, argUuid uuid.UUID) (Notification, error)
+	// Recipients ------------------------------------------------------------
+	GetNotificationCustomer(ctx context.Context, arg GetNotificationCustomerParams) (GetNotificationCustomerRow, error)
+	GetNotificationCustomerByUUID(ctx context.Context, arg GetNotificationCustomerByUUIDParams) (int64, error)
+	GetNotificationDeliveryByExternal(ctx context.Context, arg GetNotificationDeliveryByExternalParams) (NotificationDelivery, error)
+	GetNotificationDeliveryByUUID(ctx context.Context, arg GetNotificationDeliveryByUUIDParams) (NotificationDelivery, error)
+	GetNotificationDispatch(ctx context.Context, arg GetNotificationDispatchParams) (NotificationDispatch, error)
+	GetNotificationDispatchByKey(ctx context.Context, arg GetNotificationDispatchByKeyParams) (NotificationDispatch, error)
+	GetNotificationDispatchView(ctx context.Context, arg GetNotificationDispatchViewParams) (GetNotificationDispatchViewRow, error)
+	GetNotificationMessageTemplate(ctx context.Context, arg GetNotificationMessageTemplateParams) (NotificationMessageTemplate, error)
+	GetNotificationOrganization(ctx context.Context, organizationID int64) (GetNotificationOrganizationRow, error)
 	GetNotificationPreferences(ctx context.Context, userID int64) (NotificationPreference, error)
+	GetNotificationRule(ctx context.Context, arg GetNotificationRuleParams) (NotificationRule, error)
+	// A staff recipient: an active member of the organization.
+	GetNotificationStaff(ctx context.Context, arg GetNotificationStaffParams) (GetNotificationStaffRow, error)
+	// Event sources ---------------------------------------------------------
+	GetNotifyReservation(ctx context.Context, arg GetNotifyReservationParams) (GetNotifyReservationRow, error)
+	// The notification delivery an SMS was sent for (delivery reports).
+	GetNotifySMSRef(ctx context.Context, arg GetNotifySMSRefParams) (GetNotifySMSRefRow, error)
 	GetOAuthAccountByProviderAccount(ctx context.Context, arg GetOAuthAccountByProviderAccountParams) (GetOAuthAccountByProviderAccountRow, error)
 	GetOAuthAccountByUserProvider(ctx context.Context, arg GetOAuthAccountByUserProviderParams) (GetOAuthAccountByUserProviderRow, error)
 	GetOAuthProviderSettings(ctx context.Context, provider string) (OauthProviderSetting, error)
@@ -979,6 +1003,12 @@ type Querier interface {
 	InsertKabisNotification(ctx context.Context, arg InsertKabisNotificationParams) (int64, error)
 	InsertLedgerEntry(ctx context.Context, arg InsertLedgerEntryParams) (InsertLedgerEntryRow, error)
 	InsertLedgerEntryLink(ctx context.Context, arg InsertLedgerEntryLinkParams) error
+	// Deliveries ------------------------------------------------------------
+	// One attempt per dispatch and channel: a conflicting insert returns no rows.
+	InsertNotificationDelivery(ctx context.Context, arg InsertNotificationDeliveryParams) (NotificationDelivery, error)
+	// Dispatches ------------------------------------------------------------
+	// A second event with the same idempotency key inserts nothing (no rows).
+	InsertNotificationDispatch(ctx context.Context, arg InsertNotificationDispatchParams) (NotificationDispatch, error)
 	InsertNotificationHistory(ctx context.Context, arg InsertNotificationHistoryParams) (NotificationHistory, error)
 	InsertOTPChallenge(ctx context.Context, arg InsertOTPChallengeParams) (int64, error)
 	// Operation tasks (TEC-709). Branch scope: t.branch_id.
@@ -1221,6 +1251,7 @@ type Querier interface {
 	ListCustomerDrivers(ctx context.Context, arg ListCustomerDriversParams) ([]Driver, error)
 	// Dynamic filter options. facet: customer_type | nationality | tag | consent.
 	ListCustomerFacets(ctx context.Context, organizationID int64) ([]ListCustomerFacetsRow, error)
+	ListCustomerPushSubscriptions(ctx context.Context, arg ListCustomerPushSubscriptionsParams) ([]CustomerPushSubscription, error)
 	// One page of customer requests in the caller's branch scope (pick-up OR
 	// return branch of the reservation).
 	ListCustomerRequests(ctx context.Context, arg ListCustomerRequestsParams) ([]ListCustomerRequestsRow, error)
@@ -1248,6 +1279,9 @@ type Querier interface {
 	// Organizations with active holds past their expiry (expiry sweep).
 	ListDueHoldOrganizations(ctx context.Context, nowAt pgtype.Timestamptz) ([]int64, error)
 	ListDueHolds(ctx context.Context, arg ListDueHoldsParams) ([]ListDueHoldsRow, error)
+	// Organizations with dispatches due (sweep).
+	ListDueNotificationDispatchOrganizations(ctx context.Context, nowAt pgtype.Timestamptz) ([]int64, error)
+	ListDueNotificationDispatches(ctx context.Context, arg ListDueNotificationDispatchesParams) ([]int64, error)
 	// Worker sweep (every organization): periodically billed rentals under way
 	// or returned whose plan is missing or has a period due by today.
 	ListDuePeriodicRentals(ctx context.Context, arg ListDuePeriodicRentalsParams) ([]ListDuePeriodicRentalsRow, error)
@@ -1367,7 +1401,33 @@ type Querier interface {
 	// Union of the permissions of every role the member holds.
 	ListMemberPermissionSlugs(ctx context.Context, arg ListMemberPermissionSlugsParams) ([]string, error)
 	ListMemberRoles(ctx context.Context, arg ListMemberRolesParams) ([]ListMemberRolesRow, error)
+	ListNotificationDeliveries(ctx context.Context, arg ListNotificationDeliveriesParams) ([]ListNotificationDeliveriesRow, error)
+	ListNotificationDeliveriesForDispatch(ctx context.Context, arg ListNotificationDeliveriesForDispatchParams) ([]NotificationDelivery, error)
+	// Templates -------------------------------------------------------------
+	ListNotificationMessageTemplates(ctx context.Context, organizationID int64) ([]NotificationMessageTemplate, error)
+	// Live, active organizations (reminder sweep).
+	ListNotificationOrganizations(ctx context.Context) ([]int64, error)
+	// Notification engine (TEC-733, docs/design/notification-engine.md).
+	// Rules -----------------------------------------------------------------
+	ListNotificationRules(ctx context.Context, organizationID int64) ([]NotificationRule, error)
 	ListNotificationsForUser(ctx context.Context, arg ListNotificationsForUserParams) ([]Notification, error)
+	// Customer accounts with an open (positive) balance and a debit falling
+	// due within the window: the earliest such due date per account.
+	ListNotifyAccountDue(ctx context.Context, arg ListNotifyAccountDueParams) ([]ListNotifyAccountDueRow, error)
+	// Field tasks assigned recently that are still open.
+	ListNotifyAssignedTasks(ctx context.Context, arg ListNotifyAssignedTasksParams) ([]ListNotifyAssignedTasksRow, error)
+	// Invoices issued (accepted by the integrator) recently, for a customer.
+	ListNotifyIssuedInvoices(ctx context.Context, arg ListNotifyIssuedInvoicesParams) ([]ListNotifyIssuedInvoicesRow, error)
+	// Active rentals that became overdue recently.
+	ListNotifyOverdueRentals(ctx context.Context, arg ListNotifyOverdueRentalsParams) ([]ListNotifyOverdueRentalsRow, error)
+	// Open field tasks past their due time (recently), with an assignee.
+	ListNotifyOverdueTasks(ctx context.Context, arg ListNotifyOverdueTasksParams) ([]ListNotifyOverdueTasksRow, error)
+	// Reservations waiting for payment whose deadline is within the horizon.
+	ListNotifyPaymentCandidates(ctx context.Context, arg ListNotifyPaymentCandidatesParams) ([]ListNotifyPaymentCandidatesRow, error)
+	// Confirmed reservations whose pickup is within the horizon and not handed over.
+	ListNotifyPickupCandidates(ctx context.Context, arg ListNotifyPickupCandidatesParams) ([]ListNotifyPickupCandidatesRow, error)
+	// Active rentals whose planned return is within the horizon.
+	ListNotifyReturnCandidates(ctx context.Context, arg ListNotifyReturnCandidatesParams) ([]ListNotifyReturnCandidatesRow, error)
 	ListOAuthAccountsByUserID(ctx context.Context, userID int64) ([]ListOAuthAccountsByUserIDRow, error)
 	ListOAuthAccountsForUserIDs(ctx context.Context, userIds []int64) ([]ListOAuthAccountsForUserIDsRow, error)
 	ListOAuthProviderSettings(ctx context.Context) ([]OauthProviderSetting, error)
@@ -1681,6 +1741,8 @@ type Querier interface {
 	// The serialisation point of every writer of one extra at one branch.
 	LockExtraStock(ctx context.Context, arg LockExtraStockParams) (int32, error)
 	LockInvitationByTokenHash(ctx context.Context, tokenHash string) (OrganizationInvitation, error)
+	LockNotificationDispatch(ctx context.Context, arg LockNotificationDispatchParams) (NotificationDispatch, error)
+	LockNotificationDispatchWait(ctx context.Context, arg LockNotificationDispatchWaitParams) (NotificationDispatch, error)
 	// Serialises opening accounts of one organization (per-organization code
 	// sequence) for the rest of the transaction.
 	LockOrganizationAccountCodes(ctx context.Context, organizationID int64) error
@@ -1779,6 +1841,7 @@ type Querier interface {
 	// concurrent creates of one organization).
 	NextReservationNumber(ctx context.Context, arg NextReservationNumberParams) (int64, error)
 	NextSupplierCodeNumber(ctx context.Context, organizationID int64) (int64, error)
+	NotificationDeliveryFacets(ctx context.Context, organizationID int64) ([]NotificationDeliveryFacetsRow, error)
 	// Another live rule with the same route and product (NULL = generic).
 	OneWayRouteTaken(ctx context.Context, arg OneWayRouteTakenParams) (bool, error)
 	// Reservations of an account with an open balance (pay link target).
@@ -2205,6 +2268,9 @@ type Querier interface {
 	UpdateInvoiceDraft(ctx context.Context, arg UpdateInvoiceDraftParams) (int64, error)
 	UpdateInvoiceLine(ctx context.Context, arg UpdateInvoiceLineParams) error
 	UpdateLogPurgeRule(ctx context.Context, arg UpdateLogPurgeRuleParams) (LogPurgeRule, error)
+	// The send's result; a delivery report that arrived first is kept.
+	UpdateNotificationDelivery(ctx context.Context, arg UpdateNotificationDeliveryParams) (int64, error)
+	UpdateNotificationDispatchState(ctx context.Context, arg UpdateNotificationDispatchStateParams) error
 	UpdateOAuthAccountRefreshToken(ctx context.Context, arg UpdateOAuthAccountRefreshTokenParams) error
 	UpdateOAuthProviderSettings(ctx context.Context, arg UpdateOAuthProviderSettingsParams) (OauthProviderSetting, error)
 	UpdateOneWayRule(ctx context.Context, arg UpdateOneWayRuleParams) (int64, error)
@@ -2249,6 +2315,8 @@ type Querier interface {
 	UpdateWebAuthnCredentialCounter(ctx context.Context, arg UpdateWebAuthnCredentialCounterParams) error
 	UpdateWebAuthnCredentialName(ctx context.Context, arg UpdateWebAuthnCredentialNameParams) (WebauthnCredential, error)
 	UpsertCatalogModelRule(ctx context.Context, arg UpsertCatalogModelRuleParams) (CatalogModelRule, error)
+	// Customer web push -----------------------------------------------------
+	UpsertCustomerPushSubscription(ctx context.Context, arg UpsertCustomerPushSubscriptionParams) (CustomerPushSubscription, error)
 	UpsertEInvoiceTaxpayer(ctx context.Context, arg UpsertEInvoiceTaxpayerParams) error
 	UpsertExtraStock(ctx context.Context, arg UpsertExtraStockParams) error
 	// Records a job once per provider and idempotency key; a repeated key
@@ -2256,7 +2324,9 @@ type Querier interface {
 	UpsertIntegrationJob(ctx context.Context, arg UpsertIntegrationJobParams) (UpsertIntegrationJobRow, error)
 	UpsertInvoiceSettings(ctx context.Context, arg UpsertInvoiceSettingsParams) error
 	UpsertInvoiceTaxMapping(ctx context.Context, arg UpsertInvoiceTaxMappingParams) error
+	UpsertNotificationMessageTemplate(ctx context.Context, arg UpsertNotificationMessageTemplateParams) (NotificationMessageTemplate, error)
 	UpsertNotificationPreferences(ctx context.Context, arg UpsertNotificationPreferencesParams) (NotificationPreference, error)
+	UpsertNotificationRule(ctx context.Context, arg UpsertNotificationRuleParams) (NotificationRule, error)
 	// Mobile push devices (Expo) and their pending push tickets.
 	// A token moves to the calling user when the device switches accounts and is
 	// re-enabled on every registration.
