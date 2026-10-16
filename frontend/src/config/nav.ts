@@ -573,6 +573,57 @@ export function tenantNav(slug: string): NavCatalog {
         ],
       },
       {
+        // Reports (TEC-738, §15.1).
+        id: "reports",
+        labelKey: "layout.section_reports",
+        icon: ChartColumn,
+        defaultOpen: false,
+        items: [
+          {
+            id: "reports-hub",
+            titleKey: "layout.nav_reports_hub",
+            href: routes.tenant.reports.root(slug),
+            icon: LayoutDashboard,
+            permission: permissions.tenant.finance.reports.read,
+          },
+          {
+            id: "reports-occupancy",
+            titleKey: "layout.nav_reports_occupancy",
+            href: routes.tenant.reports.occupancy(slug),
+            icon: Gauge,
+            permission: permissions.tenant.finance.reports.read,
+          },
+          {
+            id: "reports-income-expense",
+            titleKey: "layout.nav_reports_income_expense",
+            href: routes.tenant.reports.incomeExpense(slug),
+            icon: ArrowLeftRight,
+            permission: permissions.tenant.finance.reports.read,
+          },
+          {
+            id: "reports-channels",
+            titleKey: "layout.nav_reports_channels",
+            href: routes.tenant.reports.channels(slug),
+            icon: Share2,
+            permission: permissions.tenant.finance.reports.read,
+          },
+          {
+            id: "reports-aging",
+            titleKey: "layout.nav_reports_aging",
+            href: routes.tenant.reports.aging(slug),
+            icon: CalendarClock,
+            permission: permissions.tenant.finance.reports.read,
+          },
+          {
+            id: "reports-branches",
+            titleKey: "layout.nav_reports_branches",
+            href: routes.tenant.reports.branches(slug),
+            icon: Building2,
+            permission: permissions.tenant.finance.reports.read,
+          },
+        ],
+      },
+      {
         id: "customers",
         labelKey: "layout.section_customers",
         icon: Users,

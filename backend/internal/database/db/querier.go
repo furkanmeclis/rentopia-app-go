@@ -1992,6 +1992,36 @@ type Querier interface {
 	// Date change / plate assignment / product change of one allocation (same
 	// optimistic check).
 	ReplanAllocation(ctx context.Context, arg ReplanAllocationParams) (int64, error)
+	// Per account of one party kind: the balance and the open charges by due
+	// bucket as of a date (entries posted up to it), FIFO: settlements pay the
+	// oldest charges first, like the ledger summary (LedgerAccountAging).
+	// Supplier accounts age their payables (credits are their charges).
+	// Deposit entries stay out. branch_ids filters the entries' branch.
+	ReportAgingAccounts(ctx context.Context, arg ReportAgingAccountsParams) ([]ReportAgingAccountsRow, error)
+	// Reports (TEC-738, §15.1). Read-only facts of one
+	// organization; the grouping and the ratios are done in Go
+	// (internal/modules/reports/usecase). Occupancy, the branch comparison and
+	// the vehicle contribution reuse the vehicle profitability engine
+	// (profitability.sql). Every query filters on organization_id; money is TRY
+	// only.
+	// Every branch of the organization (labels of the grouped rows).
+	ReportBranches(ctx context.Context, organizationID int64) ([]ReportBranchesRow, error)
+	// Reservations by sales channel, status, collecting party and month of the
+	// chosen date (booking = created_at, pickup = starts_at; Europe/Istanbul).
+	// scope_branch_ids: the caller's branch scope (pick-up OR return branch, the
+	// reservations rule); filter_branch_ids: the pick-up branch filter.
+	ReportChannelFacts(ctx context.Context, arg ReportChannelFactsParams) ([]ReportChannelFactsRow, error)
+	// Recorded expenses of the period by category, branch and month (expense
+	// date; supplier invoices included through their expense row).
+	ReportExpenseFacts(ctx context.Context, arg ReportExpenseFactsParams) ([]ReportExpenseFactsRow, error)
+	// Accrual income of the period by purpose, charge kind, branch and month
+	// (Europe/Istanbul calendar months of the entry date): live debit accruals
+	// of customer accounts minus their reversals. A reversal of a periodic rent
+	// (TEC-723) counts on the reversed period's date, like the profitability
+	// report. branch_ids NULL = every branch and the head office.
+	ReportIncomeFacts(ctx context.Context, arg ReportIncomeFactsParams) ([]ReportIncomeFactsRow, error)
+	// Rental group memberships of the organization's vehicles.
+	ReportVehicleGroups(ctx context.Context, organizationID int64) ([]ReportVehicleGroupsRow, error)
 	// An event changed sellable capacity: every channel account of the
 	// organization pushes at the next sweep.
 	RequestChannelPush(ctx context.Context, arg RequestChannelPushParams) error

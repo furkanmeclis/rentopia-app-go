@@ -222,7 +222,7 @@ const (
 	PermTenantInvoicesBulkSend             = "tenant.invoices.bulk.send"
 )
 
-// Channel manager (TEC-736, migration 000541). The channel account itself
+// Channel manager (TEC-736, migration 000114). The channel account itself
 // is an integration account (PermTenantIntegrationsManage).
 const (
 	PermTenantChannelsRead  = "tenant.channels.read"

@@ -29,7 +29,7 @@ Rentopia needs the supplier (fleet publishing) protocol, not the public Agency A
 
 **To be confirmed in writing with Yolcu360 (TEC-680):** connection direction (supplier or distributor), who generates product codes, model guarantee support, availability format (count / offer / open-closed), where the booking becomes final, retry / timeout / cancellation rules, stop-sale and disconnection behaviour. Until then `yolcu360_fake` (outside production only; `scenario` = ok / outage / reject) is the tested path.
 
-## 2. Tables (migrations 000540 – 000541, renumbered at integration)
+## 2. Tables (migrations 000113 – 000114)
 
 | Table | Notes |
 |-------|-------|
