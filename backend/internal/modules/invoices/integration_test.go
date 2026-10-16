@@ -33,7 +33,7 @@ func (f *fx) validXML(id uuid.UUID, profile string) []byte {
 	f.t.Helper()
 	data, _, err := f.inv.XML(f.ctx, f.org, id)
 	f.must(err)
-	problems, err := ubl.ValidateXML(context.Background(), data, profile)
+	problems, err := ubl.ValidateXML(context.Background(), data, profile, "")
 	f.must(err)
 	if len(problems) > 0 {
 		f.t.Fatalf("stored XML is not valid: %+v", problems)

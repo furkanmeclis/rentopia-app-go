@@ -62,33 +62,40 @@ import (
 // names no record of the organization (nothing to swap for B's uuids), with
 // the test that covers them otherwise.
 var isolationAllowlist = map[string]string{
-	"POST /v1/tenant/branches":                     "body has no foreign references (code, name)",
-	"POST /v1/tenant/segments":                     "body has no foreign references (code, name)",
-	"POST /v1/tenant/roles":                        "body names permission slugs only; role isolation is the {uuid} cases",
-	"PUT /v1/tenant/settings":                      "settings document of the caller's organization; versions are the {version} cases",
-	"POST /v1/tenant/notifications/read-all":       "marks the caller's rows of the current organization (notifications scope test)",
-	"POST /v1/tenant/branches/import":              "imports match natural keys inside the organization (adapter tests); the job is the {uuid} cases",
-	"POST /v1/tenant/vehicles/import":              "imports match natural keys inside the organization (adapter tests); the job is the {uuid} cases",
-	"PATCH /v1/tenant/organization":                "profile of the caller's organization (name only); no foreign references",
-	"PUT /v1/tenant/organization/logo":             "logo of the caller's organization; the key is built from the scope (storage prefix check)",
-	"DELETE /v1/tenant/organization/logo":          "logo of the caller's organization; no ids",
-	"POST /v1/tenant/rate-plans/import":            "price list rows match product / branch codes inside the organization (pricing usecase tests); the job is the {uuid} cases",
-	"POST /v1/tenant/customers":                    "body has no foreign references (names, identity, contact values)",
-	"POST /v1/tenant/customers/import":             "rows match identity blind indexes keyed by the organization (customers usecase tests); the job is the {uuid} cases",
-	"POST /v1/tenant/extras":                       "body has no foreign references (code, name, enums, channel codes, default price)",
-	"POST /v1/tenant/integrations":                 "body has no foreign references (provider code, display name, mode, the organization's own credentials)",
-	"POST /v1/tenant/contract-templates":           "body has no foreign references (kind, name, editor content, body with placeholders)",
-	"POST /v1/tenant/inspection-templates":         "body has no foreign references (name, photo slots, checklist items)",
-	"POST /v1/tenant/finance/expense-categories":   "body has no foreign references (code, name, sort order)",
-	"POST /v1/tenant/finance/cash-accounts/import": "rows match account / branch codes inside the organization (finance adapters); the job is the {uuid} cases",
-	"POST /v1/tenant/finance/movements/import":     "rows match account / category codes inside the organization (finance adapters); the job is the {uuid} cases",
-	"POST /v1/tenant/finance/expenses/import":      "rows match category / branch / plate / account codes inside the organization; the job is the {uuid} cases",
-	"POST /v1/tenant/toll-passes/import":           "rows match provider transaction ids and plates / tags inside the organization (tolls tests); the job is the {uuid} cases",
-	"POST /v1/tenant/toll-passes/fetch":            "no body; fetches with the caller's organization's active toll account (tolls fetch test)",
-	"PATCH /v1/tenant/toll-settings":               "processing fee / fetch options of the caller's organization; no foreign references",
-	"PUT /v1/tenant/invoices/settings":             "invoice settings of the caller's organization (series, supplier address, tax mapping); no foreign references",
-	"POST /v1/tenant/suppliers":                    "body has no foreign references (title, tax number, contact and billing values)",
-	"POST /v1/tenant/suppliers/import":             "rows match supplier code / tax number inside the organization (suppliers adapters); the job is the {uuid} cases",
+	"POST /v1/tenant/branches":                       "body has no foreign references (code, name)",
+	"POST /v1/tenant/segments":                       "body has no foreign references (code, name)",
+	"POST /v1/tenant/roles":                          "body names permission slugs only; role isolation is the {uuid} cases",
+	"PUT /v1/tenant/settings":                        "settings document of the caller's organization; versions are the {version} cases",
+	"POST /v1/tenant/notifications/read-all":         "marks the caller's rows of the current organization (notifications scope test)",
+	"POST /v1/tenant/branches/import":                "imports match natural keys inside the organization (adapter tests); the job is the {uuid} cases",
+	"POST /v1/tenant/vehicles/import":                "imports match natural keys inside the organization (adapter tests); the job is the {uuid} cases",
+	"PATCH /v1/tenant/organization":                  "profile of the caller's organization (name only); no foreign references",
+	"PUT /v1/tenant/organization/logo":               "logo of the caller's organization; the key is built from the scope (storage prefix check)",
+	"DELETE /v1/tenant/organization/logo":            "logo of the caller's organization; no ids",
+	"POST /v1/tenant/rate-plans/import":              "price list rows match product / branch codes inside the organization (pricing usecase tests); the job is the {uuid} cases",
+	"POST /v1/tenant/customers":                      "body has no foreign references (names, identity, contact values)",
+	"POST /v1/tenant/customers/import":               "rows match identity blind indexes keyed by the organization (customers usecase tests); the job is the {uuid} cases",
+	"POST /v1/tenant/extras":                         "body has no foreign references (code, name, enums, channel codes, default price)",
+	"POST /v1/tenant/integrations":                   "body has no foreign references (provider code, display name, mode, the organization's own credentials)",
+	"POST /v1/tenant/contract-templates":             "body has no foreign references (kind, name, editor content, body with placeholders)",
+	"POST /v1/tenant/inspection-templates":           "body has no foreign references (name, photo slots, checklist items)",
+	"POST /v1/tenant/finance/expense-categories":     "body has no foreign references (code, name, sort order)",
+	"POST /v1/tenant/finance/cash-accounts/import":   "rows match account / branch codes inside the organization (finance adapters); the job is the {uuid} cases",
+	"POST /v1/tenant/finance/movements/import":       "rows match account / category codes inside the organization (finance adapters); the job is the {uuid} cases",
+	"POST /v1/tenant/finance/expenses/import":        "rows match category / branch / plate / account codes inside the organization; the job is the {uuid} cases",
+	"POST /v1/tenant/toll-passes/import":             "rows match provider transaction ids and plates / tags inside the organization (tolls tests); the job is the {uuid} cases",
+	"POST /v1/tenant/toll-passes/fetch":              "no body; fetches with the caller's organization's active toll account (tolls fetch test)",
+	"PATCH /v1/tenant/toll-settings":                 "processing fee / fetch options of the caller's organization; no foreign references",
+	"PUT /v1/tenant/invoices/settings":               "invoice settings of the caller's organization (series, supplier address, tax mapping); no foreign references",
+	"POST /v1/tenant/suppliers":                      "body has no foreign references (title, tax number, contact and billing values)",
+	"POST /v1/tenant/suppliers/import":               "rows match supplier code / tax number inside the organization (suppliers adapters); the job is the {uuid} cases",
+	"PUT /v1/tenant/notification-rules":              "rule of the caller's organization, addressed by a catalog event code; no foreign references",
+	"POST /v1/tenant/notification-rules/reset":       "rule of the caller's organization, addressed by a catalog event code; no foreign references",
+	"PUT /v1/tenant/notification-templates":          "template of the caller's organization, addressed by catalog codes (event, channel, language)",
+	"POST /v1/tenant/notification-templates/reset":   "template of the caller's organization, addressed by catalog codes (event, channel, language)",
+	"POST /v1/tenant/notification-templates/preview": "renders sample values; no records",
+	"POST /v1/tenant/public-api/keys":                "body has no foreign references (kind, name, channel, scopes, origins, rate limit)",
+	"POST /v1/tenant/public-api/webhooks":            "body has no foreign references (name, URL, event names)",
 }
 
 type isoOrg struct {
@@ -614,6 +621,16 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		ids["supplierPayment"] = str(must(call(o, http.MethodPost, "/v1/tenant/finance/supplier-payments", map[string]any{
 			"supplier_uuid": ids["supplier"], "cash_account_uuid": ids["bankAccount"], "amount": "100", "description": m + " ödeme",
 		}), http.StatusCreated, "create supplier payment"), "uuid")
+		// Public booking API (TEC-728): a key, a webhook endpoint and its
+		// test delivery (the target refuses the connection).
+		ids["publicKey"] = str(must(call(o, http.MethodPost, "/v1/tenant/public-api/keys", map[string]any{
+			"kind": "publishable", "name": m + " Site", "channel": "web", "allowed_origins": []string{"https://" + strings.ToLower(m) + ".example"},
+		}), http.StatusCreated, "create public api key"), "key", "uuid")
+		ids["webhook"] = str(must(call(o, http.MethodPost, "/v1/tenant/public-api/webhooks", map[string]any{
+			"name": m + " ERP", "url": "http://127.0.0.1:9/" + m,
+		}), http.StatusCreated, "create webhook"), "endpoint", "uuid")
+		ids["webhookDelivery"] = str(must(call(o, http.MethodPost, "/v1/tenant/public-api/webhooks/"+ids["webhook"]+"/test", nil),
+			http.StatusOK, "test webhook"), "uuid")
 		// Security deposits (TEC-719): a POS pre-auth resolved with one
 		// deduction (and its document), then a second one still held.
 		ids["deposit"] = str(must(call(o, http.MethodPost, "/v1/tenant/finance/deposits", map[string]any{
@@ -642,6 +659,11 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			"driver_uuid": ids["driver"],
 		}), http.StatusCreated, "agreement driver")
 		ids["agreementDriver"] = asMap(asMap(agrDrivers.data)["drivers"].([]any)[0])["uuid"].(string)
+		// Notification engine (TEC-733): a test send to the organization's
+		// customer (logged as a dispatch with its attempts).
+		ids["notificationDispatch"] = str(must(call(o, http.MethodPost, "/v1/tenant/notification-tests", map[string]any{
+			"event": "reservation.confirmed", "customer_uuid": ids["customer"],
+		}), http.StatusCreated, "notification test"), "uuid")
 		// E-invoices (TEC-722): a draft of the rental's customer stored as
 		// the module stores it (the accrual / link flow is covered by the
 		// invoices tests), its receiver completed through the API and
@@ -904,9 +926,12 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		// Operations overview (TEC-716): B's branches as the filter are
 		// unknown in A (not_found); the plain call and the badges are
 		// leak-scanned.
-		"GET /v1/tenant/overview":           {"?branch=" + b["branch"], "?branch=" + b["home"]},
-		"GET /v1/tenant/contract-templates": {"?q=" + orgB.marker},
-		"GET /v1/tenant/customer-requests":  {"?reservation=" + b["reservation"], "?q=" + orgB.marker},
+		"GET /v1/tenant/overview":                      {"?branch=" + b["branch"], "?branch=" + b["home"]},
+		"GET /v1/tenant/contract-templates":            {"?q=" + orgB.marker},
+		"GET /v1/tenant/customer-requests":             {"?reservation=" + b["reservation"], "?q=" + orgB.marker},
+		"GET /v1/tenant/public-api/keys":               {"?q=" + orgB.marker},
+		"GET /v1/tenant/public-api/webhooks":           {"?q=" + orgB.marker},
+		"GET /v1/tenant/public-api/webhook-deliveries": {"?endpoint=" + b["webhook"]},
 		// Finance: filters naming B's records are unknown in A.
 		"GET /v1/tenant/finance/accounts": {"?branch=" + b["home"], "?q=" + orgB.marker},
 		"GET /v1/tenant/finance/entries": {
@@ -1136,6 +1161,8 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		// Corporate agreements: B's customer / branch in an agreement body,
 		// B's agreement on a quote, a search, a preview and a tariff.
 		{"POST /v1/tenant/agreements", map[string]any{"customer_uuid": orgB.ids["customer"], "name": "x", "valid_from": date(0)}, reject},
+		// Notification engine: a test send to B's customer.
+		{"POST /v1/tenant/notification-tests", map[string]any{"event": "reservation.confirmed", "customer_uuid": orgB.ids["customer"]}, reject},
 		{"POST /v1/tenant/agreements", map[string]any{"customer_uuid": orgA.ids["customer"], "name": "x", "valid_from": date(0),
 			"branch_uuid": orgB.ids["home"]}, reject},
 		{"POST /v1/tenant/quotes", map[string]any{"pickup_branch_uuid": orgA.ids["home"], "starts_at": day(20), "ends_at": day(21),
@@ -1599,6 +1626,14 @@ func paramKey(prev, name string) string {
 		return "agreementDriver"
 	case "invoices/uuid":
 		return "invoice"
+	case "keys/uuid":
+		return "publicKey"
+	case "webhooks/uuid":
+		return "webhook"
+	case "webhook-deliveries/uuid":
+		return "webhookDelivery"
+	case "notification-dispatches/uuid":
+		return "notificationDispatch"
 	}
 	return ""
 }

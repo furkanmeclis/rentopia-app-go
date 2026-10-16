@@ -10,6 +10,10 @@ import {
   wantsCustomerUserAgent,
 } from "@/lib/server/customer-session";
 import {
+  isPublicBookingPath,
+  proxyPublicBooking,
+} from "@/lib/server/public-booking";
+import {
   sharedRefresh,
   type RefreshResult,
 } from "@/lib/server/refresh-single-flight";
@@ -481,6 +485,11 @@ export async function proxyToUpstream(
 ): Promise<Response> {
   if (isForbiddenProxyPath(pathSegments)) {
     return jsonError(404, "not_found");
+  }
+  // Public booking API (TEC-728): the caller's own key / session token,
+  // never the staff session; cross-site calls are expected (widget).
+  if (isPublicBookingPath(pathSegments)) {
+    return proxyPublicBooking(pathSegments, request);
   }
   if (isCrossSiteMutation(request)) {
     return jsonError(403, "cross_site_request_blocked");

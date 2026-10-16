@@ -92,7 +92,7 @@ func TestSchematronCatchesAReturnWithoutReference(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	problems, err := ValidateXML(context.Background(), data, doc.Profile)
+	problems, err := ValidateXML(context.Background(), data, doc.Profile, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +105,7 @@ func TestSchematronCatchesAReturnWithoutReference(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if problems, _ := ValidateXML(context.Background(), data, doc.Profile); len(problems) > 0 {
+	if problems, _ := ValidateXML(context.Background(), data, doc.Profile, ""); len(problems) > 0 {
 		t.Fatalf("return invoice: %+v", problems)
 	}
 }

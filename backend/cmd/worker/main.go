@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/cache"
@@ -52,6 +53,8 @@ import (
 	notifmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications/providers"
 	notifusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications/usecase"
+	notifyengineadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifyengine/adapters"
+	notifyengineusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifyengine/usecase"
 	orgadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/adapters"
 	orgrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/repository"
 	orgusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/usecase"
@@ -65,6 +68,7 @@ import (
 	pricingusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/usecase"
 	profitabilityadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/profitability/adapters"
 	profitabilityusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/profitability/usecase"
+	publicapiusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/publicapi/usecase"
 	rentaladapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/rentals/adapters"
 	rentalusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/rentals/usecase"
 	reservationadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/adapters"
@@ -250,6 +254,18 @@ func main() {
 	}
 	smsSvc.SetActivity(activityRec)
 	smsSvc.SetLogger(log)
+	// Notification engine (TEC-733): reminders, sweep-detected events and
+	// due dispatches (minute sweep); SMS delivery reports run the fallback.
+	notifyEngine := notifyengineusecase.New(pool, queries, cfg.Auth.FrontendURL)
+	notifyEngine.SetActivity(activityRec)
+	notifyEngine.SetLogger(log)
+	notifySMS := notifyengineadapters.NewSMS(smsSvc, queries)
+	notifyEngine.Register(notifySMS, notifyengineadapters.NewEmail(mailer),
+		notifyengineadapters.NewPush(notifSvc, queries, notifyengineadapters.VAPID{
+			PublicKey: cfg.VAPID.PublicKey, PrivateKey: cfg.VAPID.PrivateKey, Subject: cfg.VAPID.Subject,
+		}))
+	integrationRunner.AddListener(notifySMS)
+	reservationSvc.SetTransitionNotifier(notifyEngine)
 	paymentsSvc := paymentsusecase.New(pool, queries, integrationAccountsSvc, reservationSvc,
 		paymentsusecase.Config{PublicBaseURL: cfg.Auth.FrontendURL}, iyzicoAdapter)
 	paymentsSvc.SetLogger(log)
@@ -282,7 +298,18 @@ func main() {
 	fieldTasksSvc.SetNotifier(notifSvc)
 	fieldTasksSvc.SetLogger(log)
 	reservationSvc.SetDeliveryQuoter(fieldTasksSvc)
-	reservationSvc.SetLifecycleListener(reservationusecase.Listeners{rentalsSvc, fieldTasksSvc})
+	// Public booking API (TEC-728): lifecycle events of its reservations
+	// (expiry and cancellations run here too) become webhook deliveries;
+	// the minute sweep sends them. No booking runs in the worker.
+	publicAPISvc, err := publicapiusecase.New(pool, queries, fieldCipher,
+		orgsettingsusecase.New(orgsettingsrepository.NewPostgres(pool, queries)), reservationSvc, customerSvc, nil)
+	if err != nil {
+		log.Error("public_api_init_failed", "error", err)
+		exit(1)
+	}
+	publicAPISvc.SetLogger(log)
+	publicAPISvc.AllowPrivateWebhooks(!strings.EqualFold(strings.TrimSpace(cfg.App.Env), "production"))
+	reservationSvc.SetLifecycleListener(reservationusecase.Listeners{rentalsSvc, fieldTasksSvc, publicAPISvc})
 	// Toll passes (TEC-725): fetch steps (runner operations), the hourly
 	// fetch schedule and re-match, file imports.
 	tollsSvc := tollsusecase.New(pool, queries, integrationAccountsSvc, integrationRunner, integrationOps, tollProviders...)
@@ -510,6 +537,8 @@ func main() {
 		WithTolls(tollsSvc.ScheduleFetches, tollsSvc.RematchDue).
 		WithAgreementPeriods(financeSvc.AccruePeriods).
 		WithPlatformHealthAlerts(platformHealthSvc.RunAlertsCount).
+		WithPublicWebhooks(publicAPISvc.DeliverDue).
+		WithNotifyEngine(notifyEngine.Sweep).
 		WithDocumentPDF(contractsSvc.RenderPDF).
 		WithSearch(
 			searchIndexer.ProcessUpsert,
@@ -552,6 +581,14 @@ func main() {
 	}
 	if err := queue.RegisterPlatformHealthAlertsSchedule(scheduler); err != nil {
 		log.Error("platform_health_alerts_scheduler_failed", "error", err)
+		exit(1)
+	}
+	if err := queue.RegisterPublicWebhooksSchedule(scheduler); err != nil {
+		log.Error("public_webhooks_scheduler_failed", "error", err)
+		exit(1)
+	}
+	if err := queue.RegisterNotifyEngineSchedule(scheduler); err != nil {
+		log.Error("notify_engine_scheduler_failed", "error", err)
 		exit(1)
 	}
 	go func() {
