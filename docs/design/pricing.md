@@ -157,6 +157,10 @@ inside the organization.
 | `tenant.pricing.write` (drafts, matrix save, import) | ✓ | – | – |
 | `tenant.pricing.activate` | ✓ | – | – |
 
+## Agreement tariffs (TEC-723)
+
+Scope `agreement` (`rate_plans.agreement_id`): a plan that prices only sales under its corporate agreement and outranks every public scope; `Input.AgreementID` selects it, an agreement without its own plan falls back to the public plans. Versioning is unchanged; online coverage does not apply. `pricing.PeriodPlan` / `MonthlySpans` / `Distribute` are the pure monthly billing plan (partial months pro rata by days). See [corporate-agreements.md](./corporate-agreements.md).
+
 ## Open items
 
 - Reservations bind to `rate_plan_versions.uuid` / `date_rule_versions.uuid`

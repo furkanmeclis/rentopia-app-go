@@ -149,6 +149,10 @@ Nav group **Rezervasyonlar**: Rezervasyonlar (list: facets, live, export, bulk c
 
 `usecase/*_test.go` (DB-backed, `TEST_DATABASE_URL`): state machine and capacity effects, expiry sweep, quote revalidation (expired / used / price changed), date-change atomicity, extension band rule, RT-A31 alternatives + task, resolution task from a block, driver eligibility + override, branch scope, live events, extras / coupon ports, and two clients racing for the last car (`-race -count=10`). `model/statemachine_test.go` covers every transition. RT-A01 covers the routes.
 
+## 10a. Corporate agreements (TEC-723)
+
+Quotes and reservations may be sold under a corporate agreement (`agreement_uuid`): its tariff and coupon eligibility price the sale, the reservation checks the agreement's customer, validity and permitted drivers, and an open account confirms without prepayment within the credit limit (`422 CREDIT_LIMIT_EXCEEDED`). See [corporate-agreements.md](./corporate-agreements.md).
+
 ## 11. Open items
 
 - Payments are implemented ([payments.md](./payments.md)); documents, handover and returns are in rentals.
