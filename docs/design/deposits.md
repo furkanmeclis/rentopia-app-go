@@ -25,7 +25,7 @@ Code:
 
 The deposit amount of a product lives on `rental_product_versions.deposit_amount` (product conditions). A reservation copies it into its `product_snapshot`, so a later product change never moves the deposit of a booked rental. Taking a deposit defaults to that snapshot value; staff may enter another amount. Rental groups have no deposit setting of their own: the product condition is the single source.
 
-## 2. Tables (migrations 000700, 000701)
+## 2. Tables (migrations 000103, 000104)
 
 | Table | Purpose |
 |-------|---------|
@@ -68,6 +68,8 @@ The customer ledger stays single-sided per account ([ledger.md](./ledger.md)), w
 | Capture, online pre-auth | `collection` credit applied to the charge (after the iyzico post-auth) | none (iyzico payouts are not booked automatically, as for every iyzico payment) |
 | Pay the rest back (cash / transfer) | `deposit_return`, debit, purpose `deposit` | `deposit_out` from the till / bank account (a till cannot go negative) |
 | Release the rest (pre-auth) | nothing | nothing |
+
+Collections (TEC-718, [collections.md](./collections.md)): the `collection` credit of every deduction gets a **collection document** (method `cash` / `bank_transfer` / `card_pos` / `online`, by the deposit) and **collection allocations**: the named charge's live accrual first, then items of the deduction's purpose, then the rental's other items oldest first; anything left is credit. So open items and allocation statuses show the charge as paid. The settling leg of an offset gets the same treatment (method `other`). These documents are not refunded or voided through collections (`deposit_managed`). Deposit holds and returns never get a document: they are not collections, never allocatable and never customer credit.
 
 So:
 
@@ -136,7 +138,7 @@ There is no notification template mechanism yet (the SMS module sends free text;
 - `{uuid}/deductions/{deduction}/file` PUT / GET / DELETE (PDF, JPEG, PNG, WebP up to 10 MiB, sniffed; key `organizations/{org}/deposits/{deposit}/deductions/{deduction}/{file}.{ext}`, streamed by the API, `OrganizationOwnsKey` checked)
 - `/v1/tenant/finance/rentals/{uuid}/deposits` (the deposit card: default amount, items, whether one can be taken, online enabled, the live task, the cash accounts)
 
-Permissions (migration 000701, `rbac.go`, `permissions.ts`):
+Permissions (migration 000104, `rbac.go`, `permissions.ts`):
 
 | Slug | owner, admin, merkez_yoneticisi, muhasebe | sube_yoneticisi | teslim_iade | rezervasyon_satis |
 |------|-----|-----|-----|-----|

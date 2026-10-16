@@ -117,9 +117,11 @@ type Service struct {
 	events  resourceevents.Publisher
 	links   PayLinks
 	sms     SMS
-	preauth *preAuthDeps
-	log     *slog.Logger
-	now     func() time.Time
+	// payments refunds online collections (TEC-718).
+	payments PaymentRefunder
+	preauth  *preAuthDeps
+	log      *slog.Logger
+	now      func() time.Time
 }
 
 // New builds the service. store may be nil (no expense attachments).

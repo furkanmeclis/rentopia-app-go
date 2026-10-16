@@ -16846,12 +16846,36 @@ paths:
         "403": { $ref: "#/components/responses/TenantForbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/tenant/finance/accounts/{uuid}/open-items:
+    get:
+      tags: [Tenant]
+      operationId: getTenantFinanceAccountOpenItems
+      summary: Open items of an account
+      description: "`tenant.finance.accounts.read`. Live accruals (rent, charges) with what collections paid on each (open / partially_paid / paid) and the account's unallocated credit. Branch scope applies to the entries."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - { name: rental, in: query, schema: { type: string, format: uuid }, description: "Only this rental's items" }
+        - { name: open, in: query, schema: { type: boolean }, description: "true = only items with an open amount" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFinanceOpenItems" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /v1/tenant/finance/accounts/{uuid}/collections:
     post:
       tags: [Tenant]
       operationId: postTenantFinanceCollection
       summary: Record money received
-      description: "`tenant.finance.accounts.write` + `tenant.payment.collect`. A collection credit (purpose general, prepayment or deposit), optionally deposited into a cash / bank account in the same transaction."
+      description: "`tenant.finance.accounts.write` + `tenant.payment.collect`. A collection credit (purpose general, prepayment or deposit), optionally deposited into a cash / bank account in the same transaction. Also writes the collection document (kept as credit, not allocated); `POST /v1/tenant/finance/collections` is the full collection API."
       security:
         - bearerAuth: []
       parameters:
@@ -17151,6 +17175,276 @@ paths:
         "403": { $ref: "#/components/responses/TenantForbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/tenant/finance/collections/meta:
+    get:
+      tags: [Tenant]
+      operationId: getTenantFinanceCollectionsMeta
+      summary: Collections list metadata
+      description: "`tenant.finance.accounts.read`. Table contract of the list."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeResourceMeta" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/finance/collections:
+    get:
+      tags: [Tenant]
+      operationId: getTenantFinanceCollections
+      summary: List collections
+      description: "`tenant.finance.accounts.read`. Branch scope applies to the collection's branch (head office collections need every branch)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - { name: sort, in: query, schema: { type: string }, description: "`collection_date`, `amount`, `code` or `created_at`; prefix `-` for descending. Default `-collection_date`." }
+        - { name: method, in: query, schema: { type: string }, description: "cash, bank_transfer, card_pos, online, other (comma-separated)" }
+        - { name: status, in: query, schema: { type: string }, description: "recorded, partially_refunded, refunded, void" }
+        - { name: allocation_status, in: query, schema: { type: string }, description: "unallocated, partially_allocated, allocated, not_allocatable" }
+        - { name: branch, in: query, schema: { type: string }, description: "Branch uuids" }
+        - { name: cash_account, in: query, schema: { type: string }, description: "Cash / bank account uuids" }
+        - { name: account, in: query, schema: { type: string, format: uuid }, description: "Customer account" }
+        - { name: rental, in: query, schema: { type: string, format: uuid } }
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFinanceCollectionPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantFinanceCollections
+      summary: Record an in-branch collection
+      description: "`tenant.finance.accounts.read` + `tenant.payment.collect`. Cash, bank transfer / EFT or physical POS (`other` without an account): the ledger collection entry, the cash movement into the till (cash) or bank account (transfer / POS), the collection and its allocation (`auto` = oldest open items first, the rental's items when `rental_uuid` is given; `manual` = `allocations`; `none`) in one transaction. What is not allocated is the customer's credit. Deposits are never allocated. The account comes from `account_uuid` or from the rental's (invoice) customer. A repeated `idempotency_key` answers `200` with the first collection."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FinanceCollectionCreate" }
+      responses:
+        "201":
+          description: Collection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFinanceCollection" }
+        "200":
+          description: The collection of a repeated idempotency key
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFinanceCollection" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/finance/collections/export:
+    post:
+      tags: [Tenant]
+      operationId: postTenantFinanceCollectionsExport
+      summary: Export collections
+      description: "`tenant.finance.accounts.read` + `tenant.finance.accounts.export`. `query` honours the list filters; the job runs with the requester's branch scope."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExportRequest" }
+      responses:
+        "202":
+          description: Export job queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeExportJob" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/finance/collections/bulk:
+    post:
+      tags: [Tenant]
+      operationId: postTenantFinanceCollectionsBulk
+      summary: Bulk allocate collections
+      description: "Action `allocate` (`tenant.finance.collections.bulk.allocate`, reversible): each collection's credit goes to its account's oldest open items; the rollback releases what the run allocated."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BulkExecuteRequest" }
+      responses:
+        "200":
+          description: Sync bulk result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeBulkSyncResult" }
+        "202":
+          description: Async bulk job queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeBulkJob" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/finance/collections/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantFinanceCollection
+      summary: Collection with its allocations and refunds
+      description: "`tenant.finance.accounts.read`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFinanceCollection" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/finance/collections/{uuid}/allocations:
+    post:
+      tags: [Tenant]
+      operationId: postTenantFinanceCollectionAllocations
+      summary: Allocate a collection's credit
+      description: "`tenant.finance.accounts.write`. `auto` (oldest open items first, optionally one rental's) or `manual` (`items`, amount defaults to the item's open amount). Serialised per account; an item is never paid twice (`409 allocation_conflict` when a concurrent writer won). A repeated `idempotency_key` allocates nothing more."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FinanceAllocateRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFinanceCollection" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/finance/collections/{uuid}/allocations/release:
+    post:
+      tags: [Tenant]
+      operationId: postTenantFinanceCollectionRelease
+      summary: Release an allocation
+      description: "`tenant.finance.accounts.write`, reason required. The collection's allocation to one open item becomes credit again."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FinanceReleaseRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFinanceCollection" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/finance/collections/{uuid}/refund:
+    post:
+      tags: [Tenant]
+      operationId: postTenantFinanceCollectionRefund
+      summary: Refund a collection
+      description: "`tenant.finance.accounts.read` + `tenant.payment.refund`, reason required. Online (payment-backed) collections are refunded through the payments module: the provider decides, the refund entry is posted only when it succeeded (a refusal answers `502` and leaves a failed refund row). Manual collections post the refund entry and the cash movement out of the till / bank account (the collection's by default; a till cannot go negative). The collection's newest allocations are released first."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FinanceCollectionRefundRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFinanceCollection" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "502": { $ref: "#/components/responses/PaymentProviderError" }
+
+  /v1/tenant/finance/collections/{uuid}/void:
+    post:
+      tags: [Tenant]
+      operationId: postTenantFinanceCollectionVoid
+      summary: Void a collection
+      description: "`tenant.finance.accounts.read` + `tenant.finance.ledger.adjust`, reason required. A manual collection without refunds: allocations released, entry and cash movement reversed. Online collections are refunded instead."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FinanceReasonRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFinanceCollection" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
   /v1/tenant/finance/cash-accounts/meta:
     get:
       tags: [Tenant]
@@ -17185,7 +17479,7 @@ paths:
         - $ref: "#/components/parameters/Offset"
         - $ref: "#/components/parameters/Q"
         - { name: sort, in: query, schema: { type: string }, description: "`code`, `name`, `balance` or `created_at`; prefix `-` for descending. Default `code`." }
-        - { name: kind, in: query, schema: { type: string }, description: "cash, bank" }
+        - { name: kind, in: query, schema: { type: string }, description: "cash, bank, clearing" }
         - { name: status, in: query, schema: { type: string }, description: "active, archived" }
         - { name: branch, in: query, schema: { type: string }, description: "Branch uuids" }
         - { name: head_office, in: query, schema: { type: boolean }, description: "true = head office accounts only" }
@@ -30582,6 +30876,246 @@ components:
         cash_account_uuid: { type: string, format: uuid }
         description: { type: string, maxLength: 500 }
 
+    FinanceCollectionCreate:
+      type: object
+      additionalProperties: false
+      required: [amount, method]
+      properties:
+        account_uuid: { type: string, format: uuid, description: "The customer account (or give rental_uuid)" }
+        rental_uuid: { type: string, format: uuid }
+        amount: { type: string, description: "Decimal amount (2 decimals)" }
+        method: { type: string, enum: [cash, bank_transfer, card_pos, other] }
+        purpose: { type: string, enum: [general, prepayment, deposit] }
+        collection_date: { type: string, format: date }
+        branch_uuid: { type: string, format: uuid }
+        cash_account_uuid: { type: string, format: uuid, description: "Till (cash) or bank account (transfer / POS); required except for other" }
+        reference_no: { type: string, maxLength: 64 }
+        payer_name: { type: string, maxLength: 255 }
+        note: { type: string, maxLength: 1000 }
+        allocation_mode: { type: string, enum: [auto, manual, none] }
+        allocations:
+          type: array
+          items: { $ref: "#/components/schemas/FinanceAllocationItem" }
+        idempotency_key: { type: string, format: uuid }
+
+    FinanceAllocationItem:
+      type: object
+      additionalProperties: false
+      required: [entry_uuid]
+      properties:
+        entry_uuid: { type: string, format: uuid }
+        amount: { type: string, description: "Decimal amount; default the item's open amount" }
+
+    FinanceAllocateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        mode: { type: string, enum: [auto, manual] }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/FinanceAllocationItem" }
+        rental_uuid: { type: string, format: uuid }
+        idempotency_key: { type: string, format: uuid }
+
+    FinanceReleaseRequest:
+      type: object
+      additionalProperties: false
+      required: [entry_uuid, reason]
+      properties:
+        entry_uuid: { type: string, format: uuid }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+
+    FinanceCollectionRefundRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        amount: { type: string, description: "Decimal amount; default what is left" }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+        cash_account_uuid: { type: string, format: uuid, description: "Manual collections: the account the money leaves" }
+        refund_date: { type: string, format: date }
+
+    FinanceReasonRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 3, maxLength: 500 }
+
+    FinanceCollectionAllocation:
+      type: object
+      required: [entry_uuid, purpose, description, entry_date, due_date, item_amount, amount, item_open, item_status, reversed, allocated_at]
+      properties:
+        entry_uuid: { type: string, format: uuid }
+        purpose: { type: string }
+        description: { type: string }
+        entry_date: { type: string, format: date }
+        due_date: { type: string, format: date }
+        item_amount: { type: string, description: "Decimal amount (2 decimals)" }
+        amount: { type: string, description: "What this collection pays on the item" }
+        item_open: { type: string, description: "What is still open on the item (every collection)" }
+        item_status: { type: string, enum: [open, partially_paid, paid] }
+        reversed: { type: boolean }
+        rental:
+          oneOf:
+            - $ref: "#/components/schemas/FinanceRef"
+            - type: "null"
+        charge_kind: { type: string }
+        allocated_at: { type: string, format: date-time }
+
+    FinanceCollectionRefund:
+      type: object
+      required: [uuid, amount, currency, status, reason, failure_reason, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        amount: { type: string, description: "Decimal amount (2 decimals)" }
+        currency: { type: string }
+        status: { type: string, enum: [pending, succeeded, failed] }
+        reason: { type: string }
+        failure_reason: { type: string }
+        provider_refund_id: { type: [string, "null"] }
+        entry_uuid: { type: [string, "null"], format: uuid }
+        movement_uuid: { type: [string, "null"], format: uuid }
+        cash_account:
+          oneOf:
+            - $ref: "#/components/schemas/FinanceRef"
+            - type: "null"
+        created_by:
+          oneOf:
+            - $ref: "#/components/schemas/FinanceActor"
+            - type: "null"
+        created_at: { type: string, format: date-time }
+
+    FinanceCollection:
+      type: object
+      required: [uuid, code, account, method, provider, purpose, status, allocation_status, currency, amount, gross_amount, commission_amount, net_amount, refunded_amount, allocated_amount, unallocated_amount, refundable, collection_date, reference_no, payer_name, note, entry_uuid, settlement_status, void_reason, voidable, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        code: { type: string }
+        account: { $ref: "#/components/schemas/FinanceRef" }
+        method: { type: string, enum: [cash, bank_transfer, card_pos, online, other] }
+        provider: { type: string, enum: [manual, iyzico] }
+        purpose: { type: string, enum: [general, prepayment, deposit] }
+        status: { type: string, enum: [recorded, partially_refunded, refunded, void] }
+        allocation_status: { type: string, enum: [unallocated, partially_allocated, allocated, not_allocatable] }
+        currency: { type: string }
+        amount: { type: string, description: "Credited to the customer" }
+        gross_amount: { type: string, description: "Paid on the provider (online)" }
+        commission_amount: { type: string, description: "Provider commission (an expense when settled)" }
+        net_amount: { type: string, description: "Net settlement" }
+        refunded_amount: { type: string }
+        allocated_amount: { type: string }
+        unallocated_amount: { type: string, description: "The customer's credit from this collection" }
+        refundable: { type: string }
+        collection_date: { type: string, format: date }
+        reference_no: { type: string }
+        payer_name: { type: string }
+        note: { type: string }
+        branch:
+          oneOf:
+            - $ref: "#/components/schemas/FinanceRef"
+            - type: "null"
+        cash_account:
+          oneOf:
+            - $ref: "#/components/schemas/FinanceRef"
+            - type: "null"
+        cash_account_kind: { type: string }
+        rental:
+          oneOf:
+            - $ref: "#/components/schemas/FinanceRef"
+            - type: "null"
+        reservation:
+          oneOf:
+            - $ref: "#/components/schemas/FinanceRef"
+            - type: "null"
+        payment_uuid: { type: [string, "null"], format: uuid }
+        entry_uuid: { type: string, format: uuid }
+        movement_uuid: { type: [string, "null"], format: uuid }
+        commission_expense_uuid: { type: [string, "null"], format: uuid }
+        settlement_status: { type: string, enum: [none, pending, settled] }
+        settled_at: { type: [string, "null"], format: date-time }
+        void_reason: { type: string }
+        voided_at: { type: [string, "null"], format: date-time }
+        voidable: { type: boolean }
+        created_by:
+          oneOf:
+            - $ref: "#/components/schemas/FinanceActor"
+            - type: "null"
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        allocations:
+          type: array
+          items: { $ref: "#/components/schemas/FinanceCollectionAllocation" }
+        refunds:
+          type: array
+          items: { $ref: "#/components/schemas/FinanceCollectionRefund" }
+
+    FinanceOpenItem:
+      type: object
+      required: [entry_uuid, purpose, description, entry_date, due_date, amount, allocated, open, status, overdue, currency]
+      properties:
+        entry_uuid: { type: string, format: uuid }
+        purpose: { type: string }
+        description: { type: string }
+        entry_date: { type: string, format: date }
+        due_date: { type: string, format: date }
+        amount: { type: string, description: "Decimal amount (2 decimals)" }
+        allocated: { type: string }
+        open: { type: string }
+        status: { type: string, enum: [open, partially_paid, paid] }
+        overdue: { type: boolean }
+        currency: { type: string }
+        rental:
+          oneOf:
+            - $ref: "#/components/schemas/FinanceRef"
+            - type: "null"
+        charge_kind: { type: string }
+
+    FinanceOpenItems:
+      type: object
+      required: [account, items, open, credit, currency]
+      properties:
+        account: { $ref: "#/components/schemas/FinanceRef" }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/FinanceOpenItem" }
+        open: { type: string }
+        credit: { type: string, description: "Unallocated money of the account's collections" }
+        currency: { type: string }
+
+    EnvelopeFinanceCollection:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/FinanceCollection" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeFinanceOpenItems:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/FinanceOpenItems" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeFinanceCollectionPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/FinanceCollection" }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
     FinanceRefundRequest:
       type: object
       additionalProperties: false
@@ -30743,12 +31277,13 @@ components:
         uuid: { type: string, format: uuid }
         code: { type: string }
         name: { type: string }
-        kind: { type: string, enum: [cash, bank] }
+        kind: { type: string, enum: [cash, bank, clearing] }
         branch:
           oneOf:
             - $ref: "#/components/schemas/FinanceRef"
             - type: "null"
         currency: { type: string }
+        provider: { type: [string, "null"], description: "The online provider whose net settlement lands here (iyzico)" }
         opening_balance: { type: string, description: "Decimal amount (2 decimals)" }
         opening_date: { type: string, format: date }
         bank_name: { type: string }
@@ -30769,9 +31304,10 @@ components:
       properties:
         code: { type: string, maxLength: 32 }
         name: { type: string, maxLength: 128 }
-        kind: { type: string, enum: [cash, bank] }
+        kind: { type: string, enum: [cash, bank, clearing] }
         branch_uuid: { type: string, format: uuid }
         clear_branch: { type: boolean, description: "Patch: move the account to the head office" }
+        provider: { type: string, enum: ["", iyzico], description: "Bank / clearing account receiving the provider's net settlement (one active per provider); empty clears" }
         currency: { type: string }
         opening_balance: { type: string, description: "Decimal amount (2 decimals)" }
         opening_date: { type: string, format: date }
@@ -30786,7 +31322,7 @@ components:
       properties:
         uuid: { type: string, format: uuid }
         account: { $ref: "#/components/schemas/FinanceRef" }
-        account_kind: { type: string, enum: [cash, bank] }
+        account_kind: { type: string, enum: [cash, bank, clearing] }
         kind: { type: string, enum: [transfer_in, transfer_out, collection, supplier_payment, expense, refund, adjustment, reversal, deposit_in, deposit_out] }
         direction: { type: string, enum: [in, out] }
         amount: { type: string, description: "Decimal amount (2 decimals)" }

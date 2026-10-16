@@ -354,5 +354,10 @@
   "actions.kabis.retried": "KABİS notification retried",
   "actions.kabis.reported_manually": "KABİS notification marked reported manually",
   "actions.kabis.reconciled": "KABİS notification reconciled",
-  "actions.kabis.attachment_downloaded": "KABİS notification attachment downloaded"
+  "actions.kabis.attachment_downloaded": "KABİS notification attachment downloaded",
+  "resources.tenant.finance_collections": "Collections",
+  "actions.finance.collection_allocated": "Collection allocated",
+  "actions.finance.collection_allocation_released": "Collection allocation released",
+  "actions.finance.collection_refunded": "Collection refunded",
+  "actions.finance.collection_voided": "Collection voided"
 }

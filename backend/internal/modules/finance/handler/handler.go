@@ -165,6 +165,14 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 		response.ValidationError(w, r, out)
 		return
 	}
+	var ppf *paymentsusecase.ProviderFailure
+	if errors.As(err, &ppf) {
+		// An online refund the provider refused (TEC-718): the refund row
+		// stays failed, nothing is posted.
+		response.ErrorWithDetails(w, r, http.StatusBadGateway, "PROVIDER_ERROR", "The payment provider refused the request",
+			[]response.Detail{{Code: "provider_error", Message: err.Error()}})
+		return
+	}
 	var pse *paymentsusecase.StateError
 	if errors.As(err, &pse) {
 		response.ErrorWithDetails(w, r, http.StatusConflict, CodeInvalidState, pse.Message, []response.Detail{{Code: pse.Code, Message: pse.Message}})
@@ -173,6 +181,8 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, usecase.ErrAccountNotFound):
 		response.NotFound(w, r, "Account was not found")
+	case errors.Is(err, usecase.ErrCollectionNotFound), errors.Is(err, paymentsusecase.ErrNotFound):
+		response.NotFound(w, r, "Collection was not found")
 	case errors.Is(err, usecase.ErrEntryNotFound):
 		response.NotFound(w, r, "Ledger entry was not found")
 	case errors.Is(err, usecase.ErrRentalNotFound):

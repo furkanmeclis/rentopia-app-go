@@ -173,7 +173,7 @@ ALTER TABLE ledger_entries ADD CONSTRAINT ledger_entries_kind_check CHECK (kind 
 ALTER TABLE ledger_entries DROP CONSTRAINT ledger_entries_source_type_check;
 ALTER TABLE ledger_entries ADD CONSTRAINT ledger_entries_source_type_check CHECK (source_type IN (
     'rental', 'rental_charge', 'reservation', 'payment', 'payment_refund', 'invoice', 'toll_charge',
-    'cash_movement', 'manual', 'security_deposit'
+    'cash_movement', 'manual', 'collection', 'security_deposit'
 ));
 ALTER TABLE ledger_entries
     ADD COLUMN security_deposit_id BIGINT NULL,

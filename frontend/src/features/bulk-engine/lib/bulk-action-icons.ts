@@ -6,6 +6,7 @@ import {
   Hammer,
   Layers,
   ListChecks,
+  Split,
   Trash2,
   UserCheck,
   UserX,
@@ -85,6 +86,9 @@ const bulkActionIconCatalog: Record<
   },
   "tenant.field_tasks": {
     assign: UserCheck,
+  },
+  "tenant.finance_collections": {
+    allocate: Split,
   },
 };
 

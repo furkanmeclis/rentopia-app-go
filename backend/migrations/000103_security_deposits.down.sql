@@ -4,7 +4,21 @@
 -- deposit_return, deposit_capture and the collections that name a
 -- deduction) and the deposit_in / deposit_out cash movements are deleted
 -- too: the append-only triggers are switched off for that one statement
--- each, so customer balances and till balances lose those postings.
+-- each, so customer balances and till balances lose those postings. The
+-- collection documents of deductions (TEC-718) and their allocations go
+-- with them: the items they paid show as open again.
+
+ALTER TABLE collection_allocations DISABLE TRIGGER trg_collection_allocations_append_only;
+DELETE FROM collection_allocations a
+USING collections c, ledger_entries e
+WHERE c.organization_id = a.organization_id AND c.id = a.collection_id
+  AND e.organization_id = c.organization_id AND e.id = c.ledger_entry_id
+  AND (e.security_deposit_id IS NOT NULL OR e.deposit_deduction_id IS NOT NULL);
+ALTER TABLE collection_allocations ENABLE TRIGGER trg_collection_allocations_append_only;
+DELETE FROM collections c
+USING ledger_entries e
+WHERE e.organization_id = c.organization_id AND e.id = c.ledger_entry_id
+  AND (e.security_deposit_id IS NOT NULL OR e.deposit_deduction_id IS NOT NULL);
 
 ALTER TABLE cash_movements DISABLE TRIGGER trg_cash_movements_append_only;
 DELETE FROM cash_movements m
@@ -48,7 +62,7 @@ ALTER TABLE ledger_entries
 ALTER TABLE ledger_entries DROP CONSTRAINT ledger_entries_source_type_check;
 ALTER TABLE ledger_entries ADD CONSTRAINT ledger_entries_source_type_check CHECK (source_type IN (
     'rental', 'rental_charge', 'reservation', 'payment', 'payment_refund', 'invoice', 'toll_charge',
-    'cash_movement', 'manual'
+    'cash_movement', 'manual', 'collection'
 ));
 ALTER TABLE ledger_entries DROP CONSTRAINT ledger_entries_kind_check;
 ALTER TABLE ledger_entries ADD CONSTRAINT ledger_entries_kind_check CHECK (kind IN (

@@ -126,7 +126,8 @@ export type IoResource =
   | "tenant.cash_movements"
   | "tenant.expenses"
   | "tenant.security_deposits"
-  | "tenant.toll_passes";
+  | "tenant.toll_passes"
+  | "tenant.finance_collections";
 
 export const EXPORT_PATHS: Record<IoResource, string> = {
   "platform.users": "/v1/platform/users/export",
@@ -157,6 +158,7 @@ export const EXPORT_PATHS: Record<IoResource, string> = {
   "tenant.expenses": "/v1/tenant/finance/expenses/export",
   "tenant.security_deposits": "/v1/tenant/finance/deposits/export",
   "tenant.toll_passes": "/v1/tenant/toll-passes/export",
+  "tenant.finance_collections": "/v1/tenant/finance/collections/export",
 };
 
 export const IMPORT_PATHS: Partial<

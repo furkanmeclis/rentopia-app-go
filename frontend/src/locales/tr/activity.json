@@ -354,5 +354,10 @@
   "actions.kabis.retried": "KABİS bildirimi yeniden denendi",
   "actions.kabis.reported_manually": "KABİS bildirimi manuel bildirildi olarak işaretlendi",
   "actions.kabis.reconciled": "KABİS bildirimi uzlaştırıldı",
-  "actions.kabis.attachment_downloaded": "KABİS bildirim eki indirildi"
+  "actions.kabis.attachment_downloaded": "KABİS bildirim eki indirildi",
+  "resources.tenant.finance_collections": "Tahsilatlar",
+  "actions.finance.collection_allocated": "Tahsilat dağıtıldı",
+  "actions.finance.collection_allocation_released": "Tahsilat dağıtımı geri alındı",
+  "actions.finance.collection_refunded": "Tahsilat iade edildi",
+  "actions.finance.collection_voided": "Tahsilat iptal edildi"
 }

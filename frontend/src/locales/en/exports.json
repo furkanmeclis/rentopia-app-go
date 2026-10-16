@@ -86,5 +86,6 @@
   "resources.tenant.cash_accounts": "Tills and bank accounts",
   "resources.tenant.cash_movements": "Cash movements",
   "resources.tenant.expenses": "Expenses",
-  "resources.tenant.security_deposits": "Security deposits"
+  "resources.tenant.security_deposits": "Security deposits",
+  "resources.tenant.finance_collections": "Collections"
 }

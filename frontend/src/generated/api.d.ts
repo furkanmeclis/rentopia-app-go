@@ -10952,6 +10952,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenant/finance/accounts/{uuid}/open-items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Open items of an account
+         * @description `tenant.finance.accounts.read`. Live accruals (rent, charges) with what collections paid on each (open / partially_paid / paid) and the account's unallocated credit. Branch scope applies to the entries.
+         */
+        get: operations["getTenantFinanceAccountOpenItems"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenant/finance/accounts/{uuid}/collections": {
         parameters: {
             query?: never;
@@ -10963,7 +10983,7 @@ export interface paths {
         put?: never;
         /**
          * Record money received
-         * @description `tenant.finance.accounts.write` + `tenant.payment.collect`. A collection credit (purpose general, prepayment or deposit), optionally deposited into a cash / bank account in the same transaction.
+         * @description `tenant.finance.accounts.write` + `tenant.payment.collect`. A collection credit (purpose general, prepayment or deposit), optionally deposited into a cash / bank account in the same transaction. Also writes the collection document (kept as credit, not allocated); `POST /v1/tenant/finance/collections` is the full collection API.
          */
         post: operations["postTenantFinanceCollection"];
         delete?: never;
@@ -11186,6 +11206,190 @@ export interface paths {
         get: operations["getTenantFinanceCustomer"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/finance/collections/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Collections list metadata
+         * @description `tenant.finance.accounts.read`. Table contract of the list.
+         */
+        get: operations["getTenantFinanceCollectionsMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/finance/collections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List collections
+         * @description `tenant.finance.accounts.read`. Branch scope applies to the collection's branch (head office collections need every branch).
+         */
+        get: operations["getTenantFinanceCollections"];
+        put?: never;
+        /**
+         * Record an in-branch collection
+         * @description `tenant.finance.accounts.read` + `tenant.payment.collect`. Cash, bank transfer / EFT or physical POS (`other` without an account): the ledger collection entry, the cash movement into the till (cash) or bank account (transfer / POS), the collection and its allocation (`auto` = oldest open items first, the rental's items when `rental_uuid` is given; `manual` = `allocations`; `none`) in one transaction. What is not allocated is the customer's credit. Deposits are never allocated. The account comes from `account_uuid` or from the rental's (invoice) customer. A repeated `idempotency_key` answers `200` with the first collection.
+         */
+        post: operations["postTenantFinanceCollections"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/finance/collections/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export collections
+         * @description `tenant.finance.accounts.read` + `tenant.finance.accounts.export`. `query` honours the list filters; the job runs with the requester's branch scope.
+         */
+        post: operations["postTenantFinanceCollectionsExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/finance/collections/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk allocate collections
+         * @description Action `allocate` (`tenant.finance.collections.bulk.allocate`, reversible): each collection's credit goes to its account's oldest open items; the rollback releases what the run allocated.
+         */
+        post: operations["postTenantFinanceCollectionsBulk"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/finance/collections/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Collection with its allocations and refunds
+         * @description `tenant.finance.accounts.read`.
+         */
+        get: operations["getTenantFinanceCollection"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/finance/collections/{uuid}/allocations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Allocate a collection's credit
+         * @description `tenant.finance.accounts.write`. `auto` (oldest open items first, optionally one rental's) or `manual` (`items`, amount defaults to the item's open amount). Serialised per account; an item is never paid twice (`409 allocation_conflict` when a concurrent writer won). A repeated `idempotency_key` allocates nothing more.
+         */
+        post: operations["postTenantFinanceCollectionAllocations"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/finance/collections/{uuid}/allocations/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Release an allocation
+         * @description `tenant.finance.accounts.write`, reason required. The collection's allocation to one open item becomes credit again.
+         */
+        post: operations["postTenantFinanceCollectionRelease"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/finance/collections/{uuid}/refund": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refund a collection
+         * @description `tenant.finance.accounts.read` + `tenant.payment.refund`, reason required. Online (payment-backed) collections are refunded through the payments module: the provider decides, the refund entry is posted only when it succeeded (a refusal answers `502` and leaves a failed refund row). Manual collections post the refund entry and the cash movement out of the till / bank account (the collection's by default; a till cannot go negative). The collection's newest allocations are released first.
+         */
+        post: operations["postTenantFinanceCollectionRefund"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/finance/collections/{uuid}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Void a collection
+         * @description `tenant.finance.accounts.read` + `tenant.finance.ledger.adjust`, reason required. A manual collection without refunds: allocations released, entry and cash movement reversed. Online collections are refunded instead.
+         */
+        post: operations["postTenantFinanceCollectionVoid"];
         delete?: never;
         options?: never;
         head?: never;
@@ -22057,6 +22261,231 @@ export interface components {
             cash_account_uuid?: string;
             description?: string;
         };
+        FinanceCollectionCreate: {
+            /**
+             * Format: uuid
+             * @description The customer account (or give rental_uuid)
+             */
+            account_uuid?: string;
+            /** Format: uuid */
+            rental_uuid?: string;
+            /** @description Decimal amount (2 decimals) */
+            amount: string;
+            /** @enum {string} */
+            method: "cash" | "bank_transfer" | "card_pos" | "other";
+            /** @enum {string} */
+            purpose?: "general" | "prepayment" | "deposit";
+            /** Format: date */
+            collection_date?: string;
+            /** Format: uuid */
+            branch_uuid?: string;
+            /**
+             * Format: uuid
+             * @description Till (cash) or bank account (transfer / POS); required except for other
+             */
+            cash_account_uuid?: string;
+            reference_no?: string;
+            payer_name?: string;
+            note?: string;
+            /** @enum {string} */
+            allocation_mode?: "auto" | "manual" | "none";
+            allocations?: components["schemas"]["FinanceAllocationItem"][];
+            /** Format: uuid */
+            idempotency_key?: string;
+        };
+        FinanceAllocationItem: {
+            /** Format: uuid */
+            entry_uuid: string;
+            /** @description Decimal amount; default the item's open amount */
+            amount?: string;
+        };
+        FinanceAllocateRequest: {
+            /** @enum {string} */
+            mode?: "auto" | "manual";
+            items?: components["schemas"]["FinanceAllocationItem"][];
+            /** Format: uuid */
+            rental_uuid?: string;
+            /** Format: uuid */
+            idempotency_key?: string;
+        };
+        FinanceReleaseRequest: {
+            /** Format: uuid */
+            entry_uuid: string;
+            reason: string;
+        };
+        FinanceCollectionRefundRequest: {
+            /** @description Decimal amount; default what is left */
+            amount?: string;
+            reason: string;
+            /**
+             * Format: uuid
+             * @description Manual collections: the account the money leaves
+             */
+            cash_account_uuid?: string;
+            /** Format: date */
+            refund_date?: string;
+        };
+        FinanceReasonRequest: {
+            reason: string;
+        };
+        FinanceCollectionAllocation: {
+            /** Format: uuid */
+            entry_uuid: string;
+            purpose: string;
+            description: string;
+            /** Format: date */
+            entry_date: string;
+            /** Format: date */
+            due_date: string;
+            /** @description Decimal amount (2 decimals) */
+            item_amount: string;
+            /** @description What this collection pays on the item */
+            amount: string;
+            /** @description What is still open on the item (every collection) */
+            item_open: string;
+            /** @enum {string} */
+            item_status: "open" | "partially_paid" | "paid";
+            reversed: boolean;
+            rental?: components["schemas"]["FinanceRef"] | null;
+            charge_kind?: string;
+            /** Format: date-time */
+            allocated_at: string;
+        };
+        FinanceCollectionRefund: {
+            /** Format: uuid */
+            uuid: string;
+            /** @description Decimal amount (2 decimals) */
+            amount: string;
+            currency: string;
+            /** @enum {string} */
+            status: "pending" | "succeeded" | "failed";
+            reason: string;
+            failure_reason: string;
+            provider_refund_id?: string | null;
+            /** Format: uuid */
+            entry_uuid?: string | null;
+            /** Format: uuid */
+            movement_uuid?: string | null;
+            cash_account?: components["schemas"]["FinanceRef"] | null;
+            created_by?: components["schemas"]["FinanceActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        FinanceCollection: {
+            /** Format: uuid */
+            uuid: string;
+            code: string;
+            account: components["schemas"]["FinanceRef"];
+            /** @enum {string} */
+            method: "cash" | "bank_transfer" | "card_pos" | "online" | "other";
+            /** @enum {string} */
+            provider: "manual" | "iyzico";
+            /** @enum {string} */
+            purpose: "general" | "prepayment" | "deposit";
+            /** @enum {string} */
+            status: "recorded" | "partially_refunded" | "refunded" | "void";
+            /** @enum {string} */
+            allocation_status: "unallocated" | "partially_allocated" | "allocated" | "not_allocatable";
+            currency: string;
+            /** @description Credited to the customer */
+            amount: string;
+            /** @description Paid on the provider (online) */
+            gross_amount: string;
+            /** @description Provider commission (an expense when settled) */
+            commission_amount: string;
+            /** @description Net settlement */
+            net_amount: string;
+            refunded_amount: string;
+            allocated_amount: string;
+            /** @description The customer's credit from this collection */
+            unallocated_amount: string;
+            refundable: string;
+            /** Format: date */
+            collection_date: string;
+            reference_no: string;
+            payer_name: string;
+            note: string;
+            branch?: components["schemas"]["FinanceRef"] | null;
+            cash_account?: components["schemas"]["FinanceRef"] | null;
+            cash_account_kind?: string;
+            rental?: components["schemas"]["FinanceRef"] | null;
+            reservation?: components["schemas"]["FinanceRef"] | null;
+            /** Format: uuid */
+            payment_uuid?: string | null;
+            /** Format: uuid */
+            entry_uuid: string;
+            /** Format: uuid */
+            movement_uuid?: string | null;
+            /** Format: uuid */
+            commission_expense_uuid?: string | null;
+            /** @enum {string} */
+            settlement_status: "none" | "pending" | "settled";
+            /** Format: date-time */
+            settled_at?: string | null;
+            void_reason: string;
+            /** Format: date-time */
+            voided_at?: string | null;
+            voidable: boolean;
+            created_by?: components["schemas"]["FinanceActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            allocations?: components["schemas"]["FinanceCollectionAllocation"][];
+            refunds?: components["schemas"]["FinanceCollectionRefund"][];
+        };
+        FinanceOpenItem: {
+            /** Format: uuid */
+            entry_uuid: string;
+            purpose: string;
+            description: string;
+            /** Format: date */
+            entry_date: string;
+            /** Format: date */
+            due_date: string;
+            /** @description Decimal amount (2 decimals) */
+            amount: string;
+            allocated: string;
+            open: string;
+            /** @enum {string} */
+            status: "open" | "partially_paid" | "paid";
+            overdue: boolean;
+            currency: string;
+            rental?: components["schemas"]["FinanceRef"] | null;
+            charge_kind?: string;
+        };
+        FinanceOpenItems: {
+            account: components["schemas"]["FinanceRef"];
+            items: components["schemas"]["FinanceOpenItem"][];
+            open: string;
+            /** @description Unallocated money of the account's collections */
+            credit: string;
+            currency: string;
+        };
+        EnvelopeFinanceCollection: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["FinanceCollection"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeFinanceOpenItems: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["FinanceOpenItems"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeFinanceCollectionPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["FinanceCollection"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
         FinanceRefundRequest: {
             /** @description Decimal amount (2 decimals) */
             amount: string;
@@ -22204,9 +22633,11 @@ export interface components {
             code: string;
             name: string;
             /** @enum {string} */
-            kind: "cash" | "bank";
+            kind: "cash" | "bank" | "clearing";
             branch: components["schemas"]["FinanceRef"] | null;
             currency: string;
+            /** @description The online provider whose net settlement lands here (iyzico) */
+            provider?: string | null;
             /** @description Decimal amount (2 decimals) */
             opening_balance: string;
             /** Format: date */
@@ -22235,11 +22666,16 @@ export interface components {
             code?: string;
             name?: string;
             /** @enum {string} */
-            kind?: "cash" | "bank";
+            kind?: "cash" | "bank" | "clearing";
             /** Format: uuid */
             branch_uuid?: string;
             /** @description Patch: move the account to the head office */
             clear_branch?: boolean;
+            /**
+             * @description Bank / clearing account receiving the provider's net settlement (one active per provider); empty clears
+             * @enum {string}
+             */
+            provider?: "" | "iyzico";
             currency?: string;
             /** @description Decimal amount (2 decimals) */
             opening_balance?: string;
@@ -22256,7 +22692,7 @@ export interface components {
             uuid: string;
             account: components["schemas"]["FinanceRef"];
             /** @enum {string} */
-            account_kind: "cash" | "bank";
+            account_kind: "cash" | "bank" | "clearing";
             /** @enum {string} */
             kind: "transfer_in" | "transfer_out" | "collection" | "supplier_payment" | "expense" | "refund" | "adjustment" | "reversal" | "deposit_in" | "deposit_out";
             /** @enum {string} */
@@ -43251,6 +43687,44 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getTenantFinanceAccountOpenItems: {
+        parameters: {
+            query?: {
+                /** @description Only this rental's items */
+                rental?: string;
+                /** @description true = only items with an open amount */
+                open?: boolean;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFinanceOpenItems"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     postTenantFinanceCollection: {
         parameters: {
             query?: never;
@@ -43685,6 +44159,387 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getTenantFinanceCollectionsMeta: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantFinanceCollections: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description `collection_date`, `amount`, `code` or `created_at`; prefix `-` for descending. Default `-collection_date`. */
+                sort?: string;
+                /** @description cash, bank_transfer, card_pos, online, other (comma-separated) */
+                method?: string;
+                /** @description recorded, partially_refunded, refunded, void */
+                status?: string;
+                /** @description unallocated, partially_allocated, allocated, not_allocatable */
+                allocation_status?: string;
+                /** @description Branch uuids */
+                branch?: string;
+                /** @description Cash / bank account uuids */
+                cash_account?: string;
+                /** @description Customer account */
+                account?: string;
+                rental?: string;
+                from?: string;
+                to?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFinanceCollectionPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantFinanceCollections: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinanceCollectionCreate"];
+            };
+        };
+        responses: {
+            /** @description The collection of a repeated idempotency key */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFinanceCollection"];
+                };
+            };
+            /** @description Collection */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFinanceCollection"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantFinanceCollectionsExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Export job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantFinanceCollectionsBulk: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkExecuteRequest"];
+            };
+        };
+        responses: {
+            /** @description Sync bulk result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeBulkSyncResult"];
+                };
+            };
+            /** @description Async bulk job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeBulkJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantFinanceCollection: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFinanceCollection"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantFinanceCollectionAllocations: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinanceAllocateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFinanceCollection"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantFinanceCollectionRelease: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinanceReleaseRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFinanceCollection"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantFinanceCollectionRefund: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinanceCollectionRefundRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFinanceCollection"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            502: components["responses"]["PaymentProviderError"];
+        };
+    };
+    postTenantFinanceCollectionVoid: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinanceReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFinanceCollection"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
     getTenantCashAccountsMeta: {
         parameters: {
             query?: never;
@@ -43722,7 +44577,7 @@ export interface operations {
                 q?: components["parameters"]["Q"];
                 /** @description `code`, `name`, `balance` or `created_at`; prefix `-` for descending. Default `code`. */
                 sort?: string;
-                /** @description cash, bank */
+                /** @description cash, bank, clearing */
                 kind?: string;
                 /** @description active, archived */
                 status?: string;

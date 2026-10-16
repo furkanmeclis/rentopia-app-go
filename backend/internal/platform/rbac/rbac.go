@@ -168,7 +168,7 @@ const (
 	PermTenantFinanceExpensesImport          = "tenant.finance.expenses.import"
 	PermTenantFinanceExpensesBulkSetCategory = "tenant.finance.expenses.bulk.set_category"
 	PermTenantFinanceReportsRead             = "tenant.finance.reports.read"
-	// Security deposits and pre-authorizations (TEC-719, migration 000701):
+	// Security deposits and pre-authorizations (TEC-719, migration 000104):
 	// write takes / releases, deduct captures deductions (with a reason).
 	PermTenantFinanceDepositsRead   = "tenant.finance.deposits.read"
 	PermTenantFinanceDepositsWrite  = "tenant.finance.deposits.write"
@@ -186,6 +186,12 @@ const (
 	PermTenantKabisRetry     = "tenant.kabis.retry"
 	PermTenantKabisReconcile = "tenant.kabis.reconcile"
 )
+
+// Collections (TEC-718, migration 000102). Recording, allocating,
+// refunding and voiding reuse PermTenantPaymentCollect,
+// PermTenantFinanceAccountsWrite, PermTenantPaymentRefund and
+// PermTenantFinanceLedgerAdjust.
+const PermTenantFinanceCollectionsBulkAllocate = "tenant.finance.collections.bulk.allocate"
 
 // Tenant template role keys seeded by migrations 000030 and 000041.
 const (

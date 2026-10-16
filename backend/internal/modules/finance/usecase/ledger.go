@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -532,77 +533,46 @@ func rentalOf(r db.GetRentalRefRow, ok bool) pgtype.Int8 {
 }
 
 // Collect records money received on an account outside the payments
-// module (corporate bank transfer, a deposit at the counter). With a cash
-// account the money enters it in the same transaction.
+// module (corporate bank transfer, a deposit at the counter). It is the
+// account route of a collection (TEC-718): the collection document is
+// written with its entry, kept as credit (no allocation), and the entry is
+// returned. With a cash account the money enters it in the same
+// transaction.
 func (s *Service) Collect(ctx context.Context, orgID int64, id uuid.UUID, in model.CollectionInput) (model.Entry, error) {
 	if !has(ctx, rbac.PermTenantPaymentCollect) {
 		return model.Entry{}, ErrForbidden
 	}
-	acc, _, err := s.account(ctx, orgID, id)
-	if err != nil {
+	if _, _, err := s.account(ctx, orgID, id); err != nil {
 		return model.Entry{}, err
 	}
-	ve := &ValidationError{}
-	if in.Amount == nil || !in.Amount.IsPositive() {
-		ve.add("amount", "invalid", "amount must be positive")
-	}
-	purpose := in.Purpose
-	if purpose == "" {
-		purpose = model.PurposeGeneral
-	}
-	if !contains([]string{model.PurposeGeneral, model.PurposePrepayment, model.PurposeDeposit}, purpose) {
-		ve.add("purpose", "invalid", "purpose must be general, prepayment or deposit")
+	if len(in.Description) > 500 {
+		return model.Entry{}, validation("description", "too_long", "description is at most 500 characters")
 	}
 	method := strings.TrimSpace(in.Method)
 	if method != "" && !contains([]string{"cash", "card_pos", "bank_transfer", "other"}, method) {
-		ve.add("method", "invalid", "unknown method")
+		return model.Entry{}, validation("method", "invalid", "unknown method")
 	}
-	if len(in.Description) > 500 {
-		ve.add("description", "too_long", "description is at most 500 characters")
-	}
-	date := optionalDate(ve, "entry_date", in.EntryDate, s.today())
-	if err := ve.orNil(); err != nil {
-		return model.Entry{}, err
-	}
-	rental, hasRental, err := s.postingRental(ctx, orgID, acc, in.RentalUUID)
+	collID, _, err := s.createCollection(ctx, orgID, model.CollectionCreateInput{
+		AccountUUID: &id, RentalUUID: in.RentalUUID, Amount: in.Amount, Method: method, Purpose: in.Purpose,
+		CollectionDate: in.EntryDate, BranchUUID: in.BranchUUID, CashAccountUUID: in.CashAccountUUID,
+		AllocationMode: model.AllocateNone,
+	}, createOptions{description: strings.TrimSpace(in.Description)})
 	if err != nil {
-		return model.Entry{}, err
-	}
-	def := acc.BranchID.Int64
-	if hasRental {
-		def = rental.PickupBranchID
-	}
-	branch, err := s.branchFor(ctx, orgID, "branch_uuid", in.BranchUUID, def)
-	if err != nil {
-		return model.Entry{}, err
-	}
-	desc := strings.TrimSpace(in.Description)
-	if desc == "" {
-		desc = strings.Trim(rental.Reference+" · "+method, " ·")
-	}
-	var entryID uuid.UUID
-	err = s.tx(ctx, func(q *db.Queries) error {
-		row, err := q.InsertLedgerEntry(ctx, db.InsertLedgerEntryParams{
-			OrganizationID: orgID, AccountID: acc.ID, Kind: model.KindCollection, Direction: model.Credit, Purpose: purpose,
-			Amount: in.Amount.Numeric(), Currency: acc.Currency, EntryDate: dateOf(date), DueDate: dateOf(date),
-			Description: desc, SourceType: model.SourceManual, RentalID: rentalOf(rental, hasRental),
-			ReservationID: reservationOf(rental, hasRental), BranchID: int8Of(branch), CreatedBy: actorID(ctx),
-		})
-		if err != nil {
-			return err
+		var ve *ValidationError
+		if errors.As(err, &ve) {
+			for i := range ve.Details {
+				if ve.Details[i].Field == "collection_date" {
+					ve.Details[i].Field = "entry_date"
+				}
+			}
 		}
-		entryID = row.Uuid
-		if in.CashAccountUUID != nil {
-			return s.settleEntry(ctx, q, orgID, *in.CashAccountUUID, row.ID, model.MoveCollection, *in.Amount, acc.Currency, date, desc)
-		}
-		return nil
-	})
+		return model.Entry{}, err
+	}
+	row, err := s.q.GetCollectionRow(ctx, db.GetCollectionRowParams{OrganizationID: orgID, Uuid: collID})
 	if err != nil {
 		return model.Entry{}, err
 	}
-	s.publish(ctx, model.ResourceAccounts, "updated", id)
-	s.publish(ctx, model.ResourceEntries, "created", entryID)
-	return s.GetEntry(ctx, orgID, entryID)
+	return s.GetEntry(ctx, orgID, row.LedgerEntryUuid)
 }
 
 // Refund records money paid back to the party (a deposit returned, an
@@ -775,30 +745,35 @@ func (s *Service) Reverse(ctx context.Context, orgID int64, id uuid.UUID, in mod
 	case e.Reversed:
 		return model.Entry{}, stateErr("already_reversed", "the entry is already reversed")
 	}
-	dir := model.Credit
-	if e.Direction == model.Credit {
-		dir = model.Debit
+	if e.Kind == model.KindCollection {
+		// A collection's entry is reversed by voiding the collection
+		// (allocations released, cash movement reversed) — TEC-718.
+		if c, err := s.q.GetCollectionIDByEntry(ctx, db.GetCollectionIDByEntryParams{OrganizationID: orgID, LedgerEntryID: e.ID}); err == nil {
+			row, err := s.q.GetCollectionRowByID(ctx, db.GetCollectionRowByIDParams{OrganizationID: orgID, ID: c.ID})
+			if err != nil {
+				return model.Entry{}, err
+			}
+			out, err := s.voidCollection(ctx, orgID, row, reason)
+			if err != nil {
+				return model.Entry{}, err
+			}
+			s.publish(ctx, model.ResourceEntries, "updated", id)
+			return s.GetEntry(ctx, orgID, out)
+		} else if !notFound(err) {
+			return model.Entry{}, err
+		}
+	}
+	if e.Kind == model.KindRefund && e.SourceType == model.SourceCollection {
+		return model.Entry{}, stateErr("collection_refund", "a collection refund is final; record a new collection instead")
 	}
 	var out uuid.UUID
 	err = s.tx(ctx, func(q *db.Queries) error {
 		if _, err := q.LockAccount(ctx, db.LockAccountParams{OrganizationID: orgID, ID: e.AccountID}); err != nil {
 			return err
 		}
-		row, err := q.InsertLedgerEntry(ctx, db.InsertLedgerEntryParams{
-			OrganizationID: orgID, AccountID: e.AccountID, Kind: model.KindReversal, Direction: dir, Purpose: e.Purpose,
-			Amount: e.Amount, Currency: e.Currency, EntryDate: dateOf(s.today()), DueDate: e.DueDate, Description: e.Description,
-			Reason: reason, SourceType: e.SourceType, SourceUuid: e.SourceUuid, RentalID: e.RentalID, ReservationID: e.ReservationID,
-			RentalChargeID: e.RentalChargeID, PaymentID: e.PaymentID, PaymentRefundID: e.PaymentRefundID,
-			ReversesEntryID: int8Of(e.ID), BranchID: e.BranchID, CreatedBy: actorID(ctx),
-		})
-		if uniqueViolation(err) {
-			return stateErr("already_reversed", "the entry is already reversed")
-		}
-		if err != nil {
-			return err
-		}
-		out = row.Uuid
-		return s.reverseSettlement(ctx, q, orgID, e.ID, reason)
+		var err error
+		out, err = s.insertReversal(ctx, q, orgID, e, reason)
+		return err
 	})
 	if err != nil {
 		return model.Entry{}, err
@@ -870,6 +845,20 @@ func (s *Service) Offset(ctx context.Context, orgID int64, id uuid.UUID, in mode
 				return err
 			}
 			ids = append(ids, row.Uuid)
+			if leg.dir == model.Credit {
+				// The settling leg is a collection document allocated to
+				// the rental's (or the account's) open items, so the items
+				// it pays show as paid (collections, TEC-718).
+				if _, err := s.creditDocument(ctx, q, orgID, creditDoc{
+					accountID: acc.ID, currency: acc.Currency, entryID: row.ID, amount: *in.Amount,
+					method: model.MethodOther, provider: model.ProviderManual, date: dateOf(today),
+					branchID: branch, rentalID: rentalOf(rental, hasRental).Int64,
+					reservationID: reservationOf(rental, hasRental).Int64, note: "depozito mahsubu · " + reason,
+					onlyPurpose: target,
+				}); err != nil {
+					return err
+				}
+			}
 		}
 		return nil
 	})

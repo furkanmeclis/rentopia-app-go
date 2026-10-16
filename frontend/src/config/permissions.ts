@@ -146,6 +146,8 @@ export const Permission = {
   TenantFinanceDepositsWrite: "tenant.finance.deposits.write",
   TenantFinanceDepositsDeduct: "tenant.finance.deposits.deduct",
   TenantFinanceDepositsExport: "tenant.finance.deposits.export",
+  TenantFinanceCollectionsBulkAllocate:
+    "tenant.finance.collections.bulk.allocate",
   TenantTollsRead: "tenant.tolls.read",
   TenantTollsExport: "tenant.tolls.export",
   TenantTollsImport: "tenant.tolls.import",
@@ -501,6 +503,14 @@ export const permissions = {
         write: Permission.TenantFinanceDepositsWrite,
         deduct: Permission.TenantFinanceDepositsDeduct,
         export: Permission.TenantFinanceDepositsExport,
+      },
+      /**
+       * Collections (TEC-718): list / detail with `accounts.read`, record
+       * with `payment.collect`, allocate with `accounts.write`, refund with
+       * `payment.refund`, void with `ledger.adjust`.
+       */
+      collections: {
+        bulkAllocate: Permission.TenantFinanceCollectionsBulkAllocate,
       },
     },
   },

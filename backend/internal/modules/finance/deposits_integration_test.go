@@ -267,6 +267,38 @@ func TestDepositPartialCaptureAgainstCharge(t *testing.T) {
 	if !f.tillBalance(till.UUID).Equal(money.MustParse("750")) {
 		t.Fatalf("till after paying back 1 250: %s", f.tillBalance(till.UUID))
 	}
+	var se *usecase.StateError
+	// Collections (TEC-718): the deduction is a collection document
+	// allocated to the charge, so the charge shows as paid; the deposit
+	// hold / return have no document and are no customer credit.
+	items, err := f.fin.OpenItems(ctx, f.org, acc.UUID, &r.UUID, false)
+	f.must(err)
+	paid := false
+	for _, it := range items.Items {
+		if it.Purpose == model.PurposeCharge && it.Amount.Equal(money.MustParse("750")) {
+			paid = it.Status == model.ItemPaid
+		}
+	}
+	if !paid || !items.Credit.IsZero() {
+		t.Fatalf("open items after the capture: %+v", items)
+	}
+	if n := f.count(`SELECT count(*) FROM collections c JOIN ledger_entries e ON e.organization_id = c.organization_id AND e.id = c.ledger_entry_id
+		WHERE c.organization_id = $1 AND e.kind IN ('deposit_hold', 'deposit_return', 'deposit_capture')`, f.org); n != 0 {
+		t.Fatalf("%d deposit legs became collections", n)
+	}
+	var docUUID uuid.UUID
+	f.must(f.pool.QueryRow(context.Background(), `SELECT c.uuid FROM collections c JOIN ledger_entries e ON e.organization_id = c.organization_id
+		AND e.id = c.ledger_entry_id WHERE c.organization_id = $1 AND e.deposit_deduction_id IS NOT NULL`, f.org).Scan(&docUUID))
+	if n := f.count(`SELECT count(*) FROM collection_allocations a JOIN collections c ON c.organization_id = a.organization_id AND c.id = a.collection_id
+		WHERE a.organization_id = $1 AND c.uuid = $2 AND a.kind = 'allocate' AND a.amount = 750`, f.org, docUUID); n != 1 {
+		t.Fatalf("deduction allocations %d", n)
+	}
+	if _, err := f.fin.VoidCollection(ctx, f.org, docUUID, model.CollectionVoidInput{Reason: "deneme"}); !errors.As(err, &se) || se.Code != "deposit_managed" {
+		t.Fatalf("void of a deduction collection: %v", err)
+	}
+	if _, err := f.fin.RefundCollection(ctx, f.org, docUUID, model.CollectionRefundInput{Reason: "deneme"}, ""); !errors.As(err, &se) || se.Code != "deposit_managed" {
+		t.Fatalf("refund of a deduction collection: %v", err)
+	}
 	if n := f.count(`SELECT count(*) FROM cash_movements WHERE organization_id = $1 AND kind = 'deposit_out' AND amount = 1250`, f.org); n != 1 {
 		t.Fatal("no deposit_out movement")
 	}

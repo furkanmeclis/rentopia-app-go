@@ -17,7 +17,7 @@ Module: `backend/internal/modules/finance`. Panel: Finans → Cari hesaplar.
 Columns of `ledger_entries`:
 
 - **What happened:** `kind` (`accrual`, `collection`, `payment`, `refund`, `offset`, `adjustment`, `reversal`, and since TEC-719 `deposit_hold`, `deposit_return`, `deposit_capture`), `direction` (`debit` / `credit`), `purpose` (`rent`, `charge`, `prepayment`, `deposit`, `general`), `amount > 0`, `currency`, `entry_date`, `due_date`.
-- **Where it came from:** a generic source (`source_type`, `source_uuid`) plus typed FKs: rental, reservation, rental charge, payment, payment refund, cash movement, and (TEC-719, migration 000700) security deposit and deposit deduction. The typed FKs are composite `(organization_id, id)`, so no row can point into another organization.
+- **Where it came from:** a generic source (`source_type`, `source_uuid`) plus typed FKs: rental, reservation, rental charge, payment, payment refund, cash movement, and (TEC-719, migration 000103) security deposit and deposit deduction. The typed FKs are composite `(organization_id, id)`, so no row can point into another organization.
 - **Who and why:** `branch_id`, `created_by`, `reason`.
 - **Bookkeeping:**
   - `accrual_key` and `accrual_generation`
@@ -42,9 +42,9 @@ Both require `tenant.finance.ledger.adjust`, except automatic reversals, which c
 | Rent | `accrual` / `rent`, key `rental:<id>:rent` | When the rental is handed over (status `active`, `return_check` or `returned`). Only when `collecting_party = 'us'`. The amount is the reservation's `total_amount`, posted to the invoice customer (or the customer if there is none). The due date is the handover day plus `payment_term_days`. An extension that changes the total reverses the accrual and accrues the new amount. |
 | Rental charge (damage, fuel, km, late fee, toll, toll fee …) | `accrual` / `charge`, key `rental_charge:<id>` | When the charge is approved. Proposed, waived and disputed-but-unapproved charges are never accrued. A charge with a reversal row is not due either. |
 | Toll charge reversal (TEC-725) | `reversal` of the charge's accrual, reason `system:charge_reversed` | The reversal row itself (negative amount, `reversal_of_id`) is never accrued. |
-| iyzico / branch payment | `collection` (credit), one per payment (`uq_ledger_entries_payment`) | When the payment is applied. The insert is `ON CONFLICT DO NOTHING`, so a webhook retry does nothing. |
-| Payment refund | `refund` (debit), one per refund | Posted after the refund. |
-| Manual collection / refund | `collection` / `refund`, optionally also posted to a till or bank account | From the panel. |
+| iyzico / branch payment | `collection` (credit), one per payment (`uq_ledger_entries_payment`), plus its collection document | When the payment is applied. The insert is `ON CONFLICT DO NOTHING`, so a webhook retry does nothing. See [collections.md](./collections.md). |
+| Payment refund | `refund` (debit), one per refund, naming the collection (`collection_id`) | Posted only after the provider confirmed the refund. |
+| Collection (TEC-718) / manual refund | `collection` (`source_type collection`) / `refund`, with the cash movement into / out of a till or bank account | From the panel: [collections.md](./collections.md). |
 | Deposit offset | Two `offset` entries sharing an `offset_group`: a deposit debit and a credit to the rent, charge or general debt | From the panel. |
 | Security deposit (TEC-719) | `deposit_hold` (credit) when cash / a transfer is taken, `deposit_capture` (debit) + `collection` (credit, applied to the charge) per deduction, `deposit_return` (debit) for the rest paid back; all deposit legs have purpose `deposit`. A pre-auth posts only the captured collections. Unique per deposit / deduction. | From the deposit flow, see [deposits.md](./deposits.md). |
 
@@ -54,6 +54,8 @@ Both require `tenant.finance.ledger.adjust`, except automatic reversals, which c
 - An accrual that is no longer due is reversed. The reason is `system:amount_changed`, `system:no_longer_due`, `system:account_changed`, `system:rental_cancelled` or `system:charge_reversed`.
 
 Running `SyncRental` again changes nothing.
+
+Collections allocated to an accrual that is reversed are released and carried to the accrual that replaces it; the rental's own collections then pay its open items oldest first ([collections.md](./collections.md)).
 
 Posting from payments is fail-soft: a failure is logged and the payment still applies. The worker's expire-holds chain runs a catch-up sweep, `PostPending`, which posts missing payment and refund entries. This also back-posts payments that existed before the ledger.
 
@@ -98,7 +100,8 @@ The summary (`/finance/summary`) gives organization totals, a breakdown by branc
 - `entries`:
   - meta, list, export
   - `{uuid}`
-  - `{uuid}/reverse` (accruals, offsets and deposit postings are refused: they follow their rental / pair / deposit)
+  - `{uuid}/reverse` (a collection's entry: voids the collection; a collection refund entry cannot be reversed; accruals, offsets and deposit postings are refused: they follow their rental / pair / deposit)
+- `accounts/{uuid}/open-items` and `collections/*`: [collections.md](./collections.md).
 - `rentals/{uuid}`, `customers/{uuid}`: the ledger cards on the rental and customer detail pages.
 
 Permissions (migration 000098, `rbac.go`, `permissions.ts`): `tenant.finance.accounts.read|write|export` and `tenant.finance.ledger.adjust`.
@@ -140,4 +143,4 @@ Toll posting is tested in `internal/modules/tolls/ledger_integration_test.go`. `
 - **TEC-718 / TEC-721:** Supplier accounts exist only as `party_kind = 'supplier'` with a nullable `supplier_id`. The supplier FK arrives with the supplier table.
 - **TEC-719 (done):** security deposits post through the ledger with the deposit purpose kept outside the balance ([deposits.md](./deposits.md)). Before TEC-719 a deposit collection reduced the balance; existing rows follow the new rule as soon as the queries run.
 - The pay link sent with a statement covers one reservation's open balance. A pay link for the whole account has to be added in payments.
-- iyzico collections credit the customer account but are not deposited automatically into a bank account in the cash book (see `cash-accounts.md`).
+- Aging still applies credits to debits oldest first; per-item allocations (TEC-718) are not read by it yet.

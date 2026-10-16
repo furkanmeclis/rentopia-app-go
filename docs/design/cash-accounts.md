@@ -10,7 +10,7 @@ Panel: Finans → Kasa ve banka, Kasa / banka hareketleri, Giderler, Gider kateg
 
 | Table | Purpose |
 |-------|---------|
-| `cash_accounts` | A till (`kind = cash`) or a bank account (`bank`). It belongs to the head office (`branch_id` null) or to a branch, and holds `currency`, `opening_balance`, `opening_date`, the bank name, IBAN, note and `status` (`active` / `archived`). The code is unique per organization. A till cannot open with a negative balance. |
+| `cash_accounts` | A till (`kind = cash`), a bank account (`bank`) or a provider clearing account (`clearing`, TEC-718; `provider` marks the account that receives an online provider's net settlement, one active per provider). It belongs to the head office (`branch_id` null) or to a branch, and holds `currency`, `opening_balance`, `opening_date`, the bank name, IBAN, note and `status` (`active` / `archived`). The code is unique per organization. A till cannot open with a negative balance. |
 | `cash_movements` | The cash book (see the column list below). Append-only: the trigger allows an UPDATE of `category_id` only, and DELETE only through an organization cascade. Corrections are reversal movements. |
 | `expense_categories` | Expense categories, customisable per organization. Each has an immutable `code` (imports match on it), a name, `is_active`, `sort_order` and `is_system`. The 8 defaults are seeded for every existing organization by the migration, and for new ones by an organization hook: `maintenance`, `insurance`, `repair`, `fuel`, `cleaning`, `vehicle_procurement`, `operations`, `other`. |
 | `expenses` | One row per expense: date, category, description, supplier, document no, `net_amount`, `vat_rate`, `vat_amount`, `total_amount`, an optional branch and vehicle, and an optional paying account. `status` is `recorded` or `void`. The attachment is a private object (see below). |
@@ -95,6 +95,6 @@ The RT-A01 isolation cases in `httpserver/isolation_test.go` cover every route.
 
 ## Open items
 
-- iyzico payments credit the customer ledger but are not deposited into a bank account automatically. A settlement import (provider payouts → bank movement) would close that loop.
+- iyzico collections are settled into the provider's settlement account (gross in, commission out as a `payment_commission` expense, [collections.md](./collections.md)); the payout to the bank is a manual transfer. A settlement import would close that loop.
 - **TEC-718 / TEC-719:** Supplier payments are movements with free-text supplier names until supplier accounts exist. They should then post to the supplier's ledger account as well.
 - **TEC-722:** Expense VAT is recorded but not yet reported for VAT returns or e-invoice matching.

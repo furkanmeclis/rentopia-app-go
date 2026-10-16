@@ -144,6 +144,7 @@ func newFx(t *testing.T) *fx {
 	f.fin = usecase.New(pool, q, memDriver{m: storage.NewMemory()})
 	f.rentals.SetLedger(f.fin)
 	f.pay.SetLedger(f.fin)
+	f.fin.SetPayments(f.pay)
 
 	f.branch = f.newBranch("MRK")
 	f.other = f.newBranch("HVL")
@@ -514,6 +515,13 @@ func TestRT_A23_RentDebitedOnce(t *testing.T) {
 	acc = f.account()
 	if !acc.Balance.Balance.Equal(balanceBefore.Sub(money.MustParse("1500"))) || !acc.Balance.DepositHeld.Equal(money.MustParse("500")) {
 		t.Fatalf("after the offset: balance %s (was %s), deposit %s", acc.Balance.Balance, balanceBefore, acc.Balance.DepositHeld)
+	}
+	// The settling leg is a collection document allocated to the rent
+	// (collections, TEC-718): the rent shows 1 500 more allocated.
+	if n := f.count(`SELECT count(*) FROM collection_allocations a JOIN collections c ON c.organization_id = a.organization_id
+		AND c.id = a.collection_id JOIN ledger_entries e ON e.organization_id = c.organization_id AND e.id = c.ledger_entry_id
+		WHERE a.organization_id = $1 AND e.kind = 'offset' AND a.amount = 1500`, f.org); n != 1 {
+		t.Fatalf("offset allocations %d, want 1", n)
 	}
 	// Rent once: debits of purpose rent net of reversals = the total; the
 	// rental balance = rent - prepayment - the part of the deposit applied.

@@ -421,7 +421,8 @@ func (s *Service) DepositsForRental(ctx context.Context, orgID int64, rentalID u
 			return out, err
 		}
 		for _, c := range cash {
-			if c.Currency != r.Currency {
+			// Provider clearing accounts (collections) never hold a deposit.
+			if c.Currency != r.Currency || (c.Kind != model.CashKindCash && c.Kind != model.CashKindBank) {
 				continue
 			}
 			out.CashAccounts = append(out.CashAccounts, DepositCashAccount{
@@ -907,13 +908,6 @@ func (s *Service) planDeductions(ctx context.Context, orgID int64, d db.GetSecur
 	return out, total, ve.orNil()
 }
 
-func itoa(i int) string {
-	if i < 10 {
-		return string(rune('0' + i))
-	}
-	return itoa(i/10) + string(rune('0'+i%10))
-}
-
 func purposeOf(applies string) string {
 	switch applies {
 	case model.AppliesCharge:
@@ -1019,6 +1013,9 @@ func (s *Service) ResolveDeposit(ctx context.Context, orgID int64, id uuid.UUID,
 			if refundCash, err = s.cashHolder(ctx, q, orgID, field, targetUUID, d.Currency, ""); err != nil {
 				return err
 			}
+			if refundCash.row.Kind != model.CashKindCash && refundCash.row.Kind != model.CashKindBank {
+				return validation(field, "kind", "a deposit is paid back from a till or a bank account")
+			}
 			if err := checkFunds(field, refundCash, remainder); err != nil {
 				return err
 			}
@@ -1083,10 +1080,30 @@ func (s *Service) ResolveDeposit(ctx context.Context, orgID int64, id uuid.UUID,
 				return err
 			}
 			s.publish(ctx, model.ResourceEntries, "created", e.Uuid)
+			doc := creditDoc{
+				accountID: acc.ID, currency: d.Currency, entryID: e.ID, amount: p.amount, method: model.MethodOther,
+				provider: model.ProviderManual, date: today, branchID: d.BranchID, rentalID: d.RentalID,
+				reservationID: d.ReservationID, chargeID: p.chargeID, ref: d.PosReference + d.ProviderPaymentID,
+				note: "depozito kesintisi · " + p.reason, onlyPurpose: purposeOf(p.applies),
+			}
+			switch d.Method {
+			case model.DepositCash:
+				doc.method, doc.cashAccountID = model.MethodCash, d.CashAccountID
+			case model.DepositBankTransfer:
+				doc.method, doc.cashAccountID = model.MethodBankTransfer, d.CashAccountID
+			case model.DepositPOSPreAuth:
+				doc.method = model.MethodCardPOS
+			case model.DepositOnlinePreAuth:
+				doc.method, doc.provider = model.MethodOnline, model.ProviderIyzico
+			}
 			if captureCash != nil {
 				if err := s.settleEntry(ctx, q, orgID, captureCash.row.Uuid, e.ID, model.MoveCollection, p.amount, d.Currency, s.today(), desc); err != nil {
 					return err
 				}
+				doc.cashAccountID = int8Of(captureCash.row.ID)
+			}
+			if _, err := s.creditDocument(ctx, q, orgID, doc); err != nil {
+				return err
 			}
 			notice = append(notice, map[string]any{"amount": p.amount.String(), "reason": p.reason, "applies_to": p.applies})
 		}

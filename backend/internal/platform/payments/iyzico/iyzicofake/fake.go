@@ -76,6 +76,9 @@ type Fake struct {
 	Refunds     atomic.Int64
 	PostAuths   atomic.Int64
 	Cancels     atomic.Int64
+	// FailRefunds makes the refund endpoint refuse every refund (a
+	// provider-side failure in tests).
+	FailRefunds atomic.Bool
 }
 
 // Payment returns a copy of a completed checkout by provider payment id.
@@ -294,6 +297,10 @@ func (f *Fake) serve(w http.ResponseWriter, r *http.Request) {
 		c, ok := f.payments[s("paymentId")]
 		if !ok || c.APIKey != apiKey || err != nil || !amount.IsPositive() {
 			failure(w, "5093", "Ödeme bulunamadı")
+			return
+		}
+		if f.FailRefunds.Load() {
+			failure(w, "5095", "İade işlemi bankadan reddedildi")
 			return
 		}
 		if c.Refunded.Add(amount).Cmp(c.PaidPrice) > 0 {
