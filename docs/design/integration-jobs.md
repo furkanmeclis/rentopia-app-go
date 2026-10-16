@@ -1,6 +1,6 @@
 # Integration job runner
 
-Status: **implemented** (M3: TEC-751). Builds on the integration skeleton and payments ([payments.md](./payments.md) §2: `integration_accounts`, `integration_jobs`, the credential vault). The first user is SMS ([sms.md](./sms.md)); KABİS, HGS, e-invoice and channel managers plug in the same way.
+Status: **implemented** (M3: TEC-751). Builds on the integration skeleton and payments ([payments.md](./payments.md) §2: `integration_accounts`, `integration_jobs`, the credential vault). The first user is SMS ([sms.md](./sms.md)); HGS ([tolls.md](./tolls.md)) and KABİS ([kabis.md](./kabis.md)) followed; e-invoice and channel managers plug in the same way.
 
 Code:
 
@@ -40,6 +40,12 @@ Operations are registered per provider in an `integrations.OperationRegistry`; t
 | succeeded / failed | `succeeded` / `failed` (`failed` always means "the provider confirmed it was not done") |
 | needs_verification | `needs_verification` (new) |
 | notification needing no action | `ignored` (unchanged) |
+| held: required data missing (migration 000500) | `blocked` |
+| held: no working adapter (migration 000500) | `waiting_dependency` |
+| staff: filed through the official manual channel | `reported_manually` |
+| staff: confirmed with the provider | `reconciled` |
+
+The runner never calls a provider for the held states and never leaves the staff resolutions; the module that owns the jobs moves them (KABİS: re-validation, release sweep, mark manual / reconcile). `Runner.Kick(org, job)` starts the first step of a job a module created in its own transaction (outbox style: created `pending` with `next_attempt_at = now`, so the sweep catches it if the process stops); `Runner.Changed(org, job)` tells listeners and the live list about a change made outside a provider call. A status check that finds the work stores the provider's reference (`provider_ref`).
 
 New columns: `max_attempts` (default 5; SMS 8), `next_attempt_at`, `provider_ref`, `submitted_at`, `locked_until` (a crash-safe claim: one provider call at a time, an expired claim is free) and `priority` (`critical` for OTP / transactional SMS, `normal` otherwise). `idx_integration_jobs_due` serves the sweep.
 
@@ -98,3 +104,4 @@ All behind `RequireOrganization` + `tenant.integrations.manage`; RT-A01 covers t
 - A tenant step-up policy for retry (§5).
 - A platform-level job list (jobs with `organization_id IS NULL`); none exist yet.
 - Retention of `integration_attempts` (no purge rule yet; rows are small).
+- The generic retry route (`/integration-jobs/{uuid}/retry`) treats held KABİS jobs as not retryable; their re-validation runs through `/kabis-notifications/{uuid}/retry`.

@@ -56,6 +56,8 @@ Creation does the following:
 - Inside the engine transaction, the vehicle becomes `rented` and its odometer and fuel are updated (`vehicles.ApplyOperationalChange`).
 - The handover task completes and a return task opens.
 
+**KABİS.** The handover, the return, a vehicle swap and a driver change after the handover record the KABİS notification inside their transaction (`SetKabis`, [kabis.md](./kabis.md)).
+
 When the organization has an active `rental_contract` template, the handover also needs that contract approved. Without approval it is refused with `contract_not_approved`, unless the request carries `waiver_reason` and the member has `tenant.signature.waive`. The waiver is stored on the rental (`contract_waiver`) and in the timeline.
 
 **Return.** `POST …/return { at?, branch_uuid?, km, fuel, note?, damage_note? }` closes the current leg and moves the allocation end to the actual time with `SetRentalEnd`:

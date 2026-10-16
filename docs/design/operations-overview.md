@@ -103,6 +103,6 @@ Both read `/overview/badges` (permission- and branch-scoped on the server) and r
 
 ## 4. Open items
 
-- KABİS and e-document jobs will show in the jobs card without changes (generic over `provider` / `kind`). Their kind labels go into `INTEGRATION_JOB_KIND_LABEL_KEYS`.
+- KABİS jobs show in the jobs card (failed, needs_verification) with their kind labels (`kabis.rental_start`, `kabis.rental_end`, `kabis.correction` in `INTEGRATION_JOB_KIND_LABEL_KEYS`); their rows open the KABİS screen ([kabis.md](./kabis.md)). Blocked / waiting KABİS jobs are counted by the KABİS nav badge, not here. E-document jobs will follow the same way.
 - A per-job link: there is no job detail page yet, so rows open the integrations settings.
 - The today table is capped at 100 rows. Larger days continue in the operation tasks list.

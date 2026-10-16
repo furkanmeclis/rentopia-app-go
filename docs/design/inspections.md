@@ -86,7 +86,7 @@ POST /v1/tenant/inspections/{uuid}/media-links → [{uuid, kind, url: /v1/public
   - **RT-A17.** Refused with `409 INSPECTION_INCOMPLETE` (data = readiness) while any of these holds: a photo row is not uploaded and completed, a required slot has no completed photo, a damage has no completed photo, or km / fuel / required equipment / verification / customer review is missing. The wizard's "Tamamla" button is disabled on the same readiness, and while the device queue still holds photos.
   - Without a signature, the handover needs `no_signature_reason` and `tenant.signature.waive` (`signature_status = waived`).
   - The rentals **Handover** use case runs with the form's time (default: server now), place, km and fuel. Its `Finalize` hook finalizes the form **inside the same engine transaction**: the leg id is linked and a rental event is written. The rental becomes active; the contract rule (approval or waiver) is unchanged.
-  - **KABİS (M4).** `usecase.HandoverListener.HandedOver` runs after the commit. It is a no-op now, with a TODO marking where the KABİS job is enqueued.
+  - **KABİS (M4, TEC-726).** The rentals Handover use case records the rental start notification in the same transaction (`KabisRecorder`, [kabis.md](./kabis.md)); the return does the same for the rental end. `usecase.HandoverListener.HandedOver` still runs after the commit and is not used for KABİS.
 
 ## 4. Return (TEC-713, RT-A19)
 
