@@ -117,3 +117,8 @@ public_quotes
 public_reservations
 public_webhook_endpoints
 public_webhook_deliveries
+notification_rules
+notification_message_templates
+notification_dispatches
+notification_deliveries
+customer_push_subscriptions

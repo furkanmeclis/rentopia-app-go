@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { LocaleSwitch } from "@/components/layout/locale-switch";
 import { ThemeSwitch } from "@/components/layout/theme-switch";
 import { Button } from "@/components/ui/button";
+import { CustomerPushToggle } from "@/features/notification-engine/components/customer-push-toggle";
 import { useLocale } from "@/providers/locale-provider";
 
 /**
@@ -15,11 +16,14 @@ import { useLocale } from "@/providers/locale-provider";
  */
 export function PortalShell({
   organizationName,
+  orgSlug,
   children,
   onSignOut,
   signingOut,
 }: {
   organizationName?: string;
+  /** Organization of the portal: signed-in customers can turn on web push. */
+  orgSlug?: string;
   children: ReactNode;
   onSignOut?: () => void;
   signingOut?: boolean;
@@ -40,6 +44,9 @@ export function PortalShell({
           <div className="flex shrink-0 items-center gap-1">
             <LocaleSwitch />
             <ThemeSwitch />
+            {onSignOut && orgSlug ? (
+              <CustomerPushToggle orgSlug={orgSlug} />
+            ) : null}
             {onSignOut ? (
               <Button
                 type="button"

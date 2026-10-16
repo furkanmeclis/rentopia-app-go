@@ -407,5 +407,11 @@
   "actions.public_api.webhook_updated": "Webhook updated",
   "actions.public_api.webhook_deleted": "Webhook deleted",
   "actions.public_api.webhook_secret_rotated": "Webhook signing secret rotated",
-  "actions.public_api.webhook_retried": "Webhook delivery retried"
+  "actions.public_api.webhook_retried": "Webhook delivery retried",
+  "resources.tenant.notification_settings": "Notification settings",
+  "actions.notification_rules.updated": "Notification rule updated",
+  "actions.notification_rules.reset": "Notification rule reset",
+  "actions.notification_templates.updated": "Notification template updated",
+  "actions.notification_templates.reset": "Notification template reset",
+  "actions.notifications.test_sent": "Test notification sent"
 }

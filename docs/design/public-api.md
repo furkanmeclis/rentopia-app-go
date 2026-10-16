@@ -13,7 +13,7 @@ The requirements document writes the paths as `/api/v1/...`. That collides with 
 | Panel | `frontend/src/features/public-api`, `/t/{slug}/settings/public-api` |
 | Tests | `backend/internal/modules/publicapi/publicapi_test.go`, RT-A01 seeds |
 
-## 1. Tables (migrations 000113 – 000114)
+## 1. Tables (migrations 000115 – 000116)
 
 | Table | Notes |
 |-------|-------|
@@ -24,7 +24,7 @@ The requirements document writes the paths as `/api/v1/...`. That collides with 
 
 Every table is in `tenant_tables.txt`. Composite FKs to quotes, reservations and keys. The down migration drops all six tables (keys stop working).
 
-Permissions (000114): `tenant.public_api.read`, `tenant.public_api.manage`. They are granted to owner, admin and merkez_yoneticisi.
+Permissions (000116): `tenant.public_api.read`, `tenant.public_api.manage`. They are granted to owner, admin and merkez_yoneticisi.
 
 ## 2. Credentials and the organization
 

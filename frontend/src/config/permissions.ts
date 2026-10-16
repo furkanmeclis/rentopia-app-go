@@ -172,6 +172,8 @@ export const Permission = {
   TenantSuppliersBulkArchive: "tenant.suppliers.bulk.archive",
   TenantPublicAPIRead: "tenant.public_api.read",
   TenantPublicAPIManage: "tenant.public_api.manage",
+  TenantNotificationSettingsRead: "tenant.notification_settings.read",
+  TenantNotificationSettingsWrite: "tenant.notification_settings.write",
 } as const;
 
 export type PermissionSlug = (typeof Permission)[keyof typeof Permission];
@@ -400,6 +402,14 @@ export const permissions = {
       read: Permission.TenantAgreementsRead,
       write: Permission.TenantAgreementsWrite,
       export: Permission.TenantAgreementsExport,
+    },
+    /**
+     * Notification engine (TEC-733): `read` = rules, templates and the
+     * delivery history; `write` = edit rules / templates, test sends.
+     */
+    notificationSettings: {
+      read: Permission.TenantNotificationSettingsRead,
+      write: Permission.TenantNotificationSettingsWrite,
     },
     /**
      * Field tasks: `read` = the assignment board, `assign` = plan, assign

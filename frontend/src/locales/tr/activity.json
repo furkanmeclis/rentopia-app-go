@@ -407,5 +407,11 @@
   "actions.public_api.webhook_updated": "Webhook güncellendi",
   "actions.public_api.webhook_deleted": "Webhook silindi",
   "actions.public_api.webhook_secret_rotated": "Webhook imza anahtarı yenilendi",
-  "actions.public_api.webhook_retried": "Webhook teslimatı yeniden denendi"
+  "actions.public_api.webhook_retried": "Webhook teslimatı yeniden denendi",
+  "resources.tenant.notification_settings": "Bildirim ayarları",
+  "actions.notification_rules.updated": "Bildirim kuralı güncellendi",
+  "actions.notification_rules.reset": "Bildirim kuralı varsayılana döndü",
+  "actions.notification_templates.updated": "Bildirim şablonu güncellendi",
+  "actions.notification_templates.reset": "Bildirim şablonu varsayılana döndü",
+  "actions.notifications.test_sent": "Test bildirimi gönderildi"
 }

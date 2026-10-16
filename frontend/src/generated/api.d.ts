@@ -14203,6 +14203,281 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenant/notification-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Notification events and rules
+         * @description `tenant.notification_settings.read` (TEC-733). The event catalog (reservation result, payment pending,
+         *     pickup / return approaching, overdue, invoice, account due, field tasks) with the organization's effective
+         *     rule (ordered channels, fallback, reminder offsets in minutes before the deadline) and the default rule,
+         *     plus the channels a rule may use (`available` = an adapter is installed; an unavailable channel is skipped).
+         */
+        get: operations["getTenantNotificationEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/notification-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace an event's rule
+         * @description `tenant.notification_settings.write`. Channels are tried in order; with `fallback` a failed or skipped
+         *     channel (no provider account, no number / address / subscription, undelivered report) moves on to the next
+         *     one. Reminder offsets (0 to 43200 minutes, at most 5) only for reminder events.
+         */
+        put: operations["putTenantNotificationRule"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/notification-rules/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset an event's rule to the default
+         * @description `tenant.notification_settings.write`.
+         */
+        post: operations["postTenantNotificationRuleReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/notification-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Notification templates
+         * @description `tenant.notification_settings.read`. Every event / channel / language (tr, en) template: the organization's
+         *     own (`custom`) or the default. Templates use `{{variable}}` placeholders of their event only.
+         */
+        get: operations["getTenantNotificationTemplates"];
+        /**
+         * Replace a template
+         * @description `tenant.notification_settings.write`. Unknown placeholders are refused (`unknown_variable`); an e-mail needs a
+         *     subject; an SMS is at most 900 characters.
+         */
+        put: operations["putTenantNotificationTemplate"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/notification-templates/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset a template to the default
+         * @description `tenant.notification_settings.write`.
+         */
+        post: operations["postTenantNotificationTemplateReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/notification-templates/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview a template with sample values
+         * @description `tenant.notification_settings.read`. Without a body the effective template is rendered.
+         */
+        post: operations["postTenantNotificationTemplatePreview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/notification-tests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a test notification
+         * @description `tenant.notification_settings.write`. Sends the event with sample values: customer events to the given
+         *     customer, member events to the caller. Runs the organization's rule (fallback included) unless one channel
+         *     is chosen; logged like any send (marked test).
+         */
+        post: operations["postTenantNotificationTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/notification-deliveries/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Delivery history table contract
+         * @description `tenant.notification_settings.read`.
+         */
+        get: operations["getTenantNotificationDeliveriesMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/notification-deliveries/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Delivery history facets
+         * @description `tenant.notification_settings.read`. Channel, status and event counts.
+         */
+        get: operations["getTenantNotificationDeliveriesFacets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/notification-deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Delivery history
+         * @description `tenant.notification_settings.read`. One row per channel attempt: channel, provider reference, masked
+         *     recipient, result and error. A dispatch is tried at most once per channel.
+         */
+        get: operations["getTenantNotificationDeliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/notification-dispatches/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One dispatch with its channel attempts
+         * @description `tenant.notification_settings.read`. Another organization's dispatch answers 404.
+         */
+        get: operations["getTenantNotificationDispatch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/{orgSlug}/push/vapid-public-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Web push public key for the customer portal
+         * @description Empty when web push is not configured.
+         */
+        get: operations["getCustomerPushVapidKey"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/{orgSlug}/push-subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Subscribe the customer's browser to notifications
+         * @description Customer subscriptions are kept apart from members' subscriptions.
+         */
+        post: operations["postCustomerPushSubscription"];
+        /** Unsubscribe the customer's browser */
+        delete: operations["deleteCustomerPushSubscription"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -26874,6 +27149,266 @@ export interface components {
             /** @enum {boolean} */
             success: true;
             data: components["schemas"]["AgreementStatement"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        NotificationChannelInfo: {
+            /** @enum {string} */
+            name: "sms" | "email" | "whatsapp" | "push";
+            available: boolean;
+        };
+        NotificationRuleView: {
+            enabled: boolean;
+            channels: ("sms" | "email" | "whatsapp" | "push")[];
+            fallback: boolean;
+            reminder_offsets: number[];
+            custom: boolean;
+        };
+        NotificationEvent: {
+            code: string;
+            /** @enum {string} */
+            group: "reservations" | "rentals" | "finance" | "operations";
+            /** @enum {string} */
+            audience: "customer" | "staff";
+            instant: boolean;
+            reminder: boolean;
+            variables: string[];
+            rule: components["schemas"]["NotificationRuleView"];
+            default_rule: components["schemas"]["NotificationRuleView"];
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        NotificationEvents: {
+            channels: components["schemas"]["NotificationChannelInfo"][];
+            events: components["schemas"]["NotificationEvent"][];
+        };
+        NotificationRuleInput: {
+            event: string;
+            enabled: boolean;
+            channels: ("sms" | "email" | "whatsapp" | "push")[];
+            fallback: boolean;
+            reminder_offsets?: number[];
+        };
+        NotificationTemplateKey: {
+            event: string;
+            /** @enum {string} */
+            channel?: "sms" | "email" | "whatsapp" | "push";
+            /** @enum {string} */
+            language?: "tr" | "en";
+        };
+        NotificationTemplate: {
+            event: string;
+            /** @enum {string} */
+            channel: "sms" | "email" | "whatsapp" | "push";
+            /** @enum {string} */
+            language: "tr" | "en";
+            subject: string;
+            body: string;
+            custom: boolean;
+            variables: string[];
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        NotificationTemplateInput: {
+            event: string;
+            /** @enum {string} */
+            channel: "sms" | "email" | "whatsapp" | "push";
+            /** @enum {string} */
+            language: "tr" | "en";
+            subject: string;
+            body: string;
+        };
+        NotificationPreviewInput: {
+            event: string;
+            /** @enum {string} */
+            channel?: "sms" | "email" | "whatsapp" | "push";
+            /** @enum {string} */
+            language?: "tr" | "en";
+            subject?: string;
+            body?: string;
+        };
+        NotificationPreview: {
+            subject: string;
+            body: string;
+            unknown: string[];
+        };
+        NotificationTestInput: {
+            event: string;
+            /** Format: uuid */
+            customer_uuid?: string;
+            /** @enum {string} */
+            channel?: "sms" | "email" | "whatsapp" | "push";
+        };
+        NotificationDelivery: {
+            /** Format: uuid */
+            uuid: string;
+            /** Format: uuid */
+            dispatch_uuid: string;
+            event: string;
+            /** @enum {string} */
+            audience: "customer" | "staff";
+            /** @enum {string} */
+            channel: "sms" | "email" | "whatsapp" | "push";
+            /** Format: int32 */
+            attempt_no: number;
+            /** @enum {string} */
+            status: "sending" | "sent" | "delivered" | "failed" | "skipped";
+            /** @enum {string} */
+            dispatch_status: "pending" | "sending" | "delivered" | "failed" | "skipped";
+            provider: string;
+            provider_ref: string;
+            recipient_masked: string;
+            recipient_name: string;
+            /** Format: uuid */
+            customer_uuid?: string;
+            /** Format: uuid */
+            user_uuid?: string;
+            subject: string;
+            error: string;
+            ref_type: string;
+            /** Format: uuid */
+            ref_uuid?: string;
+            test: boolean;
+            /** Format: date-time */
+            sent_at?: string;
+            /** Format: date-time */
+            finished_at?: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        NotificationAttempt: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            channel: "sms" | "email" | "whatsapp" | "push";
+            /** Format: int32 */
+            attempt_no: number;
+            /** @enum {string} */
+            status: "sending" | "sent" | "delivered" | "failed" | "skipped";
+            provider: string;
+            provider_ref: string;
+            recipient_masked: string;
+            subject: string;
+            body: string;
+            error: string;
+            /** Format: date-time */
+            sent_at?: string;
+            /** Format: date-time */
+            finished_at?: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        NotificationDispatch: {
+            /** Format: uuid */
+            uuid: string;
+            event: string;
+            /** @enum {string} */
+            audience: "customer" | "staff";
+            /** @enum {string} */
+            status: "pending" | "sending" | "delivered" | "failed" | "skipped";
+            channels: string[];
+            fallback: boolean;
+            language: string;
+            recipient_name: string;
+            /** Format: uuid */
+            customer_uuid?: string;
+            /** Format: uuid */
+            user_uuid?: string;
+            ref_type: string;
+            /** Format: uuid */
+            ref_uuid?: string;
+            last_error: string;
+            test: boolean;
+            /** Format: date-time */
+            scheduled_at: string;
+            /** Format: date-time */
+            completed_at?: string;
+            /** Format: date-time */
+            created_at: string;
+            attempts: components["schemas"]["NotificationAttempt"][];
+        };
+        NotificationFacetValue: {
+            value: string;
+            /** Format: int64 */
+            count: number;
+        };
+        NotificationDeliveryFacets: {
+            channel: components["schemas"]["NotificationFacetValue"][];
+            status: components["schemas"]["NotificationFacetValue"][];
+            event: components["schemas"]["NotificationFacetValue"][];
+        };
+        CustomerPushSubscriptionInput: {
+            endpoint: string;
+            key_p256dh: string;
+            key_auth: string;
+        };
+        EnvelopeNotificationEvents: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["NotificationEvents"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeNotificationEvent: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["NotificationEvent"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeNotificationTemplates: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["NotificationTemplate"][];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeNotificationTemplate: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["NotificationTemplate"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeNotificationPreview: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["NotificationPreview"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeNotificationDispatch: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["NotificationDispatch"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeNotificationDeliveryFacets: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["NotificationDeliveryFacets"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeNotificationDeliveryPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["NotificationDelivery"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCustomerVapidKey: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                vapid_public_key: string;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCustomerPushState: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                subscribed: boolean;
+            };
             meta: components["schemas"]["ResponseMeta"];
         };
         PublicPlace: {
@@ -54254,6 +54789,487 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["TenantForbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantNotificationEvents: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Channels and events */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeNotificationEvents"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    putTenantNotificationRule: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationRuleInput"];
+            };
+        };
+        responses: {
+            /** @description Event with its rule */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeNotificationEvent"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantNotificationRuleReset: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationTemplateKey"];
+            };
+        };
+        responses: {
+            /** @description Event with the default rule */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeNotificationEvent"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantNotificationTemplates: {
+        parameters: {
+            query?: {
+                event?: string;
+                channel?: "sms" | "email" | "whatsapp" | "push";
+                language?: "tr" | "en";
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Templates */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeNotificationTemplates"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    putTenantNotificationTemplate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationTemplateInput"];
+            };
+        };
+        responses: {
+            /** @description Template */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeNotificationTemplate"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantNotificationTemplateReset: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationTemplateKey"];
+            };
+        };
+        responses: {
+            /** @description Default template */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeNotificationTemplate"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantNotificationTemplatePreview: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationPreviewInput"];
+            };
+        };
+        responses: {
+            /** @description Rendered template */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeNotificationPreview"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantNotificationTest: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationTestInput"];
+            };
+        };
+        responses: {
+            /** @description Dispatch with its attempts */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeNotificationDispatch"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantNotificationDeliveriesMeta: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource meta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantNotificationDeliveriesFacets: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Facets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeNotificationDeliveryFacets"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantNotificationDeliveries: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description `created_at`, `channel`, `status` or `event_code`; prefix `-` for descending. */
+                sort?: string;
+                /** @description sms, email, whatsapp, push (comma separated) */
+                channel?: string;
+                /** @description sending, sent, delivered, failed, skipped (comma separated) */
+                status?: string;
+                /** @description Event codes (comma separated) */
+                event?: string;
+                /** @description customer, staff */
+                audience?: string;
+                created_from?: string;
+                created_to?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Delivery page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeNotificationDeliveryPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantNotificationDispatch: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dispatch */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeNotificationDispatch"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getCustomerPushVapidKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization slug of the customer portal */
+                orgSlug: components["parameters"]["PortalOrgSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Public key */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerVapidKey"];
+                };
+            };
+            401: components["responses"]["CustomerSessionRequired"];
+        };
+    };
+    postCustomerPushSubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization slug of the customer portal */
+                orgSlug: components["parameters"]["PortalOrgSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerPushSubscriptionInput"];
+            };
+        };
+        responses: {
+            /** @description Subscribed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerPushState"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["CustomerSessionRequired"];
+            /** @description Web push is not configured (PUSH_NOT_CONFIGURED) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deleteCustomerPushSubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization slug of the customer portal */
+                orgSlug: components["parameters"]["PortalOrgSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    endpoint: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Unsubscribed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerPushState"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["CustomerSessionRequired"];
         };
     };
 }

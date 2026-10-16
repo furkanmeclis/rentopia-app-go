@@ -110,7 +110,7 @@ func document(in docInput, number string, issuedAt time.Time) ubl.Document {
 	}
 	doc := ubl.Document{
 		UUID: row.Uuid.String(), Number: number, Profile: row.Profile, Type: row.InvoiceType,
-		IssueDate: row.IssueDate.Time.Format(time.DateOnly), IssueTime: issuedAt.In(istanbul).Format("15:04:05"),
+		IssueDate: row.IssueDate.Time.Format(time.DateOnly), IssueTime: issuedAt.In(istanbul).Format("15:04:05"), Today: issuedAt.In(istanbul).Format(time.DateOnly),
 		Currency: row.Currency, Supplier: supplierParty(in.supplier), Customer: recv,
 	}
 	if strings.TrimSpace(row.Note) != "" {
