@@ -391,5 +391,17 @@
   "actions.agreements.contact_added": "Yetkili kişi eklendi",
   "actions.agreements.contact_removed": "Yetkili kişi kaldırıldı",
   "actions.agreements.driver_added": "İzinli sürücü eklendi",
-  "actions.agreements.driver_removed": "İzinli sürücü kaldırıldı"
+  "actions.agreements.driver_removed": "İzinli sürücü kaldırıldı",
+  "resources.tenant.channel_accounts": "Kanal hesapları",
+  "resources.tenant.channel_mappings": "Kanal eşlemeleri",
+  "resources.tenant.channel_messages": "Kanal mesajları",
+  "actions.channels.settings_updated": "Kanal senkron ayarları güncellendi",
+  "actions.channels.mapping_created": "Kanal eşlemesi eklendi",
+  "actions.channels.mapping_updated": "Kanal eşlemesi güncellendi",
+  "actions.channels.mapping_deleted": "Kanal eşlemesi silindi",
+  "actions.channels.pushed": "Kanala müsaitlik gönderildi",
+  "actions.channels.pulled": "Kanaldan rezervasyonlar alındı",
+  "actions.channels.simulated": "Kanal rezervasyonu simüle edildi",
+  "actions.channels.message_retried": "Kanal mesajı yeniden uygulandı",
+  "actions.channels.message_ignored": "Kanal mesajı reddedildi"
 }

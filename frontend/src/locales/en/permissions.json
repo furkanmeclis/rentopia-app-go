@@ -222,5 +222,9 @@
   "labels.tenant.agreements.read": "View corporate agreements",
   "labels.tenant.agreements.write": "Manage corporate agreements",
   "labels.tenant.agreements.export": "Export corporate agreements",
-  "groups.tenant_agreements": "Corporate agreements"
+  "groups.tenant_agreements": "Corporate agreements",
+  "labels.tenant.channels.read": "View the channel manager",
+  "labels.tenant.channels.write": "Manage channel mappings and sync settings",
+  "labels.tenant.channels.sync": "Run channel sync and resolve messages",
+  "groups.tenant_channels": "Channel manager"
 }

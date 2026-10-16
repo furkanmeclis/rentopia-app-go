@@ -391,5 +391,17 @@
   "actions.agreements.contact_added": "Contact added",
   "actions.agreements.contact_removed": "Contact removed",
   "actions.agreements.driver_added": "Driver permitted",
-  "actions.agreements.driver_removed": "Driver removed"
+  "actions.agreements.driver_removed": "Driver removed",
+  "resources.tenant.channel_accounts": "Channel accounts",
+  "resources.tenant.channel_mappings": "Channel mappings",
+  "resources.tenant.channel_messages": "Channel messages",
+  "actions.channels.settings_updated": "Channel sync settings updated",
+  "actions.channels.mapping_created": "Channel mapping added",
+  "actions.channels.mapping_updated": "Channel mapping updated",
+  "actions.channels.mapping_deleted": "Channel mapping deleted",
+  "actions.channels.pushed": "Availability pushed to the channel",
+  "actions.channels.pulled": "Bookings pulled from the channel",
+  "actions.channels.simulated": "Channel booking simulated",
+  "actions.channels.message_retried": "Channel message applied again",
+  "actions.channels.message_ignored": "Channel message dismissed"
 }

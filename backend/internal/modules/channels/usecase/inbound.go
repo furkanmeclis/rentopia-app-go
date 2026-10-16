@@ -654,16 +654,16 @@ func (s *Service) IgnoreMessage(ctx context.Context, orgID int64, id uuid.UUID, 
 	if err := requireAllBranches(ctx); err != nil {
 		return model.MessageDetail{}, err
 	}
-	note = strings.TrimSpace(note)
-	if len(note) < 3 || len(note) > 500 {
-		return model.MessageDetail{}, validation("note", "required", "a note is required (3-500 characters)")
-	}
 	ref, err := s.q.GetChannelMessageIDByUUID(ctx, db.GetChannelMessageIDByUUIDParams{OrganizationID: orgID, Uuid: id})
 	if notFound(err) {
 		return model.MessageDetail{}, ErrMessageNotFound
 	}
 	if err != nil {
 		return model.MessageDetail{}, err
+	}
+	note = strings.TrimSpace(note)
+	if len(note) < 3 || len(note) > 500 {
+		return model.MessageDetail{}, validation("note", "required", "a note is required (3-500 characters)")
 	}
 	n, err := s.q.IgnoreChannelMessage(ctx, db.IgnoreChannelMessageParams{
 		OrganizationID: orgID, ID: ref.ID, ResolvedBy: actorID(ctx), At: ts(s.clock()), Note: note,

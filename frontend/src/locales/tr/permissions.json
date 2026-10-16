@@ -222,5 +222,9 @@
   "labels.tenant.agreements.read": "Kurumsal anlaşmaları görüntüle",
   "labels.tenant.agreements.write": "Kurumsal anlaşmaları yönet",
   "labels.tenant.agreements.export": "Kurumsal anlaşmaları dışa aktar",
-  "groups.tenant_agreements": "Kurumsal anlaşmalar"
+  "groups.tenant_agreements": "Kurumsal anlaşmalar",
+  "labels.tenant.channels.read": "Kanal yöneticisini görüntüle",
+  "labels.tenant.channels.write": "Kanal eşlemelerini ve senkron ayarlarını yönet",
+  "labels.tenant.channels.sync": "Kanal senkronunu çalıştır ve mesajları çöz",
+  "groups.tenant_channels": "Kanal yöneticisi"
 }
