@@ -45374,7 +45374,7 @@ export interface operations {
                 limit?: components["parameters"]["Limit"];
                 offset?: components["parameters"]["Offset"];
                 q?: components["parameters"]["Q"];
-                /** @description `code`, `title`, `balance`, `open_amount`, `overdue_amount`, `next_due_date` or `created_at`; prefix `-` for descending. Default `title`. */
+                /** @description `code`, `title`, `balance`, `payable`, `open_amount`, `overdue_amount`, `next_due_date` or `created_at`; prefix `-` for descending. Default `title`. */
                 sort?: string;
                 /** @description service, insurance, vehicle_supplier, parts, fuel, other (comma-separated) */
                 supplier_type?: string;
