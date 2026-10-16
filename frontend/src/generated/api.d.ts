@@ -12681,6 +12681,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenant/reports/vehicle-profitability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Vehicle profitability report
+         * @description `tenant.finance.reports.read`. Per vehicle and period: realized income (rent, extras, charges, toll fees), payment and
+         *     channel commissions, direct costs (expenses and supplier invoices on the vehicle, maintenance, transfers), the allocated
+         *     shared overhead and the operating contribution; refunds, deposits, pass-through tolls and vehicle procurement are kept
+         *     apart. Rows are the vehicles of the caller's branch scope (home or current branch) that were in service or moved money
+         *     in the period; the totals are the sum of the rows; the trend has one point per calendar month. A member limited to some
+         *     branches gets their branches' overhead only (`method.overhead_scope = branches`). See docs/design/vehicle-profitability.md.
+         */
+        get: operations["getTenantVehicleProfitability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reports/vehicle-profitability/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export the vehicle profitability report
+         * @description `tenant.finance.reports.read` + `tenant.report.export`. `query` honours `from`, `to`, `basis`, `allocation`, `branch`, `rental_group`, `q`. One row per vehicle plus a totals row; the period, basis and allocation method are in every row and in the notes above the table (PDF is landscape). The job runs with the requester's branch scope.
+         */
+        post: operations["postTenantVehicleProfitabilityExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reports/vehicle-profitability/vehicles/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Profitability of one vehicle
+         * @description `tenant.finance.reports.read`. The vehicle detail "Kârlılık" tab: figures, monthly trend and the expense categories of the direct costs. A vehicle of another organization or outside the caller's branch scope answers 404.
+         */
+        get: operations["getTenantVehicleProfitabilityVehicle"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -23995,6 +24060,133 @@ export interface components {
             /** @enum {boolean} */
             success: true;
             data: components["schemas"]["Expense"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        VehicleProfitabilityFigures: {
+            /** @description TRY, VAT inclusive (decimal string) */
+            rent: string;
+            /** @description TRY, VAT inclusive (decimal string) */
+            extras: string;
+            /** @description TRY, VAT inclusive (decimal string) */
+            charges: string;
+            /** @description TRY, VAT inclusive (decimal string) */
+            toll_fees: string;
+            /** @description TRY, VAT inclusive (decimal string) */
+            gross_income: string;
+            /** @description TRY, VAT inclusive (decimal string) */
+            payment_commission: string;
+            /** @description TRY, VAT inclusive (decimal string) */
+            channel_commission: string;
+            /** @description TRY, VAT inclusive (decimal string) */
+            commissions: string;
+            /** @description TRY, VAT inclusive (decimal string) */
+            expenses: string;
+            /** @description TRY, VAT inclusive (decimal string) */
+            maintenance: string;
+            /** @description TRY, VAT inclusive (decimal string) */
+            transfers: string;
+            /** @description TRY, VAT inclusive (decimal string) */
+            direct_costs: string;
+            /** @description TRY, VAT inclusive (decimal string) */
+            overhead: string;
+            /** @description TRY, VAT inclusive (decimal string) */
+            contribution: string;
+            /** @description TRY, VAT inclusive (decimal string) */
+            refunded: string;
+            /** @description TRY, VAT inclusive (decimal string) */
+            deposits_held: string;
+            /** @description TRY, VAT inclusive (decimal string) */
+            deposits_returned: string;
+            /** @description TRY, VAT inclusive (decimal string) */
+            pass_through: string;
+            /** @description TRY, VAT inclusive (decimal string) */
+            capex: string;
+            /** @description Contribution / gross income in percent (one decimal); null without income */
+            margin: number | null;
+            /** @description Rented time in days (two decimals) */
+            rental_days: number;
+            /** @description In service, not blocked, in days (two decimals) */
+            available_days: number;
+            /** @description Rented / available in percent (one decimal) */
+            occupancy: number | null;
+            rental_count: number;
+        };
+        VehicleProfitabilityVehicleRef: {
+            /** Format: uuid */
+            uuid: string;
+            plate: string;
+            label: string;
+            home_branch: {
+                /** Format: uuid */
+                uuid: string;
+                code: string;
+                name: string;
+            };
+        };
+        VehicleProfitabilityRow: components["schemas"]["VehicleProfitabilityFigures"] & {
+            vehicle: components["schemas"]["VehicleProfitabilityVehicleRef"];
+        };
+        VehicleProfitabilityTrendPoint: components["schemas"]["VehicleProfitabilityFigures"] & {
+            /** @description YYYY-MM (Europe/Istanbul) */
+            month: string;
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+        };
+        VehicleProfitabilityMethod: {
+            /** @enum {string} */
+            basis: "accrual" | "cash";
+            /** @enum {string} */
+            allocation: "rental_days" | "vehicle_count" | "revenue";
+            timezone: string;
+            currency: string;
+            vat_inclusive: boolean;
+            /**
+             * @description all: head office and every branch; branches: the caller's branches only
+             * @enum {string}
+             */
+            overhead_scope: "all" | "branches";
+            /** @description A pool without weight under the chosen method was shared by vehicle count */
+            allocation_fallback: boolean;
+            /** @description Overhead of pools without a vehicle in service */
+            unallocated_overhead: string;
+        };
+        VehicleProfitabilityReport: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            method: components["schemas"]["VehicleProfitabilityMethod"];
+            rows: components["schemas"]["VehicleProfitabilityRow"][];
+            totals: components["schemas"]["VehicleProfitabilityFigures"];
+            trend: components["schemas"]["VehicleProfitabilityTrendPoint"][];
+        };
+        VehicleProfitabilityVehicle: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            method: components["schemas"]["VehicleProfitabilityMethod"];
+            vehicle: components["schemas"]["VehicleProfitabilityVehicleRef"];
+            figures: components["schemas"]["VehicleProfitabilityFigures"];
+            trend: components["schemas"]["VehicleProfitabilityTrendPoint"][];
+            categories: {
+                code: string;
+                name: string;
+                amount: string;
+            }[];
+        };
+        EnvelopeVehicleProfitabilityReport: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["VehicleProfitabilityReport"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeVehicleProfitabilityVehicle: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["VehicleProfitabilityVehicle"];
             meta: components["schemas"]["ResponseMeta"];
         };
         EnvelopeFinanceReport: {
@@ -48123,6 +48315,124 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantVehicleProfitability: {
+        parameters: {
+            query?: {
+                /** @description First day (YYYY-MM-DD, Europe/Istanbul). Default: the first day of this month. */
+                from?: string;
+                /** @description Last day (YYYY-MM-DD). Default: today. The period is capped at 366 days. */
+                to?: string;
+                /** @description accrual (default): ledger accruals net of reversals; cash: collections net of voids and refunds, expenses and supplier payments dated in the period. */
+                basis?: "accrual" | "cash";
+                /** @description Shared overhead allocation method (default rental_days). */
+                allocation?: "rental_days" | "vehicle_count" | "revenue";
+                /** @description Home branch uuids, comma separated (unknown or outside the scope: 400 not_found). */
+                branch?: string;
+                /** @description Rental group uuids, comma separated. */
+                rental_group?: string;
+                /** @description Plate or model search. */
+                q?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeVehicleProfitabilityReport"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantVehicleProfitabilityExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantVehicleProfitabilityVehicle: {
+        parameters: {
+            query?: {
+                /** @description First day (YYYY-MM-DD, Europe/Istanbul). Default: the first day of this month. */
+                from?: string;
+                /** @description Last day (YYYY-MM-DD). Default: today. The period is capped at 366 days. */
+                to?: string;
+                /** @description accrual (default): ledger accruals net of reversals; cash: collections net of voids and refunds, expenses and supplier payments dated in the period. */
+                basis?: "accrual" | "cash";
+                /** @description Shared overhead allocation method (default rental_days). */
+                allocation?: "rental_days" | "vehicle_count" | "revenue";
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeVehicleProfitabilityVehicle"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
 }

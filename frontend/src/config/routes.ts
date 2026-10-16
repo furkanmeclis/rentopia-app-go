@@ -154,6 +154,9 @@ export const routes = {
         `/t/${encodeURIComponent(slug)}/finance/expense-categories`,
       reports: (slug: string) =>
         `/t/${encodeURIComponent(slug)}/finance/reports`,
+      /** Vehicle profitability report (TEC-727). */
+      profitability: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/finance/profitability`,
       /** Suppliers, their invoices / payments and due payables (TEC-721). */
       suppliers: (slug: string) =>
         `/t/${encodeURIComponent(slug)}/finance/suppliers`,

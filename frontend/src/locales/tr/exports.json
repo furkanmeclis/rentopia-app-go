@@ -90,5 +90,6 @@
   "resources.tenant.supplier_invoices": "Gider faturaları",
   "resources.tenant.supplier_payments": "Tedarikçi ödemeleri",
   "resources.tenant.security_deposits": "Depozitolar",
-  "resources.tenant.finance_collections": "Tahsilatlar"
+  "resources.tenant.finance_collections": "Tahsilatlar",
+  "resources.tenant.vehicle_profitability": "Araç kârlılığı"
 }

@@ -371,5 +371,6 @@
   "actions.finance.collection_allocated": "Tahsilat dağıtıldı",
   "actions.finance.collection_allocation_released": "Tahsilat dağıtımı geri alındı",
   "actions.finance.collection_refunded": "Tahsilat iade edildi",
-  "actions.finance.collection_voided": "Tahsilat iptal edildi"
+  "actions.finance.collection_voided": "Tahsilat iptal edildi",
+  "resources.tenant.vehicle_profitability": "Araç kârlılığı"
 }

@@ -86,6 +86,7 @@ import { date, datetime } from "@/lib/utils/format";
 import { useLocale } from "@/providers/locale-provider";
 import { usePermission } from "@/providers/permission-provider";
 import { VehicleTollsTab } from "@/features/tolls/components/vehicle-tolls-tab";
+import { VehicleProfitabilityTab } from "@/features/profitability";
 
 /** Tabs of the vehicle page, in display order (`?tab=` values). */
 const VEHICLE_TABS = [
@@ -99,7 +100,7 @@ const VEHICLE_TABS = [
   "maintenance",
   "documents",
   "damage",
-  "finance",
+  "profitability",
   "kasko",
   "tolls",
   "activity",
@@ -118,14 +119,18 @@ const TAB_LABEL_KEYS: Record<VehicleTab, string> = {
   maintenance: "vehicle_records.tabs.maintenance",
   documents: "vehicle_records.tabs.documents",
   damage: "vehicles.tabs.damage",
-  finance: "vehicles.tabs.finance",
+  profitability: "vehicles.tabs.profitability",
   kasko: "vehicles.tabs.kasko",
   tolls: "vehicles.tabs.tolls",
   activity: "vehicles.tabs.activity",
 };
 
 /** Old deep links keep working (`?tab=general` was the first tab). */
-const TAB_ALIASES: Record<string, VehicleTab> = { general: "summary" };
+const TAB_ALIASES: Record<string, VehicleTab> = {
+  general: "summary",
+  // The "Gelir / gider" placeholder became the profitability tab (TEC-727).
+  finance: "profitability",
+};
 
 function resolveTab(value: string | undefined): VehicleTab {
   if (!value) return "summary";
@@ -661,7 +666,9 @@ export function VehicleDetailPage({
               <TabsList className="h-auto w-max">
                 {VEHICLE_TABS.filter(
                   (value) =>
-                    value !== "tolls" || can(permissions.tenant.tolls.read),
+                    (value !== "tolls" || can(permissions.tenant.tolls.read)) &&
+                    (value !== "profitability" ||
+                      can(permissions.tenant.finance.reports.read)),
                 ).map((value) => (
                   <TabsTrigger key={value} value={value}>
                     {t(TAB_LABEL_KEYS[value])}
@@ -715,12 +722,11 @@ export function VehicleDetailPage({
               />
             </TabsContent>
 
-            <TabsContent value="finance">
-              <ComingSoonTab
-                title={t("vehicles.tabs.finance")}
-                description={t("vehicles.coming.finance")}
-              />
-            </TabsContent>
+            {can(permissions.tenant.finance.reports.read) ? (
+              <TabsContent value="profitability">
+                <VehicleProfitabilityTab uuid={uuid} />
+              </TabsContent>
+            ) : null}
 
             <TabsContent value="kasko">
               <EntitySectionCard title={t("vehicles.tabs.kasko")}>

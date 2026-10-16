@@ -56,6 +56,8 @@ import (
 	pricingadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/adapters"
 	pricingrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/repository"
 	pricingusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/usecase"
+	profitabilityadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/profitability/adapters"
+	profitabilityusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/profitability/usecase"
 	rentaladapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/rentals/adapters"
 	rentalusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/rentals/usecase"
 	reservationadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/adapters"
@@ -330,6 +332,8 @@ func main() {
 		supplieradapters.NewIO(supplierSvc),
 		financeadapters.NewDepositsIO(financeSvc),
 		financeadapters.NewCollectionsIO(financeSvc),
+		// Vehicle profitability report (TEC-727).
+		profitabilityadapters.NewIO(profitabilityusecase.New(queries)),
 	)
 	exportSvc := exportusecase.New(queries, store, ioReg, nil, notifSvc, activityRec, log)
 	importSvc := importusecase.New(queries, store, ioReg, nil, notifSvc, activityRec, log)

@@ -382,6 +382,8 @@ var trCatalog = map[string]string{
 	"finance.deposit_status.cancelled":          "İptal",
 	"export.title.tenant.security_deposits":     "Depozitolar dışa aktarma",
 	"resources.tenant.security_deposits":        "Depozitolar",
+	"export.title.tenant.vehicle_profitability": "Araç kârlılığı raporu",
+	"resources.tenant.vehicle_profitability":    "Araç kârlılığı",
 	// Toll passes (TEC-725).
 	"tolls.passed_at": "Geçiş zamanı", "tolls.plate": "Plaka", "tolls.tag_number": "Etiket no",
 	"tolls.station": "İstasyon / giriş", "tolls.exit_station": "Çıkış", "tolls.amount": "Tutar",
@@ -839,6 +841,8 @@ var enCatalog = map[string]string{
 	"finance.deposit_status.cancelled":          "Cancelled",
 	"export.title.tenant.security_deposits":     "Security deposits export",
 	"resources.tenant.security_deposits":        "Security deposits",
+	"export.title.tenant.vehicle_profitability": "Vehicle profitability report",
+	"resources.tenant.vehicle_profitability":    "Vehicle profitability",
 	// Toll passes (TEC-725).
 	"tolls.passed_at": "Pass time", "tolls.plate": "Plate", "tolls.tag_number": "Tag no",
 	"tolls.station": "Station / entry", "tolls.exit_station": "Exit", "tolls.amount": "Amount",

@@ -1716,6 +1716,51 @@ type Querier interface {
 	// Open supplier invoices by due state (caller's branch scope).
 	PayablesSummary(ctx context.Context, arg PayablesSummaryParams) (PayablesSummaryRow, error)
 	PingDB(ctx context.Context) (int32, error)
+	// Live (unreversed) debit accruals of rentals, all dates: what each rental
+	// billed, by purpose and charge kind.
+	ProfitBilledAccruals(ctx context.Context, arg ProfitBilledAccrualsParams) ([]ProfitBilledAccrualsRow, error)
+	// Usage blocks (maintenance, damage, cleaning, out of service, other)
+	// overlapping [from_ts, to_ts); an open block runs to to_ts.
+	ProfitBlocks(ctx context.Context, arg ProfitBlocksParams) ([]ProfitBlocksRow, error)
+	ProfitBranchesByUUID(ctx context.Context, arg ProfitBranchesByUUIDParams) ([]ProfitBranchesByUUIDRow, error)
+	// Recorded expenses dated in the period (supplier invoices included: each
+	// invoice has its expense row). Provider commissions are left out: they
+	// are attributed through the collections of the rental.
+	ProfitExpenses(ctx context.Context, arg ProfitExpensesParams) ([]ProfitExpensesRow, error)
+	// Ledger entries dated in the period that belong to a rental: accruals,
+	// collections, refunds, deposit legs and the reversals of those. The
+	// rental comes from the entry, the reversed entry, its collection document
+	// or the live rental of its reservation (online prepayments).
+	ProfitLedgerFacts(ctx context.Context, arg ProfitLedgerFactsParams) ([]ProfitLedgerFactsRow, error)
+	ProfitLegsForRentals(ctx context.Context, arg ProfitLegsForRentalsParams) ([]ProfitLegsForRentalsRow, error)
+	// Legs (handed over) of live rentals that overlap [from_ts, to_ts).
+	ProfitLegsOverlapping(ctx context.Context, arg ProfitLegsOverlappingParams) ([]ProfitLegsOverlappingRow, error)
+	// Maintenance done with a cost in the period (vehicle records).
+	ProfitMaintenance(ctx context.Context, arg ProfitMaintenanceParams) ([]ProfitMaintenanceRow, error)
+	// Provider commissions of the rentals' live collections (online payments).
+	ProfitPaymentCommissions(ctx context.Context, arg ProfitPaymentCommissionsParams) ([]ProfitPaymentCommissionsRow, error)
+	ProfitRentalGroupsByUUID(ctx context.Context, arg ProfitRentalGroupsByUUIDParams) ([]ProfitRentalGroupsByUUIDRow, error)
+	// Rentals with their sale facts: the planned end (open legs), the channel
+	// commission and the share of the sold price that is extras / fees
+	// (reservation quote snapshot: extra, one-way and delivery lines plus the
+	// extras of every extension).
+	ProfitRentals(ctx context.Context, arg ProfitRentalsParams) ([]ProfitRentalsRow, error)
+	// Cash basis of supplier invoices: the amounts posted supplier payments
+	// dated in the period allocated to an invoice, with the invoice's expense
+	// row (category, branch, vehicle).
+	ProfitSupplierPayments(ctx context.Context, arg ProfitSupplierPaymentsParams) ([]ProfitSupplierPaymentsRow, error)
+	// Completed transfers with a cost that arrived in [from_ts, to_ts).
+	ProfitTransfers(ctx context.Context, arg ProfitTransfersParams) ([]ProfitTransfersRow, error)
+	ProfitVehicleIDsInGroups(ctx context.Context, arg ProfitVehicleIDsInGroupsParams) ([]int64, error)
+	// Vehicle profitability report (TEC-727, docs/design/vehicle-profitability.md).
+	// Read-only facts of one organization for a period; the attribution
+	// (swap split, commissions, overhead allocation, occupancy) is done in Go
+	// (internal/modules/profitability/usecase). Every query filters on
+	// organization_id; money is TRY only.
+	// Every vehicle of the organization (deleted ones too: they may have
+	// income or costs in a past period). The service window and the home
+	// branch drive occupancy and the overhead pools.
+	ProfitVehicles(ctx context.Context, organizationID int64) ([]ProfitVehiclesRow, error)
 	PurgeCustomerDocuments(ctx context.Context, arg PurgeCustomerDocumentsParams) error
 	QueueImportJob(ctx context.Context, argUuid uuid.UUID) (ImportJob, error)
 	ReassignCatalogModelRules(ctx context.Context, arg ReassignCatalogModelRulesParams) (int64, error)

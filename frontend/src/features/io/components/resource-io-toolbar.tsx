@@ -50,6 +50,9 @@ const EXPORT_PERM: Partial<Record<IoResource, string>> = {
   "tenant.supplier_invoices": permissions.tenant.finance.expenses.export,
   "tenant.supplier_payments": permissions.tenant.finance.cash.export,
   "tenant.finance_collections": permissions.tenant.finance.accounts.export,
+  // Reports export with tenant.report.export (the page itself needs
+  // tenant.finance.reports.read).
+  "tenant.vehicle_profitability": permissions.tenant.report.export,
 };
 
 const IMPORT_PERM: Partial<Record<IoResource, string>> = {
