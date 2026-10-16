@@ -187,7 +187,13 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, usecase.ErrExpenseNotFound):
 		response.NotFound(w, r, "Expense was not found")
 	case errors.Is(err, usecase.ErrNoAttachment):
-		response.NotFound(w, r, "The expense has no attachment")
+		response.NotFound(w, r, "The record has no attachment")
+	case errors.Is(err, usecase.ErrSupplierInvoiceNotFound):
+		response.NotFound(w, r, "Supplier invoice was not found")
+	case errors.Is(err, usecase.ErrSupplierPaymentNotFound):
+		response.NotFound(w, r, "Supplier payment was not found")
+	case errors.Is(err, usecase.ErrInvoiceNoTaken):
+		response.ErrorWithDetails(w, r, http.StatusConflict, response.CodeConflict, err.Error(), []response.Detail{{Field: "invoice_no", Message: err.Error(), Code: "taken"}})
 	case errors.Is(err, usecase.ErrForbidden):
 		response.Forbidden(w, r, "Missing permission")
 	case errors.Is(err, usecase.ErrAllBranchesRequired), errors.Is(err, orgctx.ErrAllBranchesRequired):

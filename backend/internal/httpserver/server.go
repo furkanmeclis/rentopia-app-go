@@ -151,6 +151,10 @@ import (
 	storagemodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/storage"
 	storagehandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/storage/handler"
 	storageusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/storage/usecase"
+	suppliersmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/suppliers"
+	supplieradapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/suppliers/adapters"
+	supplierhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/suppliers/handler"
+	supplierusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/suppliers/usecase"
 	tenantmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tenant"
 	tollsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tolls"
 	tollsadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tolls/adapters"
@@ -297,6 +301,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		fleetadapters.NewProductsSearch(deps.Queries),
 		vehicleadapters.NewSearch(deps.Queries),
 		customeradapters.NewSearch(deps.Queries),
+		supplieradapters.NewSearch(deps.Queries),
 	)
 	searchClient := searchengine.NewClient(cfg.Search, log)
 	searchIndexer := searchengine.NewIndexer(searchClient, searchReg, deps.Queue, log)
@@ -571,6 +576,11 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	financeSvc.SetLogger(log)
 	rentalsSvc.SetLedger(financeSvc)
 	paymentsSvc.SetLedger(financeSvc)
+	// Suppliers (TEC-721): the cards; their invoices and payments post
+	// through finance.
+	supplierSvc := supplierusecase.New(deps.DB, deps.Queries, financeSvc, searchIndexer)
+	supplierSvc.SetResourceEvents(resourceEvents)
+	supplierSvc.SetLogger(log)
 	// Customer portal (TEC-715): reference + contact + one-time code, a
 	// customer session of its own, documents, pay remaining, requests.
 	portalSvc := customerportalusecase.New(deps.DB, deps.Queries, smsSvc, reservationSvc)
@@ -608,6 +618,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	financemodule.RegisterLiveResources(tenantLive)
 	tollsmodule.RegisterLiveResources(tenantLive)
 	kabismodule.RegisterLiveResources(tenantLive)
+	suppliersmodule.RegisterLiveResources(tenantLive)
 	resourceEvents.AddResolver(tenantmodule.ChannelResolver(tenantmodule.QueriesLookup(deps.Queries)))
 	uc.AddChannelRules(tenantmodule.ChannelRule(tenantLive, tenantResolver))
 	catalogmodule.RegisterLiveResources(liveResources)
@@ -669,6 +680,9 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		financeadapters.NewCashAccountsIO(financeSvc),
 		financeadapters.NewMovementsIO(financeSvc),
 		financeadapters.NewExpensesIO(financeSvc),
+		financeadapters.NewSupplierInvoicesIO(financeSvc),
+		financeadapters.NewSupplierPaymentsIO(financeSvc),
+		supplieradapters.NewIO(supplierSvc),
 	)
 	exportSvc := exportusecase.New(deps.Queries, deps.Storage, ioReg, jobQueue, notifSvc, activityRec, log)
 	importSvc := importusecase.New(deps.Queries, deps.Storage, ioReg, jobQueue, notifSvc, activityRec, log)
@@ -691,6 +705,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		customeradapters.NewBulk(customerSvc),
 		financeadapters.NewMovementsBulk(financeSvc),
 		financeadapters.NewExpensesBulk(financeSvc),
+		supplieradapters.NewBulk(supplierSvc),
 	)
 	bulkSvc := bulkusecase.New(deps.Queries, bulkReg, jobQueue, notifSvc, activityRec, cfg.Bulk, log)
 	// Tenant jobs run with the requester's current membership (permissions
@@ -859,6 +874,18 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 			Sample: importH.TenantSample(financemodule.ResourceExpenses),
 			Bulk:   bulkH.TenantExecute(financemodule.ResourceExpenses),
 		},
+		SupplierInvoices: financemodule.ResourceEngines{
+			Export: exportH.TenantExport(financemodule.ResourceSupplierInvoices, financemodule.SupplierInvoiceQueryKeys...),
+		},
+		SupplierPayments: financemodule.ResourceEngines{
+			Export: exportH.TenantExport(financemodule.ResourceSupplierPayments, financemodule.SupplierPaymentQueryKeys...),
+		},
+	}, tokens, loader, tenantResolver)
+	suppliersmodule.RegisterRoutes(mux, supplierhandler.New(supplierSvc, activityRec), suppliersmodule.EngineHandlers{
+		Export: exportH.TenantExport(suppliersmodule.Resource, suppliersmodule.QueryKeys...),
+		Import: importH.TenantUpload(suppliersmodule.Resource),
+		Sample: importH.TenantSample(suppliersmodule.Resource),
+		Bulk:   bulkH.TenantExecute(suppliersmodule.Resource),
 	}, tokens, loader, tenantResolver)
 	portalH := customerportalhandler.New(portalSvc, activityRec)
 	portalH.SetRateLimiter(customerportalmodule.Limiter{L: ratelimit.New(deps.Redis, cfg.App.Env)})

@@ -123,6 +123,14 @@ func ExpenseAttachmentObjectKey(orgUUID, expenseUUID, fileUUID, ext string) stri
 	return fmt.Sprintf("%sexpenses/%s/%s.%s", OrganizationPrefix(orgUUID), expenseUUID, fileUUID, trimExt(ext))
 }
 
+// SupplierInvoiceAttachmentObjectKey builds
+// organizations/{orgUUID}/supplier-invoices/{invoiceUUID}/{fileUUID}.{ext}
+// for the scanned / PDF supplier invoice (private: streamed by the API
+// only). A replaced file gets a new fileUUID.
+func SupplierInvoiceAttachmentObjectKey(orgUUID, invoiceUUID, fileUUID, ext string) string {
+	return fmt.Sprintf("%ssupplier-invoices/%s/%s.%s", OrganizationPrefix(orgUUID), invoiceUUID, fileUUID, trimExt(ext))
+}
+
 func trimExt(ext string) string {
 	for len(ext) > 0 && ext[0] == '.' {
 		ext = ext[1:]

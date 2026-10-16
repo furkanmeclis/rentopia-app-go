@@ -168,6 +168,9 @@ type MovementInput struct {
 	Reason          string       `json:"reason"`
 	CategoryUUID    *uuid.UUID   `json:"category_uuid"`
 	LedgerEntryUUID *uuid.UUID   `json:"ledger_entry_uuid"`
+	// SupplierUUID makes a supplier_payment a supplier payment of that
+	// supplier (ledger entry + FIFO allocation to its open invoices).
+	SupplierUUID *uuid.UUID `json:"supplier_uuid"`
 }
 
 // TransferInput moves money between two accounts (atomic).
@@ -224,13 +227,17 @@ type Expense struct {
 	Vehicle      *Ref        `json:"vehicle"`
 	CashAccount  *Ref        `json:"cash_account"`
 	MovementUUID *uuid.UUID  `json:"movement_uuid"`
-	Attachment   *Attachment `json:"attachment"`
-	Status       string      `json:"status"`
-	VoidReason   string      `json:"void_reason"`
-	VoidedAt     *time.Time  `json:"voided_at"`
-	CreatedBy    *Actor      `json:"created_by"`
-	CreatedAt    time.Time   `json:"created_at"`
-	UpdatedAt    time.Time   `json:"updated_at"`
+	// Supplier is the supplier card (TEC-721); SupplierInvoice the invoice
+	// the row was generated from (read-only then).
+	Supplier        *Ref        `json:"supplier"`
+	SupplierInvoice *Ref        `json:"supplier_invoice"`
+	Attachment      *Attachment `json:"attachment"`
+	Status          string      `json:"status"`
+	VoidReason      string      `json:"void_reason"`
+	VoidedAt        *time.Time  `json:"voided_at"`
+	CreatedBy       *Actor      `json:"created_by"`
+	CreatedAt       time.Time   `json:"created_at"`
+	UpdatedAt       time.Time   `json:"updated_at"`
 }
 
 // Attachment describes the receipt / invoice file (streamed by the API at
@@ -249,6 +256,8 @@ type ExpenseInput struct {
 	ExpenseDate     *string      `json:"expense_date"`
 	Description     *string      `json:"description"`
 	SupplierName    *string      `json:"supplier_name"`
+	SupplierUUID    *uuid.UUID   `json:"supplier_uuid"`
+	ClearSupplier   bool         `json:"clear_supplier"`
 	DocumentNo      *string      `json:"document_no"`
 	Currency        *string      `json:"currency"`
 	NetAmount       *money.Money `json:"net_amount"`
@@ -270,6 +279,7 @@ type ExpenseFilter struct {
 	CategoryUUIDs []uuid.UUID
 	BranchUUIDs   []uuid.UUID
 	VehicleUUIDs  []uuid.UUID
+	SupplierUUIDs []uuid.UUID
 	Statuses      []string
 	From, To      *time.Time
 	IDs           []int64

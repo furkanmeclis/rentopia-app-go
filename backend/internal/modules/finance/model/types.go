@@ -18,6 +18,9 @@ const (
 	ResourceMovements    = "tenant.cash_movements"
 	ResourceExpenses     = "tenant.expenses"
 	ResourceCategories   = "tenant.expense_categories"
+	// Supplier invoices and payments (TEC-721).
+	ResourceSupplierInvoices = "tenant.supplier_invoices"
+	ResourceSupplierPayments = "tenant.supplier_payments"
 )
 
 // Party kinds of an account.
@@ -87,6 +90,9 @@ const (
 	SourceTollCharge    = "toll_charge"
 	SourceCashMovement  = "cash_movement"
 	SourceManual        = "manual"
+	// Supplier invoices (payable accruals) and payments (TEC-721).
+	SourceSupplierInvoice = "supplier_invoice"
+	SourceSupplierPayment = "supplier_payment"
 )
 
 // System reasons of automatic reversals (shown translated in the panel).
@@ -97,6 +103,10 @@ const (
 	ReasonRentalCancelled = "system:rental_cancelled"
 	// ReasonChargeReversed: the rental charge was reversed (toll charges).
 	ReasonChargeReversed = "system:charge_reversed"
+	// ReasonInvoiceVoided / ReasonDueChanged: a supplier invoice was voided
+	// or its due date moved (the accrual is posted again with the new one).
+	ReasonInvoiceVoided = "system:invoice_voided"
+	ReasonDueChanged    = "system:due_changed"
 )
 
 // Document link types.
@@ -147,6 +157,7 @@ type Account struct {
 	Name            string     `json:"name"`
 	Customer        *Ref       `json:"customer"`
 	CustomerType    string     `json:"customer_type,omitempty"`
+	Supplier        *Ref       `json:"supplier"`
 	Branch          *Ref       `json:"branch"`
 	Currency        string     `json:"currency"`
 	PaymentTermDays int32      `json:"payment_term_days"`
@@ -304,13 +315,17 @@ type DueBucket struct {
 
 // Summary is the organization total with its breakdowns.
 type Summary struct {
-	Currency       string           `json:"currency"`
-	Receivable     money.Money      `json:"receivable"`
-	Payable        money.Money      `json:"payable"`
-	Net            money.Money      `json:"net"`
-	Overdue        money.Money      `json:"overdue"`
-	DueSoon        money.Money      `json:"due_soon"`
-	DepositHeld    money.Money      `json:"deposit_held"`
+	Currency    string      `json:"currency"`
+	Receivable  money.Money `json:"receivable"`
+	Payable     money.Money `json:"payable"`
+	Net         money.Money `json:"net"`
+	Overdue     money.Money `json:"overdue"`
+	DueSoon     money.Money `json:"due_soon"`
+	DepositHeld money.Money `json:"deposit_held"`
+	// PayableOverdue / PayableDueSoon age the supplier accounts (TEC-721);
+	// Overdue / DueSoon and ByDue cover customer receivables only.
+	PayableOverdue money.Money      `json:"payable_overdue"`
+	PayableDueSoon money.Money      `json:"payable_due_soon"`
 	AccountsByStat map[string]int64 `json:"accounts_by_status"`
 	ByBranch       []BranchBalance  `json:"by_branch"`
 	ByDue          []DueBucket      `json:"by_due"`
