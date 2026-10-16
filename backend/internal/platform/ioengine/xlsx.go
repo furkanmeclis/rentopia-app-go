@@ -19,6 +19,13 @@ func EncodeXLSX(ds Dataset, locale string, lh *Letterhead) ([]byte, error) {
 	if lh != nil {
 		rowStart = writeXLSXLetterhead(f, sheet, lh) + 1
 	}
+	if len(ds.Notes) > 0 {
+		for _, note := range ds.Notes {
+			_ = f.SetCellValue(sheet, fmt.Sprintf("A%d", rowStart), note)
+			rowStart++
+		}
+		rowStart++ // blank
+	}
 	// header
 	for i, c := range ds.Columns {
 		cell, _ := excelize.CoordinatesToCellName(i+1, rowStart)

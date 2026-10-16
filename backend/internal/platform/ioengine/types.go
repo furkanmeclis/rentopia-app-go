@@ -30,6 +30,12 @@ type Dataset struct {
 	Resource string           `json:"resource"`
 	Columns  []Column         `json:"columns"`
 	Rows     []map[string]any `json:"rows"`
+	// Notes are optional lines printed under the title (PDF), above the
+	// table (XLSX) and as "notes" (JSON); CSV stays a plain table. Reports
+	// use them to state their period and method.
+	Notes []string `json:"notes,omitempty"`
+	// Landscape renders the PDF on a landscape page (wide reports).
+	Landscape bool `json:"landscape,omitempty"`
 }
 
 // ExportFormat supported for downloads.
