@@ -13,6 +13,7 @@ import {
 import { isApiError } from "@/lib/api";
 import {
   getWebPushSupport,
+  notificationPermission,
   registerWebPush,
   unregisterWebPush,
   type WebPushSupport,
@@ -96,8 +97,7 @@ export function NotificationPreferencesForm() {
           if (!sub) {
             payload = { ...next, push_enabled: false };
             const message =
-              typeof Notification !== "undefined" &&
-              Notification.permission === "denied"
+              notificationPermission() === "denied"
                 ? t("auth.preferences.push_permission_denied")
                 : t("auth.preferences.push_register_failed");
             toast.error(message);
