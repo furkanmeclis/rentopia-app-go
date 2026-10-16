@@ -44,6 +44,10 @@ func (e *ValidationError) orNil() error {
 	return e
 }
 
+func unknownEvent() error {
+	return &ValidationError{Details: []Detail{{Field: "event", Code: "invalid", Message: "unknown event"}}}
+}
+
 // Template limits.
 const (
 	maxSubject = 200
@@ -103,7 +107,7 @@ func (e *Engine) ListEvents(ctx context.Context, orgID int64) ([]model.EventInfo
 func (e *Engine) PutRule(ctx context.Context, orgID int64, code string, in model.RuleInput) (model.EventInfo, error) {
 	ev, ok := catalog.Get(code)
 	if !ok {
-		return model.EventInfo{}, ErrNotFound
+		return model.EventInfo{}, unknownEvent()
 	}
 	ve := &ValidationError{}
 	seen := map[string]bool{}
@@ -168,7 +172,7 @@ func (e *Engine) PutRule(ctx context.Context, orgID int64, code string, in model
 func (e *Engine) ResetRule(ctx context.Context, orgID int64, code string) (model.EventInfo, error) {
 	ev, ok := catalog.Get(code)
 	if !ok {
-		return model.EventInfo{}, ErrNotFound
+		return model.EventInfo{}, unknownEvent()
 	}
 	n, err := e.q.DeleteNotificationRule(ctx, db.DeleteNotificationRuleParams{OrganizationID: orgID, EventCode: code})
 	if err != nil {
@@ -259,7 +263,7 @@ func validTemplateKey(ch, lang string) error {
 func (e *Engine) PutTemplate(ctx context.Context, orgID int64, code, ch, lang string, in model.TemplateInput) (model.Template, error) {
 	ev, ok := catalog.Get(code)
 	if !ok {
-		return model.Template{}, ErrNotFound
+		return model.Template{}, unknownEvent()
 	}
 	if err := validTemplateKey(ch, lang); err != nil {
 		return model.Template{}, err
@@ -305,7 +309,7 @@ func (e *Engine) PutTemplate(ctx context.Context, orgID int64, code, ch, lang st
 func (e *Engine) ResetTemplate(ctx context.Context, orgID int64, code, ch, lang string) (model.Template, error) {
 	ev, ok := catalog.Get(code)
 	if !ok {
-		return model.Template{}, ErrNotFound
+		return model.Template{}, unknownEvent()
 	}
 	if err := validTemplateKey(ch, lang); err != nil {
 		return model.Template{}, err

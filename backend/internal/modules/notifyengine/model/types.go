@@ -39,6 +39,7 @@ type RuleView struct {
 
 // RuleInput replaces an event's rule.
 type RuleInput struct {
+	Event           string   `json:"event"`
 	Enabled         bool     `json:"enabled"`
 	Channels        []string `json:"channels"`
 	Fallback        bool     `json:"fallback"`
@@ -57,10 +58,21 @@ type Template struct {
 	UpdatedAt *time.Time `json:"updated_at,omitempty"`
 }
 
+// TemplateKey names a rule (event) or a template (event, channel,
+// language).
+type TemplateKey struct {
+	Event    string `json:"event"`
+	Channel  string `json:"channel"`
+	Language string `json:"language"`
+}
+
 // TemplateInput replaces a template.
 type TemplateInput struct {
-	Subject string `json:"subject"`
-	Body    string `json:"body"`
+	Event    string `json:"event"`
+	Channel  string `json:"channel"`
+	Language string `json:"language"`
+	Subject  string `json:"subject"`
+	Body     string `json:"body"`
 }
 
 // PreviewInput renders a template with sample values.

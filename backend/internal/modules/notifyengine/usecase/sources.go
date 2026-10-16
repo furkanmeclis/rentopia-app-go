@@ -123,10 +123,14 @@ func (e *Engine) Reminders(ctx context.Context) error {
 		return err
 	}
 	for _, orgID := range orgs {
-		r := &rules{e: e, orgID: orgID, m: map[string]Rule{}}
-		e.remindOrg(ctx, orgID, r)
+		e.RemindOrganization(ctx, orgID)
 	}
 	return nil
+}
+
+// RemindOrganization runs the reminder sources of one organization.
+func (e *Engine) RemindOrganization(ctx context.Context, orgID int64) {
+	e.remindOrg(ctx, orgID, &rules{e: e, orgID: orgID, m: map[string]Rule{}})
 }
 
 func (e *Engine) emitSoft(ctx context.Context, orgID int64, in EmitInput) {

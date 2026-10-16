@@ -578,7 +578,8 @@ func (e *Engine) record(ctx context.Context, orgID int64, st *step, res channel.
 		if res.Outcome == channel.OutcomeDelivered {
 			p.Status = DeliveryDelivered
 		}
-		if _, err := e.q.UpdateNotificationDelivery(ctx, p); err != nil {
+		// No row: a delivery report already settled this attempt.
+		if n, err := e.q.UpdateNotificationDelivery(ctx, p); err != nil || n == 0 {
 			return false, err
 		}
 		return false, e.q.UpdateNotificationDispatchState(ctx, db.UpdateNotificationDispatchStateParams{
@@ -590,7 +591,7 @@ func (e *Engine) record(ctx context.Context, orgID int64, st *step, res channel.
 		if res.Outcome == channel.OutcomeSkipped {
 			p.Status = DeliverySkipped
 		}
-		if _, err := e.q.UpdateNotificationDelivery(ctx, p); err != nil {
+		if n, err := e.q.UpdateNotificationDelivery(ctx, p); err != nil || n == 0 {
 			return false, err
 		}
 		return e.advance(ctx, e.q, orgID, st.dispatch, st.channel, res.Error)
@@ -702,20 +703,30 @@ func (e *Engine) ProcessDue(ctx context.Context) (int, error) {
 	}
 	n := 0
 	for _, orgID := range orgs {
-		ids, err := e.q.ListDueNotificationDispatches(ctx, db.ListDueNotificationDispatchesParams{
-			OrganizationID: orgID, NowAt: ts(now), LimitCount: e.batch,
-		})
+		m, err := e.ProcessDueOrganization(ctx, orgID)
 		if err != nil {
 			e.log.Warn("notify_due_list_failed", "organization", orgID, "error", err)
+		}
+		n += m
+	}
+	return n, nil
+}
+
+// ProcessDueOrganization sends one organization's due dispatches.
+func (e *Engine) ProcessDueOrganization(ctx context.Context, orgID int64) (int, error) {
+	ids, err := e.q.ListDueNotificationDispatches(ctx, db.ListDueNotificationDispatchesParams{
+		OrganizationID: orgID, NowAt: ts(e.clock()), LimitCount: e.batch,
+	})
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, id := range ids {
+		if err := e.Process(ctx, orgID, id); err != nil {
+			e.log.Warn("notify_process_failed", "organization", orgID, "dispatch", id, "error", err)
 			continue
 		}
-		for _, id := range ids {
-			if err := e.Process(ctx, orgID, id); err != nil {
-				e.log.Warn("notify_process_failed", "organization", orgID, "dispatch", id, "error", err)
-				continue
-			}
-			n++
-		}
+		n++
 	}
 	return n, nil
 }

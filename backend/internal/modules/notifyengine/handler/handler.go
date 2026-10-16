@@ -57,13 +57,13 @@ func (h *Handler) Events(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, r, http.StatusOK, eventsView{Channels: h.svc.Channels(), Events: events})
 }
 
-// PutRule serves PUT /v1/tenant/notification-events/{event}/rule.
+// PutRule serves PUT /v1/tenant/notification-rules.
 func (h *Handler) PutRule(w http.ResponseWriter, r *http.Request) {
 	var in model.RuleInput
 	if !httpkit.DecodeJSON(w, r, &in, false) {
 		return
 	}
-	out, err := h.svc.PutRule(r.Context(), orgID(r), r.PathValue("event"), in)
+	out, err := h.svc.PutRule(r.Context(), orgID(r), in.Event, in)
 	if err != nil {
 		writeError(w, r, err)
 		return
@@ -71,9 +71,13 @@ func (h *Handler) PutRule(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, r, http.StatusOK, out)
 }
 
-// ResetRule serves DELETE /v1/tenant/notification-events/{event}/rule.
+// ResetRule serves POST /v1/tenant/notification-rules/reset.
 func (h *Handler) ResetRule(w http.ResponseWriter, r *http.Request) {
-	out, err := h.svc.ResetRule(r.Context(), orgID(r), r.PathValue("event"))
+	var in model.TemplateKey
+	if !httpkit.DecodeJSON(w, r, &in, false) {
+		return
+	}
+	out, err := h.svc.ResetRule(r.Context(), orgID(r), in.Event)
 	if err != nil {
 		writeError(w, r, err)
 		return
@@ -92,13 +96,13 @@ func (h *Handler) Templates(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, r, http.StatusOK, out)
 }
 
-// PutTemplate serves PUT /v1/tenant/notification-templates/{event}/{channel}/{language}.
+// PutTemplate serves PUT /v1/tenant/notification-templates.
 func (h *Handler) PutTemplate(w http.ResponseWriter, r *http.Request) {
 	var in model.TemplateInput
 	if !httpkit.DecodeJSON(w, r, &in, false) {
 		return
 	}
-	out, err := h.svc.PutTemplate(r.Context(), orgID(r), r.PathValue("event"), r.PathValue("channel"), r.PathValue("language"), in)
+	out, err := h.svc.PutTemplate(r.Context(), orgID(r), in.Event, in.Channel, in.Language, in)
 	if err != nil {
 		writeError(w, r, err)
 		return
@@ -106,9 +110,13 @@ func (h *Handler) PutTemplate(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, r, http.StatusOK, out)
 }
 
-// ResetTemplate serves DELETE /v1/tenant/notification-templates/{event}/{channel}/{language}.
+// ResetTemplate serves POST /v1/tenant/notification-templates/reset.
 func (h *Handler) ResetTemplate(w http.ResponseWriter, r *http.Request) {
-	out, err := h.svc.ResetTemplate(r.Context(), orgID(r), r.PathValue("event"), r.PathValue("channel"), r.PathValue("language"))
+	var in model.TemplateKey
+	if !httpkit.DecodeJSON(w, r, &in, false) {
+		return
+	}
+	out, err := h.svc.ResetTemplate(r.Context(), orgID(r), in.Event, in.Channel, in.Language)
 	if err != nil {
 		writeError(w, r, err)
 		return
