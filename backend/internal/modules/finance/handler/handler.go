@@ -22,6 +22,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/activity"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/authctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/payments"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/pkg/apiquery"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/pkg/response"
 	"github.com/google/uuid"
@@ -198,6 +199,20 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 		response.NotFound(w, r, "Expense was not found")
 	case errors.Is(err, usecase.ErrNoAttachment):
 		response.NotFound(w, r, "The expense has no attachment")
+	case errors.Is(err, usecase.ErrDepositNotFound):
+		response.NotFound(w, r, "Security deposit was not found")
+	case errors.Is(err, usecase.ErrDeductionNotFound):
+		response.NotFound(w, r, "Deposit deduction was not found")
+	case errors.Is(err, usecase.ErrNoDocument):
+		response.NotFound(w, r, "The deduction has no document")
+	case errors.As(err, new(*usecase.ProviderError)):
+		code, msg := "provider_error", err.Error()
+		var pe *payments.ProviderError
+		if errors.As(err, &pe) && pe.Code != "" {
+			code, msg = pe.Code, pe.Message
+		}
+		response.ErrorWithDetails(w, r, http.StatusBadGateway, "PROVIDER_ERROR", "The payment provider refused the request",
+			[]response.Detail{{Code: code, Message: msg}})
 	case errors.Is(err, usecase.ErrForbidden):
 		response.Forbidden(w, r, "Missing permission")
 	case errors.Is(err, usecase.ErrAllBranchesRequired), errors.Is(err, orgctx.ErrAllBranchesRequired):

@@ -52,6 +52,9 @@ export const ENTRY_KINDS: EntryKind[] = [
   "offset",
   "adjustment",
   "reversal",
+  "deposit_hold",
+  "deposit_return",
+  "deposit_capture",
 ];
 
 export const ENTRY_KIND_LABEL_KEYS: Record<EntryKind, string> = {
@@ -62,6 +65,9 @@ export const ENTRY_KIND_LABEL_KEYS: Record<EntryKind, string> = {
   offset: "finance.kind.offset",
   adjustment: "finance.kind.adjustment",
   reversal: "finance.kind.reversal",
+  deposit_hold: "finance.kind.deposit_hold",
+  deposit_return: "finance.kind.deposit_return",
+  deposit_capture: "finance.kind.deposit_capture",
 };
 
 export const ENTRY_KIND_TONES: Record<EntryKind, Tone> = {
@@ -72,6 +78,9 @@ export const ENTRY_KIND_TONES: Record<EntryKind, Tone> = {
   offset: "default",
   adjustment: "default",
   reversal: "danger",
+  deposit_hold: "default",
+  deposit_return: "default",
+  deposit_capture: "warning",
 };
 
 export const PURPOSE_LABEL_KEYS: Record<EntryPurpose, string> = {
@@ -91,6 +100,8 @@ export const MOVEMENT_KINDS: MovementKind[] = [
   "transfer_out",
   "adjustment",
   "reversal",
+  "deposit_in",
+  "deposit_out",
 ];
 
 export const MOVEMENT_KIND_LABEL_KEYS: Record<MovementKind, string> = {
@@ -102,6 +113,8 @@ export const MOVEMENT_KIND_LABEL_KEYS: Record<MovementKind, string> = {
   transfer_out: "finance.movement_kind.transfer_out",
   adjustment: "finance.movement_kind.adjustment",
   reversal: "finance.movement_kind.reversal",
+  deposit_in: "finance.movement_kind.deposit_in",
+  deposit_out: "finance.movement_kind.deposit_out",
 };
 
 export const MANUAL_MOVEMENT_KINDS = [

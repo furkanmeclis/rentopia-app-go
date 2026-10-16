@@ -46,6 +46,7 @@ type Querier interface {
 	// The reservation ended (cancelled, expired, no-show) or no longer asks for
 	// a delivery: its live tasks without a rental are cancelled.
 	CancelReservationFieldTasks(ctx context.Context, arg CancelReservationFieldTasksParams) ([]uuid.UUID, error)
+	CancelSecurityDeposit(ctx context.Context, arg CancelSecurityDepositParams) (int64, error)
 	CancelVehicleTransfer(ctx context.Context, arg CancelVehicleTransferParams) (int64, error)
 	CashAccountBalance(ctx context.Context, arg CashAccountBalanceParams) (pgtype.Numeric, error)
 	// Movements grouped by account, branch or month and kind inside a period.
@@ -352,7 +353,10 @@ type Querier interface {
 	//   settle side: credits that are not reversals, minus reversals of credits
 	//   overdue  = max(0, charges due before today - settlements)
 	//   due soon = max(0, charges due before today + N - settlements) - overdue
-	// Offsets net to zero on an account and are left out of the aging.
+	// Entries of purpose 'deposit' (deposits held, returned, captured, the
+	// deposit leg of an offset) are a liability kept apart: they never enter
+	// the receivable balance, the aging or the running balance; deposit_held
+	// sums them. The other leg of an offset / a capture is a settlement.
 	EnsureCustomerAccount(ctx context.Context, arg EnsureCustomerAccountParams) (EnsureCustomerAccountRow, error)
 	// Creates a zero stock row so the reserve path always has a row to lock.
 	EnsureExtraStockRow(ctx context.Context, arg EnsureExtraStockRowParams) error
@@ -384,6 +388,9 @@ type Querier interface {
 	FindVehicleCatalogTypesByNames(ctx context.Context, arg FindVehicleCatalogTypesByNamesParams) ([]FindVehicleCatalogTypesByNamesRow, error)
 	// Import: a live branch of the organization by code or name (code first).
 	FindVehicleImportBranch(ctx context.Context, arg FindVehicleImportBranchParams) (Branch, error)
+	// The deposit is resolved: the rental's live deposit operation task(s)
+	// are completed with the resolution as note.
+	FinishDepositTasks(ctx context.Context, arg FinishDepositTasksParams) ([]uuid.UUID, error)
 	FinishIntegrationJob(ctx context.Context, arg FinishIntegrationJobParams) error
 	FinishOperationTask(ctx context.Context, arg FinishOperationTaskParams) (int64, error)
 	FinishPaymentRefund(ctx context.Context, arg FinishPaymentRefundParams) error
@@ -495,6 +502,8 @@ type Querier interface {
 	GetDeliveryExtraPrice(ctx context.Context, arg GetDeliveryExtraPriceParams) (GetDeliveryExtraPriceRow, error)
 	// A service point with what delivery eligibility and the fee need.
 	GetDeliveryPoint(ctx context.Context, arg GetDeliveryPointParams) (GetDeliveryPointRow, error)
+	GetDepositDeductionRow(ctx context.Context, arg GetDepositDeductionRowParams) (GetDepositDeductionRowRow, error)
+	GetDepositHoldEntry(ctx context.Context, arg GetDepositHoldEntryParams) (GetDepositHoldEntryRow, error)
 	GetDocument(ctx context.Context, arg GetDocumentParams) (GetDocumentRow, error)
 	GetDocumentApprovalForPDF(ctx context.Context, arg GetDocumentApprovalForPDFParams) (GetDocumentApprovalForPDFRow, error)
 	GetDocumentApprovalLink(ctx context.Context, arg GetDocumentApprovalLinkParams) (GetDocumentApprovalLinkRow, error)
@@ -557,6 +566,8 @@ type Querier interface {
 	// One inspection with its display joins.
 	GetInspection(ctx context.Context, arg GetInspectionParams) (GetInspectionRow, error)
 	GetInspectionDamage(ctx context.Context, arg GetInspectionDamageParams) (GetInspectionDamageRow, error)
+	// A damage recorded on one of the rental's inspection forms.
+	GetInspectionDamageForDeposit(ctx context.Context, arg GetInspectionDamageForDepositParams) (GetInspectionDamageForDepositRow, error)
 	// A completed photo (or a signature) for a media link: the object key and
 	// its content type.
 	GetInspectionMediaObject(ctx context.Context, arg GetInspectionMediaObjectParams) (GetInspectionMediaObjectRow, error)
@@ -590,6 +601,8 @@ type Querier interface {
 	// transaction): the rental, its current vehicle, the actual handover /
 	// return places, the reservation's customer and planned pick-up branch.
 	GetKabisRentalFacts(ctx context.Context, arg GetKabisRentalFactsParams) (GetKabisRentalFactsRow, error)
+	// The latest deposit of a rental (the handover wizard shows its state).
+	GetLatestDepositForRental(ctx context.Context, arg GetLatestDepositForRentalParams) (GetLatestDepositForRentalRow, error)
 	// The newest start-side notification of a rental (the start or its last
 	// correction) with its job's state.
 	GetLatestKabisStartChain(ctx context.Context, arg GetLatestKabisStartChainParams) (GetLatestKabisStartChainRow, error)
@@ -617,6 +630,7 @@ type Querier interface {
 	// the code to the link's number).
 	GetOTPChallengeBinding(ctx context.Context, arg GetOTPChallengeBindingParams) (GetOTPChallengeBindingRow, error)
 	GetOneWayRule(ctx context.Context, arg GetOneWayRuleParams) (GetOneWayRuleRow, error)
+	GetOpenDepositForRental(ctx context.Context, arg GetOpenDepositForRentalParams) (GetOpenDepositForRentalRow, error)
 	GetOpenOTPChallengeForUpdate(ctx context.Context, arg GetOpenOTPChallengeForUpdateParams) (GetOpenOTPChallengeForUpdateRow, error)
 	// The open code of a sign-in subject: its channel and contact hash (a code
 	// typed with another contact of the reservation is refused before it is
@@ -685,8 +699,16 @@ type Querier interface {
 	GetRentalBranch(ctx context.Context, arg GetRentalBranchParams) (GetRentalBranchRow, error)
 	GetRentalBranchByID(ctx context.Context, arg GetRentalBranchByIDParams) (GetRentalBranchByIDRow, error)
 	GetRentalCharge(ctx context.Context, arg GetRentalChargeParams) (GetRentalChargeRow, error)
+	// A charge of the rental with what earlier deductions already captured.
+	GetRentalChargeForDeposit(ctx context.Context, arg GetRentalChargeForDepositParams) (GetRentalChargeForDepositRow, error)
 	// The lifecycle facts of one rental (decisions; no display joins).
 	GetRentalCore(ctx context.Context, arg GetRentalCoreParams) (GetRentalCoreRow, error)
+	// Security deposits and pre-authorizations (TEC-719, docs/design/deposits.md).
+	// Every query is scoped by organization_id; lists also take the caller's
+	// branch scope (the branch the deposit was taken at).
+	// What a deposit of a rental depends on: the party (invoice customer, or
+	// the customer), the branch, the product's deposit amount.
+	GetRentalForDeposit(ctx context.Context, arg GetRentalForDepositParams) (GetRentalForDepositRow, error)
 	GetRentalGroupByUUID(ctx context.Context, arg GetRentalGroupByUUIDParams) (RentalGroup, error)
 	// What the rent accrual of a rental depends on.
 	GetRentalLedgerFacts(ctx context.Context, arg GetRentalLedgerFactsParams) (GetRentalLedgerFactsRow, error)
@@ -741,6 +763,7 @@ type Querier interface {
 	GetSMSMessage(ctx context.Context, arg GetSMSMessageParams) (GetSMSMessageRow, error)
 	// The sealed payload of a send job's message.
 	GetSMSMessageForSend(ctx context.Context, arg GetSMSMessageForSendParams) (GetSMSMessageForSendRow, error)
+	GetSecurityDepositRow(ctx context.Context, arg GetSecurityDepositRowParams) (GetSecurityDepositRowRow, error)
 	GetServicePoint(ctx context.Context, arg GetServicePointParams) (ServicePoint, error)
 	GetStepupSettings(ctx context.Context) (StepupSetting, error)
 	GetStorageLinkBySlug(ctx context.Context, slug pgtype.Text) (StorageLink, error)
@@ -820,6 +843,11 @@ type Querier interface {
 	InsertContractTemplate(ctx context.Context, arg InsertContractTemplateParams) (InsertContractTemplateRow, error)
 	InsertCustomerRequest(ctx context.Context, arg InsertCustomerRequestParams) (InsertCustomerRequestRow, error)
 	InsertDateRuleTarget(ctx context.Context, arg InsertDateRuleTargetParams) error
+	InsertDepositDeduction(ctx context.Context, arg InsertDepositDeductionParams) (InsertDepositDeductionRow, error)
+	// Deposit postings (hold, return, capture pair). The partial unique
+	// indexes make a second hold / return per deposit or a second leg per
+	// deduction fail.
+	InsertDepositLedgerEntry(ctx context.Context, arg InsertDepositLedgerEntryParams) (InsertDepositLedgerEntryRow, error)
 	InsertDocument(ctx context.Context, arg InsertDocumentParams) (InsertDocumentRow, error)
 	InsertDocumentApproval(ctx context.Context, arg InsertDocumentApprovalParams) (uuid.UUID, error)
 	InsertDocumentApprovalLink(ctx context.Context, arg InsertDocumentApprovalLinkParams) (int64, error)
@@ -912,6 +940,7 @@ type Querier interface {
 	// SMS send log and OTP challenges (TEC-734). Both tables are
 	// organization-owned: every query filters by organization_id.
 	InsertSMSMessage(ctx context.Context, arg InsertSMSMessageParams) (InsertSMSMessageRow, error)
+	InsertSecurityDeposit(ctx context.Context, arg InsertSecurityDepositParams) (InsertSecurityDepositRow, error)
 	InsertStorageActivity(ctx context.Context, arg InsertStorageActivityParams) (StorageActivity, error)
 	InsertStorageLink(ctx context.Context, arg InsertStorageLinkParams) (StorageLink, error)
 	InsertStorageShare(ctx context.Context, arg InsertStorageShareParams) (StorageShare, error)
@@ -1076,6 +1105,7 @@ type Querier interface {
 	// The delivery points of the organization (wizard picker), optionally of
 	// one branch.
 	ListDeliveryPoints(ctx context.Context, arg ListDeliveryPointsParams) ([]ListDeliveryPointsRow, error)
+	ListDepositDeductions(ctx context.Context, arg ListDepositDeductionsParams) ([]ListDepositDeductionsRow, error)
 	ListDocumentApprovalLinks(ctx context.Context, arg ListDocumentApprovalLinksParams) ([]ListDocumentApprovalLinksRow, error)
 	ListDocumentApprovals(ctx context.Context, arg ListDocumentApprovalsParams) ([]ListDocumentApprovalsRow, error)
 	ListDocumentSignerDrivers(ctx context.Context, arg ListDocumentSignerDriversParams) ([]ListDocumentSignerDriversRow, error)
@@ -1171,6 +1201,7 @@ type Querier interface {
 	// balance is computed over every entry of the account the caller may see,
 	// before the date / kind filters apply.
 	ListLedgerEntries(ctx context.Context, arg ListLedgerEntriesParams) ([]ListLedgerEntriesRow, error)
+	ListLiveDepositTasks(ctx context.Context, arg ListLiveDepositTasksParams) ([]ListLiveDepositTasksRow, error)
 	ListLiveDocumentKinds(ctx context.Context, arg ListLiveDocumentKindsParams) ([]string, error)
 	ListLiveOrganizationIDs(ctx context.Context) ([]int64, error)
 	// Accruals of one rental (rent and charges) that are not reversed.
@@ -1339,6 +1370,10 @@ type Querier interface {
 	ListRolesForUserIDs(ctx context.Context, userIds []int64) ([]ListRolesForUserIDsRow, error)
 	// Price rows that start after now_at (scheduled changes).
 	ListScheduledExtraPrices(ctx context.Context, arg ListScheduledExtraPricesParams) ([]ListScheduledExtraPricesRow, error)
+	// One page of deposits with their rental, party, branch and cash account.
+	// held_before: only deposits still held since before that time ("held
+	// over N days").
+	ListSecurityDeposits(ctx context.Context, arg ListSecurityDepositsParams) ([]ListSecurityDepositsRow, error)
 	ListServicePointsByBranch(ctx context.Context, arg ListServicePointsByBranchParams) ([]ServicePoint, error)
 	ListSharedKeys(ctx context.Context, keys []string) ([]string, error)
 	ListStorageActivity(ctx context.Context, arg ListStorageActivityParams) ([]ListStorageActivityRow, error)
@@ -1483,6 +1518,8 @@ type Querier interface {
 	// Claims a job for one provider call (one worker at a time; an expired
 	// claim of a crashed worker is free again).
 	LockRunnerJob(ctx context.Context, arg LockRunnerJobParams) (int64, error)
+	// Serialises every change of one deposit (take, verify, resolve, cancel).
+	LockSecurityDeposit(ctx context.Context, arg LockSecurityDepositParams) (LockSecurityDepositRow, error)
 	LockTollPassByExternal(ctx context.Context, arg LockTollPassByExternalParams) (LockTollPassByExternalRow, error)
 	LockTollPassByUUID(ctx context.Context, arg LockTollPassByUUIDParams) (LockTollPassByUUIDRow, error)
 	MarkAllNotificationsReadForUser(ctx context.Context, arg MarkAllNotificationsReadForUserParams) (int64, error)
@@ -1521,6 +1558,8 @@ type Querier interface {
 	MarkQuoteSuperseded(ctx context.Context, arg MarkQuoteSupersededParams) error
 	// A quote is consumed once (reservation create / change apply).
 	MarkQuoteUsed(ctx context.Context, arg MarkQuoteUsedParams) (int64, error)
+	// pending → held once the provider confirmed the pre-authorization.
+	MarkSecurityDepositHeld(ctx context.Context, arg MarkSecurityDepositHeldParams) (int64, error)
 	// OAuth sign-up stores a random hash; the user never chose a password.
 	MarkUserPasswordUnset(ctx context.Context, id int64) error
 	// A reassignment step; matches only when the row is still where the plan
@@ -1657,6 +1696,8 @@ type Querier interface {
 	// Closes the open tasks of a reservation (cancelled / expired / re-planned).
 	ResolveReservationTasks(ctx context.Context, arg ResolveReservationTasksParams) (int64, error)
 	ResolveResolutionTask(ctx context.Context, arg ResolveResolutionTaskParams) (int64, error)
+	// held → a closed state with the captured / returned totals.
+	ResolveSecurityDeposit(ctx context.Context, arg ResolveSecurityDepositParams) (int64, error)
 	RevokeAllRefreshTokensForUser(ctx context.Context, userID int64) error
 	RevokeDocumentApprovalLink(ctx context.Context, arg RevokeDocumentApprovalLinkParams) (int64, error)
 	RevokeInvitation(ctx context.Context, arg RevokeInvitationParams) (OrganizationInvitation, error)
@@ -1675,6 +1716,9 @@ type Querier interface {
 	RouteKabisJob(ctx context.Context, arg RouteKabisJobParams) (int64, error)
 	// Stores the outcome of a provider call and releases the claim.
 	SaveRunnerJob(ctx context.Context, arg SaveRunnerJobParams) error
+	// Open deposits by status and method in the caller's branch scope, and
+	// how many have been held since before held_before.
+	SecurityDepositTotals(ctx context.Context, arg SecurityDepositTotalsParams) ([]SecurityDepositTotalsRow, error)
 	SetAppSettingsLogo(ctx context.Context, logoObjectKey pgtype.Text) (AppSetting, error)
 	SetBranchActive(ctx context.Context, arg SetBranchActiveParams) (Branch, error)
 	SetCampaignActive(ctx context.Context, arg SetCampaignActiveParams) (int64, error)
@@ -1690,6 +1734,7 @@ type Querier interface {
 	SetCustomerDocumentFile(ctx context.Context, arg SetCustomerDocumentFileParams) (CustomerDocument, error)
 	SetCustomerTags(ctx context.Context, arg SetCustomerTagsParams) (Customer, error)
 	SetDateRuleState(ctx context.Context, arg SetDateRuleStateParams) (int64, error)
+	SetDepositDeductionDocument(ctx context.Context, arg SetDepositDeductionDocumentParams) (int64, error)
 	SetDocumentApprovalPDF(ctx context.Context, arg SetDocumentApprovalPDFParams) error
 	SetDocumentCurrent(ctx context.Context, arg SetDocumentCurrentParams) (int64, error)
 	SetDocumentStatus(ctx context.Context, arg SetDocumentStatusParams) (int64, error)
@@ -1737,6 +1782,8 @@ type Querier interface {
 	SetReservationPayment(ctx context.Context, arg SetReservationPaymentParams) (int64, error)
 	SetRolePermissions(ctx context.Context, roleID int64) error
 	SetSMSMessageJob(ctx context.Context, arg SetSMSMessageJobParams) error
+	SetSecurityDepositAccount(ctx context.Context, arg SetSecurityDepositAccountParams) error
+	SetSecurityDepositCheckout(ctx context.Context, arg SetSecurityDepositCheckoutParams) error
 	SetTollPassMatch(ctx context.Context, arg SetTollPassMatchParams) error
 	SetUserEmailVerified(ctx context.Context, id int64) (User, error)
 	SetVehicleActive(ctx context.Context, arg SetVehicleActiveParams) (Vehicle, error)

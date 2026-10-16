@@ -56,6 +56,7 @@ type fx struct {
 	pay      *paymentsusecase.Service
 	fin      *usecase.Service
 	fake     *iyzicofake.Fake
+	accounts *accountsusecase.Service
 	org      int64
 	orgUUID  uuid.UUID
 	suffix   string
@@ -130,6 +131,7 @@ func newFx(t *testing.T) *fx {
 	f.must(err)
 	adapter := iyzico.New(iyzico.Config{SandboxBaseURL: fake.URL(), LiveBaseURL: "http://127.0.0.1:1"})
 	accounts := accountsusecase.New(q, vault, integrations.NewRegistry(adapter))
+	f.accounts = accounts
 	f.pay = paymentsusecase.New(pool, q, accounts, f.res, paymentsusecase.Config{PublicBaseURL: "https://app.test"}, adapter)
 	f.res.SetPaymentLinks(f.pay)
 	if _, err := accounts.Connect(f.ctx, f.org, accountsusecase.ConnectInput{
@@ -204,8 +206,9 @@ func (f *fx) newProduct(code string) ref {
 	var group int64
 	f.must(f.pool.QueryRow(ctx, `INSERT INTO rental_groups (organization_id, code, name, segment_id) VALUES ($1, $2, $2, $3) RETURNING id`,
 		f.org, "G"+code, f.segment).Scan(&group))
-	_, err := f.pool.Exec(ctx, `INSERT INTO rental_product_versions (organization_id, product_id, version, guarantee_type, rental_group_id, min_driver_age, min_license_years)
-		VALUES ($1, $2, 1, 'GROUP', $3, 18, 1)`, f.org, p.id, group)
+	// The product asks for a 2 000 deposit (security deposits, TEC-719).
+	_, err := f.pool.Exec(ctx, `INSERT INTO rental_product_versions (organization_id, product_id, version, guarantee_type, rental_group_id, min_driver_age, min_license_years,
+		deposit_amount) VALUES ($1, $2, 1, 'GROUP', $3, 18, 1, 2000)`, f.org, p.id, group)
 	f.must(err)
 	var planID, versionID int64
 	f.must(f.pool.QueryRow(ctx, `INSERT INTO rate_plans (organization_id, rental_product_id, scope, name) VALUES ($1, $2, 'common', 'Tarife') RETURNING id`,
@@ -490,10 +493,15 @@ func TestRT_A23_RentDebitedOnce(t *testing.T) {
 	if len(linked.Links) != 1 || linked.Links[0].DocumentRef != "GIB2026000000001" {
 		t.Fatalf("links %+v", linked.Links)
 	}
-	// The deposit is applied to the rent (offset pair, net zero).
+	// The deposit is a liability kept apart (purpose deposit): it never
+	// reduces the receivable. Applying it to the rent (offset pair) moves
+	// the amount out of the deposit and settles the rent.
 	acc = f.account()
 	if !acc.Balance.DepositHeld.Equal(money.MustParse("2000")) {
 		t.Fatalf("deposit held %s", acc.Balance.DepositHeld)
+	}
+	if want := total.Sub(money.MustParse("500")); !acc.Balance.Balance.Equal(want) {
+		t.Fatalf("balance with the deposit held %s, want %s (rent - prepayment)", acc.Balance.Balance, want)
 	}
 	balanceBefore := acc.Balance.Balance
 	if _, err := f.fin.Offset(f.ctx, f.org, acc.UUID, model.OffsetInput{Amount: mp("2500"), RentalUUID: &r.UUID, Reason: "depozito mahsubu"}); err == nil {
@@ -505,14 +513,21 @@ func TestRT_A23_RentDebitedOnce(t *testing.T) {
 		t.Fatalf("offset %+v", off)
 	}
 	acc = f.account()
-	if !acc.Balance.Balance.Equal(balanceBefore) || !acc.Balance.DepositHeld.Equal(money.MustParse("500")) {
+	if !acc.Balance.Balance.Equal(balanceBefore.Sub(money.MustParse("1500"))) || !acc.Balance.DepositHeld.Equal(money.MustParse("500")) {
 		t.Fatalf("after the offset: balance %s (was %s), deposit %s", acc.Balance.Balance, balanceBefore, acc.Balance.DepositHeld)
 	}
+	// The settling leg is a collection document allocated to the rent
+	// (collections, TEC-718): the rent shows 1 500 more allocated.
+	if n := f.count(`SELECT count(*) FROM collection_allocations a JOIN collections c ON c.organization_id = a.organization_id
+		AND c.id = a.collection_id JOIN ledger_entries e ON e.organization_id = c.organization_id AND e.id = c.ledger_entry_id
+		WHERE a.organization_id = $1 AND e.kind = 'offset' AND a.amount = 1500`, f.org); n != 1 {
+		t.Fatalf("offset allocations %d, want 1", n)
+	}
 	// Rent once: debits of purpose rent net of reversals = the total; the
-	// rental balance = rent - prepayment - deposit.
+	// rental balance = rent - prepayment - the part of the deposit applied.
 	led, err := f.fin.RentalLedger(f.ctx, f.org, r.UUID)
 	f.must(err)
-	want := total.Sub(money.MustParse("500")).Sub(money.MustParse("2000"))
+	want := total.Sub(money.MustParse("500")).Sub(money.MustParse("1500"))
 	if !led.Balance.Equal(want) {
 		t.Fatalf("rental balance %s, want %s", led.Balance, want)
 	}

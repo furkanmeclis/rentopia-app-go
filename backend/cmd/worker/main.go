@@ -320,6 +320,7 @@ func main() {
 		financeadapters.NewCashAccountsIO(financeSvc),
 		financeadapters.NewMovementsIO(financeSvc),
 		financeadapters.NewExpensesIO(financeSvc),
+		financeadapters.NewDepositsIO(financeSvc),
 		financeadapters.NewCollectionsIO(financeSvc),
 	)
 	exportSvc := exportusecase.New(queries, store, ioReg, nil, notifSvc, activityRec, log)

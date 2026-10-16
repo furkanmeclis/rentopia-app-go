@@ -326,5 +326,6 @@
   "tasks.statuses.completed": "Tamamlandı",
   "tasks.types.transfer": "Transfer",
   "tasks.types.other": "Diğer",
-  "tabs.ledger": "Cari"
+  "tabs.ledger": "Cari",
+  "tabs.deposit": "Depozito"
 }

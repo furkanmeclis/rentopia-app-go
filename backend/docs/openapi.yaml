@@ -17043,7 +17043,7 @@ paths:
         - { name: sort, in: query, schema: { type: string }, description: "`entry_date` or `-entry_date`" }
         - { name: account, in: query, schema: { type: string }, description: "Account uuid" }
         - { name: rental, in: query, schema: { type: string }, description: "Rental uuid (entries of its reservation)" }
-        - { name: kind, in: query, schema: { type: string }, description: "accrual, collection, payment, refund, offset, adjustment, reversal" }
+        - { name: kind, in: query, schema: { type: string }, description: "accrual, collection, payment, refund, offset, adjustment, reversal, deposit_hold, deposit_return, deposit_capture" }
         - { name: purpose, in: query, schema: { type: string }, description: "rent, charge, prepayment, deposit, general" }
         - { name: direction, in: query, schema: { type: string }, description: "debit, credit" }
         - { name: branch, in: query, schema: { type: string }, description: "Branch uuids" }
@@ -18291,6 +18291,329 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/EnvelopeExpense" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/finance/deposits/meta:
+    get:
+      tags: [Tenant]
+      operationId: getTenantDepositsMeta
+      summary: Security deposits list metadata
+      description: "`tenant.finance.deposits.read`. Table contract of the list."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeResourceMeta" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/finance/deposits/totals:
+    get:
+      tags: [Tenant]
+      operationId: getTenantDepositTotals
+      summary: Open deposits
+      description: "`tenant.finance.deposits.read`. Held / pending deposits of the caller's branch scope by method, and how many have been held for more than `held_over_days` (default 7)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - { name: held_over_days, in: query, schema: { type: integer, minimum: 1, maximum: 3650 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeDepositTotals" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/finance/deposits:
+    get:
+      tags: [Tenant]
+      operationId: getTenantDeposits
+      summary: List security deposits
+      description: "`tenant.finance.deposits.read`. Deposits of the branches in the caller's scope (the branch they were taken at)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - { name: sort, in: query, schema: { type: string }, description: "`created_at`, `held_at` or `amount`; prefix `-` for descending. Default `-created_at`." }
+        - { name: status, in: query, schema: { type: string }, description: "pending, held, partially_captured, released, refunded, cancelled" }
+        - { name: method, in: query, schema: { type: string }, description: "cash, pos_preauth, online_preauth, bank_transfer" }
+        - { name: branch, in: query, schema: { type: string }, description: "Branch uuids" }
+        - { name: rental, in: query, schema: { type: string, format: uuid }, description: "Rental uuid" }
+        - { name: from, in: query, schema: { type: string }, description: "YYYY-MM-DD (taken on or after)" }
+        - { name: to, in: query, schema: { type: string }, description: "YYYY-MM-DD (taken on or before)" }
+        - { name: held_over_days, in: query, schema: { type: integer, minimum: 0 }, description: "Only deposits still held for more than N days" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSecurityDepositPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantDeposit
+      summary: Take a security deposit
+      description: "`tenant.finance.deposits.write`. Cash / bank transfer: held at once, a deposit_hold entry (purpose deposit, outside the receivable) and a deposit_in movement into the chosen till / bank account. POS pre-auth: held at once with the provision number, nothing posted. Online pre-auth: pending, the answer carries the provider's hosted page (`payment_page_url`); `/verify` confirms it. The amount defaults to the product's deposit amount."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SecurityDepositInput" }
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSecurityDeposit" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "502": { $ref: "#/components/responses/PaymentProviderError" }
+
+  /v1/tenant/finance/deposits/export:
+    post:
+      tags: [Tenant]
+      operationId: postTenantDepositsExport
+      summary: Export security deposits
+      description: "`tenant.finance.deposits.read` + `tenant.finance.deposits.export`. `query` honours `q`, `status`, `method`, `branch`, `rental`, `from`, `to`, `held_over_days`; the job runs with the requester's branch scope."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExportRequest" }
+      responses:
+        "202":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeExportJob" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/finance/deposits/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantDeposit
+      summary: Security deposit
+      description: "`tenant.finance.deposits.read`. With its deductions and the caller's capabilities."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSecurityDeposit" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/finance/deposits/{uuid}/verify:
+    post:
+      tags: [Tenant]
+      operationId: postTenantDepositVerify
+      summary: Verify an online pre-authorization
+      description: "`tenant.finance.deposits.write`. Provider retrieve of a pending online pre-auth: confirmed (reference, amount, currency match) → held; declined → cancelled; still waiting → pending. The browser return is never proof."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSecurityDeposit" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "502": { $ref: "#/components/responses/PaymentProviderError" }
+
+  /v1/tenant/finance/deposits/{uuid}/resolve:
+    post:
+      tags: [Tenant]
+      operationId: postTenantDepositResolve
+      summary: Resolve a held deposit
+      description: "`tenant.finance.deposits.write`; deductions also need `tenant.finance.deposits.deduct` and a reason each. Deductions are captured as collections applied to their charge (cash: plus a deposit_capture leg); the remainder is paid back (deposit_return + deposit_out) or released (online: one iyzico post-auth of the deduction total, or a cancel). One resolution per deposit: a replay with the same `idempotency_key` (or `Idempotency-Key` header) answers the resolved deposit; the rental's deposit task completes."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - { name: Idempotency-Key, in: header, schema: { type: string, maxLength: 64 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SecurityDepositResolveInput" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSecurityDeposit" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "502": { $ref: "#/components/responses/PaymentProviderError" }
+
+  /v1/tenant/finance/deposits/{uuid}/cancel:
+    post:
+      tags: [Tenant]
+      operationId: postTenantDepositCancel
+      summary: Cancel a pending deposit
+      description: "`tenant.finance.deposits.write`. Only a pending (online, not completed) deposit; one the provider already confirmed answers 409 `preauth_completed`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FinanceReverseRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSecurityDeposit" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/finance/deposits/{uuid}/deductions/{deduction}/file:
+    get:
+      tags: [Tenant]
+      operationId: getTenantDepositDeductionFile
+      summary: Download a deduction document
+      description: "`tenant.finance.deposits.read`. Streamed by the API from private storage (`inline=1` for inline display)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - { name: deduction, in: path, required: true, schema: { type: string, format: uuid }, description: "Deduction uuid" }
+        - { name: inline, in: query, schema: { type: string }, description: "1 = inline disposition" }
+      responses:
+        "200":
+          description: File
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [Tenant]
+      operationId: putTenantDepositDeductionFile
+      summary: Upload a deduction document
+      description: "`tenant.finance.deposits.write` + `tenant.finance.deposits.deduct`. PDF, JPEG, PNG or WebP (sniffed), at most 10 MiB; replaces the previous file."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - { name: deduction, in: path, required: true, schema: { type: string, format: uuid }, description: "Deduction uuid" }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSecurityDeposit" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantDepositDeductionFile
+      summary: Remove a deduction document
+      description: "`tenant.finance.deposits.write` + `tenant.finance.deposits.deduct`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - { name: deduction, in: path, required: true, schema: { type: string, format: uuid }, description: "Deduction uuid" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSecurityDeposit" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/finance/rentals/{uuid}/deposits:
+    get:
+      tags: [Tenant]
+      operationId: getTenantRentalDeposits
+      summary: Deposit card of a rental
+      description: "`tenant.finance.deposits.read`. The rental's deposits, the product's default amount, whether one can be taken now (online too) and the live deposit task."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeRentalDeposits" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/TenantForbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -29207,7 +29530,9 @@ components:
         balance: { type: string }
         payment_status: { type: string }
         deposit_amount: { type: string }
-        deposit_status: { type: string, enum: [not_tracked] }
+        deposit_status: { type: string, enum: [none, pending, held, partially_captured, released, refunded, cancelled], description: "The rental's latest security deposit (none: not taken yet)" }
+        deposit_uuid: { type: [string, "null"], format: uuid }
+        deposit_method: { type: string }
 
     InspectionRentalSummary:
       type: object
@@ -30481,7 +30806,7 @@ components:
       properties:
         uuid: { type: string, format: uuid }
         account: { $ref: "#/components/schemas/FinanceRef" }
-        kind: { type: string, enum: [accrual, collection, payment, refund, offset, adjustment, reversal] }
+        kind: { type: string, enum: [accrual, collection, payment, refund, offset, adjustment, reversal, deposit_hold, deposit_return, deposit_capture] }
         direction: { type: string, enum: [debit, credit] }
         purpose: { type: string, enum: [rent, charge, prepayment, deposit, general] }
         amount: { type: string, description: "Decimal amount (2 decimals)" }
@@ -30998,7 +31323,7 @@ components:
         uuid: { type: string, format: uuid }
         account: { $ref: "#/components/schemas/FinanceRef" }
         account_kind: { type: string, enum: [cash, bank, clearing] }
-        kind: { type: string, enum: [transfer_in, transfer_out, collection, supplier_payment, expense, refund, adjustment, reversal] }
+        kind: { type: string, enum: [transfer_in, transfer_out, collection, supplier_payment, expense, refund, adjustment, reversal, deposit_in, deposit_out] }
         direction: { type: string, enum: [in, out] }
         amount: { type: string, description: "Decimal amount (2 decimals)" }
         currency: { type: string }
@@ -31267,6 +31592,227 @@ components:
       properties:
         success: { type: boolean, enum: [true] }
         data: { $ref: "#/components/schemas/ExpenseCategory" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    SecurityDepositCapabilities:
+      type: object
+      required: [verify, release, deduct, cancel, online_capture]
+      properties:
+        verify: { type: boolean }
+        release: { type: boolean }
+        deduct: { type: boolean }
+        cancel: { type: boolean }
+        online_capture: { type: boolean, description: "Deductions go through the provider (one post-auth)" }
+
+    DepositDeduction:
+      type: object
+      required: [uuid, amount, applies_to, reason, charge, damage, document, created_by, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        amount: { type: string, description: "Decimal amount (2 decimals)" }
+        applies_to: { type: string, enum: [charge, rent, general] }
+        reason: { type: string }
+        charge:
+          description: "code = charge kind, name = charge amount"
+          oneOf:
+            - $ref: "#/components/schemas/FinanceRef"
+            - type: "null"
+        damage:
+          description: "code = zone, name = damage type"
+          oneOf:
+            - $ref: "#/components/schemas/FinanceRef"
+            - type: "null"
+        document:
+          oneOf:
+            - $ref: "#/components/schemas/ExpenseAttachment"
+            - type: "null"
+        created_by:
+          oneOf:
+            - $ref: "#/components/schemas/FinanceActor"
+            - type: "null"
+        created_at: { type: string, format: date-time }
+
+    SecurityDeposit:
+      type: object
+      required: [uuid, rental, rental_status, reservation, customer, account, branch, amount, currency, method, status, cash_account,
+        pos_reference, provider, provider_payment_id, payment_page_url, authorization_expires_at, captured_amount, returned_amount,
+        open_amount, note, held_at, held_days, resolved_at, resolution_note, cancel_reason, customer_notice_status, customer_notice,
+        deduction_count, deductions, capabilities, created_by, resolved_by, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        rental: { $ref: "#/components/schemas/FinanceRef" }
+        rental_status: { type: string }
+        reservation: { $ref: "#/components/schemas/FinanceRef" }
+        customer: { $ref: "#/components/schemas/FinanceRef" }
+        account:
+          oneOf:
+            - $ref: "#/components/schemas/FinanceRef"
+            - type: "null"
+        branch: { $ref: "#/components/schemas/FinanceRef" }
+        amount: { type: string, description: "Decimal amount (2 decimals)" }
+        currency: { type: string }
+        method: { type: string, enum: [cash, pos_preauth, online_preauth, bank_transfer] }
+        status: { type: string, enum: [pending, held, partially_captured, released, refunded, cancelled] }
+        cash_account:
+          oneOf:
+            - $ref: "#/components/schemas/FinanceRef"
+            - type: "null"
+        cash_account_kind: { type: string, enum: [cash, bank] }
+        pos_reference: { type: string }
+        provider: { type: string }
+        provider_payment_id: { type: string }
+        payment_page_url: { type: string, description: "Provider's hosted pre-auth page while pending" }
+        authorization_expires_at: { type: [string, "null"], format: date-time }
+        captured_amount: { type: string }
+        returned_amount: { type: string, description: "Paid back (cash / transfer) or released (pre-auth)" }
+        open_amount: { type: string, description: "Still held (zero once closed)" }
+        note: { type: string }
+        held_at: { type: [string, "null"], format: date-time }
+        held_days: { type: integer }
+        resolved_at: { type: [string, "null"], format: date-time }
+        resolution_note: { type: string }
+        cancel_reason: { type: string }
+        customer_notice_status: { type: string, enum: [none, pending, sent], description: "pending: the deductions notice is recorded for the customer notification (no template mechanism yet)" }
+        customer_notice: { type: object, additionalProperties: true }
+        deduction_count: { type: integer, format: int64 }
+        deductions:
+          type: array
+          items: { $ref: "#/components/schemas/DepositDeduction" }
+        capabilities: { $ref: "#/components/schemas/SecurityDepositCapabilities" }
+        created_by:
+          oneOf:
+            - $ref: "#/components/schemas/FinanceActor"
+            - type: "null"
+        resolved_by:
+          oneOf:
+            - $ref: "#/components/schemas/FinanceActor"
+            - type: "null"
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    SecurityDepositInput:
+      type: object
+      additionalProperties: false
+      required: [rental_uuid, method]
+      properties:
+        rental_uuid: { type: string, format: uuid }
+        amount: { type: string, description: "Default: the product's deposit amount" }
+        method: { type: string, enum: [cash, pos_preauth, online_preauth, bank_transfer] }
+        cash_account_uuid: { type: string, format: uuid, description: "Till (cash) or bank account (bank_transfer)" }
+        pos_reference: { type: string, maxLength: 64, description: "POS provision number (pos_preauth)" }
+        authorization_expires_at: { type: string, format: date-time, description: "POS hold end (optional)" }
+        note: { type: string, maxLength: 500 }
+
+    DepositDeductionInput:
+      type: object
+      additionalProperties: false
+      required: [amount, reason]
+      properties:
+        amount: { type: string }
+        applies_to: { type: string, enum: [charge, rent, general], description: "Default: charge with a charge, general otherwise" }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+        rental_charge_uuid: { type: string, format: uuid, description: "An approved charge of the rental" }
+        inspection_damage_uuid: { type: string, format: uuid, description: "A damage of the rental's inspection forms" }
+
+    SecurityDepositResolveInput:
+      type: object
+      additionalProperties: false
+      properties:
+        deductions:
+          type: array
+          maxItems: 50
+          items: { $ref: "#/components/schemas/DepositDeductionInput" }
+        refund_cash_account_uuid: { type: string, format: uuid, description: "Pays the remainder (default: the account that holds the deposit)" }
+        capture_cash_account_uuid: { type: string, format: uuid, description: "Bank account a POS capture settles to (optional)" }
+        note: { type: string, maxLength: 500 }
+        idempotency_key: { type: string, maxLength: 64 }
+
+    DepositTotals:
+      type: object
+      required: [currency, held_count, held_amount, pending_count, held_over, held_over_days, by_method]
+      properties:
+        currency: { type: string }
+        held_count: { type: integer, format: int64 }
+        held_amount: { type: string }
+        pending_count: { type: integer, format: int64 }
+        held_over: { type: integer, format: int64 }
+        held_over_days: { type: integer }
+        by_method: { type: object, additionalProperties: { type: string } }
+
+    RentalDeposits:
+      type: object
+      required: [rental_uuid, reference, rental_status, default_amount, currency, can_take, online_enabled, open_deposit_uuid, items, deposit_task_uuid, cash_accounts]
+      properties:
+        rental_uuid: { type: string, format: uuid }
+        reference: { type: string }
+        rental_status: { type: string }
+        default_amount: { type: string }
+        currency: { type: string }
+        can_take: { type: boolean }
+        online_enabled: { type: boolean }
+        open_deposit_uuid: { type: [string, "null"], format: uuid }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/SecurityDeposit" }
+        deposit_task_uuid: { type: [string, "null"], format: uuid }
+        cash_accounts:
+          type: array
+          description: "Active tills / bank accounts of the caller's scope in the rental's currency (empty without deposits.write)"
+          items: { $ref: "#/components/schemas/DepositCashAccount" }
+
+    DepositCashAccount:
+      type: object
+      required: [uuid, code, name, kind, currency, branch]
+      properties:
+        uuid: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        kind: { type: string, enum: [cash, bank] }
+        currency: { type: string }
+        branch:
+          oneOf:
+            - $ref: "#/components/schemas/FinanceRef"
+            - type: "null"
+
+    EnvelopeSecurityDeposit:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/SecurityDeposit" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeSecurityDepositPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/SecurityDeposit" }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeDepositTotals:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/DepositTotals" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeRentalDeposits:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/RentalDeposits" }
         meta: { $ref: "#/components/schemas/ResponseMeta" }
 
     EnvelopeExpense:

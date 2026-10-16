@@ -53,6 +53,9 @@ func (s *Service) RefundCollection(ctx context.Context, orgID int64, id uuid.UUI
 	if err != nil {
 		return model.Collection{}, err
 	}
+	if err := s.settlementOnly(ctx, orgID, id); err != nil {
+		return model.Collection{}, err
+	}
 	ve := &ValidationError{}
 	reason, rerr := requireReason("reason", in.Reason)
 	if rerr != nil {
@@ -205,6 +208,9 @@ func (s *Service) VoidCollection(ctx context.Context, orgID int64, id uuid.UUID,
 func (s *Service) voidCollection(ctx context.Context, orgID int64, c db.GetCollectionRowByIDRow, reason string) (uuid.UUID, error) {
 	if c.PaymentID.Valid {
 		return uuid.Nil, stateErr("payment_collection", "a payment's collection is refunded, not voided")
+	}
+	if err := s.settlementOnly(ctx, orgID, c.Uuid); err != nil {
+		return uuid.Nil, err
 	}
 	if c.Status != model.CollectionRecorded || m(c.RefundedAmount).IsPositive() {
 		return uuid.Nil, stateErr("not_voidable", "only a collection without refunds can be voided")

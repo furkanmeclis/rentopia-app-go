@@ -136,14 +136,36 @@ type Provider interface {
 	VerifyWebhook(account integrations.Account, hook Webhook, header http.Header, body []byte) error
 }
 
-// PreAuthorizer is the optional authorize-then-capture flow (deposits).
-// iyzico's pre-auth needs the card on the merchant side (non-hosted), so
-// the iyzico adapter does not implement it; a provider that offers a
-// hosted pre-auth can.
+// CaptureRequest captures (part of) a pre-authorization (iyzico post-auth).
+type CaptureRequest struct {
+	PaymentID      string
+	ConversationID string
+	Amount         money.Money
+	Currency       string
+	IP             string
+	Locale         string
+}
+
+// VoidRequest releases a pre-authorization that was not captured (iyzico
+// cancel: the only way to drop a pre-auth before its hold ends).
+type VoidRequest struct {
+	PaymentID      string
+	ConversationID string
+	IP             string
+	Locale         string
+}
+
+// PreAuthorizer is the optional authorize-then-capture flow (security
+// deposits, TEC-719). The pre-authorization is opened on the provider's
+// hosted page like a checkout (no card data in Rentopia) and read back with
+// Provider.Retrieve; Capture takes at most the authorized amount once;
+// Void releases an uncaptured pre-authorization. Nothing else is offered
+// (no second capture, no re-authorization): what a provider cannot do
+// online is done by staff by hand.
 type PreAuthorizer interface {
 	PreAuth(ctx context.Context, account integrations.Account, in CheckoutRequest) (Checkout, error)
-	Capture(ctx context.Context, account integrations.Account, paymentID string, amount money.Money) (Result, error)
-	Void(ctx context.Context, account integrations.Account, paymentID string) error
+	Capture(ctx context.Context, account integrations.Account, in CaptureRequest) (Result, error)
+	Void(ctx context.Context, account integrations.Account, in VoidRequest) error
 }
 
 var (

@@ -483,6 +483,13 @@ export function tenantNav(slug: string): NavCatalog {
             permission: permissions.tenant.finance.cash.read,
           },
           {
+            id: "finance-deposits",
+            titleKey: "layout.nav_finance_deposits",
+            href: routes.tenant.finance.deposits(slug),
+            icon: ShieldCheck,
+            permission: permissions.tenant.finance.deposits.read,
+          },
+          {
             id: "finance-expenses",
             titleKey: "layout.nav_finance_expenses",
             href: routes.tenant.finance.expenses(slug),

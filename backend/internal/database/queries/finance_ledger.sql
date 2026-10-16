@@ -5,7 +5,10 @@
 --   settle side: credits that are not reversals, minus reversals of credits
 --   overdue  = max(0, charges due before today - settlements)
 --   due soon = max(0, charges due before today + N - settlements) - overdue
--- Offsets net to zero on an account and are left out of the aging.
+-- Entries of purpose 'deposit' (deposits held, returned, captured, the
+-- deposit leg of an offset) are a liability kept apart: they never enter
+-- the receivable balance, the aging or the running balance; deposit_held
+-- sums them. The other leg of an offset / a capture is a settlement.
 
 -- name: EnsureCustomerAccount :one
 INSERT INTO accounts (organization_id, code, party_kind, customer_id, name, branch_id, currency, created_by)
@@ -76,25 +79,25 @@ FOR UPDATE;
 -- see (branch scope: accounts opened at, or with entries in, the branches).
 WITH agg AS (
     SELECT e.account_id,
-        COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'debit'), 0)::numeric AS debit,
-        COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'credit'), 0)::numeric AS credit,
+        COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'debit' AND e.purpose <> 'deposit'), 0)::numeric AS debit,
+        COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'credit' AND e.purpose <> 'deposit'), 0)::numeric AS credit,
         COALESCE(SUM(CASE
-            WHEN e.kind = 'offset' THEN 0
+            WHEN e.purpose = 'deposit' THEN 0
             WHEN e.direction = 'debit' AND e.kind <> 'reversal' THEN e.amount
             WHEN e.direction = 'credit' AND e.kind = 'reversal' THEN -e.amount
             ELSE 0 END) FILTER (WHERE e.due_date < sqlc.arg(today)::date), 0)::numeric AS charges_overdue,
         COALESCE(SUM(CASE
-            WHEN e.kind = 'offset' THEN 0
+            WHEN e.purpose = 'deposit' THEN 0
             WHEN e.direction = 'debit' AND e.kind <> 'reversal' THEN e.amount
             WHEN e.direction = 'credit' AND e.kind = 'reversal' THEN -e.amount
             ELSE 0 END) FILTER (WHERE e.due_date < sqlc.arg(soon)::date), 0)::numeric AS charges_soon,
         COALESCE(SUM(CASE
-            WHEN e.kind = 'offset' THEN 0
+            WHEN e.purpose = 'deposit' THEN 0
             WHEN e.direction = 'debit' AND e.kind <> 'reversal' THEN e.amount
             WHEN e.direction = 'credit' AND e.kind = 'reversal' THEN -e.amount
             ELSE 0 END) FILTER (WHERE e.due_date < sqlc.arg(due_before)::date), 0)::numeric AS charges_before,
         COALESCE(SUM(CASE
-            WHEN e.kind = 'offset' THEN 0
+            WHEN e.purpose = 'deposit' THEN 0
             WHEN e.direction = 'credit' AND e.kind <> 'reversal' THEN e.amount
             WHEN e.direction = 'debit' AND e.kind = 'reversal' THEN -e.amount
             ELSE 0 END), 0)::numeric AS settlements,
@@ -321,7 +324,7 @@ LIMIT sqlc.arg(limit_count);
 -- before the date / kind filters apply.
 WITH scoped AS (
     SELECT e.*,
-        SUM(CASE WHEN e.direction = 'debit' THEN e.amount ELSE -e.amount END)
+        SUM(CASE WHEN e.purpose = 'deposit' THEN 0 WHEN e.direction = 'debit' THEN e.amount ELSE -e.amount END)
             OVER (PARTITION BY e.account_id ORDER BY e.entry_date, e.id)::numeric AS running_balance
     FROM ledger_entries e
     WHERE e.organization_id = sqlc.arg(organization_id)
@@ -382,11 +385,11 @@ LIMIT sqlc.arg(limit_count) OFFSET sqlc.arg(offset_count);
 
 -- name: SumLedgerEntries :one
 -- Totals of the entries the caller may see for one account / reservation.
-SELECT COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'debit'), 0)::numeric AS debit,
-    COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'credit'), 0)::numeric AS credit,
+SELECT COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'debit' AND e.purpose <> 'deposit'), 0)::numeric AS debit,
+    COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'credit' AND e.purpose <> 'deposit'), 0)::numeric AS credit,
     COALESCE(SUM(CASE WHEN e.direction = 'credit' THEN e.amount ELSE -e.amount END)
         FILTER (WHERE e.purpose = 'deposit'), 0)::numeric AS deposit_held,
-    COALESCE(SUM(CASE WHEN e.direction = 'debit' THEN e.amount ELSE -e.amount END)
+    COALESCE(SUM(CASE WHEN e.purpose = 'deposit' THEN 0 WHEN e.direction = 'debit' THEN e.amount ELSE -e.amount END)
         FILTER (WHERE sqlc.narg(before)::date IS NOT NULL AND e.entry_date < sqlc.narg(before)::date), 0)::numeric AS opening,
     COUNT(*)::bigint AS entry_count
 FROM ledger_entries e
@@ -402,8 +405,8 @@ ON CONFLICT (organization_id, entry_id, document_type, document_ref) DO NOTHING;
 
 -- name: LedgerBranchBreakdown :many
 SELECT e.branch_id, b.uuid AS branch_uuid, b.code AS branch_code, b.name AS branch_name,
-    COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'debit'), 0)::numeric AS debit,
-    COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'credit'), 0)::numeric AS credit
+    COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'debit' AND e.purpose <> 'deposit'), 0)::numeric AS debit,
+    COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'credit' AND e.purpose <> 'deposit'), 0)::numeric AS credit
 FROM ledger_entries e
 LEFT JOIN branches b ON b.organization_id = e.organization_id AND b.id = e.branch_id
 WHERE e.organization_id = sqlc.arg(organization_id)
@@ -415,31 +418,31 @@ ORDER BY b.code NULLS FIRST;
 -- Per account: balance and the open charges by due bucket (FIFO), for the
 -- organization summary.
 SELECT e.account_id,
-    COALESCE(SUM(CASE WHEN e.direction = 'debit' THEN e.amount ELSE -e.amount END), 0)::numeric AS balance,
+    COALESCE(SUM(CASE WHEN e.purpose = 'deposit' THEN 0 WHEN e.direction = 'debit' THEN e.amount ELSE -e.amount END), 0)::numeric AS balance,
     COALESCE(SUM(CASE WHEN e.direction = 'credit' THEN e.amount ELSE -e.amount END)
         FILTER (WHERE e.purpose = 'deposit'), 0)::numeric AS deposit_held,
     COALESCE(SUM(CASE
-        WHEN e.kind = 'offset' THEN 0
+        WHEN e.purpose = 'deposit' THEN 0
         WHEN e.direction = 'debit' AND e.kind <> 'reversal' THEN e.amount
         WHEN e.direction = 'credit' AND e.kind = 'reversal' THEN -e.amount
         ELSE 0 END) FILTER (WHERE e.due_date < sqlc.arg(late)::date), 0)::numeric AS charges_late,
     COALESCE(SUM(CASE
-        WHEN e.kind = 'offset' THEN 0
+        WHEN e.purpose = 'deposit' THEN 0
         WHEN e.direction = 'debit' AND e.kind <> 'reversal' THEN e.amount
         WHEN e.direction = 'credit' AND e.kind = 'reversal' THEN -e.amount
         ELSE 0 END) FILTER (WHERE e.due_date < sqlc.arg(today)::date), 0)::numeric AS charges_overdue,
     COALESCE(SUM(CASE
-        WHEN e.kind = 'offset' THEN 0
+        WHEN e.purpose = 'deposit' THEN 0
         WHEN e.direction = 'debit' AND e.kind <> 'reversal' THEN e.amount
         WHEN e.direction = 'credit' AND e.kind = 'reversal' THEN -e.amount
         ELSE 0 END) FILTER (WHERE e.due_date < sqlc.arg(soon)::date), 0)::numeric AS charges_soon,
     COALESCE(SUM(CASE
-        WHEN e.kind = 'offset' THEN 0
+        WHEN e.purpose = 'deposit' THEN 0
         WHEN e.direction = 'debit' AND e.kind <> 'reversal' THEN e.amount
         WHEN e.direction = 'credit' AND e.kind = 'reversal' THEN -e.amount
         ELSE 0 END), 0)::numeric AS charges_all,
     COALESCE(SUM(CASE
-        WHEN e.kind = 'offset' THEN 0
+        WHEN e.purpose = 'deposit' THEN 0
         WHEN e.direction = 'credit' AND e.kind <> 'reversal' THEN e.amount
         WHEN e.direction = 'debit' AND e.kind = 'reversal' THEN -e.amount
         ELSE 0 END), 0)::numeric AS settlements
@@ -452,8 +455,8 @@ GROUP BY e.account_id;
 -- Balances per rental (entries of its reservation).
 WITH agg AS (
     SELECT e.reservation_id,
-        COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'debit'), 0)::numeric AS debit,
-        COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'credit'), 0)::numeric AS credit,
+        COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'debit' AND e.purpose <> 'deposit'), 0)::numeric AS debit,
+        COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'credit' AND e.purpose <> 'deposit'), 0)::numeric AS credit,
         COALESCE(SUM(CASE WHEN e.direction = 'credit' THEN e.amount ELSE -e.amount END)
             FILTER (WHERE e.purpose = 'deposit'), 0)::numeric AS deposit_held,
         MAX(e.created_at)::timestamptz AS last_entry_at
@@ -481,15 +484,15 @@ LIMIT sqlc.arg(limit_count) OFFSET sqlc.arg(offset_count);
 -- name: OpenReservationBalances :many
 -- Reservations of an account with an open balance (pay link target).
 SELECT res.uuid, res.reference, res.status,
-    (COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'debit'), 0)
-        - COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'credit'), 0))::numeric AS balance
+    (COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'debit' AND e.purpose <> 'deposit'), 0)
+        - COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'credit' AND e.purpose <> 'deposit'), 0))::numeric AS balance
 FROM ledger_entries e
 JOIN reservations res ON res.organization_id = e.organization_id AND res.id = e.reservation_id
 WHERE e.organization_id = sqlc.arg(organization_id)
   AND e.account_id = sqlc.arg(account_id)
 GROUP BY res.id, res.uuid, res.reference, res.status
-HAVING (COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'debit'), 0)
-        - COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'credit'), 0)) > 0
+HAVING (COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'debit' AND e.purpose <> 'deposit'), 0)
+        - COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'credit' AND e.purpose <> 'deposit'), 0)) > 0
 ORDER BY res.id DESC;
 
 -- name: GetRentalRef :one

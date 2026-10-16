@@ -75,7 +75,7 @@ POST /v1/tenant/inspections/{uuid}/media-links → [{uuid, kind, url: /v1/public
   - The rental page has "Mobil teslim / Mobil iade" buttons too.
 - **Wizard** (`/t/{slug}/field/handover/{rental}`):
   1. Vehicle (plate confirmed, condition) and customer / driver (driver of the rental, identity, licence).
-  2. Amounts: total, paid, remaining payment, payment status, deposit amount from the product conditions. This is display only, from the reservation's payment fields. Payments keeps no deposit record, so the deposit shows "taken at the branch".
+  2. Amounts: total, paid, remaining payment, payment status, deposit amount from the product conditions (display only, from the reservation's payment fields), plus the deposit state of the rental and the deposit card with "Depozito al" (TEC-719, [deposits.md](./deposits.md)).
   3. Start km, fuel slider, equipment checklist.
   4. Damage on the SVG diagram (`VehicleDiagram`): pick a zone, then type, severity, description, and the photo.
   5. Required photos from the template, through the device upload queue.
@@ -112,7 +112,7 @@ Staff review the lines. Changing a computed amount needs **`tenant.price.overrid
 The computed amount stays in `original_amount`.
 
 **Normal completion** (signed, no dispute):
-- The rentals **Return** use case records the return. Its `Finalize` hook proposes the charges, finalizes the form and opens the **deposit** task, all in one transaction.
+- The rentals **Return** use case records the return. Its `Finalize` hook proposes the charges, finalizes the form and opens the **deposit** task, all in one transaction. The task links to the deposit resolution and completes when the deposit is resolved ([deposits.md](./deposits.md)).
 - **CompleteReturn** then sends the vehicle to cleaning, maintenance or preparation through an operation task. Finishing that task makes the vehicle available.
 
 **Exception path.** No signature (`no_signature_reason` → `signature_status = refused`), a disputed form, or a disputed damage:

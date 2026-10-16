@@ -119,6 +119,7 @@ type Service struct {
 	sms     SMS
 	// payments refunds online collections (TEC-718).
 	payments PaymentRefunder
+	preauth  *preAuthDeps
 	log      *slog.Logger
 	now      func() time.Time
 }

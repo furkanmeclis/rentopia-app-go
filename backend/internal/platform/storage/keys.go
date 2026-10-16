@@ -123,6 +123,15 @@ func ExpenseAttachmentObjectKey(orgUUID, expenseUUID, fileUUID, ext string) stri
 	return fmt.Sprintf("%sexpenses/%s/%s.%s", OrganizationPrefix(orgUUID), expenseUUID, fileUUID, trimExt(ext))
 }
 
+// DepositDeductionObjectKey builds
+// organizations/{orgUUID}/deposits/{depositUUID}/deductions/{deductionUUID}/{fileUUID}.{ext}
+// for the document of a security deposit deduction (damage invoice,
+// estimate; private: streamed by the API only). A replaced file gets a
+// new fileUUID.
+func DepositDeductionObjectKey(orgUUID, depositUUID, deductionUUID, fileUUID, ext string) string {
+	return fmt.Sprintf("%sdeposits/%s/deductions/%s/%s.%s", OrganizationPrefix(orgUUID), depositUUID, deductionUUID, fileUUID, trimExt(ext))
+}
+
 func trimExt(ext string) string {
 	for len(ext) > 0 && ext[0] == '.' {
 		ext = ext[1:]

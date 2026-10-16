@@ -11964,6 +11964,218 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenant/finance/deposits/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Security deposits list metadata
+         * @description `tenant.finance.deposits.read`. Table contract of the list.
+         */
+        get: operations["getTenantDepositsMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/finance/deposits/totals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Open deposits
+         * @description `tenant.finance.deposits.read`. Held / pending deposits of the caller's branch scope by method, and how many have been held for more than `held_over_days` (default 7).
+         */
+        get: operations["getTenantDepositTotals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/finance/deposits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List security deposits
+         * @description `tenant.finance.deposits.read`. Deposits of the branches in the caller's scope (the branch they were taken at).
+         */
+        get: operations["getTenantDeposits"];
+        put?: never;
+        /**
+         * Take a security deposit
+         * @description `tenant.finance.deposits.write`. Cash / bank transfer: held at once, a deposit_hold entry (purpose deposit, outside the receivable) and a deposit_in movement into the chosen till / bank account. POS pre-auth: held at once with the provision number, nothing posted. Online pre-auth: pending, the answer carries the provider's hosted page (`payment_page_url`); `/verify` confirms it. The amount defaults to the product's deposit amount.
+         */
+        post: operations["postTenantDeposit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/finance/deposits/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export security deposits
+         * @description `tenant.finance.deposits.read` + `tenant.finance.deposits.export`. `query` honours `q`, `status`, `method`, `branch`, `rental`, `from`, `to`, `held_over_days`; the job runs with the requester's branch scope.
+         */
+        post: operations["postTenantDepositsExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/finance/deposits/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Security deposit
+         * @description `tenant.finance.deposits.read`. With its deductions and the caller's capabilities.
+         */
+        get: operations["getTenantDeposit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/finance/deposits/{uuid}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify an online pre-authorization
+         * @description `tenant.finance.deposits.write`. Provider retrieve of a pending online pre-auth: confirmed (reference, amount, currency match) → held; declined → cancelled; still waiting → pending. The browser return is never proof.
+         */
+        post: operations["postTenantDepositVerify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/finance/deposits/{uuid}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve a held deposit
+         * @description `tenant.finance.deposits.write`; deductions also need `tenant.finance.deposits.deduct` and a reason each. Deductions are captured as collections applied to their charge (cash: plus a deposit_capture leg); the remainder is paid back (deposit_return + deposit_out) or released (online: one iyzico post-auth of the deduction total, or a cancel). One resolution per deposit: a replay with the same `idempotency_key` (or `Idempotency-Key` header) answers the resolved deposit; the rental's deposit task completes.
+         */
+        post: operations["postTenantDepositResolve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/finance/deposits/{uuid}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a pending deposit
+         * @description `tenant.finance.deposits.write`. Only a pending (online, not completed) deposit; one the provider already confirmed answers 409 `preauth_completed`.
+         */
+        post: operations["postTenantDepositCancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/finance/deposits/{uuid}/deductions/{deduction}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download a deduction document
+         * @description `tenant.finance.deposits.read`. Streamed by the API from private storage (`inline=1` for inline display).
+         */
+        get: operations["getTenantDepositDeductionFile"];
+        /**
+         * Upload a deduction document
+         * @description `tenant.finance.deposits.write` + `tenant.finance.deposits.deduct`. PDF, JPEG, PNG or WebP (sniffed), at most 10 MiB; replaces the previous file.
+         */
+        put: operations["putTenantDepositDeductionFile"];
+        post?: never;
+        /**
+         * Remove a deduction document
+         * @description `tenant.finance.deposits.write` + `tenant.finance.deposits.deduct`.
+         */
+        delete: operations["deleteTenantDepositDeductionFile"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/finance/rentals/{uuid}/deposits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Deposit card of a rental
+         * @description `tenant.finance.deposits.read`. The rental's deposits, the product's default amount, whether one can be taken now (online too) and the live deposit task.
+         */
+        get: operations["getTenantRentalDeposits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenant/finance/reports/expenses": {
         parameters: {
             query?: never;
@@ -20843,8 +21055,14 @@ export interface components {
             balance: string;
             payment_status: string;
             deposit_amount: string;
-            /** @enum {string} */
-            deposit_status: "not_tracked";
+            /**
+             * @description The rental's latest security deposit (none: not taken yet)
+             * @enum {string}
+             */
+            deposit_status: "none" | "pending" | "held" | "partially_captured" | "released" | "refunded" | "cancelled";
+            /** Format: uuid */
+            deposit_uuid?: string | null;
+            deposit_method?: string;
         };
         InspectionRentalSummary: {
             /** Format: uuid */
@@ -21976,7 +22194,7 @@ export interface components {
             uuid: string;
             account: components["schemas"]["FinanceRef"];
             /** @enum {string} */
-            kind: "accrual" | "collection" | "payment" | "refund" | "offset" | "adjustment" | "reversal";
+            kind: "accrual" | "collection" | "payment" | "refund" | "offset" | "adjustment" | "reversal" | "deposit_hold" | "deposit_return" | "deposit_capture";
             /** @enum {string} */
             direction: "debit" | "credit";
             /** @enum {string} */
@@ -22476,7 +22694,7 @@ export interface components {
             /** @enum {string} */
             account_kind: "cash" | "bank" | "clearing";
             /** @enum {string} */
-            kind: "transfer_in" | "transfer_out" | "collection" | "supplier_payment" | "expense" | "refund" | "adjustment" | "reversal";
+            kind: "transfer_in" | "transfer_out" | "collection" | "supplier_payment" | "expense" | "refund" | "adjustment" | "reversal" | "deposit_in" | "deposit_out";
             /** @enum {string} */
             direction: "in" | "out";
             /** @description Decimal amount (2 decimals) */
@@ -22714,6 +22932,215 @@ export interface components {
             /** @enum {boolean} */
             success: true;
             data: components["schemas"]["ExpenseCategory"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        SecurityDepositCapabilities: {
+            verify: boolean;
+            release: boolean;
+            deduct: boolean;
+            cancel: boolean;
+            /** @description Deductions go through the provider (one post-auth) */
+            online_capture: boolean;
+        };
+        DepositDeduction: {
+            /** Format: uuid */
+            uuid: string;
+            /** @description Decimal amount (2 decimals) */
+            amount: string;
+            /** @enum {string} */
+            applies_to: "charge" | "rent" | "general";
+            reason: string;
+            /** @description code = charge kind, name = charge amount */
+            charge: components["schemas"]["FinanceRef"] | null;
+            /** @description code = zone, name = damage type */
+            damage: components["schemas"]["FinanceRef"] | null;
+            document: components["schemas"]["ExpenseAttachment"] | null;
+            created_by: components["schemas"]["FinanceActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        SecurityDeposit: {
+            /** Format: uuid */
+            uuid: string;
+            rental: components["schemas"]["FinanceRef"];
+            rental_status: string;
+            reservation: components["schemas"]["FinanceRef"];
+            customer: components["schemas"]["FinanceRef"];
+            account: components["schemas"]["FinanceRef"] | null;
+            branch: components["schemas"]["FinanceRef"];
+            /** @description Decimal amount (2 decimals) */
+            amount: string;
+            currency: string;
+            /** @enum {string} */
+            method: "cash" | "pos_preauth" | "online_preauth" | "bank_transfer";
+            /** @enum {string} */
+            status: "pending" | "held" | "partially_captured" | "released" | "refunded" | "cancelled";
+            cash_account: components["schemas"]["FinanceRef"] | null;
+            /** @enum {string} */
+            cash_account_kind?: "cash" | "bank";
+            pos_reference: string;
+            provider: string;
+            provider_payment_id: string;
+            /** @description Provider's hosted pre-auth page while pending */
+            payment_page_url: string;
+            /** Format: date-time */
+            authorization_expires_at: string | null;
+            captured_amount: string;
+            /** @description Paid back (cash / transfer) or released (pre-auth) */
+            returned_amount: string;
+            /** @description Still held (zero once closed) */
+            open_amount: string;
+            note: string;
+            /** Format: date-time */
+            held_at: string | null;
+            held_days: number;
+            /** Format: date-time */
+            resolved_at: string | null;
+            resolution_note: string;
+            cancel_reason: string;
+            /**
+             * @description pending: the deductions notice is recorded for the customer notification (no template mechanism yet)
+             * @enum {string}
+             */
+            customer_notice_status: "none" | "pending" | "sent";
+            customer_notice: {
+                [key: string]: unknown;
+            };
+            /** Format: int64 */
+            deduction_count: number;
+            deductions: components["schemas"]["DepositDeduction"][];
+            capabilities: components["schemas"]["SecurityDepositCapabilities"];
+            created_by: components["schemas"]["FinanceActor"] | null;
+            resolved_by: components["schemas"]["FinanceActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        SecurityDepositInput: {
+            /** Format: uuid */
+            rental_uuid: string;
+            /** @description Default: the product's deposit amount */
+            amount?: string;
+            /** @enum {string} */
+            method: "cash" | "pos_preauth" | "online_preauth" | "bank_transfer";
+            /**
+             * Format: uuid
+             * @description Till (cash) or bank account (bank_transfer)
+             */
+            cash_account_uuid?: string;
+            /** @description POS provision number (pos_preauth) */
+            pos_reference?: string;
+            /**
+             * Format: date-time
+             * @description POS hold end (optional)
+             */
+            authorization_expires_at?: string;
+            note?: string;
+        };
+        DepositDeductionInput: {
+            amount: string;
+            /**
+             * @description Default: charge with a charge, general otherwise
+             * @enum {string}
+             */
+            applies_to?: "charge" | "rent" | "general";
+            reason: string;
+            /**
+             * Format: uuid
+             * @description An approved charge of the rental
+             */
+            rental_charge_uuid?: string;
+            /**
+             * Format: uuid
+             * @description A damage of the rental's inspection forms
+             */
+            inspection_damage_uuid?: string;
+        };
+        SecurityDepositResolveInput: {
+            deductions?: components["schemas"]["DepositDeductionInput"][];
+            /**
+             * Format: uuid
+             * @description Pays the remainder (default: the account that holds the deposit)
+             */
+            refund_cash_account_uuid?: string;
+            /**
+             * Format: uuid
+             * @description Bank account a POS capture settles to (optional)
+             */
+            capture_cash_account_uuid?: string;
+            note?: string;
+            idempotency_key?: string;
+        };
+        DepositTotals: {
+            currency: string;
+            /** Format: int64 */
+            held_count: number;
+            held_amount: string;
+            /** Format: int64 */
+            pending_count: number;
+            /** Format: int64 */
+            held_over: number;
+            held_over_days: number;
+            by_method: {
+                [key: string]: string;
+            };
+        };
+        RentalDeposits: {
+            /** Format: uuid */
+            rental_uuid: string;
+            reference: string;
+            rental_status: string;
+            default_amount: string;
+            currency: string;
+            can_take: boolean;
+            online_enabled: boolean;
+            /** Format: uuid */
+            open_deposit_uuid: string | null;
+            items: components["schemas"]["SecurityDeposit"][];
+            /** Format: uuid */
+            deposit_task_uuid: string | null;
+            /** @description Active tills / bank accounts of the caller's scope in the rental's currency (empty without deposits.write) */
+            cash_accounts: components["schemas"]["DepositCashAccount"][];
+        };
+        DepositCashAccount: {
+            /** Format: uuid */
+            uuid: string;
+            code: string;
+            name: string;
+            /** @enum {string} */
+            kind: "cash" | "bank";
+            currency: string;
+            branch: components["schemas"]["FinanceRef"] | null;
+        };
+        EnvelopeSecurityDeposit: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["SecurityDeposit"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeSecurityDepositPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["SecurityDeposit"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeDepositTotals: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["DepositTotals"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeRentalDeposits: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["RentalDeposits"];
             meta: components["schemas"]["ResponseMeta"];
         };
         EnvelopeExpense: {
@@ -43526,7 +43953,7 @@ export interface operations {
                 account?: string;
                 /** @description Rental uuid (entries of its reservation) */
                 rental?: string;
-                /** @description accrual, collection, payment, refund, offset, adjustment, reversal */
+                /** @description accrual, collection, payment, refund, offset, adjustment, reversal, deposit_hold, deposit_return, deposit_capture */
                 kind?: string;
                 /** @description rent, charge, prepayment, deposit, general */
                 purpose?: string;
@@ -45308,6 +45735,477 @@ export interface operations {
                     "application/json": components["schemas"]["EnvelopeExpense"];
                 };
             };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantDepositsMeta: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantDepositTotals: {
+        parameters: {
+            query?: {
+                held_over_days?: number;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeDepositTotals"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantDeposits: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description `created_at`, `held_at` or `amount`; prefix `-` for descending. Default `-created_at`. */
+                sort?: string;
+                /** @description pending, held, partially_captured, released, refunded, cancelled */
+                status?: string;
+                /** @description cash, pos_preauth, online_preauth, bank_transfer */
+                method?: string;
+                /** @description Branch uuids */
+                branch?: string;
+                /** @description Rental uuid */
+                rental?: string;
+                /** @description YYYY-MM-DD (taken on or after) */
+                from?: string;
+                /** @description YYYY-MM-DD (taken on or before) */
+                to?: string;
+                /** @description Only deposits still held for more than N days */
+                held_over_days?: number;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSecurityDepositPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantDeposit: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SecurityDepositInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSecurityDeposit"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+            502: components["responses"]["PaymentProviderError"];
+        };
+    };
+    postTenantDepositsExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantDeposit: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSecurityDeposit"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantDepositVerify: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSecurityDeposit"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            502: components["responses"]["PaymentProviderError"];
+        };
+    };
+    postTenantDepositResolve: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SecurityDepositResolveInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSecurityDeposit"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            502: components["responses"]["PaymentProviderError"];
+        };
+    };
+    postTenantDepositCancel: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinanceReverseRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSecurityDeposit"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantDepositDeductionFile: {
+        parameters: {
+            query?: {
+                /** @description 1 = inline disposition */
+                inline?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                /** @description Deduction uuid */
+                deduction: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description File */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putTenantDepositDeductionFile: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                /** @description Deduction uuid */
+                deduction: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSecurityDeposit"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteTenantDepositDeductionFile: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                /** @description Deduction uuid */
+                deduction: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSecurityDeposit"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantRentalDeposits: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeRentalDeposits"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["TenantForbidden"];
             404: components["responses"]["NotFound"];

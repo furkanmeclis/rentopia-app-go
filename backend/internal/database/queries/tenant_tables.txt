@@ -86,6 +86,8 @@ cash_accounts
 cash_movements
 expense_categories
 expenses
+security_deposits
+deposit_deductions
 vehicle_toll_tags
 toll_passes
 toll_pass_revisions

@@ -740,6 +740,8 @@ func (s *Service) Reverse(ctx context.Context, orgID int64, id uuid.UUID, in mod
 		return model.Entry{}, stateErr("accrual_managed_by_rental", "accruals follow their rental: waive the charge or change the rental, or post an adjustment")
 	case e.Kind == model.KindOffset:
 		return model.Entry{}, stateErr("offset_pair", "an offset is one of a pair; post an adjustment instead")
+	case e.SourceType == model.SourceSecurityDeposit:
+		return model.Entry{}, stateErr("deposit_managed", "deposit postings follow their deposit; post an adjustment instead")
 	case e.Reversed:
 		return model.Entry{}, stateErr("already_reversed", "the entry is already reversed")
 	}
@@ -843,6 +845,20 @@ func (s *Service) Offset(ctx context.Context, orgID int64, id uuid.UUID, in mode
 				return err
 			}
 			ids = append(ids, row.Uuid)
+			if leg.dir == model.Credit {
+				// The settling leg is a collection document allocated to
+				// the rental's (or the account's) open items, so the items
+				// it pays show as paid (collections, TEC-718).
+				if _, err := s.creditDocument(ctx, q, orgID, creditDoc{
+					accountID: acc.ID, currency: acc.Currency, entryID: row.ID, amount: *in.Amount,
+					method: model.MethodOther, provider: model.ProviderManual, date: dateOf(today),
+					branchID: branch, rentalID: rentalOf(rental, hasRental).Int64,
+					reservationID: reservationOf(rental, hasRental).Int64, note: "depozito mahsubu · " + reason,
+					onlyPurpose: target,
+				}); err != nil {
+					return err
+				}
+			}
 		}
 		return nil
 	})

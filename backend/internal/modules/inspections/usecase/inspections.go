@@ -17,6 +17,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/rbac"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/pkg/money"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -355,7 +356,15 @@ func (s *Service) summary(ctx context.Context, orgID int64, r rentalmodel.Rental
 	cond := rentalmodel.ConditionsFromSnapshot(facts.ProductSnapshot)
 	out.Amounts = model.Amounts{
 		Currency: strings.TrimSpace(facts.Currency), Total: total, Paid: paid, Balance: total.Sub(paid).ClampZero(),
-		PaymentStatus: facts.PaymentStatus, DepositAmount: cond.DepositAmount, DepositStatus: "not_tracked",
+		PaymentStatus: facts.PaymentStatus, DepositAmount: cond.DepositAmount, DepositStatus: "none",
+	}
+	dep, err := s.q.GetLatestDepositForRental(ctx, db.GetLatestDepositForRentalParams{OrganizationID: orgID, RentalUuid: r.UUID})
+	switch {
+	case err == nil:
+		id := dep.Uuid
+		out.Amounts.DepositStatus, out.Amounts.DepositUUID, out.Amounts.DepositMethod = dep.Status, &id, dep.Method
+	case !errors.Is(err, pgx.ErrNoRows):
+		return out, err
 	}
 	return out, nil
 }

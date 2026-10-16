@@ -24,6 +24,8 @@ const (
 	ResourceExpenses     = model.ResourceExpenses
 	// ResourceCollections: collections (TEC-718).
 	ResourceCollections = model.ResourceCollections
+	// ResourceDeposits: security deposits (TEC-719).
+	ResourceDeposits = model.ResourceDeposits
 )
 
 // ResourceEngines are the engine handlers of one resource (nil members
@@ -38,7 +40,7 @@ type ResourceEngines struct {
 // EngineHandlers are the shared engine handlers per finance resource.
 type EngineHandlers struct {
 	Accounts, Entries, CashAccounts, Movements, Expenses ResourceEngines
-	Collections                                          ResourceEngines
+	Collections, Deposits                                ResourceEngines
 }
 
 // RegisterRoutes mounts /v1/tenant/finance. A nil resolver (tenancy off)
@@ -176,6 +178,26 @@ func RegisterRoutes(
 	route("GET /v1/tenant/finance/expenses/{uuid}/file", h.DownloadAttachment, expRead)
 	route("DELETE /v1/tenant/finance/expenses/{uuid}/file", h.DeleteAttachment, expWrite)
 
+	// Security deposits and pre-authorizations (TEC-719). Deductions also
+	// need tenant.finance.deposits.deduct (checked by the use case).
+	depRead, depWrite := perm(rbac.PermTenantFinanceDepositsRead), perm(rbac.PermTenantFinanceDepositsWrite)
+	depExport := perm(rbac.PermTenantFinanceDepositsExport)
+	route("GET /v1/tenant/finance/deposits/meta", h.DepositsMeta, depRead)
+	route("GET /v1/tenant/finance/deposits/totals", h.DepositTotals, depRead)
+	route("GET /v1/tenant/finance/deposits", h.ListDeposits, depRead)
+	route("POST /v1/tenant/finance/deposits", h.TakeDeposit, depRead, depWrite)
+	if engines.Deposits.Export != nil {
+		route("POST /v1/tenant/finance/deposits/export", engines.Deposits.Export, depRead, depExport)
+	}
+	route("GET /v1/tenant/finance/deposits/{uuid}", h.GetDeposit, depRead)
+	route("POST /v1/tenant/finance/deposits/{uuid}/verify", h.VerifyDeposit, depRead, depWrite)
+	route("POST /v1/tenant/finance/deposits/{uuid}/resolve", h.ResolveDeposit, depRead, depWrite)
+	route("POST /v1/tenant/finance/deposits/{uuid}/cancel", h.CancelDeposit, depRead, depWrite)
+	route("PUT /v1/tenant/finance/deposits/{uuid}/deductions/{deduction}/file", h.UploadDeductionDocument, depRead, depWrite)
+	route("GET /v1/tenant/finance/deposits/{uuid}/deductions/{deduction}/file", h.DownloadDeductionDocument, depRead)
+	route("DELETE /v1/tenant/finance/deposits/{uuid}/deductions/{deduction}/file", h.DeleteDeductionDocument, depRead, depWrite)
+	route("GET /v1/tenant/finance/rentals/{uuid}/deposits", h.RentalDeposits, depRead)
+
 	// Reports.
 	route("GET /v1/tenant/finance/reports/expenses", h.ExpenseReport, reports)
 	route("GET /v1/tenant/finance/reports/cash-flow", h.CashFlowReport, reports)
@@ -191,6 +213,7 @@ func RegisterLiveResources(reg *resourceevents.Registry) {
 	reg.Register(model.ResourceExpenses, rbac.PermTenantFinanceExpensesRead)
 	reg.Register(model.ResourceCategories, rbac.PermTenantFinanceExpensesRead)
 	reg.Register(model.ResourceCollections, rbac.PermTenantFinanceAccountsRead)
+	reg.Register(model.ResourceDeposits, rbac.PermTenantFinanceDepositsRead)
 }
 
 // Export / bulk query keys per resource.
@@ -203,4 +226,5 @@ var (
 	CollectionQueryKeys = []string{
 		"q", "method", "status", "allocation_status", "branch", "cash_account", "account", "rental", "from", "to",
 	}
+	DepositQueryKeys = []string{"q", "status", "method", "branch", "rental", "from", "to", "held_over_days"}
 )

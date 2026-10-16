@@ -571,6 +571,9 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	financeSvc.SetLogger(log)
 	rentalsSvc.SetLedger(financeSvc)
 	paymentsSvc.SetLedger(financeSvc)
+	// Security deposits (TEC-719): online pre-auth through the
+	// organization's payment account (iyzico pre-auth / post-auth / cancel).
+	financeSvc.SetPreAuth(integrationAccountsSvc, cfg.Auth.FrontendURL, iyzicoAdapter)
 	financeSvc.SetPayments(paymentsSvc)
 	// Customer portal (TEC-715): reference + contact + one-time code, a
 	// customer session of its own, documents, pay remaining, requests.
@@ -670,6 +673,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		financeadapters.NewCashAccountsIO(financeSvc),
 		financeadapters.NewMovementsIO(financeSvc),
 		financeadapters.NewExpensesIO(financeSvc),
+		financeadapters.NewDepositsIO(financeSvc),
 		financeadapters.NewCollectionsIO(financeSvc),
 	)
 	exportSvc := exportusecase.New(deps.Queries, deps.Storage, ioReg, jobQueue, notifSvc, activityRec, log)
@@ -865,6 +869,9 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		Collections: financemodule.ResourceEngines{
 			Export: exportH.TenantExport(financemodule.ResourceCollections, financemodule.CollectionQueryKeys...),
 			Bulk:   bulkH.TenantExecute(financemodule.ResourceCollections),
+		},
+		Deposits: financemodule.ResourceEngines{
+			Export: exportH.TenantExport(financemodule.ResourceDeposits, financemodule.DepositQueryKeys...),
 		},
 	}, tokens, loader, tenantResolver)
 	portalH := customerportalhandler.New(portalSvc, activityRec)

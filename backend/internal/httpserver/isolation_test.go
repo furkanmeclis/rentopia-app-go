@@ -598,6 +598,20 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		}), http.StatusCreated, "create expense"), "uuid")
 		must(upload(o, http.MethodPut, "/v1/tenant/finance/expenses/"+ids["expense"]+"/file", "file", "fis.png", png, nil),
 			http.StatusOK, "upload expense receipt")
+		// Security deposits (TEC-719): a POS pre-auth resolved with one
+		// deduction (and its document), then a second one still held.
+		ids["deposit"] = str(must(call(o, http.MethodPost, "/v1/tenant/finance/deposits", map[string]any{
+			"rental_uuid": ids["rental"], "method": "pos_preauth", "pos_reference": "PRV-" + m, "amount": "500", "note": m,
+		}), http.StatusCreated, "take deposit"), "uuid")
+		resolved := must(call(o, http.MethodPost, "/v1/tenant/finance/deposits/"+ids["deposit"]+"/resolve", map[string]any{
+			"deductions": []map[string]any{{"amount": "100", "applies_to": "general", "reason": m + " kesinti"}}, "idempotency_key": m,
+		}), http.StatusOK, "resolve deposit")
+		ids["depositDeduction"] = asMap(asMap(resolved.data)["deductions"].([]any)[0])["uuid"].(string)
+		must(upload(o, http.MethodPut, "/v1/tenant/finance/deposits/"+ids["deposit"]+"/deductions/"+ids["depositDeduction"]+"/file",
+			"file", "fatura.png", png, nil), http.StatusOK, "upload deduction document")
+		ids["heldDeposit"] = str(must(call(o, http.MethodPost, "/v1/tenant/finance/deposits", map[string]any{
+			"rental_uuid": ids["rental"], "method": "pos_preauth", "pos_reference": "PRV2-" + m, "amount": "400",
+		}), http.StatusCreated, "take second deposit"), "uuid")
 		ids["exportJob"] = str(must(call(o, http.MethodPost, "/v1/tenant/branches/export", map[string]any{"format": "csv"}),
 			http.StatusAccepted, "export"), "uuid")
 		ids["importJob"] = str(must(upload(o, http.MethodPost, "/v1/tenant/branches/import", "file", "branches.csv",
@@ -834,6 +848,9 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		"GET /v1/tenant/finance/expenses": {
 			"?category=" + b["expenseCategory"], "?vehicle=" + b["vehicle"], "?branch=" + b["home"], "?q=" + orgB.marker,
 		},
+		"GET /v1/tenant/finance/deposits": {
+			"?branch=" + b["home"], "?rental=" + b["rental"], "?q=" + orgB.marker, "?held_over_days=0",
+		},
 		"GET /v1/tenant/finance/collections": {
 			"?account=" + b["financeAccount"], "?rental=" + b["rental"], "?branch=" + b["home"],
 			"?cash_account=" + b["cashAccount"], "?q=" + orgB.marker,
@@ -1053,6 +1070,9 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			"target": map[string]any{"scope": "ids", "ids": []string{orgB.ids["collection"]}}}, nil},
 		{"POST /v1/tenant/finance/expenses/bulk", map[string]any{"action": "set_category",
 			"target": map[string]any{"scope": "ids", "ids": []string{orgB.ids["expense"]}, "params": map[string]any{"category_uuid": orgA.ids["expenseCategory"]}}}, nil},
+		{"POST /v1/tenant/finance/deposits", map[string]any{"rental_uuid": orgB.ids["rental"], "method": "pos_preauth", "pos_reference": "X"}, reject},
+		{"POST /v1/tenant/finance/deposits", map[string]any{"rental_uuid": orgA.ids["rental"], "method": "cash",
+			"cash_account_uuid": orgB.ids["cashAccount"]}, reject},
 		{"POST /v1/tenant/finance/expenses/bulk", map[string]any{"action": "set_category",
 			"target": map[string]any{"scope": "ids", "ids": []string{orgA.ids["expense"]}, "params": map[string]any{"category_uuid": orgB.ids["expenseCategory"]}}}, reject},
 	}
@@ -1074,6 +1094,10 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 	}
 	// Mutations on A's own records whose body names B's records.
 	ownCases := []bodyCase{
+		{"POST /v1/tenant/finance/deposits/" + orgA.ids["heldDeposit"] + "/resolve", map[string]any{"deductions": []map[string]any{{
+			"amount": "10", "applies_to": "general", "reason": "izolasyon", "inspection_damage_uuid": orgB.ids["inspectionDamage"]}}}, reject},
+		{"POST /v1/tenant/finance/deposits/" + orgA.ids["heldDeposit"] + "/resolve", map[string]any{"deductions": []map[string]any{{
+			"amount": "10", "reason": "izolasyon", "rental_charge_uuid": orgB.ids["charge"]}}}, reject},
 		{"POST /v1/tenant/reservations/" + orgA.ids["reservation"] + "/plate", map[string]any{"vehicle_uuid": orgB.ids["vehicle"]}, reject},
 		{"POST /v1/tenant/finance/accounts/" + orgA.ids["financeAccount"] + "/collections", map[string]any{"amount": "1",
 			"cash_account_uuid": orgB.ids["cashAccount"]}, reject},
@@ -1406,6 +1430,10 @@ func paramKey(prev, name string) string {
 		return "expenseCategory"
 	case "expenses/uuid":
 		return "expense"
+	case "deposits/uuid":
+		return "deposit"
+	case "deductions/deduction":
+		return "depositDeduction"
 	case "collections/uuid":
 		return "collection"
 	case "toll-passes/uuid":

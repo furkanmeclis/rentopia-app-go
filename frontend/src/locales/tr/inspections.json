@@ -2,7 +2,6 @@
   "amounts.balance": "Kalan ödeme",
   "amounts.balance_hint": "Kalan ödemeyi aracı teslim etmeden önce tahsil edin (Ödemeler sekmesi).",
   "amounts.deposit": "Depozito / provizyon",
-  "amounts.deposit_not_tracked": "Şubede alınır (sistemde kayıt yok)",
   "amounts.deposit_status": "Depozito durumu",
   "amounts.paid": "Ödenen",
   "amounts.payment_status": "Ödeme durumu",

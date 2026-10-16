@@ -142,6 +142,10 @@ export const Permission = {
   TenantFinanceExpensesBulkSetCategory:
     "tenant.finance.expenses.bulk.set_category",
   TenantFinanceReportsRead: "tenant.finance.reports.read",
+  TenantFinanceDepositsRead: "tenant.finance.deposits.read",
+  TenantFinanceDepositsWrite: "tenant.finance.deposits.write",
+  TenantFinanceDepositsDeduct: "tenant.finance.deposits.deduct",
+  TenantFinanceDepositsExport: "tenant.finance.deposits.export",
   TenantFinanceCollectionsBulkAllocate:
     "tenant.finance.collections.bulk.allocate",
   TenantTollsRead: "tenant.tolls.read",
@@ -492,6 +496,13 @@ export const permissions = {
       },
       reports: {
         read: Permission.TenantFinanceReportsRead,
+      },
+      /** Security deposits (TEC-719): deduct = capture deductions. */
+      deposits: {
+        read: Permission.TenantFinanceDepositsRead,
+        write: Permission.TenantFinanceDepositsWrite,
+        deduct: Permission.TenantFinanceDepositsDeduct,
+        export: Permission.TenantFinanceDepositsExport,
       },
       /**
        * Collections (TEC-718): list / detail with `accounts.read`, record
