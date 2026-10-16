@@ -935,7 +935,10 @@ func TestBranchScopeAndIsolation(t *testing.T) {
 		t.Fatalf("foreign agreement = %v", err)
 	}
 	for _, call := range []func() error{
-		func() error { _, _, err := f.svc.Update(f.ctx, f.org, other.UUID, model.Input{Name: sp("x")}); return err },
+		func() error {
+			_, _, err := f.svc.Update(f.ctx, f.org, other.UUID, model.Input{Name: sp("x")})
+			return err
+		},
 		func() error { _, err := f.svc.Billing(f.ctx, f.org, other.UUID, nil); return err },
 		func() error { _, err := f.svc.Statement(f.ctx, f.org, other.UUID); return err },
 		func() error { _, err := f.svc.Rentals(f.ctx, f.org, other.UUID); return err },

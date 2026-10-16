@@ -191,13 +191,13 @@ func (h *Handler) AddContact(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, r, http.StatusCreated, out)
 }
 
-// RemoveContact serves DELETE /v1/tenant/agreements/{uuid}/contacts/{contactUuid}.
+// RemoveContact serves DELETE /v1/tenant/agreements/{uuid}/contacts/{agreementContactUuid}.
 func (h *Handler) RemoveContact(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathUUID(w, r, "uuid")
 	if !ok {
 		return
 	}
-	contact, ok := pathUUID(w, r, "contactUuid")
+	contact, ok := pathUUID(w, r, "agreementContactUuid")
 	if !ok {
 		return
 	}
@@ -229,13 +229,13 @@ func (h *Handler) AddDriver(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, r, http.StatusCreated, out)
 }
 
-// RemoveDriver serves DELETE /v1/tenant/agreements/{uuid}/drivers/{driverUuid}.
+// RemoveDriver serves DELETE /v1/tenant/agreements/{uuid}/drivers/{agreementDriverUuid}.
 func (h *Handler) RemoveDriver(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathUUID(w, r, "uuid")
 	if !ok {
 		return
 	}
-	driver, ok := pathUUID(w, r, "driverUuid")
+	driver, ok := pathUUID(w, r, "agreementDriverUuid")
 	if !ok {
 		return
 	}
