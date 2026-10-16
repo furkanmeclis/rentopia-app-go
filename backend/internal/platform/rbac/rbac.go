@@ -222,7 +222,7 @@ const (
 	PermTenantInvoicesBulkSend             = "tenant.invoices.bulk.send"
 )
 
-// Public booking API (TEC-728, migration 000501): API keys, webhook
+// Public booking API (TEC-728, migration 000114): API keys, webhook
 // endpoints and their deliveries.
 const (
 	PermTenantPublicAPIRead   = "tenant.public_api.read"

@@ -13671,6 +13671,220 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenant/reports/occupancy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Occupancy report
+         * @description `tenant.finance.reports.read`. Rented time over available time (service life minus usage blocks) of the vehicles in the
+         *     caller's branch scope, by rental group (default), home branch or month, each row with its monthly trend. Uses the vehicle
+         *     profitability engine (same vehicles, same days). Vehicles in several rental groups count in each group
+         *     (`multi_group_vehicles`).
+         */
+        get: operations["getTenantReportOccupancy"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reports/occupancy/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export the occupancy report
+         * @description `tenant.finance.reports.read` + `tenant.report.export`. `query` honours `from`, `to`, `branch`, `rental_group`, `group_by`. One row per group plus a totals row; the period and the method are in the notes above the table. The job runs with the requester's branch scope.
+         */
+        post: operations["postTenantReportOccupancyExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reports/income-expense": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Income / expense report
+         * @description `tenant.finance.reports.read`. Income (rent and charge accruals of customer accounts, net of reversals, by entry date)
+         *     against expenses (recorded expenses by expense date, supplier invoices included) by category (default), branch or month,
+         *     with the monthly trend. Tolls passed through to the customer (`pass_through`) and vehicle procurement (`capex`) are kept
+         *     apart. A member limited to some branches sees their branches' records only (no head-office rows).
+         */
+        get: operations["getTenantReportIncomeExpense"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reports/income-expense/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export the income / expense report
+         * @description `tenant.finance.reports.read` + `tenant.report.export`. `query` honours `from`, `to`, `branch`, `group_by`. One row per category / branch / month plus a totals row; the period and the method are in the notes.
+         */
+        post: operations["postTenantReportIncomeExpenseExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reports/channels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Channel performance report
+         * @description `tenant.finance.reports.read`. Reservations grouped by their sales channel (`reservations.channel`; channels imported by
+         *     the channel manager land in the same field): counts by status, cancellation rate (cancelled / all), revenue and channel
+         *     commission of confirmed reservations, net revenue, average booking value and length, by booking date (default) or
+         *     pick-up date, with the monthly trend per channel. Branch scope: pick-up or return branch.
+         */
+        get: operations["getTenantReportChannels"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reports/channels/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export the channel performance report
+         * @description `tenant.finance.reports.read` + `tenant.report.export`. `query` honours `from`, `to`, `branch`, `date_basis`. One row per channel plus a totals row.
+         */
+        post: operations["postTenantReportChannelsExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reports/aging": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Receivable / payable aging report
+         * @description `tenant.finance.reports.read`. Open amounts of customer (receivables, default) or supplier (payables) accounts as of a
+         *     date, by days past due (not due, 1–30, 31–60, 61–90, 90+); settlements pay the oldest charges first (FIFO), like the
+         *     ledger summary. Deposits are excluded; accounts with nothing open and no credit are left out. Branch scope applies to the
+         *     entries' branch.
+         */
+        get: operations["getTenantReportAging"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reports/aging/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export the aging report
+         * @description `tenant.finance.reports.read` + `tenant.report.export`. `query` honours `as_of`, `party`, `branch`. One row per account plus a totals row.
+         */
+        post: operations["postTenantReportAgingExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reports/branches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Branch comparison report
+         * @description `tenant.finance.reports.read`. The branches compared by their vehicles (home branch): vehicles, rentals, occupancy, gross
+         *     income, commissions, direct costs, allocated overhead and the operating contribution, i.e. the branch totals of the
+         *     vehicle profitability report under the chosen basis and allocation method.
+         */
+        get: operations["getTenantReportBranches"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/reports/branches/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export the branch comparison report
+         * @description `tenant.finance.reports.read` + `tenant.report.export`. `query` honours `from`, `to`, `branch`, `basis`, `allocation`. One row per branch plus a totals row.
+         */
+        post: operations["postTenantReportBranchesExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenant/agreements/meta": {
         parameters: {
             query?: never;
@@ -25914,6 +26128,262 @@ export interface components {
             /** @enum {boolean} */
             success: true;
             data: components["schemas"]["VehicleProfitabilityVehicle"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        ReportMethod: {
+            timezone: string;
+            currency: string;
+            vat_inclusive: boolean;
+            /**
+             * @description all: every branch and the head office; branches: the caller's branches only (no head-office records)
+             * @enum {string}
+             */
+            branch_scope: "all" | "branches";
+        };
+        ReportRef: {
+            /**
+             * Format: uuid
+             * @description null for keys without a record (month, ungrouped vehicles)
+             */
+            uuid: string | null;
+            code: string;
+            name: string;
+        };
+        ReportOccupancyFigures: {
+            vehicles: number;
+            /** @description Rented time in days (two decimals) */
+            rental_days: number;
+            /** @description In service, not blocked, in days (two decimals) */
+            available_days: number;
+            /** @description Rented / available in percent (one decimal) */
+            occupancy: number | null;
+            /** @description Rentals of the group's vehicles (0 on month rows) */
+            rental_count: number;
+            /** @description TRY, VAT inclusive (decimal string), profitability accrual basis */
+            gross_income: string;
+            /** @description Gross income per available day */
+            income_per_available_day: string | null;
+        };
+        ReportOccupancyPoint: {
+            /** @description YYYY-MM */
+            month: string;
+            rental_days: number;
+            available_days: number;
+            occupancy: number | null;
+        };
+        ReportOccupancyRow: components["schemas"]["ReportOccupancyFigures"] & {
+            /** @description Group uuid, `ungrouped` or YYYY-MM */
+            key: string;
+            group: components["schemas"]["ReportRef"];
+            trend: components["schemas"]["ReportOccupancyPoint"][];
+        };
+        ReportOccupancy: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            /** @enum {string} */
+            group_by: "rental_group" | "branch" | "month";
+            method: components["schemas"]["ReportMethod"];
+            rows: components["schemas"]["ReportOccupancyRow"][];
+            totals: components["schemas"]["ReportOccupancyFigures"];
+            trend: components["schemas"]["ReportOccupancyPoint"][];
+            multi_group_vehicles: number;
+        };
+        ReportIncomeExpenseFigures: {
+            /** @description TRY, VAT inclusive (decimal string) */
+            income: string;
+            /** @description TRY, VAT inclusive (decimal string) */
+            expense: string;
+            /** @description Income − expense */
+            net: string;
+            /** @description Tolls passed through to the customer (never income) */
+            pass_through: string;
+            /** @description Vehicle procurement (never an expense) */
+            capex: string;
+            /** @description Net / income in percent (one decimal) */
+            margin: number | null;
+        };
+        ReportIncomeExpenseRow: components["schemas"]["ReportIncomeExpenseFigures"] & {
+            key: string;
+            /** @enum {string} */
+            kind: "income" | "expense" | "pass_through" | "capex" | "group";
+            /** @description Income: rent / other / charge.<kind>; expense category code; branch code or YYYY-MM */
+            code: string;
+            /** @description Expense category / branch name; empty for income categories and the head office */
+            name: string;
+            /** @description Share in the kind's total (category) or in the income (branch / month), percent */
+            share: number | null;
+        };
+        ReportIncomeExpensePoint: components["schemas"]["ReportIncomeExpenseFigures"] & {
+            /** @description YYYY-MM */
+            month: string;
+        };
+        ReportIncomeExpense: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            /** @enum {string} */
+            group_by: "category" | "branch" | "month";
+            method: components["schemas"]["ReportMethod"];
+            rows: components["schemas"]["ReportIncomeExpenseRow"][];
+            totals: components["schemas"]["ReportIncomeExpenseFigures"];
+            trend: components["schemas"]["ReportIncomeExpensePoint"][];
+        };
+        ReportChannelFigures: {
+            reservations: number;
+            confirmed: number;
+            /** @description Request, awaiting review or payment */
+            pending: number;
+            cancelled: number;
+            expired: number;
+            no_show: number;
+            /** @description Cancelled / reservations in percent */
+            cancellation_rate: number | null;
+            /** @description Sold price of confirmed reservations (TRY, VAT inclusive) */
+            revenue: string;
+            /** @description Channel commission of confirmed reservations */
+            commission: string;
+            net_revenue: string;
+            commission_rate: number | null;
+            /** @description Revenue collected by the channel itself */
+            channel_collected: string;
+            average_revenue: string | null;
+            average_days: number;
+            revenue_share: number | null;
+        };
+        ReportChannelRow: components["schemas"]["ReportChannelFigures"] & {
+            /** @description Sales channel code (web, widget, api, branch, yolcu360, obilet or a channel added later) */
+            channel: string;
+        };
+        ReportChannelPoint: {
+            month: string;
+            channel: string;
+            reservations: number;
+            cancelled: number;
+            revenue: string;
+        };
+        ReportChannels: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            /** @enum {string} */
+            date_basis: "booking" | "pickup";
+            method: components["schemas"]["ReportMethod"];
+            /** @description Reservation field the channels come from */
+            source: string;
+            rows: components["schemas"]["ReportChannelRow"][];
+            totals: components["schemas"]["ReportChannelFigures"];
+            trend: components["schemas"]["ReportChannelPoint"][];
+        };
+        ReportAgingFigures: {
+            /** @description Not yet due */
+            current: string;
+            days_1_30: string;
+            days_31_60: string;
+            days_61_90: string;
+            days_90_plus: string;
+            overdue: string;
+            open: string;
+            /** @description Settlements not applied to any charge */
+            credit: string;
+        };
+        ReportAgingRow: components["schemas"]["ReportAgingFigures"] & {
+            /** Format: uuid */
+            uuid: string;
+            code: string;
+            name: string;
+            /** @enum {string} */
+            party_kind: "customer" | "supplier";
+            payment_term_days: number;
+            /** @description Customer: what the party owes; supplier: what we owe */
+            balance: string;
+            /** Format: date */
+            last_entry: string | null;
+        };
+        ReportAgingBucket: {
+            /** @enum {string} */
+            key: "current" | "days_1_30" | "days_31_60" | "days_61_90" | "days_90_plus";
+            amount: string;
+        };
+        ReportAging: {
+            /** Format: date */
+            as_of: string;
+            /** @enum {string} */
+            party: "customer" | "supplier";
+            method: components["schemas"]["ReportMethod"];
+            rows: components["schemas"]["ReportAgingRow"][];
+            totals: components["schemas"]["ReportAgingFigures"];
+            buckets: components["schemas"]["ReportAgingBucket"][];
+        };
+        ReportBranchFigures: {
+            vehicles: number;
+            rental_count: number;
+            rental_days: number;
+            available_days: number;
+            occupancy: number | null;
+            gross_income: string;
+            commissions: string;
+            direct_costs: string;
+            overhead: string;
+            contribution: string;
+            margin: number | null;
+            income_per_vehicle: string | null;
+            /** @description Share of the total contribution (when positive), percent */
+            contribution_share: number | null;
+        };
+        ReportBranchRow: components["schemas"]["ReportBranchFigures"] & {
+            branch: components["schemas"]["ReportRef"];
+        };
+        ReportBranchMethod: components["schemas"]["ReportMethod"] & {
+            /** @enum {string} */
+            basis: "accrual" | "cash";
+            /** @enum {string} */
+            allocation: "rental_days" | "vehicle_count" | "revenue";
+            /** @enum {string} */
+            overhead_scope: "all" | "branches";
+            allocation_fallback: boolean;
+            unallocated_overhead: string;
+        };
+        ReportBranches: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            method: components["schemas"]["ReportBranchMethod"];
+            rows: components["schemas"]["ReportBranchRow"][];
+            totals: components["schemas"]["ReportBranchFigures"];
+        };
+        EnvelopeReportOccupancy: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["ReportOccupancy"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeReportIncomeExpense: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["ReportIncomeExpense"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeReportChannels: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["ReportChannels"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeReportAging: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["ReportAging"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeReportBranches: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["ReportBranches"];
             meta: components["schemas"]["ResponseMeta"];
         };
         EnvelopeFinanceReport: {
@@ -52873,6 +53343,363 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["TenantForbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantReportOccupancy: {
+        parameters: {
+            query?: {
+                /** @description First day (YYYY-MM-DD, Europe/Istanbul). Default: the first day of this month. */
+                from?: string;
+                /** @description Last day (YYYY-MM-DD). Default: today. The period is capped at 366 days. */
+                to?: string;
+                /** @description Grouping (default rental_group). */
+                group_by?: "rental_group" | "branch" | "month";
+                /** @description Home branch uuids, comma separated (unknown or outside the scope: 400 not_found). */
+                branch?: string;
+                /** @description Rental group uuids, comma separated. */
+                rental_group?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeReportOccupancy"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantReportOccupancyExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantReportIncomeExpense: {
+        parameters: {
+            query?: {
+                /** @description First day (YYYY-MM-DD, Europe/Istanbul). Default: the first day of this month. */
+                from?: string;
+                /** @description Last day (YYYY-MM-DD). Default: today. The period is capped at 366 days. */
+                to?: string;
+                /** @description Grouping (default category). */
+                group_by?: "category" | "branch" | "month";
+                /** @description Branch uuids of the entries / expenses, comma separated (unknown or outside the scope: 400 not_found). */
+                branch?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeReportIncomeExpense"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantReportIncomeExpenseExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantReportChannels: {
+        parameters: {
+            query?: {
+                /** @description First day (YYYY-MM-DD, Europe/Istanbul). Default: the first day of this month. */
+                from?: string;
+                /** @description Last day (YYYY-MM-DD). Default: today. The period is capped at 366 days. */
+                to?: string;
+                /** @description booking (default): reservation created in the period; pickup: pick-up in the period. */
+                date_basis?: "booking" | "pickup";
+                /** @description Pick-up branch uuids, comma separated (unknown or outside the scope: 400 not_found). */
+                branch?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeReportChannels"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantReportChannelsExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantReportAging: {
+        parameters: {
+            query?: {
+                /** @description Report date (YYYY-MM-DD, Europe/Istanbul): entries posted up to it. Default: today. */
+                as_of?: string;
+                /** @description customer (default) or supplier accounts. */
+                party?: "customer" | "supplier";
+                /** @description Entry branch uuids, comma separated (unknown or outside the scope: 400 not_found). */
+                branch?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeReportAging"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantReportAgingExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantReportBranches: {
+        parameters: {
+            query?: {
+                /** @description First day (YYYY-MM-DD, Europe/Istanbul). Default: the first day of this month. */
+                from?: string;
+                /** @description Last day (YYYY-MM-DD). Default: today. The period is capped at 366 days. */
+                to?: string;
+                /** @description Profitability basis (default accrual). */
+                basis?: "accrual" | "cash";
+                /** @description Shared overhead allocation method (default rental_days). */
+                allocation?: "rental_days" | "vehicle_count" | "revenue";
+                /** @description Home branch uuids, comma separated (unknown or outside the scope: 400 not_found). */
+                branch?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeReportBranches"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantReportBranchesExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
         };
     };
     getTenantAgreementsMeta: {

@@ -137,6 +137,19 @@ export const routes = {
         `/t/${encodeURIComponent(slug)}/rentals/${uuid}`,
     },
     /** Finance ("Finans", TEC-717 / TEC-720). */
+    /** Reports (TEC-738): hub and one page per report. */
+    reports: {
+      root: (slug: string) => `/t/${encodeURIComponent(slug)}/reports`,
+      occupancy: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/reports/occupancy`,
+      incomeExpense: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/reports/income-expense`,
+      channels: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/reports/channels`,
+      aging: (slug: string) => `/t/${encodeURIComponent(slug)}/reports/aging`,
+      branches: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/reports/branches`,
+    },
     finance: {
       accounts: (slug: string) =>
         `/t/${encodeURIComponent(slug)}/finance/accounts`,

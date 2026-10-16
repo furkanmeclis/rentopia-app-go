@@ -164,6 +164,28 @@ type CategoryAmount struct {
 	Amount money.Money `json:"amount"`
 }
 
+// VehicleMonths is one vehicle's figures per calendar month of the period
+// (the reports of TEC-738 aggregate them by branch and rental group).
+type VehicleMonths struct {
+	// VehicleID and HomeBranchID are internal ids (never serialized).
+	VehicleID    int64
+	HomeBranchID int64
+	Vehicle      VehicleRef
+	// Months follow Breakdown.Months; RentalCount is on Totals only.
+	Months []Figures
+	Totals Figures
+}
+
+// Breakdown is the per-vehicle, per-month result of the engine for the
+// rows a report filter selects.
+type Breakdown struct {
+	From     string
+	To       string
+	Method   Method
+	Months   []TrendPoint
+	Vehicles []VehicleMonths
+}
+
 // VehicleReport is the profitability of one vehicle (vehicle detail tab).
 type VehicleReport struct {
 	From       string           `json:"from"`
