@@ -127,6 +127,11 @@ func TestDepositCashHeldAsLiability(t *testing.T) {
 	if _, err := f.fin.Reverse(ctx, f.org, hold, model.ReverseInput{Reason: "yanlış"}); !errors.As(err, &se) || se.Code != "deposit_managed" {
 		t.Fatalf("manual reversal of a deposit hold: %v", err)
 	}
+	var depositIn uuid.UUID
+	f.must(f.pool.QueryRow(context.Background(), `SELECT uuid FROM cash_movements WHERE organization_id = $1 AND kind = 'deposit_in'`, f.org).Scan(&depositIn))
+	if _, err := f.fin.ReverseMovement(ctx, f.org, depositIn, model.ReverseInput{Reason: "yanlış"}); !errors.As(err, &se) || se.Code != "deposit_movement" {
+		t.Fatalf("manual reversal of a deposit movement: %v", err)
+	}
 	// The statement's running balance ignores the deposit leg too.
 	st, err := f.fin.Statement(ctx, f.org, after.UUID, model.EntryFilter{Limit: 50})
 	f.must(err)

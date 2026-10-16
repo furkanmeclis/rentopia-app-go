@@ -596,7 +596,7 @@ func (s *Service) TakeDeposit(ctx context.Context, orgID int64, in model.Deposit
 	if r.InvoiceCustomerID.Valid {
 		customerID = r.InvoiceCustomerID.Int64
 	}
-	desc := r.Reference + " · " + in.Method
+	desc := r.Reference + " · depozito"
 	status, heldAt := model.DepositHeld, pgtype.Timestamptz{Time: s.clock(), Valid: true}
 	if in.Method == model.DepositOnlinePreAuth {
 		status, heldAt = model.DepositPending, pgtype.Timestamptz{}

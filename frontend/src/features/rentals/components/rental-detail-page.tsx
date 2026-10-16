@@ -1107,7 +1107,7 @@ export function RentalDetailPage({ uuid }: { uuid: string }) {
               }
             />
             <Tabs defaultValue="overview" className="space-y-4">
-              <TabsList className="flex h-auto flex-wrap">
+              <TabsList className="flex h-auto flex-wrap group-data-[orientation=horizontal]/tabs:h-auto">
                 <TabsTrigger value="overview">
                   {t("rentals.tabs.overview")}
                 </TabsTrigger>

@@ -31,6 +31,7 @@ import type {
 import { Amount } from "@/features/finance/components/finance-cells";
 import { FinanceFormDialog } from "@/features/finance/components/form-dialog";
 import {
+  amountText,
   errorText,
   isPositiveAmount,
   normalizeAmount,
@@ -225,7 +226,7 @@ export function ResolveDepositDialog({
   onOpenChange: (open: boolean) => void;
   initialMode?: "release" | "deduct";
 }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const [problem, setProblem] = useState<string | null>(null);
   const resolve = useResolveDeposit(deposit.uuid);
   const { can } = usePermission();
@@ -257,7 +258,7 @@ export function ResolveDepositDialog({
       )
       .map((c) => ({
         value: c.uuid,
-        label: `${t(CHARGE_KIND_LABEL_KEYS[c.kind])} · ${c.amount} ${c.currency}`,
+        label: `${t(CHARGE_KIND_LABEL_KEYS[c.kind])} · ${amountText(c.amount, locale, c.currency)}`,
       })),
   ];
   const damageOptions: Option[] = [
