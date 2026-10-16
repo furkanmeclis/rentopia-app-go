@@ -69,6 +69,8 @@ Posted rows are history: a trigger refuses changing their figures or deleting th
 
 **Job.** `app:agreements:accrue-periods` (worker, hourly at :17, `finance.AccruePeriods`): every periodic rental under way or returned whose plan is missing or has a due period is reconciled, one transaction each; failures are logged and retried next hour.
 
+**Vehicle profitability (TEC-727).** The report reads the period accruals like any rent accrual: on the accrual basis each posted period counts in its own month (a period reversal counts on the reversed accrual's date), on the cash basis the collections count; a periodic rental has no handover accrual, so nothing is counted twice ([vehicle-profitability.md](./vehicle-profitability.md)).
+
 **Invoicing (TEC-722).** Not built here: `GET /agreements/{uuid}/billing` exposes each posted period's accrual entry (`entry_uuid`, entry / due dates) for invoices to link through `ledger_entry_links`.
 
 ## API (`/v1/tenant/agreements`)

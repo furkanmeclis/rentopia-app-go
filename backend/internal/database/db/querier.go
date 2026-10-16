@@ -1798,6 +1798,11 @@ type Querier interface {
 	// collections, refunds, deposit legs and the reversals of those. The
 	// rental comes from the entry, the reversed entry, its collection document
 	// or the live rental of its reservation (online prepayments).
+	// Periodic rent (corporate agreements, TEC-723): a rental billed per period
+	// has no handover accrual (the database refuses it), one accrual per posted
+	// billing period dated at the period's start. A reversal of such an accrual
+	// (early return: superseded / reversed period) counts on the reversed
+	// period's date, so every posted period lands in its own month.
 	ProfitLedgerFacts(ctx context.Context, arg ProfitLedgerFactsParams) ([]ProfitLedgerFactsRow, error)
 	ProfitLegsForRentals(ctx context.Context, arg ProfitLegsForRentalsParams) ([]ProfitLegsForRentalsRow, error)
 	// Legs (handed over) of live rentals that overlap [from_ts, to_ts).

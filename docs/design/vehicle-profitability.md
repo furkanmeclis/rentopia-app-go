@@ -36,6 +36,8 @@ Only rental-linked ledger entries count. The rental of an entry is the entry's o
 | charge kind `toll_fee` | **toll fees** (income) |
 | any other charge (fuel, km, late, damage, equipment, early return, other) | **charges** |
 
+**Periodic rentals** (corporate agreements billed monthly, `rent_billing = periodic`, [corporate-agreements.md](./corporate-agreements.md)): there is no handover accrual (the database refuses one), the rent reaches the ledger as one accrual per posted billing period (`billing_period_id`), dated at the period's start, and classified like any rent accrual. On the accrual basis every posted period counts in its own month: the reversal of a period accrual (early return: a superseded or reversed period) counts on the reversed accrual's date, not on the day it was posted, so a superseded period nets to its new revision in its own month. The cash basis is unchanged (collections). Periods add up to the contract total and a rental is either periodic or handover, so nothing is counted twice.
+
 **Cash basis** — per rental, collections dated in the period (purpose ≠ deposit) minus their voids minus refunds dated in the period. That net cash is classified like the rental's billing: it is split across rent / extras / charges / toll fees / pass-through in proportion to the rental's live (unreversed) accruals of all dates. A rental that billed nothing books its cash as rent. Deposit deductions are captured as `collection` entries (purpose charge), so they count as cash income when captured.
 
 **Gross income** = rent + extras + charges + toll fees. Pass-through tolls are never income.
@@ -136,6 +138,7 @@ Chart colours come from a validated palette (light and dark steps, CVD-checked p
 `internal/modules/profitability/integration_test.go` (real Postgres) seeds a March 2026 fixture with known numbers: three vehicles in two branches, one swap (4 + 2 days), extras in the quote, fuel and a reversed late fee, a toll (pass-through) and its fee, a desk collection partly refunded, an online collection reached through the reservation with a provider commission (and its commission expense), a cash deposit held and returned, a direct expense, a supplier invoice on a vehicle paid in part, a maintenance cost, a transfer cost, procurement, a void and an out-of-period expense, branch and head-office overhead, and a maintenance block.
 
 - `TestProfitabilityBasesAndAllocations`: every income, commission, cost, overhead, contribution and kept-apart figure of every vehicle to the kuruş, for both bases × three methods; totals = sum of rows; the overhead allocated in full.
+- `TestProfitabilityPeriodicRental`: a periodic rental over four months (partial February, early return superseding April, May never posted): every month and the total to the kuruş on both bases, the April reversal on the period's month, a handover accrual refused.
 - `TestProfitabilityOccupancyAndDetail`: rental / available days and occupancy with the block, totals, the vehicle tab (categories, trend), filters (group, branch, search), a two-month trend, invalid filters.
 - `TestProfitabilityBranchScope`: a branch member sees its vehicles only, no head-office overhead, 404 / not_found outside the scope.
 - `TestProfitabilityCrossOrganization`: another organization's vehicles, branches, groups and money never reach the report.
