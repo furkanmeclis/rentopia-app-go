@@ -237,6 +237,14 @@ const (
 	PermTenantNotificationSettingsWrite = "tenant.notification_settings.write"
 )
 
+// Channel manager (TEC-736, migration 000119). The channel account itself
+// is an integration account (PermTenantIntegrationsManage).
+const (
+	PermTenantChannelsRead  = "tenant.channels.read"
+	PermTenantChannelsWrite = "tenant.channels.write"
+	PermTenantChannelsSync  = "tenant.channels.sync"
+)
+
 // Tenant template role keys seeded by migrations 000030 and 000041.
 const (
 	TenantRoleOwner            = "owner"

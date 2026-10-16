@@ -11314,6 +11314,349 @@ export interface paths {
         patch: operations["patchTenantVehicleTollTag"];
         trace?: never;
     };
+    "/v1/tenant/channel-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List channel accounts
+         * @description `tenant.channels.read`. The organization's channel accounts (integration accounts of kind `channel`:
+         *     Yolcu360, its development adapter, later Obilet) with their sync settings and sync state. `health`:
+         *     `ok`, `pending` (nothing pushed yet), `failing` (the last push or pull failed), `expired` (the
+         *     validity of the last push ran out: the channel applies the offline policy) or `disabled`.
+         */
+        get: operations["getTenantChannelAccounts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/channel-accounts/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a channel account
+         * @description `tenant.channels.read`.
+         */
+        get: operations["getTenantChannelAccount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change the sync settings of a channel account
+         * @description `tenant.channels.write` (and access to every branch). Push / pull switches, account-wide stop-sale,
+         *     horizon (1–90 days), intervals, the validity of a push (15–2880 minutes) and the offline policy
+         *     (`close`, or `quota` with at most `offline_quota` units per product, location and day), the default
+         *     collecting party and commission percentage. The next sweep pushes with the new settings.
+         */
+        patch: operations["patchTenantChannelAccount"];
+        trace?: never;
+    };
+    "/v1/tenant/channel-accounts/{uuid}/push": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Push availability, prices and stop-sale now
+         * @description `tenant.channels.sync`. Sends the full snapshot of the horizon (every mapped product and location, day by
+         *     day: units after the quota and stop-sale, the one-day price, the offer reference) with its validity and
+         *     the offline policy. Answers the sync run (a failed push is a run with `status = failed`).
+         *     `409 CHANNEL_SYNC_BUSY` while another sync of the account runs, `409 CHANNEL_ACCOUNT_INACTIVE`,
+         *     `409 CHANNEL_ADAPTER_UNAVAILABLE`.
+         */
+        post: operations["postTenantChannelAccountPush"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/channel-accounts/{uuid}/pull": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read booking messages now
+         * @description `tenant.channels.sync`. Reads the messages after the stored cursor, stores each once (a repeated message id
+         *     only counts a delivery), applies new versions to their reservations and acknowledges the final results.
+         *     Answers the sync run.
+         */
+        post: operations["postTenantChannelAccountPull"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/channel-accounts/{uuid}/simulate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Simulate a booking message (development adapter)
+         * @description `tenant.channels.sync`. Development adapters only (`yolcu360_fake`, never registered in production;
+         *     `409 CHANNEL_NOT_SIMULATOR` otherwise): queues a booking / modification / cancellation as the channel
+         *     would send it and pulls at once. Answers the pull's sync run.
+         */
+        post: operations["postTenantChannelAccountSimulate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/channel-accounts/{uuid}/reconciliation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Channel vs Rentopia reconciliation report
+         * @description `tenant.channels.read`. Bookings picked up in the period: the channel's statement (`source = statement`,
+         *     when the adapter has one; otherwise `local`, the last message of each booking) against the channel bookings
+         *     and their reservations. Each line is `matched`, `missing_local`, `missing_channel`, `status_mismatch`,
+         *     `amount_mismatch` or `commission_mismatch`; totals split what the channel owes (net of bookings it
+         *     collected) and what the organization owes (commission of bookings collected at the counter).
+         */
+        get: operations["getTenantChannelAccountReconciliation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/channel-mappings/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Channel mapping counts
+         * @description `tenant.channels.read`. Counts per entity type, stop-sale and inactive mappings.
+         */
+        get: operations["getTenantChannelMappingFacets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/channel-mappings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List channel mappings
+         * @description `tenant.channels.read`. Branch → location code, rental product (optionally per branch) → product code with
+         *     priority, stop-sale and quota, extra → extra code, per channel account.
+         */
+        get: operations["getTenantChannelMappings"];
+        put?: never;
+        /**
+         * Create a channel mapping
+         * @description `tenant.channels.write` (and access to every branch). The account, branch, product and extra must belong to
+         *     the organization (`400` with `not_found` otherwise). A branch or an extra is mapped once per account and an
+         *     external location / extra code once per account; a product once per account and location scope; several
+         *     products may share one external code (`409 CHANNEL_MAPPING_TAKEN` for a duplicate). Stop-sale and quota
+         *     apply to product mappings only.
+         */
+        post: operations["postTenantChannelMapping"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/channel-mappings/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a channel mapping
+         * @description `tenant.channels.read`.
+         */
+        get: operations["getTenantChannelMapping"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a channel mapping
+         * @description `tenant.channels.write`. The pushed offers of the mapping go with it; channel bookings keep their stored codes.
+         */
+        delete: operations["deleteTenantChannelMapping"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a channel mapping
+         * @description `tenant.channels.write`. External code / name, priority, stop-sale, quota (`null` clears it), activity, note
+         *     and the location scope of a product mapping. The account, entity type and mapped record are fixed.
+         */
+        patch: operations["patchTenantChannelMapping"];
+        trace?: never;
+    };
+    "/v1/tenant/channel-messages/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Channel message counts
+         * @description `tenant.channels.read`. Counts per status and type; `needs_action` = failed messages (the error queue, nav badge).
+         */
+        get: operations["getTenantChannelMessageFacets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/channel-messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List inbound channel messages
+         * @description `tenant.channels.read`. Every booking / modification / cancellation message once, with its result:
+         *     `applied`, `duplicate` (the version was applied already), `stale` (older than the applied version),
+         *     `failed` (the error queue: `error_code` says why) or `ignored`. The summary holds masked facts only.
+         */
+        get: operations["getTenantChannelMessages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/channel-messages/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a channel message
+         * @description `tenant.channels.read`. The message with its channel booking (applied version, collecting party, gross / commission / net, price difference) and the actions the caller may take.
+         */
+        get: operations["getTenantChannelMessage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/channel-messages/{uuid}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply a failed message again
+         * @description `tenant.channels.sync`. After a mapping or capacity fix. A newer version applied meanwhile makes it `stale`.
+         *     `409 CHANNEL_MESSAGE_NOT_RETRYABLE` unless the message is `failed`.
+         */
+        post: operations["postTenantChannelMessageRetry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/channel-messages/{uuid}/ignore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss a failed message
+         * @description `tenant.channels.sync`. A note (3–500) is required; the channel is told the message was refused.
+         */
+        post: operations["postTenantChannelMessageIgnore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/channel-sync-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Channel sync log
+         * @description `tenant.channels.read`. Every push, pull and reconciliation with its trigger (`event`, `schedule`, `manual`), counts, error and non-sensitive details.
+         */
+        get: operations["getTenantChannelSyncRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenant/kabis-notifications/meta": {
         parameters: {
             query?: never;
@@ -14732,7 +15075,8 @@ export interface components {
             source: string;
             /**
              * @description Issue kind: `account_check_failed`, `job_failed`, `job_needs_verification`,
-             *     `job_waiting_dependency`, `job_blocked`, or one of a registered source.
+             *     `job_waiting_dependency`, `job_blocked`, `channel_sync_failed`, `channel_push_expired`,
+             *     `channel_error_queue`, or one of a registered source.
              */
             kind: string;
             /** @enum {string} */
@@ -23222,9 +23566,9 @@ export interface components {
         };
         IntegrationProvider: {
             /** @enum {string} */
-            kind: "payment" | "sms" | "toll" | "kabis";
+            kind: "payment" | "sms" | "toll" | "kabis" | "einvoice" | "channel";
             /** @enum {string} */
-            provider: "iyzico" | "netgsm" | "log" | "hgs_fake" | "kabis" | "kabis_fake";
+            provider: "iyzico" | "netgsm" | "log" | "hgs_fake" | "kabis" | "kabis_fake" | "einvoice" | "einvoice_fake" | "yolcu360" | "yolcu360_fake";
             fields: components["schemas"]["IntegrationField"][];
             modes: ("sandbox" | "live")[];
         };
@@ -23241,9 +23585,9 @@ export interface components {
             /** Format: uuid */
             uuid: string;
             /** @enum {string} */
-            kind: "payment" | "sms" | "toll" | "kabis";
+            kind: "payment" | "sms" | "toll" | "kabis" | "einvoice" | "channel";
             /** @enum {string} */
-            provider: "iyzico" | "netgsm" | "log" | "hgs_fake" | "kabis" | "kabis_fake";
+            provider: "iyzico" | "netgsm" | "log" | "hgs_fake" | "kabis" | "kabis_fake" | "einvoice" | "einvoice_fake" | "yolcu360" | "yolcu360_fake";
             display_name: string;
             /** @enum {string} */
             mode: "sandbox" | "live";
@@ -24593,6 +24937,426 @@ export interface components {
                 revalidates: boolean;
             };
             attempt_log: components["schemas"]["IntegrationAttempt"][];
+        };
+        ChannelRef: {
+            /** Format: uuid */
+            uuid: string;
+            code?: string;
+            name?: string;
+            reference?: string;
+            status?: string;
+            provider?: string;
+        };
+        ChannelCapabilities: {
+            availability: boolean;
+            rates: boolean;
+            stop_sale: boolean;
+            allotment: boolean;
+            pull: boolean;
+            acknowledge: boolean;
+            statement: boolean;
+            max_items_per_push: number;
+        };
+        ChannelAccountSettings: {
+            push_enabled: boolean;
+            pull_enabled: boolean;
+            /** @description Account-wide stop-sale (every item goes out with 0 units) */
+            stop_sale: boolean;
+            horizon_days: number;
+            push_interval_minutes: number;
+            pull_interval_minutes: number;
+            /** @description How long a push stays valid on the channel */
+            validity_minutes: number;
+            /** @enum {string} */
+            offline_policy: "close" | "quota";
+            offline_quota: number;
+            /**
+             * @description Default collecting party when a message does not say
+             * @enum {string}
+             */
+            collected_by: "channel" | "us";
+            /** @description Default commission percentage when a message carries none */
+            commission_rate: string;
+        };
+        ChannelSyncState: {
+            /** @enum {string} */
+            health: "ok" | "pending" | "failing" | "expired" | "disabled";
+            /** Format: date-time */
+            push_requested_at: string | null;
+            /** Format: date-time */
+            last_push_at: string | null;
+            /** Format: date-time */
+            last_push_ok_at: string | null;
+            last_push_status: string;
+            last_push_error: string;
+            /** Format: date-time */
+            pushed_valid_until: string | null;
+            /** Format: date-time */
+            last_pull_at: string | null;
+            /** Format: date-time */
+            last_pull_ok_at: string | null;
+            last_pull_status: string;
+            last_pull_error: string;
+            consecutive_failures: number;
+        };
+        ChannelAccount: {
+            /** Format: uuid */
+            uuid: string;
+            /** @description yolcu360, yolcu360_fake (development) */
+            provider: string;
+            display_name: string;
+            /** @enum {string} */
+            mode: "sandbox" | "live";
+            /** @enum {string} */
+            status: "active" | "disabled";
+            /** @description Sales channel code of the bookings */
+            channel: string;
+            /** @description The adapter is registered in this environment */
+            available: boolean;
+            /** @description The adapter can simulate bookings (development) */
+            simulator: boolean;
+            capabilities: components["schemas"]["ChannelCapabilities"];
+            settings: components["schemas"]["ChannelAccountSettings"];
+            sync: components["schemas"]["ChannelSyncState"];
+            /** Format: int64 */
+            open_errors: number;
+            /** Format: int64 */
+            active_mappings: number;
+        };
+        ChannelSettingsInput: {
+            push_enabled?: boolean;
+            pull_enabled?: boolean;
+            stop_sale?: boolean;
+            horizon_days?: number;
+            push_interval_minutes?: number;
+            pull_interval_minutes?: number;
+            validity_minutes?: number;
+            /** @enum {string} */
+            offline_policy?: "close" | "quota";
+            offline_quota?: number;
+            /** @enum {string} */
+            collected_by?: "channel" | "us";
+            /** @example 15 */
+            commission_rate?: string;
+        };
+        ChannelMapping: {
+            /** Format: uuid */
+            uuid: string;
+            account: components["schemas"]["ChannelRef"];
+            /** @enum {string} */
+            entity_type: "branch" | "product" | "extra";
+            branch: components["schemas"]["ChannelRef"] | null;
+            product: components["schemas"]["ChannelRef"] | null;
+            extra: components["schemas"]["ChannelRef"] | null;
+            external_code: string;
+            external_name: string;
+            /** @description Lower is offered first when several products share a code */
+            priority: number;
+            stop_sale: boolean;
+            /** @description Cap on the units offered per day */
+            max_quota: number | null;
+            is_active: boolean;
+            note: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ChannelMappingInput: {
+            /** Format: uuid */
+            account_uuid?: string;
+            /** @enum {string} */
+            entity_type?: "branch" | "product" | "extra";
+            /**
+             * Format: uuid
+             * @description Branch mapping: the branch; product mapping: optional location scope
+             */
+            branch_uuid?: string | null;
+            /** Format: uuid */
+            product_uuid?: string;
+            /** Format: uuid */
+            extra_uuid?: string;
+            external_code?: string;
+            external_name?: string;
+            priority?: number;
+            stop_sale?: boolean;
+            max_quota?: number | null;
+            is_active?: boolean;
+            note?: string;
+        };
+        ChannelMappingFacets: {
+            entity_types: {
+                [key: string]: number;
+            };
+            /** Format: int64 */
+            stop_sale: number;
+            /** Format: int64 */
+            inactive: number;
+        };
+        /** @enum {string} */
+        ChannelMessageStatus: "received" | "applied" | "duplicate" | "stale" | "failed" | "ignored";
+        ChannelMessage: {
+            /** Format: uuid */
+            uuid: string;
+            account: components["schemas"]["ChannelRef"];
+            channel: string;
+            /** @description The channel's message id */
+            message_key: string;
+            /** @description The channel's booking number */
+            external_ref: string;
+            /** @enum {string} */
+            type: "booking" | "modification" | "cancellation";
+            /** Format: int64 */
+            version: number;
+            /** Format: date-time */
+            occurred_at: string | null;
+            /** @enum {string} */
+            source: "pull" | "webhook" | "simulation";
+            status: components["schemas"]["ChannelMessageStatus"];
+            /** @description unknown_location, unknown_product, ambiguous_product, unknown_extra, capacity_unavailable, pricing_unavailable, reinstate_not_supported, cancel_refused, change_refused, booking_refused, customer_failed, invalid_message, internal_error */
+            error_code: string;
+            error_message: string;
+            attempts: number;
+            /** @description How many times the channel delivered this message id */
+            deliveries: number;
+            /** Format: date-time */
+            processed_at: string | null;
+            /** Format: date-time */
+            acked_at: string | null;
+            ack_error: string;
+            /** @description Masked facts: codes, dates, amounts, masked customer name */
+            summary: {
+                [key: string]: unknown;
+            };
+            reservation: components["schemas"]["ChannelRef"] | null;
+            resolution_note: string;
+            /** Format: date-time */
+            resolved_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ChannelBooking: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            status: "pending" | "active" | "cancelled" | "failed";
+            /** Format: int64 */
+            applied_version: number;
+            /** Format: int64 */
+            last_version: number;
+            /** @enum {string} */
+            collected_by: "channel" | "us";
+            currency: string;
+            gross: string;
+            commission: string;
+            net: string;
+            /** @description Channel gross minus our reservation total */
+            price_difference: string | null;
+        };
+        ChannelMessageDetail: components["schemas"]["ChannelMessage"] & {
+            booking: components["schemas"]["ChannelBooking"] | null;
+            resolved_by: string;
+            actions: {
+                retry: boolean;
+                ignore: boolean;
+            };
+        };
+        ChannelMessageFacets: {
+            statuses: {
+                [key: string]: number;
+            };
+            types: {
+                [key: string]: number;
+            };
+            /** Format: int64 */
+            needs_action: number;
+        };
+        ChannelSyncRun: {
+            /** Format: uuid */
+            uuid: string;
+            account: components["schemas"]["ChannelRef"];
+            /** @enum {string} */
+            direction: "push" | "pull" | "reconcile";
+            /** @enum {string} */
+            trigger: "event" | "schedule" | "manual";
+            /** @enum {string} */
+            status: "running" | "succeeded" | "partial" | "failed";
+            items_total: number;
+            items_ok: number;
+            items_failed: number;
+            error: string;
+            details: {
+                [key: string]: unknown;
+            };
+            actor: string;
+            /** Format: date-time */
+            started_at: string;
+            /** Format: date-time */
+            finished_at: string | null;
+        };
+        ChannelSimulateInput: {
+            /** @enum {string} */
+            type?: "booking" | "modification" | "cancellation";
+            /** @description Empty for a new booking (generated) */
+            external_ref?: string;
+            product_code?: string;
+            pickup_location_code?: string;
+            return_location_code?: string;
+            offer_ref?: string;
+            /** Format: date-time */
+            starts_at?: string;
+            /** Format: date-time */
+            ends_at?: string;
+            customer?: {
+                first_name?: string;
+                last_name?: string;
+                email?: string;
+                phone?: string;
+                nationality?: string;
+            };
+            extras?: {
+                code: string;
+                quantity: number;
+            }[];
+            total?: string;
+            commission?: string;
+            /** @enum {string} */
+            collected_by?: "channel" | "us";
+        };
+        ChannelReconciliationLine: {
+            external_ref: string;
+            /** @enum {string} */
+            match: "matched" | "missing_local" | "missing_channel" | "status_mismatch" | "amount_mismatch" | "commission_mismatch";
+            /** Format: date-time */
+            starts_at: string | null;
+            channel_status: string;
+            channel_total: string | null;
+            channel_commission: string | null;
+            channel_net: string | null;
+            collected_by: string;
+            reservation: components["schemas"]["ChannelRef"] | null;
+            local_total: string | null;
+            local_commission: string | null;
+            difference: string | null;
+            error_code: string;
+        };
+        ChannelReconciliation: {
+            account: components["schemas"]["ChannelRef"];
+            from: string;
+            to: string;
+            /** @enum {string} */
+            source: "statement" | "local";
+            warning: string;
+            counts: {
+                [key: string]: number;
+            };
+            totals: {
+                channel_gross: string;
+                channel_commission: string;
+                channel_net: string;
+                local_gross: string;
+                local_commission: string;
+                /** @description Net the channel owes the organization */
+                collected_by_channel: string;
+                /** @description Commission the organization owes the channel */
+                collected_by_us: string;
+            };
+            lines: components["schemas"]["ChannelReconciliationLine"][];
+            currency: string;
+        };
+        EnvelopeChannelAccounts: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["ChannelAccount"][];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeChannelAccount: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["ChannelAccount"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeChannelMapping: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["ChannelMapping"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeChannelMappingPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["ChannelMapping"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeChannelMappingFacets: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["ChannelMappingFacets"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeChannelDeleted: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                deleted: boolean;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeChannelMessagePage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["ChannelMessage"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeChannelMessage: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["ChannelMessageDetail"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeChannelMessageFacets: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["ChannelMessageFacets"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeChannelSyncRun: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["ChannelSyncRun"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeChannelSyncRunPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["ChannelSyncRun"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeChannelReconciliation: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["ChannelReconciliation"];
+            meta: components["schemas"]["ResponseMeta"];
         };
         KabisFacets: {
             statuses: {
@@ -41584,13 +42348,13 @@ export interface operations {
                      * @description Defaults to the provider's kind.
                      * @enum {string}
                      */
-                    kind?: "payment" | "sms" | "toll" | "kabis";
+                    kind?: "payment" | "sms" | "toll" | "kabis" | "einvoice" | "channel";
                     /** @enum {string} */
-                    provider: "iyzico" | "netgsm" | "log" | "hgs_fake" | "kabis" | "kabis_fake";
+                    provider: "iyzico" | "netgsm" | "log" | "hgs_fake" | "kabis" | "kabis_fake" | "einvoice" | "einvoice_fake" | "yolcu360" | "yolcu360_fake";
                     display_name: string;
                     /** @enum {string} */
                     mode?: "sandbox" | "live";
-                    /** @description iyzico: `api_key`, `secret_key`; netgsm: `usercode`, `password`, `msgheader`; log (development only): `msgheader`; hgs_fake (toll passes, development only): `api_key`, `customer_no`; kabis (official KABİS slot, waiting on dependency until the method is verified, TEC-682): `username`, `password`; kabis_fake (development only): `username`, `password`, `scenario` (ok, outage, timeout, reject) */
+                    /** @description iyzico: `api_key`, `secret_key`; netgsm: `usercode`, `password`, `msgheader`; log (development only): `msgheader`; hgs_fake (toll passes, development only): `api_key`, `customer_no`; kabis (official KABİS slot, waiting on dependency until the method is verified, TEC-682): `username`, `password`; kabis_fake (development only): `username`, `password`, `scenario` (ok, outage, timeout, reject); yolcu360 (channel manager, supplier contract per TEC-680): `supplier_code`, `api_key`, `api_secret`, `base_url` (optional host override); yolcu360_fake (development only): `supplier_code`, `api_key`, `scenario` (ok, outage, reject) */
                     credentials: {
                         [key: string]: string;
                     };
@@ -49387,6 +50151,673 @@ export interface operations {
             403: components["responses"]["TenantForbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantChannelAccounts: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Channel accounts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeChannelAccounts"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantChannelAccount: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Channel account */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeChannelAccount"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchTenantChannelAccount: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChannelSettingsInput"];
+            };
+        };
+        responses: {
+            /** @description Channel account */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeChannelAccount"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantChannelAccountPush: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sync run */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeChannelSyncRun"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantChannelAccountPull: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sync run */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeChannelSyncRun"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantChannelAccountSimulate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChannelSimulateInput"];
+            };
+        };
+        responses: {
+            /** @description Sync run */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeChannelSyncRun"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantChannelAccountReconciliation: {
+        parameters: {
+            query?: {
+                /** @description First pick-up day (YYYY-MM-DD, Istanbul; default the first of this month) */
+                from?: string;
+                /** @description Last pick-up day inclusive (YYYY-MM-DD; at most 93 days) */
+                to?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reconciliation report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeChannelReconciliation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantChannelMappingFacets: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Facets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeChannelMappingFacets"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantChannelMappings: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description `created_at`, `updated_at` or `external_code`; prefix `-` for descending (default `-created_at`). */
+                sort?: string;
+                /** @description Channel account uuid */
+                account?: string;
+                /** @description branch, product, extra (comma separated) */
+                entity_type?: string;
+                active?: "true" | "false";
+                stop_sale?: "true" | "false";
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Mapping page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeChannelMappingPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantChannelMapping: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChannelMappingInput"];
+            };
+        };
+        responses: {
+            /** @description Mapping */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeChannelMapping"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantChannelMapping: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Mapping */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeChannelMapping"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteTenantChannelMapping: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeChannelDeleted"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchTenantChannelMapping: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChannelMappingInput"];
+            };
+        };
+        responses: {
+            /** @description Mapping */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeChannelMapping"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantChannelMessageFacets: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Facets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeChannelMessageFacets"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantChannelMessages: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description `created_at` or `occurred_at`; prefix `-` for descending (default `-created_at`). */
+                sort?: string;
+                /** @description Channel account uuid */
+                account?: string;
+                /** @description received, applied, duplicate, stale, failed, ignored (comma separated) */
+                status?: string;
+                /** @description booking, modification, cancellation (comma separated) */
+                type?: string;
+                /** @description The channel's booking number (exact) */
+                external_ref?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Message page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeChannelMessagePage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantChannelMessage: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Message */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeChannelMessage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantChannelMessageRetry: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Message */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeChannelMessage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantChannelMessageIgnore: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    note: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Message */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeChannelMessage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantChannelSyncRuns: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                /** @description `started_at`; prefix `-` for descending (default `-started_at`). */
+                sort?: string;
+                /** @description Channel account uuid */
+                account?: string;
+                /** @description push, pull, reconcile (comma separated) */
+                direction?: string;
+                /** @description running, succeeded, partial, failed (comma separated) */
+                status?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sync run page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeChannelSyncRunPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
         };
     };
     getTenantKabisNotificationsMeta: {

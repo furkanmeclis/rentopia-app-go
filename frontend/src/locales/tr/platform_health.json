@@ -82,5 +82,12 @@
   "issues.empty_title": "Sorun yok",
   "issues.empty_description": "Tüm bağlantılar sağlıklı görünüyor.",
   "issues.empty_filtered_title": "Eşleşen sorun yok",
-  "issues.empty_filtered_description": "Arama veya filtreleri değiştirin."
+  "issues.empty_filtered_description": "Arama veya filtreleri değiştirin.",
+  "sources.channels": "Kanal yöneticisi",
+  "sources.channels_hint": "Kanal hesaplarının başarısız gönderim/alımları, süresi dolan müsaitlik gönderimleri ve hata kuyruğundaki rezervasyon mesajları.",
+  "metrics.expired": "Gönderim süresi doldu",
+  "metrics.error_queue": "Hata kuyruğu",
+  "kinds.channel_sync_failed": "Kanal senkronu başarısız",
+  "kinds.channel_push_expired": "Kanal gönderiminin süresi doldu",
+  "kinds.channel_error_queue": "Kanal hata kuyruğu"
 }

@@ -105,5 +105,6 @@
   "nav_reports_channels": "Kanal performansı",
   "nav_reports_aging": "Cari / vade",
   "nav_reports_branches": "Şube karşılaştırma",
-  "nav_tenant_settings_notifications": "Bildirimler"
+  "nav_tenant_settings_notifications": "Bildirimler",
+  "nav_channels": "Kanal yöneticisi"
 }

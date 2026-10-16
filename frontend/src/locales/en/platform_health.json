@@ -82,5 +82,12 @@
   "issues.empty_title": "No issues",
   "issues.empty_description": "All connections look healthy.",
   "issues.empty_filtered_title": "No matching issues",
-  "issues.empty_filtered_description": "Change the search or the filters."
+  "issues.empty_filtered_description": "Change the search or the filters.",
+  "sources.channels": "Channel manager",
+  "sources.channels_hint": "Failed pushes / pulls of the channel accounts, availability pushes whose validity ran out and booking messages in the error queue.",
+  "metrics.expired": "Push expired",
+  "metrics.error_queue": "Error queue",
+  "kinds.channel_sync_failed": "Channel sync failed",
+  "kinds.channel_push_expired": "Channel push expired",
+  "kinds.channel_error_queue": "Channel error queue"
 }

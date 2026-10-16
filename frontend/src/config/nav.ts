@@ -40,6 +40,7 @@ import {
   ListChecks,
   LayoutDashboard,
   LogIn,
+  Network,
   NotebookPen,
   Palette,
   Plug,
@@ -70,6 +71,7 @@ import { customerRequestsNavItem } from "@/features/customer-portal/nav";
 import { TollReviewNavAdornment } from "@/features/tolls/nav";
 import { InvoicesNavAdornment } from "@/features/invoices/nav";
 import { KabisNavAdornment } from "@/features/kabis/nav";
+import { ChannelsNavAdornment } from "@/features/channels/nav";
 import { PayablesNavAdornment } from "@/features/suppliers/nav";
 import { MyFieldTasksNavAdornment } from "@/features/field-tasks/nav";
 import {
@@ -394,6 +396,14 @@ export function tenantNav(slug: string): NavCatalog {
             Adornment: ResolutionTasksNavAdornment,
           },
           customerRequestsNavItem(slug),
+          {
+            id: "reservations-channels",
+            titleKey: "layout.nav_channels",
+            href: routes.tenant.channels.root(slug),
+            icon: Network,
+            permission: permissions.tenant.channels.read,
+            Adornment: ChannelsNavAdornment,
+          },
         ],
       },
       {

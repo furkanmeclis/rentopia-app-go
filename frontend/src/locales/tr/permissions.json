@@ -229,5 +229,9 @@
   "groups.tenant_public_api": "Public API",
   "labels.tenant.notification_settings.read": "Bildirim ayarlarını ve gönderim geçmişini görüntüle",
   "labels.tenant.notification_settings.write": "Bildirim kurallarını ve şablonlarını yönet",
-  "groups.tenant_notification_settings": "Bildirimler"
+  "groups.tenant_notification_settings": "Bildirimler",
+  "labels.tenant.channels.read": "Kanal yöneticisini görüntüle",
+  "labels.tenant.channels.write": "Kanal eşlemelerini ve senkron ayarlarını yönet",
+  "labels.tenant.channels.sync": "Kanal senkronunu çalıştır ve mesajları çöz",
+  "groups.tenant_channels": "Kanal yöneticisi"
 }

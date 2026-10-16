@@ -96,6 +96,12 @@ func (s *Service) view(row db.GetReservationViewRow, drivers []db.ListReservatio
 		PrepaymentDue: m(row.PrepaymentAmount).Sub(paid).ClampZero(),
 		Commission:    m(row.CommissionAmount), NetReceivable: m(row.NetReceivable),
 	}
+	if row.CollectingParty == model.CollectorChannel {
+		// Collected by the sales channel (TEC-736): the customer owes the
+		// organization nothing; the channel settles the net receivable.
+		zero := money.NewIn(0, total.Currency())
+		r.Price.PrepaymentDue, r.Price.Balance = zero, zero
+	}
 	_ = json.Unmarshal(row.QuoteSnapshot, &r.Price.Snapshot)
 	if r.Price.Snapshot.Extensions == nil {
 		r.Price.Snapshot.Extensions = []model.Extension{}

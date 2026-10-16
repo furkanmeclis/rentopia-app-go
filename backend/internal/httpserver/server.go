@@ -50,6 +50,10 @@ import (
 	cataloghandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/handler"
 	catalogrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/repository"
 	catalogusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/usecase"
+	channelsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/channels"
+	channeladapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/channels/adapters"
+	channelhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/channels/handler"
+	channelusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/channels/usecase"
 	contractsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/contracts"
 	contractshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/contracts/handler"
 	contractsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/contracts/usecase"
@@ -512,6 +516,10 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	// dependency until TEC-685) and the fake outside production only.
 	invoiceProviders := invoicesmodule.Providers(cfg.App.Env, log)
 	integrationAdapters = append(integrationAdapters, invoicesmodule.Adapters(invoiceProviders)...)
+	// Channel managers (TEC-736): Yolcu360 (documented supplier contract)
+	// and its fake outside production only.
+	channelProviders := channelsmodule.Providers(cfg.App.Env, log)
+	integrationAdapters = append(integrationAdapters, channelsmodule.Adapters(channelProviders)...)
 	integrationAccountsSvc := integrationaccountsusecase.New(deps.Queries, integrationVault,
 		integrations.NewRegistry(integrationAdapters...))
 	// Generic integration job runner (TEC-751): steps go to the
@@ -584,6 +592,15 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	fieldTasksSvc.SetResourceEvents(resourceEvents)
 	fieldTasksSvc.SetLogger(log)
 	reservationSvc.SetDeliveryQuoter(fieldTasksSvc)
+	// Channel manager (TEC-736): inventory push, booking import through
+	// reservations / customers, mappings, error queue, reconciliation.
+	channelsSvc, err := channelusecase.New(deps.DB, deps.Queries, fieldCipher, integrationAccountsSvc,
+		channeladapters.NewBooker(reservationSvc, customerSvc), channelProviders...)
+	if err != nil {
+		return nil, fmt.Errorf("httpserver: channels: %w", err)
+	}
+	channelsSvc.SetResourceEvents(resourceEvents)
+	channelsSvc.SetLogger(log)
 	// Toll passes (TEC-725): provider fetch jobs on the integration runner,
 	// file import fallback, matching to rentals (toll charges), review
 	// queue. The finance ledger (TEC-717) plugs in with SetLedger.
@@ -665,7 +682,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	publicAPISvc.SetBaseURL(strings.TrimRight(cfg.Auth.FrontendURL, "/") + "/api")
 	publicAPISvc.AllowPrivateWebhooks(!strings.EqualFold(strings.TrimSpace(cfg.App.Env), "production"))
 	publicAPISvc.SetImmediateDelivery(true)
-	reservationSvc.SetLifecycleListener(reservationusecase.Listeners{rentalsSvc, fieldTasksSvc, publicAPISvc})
+	reservationSvc.SetLifecycleListener(reservationusecase.Listeners{rentalsSvc, fieldTasksSvc, publicAPISvc, channelsSvc})
 	// Rental group membership removals re-plan the commitments that relied
 	// on them (or are refused); moved reservations record plan_moved.
 	vehicleSvc.SetMembershipGuard(availabilitySvc)
@@ -696,6 +713,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	financemodule.RegisterLiveResources(tenantLive)
 	tollsmodule.RegisterLiveResources(tenantLive)
 	kabismodule.RegisterLiveResources(tenantLive)
+	channelsmodule.RegisterLiveResources(tenantLive)
 	agreementsmodule.RegisterLiveResources(tenantLive)
 	invoicesmodule.RegisterLiveResources(tenantLive)
 	suppliersmodule.RegisterLiveResources(tenantLive)
@@ -936,6 +954,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		Export: exportH.TenantExport(rentalsmodule.Resource, rentalsmodule.ExportQueryKeys...),
 	}, tokens, loader, tenantResolver)
 	kabismodule.RegisterRoutes(mux, kabishandler.New(kabisSvc, activityRec), tokens, loader, tenantResolver)
+	channelsmodule.RegisterRoutes(mux, channelhandler.New(channelsSvc, activityRec), tokens, loader, tenantResolver)
 	agreementsmodule.RegisterRoutes(mux, agreementhandler.New(agreementsSvc, activityRec), agreementsmodule.EngineHandlers{
 		Export: exportH.TenantExport(agreementsmodule.Resource, agreementsmodule.ExportQueryKeys...),
 	}, tokens, loader, tenantResolver)
@@ -957,6 +976,11 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	// own sync / delivery health register a healthcheck.Source on
 	// healthRegistry here.
 	healthRegistry := platformhealthmodule.NewRegistry(deps.Queries)
+	// Channel manager sync health (TEC-736): failed syncs, expired pushes,
+	// the error queue.
+	if err := healthRegistry.Register(channelsmodule.NewHealthSource(deps.Queries)); err != nil {
+		return nil, fmt.Errorf("httpserver: channel health: %w", err)
+	}
 	platformhealthmodule.RegisterRoutes(mux, platformhealthhandler.New(platformhealthusecase.New(deps.Queries, healthRegistry)), tokens, loader)
 	contractsH := contractshandler.New(contractsSvc, activityRec)
 	contractsH.SetRateLimiter(contractsmodule.Limiter{L: ratelimit.New(deps.Redis, cfg.App.Env)})

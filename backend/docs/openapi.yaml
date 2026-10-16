@@ -11410,14 +11410,14 @@ paths:
               additionalProperties: false
               required: [provider, display_name, credentials]
               properties:
-                kind: { type: string, enum: [payment, sms, toll, kabis], description: "Defaults to the provider's kind." }
-                provider: { type: string, enum: [iyzico, netgsm, log, hgs_fake, kabis, kabis_fake] }
+                kind: { type: string, enum: [payment, sms, toll, kabis, einvoice, channel], description: "Defaults to the provider's kind." }
+                provider: { type: string, enum: [iyzico, netgsm, log, hgs_fake, kabis, kabis_fake, einvoice, einvoice_fake, yolcu360, yolcu360_fake] }
                 display_name: { type: string, maxLength: 120 }
                 mode: { type: string, enum: [sandbox, live] }
                 credentials:
                   type: object
                   additionalProperties: { type: string }
-                  description: "iyzico: `api_key`, `secret_key`; netgsm: `usercode`, `password`, `msgheader`; log (development only): `msgheader`; hgs_fake (toll passes, development only): `api_key`, `customer_no`; kabis (official KABİS slot, waiting on dependency until the method is verified, TEC-682): `username`, `password`; kabis_fake (development only): `username`, `password`, `scenario` (ok, outage, timeout, reject)"
+                  description: "iyzico: `api_key`, `secret_key`; netgsm: `usercode`, `password`, `msgheader`; log (development only): `msgheader`; hgs_fake (toll passes, development only): `api_key`, `customer_no`; kabis (official KABİS slot, waiting on dependency until the method is verified, TEC-682): `username`, `password`; kabis_fake (development only): `username`, `password`, `scenario` (ok, outage, timeout, reject); yolcu360 (channel manager, supplier contract per TEC-680): `supplier_code`, `api_key`, `api_secret`, `base_url` (optional host override); yolcu360_fake (development only): `supplier_code`, `api_key`, `scenario` (ok, outage, reject)"
       responses:
         "201": { $ref: "#/components/responses/IntegrationAccountOK" }
         "400": { $ref: "#/components/responses/BadRequest" }
@@ -17367,6 +17367,506 @@ paths:
         "403": { $ref: "#/components/responses/TenantForbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/tenant/channel-accounts:
+    get:
+      tags: [Tenant]
+      operationId: getTenantChannelAccounts
+      summary: List channel accounts
+      description: |
+        `tenant.channels.read`. The organization's channel accounts (integration accounts of kind `channel`:
+        Yolcu360, its development adapter, later Obilet) with their sync settings and sync state. `health`:
+        `ok`, `pending` (nothing pushed yet), `failing` (the last push or pull failed), `expired` (the
+        validity of the last push ran out: the channel applies the offline policy) or `disabled`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Channel accounts
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeChannelAccounts" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/channel-accounts/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantChannelAccount
+      summary: Get a channel account
+      description: "`tenant.channels.read`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Channel account
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeChannelAccount" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantChannelAccount
+      summary: Change the sync settings of a channel account
+      description: |
+        `tenant.channels.write` (and access to every branch). Push / pull switches, account-wide stop-sale,
+        horizon (1–90 days), intervals, the validity of a push (15–2880 minutes) and the offline policy
+        (`close`, or `quota` with at most `offline_quota` units per product, location and day), the default
+        collecting party and commission percentage. The next sweep pushes with the new settings.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChannelSettingsInput" }
+      responses:
+        "200":
+          description: Channel account
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeChannelAccount" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/channel-accounts/{uuid}/push:
+    post:
+      tags: [Tenant]
+      operationId: postTenantChannelAccountPush
+      summary: Push availability, prices and stop-sale now
+      description: |
+        `tenant.channels.sync`. Sends the full snapshot of the horizon (every mapped product and location, day by
+        day: units after the quota and stop-sale, the one-day price, the offer reference) with its validity and
+        the offline policy. Answers the sync run (a failed push is a run with `status = failed`).
+        `409 CHANNEL_SYNC_BUSY` while another sync of the account runs, `409 CHANNEL_ACCOUNT_INACTIVE`,
+        `409 CHANNEL_ADAPTER_UNAVAILABLE`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Sync run
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeChannelSyncRun" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/channel-accounts/{uuid}/pull:
+    post:
+      tags: [Tenant]
+      operationId: postTenantChannelAccountPull
+      summary: Read booking messages now
+      description: |
+        `tenant.channels.sync`. Reads the messages after the stored cursor, stores each once (a repeated message id
+        only counts a delivery), applies new versions to their reservations and acknowledges the final results.
+        Answers the sync run.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Sync run
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeChannelSyncRun" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/channel-accounts/{uuid}/simulate:
+    post:
+      tags: [Tenant]
+      operationId: postTenantChannelAccountSimulate
+      summary: Simulate a booking message (development adapter)
+      description: |
+        `tenant.channels.sync`. Development adapters only (`yolcu360_fake`, never registered in production;
+        `409 CHANNEL_NOT_SIMULATOR` otherwise): queues a booking / modification / cancellation as the channel
+        would send it and pulls at once. Answers the pull's sync run.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChannelSimulateInput" }
+      responses:
+        "200":
+          description: Sync run
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeChannelSyncRun" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/channel-accounts/{uuid}/reconciliation:
+    get:
+      tags: [Tenant]
+      operationId: getTenantChannelAccountReconciliation
+      summary: Channel vs Rentopia reconciliation report
+      description: |
+        `tenant.channels.read`. Bookings picked up in the period: the channel's statement (`source = statement`,
+        when the adapter has one; otherwise `local`, the last message of each booking) against the channel bookings
+        and their reservations. Each line is `matched`, `missing_local`, `missing_channel`, `status_mismatch`,
+        `amount_mismatch` or `commission_mismatch`; totals split what the channel owes (net of bookings it
+        collected) and what the organization owes (commission of bookings collected at the counter).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - { name: from, in: query, schema: { type: string }, description: "First pick-up day (YYYY-MM-DD, Istanbul; default the first of this month)" }
+        - { name: to, in: query, schema: { type: string }, description: "Last pick-up day inclusive (YYYY-MM-DD; at most 93 days)" }
+      responses:
+        "200":
+          description: Reconciliation report
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeChannelReconciliation" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/channel-mappings/facets:
+    get:
+      tags: [Tenant]
+      operationId: getTenantChannelMappingFacets
+      summary: Channel mapping counts
+      description: "`tenant.channels.read`. Counts per entity type, stop-sale and inactive mappings."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Facets
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeChannelMappingFacets" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/channel-mappings:
+    get:
+      tags: [Tenant]
+      operationId: getTenantChannelMappings
+      summary: List channel mappings
+      description: |
+        `tenant.channels.read`. Branch → location code, rental product (optionally per branch) → product code with
+        priority, stop-sale and quota, extra → extra code, per channel account.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - name: sort
+          in: query
+          description: "`created_at`, `updated_at` or `external_code`; prefix `-` for descending (default `-created_at`)."
+          schema: { type: string }
+        - { name: account, in: query, schema: { type: string, format: uuid }, description: Channel account uuid }
+        - { name: entity_type, in: query, schema: { type: string }, description: "branch, product, extra (comma separated)" }
+        - { name: active, in: query, schema: { type: string, enum: ["true", "false"] } }
+        - { name: stop_sale, in: query, schema: { type: string, enum: ["true", "false"] } }
+      responses:
+        "200":
+          description: Mapping page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeChannelMappingPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantChannelMapping
+      summary: Create a channel mapping
+      description: |
+        `tenant.channels.write` (and access to every branch). The account, branch, product and extra must belong to
+        the organization (`400` with `not_found` otherwise). A branch or an extra is mapped once per account and an
+        external location / extra code once per account; a product once per account and location scope; several
+        products may share one external code (`409 CHANNEL_MAPPING_TAKEN` for a duplicate). Stop-sale and quota
+        apply to product mappings only.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChannelMappingInput" }
+      responses:
+        "201":
+          description: Mapping
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeChannelMapping" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/channel-mappings/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantChannelMapping
+      summary: Get a channel mapping
+      description: "`tenant.channels.read`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Mapping
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeChannelMapping" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantChannelMapping
+      summary: Change a channel mapping
+      description: |
+        `tenant.channels.write`. External code / name, priority, stop-sale, quota (`null` clears it), activity, note
+        and the location scope of a product mapping. The account, entity type and mapped record are fixed.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChannelMappingInput" }
+      responses:
+        "200":
+          description: Mapping
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeChannelMapping" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantChannelMapping
+      summary: Delete a channel mapping
+      description: "`tenant.channels.write`. The pushed offers of the mapping go with it; channel bookings keep their stored codes."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeChannelDeleted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/channel-messages/facets:
+    get:
+      tags: [Tenant]
+      operationId: getTenantChannelMessageFacets
+      summary: Channel message counts
+      description: "`tenant.channels.read`. Counts per status and type; `needs_action` = failed messages (the error queue, nav badge)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Facets
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeChannelMessageFacets" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/channel-messages:
+    get:
+      tags: [Tenant]
+      operationId: getTenantChannelMessages
+      summary: List inbound channel messages
+      description: |
+        `tenant.channels.read`. Every booking / modification / cancellation message once, with its result:
+        `applied`, `duplicate` (the version was applied already), `stale` (older than the applied version),
+        `failed` (the error queue: `error_code` says why) or `ignored`. The summary holds masked facts only.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - name: sort
+          in: query
+          description: "`created_at` or `occurred_at`; prefix `-` for descending (default `-created_at`)."
+          schema: { type: string }
+        - { name: account, in: query, schema: { type: string, format: uuid }, description: Channel account uuid }
+        - { name: status, in: query, schema: { type: string }, description: "received, applied, duplicate, stale, failed, ignored (comma separated)" }
+        - { name: type, in: query, schema: { type: string }, description: "booking, modification, cancellation (comma separated)" }
+        - { name: external_ref, in: query, schema: { type: string }, description: The channel's booking number (exact) }
+      responses:
+        "200":
+          description: Message page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeChannelMessagePage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/channel-messages/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantChannelMessage
+      summary: Get a channel message
+      description: "`tenant.channels.read`. The message with its channel booking (applied version, collecting party, gross / commission / net, price difference) and the actions the caller may take."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Message
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeChannelMessage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/channel-messages/{uuid}/retry:
+    post:
+      tags: [Tenant]
+      operationId: postTenantChannelMessageRetry
+      summary: Apply a failed message again
+      description: |
+        `tenant.channels.sync`. After a mapping or capacity fix. A newer version applied meanwhile makes it `stale`.
+        `409 CHANNEL_MESSAGE_NOT_RETRYABLE` unless the message is `failed`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Message
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeChannelMessage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/channel-messages/{uuid}/ignore:
+    post:
+      tags: [Tenant]
+      operationId: postTenantChannelMessageIgnore
+      summary: Dismiss a failed message
+      description: "`tenant.channels.sync`. A note (3–500) is required; the channel is told the message was refused."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [note]
+              properties:
+                note: { type: string }
+      responses:
+        "200":
+          description: Message
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeChannelMessage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/channel-sync-runs:
+    get:
+      tags: [Tenant]
+      operationId: getTenantChannelSyncRuns
+      summary: Channel sync log
+      description: "`tenant.channels.read`. Every push, pull and reconciliation with its trigger (`event`, `schedule`, `manual`), counts, error and non-sensitive details."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - name: sort
+          in: query
+          description: "`started_at`; prefix `-` for descending (default `-started_at`)."
+          schema: { type: string }
+        - { name: account, in: query, schema: { type: string, format: uuid }, description: Channel account uuid }
+        - { name: direction, in: query, schema: { type: string }, description: "push, pull, reconcile (comma separated)" }
+        - { name: status, in: query, schema: { type: string }, description: "running, succeeded, partial, failed (comma separated)" }
+      responses:
+        "200":
+          description: Sync run page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeChannelSyncRunPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
   /v1/tenant/kabis-notifications/meta:
     get:
       tags: [Tenant]
@@ -22466,7 +22966,8 @@ components:
           type: string
           description: |
             Issue kind: `account_check_failed`, `job_failed`, `job_needs_verification`,
-            `job_waiting_dependency`, `job_blocked`, or one of a registered source.
+            `job_waiting_dependency`, `job_blocked`, `channel_sync_failed`, `channel_push_expired`,
+            `channel_error_queue`, or one of a registered source.
         severity: { type: string, enum: [critical, warning, info] }
         organization:
           description: Null for platform-level work.
@@ -32563,8 +33064,8 @@ components:
       type: object
       required: [kind, provider, fields, modes]
       properties:
-        kind: { type: string, enum: [payment, sms, toll, kabis] }
-        provider: { type: string, enum: [iyzico, netgsm, log, hgs_fake, kabis, kabis_fake] }
+        kind: { type: string, enum: [payment, sms, toll, kabis, einvoice, channel] }
+        provider: { type: string, enum: [iyzico, netgsm, log, hgs_fake, kabis, kabis_fake, einvoice, einvoice_fake, yolcu360, yolcu360_fake] }
         fields:
           type: array
           items: { $ref: "#/components/schemas/IntegrationField" }
@@ -32592,8 +33093,8 @@ components:
       required: [uuid, kind, provider, display_name, mode, status, credentials_hint, last_checked_at, last_check_status, last_check_error, created_at, updated_at]
       properties:
         uuid: { type: string, format: uuid }
-        kind: { type: string, enum: [payment, sms, toll, kabis] }
-        provider: { type: string, enum: [iyzico, netgsm, log, hgs_fake, kabis, kabis_fake] }
+        kind: { type: string, enum: [payment, sms, toll, kabis, einvoice, channel] }
+        provider: { type: string, enum: [iyzico, netgsm, log, hgs_fake, kabis, kabis_fake, einvoice, einvoice_fake, yolcu360, yolcu360_fake] }
         display_name: { type: string }
         mode: { type: string, enum: [sandbox, live] }
         status: { type: string, enum: [active, disabled] }
@@ -34052,6 +34553,443 @@ components:
                 reconcile: { type: boolean }
                 revalidates: { type: boolean, description: "A retry re-validates the data / adapter (blocked, waiting)" }
             attempt_log: { type: array, items: { $ref: "#/components/schemas/IntegrationAttempt" } }
+
+    ChannelRef:
+      type: object
+      required: [uuid]
+      properties:
+        uuid: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        reference: { type: string }
+        status: { type: string }
+        provider: { type: string }
+
+    ChannelCapabilities:
+      type: object
+      required: [availability, rates, stop_sale, allotment, pull, acknowledge, statement, max_items_per_push]
+      properties:
+        availability: { type: boolean }
+        rates: { type: boolean }
+        stop_sale: { type: boolean }
+        allotment: { type: boolean }
+        pull: { type: boolean }
+        acknowledge: { type: boolean }
+        statement: { type: boolean }
+        max_items_per_push: { type: integer }
+
+    ChannelAccountSettings:
+      type: object
+      required: [push_enabled, pull_enabled, stop_sale, horizon_days, push_interval_minutes, pull_interval_minutes, validity_minutes, offline_policy, offline_quota, collected_by, commission_rate]
+      properties:
+        push_enabled: { type: boolean }
+        pull_enabled: { type: boolean }
+        stop_sale: { type: boolean, description: Account-wide stop-sale (every item goes out with 0 units) }
+        horizon_days: { type: integer, minimum: 1, maximum: 90 }
+        push_interval_minutes: { type: integer, minimum: 5, maximum: 1440 }
+        pull_interval_minutes: { type: integer, minimum: 1, maximum: 1440 }
+        validity_minutes: { type: integer, minimum: 15, maximum: 2880, description: How long a push stays valid on the channel }
+        offline_policy: { type: string, enum: [close, quota] }
+        offline_quota: { type: integer, minimum: 0, maximum: 100 }
+        collected_by: { type: string, enum: [channel, us], description: Default collecting party when a message does not say }
+        commission_rate: { type: string, description: Default commission percentage when a message carries none }
+
+    ChannelSyncState:
+      type: object
+      required: [health, push_requested_at, last_push_at, last_push_ok_at, last_push_status, last_push_error, pushed_valid_until, last_pull_at, last_pull_ok_at, last_pull_status, last_pull_error, consecutive_failures]
+      properties:
+        health: { type: string, enum: [ok, pending, failing, expired, disabled] }
+        push_requested_at: { type: [string, "null"], format: date-time }
+        last_push_at: { type: [string, "null"], format: date-time }
+        last_push_ok_at: { type: [string, "null"], format: date-time }
+        last_push_status: { type: string }
+        last_push_error: { type: string }
+        pushed_valid_until: { type: [string, "null"], format: date-time }
+        last_pull_at: { type: [string, "null"], format: date-time }
+        last_pull_ok_at: { type: [string, "null"], format: date-time }
+        last_pull_status: { type: string }
+        last_pull_error: { type: string }
+        consecutive_failures: { type: integer }
+
+    ChannelAccount:
+      type: object
+      required: [uuid, provider, display_name, mode, status, channel, available, simulator, capabilities, settings, sync, open_errors, active_mappings]
+      properties:
+        uuid: { type: string, format: uuid }
+        provider: { type: string, description: "yolcu360, yolcu360_fake (development)" }
+        display_name: { type: string }
+        mode: { type: string, enum: [sandbox, live] }
+        status: { type: string, enum: [active, disabled] }
+        channel: { type: string, description: Sales channel code of the bookings }
+        available: { type: boolean, description: The adapter is registered in this environment }
+        simulator: { type: boolean, description: The adapter can simulate bookings (development) }
+        capabilities: { $ref: "#/components/schemas/ChannelCapabilities" }
+        settings: { $ref: "#/components/schemas/ChannelAccountSettings" }
+        sync: { $ref: "#/components/schemas/ChannelSyncState" }
+        open_errors: { type: integer, format: int64 }
+        active_mappings: { type: integer, format: int64 }
+
+    ChannelSettingsInput:
+      type: object
+      additionalProperties: false
+      properties:
+        push_enabled: { type: boolean }
+        pull_enabled: { type: boolean }
+        stop_sale: { type: boolean }
+        horizon_days: { type: integer, minimum: 1, maximum: 90 }
+        push_interval_minutes: { type: integer, minimum: 5, maximum: 1440 }
+        pull_interval_minutes: { type: integer, minimum: 1, maximum: 1440 }
+        validity_minutes: { type: integer, minimum: 15, maximum: 2880 }
+        offline_policy: { type: string, enum: [close, quota] }
+        offline_quota: { type: integer, minimum: 0, maximum: 100 }
+        collected_by: { type: string, enum: [channel, us] }
+        commission_rate: { type: string, example: "15" }
+
+    ChannelMapping:
+      type: object
+      required: [uuid, account, entity_type, branch, product, extra, external_code, external_name, priority, stop_sale, max_quota, is_active, note, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        account: { $ref: "#/components/schemas/ChannelRef" }
+        entity_type: { type: string, enum: [branch, product, extra] }
+        branch:
+          oneOf:
+            - $ref: "#/components/schemas/ChannelRef"
+            - type: "null"
+        product:
+          oneOf:
+            - $ref: "#/components/schemas/ChannelRef"
+            - type: "null"
+        extra:
+          oneOf:
+            - $ref: "#/components/schemas/ChannelRef"
+            - type: "null"
+        external_code: { type: string }
+        external_name: { type: string }
+        priority: { type: integer, description: Lower is offered first when several products share a code }
+        stop_sale: { type: boolean }
+        max_quota: { type: [integer, "null"], description: Cap on the units offered per day }
+        is_active: { type: boolean }
+        note: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    ChannelMappingInput:
+      type: object
+      additionalProperties: false
+      properties:
+        account_uuid: { type: string, format: uuid }
+        entity_type: { type: string, enum: [branch, product, extra] }
+        branch_uuid: { type: [string, "null"], format: uuid, description: "Branch mapping: the branch; product mapping: optional location scope" }
+        product_uuid: { type: string, format: uuid }
+        extra_uuid: { type: string, format: uuid }
+        external_code: { type: string, maxLength: 64 }
+        external_name: { type: string, maxLength: 255 }
+        priority: { type: integer }
+        stop_sale: { type: boolean }
+        max_quota: { type: [integer, "null"], minimum: 0 }
+        is_active: { type: boolean }
+        note: { type: string, maxLength: 1000 }
+
+    ChannelMappingFacets:
+      type: object
+      required: [entity_types, stop_sale, inactive]
+      properties:
+        entity_types: { type: object, additionalProperties: { type: integer, format: int64 } }
+        stop_sale: { type: integer, format: int64 }
+        inactive: { type: integer, format: int64 }
+
+    ChannelMessageStatus:
+      type: string
+      enum: [received, applied, duplicate, stale, failed, ignored]
+
+    ChannelMessage:
+      type: object
+      required: [uuid, account, channel, message_key, external_ref, type, version, occurred_at, source, status, error_code, error_message, attempts, deliveries, processed_at, acked_at, ack_error, summary, reservation, resolution_note, resolved_at, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        account: { $ref: "#/components/schemas/ChannelRef" }
+        channel: { type: string }
+        message_key: { type: string, description: The channel's message id }
+        external_ref: { type: string, description: The channel's booking number }
+        type: { type: string, enum: [booking, modification, cancellation] }
+        version: { type: integer, format: int64 }
+        occurred_at: { type: [string, "null"], format: date-time }
+        source: { type: string, enum: [pull, webhook, simulation] }
+        status: { $ref: "#/components/schemas/ChannelMessageStatus" }
+        error_code: { type: string, description: "unknown_location, unknown_product, ambiguous_product, unknown_extra, capacity_unavailable, pricing_unavailable, reinstate_not_supported, cancel_refused, change_refused, booking_refused, customer_failed, invalid_message, internal_error" }
+        error_message: { type: string }
+        attempts: { type: integer }
+        deliveries: { type: integer, description: How many times the channel delivered this message id }
+        processed_at: { type: [string, "null"], format: date-time }
+        acked_at: { type: [string, "null"], format: date-time }
+        ack_error: { type: string }
+        summary: { type: object, additionalProperties: true, description: "Masked facts: codes, dates, amounts, masked customer name" }
+        reservation:
+          oneOf:
+            - $ref: "#/components/schemas/ChannelRef"
+            - type: "null"
+        resolution_note: { type: string }
+        resolved_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    ChannelBooking:
+      type: object
+      required: [uuid, status, applied_version, last_version, collected_by, currency, gross, commission, net, price_difference]
+      properties:
+        uuid: { type: string, format: uuid }
+        status: { type: string, enum: [pending, active, cancelled, failed] }
+        applied_version: { type: integer, format: int64 }
+        last_version: { type: integer, format: int64 }
+        collected_by: { type: string, enum: [channel, us] }
+        currency: { type: string }
+        gross: { type: string }
+        commission: { type: string }
+        net: { type: string }
+        price_difference: { type: [string, "null"], description: "Channel gross minus our reservation total" }
+
+    ChannelMessageDetail:
+      allOf:
+        - $ref: "#/components/schemas/ChannelMessage"
+        - type: object
+          required: [booking, resolved_by, actions]
+          properties:
+            booking:
+              oneOf:
+                - $ref: "#/components/schemas/ChannelBooking"
+                - type: "null"
+            resolved_by: { type: string }
+            actions:
+              type: object
+              required: [retry, ignore]
+              properties:
+                retry: { type: boolean }
+                ignore: { type: boolean }
+
+    ChannelMessageFacets:
+      type: object
+      required: [statuses, types, needs_action]
+      properties:
+        statuses: { type: object, additionalProperties: { type: integer, format: int64 } }
+        types: { type: object, additionalProperties: { type: integer, format: int64 } }
+        needs_action: { type: integer, format: int64 }
+
+    ChannelSyncRun:
+      type: object
+      required: [uuid, account, direction, trigger, status, items_total, items_ok, items_failed, error, details, actor, started_at, finished_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        account: { $ref: "#/components/schemas/ChannelRef" }
+        direction: { type: string, enum: [push, pull, reconcile] }
+        trigger: { type: string, enum: [event, schedule, manual] }
+        status: { type: string, enum: [running, succeeded, partial, failed] }
+        items_total: { type: integer }
+        items_ok: { type: integer }
+        items_failed: { type: integer }
+        error: { type: string }
+        details: { type: object, additionalProperties: true }
+        actor: { type: string }
+        started_at: { type: string, format: date-time }
+        finished_at: { type: [string, "null"], format: date-time }
+
+    ChannelSimulateInput:
+      type: object
+      additionalProperties: false
+      properties:
+        type: { type: string, enum: [booking, modification, cancellation] }
+        external_ref: { type: string, maxLength: 64, description: "Empty for a new booking (generated)" }
+        product_code: { type: string }
+        pickup_location_code: { type: string }
+        return_location_code: { type: string }
+        offer_ref: { type: string }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+        customer:
+          type: object
+          properties:
+            first_name: { type: string }
+            last_name: { type: string }
+            email: { type: string }
+            phone: { type: string }
+            nationality: { type: string }
+        extras:
+          type: array
+          items:
+            type: object
+            required: [code, quantity]
+            properties:
+              code: { type: string }
+              quantity: { type: integer }
+        total: { type: string }
+        commission: { type: string }
+        collected_by: { type: string, enum: [channel, us] }
+
+    ChannelReconciliationLine:
+      type: object
+      required: [external_ref, match, starts_at, channel_status, channel_total, channel_commission, channel_net, collected_by, reservation, local_total, local_commission, difference, error_code]
+      properties:
+        external_ref: { type: string }
+        match: { type: string, enum: [matched, missing_local, missing_channel, status_mismatch, amount_mismatch, commission_mismatch] }
+        starts_at: { type: [string, "null"], format: date-time }
+        channel_status: { type: string }
+        channel_total: { type: [string, "null"] }
+        channel_commission: { type: [string, "null"] }
+        channel_net: { type: [string, "null"] }
+        collected_by: { type: string }
+        reservation:
+          oneOf:
+            - $ref: "#/components/schemas/ChannelRef"
+            - type: "null"
+        local_total: { type: [string, "null"] }
+        local_commission: { type: [string, "null"] }
+        difference: { type: [string, "null"] }
+        error_code: { type: string }
+
+    ChannelReconciliation:
+      type: object
+      required: [account, from, to, source, warning, counts, totals, lines, currency]
+      properties:
+        account: { $ref: "#/components/schemas/ChannelRef" }
+        from: { type: string }
+        to: { type: string }
+        source: { type: string, enum: [statement, local] }
+        warning: { type: string }
+        counts: { type: object, additionalProperties: { type: integer } }
+        totals:
+          type: object
+          required: [channel_gross, channel_commission, channel_net, local_gross, local_commission, collected_by_channel, collected_by_us]
+          properties:
+            channel_gross: { type: string }
+            channel_commission: { type: string }
+            channel_net: { type: string }
+            local_gross: { type: string }
+            local_commission: { type: string }
+            collected_by_channel: { type: string, description: Net the channel owes the organization }
+            collected_by_us: { type: string, description: Commission the organization owes the channel }
+        lines: { type: array, items: { $ref: "#/components/schemas/ChannelReconciliationLine" } }
+        currency: { type: string }
+
+    EnvelopeChannelAccounts:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { type: array, items: { $ref: "#/components/schemas/ChannelAccount" } }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeChannelAccount:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/ChannelAccount" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeChannelMapping:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/ChannelMapping" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeChannelMappingPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/ChannelMapping" } }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeChannelMappingFacets:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/ChannelMappingFacets" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeChannelDeleted:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [deleted]
+          properties:
+            deleted: { type: boolean }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeChannelMessagePage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/ChannelMessage" } }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeChannelMessage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/ChannelMessageDetail" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeChannelMessageFacets:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/ChannelMessageFacets" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeChannelSyncRun:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/ChannelSyncRun" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeChannelSyncRunPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/ChannelSyncRun" } }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeChannelReconciliation:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/ChannelReconciliation" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
 
     KabisFacets:
       type: object
