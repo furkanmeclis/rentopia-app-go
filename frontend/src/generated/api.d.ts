@@ -15075,7 +15075,8 @@ export interface components {
             source: string;
             /**
              * @description Issue kind: `account_check_failed`, `job_failed`, `job_needs_verification`,
-             *     `job_waiting_dependency`, `job_blocked`, or one of a registered source.
+             *     `job_waiting_dependency`, `job_blocked`, `channel_sync_failed`, `channel_push_expired`,
+             *     `channel_error_queue`, or one of a registered source.
              */
             kind: string;
             /** @enum {string} */

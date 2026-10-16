@@ -570,3 +570,40 @@ ORDER BY
     CASE WHEN NOT sqlc.arg(sort_desc)::boolean THEN s.started_at END ASC,
     s.started_at DESC, s.id DESC
 LIMIT sqlc.arg(limit_count) OFFSET sqlc.arg(offset_count);
+
+-- ---------------------------------------------------------------- platform health
+
+-- name: ChannelHealthCounts :one
+-- Platform health (TEC-739): channel accounts of every organization.
+SELECT COUNT(*) FILTER (WHERE a.status = 'active')::bigint AS active,
+    COUNT(*) FILTER (WHERE a.status = 'active'
+        AND (c.last_push_status = 'failed' OR c.last_pull_status = 'failed'))::bigint AS failing,
+    COUNT(*) FILTER (WHERE a.status = 'active' AND c.push_enabled
+        AND c.pushed_valid_until < sqlc.arg(now)::timestamptz)::bigint AS expired,
+    COUNT(*) FILTER (WHERE a.status <> 'active')::bigint AS disabled,
+    (SELECT COUNT(*) FROM channel_messages m
+     WHERE m.organization_id IS NOT NULL AND m.status = 'failed')::bigint AS error_queue
+FROM integration_accounts a
+JOIN channel_accounts c ON c.organization_id = a.organization_id AND c.integration_account_id = a.id
+WHERE a.kind = 'channel'
+  AND a.organization_id IS NOT NULL;
+
+-- name: ListChannelHealthIssues :many
+-- Active channel accounts whose last sync failed, whose pushed capacity
+-- expired or that hold failed messages (newest first).
+SELECT a.organization_id, a.uuid, a.provider, a.display_name,
+    c.last_push_status, c.last_push_error, c.last_pull_status, c.last_pull_error,
+    c.last_push_at, c.last_pull_at, c.pushed_valid_until, c.push_enabled, c.updated_at,
+    (SELECT COUNT(*) FROM channel_messages m
+     WHERE m.organization_id = a.organization_id AND m.integration_account_id = a.id AND m.status = 'failed')::bigint AS open_errors
+FROM integration_accounts a
+JOIN channel_accounts c ON c.organization_id = a.organization_id AND c.integration_account_id = a.id
+WHERE a.kind = 'channel'
+  AND a.status = 'active'
+  AND a.organization_id IS NOT NULL
+  AND (c.last_push_status = 'failed' OR c.last_pull_status = 'failed'
+       OR (c.push_enabled AND c.pushed_valid_until < sqlc.arg(now)::timestamptz)
+       OR EXISTS (SELECT 1 FROM channel_messages m
+                  WHERE m.organization_id = a.organization_id AND m.integration_account_id = a.id AND m.status = 'failed'))
+ORDER BY c.updated_at DESC, a.id DESC
+LIMIT sqlc.arg(row_limit);

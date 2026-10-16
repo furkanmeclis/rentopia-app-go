@@ -187,6 +187,45 @@ func (q *Queries) ChannelExtraByUUID(ctx context.Context, arg ChannelExtraByUUID
 	return i, err
 }
 
+const channelHealthCounts = `-- name: ChannelHealthCounts :one
+
+SELECT COUNT(*) FILTER (WHERE a.status = 'active')::bigint AS active,
+    COUNT(*) FILTER (WHERE a.status = 'active'
+        AND (c.last_push_status = 'failed' OR c.last_pull_status = 'failed'))::bigint AS failing,
+    COUNT(*) FILTER (WHERE a.status = 'active' AND c.push_enabled
+        AND c.pushed_valid_until < $1::timestamptz)::bigint AS expired,
+    COUNT(*) FILTER (WHERE a.status <> 'active')::bigint AS disabled,
+    (SELECT COUNT(*) FROM channel_messages m
+     WHERE m.organization_id IS NOT NULL AND m.status = 'failed')::bigint AS error_queue
+FROM integration_accounts a
+JOIN channel_accounts c ON c.organization_id = a.organization_id AND c.integration_account_id = a.id
+WHERE a.kind = 'channel'
+  AND a.organization_id IS NOT NULL
+`
+
+type ChannelHealthCountsRow struct {
+	Active     int64 `json:"active"`
+	Failing    int64 `json:"failing"`
+	Expired    int64 `json:"expired"`
+	Disabled   int64 `json:"disabled"`
+	ErrorQueue int64 `json:"error_queue"`
+}
+
+// ---------------------------------------------------------------- platform health
+// Platform health (TEC-739): channel accounts of every organization.
+func (q *Queries) ChannelHealthCounts(ctx context.Context, now pgtype.Timestamptz) (ChannelHealthCountsRow, error) {
+	row := q.db.QueryRow(ctx, channelHealthCounts, now)
+	var i ChannelHealthCountsRow
+	err := row.Scan(
+		&i.Active,
+		&i.Failing,
+		&i.Expired,
+		&i.Disabled,
+		&i.ErrorQueue,
+	)
+	return i, err
+}
+
 const channelMappingFacets = `-- name: ChannelMappingFacets :many
 SELECT mp.entity_type, COUNT(*)::bigint AS total,
     COUNT(*) FILTER (WHERE mp.stop_sale)::bigint AS stop_sale,
@@ -1497,6 +1536,84 @@ func (q *Queries) ListChannelAccounts(ctx context.Context, organizationID int64)
 			&i.ConsecutiveFailures,
 			&i.OpenErrors,
 			&i.ActiveMappings,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listChannelHealthIssues = `-- name: ListChannelHealthIssues :many
+SELECT a.organization_id, a.uuid, a.provider, a.display_name,
+    c.last_push_status, c.last_push_error, c.last_pull_status, c.last_pull_error,
+    c.last_push_at, c.last_pull_at, c.pushed_valid_until, c.push_enabled, c.updated_at,
+    (SELECT COUNT(*) FROM channel_messages m
+     WHERE m.organization_id = a.organization_id AND m.integration_account_id = a.id AND m.status = 'failed')::bigint AS open_errors
+FROM integration_accounts a
+JOIN channel_accounts c ON c.organization_id = a.organization_id AND c.integration_account_id = a.id
+WHERE a.kind = 'channel'
+  AND a.status = 'active'
+  AND a.organization_id IS NOT NULL
+  AND (c.last_push_status = 'failed' OR c.last_pull_status = 'failed'
+       OR (c.push_enabled AND c.pushed_valid_until < $1::timestamptz)
+       OR EXISTS (SELECT 1 FROM channel_messages m
+                  WHERE m.organization_id = a.organization_id AND m.integration_account_id = a.id AND m.status = 'failed'))
+ORDER BY c.updated_at DESC, a.id DESC
+LIMIT $2
+`
+
+type ListChannelHealthIssuesParams struct {
+	Now      pgtype.Timestamptz `json:"now"`
+	RowLimit int32              `json:"row_limit"`
+}
+
+type ListChannelHealthIssuesRow struct {
+	OrganizationID   int64              `json:"organization_id"`
+	Uuid             uuid.UUID          `json:"uuid"`
+	Provider         string             `json:"provider"`
+	DisplayName      string             `json:"display_name"`
+	LastPushStatus   string             `json:"last_push_status"`
+	LastPushError    string             `json:"last_push_error"`
+	LastPullStatus   string             `json:"last_pull_status"`
+	LastPullError    string             `json:"last_pull_error"`
+	LastPushAt       pgtype.Timestamptz `json:"last_push_at"`
+	LastPullAt       pgtype.Timestamptz `json:"last_pull_at"`
+	PushedValidUntil pgtype.Timestamptz `json:"pushed_valid_until"`
+	PushEnabled      bool               `json:"push_enabled"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	OpenErrors       int64              `json:"open_errors"`
+}
+
+// Active channel accounts whose last sync failed, whose pushed capacity
+// expired or that hold failed messages (newest first).
+func (q *Queries) ListChannelHealthIssues(ctx context.Context, arg ListChannelHealthIssuesParams) ([]ListChannelHealthIssuesRow, error) {
+	rows, err := q.db.Query(ctx, listChannelHealthIssues, arg.Now, arg.RowLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListChannelHealthIssuesRow{}
+	for rows.Next() {
+		var i ListChannelHealthIssuesRow
+		if err := rows.Scan(
+			&i.OrganizationID,
+			&i.Uuid,
+			&i.Provider,
+			&i.DisplayName,
+			&i.LastPushStatus,
+			&i.LastPushError,
+			&i.LastPullStatus,
+			&i.LastPullError,
+			&i.LastPushAt,
+			&i.LastPullAt,
+			&i.PushedValidUntil,
+			&i.PushEnabled,
+			&i.UpdatedAt,
+			&i.OpenErrors,
 		); err != nil {
 			return nil, err
 		}

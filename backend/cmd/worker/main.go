@@ -483,6 +483,11 @@ func main() {
 	// sync / delivery health register a healthcheck.Source on
 	// healthRegistry here (and in the API's composition root).
 	healthRegistry := platformhealthmodule.NewRegistry(queries)
+	// Channel manager sync health (TEC-736): failed syncs, expired pushes,
+	// the error queue.
+	if err := healthRegistry.Register(channelsmodule.NewHealthSource(queries)); err != nil {
+		log.Error("channel_health_init_failed", "error", err)
+	}
 	platformHealthSvc := platformhealthusecase.New(queries, healthRegistry)
 	platformHealthSvc.SetNotifier(notifSvc)
 	platformHealthSvc.SetLogger(log)

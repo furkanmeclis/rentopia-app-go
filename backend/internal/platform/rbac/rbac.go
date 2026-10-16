@@ -237,7 +237,7 @@ const (
 	PermTenantNotificationSettingsWrite = "tenant.notification_settings.write"
 )
 
-// Channel manager (TEC-736, migration 000114). The channel account itself
+// Channel manager (TEC-736, migration 000119). The channel account itself
 // is an integration account (PermTenantIntegrationsManage).
 const (
 	PermTenantChannelsRead  = "tenant.channels.read"

@@ -976,6 +976,11 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	// own sync / delivery health register a healthcheck.Source on
 	// healthRegistry here.
 	healthRegistry := platformhealthmodule.NewRegistry(deps.Queries)
+	// Channel manager sync health (TEC-736): failed syncs, expired pushes,
+	// the error queue.
+	if err := healthRegistry.Register(channelsmodule.NewHealthSource(deps.Queries)); err != nil {
+		return nil, fmt.Errorf("httpserver: channel health: %w", err)
+	}
 	platformhealthmodule.RegisterRoutes(mux, platformhealthhandler.New(platformhealthusecase.New(deps.Queries, healthRegistry)), tokens, loader)
 	contractsH := contractshandler.New(contractsSvc, activityRec)
 	contractsH.SetRateLimiter(contractsmodule.Limiter{L: ratelimit.New(deps.Redis, cfg.App.Env)})
