@@ -170,7 +170,6 @@ type sale struct {
 	starts   time.Time
 	ends     time.Time
 	total    string
-	extras   string
 	channel  string
 	snapshot string
 }
