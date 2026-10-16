@@ -1361,6 +1361,161 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
+  /v1/platform/usage/meta:
+    get:
+      tags: [Platform]
+      operationId: getPlatformUsageMeta
+      summary: Platform usage list metadata
+      description: Table contract of `GET /v1/platform/usage` (`platform.health.read`).
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Resource meta
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeResourceMeta"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/platform/usage:
+    get:
+      tags: [Platform]
+      operationId: getPlatformUsage
+      summary: Usage per organization
+      description: |
+        Requires `platform.health.read` (TEC-739). One row per organization: active vehicles (not deleted,
+        active, not out of service), reservations created in the month (Europe/Istanbul calendar month),
+        members, the newest member sign-in and the file bytes recorded on tenant records (documents,
+        inspection photos and signatures, attachments, contract PDFs). Sort fields `name`, `active_vehicles`,
+        `reservations_month`, `member_count`, `storage_bytes`, `last_login_at`, `created_at`
+        (default `-active_vehicles`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - $ref: "#/components/parameters/Sort"
+        - $ref: "#/components/parameters/PlatformUsageMonth"
+        - name: status
+          in: query
+          description: Comma-separated organization statuses (`active`, `suspended`).
+          schema: { type: string }
+      responses:
+        "200":
+          description: Usage page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopePlatformUsagePage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /v1/platform/usage/summary:
+    get:
+      tags: [Platform]
+      operationId: getPlatformUsageSummary
+      summary: Platform-wide usage totals
+      description: Requires `platform.health.read`. Totals over live organizations for the month.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PlatformUsageMonth"
+      responses:
+        "200":
+          description: Usage totals
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopePlatformUsageSummary"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /v1/platform/health:
+    get:
+      tags: [Platform]
+      operationId: getPlatformHealth
+      summary: Connection health across organizations
+      description: |
+        Requires `platform.health.read` (TEC-739). Collects every registered health source (built in:
+        `integration_accounts` — connection tests of the organizations' provider accounts;
+        `integration_jobs` — failed jobs of the last 7 days, jobs waiting on verification, on a dependency or
+        blocked, overdue work). Other modules register further sources; clients render unknown source codes,
+        metric keys and issue kinds generically. A source that cannot be read reports `unknown`. `alerts`
+        holds the failed-work alert sweep's cursor per source.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Health summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopePlatformHealthSummary"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /v1/platform/health/issues/meta:
+    get:
+      tags: [Platform]
+      operationId: getPlatformHealthIssuesMeta
+      summary: Health issue list metadata
+      description: Table contract of `GET /v1/platform/health/issues` (`platform.health.read`).
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Resource meta
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeResourceMeta"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/platform/health/issues:
+    get:
+      tags: [Platform]
+      operationId: getPlatformHealthIssues
+      summary: Health issues across organizations
+      description: |
+        Requires `platform.health.read`. The problems every health source reports (newest first by default;
+        each source lists at most 500). `q` matches the organization, provider, subject and message. Sort
+        fields `occurred_at`, `severity`, `source`, `organization`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - $ref: "#/components/parameters/Sort"
+        - name: source
+          in: query
+          description: Comma-separated source codes.
+          schema: { type: string }
+        - name: severity
+          in: query
+          description: Comma-separated severities (`critical`, `warning`, `info`).
+          schema: { type: string }
+      responses:
+        "200":
+          description: Issue page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopePlatformHealthIssuePage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
   /v1/platform/organizations:
     get:
       tags: [Platform]
@@ -22425,6 +22580,11 @@ components:
       schema:
         type: string
         format: uuid
+    PlatformUsageMonth:
+      name: month
+      in: query
+      description: Calendar month `YYYY-MM` (Europe/Istanbul); default the current month.
+      schema: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
     Limit:
       name: limit
       in: query
@@ -22686,6 +22846,155 @@ components:
             $ref: "#/components/schemas/Error"
 
   schemas:
+    PlatformOrganizationUsage:
+      type: object
+      required: [uuid, slug, name, status, active_vehicles, total_vehicles, reservations_month, member_count, storage_bytes, last_login_at, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        slug: { type: string }
+        name: { type: string }
+        status: { type: string, enum: [active, suspended] }
+        active_vehicles: { type: integer, format: int64 }
+        total_vehicles: { type: integer, format: int64 }
+        reservations_month: { type: integer, format: int64 }
+        member_count: { type: integer, format: int64 }
+        storage_bytes: { type: integer, format: int64 }
+        last_login_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+    EnvelopePlatformUsagePage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/PlatformOrganizationUsage" }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+    PlatformUsageSummary:
+      type: object
+      required: [month, organizations, active_organizations, active_vehicles, reservations_month, members, storage_bytes]
+      properties:
+        month: { type: string, example: "2026-10" }
+        organizations: { type: integer, format: int64 }
+        active_organizations: { type: integer, format: int64 }
+        active_vehicles: { type: integer, format: int64 }
+        reservations_month: { type: integer, format: int64 }
+        members: { type: integer, format: int64 }
+        storage_bytes: { type: integer, format: int64 }
+    EnvelopePlatformUsageSummary:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/PlatformUsageSummary" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+    PlatformHealthMetric:
+      type: object
+      required: [key, value]
+      properties:
+        key: { type: string, description: "Metric key of the source (e.g. `failed`, `waiting_dependency`)." }
+        value: { type: integer, format: int64 }
+        severity:
+          type: string
+          enum: [critical, warning, info]
+          description: Marks a non-zero value as a problem; absent = informational.
+    PlatformHealthSource:
+      type: object
+      required: [code, status, metrics, issue_count, critical, warning, truncated, duration_ms]
+      properties:
+        code: { type: string, description: "Source code (`integration_accounts`, `integration_jobs` or a registered one)." }
+        status: { type: string, enum: [healthy, degraded, failing, unknown] }
+        error: { type: string, description: Set when the source could not be read. }
+        metrics:
+          type: array
+          items: { $ref: "#/components/schemas/PlatformHealthMetric" }
+        issue_count: { type: integer }
+        critical: { type: integer }
+        warning: { type: integer }
+        truncated: { type: boolean }
+        duration_ms: { type: integer, format: int64 }
+    PlatformHealthAlertState:
+      type: object
+      required: [source, last_seen_at, last_alert_at, last_alert_count]
+      properties:
+        source: { type: string }
+        last_seen_at: { type: string, format: date-time }
+        last_alert_at: { type: [string, "null"], format: date-time }
+        last_alert_count: { type: integer }
+    PlatformHealthSummary:
+      type: object
+      required: [status, checked_at, critical, warning, sources, alerts]
+      properties:
+        status: { type: string, enum: [healthy, degraded, failing, unknown] }
+        checked_at: { type: string, format: date-time }
+        critical: { type: integer }
+        warning: { type: integer }
+        sources:
+          type: array
+          items: { $ref: "#/components/schemas/PlatformHealthSource" }
+        alerts:
+          type: array
+          items: { $ref: "#/components/schemas/PlatformHealthAlertState" }
+    EnvelopePlatformHealthSummary:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/PlatformHealthSummary" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+    PlatformHealthOrganizationRef:
+      type: object
+      required: [uuid, slug, name]
+      properties:
+        uuid: { type: string, format: uuid }
+        slug: { type: string }
+        name: { type: string }
+    PlatformHealthIssue:
+      type: object
+      required: [key, source, kind, severity, organization, provider, subject, message, ref_type, ref_uuid, occurred_at]
+      properties:
+        key: { type: string, description: Stable row key. }
+        source: { type: string }
+        kind:
+          type: string
+          description: |
+            Issue kind: `account_check_failed`, `job_failed`, `job_needs_verification`,
+            `job_waiting_dependency`, `job_blocked`, or one of a registered source.
+        severity: { type: string, enum: [critical, warning, info] }
+        organization:
+          description: Null for platform-level work.
+          oneOf:
+            - $ref: "#/components/schemas/PlatformHealthOrganizationRef"
+            - type: "null"
+        provider: { type: string }
+        subject: { type: string, description: "The failing thing (job kind or account name)." }
+        message: { type: string, description: Last error text. }
+        ref_type: { type: string }
+        ref_uuid: { type: string }
+        occurred_at: { type: string, format: date-time }
+    EnvelopePlatformHealthIssuePage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/PlatformHealthIssue" }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
 
     AvailabilitySearchRequest:
       type: object

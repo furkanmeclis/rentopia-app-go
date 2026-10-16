@@ -64,6 +64,8 @@ import (
 	orgsettingsrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/repository"
 	orgsettingsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/usecase"
 	paymentsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/payments/usecase"
+	platformhealthmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/platformhealth"
+	platformhealthusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/platformhealth/usecase"
 	pricingadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/adapters"
 	pricingrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/repository"
 	pricingusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/usecase"
@@ -477,6 +479,14 @@ func main() {
 	invoicesSvc.SetResourceEvents(resourceEvents)
 	channelsSvc.SetResourceEvents(resourceEvents)
 
+	// Platform health alert sweep (TEC-739): modules with their own
+	// sync / delivery health register a healthcheck.Source on
+	// healthRegistry here (and in the API's composition root).
+	healthRegistry := platformhealthmodule.NewRegistry(queries)
+	platformHealthSvc := platformhealthusecase.New(queries, healthRegistry)
+	platformHealthSvc.SetNotifier(notifSvc)
+	platformHealthSvc.SetLogger(log)
+
 	worker := queue.NewWorker(cfg, log, notifSvc.Deliver).
 		WithExport(exportSvc.ProcessExport).
 		WithImport(importSvc.ProcessImport).
@@ -548,6 +558,7 @@ func main() {
 		}).
 		WithTolls(tollsSvc.ScheduleFetches, tollsSvc.RematchDue).
 		WithAgreementPeriods(financeSvc.AccruePeriods).
+		WithPlatformHealthAlerts(platformHealthSvc.RunAlertsCount).
 		WithPublicWebhooks(publicAPISvc.DeliverDue).
 		WithNotifyEngine(notifyEngine.Sweep).
 		WithDocumentPDF(contractsSvc.RenderPDF).
@@ -588,6 +599,10 @@ func main() {
 	}
 	if err := queue.RegisterAgreementPeriodsSchedule(scheduler); err != nil {
 		log.Error("agreement_periods_scheduler_failed", "error", err)
+		exit(1)
+	}
+	if err := queue.RegisterPlatformHealthAlertsSchedule(scheduler); err != nil {
+		log.Error("platform_health_alerts_scheduler_failed", "error", err)
 		exit(1)
 	}
 	if err := queue.RegisterPublicWebhooksSchedule(scheduler); err != nil {

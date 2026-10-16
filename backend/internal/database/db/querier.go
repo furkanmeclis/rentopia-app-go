@@ -774,6 +774,7 @@ type Querier interface {
 	GetPaymentLinkPublic(ctx context.Context, arg GetPaymentLinkPublicParams) (GetPaymentLinkPublicRow, error)
 	GetPaymentSettlementFacts(ctx context.Context, arg GetPaymentSettlementFactsParams) (GetPaymentSettlementFactsRow, error)
 	GetPermissionBySlug(ctx context.Context, slug string) (Permission, error)
+	GetPlatformHealthAlertCursor(ctx context.Context, source string) (GetPlatformHealthAlertCursorRow, error)
 	// Channel, contact hash and time of a verified challenge (the session binds
 	// the code to the contact the customer typed).
 	GetPortalOTPBinding(ctx context.Context, arg GetPortalOTPBindingParams) (GetPortalOTPBindingRow, error)
@@ -1151,6 +1152,13 @@ type Querier interface {
 	InsertVehicleAssignment(ctx context.Context, arg InsertVehicleAssignmentParams) error
 	InsertVehicleEvent(ctx context.Context, arg InsertVehicleEventParams) (VehicleEvent, error)
 	InsertVehicleTollTag(ctx context.Context, arg InsertVehicleTollTagParams) (uuid.UUID, error)
+	// Connected provider accounts of live organizations by check state.
+	IntegrationAccountHealthCounts(ctx context.Context) (IntegrationAccountHealthCountsRow, error)
+	// Integration jobs of live organizations (and platform jobs, organization
+	// NULL) by state: final failures and successes since since_at, everything
+	// currently stuck in a state that needs attention, and due work that is
+	// overdue by more than stale_before.
+	IntegrationJobHealthCounts(ctx context.Context, arg IntegrationJobHealthCountsParams) (IntegrationJobHealthCountsRow, error)
 	InvalidateActiveOTPs(ctx context.Context, arg InvalidateActiveOTPsParams) error
 	InvalidateDocumentApprovals(ctx context.Context, arg InvalidateDocumentApprovalsParams) error
 	InvoiceBranchFacets(ctx context.Context, arg InvoiceBranchFacetsParams) ([]InvoiceBranchFacetsRow, error)
@@ -1369,6 +1377,8 @@ type Querier interface {
 	// default_price: the current default price row; stock_total: owned units
 	// over every branch (physical extras).
 	ListExtras(ctx context.Context, arg ListExtrasParams) ([]ListExtrasRow, error)
+	// Active accounts whose last connection test failed, newest first.
+	ListFailingIntegrationAccounts(ctx context.Context, rowLimit int32) ([]ListFailingIntegrationAccountsRow, error)
 	// Members whose roles let them work field tasks (pickers, the per-staff
 	// day timeline), with their branch scope.
 	ListFieldAssignees(ctx context.Context, arg ListFieldAssigneesParams) ([]ListFieldAssigneesRow, error)
@@ -1396,6 +1406,8 @@ type Querier interface {
 	// One page of live vehicles, plate order. total is the number of matching
 	// vehicles (window count, one round trip).
 	ListFleetCalendarVehicles(ctx context.Context, arg ListFleetCalendarVehiclesParams) ([]ListFleetCalendarVehiclesRow, error)
+	// Names of the organizations an issue list refers to.
+	ListHealthOrganizations(ctx context.Context, ids []int64) ([]ListHealthOrganizationsRow, error)
 	ListImportChangesForJob(ctx context.Context, jobID int64) ([]ImportChange, error)
 	ListImportJobsForActor(ctx context.Context, arg ListImportJobsForActorParams) ([]ImportJob, error)
 	ListInspectionDamages(ctx context.Context, arg ListInspectionDamagesParams) ([]ListInspectionDamagesRow, error)
@@ -1506,6 +1518,15 @@ type Querier interface {
 	ListOrganizationMembershipsByUser(ctx context.Context, userID int64) ([]ListOrganizationMembershipsByUserRow, error)
 	ListOrganizationResourceActivity(ctx context.Context, arg ListOrganizationResourceActivityParams) ([]ListOrganizationResourceActivityRow, error)
 	ListOrganizationSettingsVersions(ctx context.Context, arg ListOrganizationSettingsVersionsParams) ([]ListOrganizationSettingsVersionsRow, error)
+	// Platform usage and connection health (TEC-739). Platform-wide reads:
+	// every query below spans all organizations on purpose and is mounted
+	// only behind platform.health.read; per-organization figures are grouped
+	// by organization_id.
+	// One row per organization: active vehicles (not deleted, active, not out
+	// of service), reservations created in [month_start, month_end), members,
+	// the newest member sign-in and the file bytes recorded on the tenant
+	// tables that keep a size (documents, photos, attachments, PDFs).
+	ListOrganizationUsage(ctx context.Context, arg ListOrganizationUsageParams) ([]ListOrganizationUsageRow, error)
 	// Organizations that have passes waiting in the review queue (the
 	// periodic re-match walks them).
 	ListOrganizationsWithReviewTollPasses(ctx context.Context, since pgtype.Timestamptz) ([]int64, error)
@@ -1543,12 +1564,16 @@ type Querier interface {
 	ListPermissionSlugsByRoleID(ctx context.Context, roleID int64) ([]string, error)
 	ListPermissionSlugsByRoleSlug(ctx context.Context, slug string) ([]string, error)
 	ListPermissionsFiltered(ctx context.Context, arg ListPermissionsFilteredParams) ([]Permission, error)
+	ListPlatformHealthAlertCursors(ctx context.Context) ([]ListPlatformHealthAlertCursorsRow, error)
 	// Platform rows only: organization-stamped notifications show in their
 	// organization's panel (/v1/tenant/notifications), never here.
 	ListPlatformNotifications(ctx context.Context, arg ListPlatformNotificationsParams) ([]Notification, error)
 	ListPlatformNotificationsForExport(ctx context.Context, arg ListPlatformNotificationsForExportParams) ([]Notification, error)
 	// Platform operations on the organization plus everything recorded inside it.
 	ListPlatformOrganizationActivity(ctx context.Context, arg ListPlatformOrganizationActivityParams) ([]ListPlatformOrganizationActivityRow, error)
+	// Active platform users holding a permission through a platform role
+	// (the alert recipients).
+	ListPlatformUsersWithPermission(ctx context.Context, slug string) ([]ListPlatformUsersWithPermissionRow, error)
 	// Who may sign in for a reservation: the renter (the contract party) and
 	// the drivers on it, with their contact values (plain in the database,
 	// compared through keyed hashes in the use case). Anonymized / deleted
@@ -1565,6 +1590,9 @@ type Querier interface {
 	ListPricingProducts(ctx context.Context, organizationID int64) ([]ListPricingProductsRow, error)
 	ListPricingProductsByUUIDs(ctx context.Context, arg ListPricingProductsByUUIDsParams) ([]ListPricingProductsByUUIDsRow, error)
 	ListPricingSegmentsByUUIDs(ctx context.Context, arg ListPricingSegmentsByUUIDsParams) ([]ListPricingSegmentsByUUIDsRow, error)
+	// Jobs that need attention, newest first: failures since since_at and
+	// every job waiting on verification, a dependency or a block.
+	ListProblemIntegrationJobs(ctx context.Context, arg ListProblemIntegrationJobsParams) ([]ListProblemIntegrationJobsRow, error)
 	// Active, unexpired allocations of a product whose customer range overlaps
 	// [from_at, to_at): channel rule accounting.
 	ListProductCommitments(ctx context.Context, arg ListProductCommitmentsParams) ([]ListProductCommitmentsRow, error)
@@ -1975,6 +2003,8 @@ type Querier interface {
 	// Open supplier invoices by due state (caller's branch scope).
 	PayablesSummary(ctx context.Context, arg PayablesSummaryParams) (PayablesSummaryRow, error)
 	PingDB(ctx context.Context) (int32, error)
+	// Platform-wide totals of the usage list (live organizations only).
+	PlatformUsageTotals(ctx context.Context, arg PlatformUsageTotalsParams) (PlatformUsageTotalsRow, error)
 	// Live (unreversed) debit accruals of rentals, all dates: what each rental
 	// billed, by purpose and charge kind.
 	ProfitBilledAccruals(ctx context.Context, arg ProfitBilledAccrualsParams) ([]ProfitBilledAccrualsRow, error)
@@ -2409,6 +2439,7 @@ type Querier interface {
 	UpsertNotificationMessageTemplate(ctx context.Context, arg UpsertNotificationMessageTemplateParams) (NotificationMessageTemplate, error)
 	UpsertNotificationPreferences(ctx context.Context, arg UpsertNotificationPreferencesParams) (NotificationPreference, error)
 	UpsertNotificationRule(ctx context.Context, arg UpsertNotificationRuleParams) (NotificationRule, error)
+	UpsertPlatformHealthAlertCursor(ctx context.Context, arg UpsertPlatformHealthAlertCursorParams) error
 	// Mobile push devices (Expo) and their pending push tickets.
 	// A token moves to the calling user when the device switches accounts and is
 	// re-enabled on every registration.

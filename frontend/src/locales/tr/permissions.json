@@ -53,6 +53,7 @@
   "labels.platform.integrations.apple.write": "Apple entegrasyon ayarlarını düzenle",
   "labels.platform.auth.settings.read": "Auth kayıt ayarlarını görüntüle",
   "labels.platform.auth.settings.write": "Auth kayıt ayarlarını düzenle",
+  "labels.platform.health.read": "Platform kullanımını ve bağlantı sağlığını görüntüle",
   "labels.auth.session": "Oturum",
   "labels.platform.organizations.read": "Firmaları görüntüle",
   "labels.platform.organizations.write": "Firmaları yönet",
