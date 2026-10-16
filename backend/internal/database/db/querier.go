@@ -23,6 +23,13 @@ type Querier interface {
 	// Accumulates a refund (never above the amount).
 	AddPaymentRefunded(ctx context.Context, arg AddPaymentRefundedParams) (int64, error)
 	AddVehicleRentalGroup(ctx context.Context, arg AddVehicleRentalGroupParams) error
+	// Open-account exposure of the agreement's customer: its ledger balance
+	// (deposits excluded) plus the rent of the agreement's live reservations
+	// not accrued yet.
+	AgreementCreditExposure(ctx context.Context, arg AgreementCreditExposureParams) (AgreementCreditExposureRow, error)
+	// Permitted drivers: none listed = anyone; otherwise the driver must be
+	// listed, or belong to a listed (individual) customer.
+	AgreementDriverRules(ctx context.Context, arg AgreementDriverRulesParams) (AgreementDriverRulesRow, error)
 	// Data subject request: wipes every personal value and keeps the row
 	// (references from reservations / invoices stay valid).
 	AnonymizeCustomer(ctx context.Context, arg AnonymizeCustomerParams) (int64, error)
@@ -69,6 +76,8 @@ type Querier interface {
 	ClearRentalOverdue(ctx context.Context, arg ClearRentalOverdueParams) (int64, error)
 	ClearSMSPayload(ctx context.Context, arg ClearSMSPayloadParams) error
 	ClearVehicleRentalGroups(ctx context.Context, arg ClearVehicleRentalGroupsParams) error
+	// posted -> superseded (a new revision replaces it) / reversed (no longer due).
+	CloseBillingPeriod(ctx context.Context, arg CloseBillingPeriodParams) (int64, error)
 	// Ends the row that is effective at from_at (a price change from from_at).
 	CloseExtraPrice(ctx context.Context, arg CloseExtraPriceParams) (int64, error)
 	// Revokes (status revoked) or supersedes (status superseded) the open link
@@ -280,6 +289,8 @@ type Querier interface {
 	DeactivateUser(ctx context.Context, id int64) (User, error)
 	DecideRentalCharge(ctx context.Context, arg DecideRentalChargeParams) (int64, error)
 	DecrementCampaignUsage(ctx context.Context, arg DecrementCampaignUsageParams) (int64, error)
+	DeleteAgreementContact(ctx context.Context, arg DeleteAgreementContactParams) (int64, error)
+	DeleteAgreementDriver(ctx context.Context, arg DeleteAgreementDriverParams) (int64, error)
 	DeleteAppLogByUUID(ctx context.Context, argUuid uuid.UUID) (int64, error)
 	DeleteAppLogsByUUIDs(ctx context.Context, uuids []uuid.UUID) (int64, error)
 	DeleteAppLogsMatching(ctx context.Context, arg DeleteAppLogsMatchingParams) (int64, error)
@@ -307,6 +318,8 @@ type Querier interface {
 	DeleteOAuthAccountByProviderAccount(ctx context.Context, arg DeleteOAuthAccountByProviderAccountParams) error
 	DeleteOAuthAccountByUserProvider(ctx context.Context, arg DeleteOAuthAccountByUserProviderParams) error
 	DeleteOrganizationMember(ctx context.Context, arg DeleteOrganizationMemberParams) (int64, error)
+	// Planned periods never reached the ledger: a re-plan replaces them.
+	DeletePlannedBillingPeriods(ctx context.Context, arg DeletePlannedBillingPeriodsParams) (int64, error)
 	// A re-computed mileage / fuel / equipment charge replaces the proposal.
 	DeleteProposedInspectionPolicyCharges(ctx context.Context, arg DeleteProposedInspectionPolicyChargesParams) error
 	// A re-computed late fee replaces the proposal (approved fees stay).
@@ -423,6 +436,11 @@ type Querier interface {
 	GetActiveOTPByEmailType(ctx context.Context, arg GetActiveOTPByEmailTypeParams) (OtpCode, error)
 	// The newest active, unexpired pay-by-link link of a reservation.
 	GetActivePaymentLinkForReservation(ctx context.Context, arg GetActivePaymentLinkForReservationParams) (GetActivePaymentLinkForReservationRow, error)
+	GetAgreement(ctx context.Context, arg GetAgreementParams) (GetAgreementRow, error)
+	// ------------------------------------------------------- sales (ports)
+	// What pricing and reservations need of an agreement (by uuid).
+	GetAgreementForSale(ctx context.Context, arg GetAgreementForSaleParams) (GetAgreementForSaleRow, error)
+	GetAgreementForSaleByID(ctx context.Context, arg GetAgreementForSaleByIDParams) (GetAgreementForSaleByIDRow, error)
 	GetAllocation(ctx context.Context, arg GetAllocationParams) (GetAllocationRow, error)
 	// The planning facts of one allocation by uuid.
 	GetAllocationRef(ctx context.Context, arg GetAllocationRefParams) (GetAllocationRefRow, error)
@@ -490,9 +508,11 @@ type Querier interface {
 	GetCustomerByIdentityIndex(ctx context.Context, arg GetCustomerByIdentityIndexParams) (Customer, error)
 	GetCustomerByUUIDForLedger(ctx context.Context, arg GetCustomerByUUIDForLedgerParams) (GetCustomerByUUIDForLedgerRow, error)
 	GetCustomerContact(ctx context.Context, arg GetCustomerContactParams) (CustomerContact, error)
+	GetCustomerContactForAgreement(ctx context.Context, arg GetCustomerContactForAgreementParams) (GetCustomerContactForAgreementRow, error)
 	GetCustomerDisplay(ctx context.Context, arg GetCustomerDisplayParams) (GetCustomerDisplayRow, error)
 	GetCustomerDocument(ctx context.Context, arg GetCustomerDocumentParams) (GetCustomerDocumentRow, error)
 	GetCustomerDriver(ctx context.Context, arg GetCustomerDriverParams) (Driver, error)
+	GetCustomerForAgreement(ctx context.Context, arg GetCustomerForAgreementParams) (GetCustomerForAgreementRow, error)
 	GetCustomerIDByUUID(ctx context.Context, arg GetCustomerIDByUUIDParams) (int64, error)
 	GetCustomerSearchDocument(ctx context.Context, arg GetCustomerSearchDocumentParams) (GetCustomerSearchDocumentRow, error)
 	GetDateRule(ctx context.Context, arg GetDateRuleParams) (GetDateRuleRow, error)
@@ -519,6 +539,7 @@ type Querier interface {
 	GetDocumentVersionByID(ctx context.Context, arg GetDocumentVersionByIDParams) (GetDocumentVersionByIDRow, error)
 	// Reservations resolve a driver_uuid of the organization (customer joined).
 	GetDriverByUUID(ctx context.Context, arg GetDriverByUUIDParams) (GetDriverByUUIDRow, error)
+	GetDriverForAgreement(ctx context.Context, arg GetDriverForAgreementParams) (GetDriverForAgreementRow, error)
 	// The price row of one extra and product (NULL product = default)
 	// effective at now_at.
 	GetEffectiveExtraPrice(ctx context.Context, arg GetEffectiveExtraPriceParams) (GetEffectiveExtraPriceRow, error)
@@ -822,6 +843,9 @@ type Querier interface {
 	IncrementCampaignUsage(ctx context.Context, arg IncrementCampaignUsageParams) (int32, error)
 	IncrementOTPAttempts(ctx context.Context, id int64) (OtpCode, error)
 	InsertActivityEvent(ctx context.Context, arg InsertActivityEventParams) (ActivityEvent, error)
+	InsertAgreement(ctx context.Context, arg InsertAgreementParams) (InsertAgreementRow, error)
+	InsertAgreementContact(ctx context.Context, arg InsertAgreementContactParams) (InsertAgreementContactRow, error)
+	InsertAgreementDriver(ctx context.Context, arg InsertAgreementDriverParams) (InsertAgreementDriverRow, error)
 	InsertAllocation(ctx context.Context, arg InsertAllocationParams) (InsertAllocationRow, error)
 	InsertAppLog(ctx context.Context, arg InsertAppLogParams) error
 	InsertBulkChange(ctx context.Context, arg InsertBulkChangeParams) (BulkChange, error)
@@ -921,7 +945,11 @@ type Querier interface {
 	// Rentals (TEC-709). Every query filters by organization_id; branch scope
 	// (planned pick-up OR planned return OR actual return branch) is applied by
 	// the list queries and checked by the use case on single rows.
+	// rent_billing (TEC-723): a reservation sold under a corporate agreement
+	// with a monthly invoice period is billed per period; everything else
+	// accrues its rent at the handover.
 	InsertRental(ctx context.Context, arg InsertRentalParams) (InsertRentalRow, error)
+	InsertRentalBillingPeriod(ctx context.Context, arg InsertRentalBillingPeriodParams) (InsertRentalBillingPeriodRow, error)
 	InsertRentalCharge(ctx context.Context, arg InsertRentalChargeParams) (uuid.UUID, error)
 	InsertRentalEvent(ctx context.Context, arg InsertRentalEventParams) error
 	InsertRentalGroupCatalogModels(ctx context.Context, arg InsertRentalGroupCatalogModelsParams) error
@@ -991,6 +1019,21 @@ type Querier interface {
 	// Platform audit feed: platform events only. Organization events are read
 	// per resource through ListOrganizationResourceActivity.
 	ListActivityEvents(ctx context.Context, arg ListActivityEventsParams) ([]ActivityEvent, error)
+	// Billing plans of the agreement's rentals, every revision, with the
+	// accrual entry of each posted period (invoicing links to it).
+	ListAgreementBillingPeriods(ctx context.Context, arg ListAgreementBillingPeriodsParams) ([]ListAgreementBillingPeriodsRow, error)
+	ListAgreementContacts(ctx context.Context, arg ListAgreementContactsParams) ([]ListAgreementContactsRow, error)
+	ListAgreementDrivers(ctx context.Context, arg ListAgreementDriversParams) ([]ListAgreementDriversRow, error)
+	// facet: status | customer | branch | invoice_period | validity, in the caller's branch scope.
+	ListAgreementFacets(ctx context.Context, arg ListAgreementFacetsParams) ([]ListAgreementFacetsRow, error)
+	// The agreement's statement: ledger entries of its reservations and
+	// rentals (deposits excluded, as in balances), oldest first.
+	ListAgreementLedgerEntries(ctx context.Context, arg ListAgreementLedgerEntriesParams) ([]ListAgreementLedgerEntriesRow, error)
+	// Reservations sold under the agreement with their rental (if any) and
+	// what the ledger accrued for their rent.
+	ListAgreementReservations(ctx context.Context, arg ListAgreementReservationsParams) ([]ListAgreementReservationsRow, error)
+	ListAgreements(ctx context.Context, arg ListAgreementsParams) ([]ListAgreementsRow, error)
+	ListAgreementsForExport(ctx context.Context, arg ListAgreementsForExportParams) ([]ListAgreementsForExportRow, error)
 	ListAllBulkJobs(ctx context.Context, arg ListAllBulkJobsParams) ([]BulkJob, error)
 	ListAllExportJobs(ctx context.Context, arg ListAllExportJobsParams) ([]ExportJob, error)
 	ListAllImportJobs(ctx context.Context, arg ListAllImportJobsParams) ([]ImportJob, error)
@@ -1076,6 +1119,8 @@ type Querier interface {
 	// credit), oldest first. Deposits are not free credit.
 	ListCreditCollections(ctx context.Context, arg ListCreditCollectionsParams) ([]ListCreditCollectionsRow, error)
 	ListCurrentRentalProductVersions(ctx context.Context, arg ListCurrentRentalProductVersionsParams) ([]RentalProductVersion, error)
+	// Active agreements of a customer valid on a day (the wizard offers them).
+	ListCustomerAgreementsForSale(ctx context.Context, arg ListCustomerAgreementsForSaleParams) ([]ListCustomerAgreementsForSaleRow, error)
 	// --- marketing consents -----------------------------------------------------------
 	ListCustomerConsents(ctx context.Context, arg ListCustomerConsentsParams) ([]ListCustomerConsentsRow, error)
 	// --- contacts ------------------------------------------------------------------
@@ -1115,6 +1160,9 @@ type Querier interface {
 	// Organizations with active holds past their expiry (expiry sweep).
 	ListDueHoldOrganizations(ctx context.Context, nowAt pgtype.Timestamptz) ([]int64, error)
 	ListDueHolds(ctx context.Context, arg ListDueHoldsParams) ([]ListDueHoldsRow, error)
+	// Worker sweep (every organization): periodically billed rentals under way
+	// or returned whose plan is missing or has a period due by today.
+	ListDuePeriodicRentals(ctx context.Context, arg ListDuePeriodicRentalsParams) ([]ListDuePeriodicRentalsRow, error)
 	ListDuePushTickets(ctx context.Context, arg ListDuePushTicketsParams) ([]ListDuePushTicketsRow, error)
 	// Organizations with waiting reservations past their deadline (sweep).
 	ListDueReservationOrganizations(ctx context.Context, nowAt pgtype.Timestamptz) ([]int64, error)
@@ -1315,6 +1363,7 @@ type Querier interface {
 	ListRatePlansForTarget(ctx context.Context, arg ListRatePlansForTargetParams) ([]ListRatePlansForTargetRow, error)
 	// Balances per rental (entries of its reservation).
 	ListRentalBalances(ctx context.Context, arg ListRentalBalancesParams) ([]ListRentalBalancesRow, error)
+	ListRentalBillingPeriods(ctx context.Context, arg ListRentalBillingPeriodsParams) ([]ListRentalBillingPeriodsRow, error)
 	ListRentalCharges(ctx context.Context, arg ListRentalChargesParams) ([]ListRentalChargesRow, error)
 	ListRentalChargesForLedger(ctx context.Context, arg ListRentalChargesForLedgerParams) ([]ListRentalChargesForLedgerRow, error)
 	ListRentalDrivers(ctx context.Context, arg ListRentalDriversParams) ([]ListRentalDriversRow, error)
@@ -1489,6 +1538,15 @@ type Querier interface {
 	ListWebAuthnCredentialsByUserID(ctx context.Context, userID int64) ([]WebauthnCredential, error)
 	ListWebAuthnCredentialsForUserIDs(ctx context.Context, userIds []int64) ([]WebauthnCredential, error)
 	LockAccount(ctx context.Context, arg LockAccountParams) (int64, error)
+	LockAgreement(ctx context.Context, arg LockAgreementParams) (int64, error)
+	// Corporate agreements (TEC-723, docs/design/corporate-agreements.md).
+	// Branch scope: an agreement with a managing branch is visible inside that
+	// branch's scope; a head office agreement (branch NULL) to everyone.
+	// Validity state (computed against :today, Istanbul calendar):
+	//   upcoming  valid_from > today
+	//   expired   valid_to < today
+	//   current   otherwise
+	LockAgreementCodes(ctx context.Context, organizationID int64) error
 	// Serialises the planners of one eligibility component (transaction-scoped).
 	LockAvailabilityComponent(ctx context.Context, lockKey int64) error
 	// Transfers lock both accounts in id order (no deadlock between two
@@ -1512,6 +1570,12 @@ type Querier interface {
 	LockOrganizationRow(ctx context.Context, id int64) (Organization, error)
 	// Serialises draft edits and activation of one plan.
 	LockRatePlan(ctx context.Context, arg LockRatePlanParams) (int64, error)
+	// Periodic billing of rentals (TEC-723, docs/design/corporate-agreements.md):
+	// rental_billing_periods is the billing plan of a periodically billed
+	// rental; SyncRental posts each due period once through the ledger.
+	// Serialises billing-plan work on one rental (job runs, handover,
+	// extension, return) for the rest of the transaction.
+	LockRentalForBilling(ctx context.Context, arg LockRentalForBillingParams) (int64, error)
 	// Row lock of a transition (serialises concurrent actions on one
 	// reservation inside the caller's transaction).
 	LockReservation(ctx context.Context, arg LockReservationParams) (LockReservationRow, error)
@@ -1526,6 +1590,7 @@ type Querier interface {
 	// Handover: the confirmed reservation's allocation becomes the rental's
 	// (same row, the plate is promised from now on).
 	MarkAllocationRental(ctx context.Context, arg MarkAllocationRentalParams) (int64, error)
+	MarkBillingPeriodPosted(ctx context.Context, arg MarkBillingPeriodPostedParams) (int64, error)
 	MarkBulkJobCompleted(ctx context.Context, arg MarkBulkJobCompletedParams) (BulkJob, error)
 	MarkBulkJobFailed(ctx context.Context, arg MarkBulkJobFailedParams) (BulkJob, error)
 	MarkBulkJobProcessing(ctx context.Context, id int64) (BulkJob, error)
@@ -1566,6 +1631,7 @@ type Querier interface {
 	// found it (optimistic check: 0 rows = the plan is stale, retry).
 	MoveAllocation(ctx context.Context, arg MoveAllocationParams) (int64, error)
 	MoveCatalogBrandsDisplayBrand(ctx context.Context, arg MoveCatalogBrandsDisplayBrandParams) (int64, error)
+	NextAgreementNumber(ctx context.Context, organizationID int64) (int64, error)
 	// The next TH- code (call under LockOrganizationCollectionCodes).
 	NextCollectionCode(ctx context.Context, organizationID int64) (string, error)
 	NextInspectionTemplateVersion(ctx context.Context, organizationID int64) (int32, error)
@@ -1719,6 +1785,9 @@ type Querier interface {
 	// Open deposits by status and method in the caller's branch scope, and
 	// how many have been held since before held_before.
 	SecurityDepositTotals(ctx context.Context, arg SecurityDepositTotalsParams) ([]SecurityDepositTotalsRow, error)
+	// The agreement's payment term on its customer's ledger account.
+	SetAccountTermsForCustomer(ctx context.Context, arg SetAccountTermsForCustomerParams) (int64, error)
+	SetAgreementStatus(ctx context.Context, arg SetAgreementStatusParams) (int64, error)
 	SetAppSettingsLogo(ctx context.Context, logoObjectKey pgtype.Text) (AppSetting, error)
 	SetBranchActive(ctx context.Context, arg SetBranchActiveParams) (Branch, error)
 	SetCampaignActive(ctx context.Context, arg SetCampaignActiveParams) (int64, error)
@@ -1795,6 +1864,7 @@ type Querier interface {
 	SetVehicleTransferCost(ctx context.Context, arg SetVehicleTransferCostParams) (int64, error)
 	SettleCollection(ctx context.Context, arg SettleCollectionParams) (int64, error)
 	SlugExists(ctx context.Context, slug string) (bool, error)
+	SoftDeleteAgreement(ctx context.Context, arg SoftDeleteAgreementParams) (int64, error)
 	SoftDeleteBranch(ctx context.Context, arg SoftDeleteBranchParams) (int64, error)
 	SoftDeleteCampaign(ctx context.Context, arg SoftDeleteCampaignParams) (int64, error)
 	SoftDeleteCapacityRule(ctx context.Context, arg SoftDeleteCapacityRuleParams) (int64, error)
@@ -1852,6 +1922,7 @@ type Querier interface {
 	TransitionReservation(ctx context.Context, arg TransitionReservationParams) (int64, error)
 	UnlockRunnerJob(ctx context.Context, arg UnlockRunnerJobParams) error
 	UpdateAccount(ctx context.Context, arg UpdateAccountParams) (int64, error)
+	UpdateAgreement(ctx context.Context, arg UpdateAgreementParams) (int64, error)
 	UpdateAppSettings(ctx context.Context, arg UpdateAppSettingsParams) (AppSetting, error)
 	UpdateAuthSettings(ctx context.Context, arg UpdateAuthSettingsParams) (AuthSetting, error)
 	UpdateBranch(ctx context.Context, arg UpdateBranchParams) (Branch, error)

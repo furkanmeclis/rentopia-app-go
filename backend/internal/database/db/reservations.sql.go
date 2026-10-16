@@ -195,7 +195,7 @@ SELECT r.id, r.uuid, r.reference, r.status, r.payment_status, r.capacity_commitm
     r.customer_id, r.channel, r.total_amount, r.prepayment_amount, r.paid_amount, r.commission_amount,
     r.collecting_party, r.quote_id, r.quote_snapshot, r.settings_version, r.review_deadline, r.payment_deadline,
     r.assigned_user_id, r.currency, r.product_snapshot, r.equipment_allocations, r.approval_protocol,
-    r.pickup_delivery, r.return_delivery,
+    r.pickup_delivery, r.return_delivery, r.agreement_id, r.open_account,
     a.uuid AS allocation_uuid, a.status AS allocation_status, a.kind AS allocation_kind,
     a.vehicle_id AS allocation_vehicle_id, a.plate_fixed AS allocation_plate_fixed, a.expires_at AS allocation_expires_at,
     p.uuid AS product_uuid
@@ -250,6 +250,8 @@ type GetReservationCoreRow struct {
 	ApprovalProtocol     string             `json:"approval_protocol"`
 	PickupDelivery       []byte             `json:"pickup_delivery"`
 	ReturnDelivery       []byte             `json:"return_delivery"`
+	AgreementID          pgtype.Int8        `json:"agreement_id"`
+	OpenAccount          bool               `json:"open_account"`
 	AllocationUuid       pgtype.UUID        `json:"allocation_uuid"`
 	AllocationStatus     pgtype.Text        `json:"allocation_status"`
 	AllocationKind       pgtype.Text        `json:"allocation_kind"`
@@ -301,6 +303,8 @@ func (q *Queries) GetReservationCore(ctx context.Context, arg GetReservationCore
 		&i.ApprovalProtocol,
 		&i.PickupDelivery,
 		&i.ReturnDelivery,
+		&i.AgreementID,
+		&i.OpenAccount,
 		&i.AllocationUuid,
 		&i.AllocationStatus,
 		&i.AllocationKind,
@@ -685,8 +689,10 @@ SELECT r.id, r.uuid, r.reference, r.status, r.payment_status, r.capacity_commitm
     au.uuid AS assigned_user_uuid, au.name AS assigned_user_name, au.surname AS assigned_user_surname, au.email AS assigned_user_email,
     cu.uuid AS created_by_uuid, cu.name AS created_by_name, cu.surname AS created_by_surname, cu.email AS created_by_email,
     (SELECT COUNT(*) FROM resolution_tasks t
-        WHERE t.organization_id = r.organization_id AND t.reservation_id = r.id AND t.status = 'open')::bigint AS open_tasks
+        WHERE t.organization_id = r.organization_id AND t.reservation_id = r.id AND t.status = 'open')::bigint AS open_tasks,
+    r.open_account, ag.uuid AS agreement_uuid, ag.code AS agreement_code, ag.name AS agreement_name
 FROM reservations r
+LEFT JOIN corporate_agreements ag ON ag.organization_id = r.organization_id AND ag.id = r.agreement_id
 JOIN branches pb ON pb.organization_id = r.organization_id AND pb.id = r.pickup_branch_id
 JOIN branches rb ON rb.organization_id = r.organization_id AND rb.id = r.return_branch_id
 LEFT JOIN service_points pp ON pp.organization_id = r.organization_id AND pp.id = r.pickup_point_id
@@ -805,6 +811,10 @@ type GetReservationViewRow struct {
 	CreatedBySurname     pgtype.Text        `json:"created_by_surname"`
 	CreatedByEmail       pgtype.Text        `json:"created_by_email"`
 	OpenTasks            int64              `json:"open_tasks"`
+	OpenAccount          bool               `json:"open_account"`
+	AgreementUuid        pgtype.UUID        `json:"agreement_uuid"`
+	AgreementCode        pgtype.Text        `json:"agreement_code"`
+	AgreementName        pgtype.Text        `json:"agreement_name"`
 }
 
 // One reservation with everything the detail page shows.
@@ -898,6 +908,10 @@ func (q *Queries) GetReservationView(ctx context.Context, arg GetReservationView
 		&i.CreatedBySurname,
 		&i.CreatedByEmail,
 		&i.OpenTasks,
+		&i.OpenAccount,
+		&i.AgreementUuid,
+		&i.AgreementCode,
+		&i.AgreementName,
 	)
 	return i, err
 }
@@ -911,7 +925,7 @@ INSERT INTO reservations (
     customer_id, invoice_customer_id, channel, external_reference, collecting_party, commission_amount,
     net_receivable, currency, total_amount, prepayment_amount, quote_id, quote_snapshot,
     settings_version, policy_snapshot, review_deadline, payment_deadline, note, eligibility_override,
-    confirmed_at, created_by, approval_protocol, pickup_delivery, return_delivery
+    confirmed_at, created_by, approval_protocol, pickup_delivery, return_delivery, agreement_id, open_account
 ) VALUES (
     $1, $2, $3, $4, 'unpaid',
     $5, $6,
@@ -924,7 +938,8 @@ INSERT INTO reservations (
     $25, $26, $27, $28,
     $29, $30, $31, $32,
     $33, $34, $35, $36,
-    $37, $38, $39
+    $37, $38, $39,
+    $40, $41
 )
 RETURNING id
 `
@@ -969,6 +984,8 @@ type InsertReservationParams struct {
 	ApprovalProtocol    string             `json:"approval_protocol"`
 	PickupDelivery      []byte             `json:"pickup_delivery"`
 	ReturnDelivery      []byte             `json:"return_delivery"`
+	AgreementID         pgtype.Int8        `json:"agreement_id"`
+	OpenAccount         bool               `json:"open_account"`
 }
 
 func (q *Queries) InsertReservation(ctx context.Context, arg InsertReservationParams) (int64, error) {
@@ -1012,6 +1029,8 @@ func (q *Queries) InsertReservation(ctx context.Context, arg InsertReservationPa
 		arg.ApprovalProtocol,
 		arg.PickupDelivery,
 		arg.ReturnDelivery,
+		arg.AgreementID,
+		arg.OpenAccount,
 	)
 	var id int64
 	err := row.Scan(&id)

@@ -183,14 +183,14 @@ LIMIT sqlc.arg(limit_count) OFFSET sqlc.arg(offset_count);
 INSERT INTO ledger_entries (
     organization_id, account_id, kind, direction, purpose, amount, currency, entry_date, due_date, description,
     reason, source_type, source_uuid, rental_id, reservation_id, rental_charge_id, payment_id, payment_refund_id,
-    accrual_key, reverses_entry_id, adjusts_entry_id, offset_group, branch_id, created_by
+    accrual_key, reverses_entry_id, adjusts_entry_id, offset_group, branch_id, created_by, billing_period_id
 ) VALUES (
     sqlc.arg(organization_id), sqlc.arg(account_id), sqlc.arg(kind), sqlc.arg(direction), sqlc.arg(purpose),
     sqlc.arg(amount), sqlc.arg(currency), sqlc.arg(entry_date), sqlc.arg(due_date), sqlc.arg(description),
     sqlc.arg(reason), sqlc.arg(source_type), sqlc.narg(source_uuid), sqlc.narg(rental_id), sqlc.narg(reservation_id),
     sqlc.narg(rental_charge_id), sqlc.narg(payment_id), sqlc.narg(payment_refund_id), sqlc.narg(accrual_key),
     sqlc.narg(reverses_entry_id), sqlc.narg(adjusts_entry_id), sqlc.narg(offset_group), sqlc.narg(branch_id),
-    sqlc.narg(created_by)
+    sqlc.narg(created_by), sqlc.narg(billing_period_id)
 )
 RETURNING id, uuid;
 
@@ -236,7 +236,7 @@ WHERE e.organization_id = sqlc.arg(organization_id)
 -- name: ListLiveRentalAccruals :many
 -- Accruals of one rental (rent and charges) that are not reversed.
 SELECT e.id, e.uuid, e.account_id, e.accrual_key, e.amount, e.currency, e.purpose, e.rental_charge_id, e.branch_id,
-    e.due_date, e.reservation_id
+    e.due_date, e.reservation_id, e.billing_period_id
 FROM ledger_entries e
 WHERE e.organization_id = sqlc.arg(organization_id)
   AND e.rental_id = sqlc.arg(rental_id)
@@ -251,9 +251,12 @@ ORDER BY e.id;
 -- What the rent accrual of a rental depends on.
 SELECT r.id, r.uuid, r.reference, r.status, r.reservation_id, r.actual_pickup_at, r.actual_pickup_branch_id,
     res.uuid AS reservation_uuid, res.customer_id, res.invoice_customer_id, res.total_amount, res.currency,
-    res.collecting_party, res.pickup_branch_id
+    res.collecting_party, res.pickup_branch_id,
+    r.rent_billing, r.actual_return_at, res.starts_at, res.ends_at, res.agreement_id,
+    ag.monthly_km_allowance
 FROM rentals r
 JOIN reservations res ON res.organization_id = r.organization_id AND res.id = r.reservation_id
+LEFT JOIN corporate_agreements ag ON ag.organization_id = res.organization_id AND ag.id = res.agreement_id
 WHERE r.organization_id = sqlc.arg(organization_id)
   AND res.organization_id = sqlc.arg(organization_id)
   AND r.id = sqlc.arg(id);

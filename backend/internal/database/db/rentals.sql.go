@@ -847,10 +847,16 @@ const insertRental = `-- name: InsertRental :one
 
 INSERT INTO rentals (
     organization_id, reference, reservation_id, status, vehicle_id, allocation_id, settings_version,
-    policy_snapshot, note, created_by
+    policy_snapshot, note, created_by, rent_billing
 ) VALUES (
     $1, $2, $3, 'preparation', $4,
-    $5, $6, $7, $8, $9
+    $5, $6, $7, $8, $9,
+    COALESCE((
+        SELECT CASE WHEN ag.invoice_period = 'monthly' THEN 'periodic' ELSE 'handover' END
+        FROM reservations res
+        JOIN corporate_agreements ag ON ag.organization_id = res.organization_id AND ag.id = res.agreement_id
+        WHERE res.organization_id = $1 AND res.id = $3
+    ), 'handover')
 )
 RETURNING id, uuid
 `
@@ -875,6 +881,9 @@ type InsertRentalRow struct {
 // Rentals (TEC-709). Every query filters by organization_id; branch scope
 // (planned pick-up OR planned return OR actual return branch) is applied by
 // the list queries and checked by the use case on single rows.
+// rent_billing (TEC-723): a reservation sold under a corporate agreement
+// with a monthly invoice period is billed per period; everything else
+// accrues its rent at the handover.
 func (q *Queries) InsertRental(ctx context.Context, arg InsertRentalParams) (InsertRentalRow, error) {
 	row := q.db.QueryRow(ctx, insertRental,
 		arg.OrganizationID,

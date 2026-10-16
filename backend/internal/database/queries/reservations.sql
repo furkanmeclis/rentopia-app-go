@@ -23,7 +23,7 @@ INSERT INTO reservations (
     customer_id, invoice_customer_id, channel, external_reference, collecting_party, commission_amount,
     net_receivable, currency, total_amount, prepayment_amount, quote_id, quote_snapshot,
     settings_version, policy_snapshot, review_deadline, payment_deadline, note, eligibility_override,
-    confirmed_at, created_by, approval_protocol, pickup_delivery, return_delivery
+    confirmed_at, created_by, approval_protocol, pickup_delivery, return_delivery, agreement_id, open_account
 ) VALUES (
     sqlc.arg(uuid), sqlc.arg(organization_id), sqlc.arg(reference), sqlc.arg(status), 'unpaid',
     sqlc.arg(capacity_commitment), sqlc.narg(allocation_id),
@@ -36,7 +36,8 @@ INSERT INTO reservations (
     sqlc.arg(total_amount), sqlc.arg(prepayment_amount), sqlc.narg(quote_id), sqlc.arg(quote_snapshot),
     sqlc.arg(settings_version), sqlc.arg(policy_snapshot), sqlc.narg(review_deadline), sqlc.narg(payment_deadline),
     sqlc.arg(note), sqlc.narg(eligibility_override), sqlc.narg(confirmed_at), sqlc.narg(created_by),
-    sqlc.arg(approval_protocol), sqlc.narg(pickup_delivery), sqlc.narg(return_delivery)
+    sqlc.arg(approval_protocol), sqlc.narg(pickup_delivery), sqlc.narg(return_delivery),
+    sqlc.narg(agreement_id), sqlc.arg(open_account)
 )
 RETURNING id;
 
@@ -48,7 +49,7 @@ SELECT r.id, r.uuid, r.reference, r.status, r.payment_status, r.capacity_commitm
     r.customer_id, r.channel, r.total_amount, r.prepayment_amount, r.paid_amount, r.commission_amount,
     r.collecting_party, r.quote_id, r.quote_snapshot, r.settings_version, r.review_deadline, r.payment_deadline,
     r.assigned_user_id, r.currency, r.product_snapshot, r.equipment_allocations, r.approval_protocol,
-    r.pickup_delivery, r.return_delivery,
+    r.pickup_delivery, r.return_delivery, r.agreement_id, r.open_account,
     a.uuid AS allocation_uuid, a.status AS allocation_status, a.kind AS allocation_kind,
     a.vehicle_id AS allocation_vehicle_id, a.plate_fixed AS allocation_plate_fixed, a.expires_at AS allocation_expires_at,
     p.uuid AS product_uuid
@@ -111,8 +112,10 @@ SELECT r.id, r.uuid, r.reference, r.status, r.payment_status, r.capacity_commitm
     au.uuid AS assigned_user_uuid, au.name AS assigned_user_name, au.surname AS assigned_user_surname, au.email AS assigned_user_email,
     cu.uuid AS created_by_uuid, cu.name AS created_by_name, cu.surname AS created_by_surname, cu.email AS created_by_email,
     (SELECT COUNT(*) FROM resolution_tasks t
-        WHERE t.organization_id = r.organization_id AND t.reservation_id = r.id AND t.status = 'open')::bigint AS open_tasks
+        WHERE t.organization_id = r.organization_id AND t.reservation_id = r.id AND t.status = 'open')::bigint AS open_tasks,
+    r.open_account, ag.uuid AS agreement_uuid, ag.code AS agreement_code, ag.name AS agreement_name
 FROM reservations r
+LEFT JOIN corporate_agreements ag ON ag.organization_id = r.organization_id AND ag.id = r.agreement_id
 JOIN branches pb ON pb.organization_id = r.organization_id AND pb.id = r.pickup_branch_id
 JOIN branches rb ON rb.organization_id = r.organization_id AND rb.id = r.return_branch_id
 LEFT JOIN service_points pp ON pp.organization_id = r.organization_id AND pp.id = r.pickup_point_id

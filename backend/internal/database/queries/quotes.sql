@@ -9,7 +9,8 @@ INSERT INTO quotes (
     currency, rental_subtotal, discount_total, rental_total, extras_total, one_way_fee, delivery_fee,
     base_total, vat_total, total, prepayment, prepayment_rule, vat_rate_bp, difference,
     rate_plan_version_uuid, rate_plan_version, settings_version, extras, coupon_code, manual_discount,
-    breakdown, vehicle_id, valid_until, created_by, pickup_delivery, return_delivery, delivery_override
+    breakdown, vehicle_id, valid_until, created_by, pickup_delivery, return_delivery, delivery_override,
+    agreement_id
 ) VALUES (
     sqlc.arg(organization_id), sqlc.arg(purpose), sqlc.narg(reservation_id), sqlc.narg(customer_id),
     sqlc.arg(rental_product_id), sqlc.arg(product_version),
@@ -22,7 +23,8 @@ INSERT INTO quotes (
     sqlc.narg(rate_plan_version_uuid), sqlc.narg(rate_plan_version), sqlc.arg(settings_version),
     sqlc.arg(extras), sqlc.narg(coupon_code), sqlc.narg(manual_discount),
     sqlc.arg(breakdown), sqlc.narg(vehicle_id), sqlc.arg(valid_until), sqlc.narg(created_by),
-    sqlc.narg(pickup_delivery), sqlc.narg(return_delivery), sqlc.narg(delivery_override)
+    sqlc.narg(pickup_delivery), sqlc.narg(return_delivery), sqlc.narg(delivery_override),
+    sqlc.narg(agreement_id)
 )
 RETURNING id, uuid;
 
@@ -53,9 +55,11 @@ SELECT q.id, q.uuid, q.purpose, q.status, q.reservation_id, q.customer_id, q.ren
     c.company_title AS customer_company_title,
     r.uuid AS reservation_uuid, r.reference AS reservation_reference,
     v.uuid AS vehicle_uuid, v.plate AS vehicle_plate,
-    cu.uuid AS created_by_uuid, cu.name AS created_by_name, cu.surname AS created_by_surname, cu.email AS created_by_email
+    cu.uuid AS created_by_uuid, cu.name AS created_by_name, cu.surname AS created_by_surname, cu.email AS created_by_email,
+    q.agreement_id, ag.uuid AS agreement_uuid, ag.code AS agreement_code, ag.name AS agreement_name
 FROM quotes q
 JOIN rental_products p ON p.organization_id = q.organization_id AND p.id = q.rental_product_id
+LEFT JOIN corporate_agreements ag ON ag.organization_id = q.organization_id AND ag.id = q.agreement_id
 JOIN branches pb ON pb.organization_id = q.organization_id AND pb.id = q.pickup_branch_id
 JOIN branches rb ON rb.organization_id = q.organization_id AND rb.id = q.return_branch_id
 LEFT JOIN service_points pp ON pp.organization_id = q.organization_id AND pp.id = q.pickup_point_id
