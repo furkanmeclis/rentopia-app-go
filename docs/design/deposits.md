@@ -77,7 +77,7 @@ So:
 - A release or refund posts the cash movement back.
 - Collections reports (kind `collection`) see a deduction only once it is captured. `deposit_in` / `deposit_out` movements count in the cash flow totals (money in / out) but not as collections or refunds.
 
-Idempotency in the database: one `deposit_hold` and one `deposit_return` per deposit, one leg of each kind per deduction (partial unique indexes on `ledger_entries`). Deposit postings are not reversed by hand (`deposit_managed`); a correction is an adjustment.
+Idempotency in the database: one `deposit_hold` and one `deposit_return` per deposit, one leg of each kind per deduction (partial unique indexes on `ledger_entries`). Deposit postings are not reversed by hand: ledger entries answer `deposit_managed`, cash movements `deposit_movement`. A correction is an adjustment.
 
 ### Change to the ledger (TEC-717)
 
