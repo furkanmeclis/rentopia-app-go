@@ -271,6 +271,13 @@ export const platformNav = defineNav({
           icon: Building2,
           permission: permissions.organizations.read,
         },
+        {
+          id: "health",
+          titleKey: "layout.nav_platform_health",
+          href: routes.platform.health,
+          icon: Activity,
+          permission: permissions.platformHealth.read,
+        },
         usersNavItem,
         {
           id: "catalog",

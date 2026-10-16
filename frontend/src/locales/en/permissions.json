@@ -53,6 +53,7 @@
   "labels.platform.integrations.apple.write": "Write Apple integration settings",
   "labels.platform.auth.settings.read": "Read auth registration settings",
   "labels.platform.auth.settings.write": "Write auth registration settings",
+  "labels.platform.health.read": "View platform usage and connection health",
   "labels.auth.session": "Auth session",
   "labels.platform.organizations.read": "Read organizations",
   "labels.platform.organizations.write": "Manage organizations",

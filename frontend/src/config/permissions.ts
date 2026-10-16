@@ -46,6 +46,7 @@ export const Permission = {
   PlatformIntegrationsAppleWrite: "platform.integrations.apple.write",
   PlatformAuthSettingsRead: "platform.auth.settings.read",
   PlatformAuthSettingsWrite: "platform.auth.settings.write",
+  PlatformHealthRead: "platform.health.read",
 
   AuthSession: "auth.session",
 
@@ -215,6 +216,10 @@ export const permissions = {
   catalog: {
     read: Permission.PlatformCatalogRead,
     write: Permission.PlatformCatalogWrite,
+  },
+  /** Usage and connection health dashboard + failed-work alerts (TEC-739). */
+  platformHealth: {
+    read: Permission.PlatformHealthRead,
   },
   notifications: {
     read: Permission.NotificationsRead,
