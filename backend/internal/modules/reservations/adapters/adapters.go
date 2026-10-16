@@ -349,7 +349,7 @@ func (a *Coupons) Redeem(ctx context.Context, orgID int64, in model.CouponRedemp
 	_, err := a.svc.Redeem(ctx, orgID, campaignsusecase.RedeemInput{
 		Quote: campaignsusecase.Quote{
 			Code: in.Code, CampaignUUID: in.CampaignUUID, ProductID: in.ProductID, SegmentID: in.SegmentID, Channel: in.Channel,
-			Subtotal: in.Subtotal, CustomerUUID: in.CustomerUUID,
+			Subtotal: in.Subtotal, CustomerUUID: in.CustomerUUID, Corporate: in.Corporate,
 		},
 		ReservationUUID: in.ReservationUUID, ActorID: in.ActorID,
 	})

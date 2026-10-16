@@ -752,6 +752,7 @@ type Querier interface {
 	GetRentalVehicleByUUID(ctx context.Context, arg GetRentalVehicleByUUIDParams) (GetRentalVehicleByUUIDRow, error)
 	// One rental with everything the detail page shows.
 	GetRentalView(ctx context.Context, arg GetRentalViewParams) (GetRentalViewRow, error)
+	GetReservationAgreementID(ctx context.Context, arg GetReservationAgreementIDParams) (pgtype.Int8, error)
 	GetReservationBranchByUUID(ctx context.Context, arg GetReservationBranchByUUIDParams) (GetReservationBranchByUUIDRow, error)
 	GetReservationByAllocation(ctx context.Context, arg GetReservationByAllocationParams) (GetReservationByAllocationRow, error)
 	GetReservationByAllocationUUID(ctx context.Context, arg GetReservationByAllocationUUIDParams) (GetReservationByAllocationUUIDRow, error)

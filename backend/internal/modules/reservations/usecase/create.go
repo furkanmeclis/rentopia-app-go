@@ -82,6 +82,11 @@ func (s *Service) revalidate(ctx context.Context, orgID int64, row db.GetQuoteRo
 		return priced{}, quoteSpec{}, &QuoteError{Code: "QUOTE_EXPIRED", Message: "the quote has expired; create a new one"}
 	}
 	spec := specFromQuote(row, customer)
+	ag, err := s.agreementByID(ctx, orgID, row.AgreementID)
+	if err != nil {
+		return priced{}, spec, err
+	}
+	spec.agreement = ag
 	p, err := s.price(ctx, orgID, spec)
 	if err != nil {
 		return p, spec, err
@@ -347,6 +352,17 @@ func (s *Service) Create(ctx context.Context, orgID int64, in model.CreateInput)
 	if err != nil {
 		return model.Reservation{}, err
 	}
+	// A sale under a corporate agreement (TEC-723): still active and valid
+	// on the pick-up day, sold to (or invoiced to) its customer.
+	var ag *agreement
+	if row.AgreementUuid.Valid {
+		if ag, err = s.agreementForSale(ctx, orgID, row.AgreementUuid.Bytes, row.StartsAt.Time, "quote_uuid"); err != nil {
+			return model.Reservation{}, err
+		}
+		if err := s.checkAgreementParties(ctx, orgID, ag, customer, &invoice); err != nil {
+			return model.Reservation{}, err
+		}
+	}
 	p, spec, err := s.revalidate(ctx, orgID, row, customer)
 	if err != nil {
 		return model.Reservation{}, err
@@ -359,6 +375,11 @@ func (s *Service) Create(ctx context.Context, orgID int64, in model.CreateInput)
 	if err != nil {
 		return model.Reservation{}, err
 	}
+	if ag != nil {
+		if err := s.checkAgreementDrivers(ctx, orgID, ag, drivers); err != nil {
+			return model.Reservation{}, err
+		}
+	}
 	quote, err := s.GetQuote(ctx, orgID, row.Uuid)
 	if err != nil {
 		return model.Reservation{}, err
@@ -368,6 +389,18 @@ func (s *Service) Create(ctx context.Context, orgID int64, in model.CreateInput)
 		return model.Reservation{}, err
 	}
 	status, protocol, reviewDeadline, payDeadline := s.waitingStatus(settings.Settings, quote.Prepayment, row.Channel)
+	// Open account (TEC-723): the agreement lets the sale be confirmed
+	// without prepayment while the customer's exposure stays within the
+	// credit limit; above it the confirmation is refused.
+	openAccount := ag != nil && ag.OpenAccount && !in.RequestOnly && (in.UseOpenAccount == nil || *in.UseOpenAccount)
+	prepayment := quote.Prepayment
+	if openAccount {
+		if err := s.checkCredit(ctx, nil, orgID, ag, quote.Total, 0); err != nil {
+			return model.Reservation{}, err
+		}
+		status, reviewDeadline, payDeadline = model.StatusConfirmed, nil, nil
+		prepayment = money.NewIn(0, prepayment.Currency())
+	}
 	switch {
 	case in.RequestOnly:
 		status, reviewDeadline, payDeadline = model.StatusRequest, nil, nil
@@ -387,7 +420,7 @@ func (s *Service) Create(ctx context.Context, orgID int64, in model.CreateInput)
 		RentalProductID: row.RentalProductID, ProductVersion: row.ProductVersion, GuaranteeType: conds.GuaranteeType,
 		ProductSnapshot: mustJSON(conds), CustomerID: customer.ID, Channel: row.Channel, ExternalReference: textOf(external),
 		CollectingParty: collecting, CommissionAmount: commission.Numeric(), NetReceivable: net.Numeric(), Currency: row.Currency,
-		TotalAmount: total.Numeric(), PrepaymentAmount: quote.Prepayment.Numeric(), QuoteID: int8Of(row.ID),
+		TotalAmount: total.Numeric(), PrepaymentAmount: prepayment.Numeric(), QuoteID: int8Of(row.ID),
 		QuoteSnapshot: mustJSON(priceSnapshot(quote)), SettingsVersion: int32(settings.Version),
 		PolicySnapshot: mustJSON(policySnapshot(settings)), ReviewDeadline: tsPtr(reviewDeadline), PaymentDeadline: tsPtr(payDeadline),
 		Note: strings.TrimSpace(in.Note), EligibilityOverride: overrideJSON(drivers, in.EligibilityOverride, actorID(ctx)),
@@ -396,6 +429,9 @@ func (s *Service) Create(ctx context.Context, orgID int64, in model.CreateInput)
 	}
 	if invoice != nil {
 		params.InvoiceCustomerID = int8Of(invoice.ID)
+	}
+	if ag != nil {
+		params.AgreementID, params.OpenAccount = int8Of(ag.ID), openAccount
 	}
 	if status == model.StatusConfirmed {
 		params.ConfirmedAt = ts(s.clock())
@@ -442,6 +478,20 @@ func (s *Service) Create(ctx context.Context, orgID int64, in model.CreateInput)
 		}
 		if in.ConfirmNow {
 			data["confirmed_by_staff"] = true
+		}
+		if ag != nil {
+			data["agreement"] = ag.Code
+			if openAccount {
+				data["open_account"] = true
+				// Re-checked under the transaction: two open-account sales
+				// racing for the last of the credit limit cannot both pass.
+				if _, err := q.LockAgreement(ctx, db.LockAgreementParams{OrganizationID: orgID, ID: ag.ID}); err != nil {
+					return err
+				}
+				if err := s.checkCredit(ctx, q, orgID, ag, total, id); err != nil {
+					return err
+				}
+			}
 		}
 		if err := event(ctx, q, orgID, id, EventCreated, "", status, "", data); err != nil {
 			return err
@@ -520,7 +570,7 @@ func (s *Service) redeemCoupon(ctx context.Context, orgID int64, q model.Quote, 
 	}
 	in := model.CouponRedemption{
 		Code: spec.coupon, CampaignUUID: &campaign, ProductID: product.ID, SegmentID: product.SegmentID, Channel: q.Channel,
-		Subtotal: b.RentalSubtotal, ReservationUUID: resUUID, ActorID: actorID(ctx),
+		Subtotal: b.RentalSubtotal, ReservationUUID: resUUID, ActorID: actorID(ctx), Corporate: spec.agreement != nil,
 	}
 	if spec.customer != nil {
 		id := spec.customer.Uuid

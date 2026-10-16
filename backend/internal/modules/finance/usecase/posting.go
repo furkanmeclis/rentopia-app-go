@@ -59,10 +59,13 @@ func (s *Service) ensureCustomerAccount(ctx context.Context, q *db.Queries, orgI
 }
 
 // SyncRental reconciles the accruals of a rental with its current state,
-// on q (the caller's transaction: handover, extension, charge decision):
+// on q (the caller's transaction: handover, extension, charge decision,
+// return, the periodic billing job):
 //
 //   - rent (reservation total, collected by us) once the rental is under
-//     way (handover);
+//     way (handover) — or, for a rental billed per period (TEC-723), one
+//     accrual per due billing period instead (never both: billing.go and
+//     the database trigger ledger_entries_rent_billing);
 //   - every approved charge; proposed, waived and disputed-but-unapproved
 //     charges are never a firm debt.
 //
@@ -82,9 +85,23 @@ func (s *Service) SyncRental(ctx context.Context, q *db.Queries, orgID, rentalID
 		purpose  string
 		chargeID int64
 		desc     string
+		// periodID / entryDate: a billing period accrual.
+		periodID  int64
+		entryDate time.Time
 	}
 	desired := map[string]want{}
-	if rentAccrues[f.Status] && f.CollectingParty == "us" {
+	if f.RentBilling == "periodic" {
+		periods, err := s.syncBillingPlan(ctx, q, orgID, f)
+		if err != nil {
+			return fmt.Errorf("finance: billing plan of rental %d: %w", rentalID, err)
+		}
+		for key, p := range periods {
+			desired[key] = want{
+				amount: p.amount, purpose: model.PurposeRent, desc: fmt.Sprintf("%s · %d", f.Reference, p.no),
+				periodID: p.periodID, entryDate: p.entryDate,
+			}
+		}
+	} else if rentAccrues[f.Status] && f.CollectingParty == "us" {
 		if total := m(f.TotalAmount); total.IsPositive() {
 			desired[RentKey(f.ID)] = want{amount: total, purpose: model.PurposeRent, desc: f.Reference}
 		}
@@ -172,7 +189,7 @@ func (s *Service) SyncRental(ctx context.Context, q *db.Queries, orgID, rentalID
 			Purpose: l.Purpose, Amount: l.Amount, Currency: l.Currency, EntryDate: dateOf(today), DueDate: l.DueDate,
 			Description: f.Reference, Reason: reason, SourceType: sourceOfKey(l.RentalChargeID), SourceUuid: uuidOf(f.Uuid),
 			RentalID: int8Of(f.ID), ReservationID: int8Of(f.ReservationID), RentalChargeID: l.RentalChargeID,
-			ReversesEntryID: int8Of(l.ID), BranchID: l.BranchID, CreatedBy: actorID(ctx),
+			ReversesEntryID: int8Of(l.ID), BranchID: l.BranchID, CreatedBy: actorID(ctx), BillingPeriodID: l.BillingPeriodID,
 		}); err != nil {
 			return fmt.Errorf("finance: reverse accrual %s: %w", key, err)
 		}
@@ -182,7 +199,10 @@ func (s *Service) SyncRental(ctx context.Context, q *db.Queries, orgID, rentalID
 			continue
 		}
 		entryDate := today
-		if w.purpose == model.PurposeRent && f.ActualPickupAt.Valid {
+		switch {
+		case w.periodID != 0:
+			entryDate = w.entryDate
+		case w.purpose == model.PurposeRent && f.ActualPickupAt.Valid:
 			entryDate = day(f.ActualPickupAt.Time)
 		}
 		row, err := q.InsertLedgerEntry(ctx, db.InsertLedgerEntryParams{
@@ -191,10 +211,19 @@ func (s *Service) SyncRental(ctx context.Context, q *db.Queries, orgID, rentalID
 			DueDate: dateOf(dueAfter(entryDate, acc.Term)), Description: w.desc, SourceType: sourceOfKey(int8Of(w.chargeID)),
 			SourceUuid: uuidOf(f.Uuid), RentalID: int8Of(f.ID), ReservationID: int8Of(f.ReservationID),
 			RentalChargeID: int8Of(w.chargeID), AccrualKey: pgtype.Text{String: key, Valid: true},
-			BranchID: int8Of(branchID), CreatedBy: actorID(ctx),
+			BranchID: int8Of(branchID), CreatedBy: actorID(ctx), BillingPeriodID: int8Of(w.periodID),
 		})
 		if err != nil {
 			return fmt.Errorf("finance: accrue %s: %w", key, err)
+		}
+		if w.periodID != 0 {
+			// A planned period is posted now (a posted one being accrued
+			// again keeps its row: MarkBillingPeriodPosted matches nothing).
+			if _, err := q.MarkBillingPeriodPosted(ctx, db.MarkBillingPeriodPostedParams{
+				OrganizationID: orgID, ID: w.periodID, LedgerEntryID: int8Of(row.ID), PostedAt: tsOf(s.clock()),
+			}); err != nil {
+				return fmt.Errorf("finance: post period %s: %w", key, err)
+			}
 		}
 		// The allocations of the accrual this one replaces follow it.
 		if err := s.carryAllocations(ctx, q, orgID, row.ID, w.amount, carried[key]); err != nil {

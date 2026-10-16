@@ -72,6 +72,13 @@ type BranchRef struct {
 	Name string    `json:"name"`
 }
 
+// AgreementRef is a corporate agreement embedded in a record (TEC-723).
+type AgreementRef struct {
+	UUID uuid.UUID `json:"uuid"`
+	Code string    `json:"code"`
+	Name string    `json:"name"`
+}
+
 // SegmentRef is a vehicle segment embedded in a record.
 type SegmentRef struct {
 	UUID uuid.UUID `json:"uuid"`
@@ -107,24 +114,25 @@ type PlanVersion struct {
 // active) priority, band count and lowest daily price; the detail adds the
 // active and draft versions.
 type RatePlan struct {
-	UUID           uuid.UUID    `json:"uuid"`
-	Name           string       `json:"name"`
-	Scope          string       `json:"scope"`
-	Product        ProductRef   `json:"rental_product"`
-	Branch         *BranchRef   `json:"branch"`
-	Channel        *string      `json:"channel"`
-	Status         string       `json:"status"`
-	CurrentVersion int          `json:"current_version"`
-	ActiveVersion  *int         `json:"active_version"`
-	HasDraft       bool         `json:"has_draft"`
-	Priority       int          `json:"priority"`
-	BandCount      int64        `json:"band_count"`
-	PriceFrom      *money.Money `json:"price_from"`
-	ActivatedAt    *time.Time   `json:"activated_at"`
-	CreatedAt      time.Time    `json:"created_at"`
-	UpdatedAt      time.Time    `json:"updated_at"`
-	Active         *PlanVersion `json:"active,omitempty"`
-	Draft          *PlanVersion `json:"draft,omitempty"`
+	UUID           uuid.UUID     `json:"uuid"`
+	Name           string        `json:"name"`
+	Scope          string        `json:"scope"`
+	Product        ProductRef    `json:"rental_product"`
+	Branch         *BranchRef    `json:"branch"`
+	Channel        *string       `json:"channel"`
+	Agreement      *AgreementRef `json:"agreement"`
+	Status         string        `json:"status"`
+	CurrentVersion int           `json:"current_version"`
+	ActiveVersion  *int          `json:"active_version"`
+	HasDraft       bool          `json:"has_draft"`
+	Priority       int           `json:"priority"`
+	BandCount      int64         `json:"band_count"`
+	PriceFrom      *money.Money  `json:"price_from"`
+	ActivatedAt    *time.Time    `json:"activated_at"`
+	CreatedAt      time.Time     `json:"created_at"`
+	UpdatedAt      time.Time     `json:"updated_at"`
+	Active         *PlanVersion  `json:"active,omitempty"`
+	Draft          *PlanVersion  `json:"draft,omitempty"`
 }
 
 // BandInput is a band in a request (the price as a decimal string or
@@ -138,14 +146,16 @@ type BandInput struct {
 // RatePlanCreateInput is the POST body. The plan starts as a draft
 // (version 1); activation is a separate action.
 type RatePlanCreateInput struct {
-	RentalProductUUID *uuid.UUID  `json:"rental_product_uuid"`
-	Scope             string      `json:"scope"`
-	BranchUUID        *uuid.UUID  `json:"branch_uuid"`
-	Channel           *string     `json:"channel"`
-	Name              string      `json:"name"`
-	Priority          *int        `json:"priority"`
-	Bands             []BandInput `json:"bands"`
-	ChangeNote        string      `json:"change_note"`
+	RentalProductUUID *uuid.UUID `json:"rental_product_uuid"`
+	Scope             string     `json:"scope"`
+	BranchUUID        *uuid.UUID `json:"branch_uuid"`
+	Channel           *string    `json:"channel"`
+	// AgreementUUID is the corporate agreement of scope "agreement".
+	AgreementUUID *uuid.UUID  `json:"agreement_uuid"`
+	Name          string      `json:"name"`
+	Priority      *int        `json:"priority"`
+	Bands         []BandInput `json:"bands"`
+	ChangeNote    string      `json:"change_note"`
 }
 
 // RatePlanPatchInput is the PATCH body: Name changes the plan; Priority,
@@ -188,31 +198,33 @@ type IssueRef struct {
 
 // RatePlanFilter selects rate plans of one organization.
 type RatePlanFilter struct {
-	Limit, Offset int32
-	Q             string
-	ProductUUIDs  []uuid.UUID
-	BranchUUIDs   []uuid.UUID
-	Scopes        []string
-	Channels      []string
-	Statuses      []string
-	HasDraft      *bool
-	SortField     string
-	SortDesc      bool
-	BranchIDs     []int64
+	Limit, Offset  int32
+	Q              string
+	ProductUUIDs   []uuid.UUID
+	BranchUUIDs    []uuid.UUID
+	Scopes         []string
+	Channels       []string
+	Statuses       []string
+	HasDraft       *bool
+	AgreementUUIDs []uuid.UUID
+	SortField      string
+	SortDesc       bool
+	BranchIDs      []int64
 }
 
 // RatePlanQueryKeys are the plan list filters (HTTP list, export).
-var RatePlanQueryKeys = []string{"rental_product", "branch", "scope", "channel", "status", "has_draft"}
+var RatePlanQueryKeys = []string{"rental_product", "branch", "scope", "channel", "status", "has_draft", "agreement"}
 
 // RatePlanFilterFromQuery maps list query params to a filter.
 func RatePlanFilterFromQuery(query map[string]string) RatePlanFilter {
 	f := RatePlanFilter{
-		Q:            strings.TrimSpace(query["q"]),
-		ProductUUIDs: SplitUUIDs(query["rental_product"]),
-		BranchUUIDs:  SplitUUIDs(query["branch"]),
-		Scopes:       Allowed(SplitList(query["scope"]), pricing.Scopes),
-		Channels:     SplitList(query["channel"]),
-		Statuses:     Allowed(SplitList(query["status"]), Statuses),
+		Q:              strings.TrimSpace(query["q"]),
+		ProductUUIDs:   SplitUUIDs(query["rental_product"]),
+		BranchUUIDs:    SplitUUIDs(query["branch"]),
+		Scopes:         Allowed(SplitList(query["scope"]), pricing.Scopes),
+		Channels:       SplitList(query["channel"]),
+		Statuses:       Allowed(SplitList(query["status"]), Statuses),
+		AgreementUUIDs: SplitUUIDs(query["agreement"]),
 	}
 	if v, err := strconv.ParseBool(strings.TrimSpace(query["has_draft"])); err == nil {
 		f.HasDraft = &v
@@ -474,6 +486,10 @@ type PreviewInput struct {
 	// per-customer limits, repeat-customer campaigns). No foreign key until
 	// customers exist (TEC-705).
 	CustomerUUID *uuid.UUID `json:"customer_uuid"`
+	// AgreementUUID prices the sale under a corporate agreement (TEC-723):
+	// its tariffs beat the public plans and its coupon eligibility decides
+	// whether a campaign may apply.
+	AgreementUUID *uuid.UUID `json:"agreement_uuid"`
 }
 
 // PreviewExtraInput is one selected extra.
@@ -504,6 +520,19 @@ type PreviewSide struct {
 	// Coupon is the coupon / campaign decision of this side (nil = no code
 	// and no automatic campaign).
 	Coupon *CouponResult `json:"coupon"`
+	// Agreement says which corporate agreement the side was priced under
+	// and whether its own tariff applied (nil = a public sale).
+	Agreement *AgreementPricing `json:"agreement,omitempty"`
+}
+
+// AgreementPricing is the agreement part of a priced side (TEC-723).
+type AgreementPricing struct {
+	UUID           uuid.UUID `json:"uuid"`
+	Code           string    `json:"code"`
+	Name           string    `json:"name"`
+	TariffApplied  bool      `json:"tariff_applied"`
+	CouponEligible bool      `json:"coupon_eligible"`
+	InvoicePeriod  string    `json:"invoice_period"`
 }
 
 // PreviewError is a pricing engine refusal (no plan, ambiguity …).

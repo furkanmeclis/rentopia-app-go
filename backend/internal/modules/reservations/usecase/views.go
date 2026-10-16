@@ -68,6 +68,8 @@ func (s *Service) view(row db.GetReservationViewRow, drivers []db.ListReservatio
 	if rng, err := rentaltime.NewRange(r.StartsAt, r.EndsAt); err == nil {
 		r.BillingDays = rng.BillingDays()
 	}
+	r.Agreement = agreementRef(row.AgreementUuid, row.AgreementCode, row.AgreementName)
+	r.OpenAccount = row.OpenAccount
 	if len(row.EligibilityOverride) > 0 {
 		r.EligibilityOverride = json.RawMessage(row.EligibilityOverride)
 	}

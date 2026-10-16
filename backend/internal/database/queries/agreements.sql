@@ -265,8 +265,8 @@ LIMIT 500;
 -- Billing plans of the agreement's rentals, every revision, with the
 -- accrual entry of each posted period (invoicing links to it).
 SELECT bp.id, bp.uuid, bp.period_no, bp.revision, bp.starts_on, bp.ends_on, bp.days, bp.partial, bp.amount,
-    bp.currency, bp.km_allowance, bp.accrual_key, bp.status, bp.posted_at, bp.closed_at,
-    rt.uuid AS rental_uuid, rt.reference AS rental_reference,
+    bp.currency, bp.km_allowance, bp.accrual_key, bp.status, bp.posted_at, bp.closed_at, bp.day_from, bp.day_to,
+    rt.uuid AS rental_uuid, rt.reference AS rental_reference, rt.status AS rental_status,
     e.uuid AS entry_uuid, e.entry_date, e.due_date
 FROM rental_billing_periods bp
 JOIN rentals rt ON rt.organization_id = bp.organization_id AND rt.id = bp.rental_id
@@ -417,3 +417,8 @@ UPDATE accounts
 SET payment_term_days = sqlc.arg(payment_term_days)
 WHERE organization_id = sqlc.arg(organization_id)
   AND customer_id = sqlc.arg(customer_id);
+
+-- name: GetReservationAgreementID :one
+SELECT r.agreement_id FROM reservations r
+WHERE r.organization_id = sqlc.arg(organization_id)
+  AND r.id = sqlc.arg(id);

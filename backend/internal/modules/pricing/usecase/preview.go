@@ -49,6 +49,9 @@ func activeEnginePlans(ctx context.Context, q *db.Queries, orgID, productID int6
 		if r.Channel.Valid {
 			p.Channel = r.Channel.String
 		}
+		if r.AgreementUuid.Valid {
+			p.AgreementID = uuid.UUID(r.AgreementUuid.Bytes).String()
+		}
 		out = append(out, p)
 	}
 	return out, nil
@@ -89,6 +92,15 @@ func (s *Service) Preview(ctx context.Context, orgID int64, in model.PreviewInpu
 	}
 	if !validChannel(in.Channel) {
 		ve.add("channel", "invalid", "channel is not a sales channel")
+	}
+	var agreement *db.GetAgreementForSaleRow
+	if in.AgreementUUID != nil {
+		a, err := q.GetAgreementForSale(ctx, db.GetAgreementForSaleParams{OrganizationID: orgID, Uuid: *in.AgreementUUID})
+		if err != nil {
+			ve.add("agreement_uuid", "not_found", "agreement was not found")
+		} else {
+			agreement = &a
+		}
 	}
 	var rng rentaltime.Range
 	switch {
@@ -269,16 +281,20 @@ func (s *Service) Preview(ctx context.Context, orgID int64, in model.PreviewInpu
 		return model.Preview{}, err
 	}
 	base := pricing.Input{
-		Start: rng.Start, End: rng.End,
+		Start: rng.Start, End: rng.End, AgreementID: agreementID(agreement),
 		Product:  pricing.Product{ID: product.Uuid.String(), SegmentID: product.SegmentUuid.String()},
 		BranchID: branch.Uuid.String(), Channel: in.Channel, Discount: discount, DeliveryFee: delivery,
 		Deliveries: in.Deliveries, Extras: extras, VATRate: cfg.VAT, Prepayment: cfg.Prepayment,
 	}
 	var coupon *CouponQuery
-	if s.coupons != nil && in.Discount == nil && (strings.TrimSpace(in.CouponCode) != "" || in.CustomerUUID != nil) {
+	// Coupon eligibility of a corporate agreement (TEC-723): without it no
+	// campaign applies on top of the agreement; with it only campaigns
+	// marked corporate_eligible do (campaigns.Evaluate, reason corporate).
+	couponsBlocked := agreement != nil && !agreement.CouponEligible
+	if s.coupons != nil && in.Discount == nil && !couponsBlocked && (strings.TrimSpace(in.CouponCode) != "" || in.CustomerUUID != nil) {
 		coupon = &CouponQuery{
 			Code: strings.TrimSpace(in.CouponCode), ProductID: product.ID, SegmentID: product.SegmentID,
-			Channel: in.Channel, CustomerUUID: in.CustomerUUID, At: s.clock(),
+			Channel: in.Channel, CustomerUUID: in.CustomerUUID, At: s.clock(), Corporate: agreement != nil,
 		}
 	} else if s.coupons == nil && strings.TrimSpace(in.CouponCode) != "" {
 		warnings = append(warnings, "coupons_unavailable")
@@ -333,6 +349,13 @@ func (s *Service) Preview(ctx context.Context, orgID int64, in model.PreviewInpu
 	if err != nil {
 		return model.Preview{}, err
 	}
+	if couponsBlocked && strings.TrimSpace(in.CouponCode) != "" {
+		blocked := &model.CouponResult{
+			Code: strings.ToUpper(strings.TrimSpace(in.CouponCode)), Status: "rejected", Reason: "corporate", Params: map[string]string{},
+		}
+		cur.Coupon, prop.Coupon = blocked, blocked
+	}
+	cur.Agreement, prop.Agreement = agreementPricing(agreement, cur.Breakdown), agreementPricing(agreement, prop.Breakdown)
 	out := model.Preview{Current: cur, Proposed: prop, Warnings: warnings}
 	if out.Current.Breakdown != nil && out.Proposed.Breakdown != nil {
 		d := out.Proposed.Breakdown.Total.Sub(out.Current.Breakdown.Total)
@@ -382,6 +405,23 @@ func calculateSide(in pricing.Input) model.PreviewSide {
 		return model.PreviewSide{Error: pe}
 	}
 	return model.PreviewSide{Breakdown: &b}
+}
+
+func agreementID(a *db.GetAgreementForSaleRow) string {
+	if a == nil {
+		return ""
+	}
+	return a.Uuid.String()
+}
+
+func agreementPricing(a *db.GetAgreementForSaleRow, b *pricing.Breakdown) *model.AgreementPricing {
+	if a == nil {
+		return nil
+	}
+	return &model.AgreementPricing{
+		UUID: a.Uuid, Code: a.Code, Name: a.Name, CouponEligible: a.CouponEligible, InvoicePeriod: a.InvoicePeriod,
+		TariffApplied: b != nil && b.Plan.Scope == pricing.ScopeAgreement && b.Plan.AgreementID == a.Uuid.String(),
+	}
 }
 
 // Quote prices a rental with the active plans and rules only (M3

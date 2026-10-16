@@ -37,6 +37,9 @@ func toPlan(row planRow) model.RatePlan {
 	if row.BranchUuid.Valid {
 		out.Branch = &model.BranchRef{UUID: row.BranchUuid.Bytes, Code: row.BranchCode.String, Name: row.BranchName.String}
 	}
+	if row.AgreementUuid.Valid {
+		out.Agreement = &model.AgreementRef{UUID: row.AgreementUuid.Bytes, Code: row.AgreementCode.String, Name: row.AgreementName.String}
+	}
 	return out
 }
 
@@ -47,6 +50,7 @@ func toPlanListRow(row db.ListRatePlansRow) model.RatePlan {
 		ActivatedAt: row.ActivatedAt, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 		ProductUuid: row.ProductUuid, ProductCode: row.ProductCode, ProductTitle: row.ProductTitle,
 		BranchUuid: row.BranchUuid, BranchCode: row.BranchCode, BranchName: row.BranchName,
+		AgreementUuid: row.AgreementUuid, AgreementCode: row.AgreementCode, AgreementName: row.AgreementName,
 	})
 	out.HasDraft, out.Priority, out.BandCount = row.HasDraft, int(row.Priority), row.BandCount
 	if row.PriceFrom.Valid {
@@ -117,7 +121,8 @@ func (s *Service) ListPlans(ctx context.Context, orgID int64, f model.RatePlanFi
 	rows, err := q.ListRatePlans(ctx, db.ListRatePlansParams{
 		OrganizationID: orgID, BranchIds: f.BranchIDs, ProductUuids: uuids(f.ProductUUIDs), BranchUuids: uuids(f.BranchUUIDs),
 		Scopes: strs(f.Scopes), Channels: strs(f.Channels), Statuses: strs(f.Statuses), HasDraft: boolArg(f.HasDraft),
-		Q: textArg(f.Q), SortField: f.SortField, SortDesc: f.SortDesc, LimitCount: f.Limit, OffsetCount: f.Offset,
+		AgreementUuids: uuids(f.AgreementUUIDs),
+		Q:              textArg(f.Q), SortField: f.SortField, SortDesc: f.SortDesc, LimitCount: f.Limit, OffsetCount: f.Offset,
 	})
 	if err != nil {
 		return nil, 0, err
@@ -125,7 +130,7 @@ func (s *Service) ListPlans(ctx context.Context, orgID int64, f model.RatePlanFi
 	total, err := q.CountRatePlans(ctx, db.CountRatePlansParams{
 		OrganizationID: orgID, BranchIds: f.BranchIDs, ProductUuids: uuids(f.ProductUUIDs), BranchUuids: uuids(f.BranchUUIDs),
 		Scopes: strs(f.Scopes), Channels: strs(f.Channels), Statuses: strs(f.Statuses), HasDraft: boolArg(f.HasDraft),
-		Q: textArg(f.Q),
+		AgreementUuids: uuids(f.AgreementUUIDs), Q: textArg(f.Q),
 	})
 	if err != nil {
 		return nil, 0, err
@@ -258,16 +263,37 @@ type planTarget struct {
 	BranchID pgtype.Int8
 	Branch   *model.BranchRef
 	Channel  pgtype.Text
+	// AgreementID / Agreement: scope agreement (TEC-723).
+	AgreementID pgtype.Int8
+	Agreement   *model.AgreementRef
 }
 
 // resolveTarget validates scope + branch + channel. The branch must belong
 // to the organization and lie in the caller's scope (validation
 // "not_found" otherwise, like an unknown branch).
-func (s *Service) resolveTarget(ctx context.Context, q *db.Queries, orgID int64, ve *ValidationError, prefix, scope string, branchUUID *uuid.UUID, channel *string) planTarget {
+func (s *Service) resolveTarget(ctx context.Context, q *db.Queries, orgID int64, ve *ValidationError, prefix, scope string, branchUUID *uuid.UUID, channel *string, agreementUUID ...*uuid.UUID) planTarget {
 	t := planTarget{Scope: scope}
 	if pricing.ScopeRank(scope) == 0 {
-		ve.add(prefix+"scope", "invalid", "scope must be common, branch, channel or branch_channel")
+		ve.add(prefix+"scope", "invalid", "scope must be common, branch, channel, branch_channel or agreement")
 		return t
+	}
+	var agreement *uuid.UUID
+	if len(agreementUUID) > 0 {
+		agreement = agreementUUID[0]
+	}
+	switch {
+	case scope == pricing.ScopeAgreement && agreement == nil:
+		ve.add(prefix+"agreement_uuid", "required", "agreement_uuid is required for the agreement scope")
+	case scope != pricing.ScopeAgreement && agreement != nil:
+		ve.add(prefix+"agreement_uuid", "not_allowed", "agreement_uuid is only allowed for the agreement scope")
+	case agreement != nil:
+		a, err := q.GetAgreementForSale(ctx, db.GetAgreementForSaleParams{OrganizationID: orgID, Uuid: *agreement})
+		if err != nil || (a.BranchID.Valid && orgctx.CheckBranch(ctx, a.BranchID.Int64) != nil) {
+			ve.add(prefix+"agreement_uuid", "not_found", "agreement was not found")
+		} else {
+			t.AgreementID = int8Arg(a.ID, true)
+			t.Agreement = &model.AgreementRef{UUID: a.Uuid, Code: a.Code, Name: a.Name}
+		}
 	}
 	needBranch := scope == pricing.ScopeBranch || scope == pricing.ScopeBranchChannel
 	needChannel := scope == pricing.ScopeChannel || scope == pricing.ScopeBranchChannel
@@ -363,7 +389,7 @@ func (s *Service) CreatePlan(ctx context.Context, orgID int64, in model.RatePlan
 	} else {
 		productID = p.ID
 	}
-	target := s.resolveTarget(ctx, q, orgID, ve, "", in.Scope, in.BranchUUID, in.Channel)
+	target := s.resolveTarget(ctx, q, orgID, ve, "", in.Scope, in.BranchUUID, in.Channel, in.AgreementUUID)
 	name := checkText(ve, "name", in.Name, 255)
 	priority := checkPriority(ve, "priority", in.Priority)
 	note := checkText(ve, "change_note", in.ChangeNote, 2000)
@@ -376,7 +402,7 @@ func (s *Service) CreatePlan(ctx context.Context, orgID int64, in model.RatePlan
 		tq := tx.Q()
 		head, err := tq.CreateRatePlan(ctx, db.CreateRatePlanParams{
 			OrganizationID: orgID, RentalProductID: productID, Scope: target.Scope, BranchID: target.BranchID,
-			Channel: target.Channel, Name: name,
+			Channel: target.Channel, Name: name, AgreementID: target.AgreementID,
 		})
 		if err != nil {
 			return repository.MapErr(err)
@@ -587,6 +613,10 @@ func (s *Service) PlanActivationCheck(ctx context.Context, orgID int64, id uuid.
 // reachesOnline reports whether a plan can price an online sale: its
 // channel is online, or it has no channel and an online channel is on.
 func reachesOnline(row planRow, cfg orgPricing) bool {
+	if row.Scope == pricing.ScopeAgreement {
+		// Agreement tariffs are sold by staff under the agreement only.
+		return false
+	}
 	if row.Channel.Valid {
 		return osmodel.IsOnlineChannel(row.Channel.String)
 	}
@@ -627,7 +657,8 @@ func (s *Service) planIssues(ctx context.Context, q *db.Queries, orgID int64, ro
 		return nil, err
 	}
 	for _, other := range active {
-		if other.ID == row.ID || other.Scope != row.Scope || other.BranchID != row.BranchID || other.Channel != row.Channel {
+		if other.ID == row.ID || other.Scope != row.Scope || other.BranchID != row.BranchID || other.Channel != row.Channel ||
+			other.AgreementID != row.AgreementID {
 			continue
 		}
 		if int(other.Priority) == v.Priority {

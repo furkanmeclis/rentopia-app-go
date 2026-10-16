@@ -465,6 +465,24 @@ func (q *Queries) GetDriverForAgreement(ctx context.Context, arg GetDriverForAgr
 	return i, err
 }
 
+const getReservationAgreementID = `-- name: GetReservationAgreementID :one
+SELECT r.agreement_id FROM reservations r
+WHERE r.organization_id = $1
+  AND r.id = $2
+`
+
+type GetReservationAgreementIDParams struct {
+	OrganizationID int64 `json:"organization_id"`
+	ID             int64 `json:"id"`
+}
+
+func (q *Queries) GetReservationAgreementID(ctx context.Context, arg GetReservationAgreementIDParams) (pgtype.Int8, error) {
+	row := q.db.QueryRow(ctx, getReservationAgreementID, arg.OrganizationID, arg.ID)
+	var agreement_id pgtype.Int8
+	err := row.Scan(&agreement_id)
+	return agreement_id, err
+}
+
 const insertAgreement = `-- name: InsertAgreement :one
 INSERT INTO corporate_agreements (
     organization_id, code, name, customer_id, branch_id, status, valid_from, valid_to, invoice_period,
@@ -600,8 +618,8 @@ func (q *Queries) InsertAgreementDriver(ctx context.Context, arg InsertAgreement
 
 const listAgreementBillingPeriods = `-- name: ListAgreementBillingPeriods :many
 SELECT bp.id, bp.uuid, bp.period_no, bp.revision, bp.starts_on, bp.ends_on, bp.days, bp.partial, bp.amount,
-    bp.currency, bp.km_allowance, bp.accrual_key, bp.status, bp.posted_at, bp.closed_at,
-    rt.uuid AS rental_uuid, rt.reference AS rental_reference,
+    bp.currency, bp.km_allowance, bp.accrual_key, bp.status, bp.posted_at, bp.closed_at, bp.day_from, bp.day_to,
+    rt.uuid AS rental_uuid, rt.reference AS rental_reference, rt.status AS rental_status,
     e.uuid AS entry_uuid, e.entry_date, e.due_date
 FROM rental_billing_periods bp
 JOIN rentals rt ON rt.organization_id = bp.organization_id AND rt.id = bp.rental_id
@@ -642,8 +660,11 @@ type ListAgreementBillingPeriodsRow struct {
 	Status          string             `json:"status"`
 	PostedAt        pgtype.Timestamptz `json:"posted_at"`
 	ClosedAt        pgtype.Timestamptz `json:"closed_at"`
+	DayFrom         int32              `json:"day_from"`
+	DayTo           int32              `json:"day_to"`
 	RentalUuid      uuid.UUID          `json:"rental_uuid"`
 	RentalReference string             `json:"rental_reference"`
+	RentalStatus    string             `json:"rental_status"`
 	EntryUuid       pgtype.UUID        `json:"entry_uuid"`
 	EntryDate       pgtype.Date        `json:"entry_date"`
 	DueDate         pgtype.Date        `json:"due_date"`
@@ -681,8 +702,11 @@ func (q *Queries) ListAgreementBillingPeriods(ctx context.Context, arg ListAgree
 			&i.Status,
 			&i.PostedAt,
 			&i.ClosedAt,
+			&i.DayFrom,
+			&i.DayTo,
 			&i.RentalUuid,
 			&i.RentalReference,
+			&i.RentalStatus,
 			&i.EntryUuid,
 			&i.EntryDate,
 			&i.DueDate,

@@ -41,7 +41,7 @@ func TestAgreementTariffBeatsPublicPlans(t *testing.T) {
 		t.Fatalf("agreement without tariff = %+v", b.Plan)
 	}
 	// Only agreement plans: a public sale has no plan.
-	_, err := Calculate(Input{Start: start, End: start.Add(4*time.Hour), Product: product, BranchID: "br-ist", Channel: "web", Plans: []Plan{agreementPlan("ag-1", "900")}})
+	_, err := Calculate(Input{Start: start, End: start.Add(4 * time.Hour), Product: product, BranchID: "br-ist", Channel: "web", Plans: []Plan{agreementPlan("ag-1", "900")}})
 	if !errors.Is(err, ErrNoPlan) {
 		t.Fatalf("public sale with only agreement plans = %v", err)
 	}

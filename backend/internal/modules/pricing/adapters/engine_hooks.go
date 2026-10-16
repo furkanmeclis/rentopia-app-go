@@ -54,7 +54,7 @@ func NewCoupons(svc *campaignusecase.Service) *Coupons { return &Coupons{svc: sv
 func (c *Coupons) EvaluateCoupon(ctx context.Context, orgID int64, q usecase.CouponQuery) (*pricing.Discount, *model.CouponResult, error) {
 	ev, err := c.svc.Evaluate(ctx, orgID, campaignusecase.Quote{
 		Code: q.Code, ProductID: q.ProductID, SegmentID: q.SegmentID, Channel: q.Channel, Subtotal: q.Subtotal,
-		CustomerUUID: q.CustomerUUID, At: q.At,
+		CustomerUUID: q.CustomerUUID, At: q.At, Corporate: q.Corporate,
 	})
 	if err != nil {
 		return nil, nil, err

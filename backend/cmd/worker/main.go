@@ -12,6 +12,8 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/config"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/logging"
+	agreementadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/agreements/adapters"
+	agreementusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/agreements/usecase"
 	availabilityusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/availability/usecase"
 	branchadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/branches/adapters"
 	branchrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/branches/repository"
@@ -251,6 +253,9 @@ func main() {
 	// catch-up posting sweep; rentals and payments post here too.
 	financeSvc := financeusecase.New(pool, queries, store)
 	financeSvc.SetLogger(log)
+	// Corporate agreements (TEC-723): list export; the periodic billing
+	// sweep posts through finance (WithAgreementPeriods below).
+	agreementsSvc := agreementusecase.New(pool, queries, financeSvc, pricingSvc)
 	rentalsSvc.SetLedger(financeSvc)
 	paymentsSvc.SetLedger(financeSvc)
 	// Field tasks (TEC-724): bulk cancellations re-plan delivery tasks,
@@ -322,6 +327,7 @@ func main() {
 		financeadapters.NewExpensesIO(financeSvc),
 		financeadapters.NewDepositsIO(financeSvc),
 		financeadapters.NewCollectionsIO(financeSvc),
+		agreementadapters.NewIO(agreementsSvc),
 	)
 	exportSvc := exportusecase.New(queries, store, ioReg, nil, notifSvc, activityRec, log)
 	importSvc := importusecase.New(queries, store, ioReg, nil, notifSvc, activityRec, log)
@@ -450,6 +456,7 @@ func main() {
 			return released + n, err
 		}).
 		WithTolls(tollsSvc.ScheduleFetches, tollsSvc.RematchDue).
+		WithAgreementPeriods(financeSvc.AccruePeriods).
 		WithDocumentPDF(contractsSvc.RenderPDF).
 		WithSearch(
 			searchIndexer.ProcessUpsert,
@@ -484,6 +491,10 @@ func main() {
 	}
 	if err := queue.RegisterExpireHoldsSchedule(scheduler); err != nil {
 		log.Error("hold_expiry_scheduler_failed", "error", err)
+		exit(1)
+	}
+	if err := queue.RegisterAgreementPeriodsSchedule(scheduler); err != nil {
+		log.Error("agreement_periods_scheduler_failed", "error", err)
 		exit(1)
 	}
 	go func() {

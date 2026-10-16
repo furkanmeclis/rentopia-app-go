@@ -193,6 +193,15 @@ const (
 // PermTenantFinanceLedgerAdjust.
 const PermTenantFinanceCollectionsBulkAllocate = "tenant.finance.collections.bulk.allocate"
 
+// Corporate agreements (TEC-723, migration 001001). Agreement tariffs are
+// rate plans (PermTenantPricingWrite / PermTenantPricingActivate);
+// overriding a tariff in a quote stays PermTenantPriceOverride.
+const (
+	PermTenantAgreementsRead   = "tenant.agreements.read"
+	PermTenantAgreementsWrite  = "tenant.agreements.write"
+	PermTenantAgreementsExport = "tenant.agreements.export"
+)
+
 // Tenant template role keys seeded by migrations 000030 and 000041.
 const (
 	TenantRoleOwner            = "owner"
