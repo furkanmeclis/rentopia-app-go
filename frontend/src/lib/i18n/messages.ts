@@ -60,6 +60,7 @@ import enAgreements from "@/locales/en/agreements.json";
 import enDeposits from "@/locales/en/deposits.json";
 import enProfitability from "@/locales/en/profitability.json";
 import enReports from "@/locales/en/reports.json";
+import enPlatformHealth from "@/locales/en/platform_health.json";
 import enContracts from "@/locales/en/contracts.json";
 import enInspections from "@/locales/en/inspections.json";
 import enFieldTasks from "@/locales/en/field_tasks.json";
@@ -124,6 +125,7 @@ import trAgreements from "@/locales/tr/agreements.json";
 import trDeposits from "@/locales/tr/deposits.json";
 import trProfitability from "@/locales/tr/profitability.json";
 import trReports from "@/locales/tr/reports.json";
+import trPlatformHealth from "@/locales/tr/platform_health.json";
 import trContracts from "@/locales/tr/contracts.json";
 import trInspections from "@/locales/tr/inspections.json";
 import trFieldTasks from "@/locales/tr/field_tasks.json";
@@ -162,6 +164,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     deposits: trDeposits,
     profitability: trProfitability,
     reports: trReports,
+    platform_health: trPlatformHealth,
     contracts: trContracts,
     inspections: trInspections,
     field_tasks: trFieldTasks,
@@ -228,6 +231,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     deposits: enDeposits,
     profitability: enProfitability,
     reports: enReports,
+    platform_health: enPlatformHealth,
     contracts: enContracts,
     inspections: enInspections,
     field_tasks: enFieldTasks,

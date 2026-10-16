@@ -774,6 +774,138 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/platform/usage/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Platform usage list metadata
+         * @description Table contract of `GET /v1/platform/usage` (`platform.health.read`).
+         */
+        get: operations["getPlatformUsageMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Usage per organization
+         * @description Requires `platform.health.read` (TEC-739). One row per organization: active vehicles (not deleted,
+         *     active, not out of service), reservations created in the month (Europe/Istanbul calendar month),
+         *     members, the newest member sign-in and the file bytes recorded on tenant records (documents,
+         *     inspection photos and signatures, attachments, contract PDFs). Sort fields `name`, `active_vehicles`,
+         *     `reservations_month`, `member_count`, `storage_bytes`, `last_login_at`, `created_at`
+         *     (default `-active_vehicles`).
+         */
+        get: operations["getPlatformUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/usage/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Platform-wide usage totals
+         * @description Requires `platform.health.read`. Totals over live organizations for the month.
+         */
+        get: operations["getPlatformUsageSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Connection health across organizations
+         * @description Requires `platform.health.read` (TEC-739). Collects every registered health source (built in:
+         *     `integration_accounts` — connection tests of the organizations' provider accounts;
+         *     `integration_jobs` — failed jobs of the last 7 days, jobs waiting on verification, on a dependency or
+         *     blocked, overdue work). Other modules register further sources; clients render unknown source codes,
+         *     metric keys and issue kinds generically. A source that cannot be read reports `unknown`. `alerts`
+         *     holds the failed-work alert sweep's cursor per source.
+         */
+        get: operations["getPlatformHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/health/issues/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Health issue list metadata
+         * @description Table contract of `GET /v1/platform/health/issues` (`platform.health.read`).
+         */
+        get: operations["getPlatformHealthIssuesMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/health/issues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Health issues across organizations
+         * @description Requires `platform.health.read`. The problems every health source reports (newest first by default;
+         *     each source lists at most 500). `q` matches the organization, provider, subject and message. Sort
+         *     fields `occurred_at`, `severity`, `source`, `organization`.
+         */
+        get: operations["getPlatformHealthIssues"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/platform/organizations": {
         parameters: {
             query?: never;
@@ -13681,6 +13813,153 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        PlatformOrganizationUsage: {
+            /** Format: uuid */
+            uuid: string;
+            slug: string;
+            name: string;
+            /** @enum {string} */
+            status: "active" | "suspended";
+            /** Format: int64 */
+            active_vehicles: number;
+            /** Format: int64 */
+            total_vehicles: number;
+            /** Format: int64 */
+            reservations_month: number;
+            /** Format: int64 */
+            member_count: number;
+            /** Format: int64 */
+            storage_bytes: number;
+            /** Format: date-time */
+            last_login_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        EnvelopePlatformUsagePage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["PlatformOrganizationUsage"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        PlatformUsageSummary: {
+            /** @example 2026-10 */
+            month: string;
+            /** Format: int64 */
+            organizations: number;
+            /** Format: int64 */
+            active_organizations: number;
+            /** Format: int64 */
+            active_vehicles: number;
+            /** Format: int64 */
+            reservations_month: number;
+            /** Format: int64 */
+            members: number;
+            /** Format: int64 */
+            storage_bytes: number;
+        };
+        EnvelopePlatformUsageSummary: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["PlatformUsageSummary"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        PlatformHealthMetric: {
+            /** @description Metric key of the source (e.g. `failed`, `waiting_dependency`). */
+            key: string;
+            /** Format: int64 */
+            value: number;
+            /**
+             * @description Marks a non-zero value as a problem; absent = informational.
+             * @enum {string}
+             */
+            severity?: "critical" | "warning" | "info";
+        };
+        PlatformHealthSource: {
+            /** @description Source code (`integration_accounts`, `integration_jobs` or a registered one). */
+            code: string;
+            /** @enum {string} */
+            status: "healthy" | "degraded" | "failing" | "unknown";
+            /** @description Set when the source could not be read. */
+            error?: string;
+            metrics: components["schemas"]["PlatformHealthMetric"][];
+            issue_count: number;
+            critical: number;
+            warning: number;
+            truncated: boolean;
+            /** Format: int64 */
+            duration_ms: number;
+        };
+        PlatformHealthAlertState: {
+            source: string;
+            /** Format: date-time */
+            last_seen_at: string;
+            /** Format: date-time */
+            last_alert_at: string | null;
+            last_alert_count: number;
+        };
+        PlatformHealthSummary: {
+            /** @enum {string} */
+            status: "healthy" | "degraded" | "failing" | "unknown";
+            /** Format: date-time */
+            checked_at: string;
+            critical: number;
+            warning: number;
+            sources: components["schemas"]["PlatformHealthSource"][];
+            alerts: components["schemas"]["PlatformHealthAlertState"][];
+        };
+        EnvelopePlatformHealthSummary: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["PlatformHealthSummary"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        PlatformHealthOrganizationRef: {
+            /** Format: uuid */
+            uuid: string;
+            slug: string;
+            name: string;
+        };
+        PlatformHealthIssue: {
+            /** @description Stable row key. */
+            key: string;
+            source: string;
+            /**
+             * @description Issue kind: `account_check_failed`, `job_failed`, `job_needs_verification`,
+             *     `job_waiting_dependency`, `job_blocked`, or one of a registered source.
+             */
+            kind: string;
+            /** @enum {string} */
+            severity: "critical" | "warning" | "info";
+            /** @description Null for platform-level work. */
+            organization: components["schemas"]["PlatformHealthOrganizationRef"] | null;
+            provider: string;
+            /** @description The failing thing (job kind or account name). */
+            subject: string;
+            /** @description Last error text. */
+            message: string;
+            ref_type: string;
+            ref_uuid: string;
+            /** Format: date-time */
+            occurred_at: string;
+        };
+        EnvelopePlatformHealthIssuePage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["PlatformHealthIssue"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
         AvailabilitySearchRequest: {
             /**
              * Format: uuid
@@ -26704,6 +26983,8 @@ export interface components {
         InspectionPhotoUUID: string;
         /** @description Product image UUID */
         ImageUUID: string;
+        /** @description Calendar month `YYYY-MM` (Europe/Istanbul); default the current month. */
+        PlatformUsageMonth: string;
         Limit: number;
         Offset: number;
         Q: string;
@@ -28048,6 +28329,168 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    getPlatformUsageMeta: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource meta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getPlatformUsage: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description Comma-separated fields; prefix `-` for descending */
+                sort?: components["parameters"]["Sort"];
+                /** @description Calendar month `YYYY-MM` (Europe/Istanbul); default the current month. */
+                month?: components["parameters"]["PlatformUsageMonth"];
+                /** @description Comma-separated organization statuses (`active`, `suspended`). */
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Usage page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePlatformUsagePage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getPlatformUsageSummary: {
+        parameters: {
+            query?: {
+                /** @description Calendar month `YYYY-MM` (Europe/Istanbul); default the current month. */
+                month?: components["parameters"]["PlatformUsageMonth"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Usage totals */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePlatformUsageSummary"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getPlatformHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Health summary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePlatformHealthSummary"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getPlatformHealthIssuesMeta: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource meta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getPlatformHealthIssues: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description Comma-separated fields; prefix `-` for descending */
+                sort?: components["parameters"]["Sort"];
+                /** @description Comma-separated source codes. */
+                source?: string;
+                /** @description Comma-separated severities (`critical`, `warning`, `info`). */
+                severity?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Issue page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePlatformHealthIssuePage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
         };
     };
     getPlatformOrganizations: {

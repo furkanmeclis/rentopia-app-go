@@ -1734,6 +1734,15 @@ type PgExtension struct {
 	Extname string `json:"extname"`
 }
 
+type PlatformHealthAlertCursor struct {
+	Source         string             `json:"source"`
+	LastSeenAt     pgtype.Timestamptz `json:"last_seen_at"`
+	LastAlertAt    pgtype.Timestamptz `json:"last_alert_at"`
+	LastAlertCount int32              `json:"last_alert_count"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
 type PushDevice struct {
 	ID             int64              `json:"id"`
 	Uuid           uuid.UUID          `json:"uuid"`

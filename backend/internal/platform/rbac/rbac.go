@@ -52,6 +52,7 @@ const (
 	PermPlatformIntegrationsAppleWrite    = "platform.integrations.apple.write"
 	PermPlatformAuthSettingsRead          = "platform.auth.settings.read"
 	PermPlatformAuthSettingsWrite         = "platform.auth.settings.write"
+	PermPlatformHealthRead                = "platform.health.read"
 	PermAuthSession                       = "auth.session"
 	PermNotificationsRead                 = "notifications.read"
 	PermNotificationsManage               = "notifications.manage"

@@ -305,6 +305,8 @@ export const routes = {
       detail: (uuid: string) => `/platform/organizations/${uuid}`,
       edit: (uuid: string) => `/platform/organizations/${uuid}/edit`,
     },
+    /** Usage per organization and connection health (TEC-739). */
+    health: "/platform/health",
     users: {
       root: "/platform/users",
       create: "/platform/users/create",

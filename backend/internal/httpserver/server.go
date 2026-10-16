@@ -133,6 +133,9 @@ import (
 	paymentsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/payments"
 	paymentshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/payments/handler"
 	paymentsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/payments/usecase"
+	platformhealthmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/platformhealth"
+	platformhealthhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/platformhealth/handler"
+	platformhealthusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/platformhealth/usecase"
 	pricingmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing"
 	pricingadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/adapters"
 	pricinghandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/handler"
@@ -916,6 +919,11 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	profitabilitymodule.RegisterRoutes(mux, profitabilityhandler.New(profitabilitySvc),
 		exportH.TenantExport(profitabilitymodule.Resource, profitabilitymodule.ExportQueryKeys...), tokens, loader, tenantResolver)
 	reportsmodule.RegisterRoutes(mux, reportshandler.New(reportsSvc), exportH.TenantExport, tokens, loader, tenantResolver)
+	// Platform usage and connection health (TEC-739). Modules with their
+	// own sync / delivery health register a healthcheck.Source on
+	// healthRegistry here.
+	healthRegistry := platformhealthmodule.NewRegistry(deps.Queries)
+	platformhealthmodule.RegisterRoutes(mux, platformhealthhandler.New(platformhealthusecase.New(deps.Queries, healthRegistry)), tokens, loader)
 	contractsH := contractshandler.New(contractsSvc, activityRec)
 	contractsH.SetRateLimiter(contractsmodule.Limiter{L: ratelimit.New(deps.Redis, cfg.App.Env)})
 	contractsmodule.RegisterRoutes(mux, contractsH, tokens, loader, tenantResolver)
