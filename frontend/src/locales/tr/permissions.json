@@ -195,5 +195,9 @@
   "labels.tenant.finance.expenses.import": "Giderleri içe aktar",
   "labels.tenant.finance.expenses.bulk.set_category": "Giderlere toplu kategori ata",
   "labels.tenant.finance.reports.read": "Finans raporlarını görüntüle",
-  "groups.tenant_finance": "Finans"
+  "groups.tenant_finance": "Finans",
+  "labels.tenant.kabis.read": "KABİS bildirimlerini görüntüle",
+  "labels.tenant.kabis.retry": "KABİS bildirimlerini yeniden dene",
+  "labels.tenant.kabis.reconcile": "KABİS bildirimlerini manuel bildirildi / uzlaştırıldı olarak işaretle",
+  "groups.tenant_kabis": "KABİS bildirimleri"
 }

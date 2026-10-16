@@ -47,6 +47,7 @@ import { routes } from "@/config/routes";
 import { DocumentsSection } from "@/features/contracts/components/documents-section";
 import { RentalLedgerCard } from "@/features/finance/components/rental-ledger-card";
 import { RentalTollCharges } from "@/features/tolls/components/rental-toll-charges";
+import { RentalKabisChip } from "@/features/kabis/components/rental-kabis-chip";
 import {
   ChargeStatusChip,
   RentalStatusChip,
@@ -1100,6 +1101,7 @@ export function RentalDetailPage({ uuid }: { uuid: string }) {
                         : t("rentals.contract.pending")}
                     </Badge>
                   ) : null}
+                  <RentalKabisChip rentalUuid={r.uuid} />
                 </>
               }
             />

@@ -287,5 +287,18 @@
   "integrations.providers.hgs_fake": "HGS test provider (development)",
   "integrations.provider_hints.hgs_fake": "Development and tests only: generates sample toll passes for the vehicle tags. Enter any API key.",
   "integrations.fields.customer_no": "Customer no",
-  "integrations.jobs.kinds.toll_fetch": "Toll pass fetch"
+  "integrations.jobs.kinds.toll_fetch": "Toll pass fetch",
+  "integrations.fields.username": "User code",
+  "integrations.fields.scenario": "Test scenario",
+  "integrations.providers.kabis": "KABİS (official connection)",
+  "integrations.providers.kabis_fake": "KABİS test adapter (development only)",
+  "integrations.provider_hints.kabis": "The official KABİS connection method is not verified yet (TEC-682). You can store the credentials now; notifications stay \"waiting on dependency\" and are not sent until the method is verified.",
+  "integrations.provider_hints.kabis_fake": "Visible in development and test only; it never contacts the police. Test scenario: empty / ok, outage, timeout (unknown result), reject.",
+  "integrations.jobs.statuses.blocked": "Data missing — not sent",
+  "integrations.jobs.statuses.waiting_dependency": "Waiting on dependency",
+  "integrations.jobs.statuses.reported_manually": "Reported manually",
+  "integrations.jobs.statuses.reconciled": "Reconciled",
+  "integrations.jobs.kinds.kabis_rental_start": "KABİS rental start",
+  "integrations.jobs.kinds.kabis_rental_end": "KABİS rental end",
+  "integrations.jobs.kinds.kabis_correction": "KABİS correction"
 }

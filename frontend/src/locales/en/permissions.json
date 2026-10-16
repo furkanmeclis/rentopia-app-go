@@ -195,5 +195,9 @@
   "labels.tenant.finance.expenses.import": "Import expenses",
   "labels.tenant.finance.expenses.bulk.set_category": "Bulk set expense category",
   "labels.tenant.finance.reports.read": "View finance reports",
-  "groups.tenant_finance": "Finance"
+  "groups.tenant_finance": "Finance",
+  "labels.tenant.kabis.read": "View KABİS notifications",
+  "labels.tenant.kabis.retry": "Retry KABİS notifications",
+  "labels.tenant.kabis.reconcile": "Mark KABİS notifications reported manually / reconciled",
+  "groups.tenant_kabis": "KABİS notifications"
 }

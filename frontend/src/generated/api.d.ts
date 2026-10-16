@@ -10628,6 +10628,182 @@ export interface paths {
         patch: operations["patchTenantVehicleTollTag"];
         trace?: never;
     };
+    "/v1/tenant/kabis-notifications/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * KABİS notification list contract
+         * @description `tenant.kabis.read`. Columns, filters and sortable fields of the KABİS notification list.
+         */
+        get: operations["getTenantKabisNotificationsMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/kabis-notifications/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * KABİS notification counts
+         * @description `tenant.kabis.read`. Status and event counts in the caller's branch scope; `needs_action` (blocked, waiting_dependency, failed, needs_verification) is the nav badge.
+         */
+        get: operations["getTenantKabisNotificationsFacets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/kabis-notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List KABİS notifications
+         * @description `tenant.kabis.read`. One notification per actual rental event (handover = `rental_start`, return =
+         *     `rental_end`, `correction`) whose event branch or rental branch is in the caller's branch scope.
+         *     `status` is the integration job's state; only `official = true` (succeeded, reported_manually,
+         *     reconciled) means the authority has the record — every other row is a local record.
+         */
+        get: operations["getTenantKabisNotifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/kabis-notifications/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a KABİS notification
+         * @description `tenant.kabis.read`. The notification with its masked facts (never a full identity or licence number), the staff resolution, the actions the caller may take and the attempt history (every provider call).
+         */
+        get: operations["getTenantKabisNotification"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/kabis-notifications/{uuid}/attachment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download the attachment of a staff resolution
+         * @description `tenant.kabis.read`. Streamed by the API (private storage, `Cache-Control: private, no-store`); every download is an activity event. `404` when there is none.
+         */
+        get: operations["getTenantKabisNotificationAttachment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/kabis-notifications/{uuid}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry a KABİS notification
+         * @description `tenant.kabis.retry`. Audited.
+         *     - `blocked` / `waiting_dependency`: nothing was sent; the payload is built again from the current
+         *       data and the organization's adapter looked up again (`revalidated`). Still missing data answers
+         *       `409 KABIS_DATA_MISSING` (details name the fields), still no working adapter
+         *       `409 KABIS_DEPENDENCY_PENDING`.
+         *     - `pending` / `failed` / `needs_verification` / `submitted`: a status check first; the notification is
+         *       sent again only when the authority confirms it does not have it (`already_done`, `in_progress`,
+         *       `resubmitted`). An unknown answer sends nothing: `409 KABIS_UNVERIFIED` with the notification in `data`.
+         *     - final states: `409 KABIS_NOT_RETRYABLE`; a job held by a worker `409 KABIS_BUSY`.
+         */
+        post: operations["postTenantKabisNotificationRetry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/kabis-notifications/{uuid}/mark-manual": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a KABİS notification as reported manually
+         * @description `tenant.kabis.reconcile`. The notification was filed through the official manual channel (TEC-682
+         *     procedure). From blocked, waiting_dependency, pending, failed or needs_verification; reason (3-500)
+         *     and the official reference are required, a PDF / image attachment (10 MiB) is optional. The job
+         *     ends as `reported_manually` and is never sent afterwards. Audited.
+         */
+        post: operations["postTenantKabisNotificationMarkManual"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/kabis-notifications/{uuid}/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a KABİS notification as reconciled
+         * @description `tenant.kabis.reconcile`. A person confirmed with the authority that the notification was received
+         *     (needs_verification, submitted or failed). Reason, reference and optional attachment as for
+         *     `mark-manual`; the job ends as `reconciled`. Audited.
+         */
+        post: operations["postTenantKabisNotificationReconcile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenant/finance/summary": {
         parameters: {
             query?: never;
@@ -20037,9 +20213,9 @@ export interface components {
         };
         IntegrationProvider: {
             /** @enum {string} */
-            kind: "payment" | "sms" | "toll";
+            kind: "payment" | "sms" | "toll" | "kabis";
             /** @enum {string} */
-            provider: "iyzico" | "netgsm" | "log" | "hgs_fake";
+            provider: "iyzico" | "netgsm" | "log" | "hgs_fake" | "kabis" | "kabis_fake";
             fields: components["schemas"]["IntegrationField"][];
             modes: ("sandbox" | "live")[];
         };
@@ -20056,9 +20232,9 @@ export interface components {
             /** Format: uuid */
             uuid: string;
             /** @enum {string} */
-            kind: "payment" | "sms" | "toll";
+            kind: "payment" | "sms" | "toll" | "kabis";
             /** @enum {string} */
-            provider: "iyzico" | "netgsm" | "log" | "hgs_fake";
+            provider: "iyzico" | "netgsm" | "log" | "hgs_fake" | "kabis" | "kabis_fake";
             display_name: string;
             /** @enum {string} */
             mode: "sandbox" | "live";
@@ -20100,10 +20276,12 @@ export interface components {
         /**
          * @description `pending` = pending_submit, `submitted` = accepted by the provider (final state from CheckStatus),
          *     `needs_verification` = outcome unknown (only CheckStatus moves it on), `processing` = held by a
-         *     worker (payments), `ignored` = a notification that needs no action.
+         *     worker (payments), `ignored` = a notification that needs no action. Held (the runner never calls the
+         *     provider): `blocked` = required data is missing, `waiting_dependency` = no working adapter. Staff
+         *     resolutions (final): `reported_manually`, `reconciled`.
          * @enum {string}
          */
-        IntegrationJobStatus: "pending" | "processing" | "submitted" | "succeeded" | "failed" | "ignored" | "needs_verification";
+        IntegrationJobStatus: "pending" | "processing" | "submitted" | "succeeded" | "failed" | "ignored" | "needs_verification" | "blocked" | "waiting_dependency" | "reported_manually" | "reconciled";
         IntegrationJob: {
             /** Format: uuid */
             uuid: string;
@@ -21306,6 +21484,159 @@ export interface components {
             /** Format: date-time */
             to: string;
         };
+        /**
+         * @description The integration job's state. Only `succeeded`, `reported_manually` and `reconciled` mean the
+         *     authority has the record; `pending` / `submitted` are local records, `blocked` = required data
+         *     missing, `waiting_dependency` = no working adapter (official method not verified, TEC-682).
+         * @enum {string}
+         */
+        KabisNotificationStatus: "blocked" | "waiting_dependency" | "pending" | "processing" | "submitted" | "needs_verification" | "failed" | "succeeded" | "reported_manually" | "reconciled" | "ignored";
+        KabisRef: {
+            /** Format: uuid */
+            uuid: string;
+            code?: string;
+            name?: string;
+            reference?: string;
+        };
+        KabisNotification: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            event: "rental_start" | "rental_end" | "correction";
+            sequence: number;
+            /** @description handover, return, drivers_changed, vehicle_swap */
+            cause: string;
+            /**
+             * Format: date-time
+             * @description The actual event time
+             */
+            occurred_at: string;
+            plate: string;
+            status: components["schemas"]["KabisNotificationStatus"];
+            /** @description true only when the authority has the record */
+            official: boolean;
+            needs_action: boolean;
+            attempts: number;
+            max_attempts: number;
+            last_error: string;
+            /** @description kabis (official slot) or kabis_fake (development) */
+            provider: string;
+            /** @description The authority's reference (empty until confirmed) */
+            external_reference: string;
+            /** Format: date-time */
+            next_attempt_at: string | null;
+            /** Format: date-time */
+            submitted_at: string | null;
+            /** Format: date-time */
+            completed_at: string | null;
+            /**
+             * Format: date-time
+             * @description Last status check with the authority
+             */
+            last_verified_at: string | null;
+            /** @description Dot paths of missing required data (blocked) */
+            missing_fields: string[];
+            /** @description no_account, adapter_unverified, adapter_unavailable */
+            hold_reason: string;
+            /** @enum {string|null} */
+            resolution: "reported_manually" | "reconciled" | null;
+            resolution_reference: string;
+            /** Format: date-time */
+            resolved_at: string | null;
+            rental: components["schemas"]["KabisRef"];
+            branch: components["schemas"]["KabisRef"];
+            /** Format: uuid */
+            job_uuid: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        KabisNotificationDetail: components["schemas"]["KabisNotification"] & {
+            /** @description Masked facts: place, vehicle, renter, drivers (identity / licence hints only) */
+            summary: {
+                [key: string]: unknown;
+            };
+            /** Format: uuid */
+            corrects_uuid: string | null;
+            resolution_reason: string;
+            resolved_by: components["schemas"]["UserRef"] | null;
+            attachment: {
+                name: string;
+                content_type: string;
+                /** Format: int64 */
+                size: number;
+            } | null;
+            account: components["schemas"]["KabisRef"] | null;
+            actions: {
+                retry: boolean;
+                mark_manual: boolean;
+                reconcile: boolean;
+                /** @description A retry re-validates the data / adapter (blocked, waiting) */
+                revalidates: boolean;
+            };
+            attempt_log: components["schemas"]["IntegrationAttempt"][];
+        };
+        KabisFacets: {
+            statuses: {
+                [key: string]: number;
+            };
+            events: {
+                [key: string]: number;
+            };
+            /** Format: int64 */
+            needs_action: number;
+            /** Format: int64 */
+            total: number;
+        };
+        KabisResolveRequest: {
+            reason: string;
+            /** @description The official reference (receipt / record number) */
+            reference: string;
+        };
+        KabisResolveForm: {
+            reason: string;
+            reference: string;
+            /**
+             * Format: binary
+             * @description Optional PDF / JPEG / PNG / WebP, at most 10 MiB
+             */
+            file?: string;
+        };
+        EnvelopeKabisNotification: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["KabisNotificationDetail"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeKabisNotificationPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["KabisNotification"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeKabisFacets: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["KabisFacets"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeKabisRetry: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                /** @enum {string} */
+                action: "revalidated" | "already_done" | "in_progress" | "resubmitted";
+                notification: components["schemas"]["KabisNotificationDetail"];
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
         EnvelopeTollPass: {
             /** @enum {boolean} */
             success: true;
@@ -22059,6 +22390,15 @@ export interface components {
         };
     };
     responses: {
+        /** @description KABİS notification */
+        KabisNotificationOK: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["EnvelopeKabisNotification"];
+            };
+        };
         /** @description Toll pass */
         TollPassOK: {
             headers: {
@@ -35069,9 +35409,9 @@ export interface operations {
                 sort?: string;
                 /** @description active, disabled */
                 status?: string;
-                /** @description payment, sms */
+                /** @description payment, sms, toll, kabis */
                 kind?: string;
-                /** @description iyzico, netgsm, log, hgs_fake */
+                /** @description iyzico, netgsm, log, hgs_fake, kabis, kabis_fake */
                 provider?: string;
             };
             header: {
@@ -35120,13 +35460,13 @@ export interface operations {
                      * @description Defaults to the provider's kind.
                      * @enum {string}
                      */
-                    kind?: "payment" | "sms" | "toll";
+                    kind?: "payment" | "sms" | "toll" | "kabis";
                     /** @enum {string} */
-                    provider: "iyzico" | "netgsm" | "log" | "hgs_fake";
+                    provider: "iyzico" | "netgsm" | "log" | "hgs_fake" | "kabis" | "kabis_fake";
                     display_name: string;
                     /** @enum {string} */
                     mode?: "sandbox" | "live";
-                    /** @description iyzico: `api_key`, `secret_key`; netgsm: `usercode`, `password`, `msgheader`; log (development only): `msgheader`; hgs_fake (toll passes, development only): `api_key`, `customer_no` */
+                    /** @description iyzico: `api_key`, `secret_key`; netgsm: `usercode`, `password`, `msgheader`; log (development only): `msgheader`; hgs_fake (toll passes, development only): `api_key`, `customer_no`; kabis (official KABİS slot, waiting on dependency until the method is verified, TEC-682): `username`, `password`; kabis_fake (development only): `username`, `password`, `scenario` (ok, outage, timeout, reject) */
                     credentials: {
                         [key: string]: string;
                     };
@@ -41898,6 +42238,263 @@ export interface operations {
         };
         responses: {
             200: components["responses"]["TollTagOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantKabisNotificationsMeta: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource meta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantKabisNotificationsFacets: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Facets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeKabisFacets"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantKabisNotifications: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description `occurred_at`, `created_at` or `updated_at`; prefix `-` for descending (default `-occurred_at`). */
+                sort?: string;
+                /** @description blocked, waiting_dependency, pending, submitted, needs_verification, failed, succeeded, reported_manually, reconciled (comma separated) */
+                status?: string;
+                /** @description `1` = blocked, waiting_dependency, failed and needs_verification */
+                needs_action?: string;
+                /** @description rental_start, rental_end, correction (comma separated) */
+                event?: string;
+                /** @description Rental uuid (the rental detail chip) */
+                rental?: string;
+                /** @description Events from this time (RFC 3339) or day (YYYY-MM-DD, Istanbul) */
+                from?: string;
+                /** @description Events before this time (RFC 3339) or up to this day inclusive (YYYY-MM-DD, Istanbul) */
+                to?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Notification page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeKabisNotificationPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantKabisNotification: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["KabisNotificationOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantKabisNotificationAttachment: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantKabisNotificationRetry: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What the retry did */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeKabisRetry"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantKabisNotificationMarkManual: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["KabisResolveForm"];
+                "application/json": components["schemas"]["KabisResolveRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["KabisNotificationOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantKabisNotificationReconcile: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["KabisResolveForm"];
+                "application/json": components["schemas"]["KabisResolveRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["KabisNotificationOK"];
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["TenantForbidden"];

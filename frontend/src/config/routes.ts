@@ -156,6 +156,11 @@ export const routes = {
         `/t/${encodeURIComponent(slug)}/finance/reports`,
     },
     /** HGS / OGS toll passes and their review queue (TEC-725). */
+    kabis: {
+      root: (slug: string) => `/t/${encodeURIComponent(slug)}/kabis`,
+      detail: (slug: string, uuid: string) =>
+        `/t/${encodeURIComponent(slug)}/kabis/${uuid}`,
+    },
     tolls: {
       root: (slug: string) => `/t/${encodeURIComponent(slug)}/tolls`,
       review: (slug: string) => `/t/${encodeURIComponent(slug)}/tolls/review`,

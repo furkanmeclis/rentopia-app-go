@@ -114,6 +114,8 @@ export const INTEGRATION_FIELD_LABEL_KEYS: Record<string, string> = {
   password: "payments.integrations.fields.password",
   msgheader: "payments.integrations.fields.msgheader",
   customer_no: "payments.integrations.fields.customer_no",
+  username: "payments.integrations.fields.username",
+  scenario: "payments.integrations.fields.scenario",
 };
 
 export const INTEGRATION_PROVIDER_LABEL_KEYS: Record<string, string> = {
@@ -121,6 +123,8 @@ export const INTEGRATION_PROVIDER_LABEL_KEYS: Record<string, string> = {
   netgsm: "payments.integrations.providers.netgsm",
   log: "payments.integrations.providers.log",
   hgs_fake: "payments.integrations.providers.hgs_fake",
+  kabis: "payments.integrations.providers.kabis",
+  kabis_fake: "payments.integrations.providers.kabis_fake",
 };
 
 /** Connect form hint per provider (where the organization finds its keys). */
@@ -129,6 +133,8 @@ export const INTEGRATION_PROVIDER_HINT_KEYS: Record<string, string> = {
   netgsm: "payments.integrations.provider_hints.netgsm",
   log: "payments.integrations.provider_hints.log",
   hgs_fake: "payments.integrations.provider_hints.hgs_fake",
+  kabis: "payments.integrations.provider_hints.kabis",
+  kabis_fake: "payments.integrations.provider_hints.kabis_fake",
 };
 
 /** Live list resource of integration jobs (backend jobs usecase). */
@@ -141,6 +147,10 @@ export const INTEGRATION_JOB_STATUSES: IntegrationJobStatus[] = [
   "succeeded",
   "failed",
   "needs_verification",
+  "blocked",
+  "waiting_dependency",
+  "reported_manually",
+  "reconciled",
   "ignored",
 ];
 
@@ -155,6 +165,10 @@ export const INTEGRATION_JOB_STATUS_LABEL_KEYS: Record<
   failed: "payments.integrations.jobs.statuses.failed",
   needs_verification: "payments.integrations.jobs.statuses.needs_verification",
   ignored: "payments.integrations.jobs.statuses.ignored",
+  blocked: "payments.integrations.jobs.statuses.blocked",
+  waiting_dependency: "payments.integrations.jobs.statuses.waiting_dependency",
+  reported_manually: "payments.integrations.jobs.statuses.reported_manually",
+  reconciled: "payments.integrations.jobs.statuses.reconciled",
 };
 
 export const INTEGRATION_JOB_STATUS_TONES: Record<IntegrationJobStatus, Tone> =
@@ -166,6 +180,10 @@ export const INTEGRATION_JOB_STATUS_TONES: Record<IntegrationJobStatus, Tone> =
     failed: "danger",
     needs_verification: "danger",
     ignored: "default",
+    blocked: "danger",
+    waiting_dependency: "warning",
+    reported_manually: "success",
+    reconciled: "success",
   };
 
 export const INTEGRATION_JOB_KIND_LABEL_KEYS: Record<string, string> = {
@@ -173,6 +191,9 @@ export const INTEGRATION_JOB_KIND_LABEL_KEYS: Record<string, string> = {
   "payment.refund": "payments.integrations.jobs.kinds.payment_refund",
   "payment.webhook": "payments.integrations.jobs.kinds.payment_webhook",
   "toll.fetch": "payments.integrations.jobs.kinds.toll_fetch",
+  "kabis.rental_start": "payments.integrations.jobs.kinds.kabis_rental_start",
+  "kabis.rental_end": "payments.integrations.jobs.kinds.kabis_rental_end",
+  "kabis.correction": "payments.integrations.jobs.kinds.kabis_correction",
 };
 
 export const ATTEMPT_OPERATION_LABEL_KEYS: Record<string, string> = {

@@ -11193,8 +11193,8 @@ paths:
           description: "`display_name` or `created_at`; prefix `-` for descending."
           schema: { type: string }
         - { name: status, in: query, schema: { type: string }, description: "active, disabled" }
-        - { name: kind, in: query, schema: { type: string }, description: "payment, sms" }
-        - { name: provider, in: query, schema: { type: string }, description: "iyzico, netgsm, log, hgs_fake" }
+        - { name: kind, in: query, schema: { type: string }, description: "payment, sms, toll, kabis" }
+        - { name: provider, in: query, schema: { type: string }, description: "iyzico, netgsm, log, hgs_fake, kabis, kabis_fake" }
       responses:
         "200":
           description: Account page
@@ -11225,14 +11225,14 @@ paths:
               additionalProperties: false
               required: [provider, display_name, credentials]
               properties:
-                kind: { type: string, enum: [payment, sms, toll], description: "Defaults to the provider's kind." }
-                provider: { type: string, enum: [iyzico, netgsm, log, hgs_fake] }
+                kind: { type: string, enum: [payment, sms, toll, kabis], description: "Defaults to the provider's kind." }
+                provider: { type: string, enum: [iyzico, netgsm, log, hgs_fake, kabis, kabis_fake] }
                 display_name: { type: string, maxLength: 120 }
                 mode: { type: string, enum: [sandbox, live] }
                 credentials:
                   type: object
                   additionalProperties: { type: string }
-                  description: "iyzico: `api_key`, `secret_key`; netgsm: `usercode`, `password`, `msgheader`; log (development only): `msgheader`; hgs_fake (toll passes, development only): `api_key`, `customer_no`"
+                  description: "iyzico: `api_key`, `secret_key`; netgsm: `usercode`, `password`, `msgheader`; log (development only): `msgheader`; hgs_fake (toll passes, development only): `api_key`, `customer_no`; kabis (official KABİS slot, waiting on dependency until the method is verified, TEC-682): `username`, `password`; kabis_fake (development only): `username`, `password`, `scenario` (ok, outage, timeout, reject)"
       responses:
         "201": { $ref: "#/components/responses/IntegrationAccountOK" }
         "400": { $ref: "#/components/responses/BadRequest" }
@@ -16422,6 +16422,212 @@ paths:
         "403": { $ref: "#/components/responses/TenantForbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/tenant/kabis-notifications/meta:
+    get:
+      tags: [Tenant]
+      operationId: getTenantKabisNotificationsMeta
+      summary: KABİS notification list contract
+      description: "`tenant.kabis.read`. Columns, filters and sortable fields of the KABİS notification list."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Resource meta
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeResourceMeta" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/kabis-notifications/facets:
+    get:
+      tags: [Tenant]
+      operationId: getTenantKabisNotificationsFacets
+      summary: KABİS notification counts
+      description: "`tenant.kabis.read`. Status and event counts in the caller's branch scope; `needs_action` (blocked, waiting_dependency, failed, needs_verification) is the nav badge."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Facets
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeKabisFacets" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/kabis-notifications:
+    get:
+      tags: [Tenant]
+      operationId: getTenantKabisNotifications
+      summary: List KABİS notifications
+      description: |
+        `tenant.kabis.read`. One notification per actual rental event (handover = `rental_start`, return =
+        `rental_end`, `correction`) whose event branch or rental branch is in the caller's branch scope.
+        `status` is the integration job's state; only `official = true` (succeeded, reported_manually,
+        reconciled) means the authority has the record — every other row is a local record.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - name: sort
+          in: query
+          description: "`occurred_at`, `created_at` or `updated_at`; prefix `-` for descending (default `-occurred_at`)."
+          schema: { type: string }
+        - { name: status, in: query, schema: { type: string }, description: "blocked, waiting_dependency, pending, submitted, needs_verification, failed, succeeded, reported_manually, reconciled (comma separated)" }
+        - { name: needs_action, in: query, schema: { type: string }, description: "`1` = blocked, waiting_dependency, failed and needs_verification" }
+        - { name: event, in: query, schema: { type: string }, description: "rental_start, rental_end, correction (comma separated)" }
+        - { name: rental, in: query, schema: { type: string, format: uuid }, description: Rental uuid (the rental detail chip) }
+        - { name: from, in: query, schema: { type: string }, description: "Events from this time (RFC 3339) or day (YYYY-MM-DD, Istanbul)" }
+        - { name: to, in: query, schema: { type: string }, description: "Events before this time (RFC 3339) or up to this day inclusive (YYYY-MM-DD, Istanbul)" }
+      responses:
+        "200":
+          description: Notification page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeKabisNotificationPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/kabis-notifications/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantKabisNotification
+      summary: Get a KABİS notification
+      description: "`tenant.kabis.read`. The notification with its masked facts (never a full identity or licence number), the staff resolution, the actions the caller may take and the attempt history (every provider call)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200": { $ref: "#/components/responses/KabisNotificationOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/kabis-notifications/{uuid}/attachment:
+    get:
+      tags: [Tenant]
+      operationId: getTenantKabisNotificationAttachment
+      summary: Download the attachment of a staff resolution
+      description: "`tenant.kabis.read`. Streamed by the API (private storage, `Cache-Control: private, no-store`); every download is an activity event. `404` when there is none."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: The file
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/kabis-notifications/{uuid}/retry:
+    post:
+      tags: [Tenant]
+      operationId: postTenantKabisNotificationRetry
+      summary: Retry a KABİS notification
+      description: |
+        `tenant.kabis.retry`. Audited.
+        - `blocked` / `waiting_dependency`: nothing was sent; the payload is built again from the current
+          data and the organization's adapter looked up again (`revalidated`). Still missing data answers
+          `409 KABIS_DATA_MISSING` (details name the fields), still no working adapter
+          `409 KABIS_DEPENDENCY_PENDING`.
+        - `pending` / `failed` / `needs_verification` / `submitted`: a status check first; the notification is
+          sent again only when the authority confirms it does not have it (`already_done`, `in_progress`,
+          `resubmitted`). An unknown answer sends nothing: `409 KABIS_UNVERIFIED` with the notification in `data`.
+        - final states: `409 KABIS_NOT_RETRYABLE`; a job held by a worker `409 KABIS_BUSY`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: What the retry did
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeKabisRetry" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/kabis-notifications/{uuid}/mark-manual:
+    post:
+      tags: [Tenant]
+      operationId: postTenantKabisNotificationMarkManual
+      summary: Mark a KABİS notification as reported manually
+      description: |
+        `tenant.kabis.reconcile`. The notification was filed through the official manual channel (TEC-682
+        procedure). From blocked, waiting_dependency, pending, failed or needs_verification; reason (3-500)
+        and the official reference are required, a PDF / image attachment (10 MiB) is optional. The job
+        ends as `reported_manually` and is never sent afterwards. Audited.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { $ref: "#/components/schemas/KabisResolveForm" }
+          application/json:
+            schema: { $ref: "#/components/schemas/KabisResolveRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/KabisNotificationOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/kabis-notifications/{uuid}/reconcile:
+    post:
+      tags: [Tenant]
+      operationId: postTenantKabisNotificationReconcile
+      summary: Mark a KABİS notification as reconciled
+      description: |
+        `tenant.kabis.reconcile`. A person confirmed with the authority that the notification was received
+        (needs_verification, submitted or failed). Reason, reference and optional attachment as for
+        `mark-manual`; the job ends as `reconciled`. Audited.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { $ref: "#/components/schemas/KabisResolveForm" }
+          application/json:
+            schema: { $ref: "#/components/schemas/KabisResolveRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/KabisNotificationOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
   /v1/tenant/finance/summary:
     get:
       tags: [Tenant]
@@ -18033,6 +18239,12 @@ components:
       schema: { type: integer, minimum: 1950, maximum: 2100 }
 
   responses:
+    KabisNotificationOK:
+      description: KABİS notification
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/EnvelopeKabisNotification"
     TollPassOK:
       description: Toll pass
       content:
@@ -28253,8 +28465,8 @@ components:
       type: object
       required: [kind, provider, fields, modes]
       properties:
-        kind: { type: string, enum: [payment, sms, toll] }
-        provider: { type: string, enum: [iyzico, netgsm, log, hgs_fake] }
+        kind: { type: string, enum: [payment, sms, toll, kabis] }
+        provider: { type: string, enum: [iyzico, netgsm, log, hgs_fake, kabis, kabis_fake] }
         fields:
           type: array
           items: { $ref: "#/components/schemas/IntegrationField" }
@@ -28282,8 +28494,8 @@ components:
       required: [uuid, kind, provider, display_name, mode, status, credentials_hint, last_checked_at, last_check_status, last_check_error, created_at, updated_at]
       properties:
         uuid: { type: string, format: uuid }
-        kind: { type: string, enum: [payment, sms, toll] }
-        provider: { type: string, enum: [iyzico, netgsm, log, hgs_fake] }
+        kind: { type: string, enum: [payment, sms, toll, kabis] }
+        provider: { type: string, enum: [iyzico, netgsm, log, hgs_fake, kabis, kabis_fake] }
         display_name: { type: string }
         mode: { type: string, enum: [sandbox, live] }
         status: { type: string, enum: [active, disabled] }
@@ -28333,8 +28545,10 @@ components:
       description: |
         `pending` = pending_submit, `submitted` = accepted by the provider (final state from CheckStatus),
         `needs_verification` = outcome unknown (only CheckStatus moves it on), `processing` = held by a
-        worker (payments), `ignored` = a notification that needs no action.
-      enum: [pending, processing, submitted, succeeded, failed, ignored, needs_verification]
+        worker (payments), `ignored` = a notification that needs no action. Held (the runner never calls the
+        provider): `blocked` = required data is missing, `waiting_dependency` = no working adapter. Staff
+        resolutions (final): `reported_manually`, `reconciled`.
+      enum: [pending, processing, submitted, succeeded, failed, ignored, needs_verification, blocked, waiting_dependency, reported_manually, reconciled]
 
     IntegrationJob:
       type: object
@@ -29651,6 +29865,161 @@ components:
         status: { type: string, description: Integration job status }
         from: { type: string, format: date-time }
         to: { type: string, format: date-time }
+
+    KabisNotificationStatus:
+      type: string
+      description: |
+        The integration job's state. Only `succeeded`, `reported_manually` and `reconciled` mean the
+        authority has the record; `pending` / `submitted` are local records, `blocked` = required data
+        missing, `waiting_dependency` = no working adapter (official method not verified, TEC-682).
+      enum: [blocked, waiting_dependency, pending, processing, submitted, needs_verification, failed, succeeded, reported_manually, reconciled, ignored]
+
+    KabisRef:
+      type: object
+      required: [uuid]
+      properties:
+        uuid: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        reference: { type: string }
+
+    KabisNotification:
+      type: object
+      required: [uuid, event, sequence, cause, occurred_at, plate, status, official, needs_action, attempts, max_attempts, last_error, provider, external_reference, next_attempt_at, submitted_at, completed_at, last_verified_at, missing_fields, hold_reason, resolution, resolution_reference, resolved_at, rental, branch, job_uuid, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        event: { type: string, enum: [rental_start, rental_end, correction] }
+        sequence: { type: integer }
+        cause: { type: string, description: "handover, return, drivers_changed, vehicle_swap" }
+        occurred_at: { type: string, format: date-time, description: The actual event time }
+        plate: { type: string }
+        status: { $ref: "#/components/schemas/KabisNotificationStatus" }
+        official: { type: boolean, description: "true only when the authority has the record" }
+        needs_action: { type: boolean }
+        attempts: { type: integer }
+        max_attempts: { type: integer }
+        last_error: { type: string }
+        provider: { type: string, description: "kabis (official slot) or kabis_fake (development)" }
+        external_reference: { type: string, description: "The authority's reference (empty until confirmed)" }
+        next_attempt_at: { type: [string, "null"], format: date-time }
+        submitted_at: { type: [string, "null"], format: date-time }
+        completed_at: { type: [string, "null"], format: date-time }
+        last_verified_at: { type: [string, "null"], format: date-time, description: Last status check with the authority }
+        missing_fields: { type: array, items: { type: string }, description: "Dot paths of missing required data (blocked)" }
+        hold_reason: { type: string, description: "no_account, adapter_unverified, adapter_unavailable" }
+        resolution: { type: [string, "null"], enum: [reported_manually, reconciled, null] }
+        resolution_reference: { type: string }
+        resolved_at: { type: [string, "null"], format: date-time }
+        rental: { $ref: "#/components/schemas/KabisRef" }
+        branch: { $ref: "#/components/schemas/KabisRef" }
+        job_uuid: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    KabisNotificationDetail:
+      allOf:
+        - $ref: "#/components/schemas/KabisNotification"
+        - type: object
+          required: [summary, corrects_uuid, resolution_reason, resolved_by, attachment, account, actions, attempt_log]
+          properties:
+            summary: { type: object, additionalProperties: true, description: "Masked facts: place, vehicle, renter, drivers (identity / licence hints only)" }
+            corrects_uuid: { type: [string, "null"], format: uuid }
+            resolution_reason: { type: string }
+            resolved_by:
+              oneOf:
+                - $ref: "#/components/schemas/UserRef"
+                - type: "null"
+            attachment:
+              oneOf:
+                - type: object
+                  required: [name, content_type, size]
+                  properties:
+                    name: { type: string }
+                    content_type: { type: string }
+                    size: { type: integer, format: int64 }
+                - type: "null"
+            account:
+              oneOf:
+                - $ref: "#/components/schemas/KabisRef"
+                - type: "null"
+            actions:
+              type: object
+              required: [retry, mark_manual, reconcile, revalidates]
+              properties:
+                retry: { type: boolean }
+                mark_manual: { type: boolean }
+                reconcile: { type: boolean }
+                revalidates: { type: boolean, description: "A retry re-validates the data / adapter (blocked, waiting)" }
+            attempt_log: { type: array, items: { $ref: "#/components/schemas/IntegrationAttempt" } }
+
+    KabisFacets:
+      type: object
+      required: [statuses, events, needs_action, total]
+      properties:
+        statuses: { type: object, additionalProperties: { type: integer, format: int64 } }
+        events: { type: object, additionalProperties: { type: integer, format: int64 } }
+        needs_action: { type: integer, format: int64 }
+        total: { type: integer, format: int64 }
+
+    KabisResolveRequest:
+      type: object
+      additionalProperties: false
+      required: [reason, reference]
+      properties:
+        reason: { type: string, minLength: 3, maxLength: 500 }
+        reference: { type: string, maxLength: 120, description: The official reference (receipt / record number) }
+
+    KabisResolveForm:
+      type: object
+      required: [reason, reference]
+      properties:
+        reason: { type: string, minLength: 3, maxLength: 500 }
+        reference: { type: string, maxLength: 120 }
+        file: { type: string, format: binary, description: "Optional PDF / JPEG / PNG / WebP, at most 10 MiB" }
+
+    EnvelopeKabisNotification:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/KabisNotificationDetail" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeKabisNotificationPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/KabisNotification" } }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeKabisFacets:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/KabisFacets" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeKabisRetry:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [action, notification]
+          properties:
+            action: { type: string, enum: [revalidated, already_done, in_progress, resubmitted] }
+            notification: { $ref: "#/components/schemas/KabisNotificationDetail" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
 
     EnvelopeTollPass:
       type: object

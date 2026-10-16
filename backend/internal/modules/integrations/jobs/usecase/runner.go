@@ -42,6 +42,15 @@ const (
 	StatusFailed            = "failed"
 	StatusIgnored           = "ignored"
 	StatusNeedsVerification = "needs_verification"
+	// Held: the runner never calls the provider for these (a module moves
+	// them on). blocked = required data missing; waiting_dependency = no
+	// working adapter (e.g. KABİS until TEC-682).
+	StatusBlocked           = "blocked"
+	StatusWaitingDependency = "waiting_dependency"
+	// Staff resolutions (final): the work was filed through the official
+	// manual channel, or confirmed with the provider by a person.
+	StatusReportedManually = "reported_manually"
+	StatusReconciled       = "reconciled"
 )
 
 // Priorities.
@@ -281,6 +290,50 @@ func (r *Runner) Enqueue(ctx context.Context, in EnqueueInput) (Enqueued, error)
 	return out, nil
 }
 
+// Kick starts the next step of a job a module created itself (outbox
+// style, in its own transaction, e.g. KABİS notifications): the worker
+// queue when a dispatcher is set, otherwise one inline step now. The
+// sweep picks the job up anyway when neither happens (a crash).
+func (r *Runner) Kick(ctx context.Context, orgID, jobID int64) (State, error) {
+	r.publishID(ctx, orgID, jobID)
+	if r.dispatch != nil {
+		if err := r.dispatch.DispatchIntegrationJob(orgID, jobID, false, 0); err == nil {
+			return State{ID: jobID}, nil
+		} else {
+			r.log.Warn("integration_job_dispatch_failed", "job_id", jobID, "error", err)
+		}
+	}
+	st, err := r.Process(ctx, orgID, jobID, TriggerInline)
+	if errors.Is(err, ErrBusy) {
+		return st, nil
+	}
+	return st, err
+}
+
+func (r *Runner) publishID(ctx context.Context, orgID, jobID int64) {
+	if orgID <= 0 {
+		return
+	}
+	if j, err := r.load(ctx, orgID, jobID); err == nil {
+		r.publish(ctx, orgID, j.Uuid)
+	}
+}
+
+// Changed tells the listeners and the live list about a state change a
+// module made outside a provider call (a staff resolution, a re-route of
+// a held job).
+func (r *Runner) Changed(ctx context.Context, orgID, jobID int64) {
+	j, err := r.load(ctx, orgID, jobID)
+	if err != nil {
+		return
+	}
+	st := stateOf(j, "")
+	for _, l := range r.listeners {
+		l.IntegrationJobChanged(ctx, orgID, st, integrations.Result{})
+	}
+	r.publish(ctx, orgID, j.Uuid)
+}
+
 func (r *Runner) load(ctx context.Context, orgID, jobID int64) (db.GetRunnerJobRow, error) {
 	j, err := r.q.GetRunnerJob(ctx, db.GetRunnerJobParams{OrganizationID: orgParam(orgID), ID: jobID})
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -482,6 +535,10 @@ func afterCheck(j db.GetRunnerJobRow, res integrations.Result) transition {
 	switch res.Outcome {
 	case integrations.OutcomeSucceeded:
 		t.status, t.lastError = StatusSucceeded, ""
+		if res.ProviderRef != "" {
+			// The status check found the work under its reference.
+			t.providerRef = res.ProviderRef
+		}
 	case integrations.OutcomeAccepted, integrations.OutcomePending:
 		t.status, t.lastError, t.next = StatusSubmitted, "", Backoff(attempts)+pollStart
 		if res.ProviderRef != "" {
@@ -633,7 +690,11 @@ func (r *Runner) Retry(ctx context.Context, orgID int64, id uuid.UUID) (RetryRes
 	res := r.call(ctx, orgID, j, OpCheckStatus, TriggerRetry)
 	switch {
 	case res.Outcome == integrations.OutcomeSucceeded:
-		t := transition{status: StatusSucceeded, providerRef: j.ProviderRef, next: -1, maxAttempts: j.MaxAttempts, res: res, op: OpCheckStatus}
+		ref := j.ProviderRef
+		if res.ProviderRef != "" {
+			ref = res.ProviderRef
+		}
+		t := transition{status: StatusSucceeded, providerRef: ref, next: -1, maxAttempts: j.MaxAttempts, res: res, op: OpCheckStatus}
 		st, err := r.save(ctx, orgID, j, t)
 		return RetryResult{Action: "already_done", Status: st.Status}, err
 	case res.Outcome == integrations.OutcomePending || res.Outcome == integrations.OutcomeAccepted:

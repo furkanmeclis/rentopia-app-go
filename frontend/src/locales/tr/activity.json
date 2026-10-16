@@ -342,5 +342,10 @@
   "actions.finance.expense_updated": "Gider güncellendi",
   "actions.finance.expense_voided": "Gider iptal edildi",
   "actions.finance.expense_attachment_uploaded": "Gider belgesi yüklendi",
-  "actions.finance.expense_attachment_deleted": "Gider belgesi kaldırıldı"
+  "actions.finance.expense_attachment_deleted": "Gider belgesi kaldırıldı",
+  "resources.tenant.kabis_notifications": "KABİS bildirimleri",
+  "actions.kabis.retried": "KABİS bildirimi yeniden denendi",
+  "actions.kabis.reported_manually": "KABİS bildirimi manuel bildirildi olarak işaretlendi",
+  "actions.kabis.reconciled": "KABİS bildirimi uzlaştırıldı",
+  "actions.kabis.attachment_downloaded": "KABİS bildirim eki indirildi"
 }

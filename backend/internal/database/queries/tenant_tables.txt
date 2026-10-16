@@ -91,3 +91,4 @@ toll_passes
 toll_pass_revisions
 toll_pass_events
 toll_settings
+kabis_notifications

@@ -44,6 +44,7 @@ import {
   Share2,
   ScanLine,
   Shield,
+  ShieldCheck,
   SlidersHorizontal,
   Sparkles,
   Store,
@@ -60,6 +61,7 @@ import type { NavCatalog } from "@/features/nav-engine";
 import { usersNavItem } from "@/features/users/nav";
 import { customerRequestsNavItem } from "@/features/customer-portal/nav";
 import { TollReviewNavAdornment } from "@/features/tolls/nav";
+import { KabisNavAdornment } from "@/features/kabis/nav";
 import { MyFieldTasksNavAdornment } from "@/features/field-tasks/nav";
 import {
   ApprovalsNavAdornment,
@@ -434,6 +436,14 @@ export function tenantNav(slug: string): NavCatalog {
             icon: ScanLine,
             permission: permissions.tenant.tolls.read,
             Adornment: TollReviewNavAdornment,
+          },
+          {
+            id: "kabis",
+            titleKey: "layout.nav_kabis",
+            href: routes.tenant.kabis.root(slug),
+            icon: ShieldCheck,
+            permission: permissions.tenant.kabis.read,
+            Adornment: KabisNavAdornment,
           },
         ],
       },

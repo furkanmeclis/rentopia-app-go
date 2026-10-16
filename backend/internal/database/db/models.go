@@ -1022,6 +1022,39 @@ type IntegrationJob struct {
 	Priority             string             `json:"priority"`
 }
 
+type KabisNotification struct {
+	ID                    int64              `json:"id"`
+	Uuid                  uuid.UUID          `json:"uuid"`
+	OrganizationID        int64              `json:"organization_id"`
+	RentalID              int64              `json:"rental_id"`
+	BranchID              int64              `json:"branch_id"`
+	RentalBranchID        int64              `json:"rental_branch_id"`
+	Event                 string             `json:"event"`
+	Sequence              int32              `json:"sequence"`
+	Cause                 string             `json:"cause"`
+	CorrectsID            pgtype.Int8        `json:"corrects_id"`
+	IntegrationJobID      int64              `json:"integration_job_id"`
+	OccurredAt            pgtype.Timestamptz `json:"occurred_at"`
+	Plate                 string             `json:"plate"`
+	PayloadEnc            string             `json:"payload_enc"`
+	PayloadHash           string             `json:"payload_hash"`
+	Summary               []byte             `json:"summary"`
+	MissingFields         []string           `json:"missing_fields"`
+	HoldReason            string             `json:"hold_reason"`
+	LastVerifiedAt        pgtype.Timestamptz `json:"last_verified_at"`
+	Resolution            pgtype.Text        `json:"resolution"`
+	ResolutionReason      string             `json:"resolution_reason"`
+	ResolutionReference   string             `json:"resolution_reference"`
+	ResolvedBy            pgtype.Int8        `json:"resolved_by"`
+	ResolvedAt            pgtype.Timestamptz `json:"resolved_at"`
+	AttachmentKey         pgtype.Text        `json:"attachment_key"`
+	AttachmentName        string             `json:"attachment_name"`
+	AttachmentContentType string             `json:"attachment_content_type"`
+	AttachmentSize        int64              `json:"attachment_size"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+}
+
 type LedgerEntry struct {
 	ID                int64              `json:"id"`
 	Uuid              uuid.UUID          `json:"uuid"`
