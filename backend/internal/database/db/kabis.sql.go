@@ -955,7 +955,7 @@ func (q *Queries) RefreshKabisNotification(ctx context.Context, arg RefreshKabis
 
 const resolveKabisJob = `-- name: ResolveKabisJob :execrows
 UPDATE integration_jobs
-SET status = $1::text, next_attempt_at = NULL, completed_at = NOW(), locked_until = NULL
+SET status = $1::text, next_attempt_at = NULL, completed_at = NOW(), locked_until = NULL, last_error = ''
 WHERE organization_id = $2
   AND id = $3
   AND status = ANY($4::text[])

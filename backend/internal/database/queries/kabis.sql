@@ -241,7 +241,7 @@ LIMIT sqlc.arg(limit_count);
 -- Staff resolution: reported_manually / reconciled from an allowed state,
 -- unless a worker holds the job.
 UPDATE integration_jobs
-SET status = sqlc.arg(status)::text, next_attempt_at = NULL, completed_at = NOW(), locked_until = NULL
+SET status = sqlc.arg(status)::text, next_attempt_at = NULL, completed_at = NOW(), locked_until = NULL, last_error = ''
 WHERE organization_id = sqlc.arg(organization_id)
   AND id = sqlc.arg(id)
   AND status = ANY(sqlc.arg(from_statuses)::text[])

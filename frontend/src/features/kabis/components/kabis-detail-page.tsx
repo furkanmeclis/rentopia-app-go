@@ -377,13 +377,17 @@ export function KabisDetailPage({ uuid }: { uuid: string }) {
                     {
                       key: "error",
                       label: t("kabis.columns.last_error"),
-                      value: n.last_error ? (
-                        <span className="text-destructive break-words">
-                          {n.last_error}
-                        </span>
-                      ) : (
-                        "—"
-                      ),
+                      // Held states explain themselves above (localized).
+                      value:
+                        n.last_error &&
+                        n.status !== "blocked" &&
+                        n.status !== "waiting_dependency" ? (
+                          <span className="text-destructive break-words">
+                            {n.last_error}
+                          </span>
+                        ) : (
+                          "—"
+                        ),
                     },
                   ],
                 },
