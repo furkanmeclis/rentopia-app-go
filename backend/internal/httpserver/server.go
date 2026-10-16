@@ -134,6 +134,10 @@ import (
 	pricinghandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/handler"
 	pricingrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/repository"
 	pricingusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/usecase"
+	profitabilitymodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/profitability"
+	profitabilityadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/profitability/adapters"
+	profitabilityhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/profitability/handler"
+	profitabilityusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/profitability/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/qrlogin"
 	rentalsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/rentals"
 	rentaladapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/rentals/adapters"
@@ -155,6 +159,10 @@ import (
 	storagemodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/storage"
 	storagehandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/storage/handler"
 	storageusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/storage/usecase"
+	suppliersmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/suppliers"
+	supplieradapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/suppliers/adapters"
+	supplierhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/suppliers/handler"
+	supplierusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/suppliers/usecase"
 	tenantmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tenant"
 	tollsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tolls"
 	tollsadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tolls/adapters"
@@ -301,6 +309,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		fleetadapters.NewProductsSearch(deps.Queries),
 		vehicleadapters.NewSearch(deps.Queries),
 		customeradapters.NewSearch(deps.Queries),
+		supplieradapters.NewSearch(deps.Queries),
 	)
 	searchClient := searchengine.NewClient(cfg.Search, log)
 	searchIndexer := searchengine.NewIndexer(searchClient, searchReg, deps.Queue, log)
@@ -575,6 +584,11 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	financeSvc.SetLogger(log)
 	rentalsSvc.SetLedger(financeSvc)
 	paymentsSvc.SetLedger(financeSvc)
+	// Suppliers (TEC-721): the cards; their invoices and payments post
+	// through finance.
+	supplierSvc := supplierusecase.New(deps.DB, deps.Queries, financeSvc, searchIndexer)
+	supplierSvc.SetResourceEvents(resourceEvents)
+	supplierSvc.SetLogger(log)
 	// Security deposits (TEC-719): online pre-auth through the
 	// organization's payment account (iyzico pre-auth / post-auth / cancel).
 	financeSvc.SetPreAuth(integrationAccountsSvc, cfg.Auth.FrontendURL, iyzicoAdapter)
@@ -621,6 +635,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	tollsmodule.RegisterLiveResources(tenantLive)
 	kabismodule.RegisterLiveResources(tenantLive)
 	agreementsmodule.RegisterLiveResources(tenantLive)
+	suppliersmodule.RegisterLiveResources(tenantLive)
 	resourceEvents.AddResolver(tenantmodule.ChannelResolver(tenantmodule.QueriesLookup(deps.Queries)))
 	uc.AddChannelRules(tenantmodule.ChannelRule(tenantLive, tenantResolver))
 	catalogmodule.RegisterLiveResources(liveResources)
@@ -654,6 +669,9 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	notifmodule.RegisterTenantRoutes(mux, nh, tokens, loader, tenantResolver)
 	notifmodule.RegisterEventHandlers(eventBus, notifSvc, log)
 
+	// Vehicle profitability report (TEC-727): read-only over the ledger,
+	// expenses and fleet tables.
+	profitabilitySvc := profitabilityusecase.New(deps.Queries)
 	ioReg := ioengine.NewRegistry(
 		ioadapters.NewUsers(deps.Queries),
 		ioadapters.NewRoles(deps.Queries),
@@ -682,9 +700,14 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		financeadapters.NewCashAccountsIO(financeSvc),
 		financeadapters.NewMovementsIO(financeSvc),
 		financeadapters.NewExpensesIO(financeSvc),
+		financeadapters.NewSupplierInvoicesIO(financeSvc),
+		financeadapters.NewSupplierPaymentsIO(financeSvc),
+		supplieradapters.NewIO(supplierSvc),
 		financeadapters.NewDepositsIO(financeSvc),
 		financeadapters.NewCollectionsIO(financeSvc),
 		agreementadapters.NewIO(agreementsSvc),
+		// Vehicle profitability report (TEC-727).
+		profitabilityadapters.NewIO(profitabilitySvc),
 	)
 	exportSvc := exportusecase.New(deps.Queries, deps.Storage, ioReg, jobQueue, notifSvc, activityRec, log)
 	importSvc := importusecase.New(deps.Queries, deps.Storage, ioReg, jobQueue, notifSvc, activityRec, log)
@@ -707,6 +730,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		customeradapters.NewBulk(customerSvc),
 		financeadapters.NewMovementsBulk(financeSvc),
 		financeadapters.NewExpensesBulk(financeSvc),
+		supplieradapters.NewBulk(supplierSvc),
 		financeadapters.NewCollectionsBulk(financeSvc),
 	)
 	bulkSvc := bulkusecase.New(deps.Queries, bulkReg, jobQueue, notifSvc, activityRec, cfg.Bulk, log)
@@ -851,6 +875,8 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	// Operations overview (TEC-716): the tenant home page and the sidebar
 	// badge counts, read-only over the modules above.
 	overviewmodule.RegisterRoutes(mux, overviewhandler.New(overviewusecase.New(deps.Queries)), tokens, loader, tenantResolver)
+	profitabilitymodule.RegisterRoutes(mux, profitabilityhandler.New(profitabilitySvc),
+		exportH.TenantExport(profitabilitymodule.Resource, profitabilitymodule.ExportQueryKeys...), tokens, loader, tenantResolver)
 	contractsH := contractshandler.New(contractsSvc, activityRec)
 	contractsH.SetRateLimiter(contractsmodule.Limiter{L: ratelimit.New(deps.Redis, cfg.App.Env)})
 	contractsmodule.RegisterRoutes(mux, contractsH, tokens, loader, tenantResolver)
@@ -886,6 +912,18 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		Deposits: financemodule.ResourceEngines{
 			Export: exportH.TenantExport(financemodule.ResourceDeposits, financemodule.DepositQueryKeys...),
 		},
+		SupplierInvoices: financemodule.ResourceEngines{
+			Export: exportH.TenantExport(financemodule.ResourceSupplierInvoices, financemodule.SupplierInvoiceQueryKeys...),
+		},
+		SupplierPayments: financemodule.ResourceEngines{
+			Export: exportH.TenantExport(financemodule.ResourceSupplierPayments, financemodule.SupplierPaymentQueryKeys...),
+		},
+	}, tokens, loader, tenantResolver)
+	suppliersmodule.RegisterRoutes(mux, supplierhandler.New(supplierSvc, activityRec), suppliersmodule.EngineHandlers{
+		Export: exportH.TenantExport(suppliersmodule.Resource, suppliersmodule.QueryKeys...),
+		Import: importH.TenantUpload(suppliersmodule.Resource),
+		Sample: importH.TenantSample(suppliersmodule.Resource),
+		Bulk:   bulkH.TenantExecute(suppliersmodule.Resource),
 	}, tokens, loader, tenantResolver)
 	portalH := customerportalhandler.New(portalSvc, activityRec)
 	portalH.SetRateLimiter(customerportalmodule.Limiter{L: ratelimit.New(deps.Redis, cfg.App.Env)})

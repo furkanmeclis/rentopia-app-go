@@ -14,6 +14,7 @@ type jsonExportDocument struct {
 	ExportedAt string             `json:"exported_at"`
 	Columns    []jsonExportColumn `json:"columns"`
 	Rows       []map[string]any   `json:"rows"`
+	Notes      []string           `json:"notes,omitempty"`
 }
 
 type jsonExportColumn struct {
@@ -49,6 +50,7 @@ func EncodeJSON(ds Dataset, locale string) ([]byte, error) {
 		ExportedAt: time.Now().UTC().Format(time.RFC3339),
 		Columns:    columns,
 		Rows:       rows,
+		Notes:      ds.Notes,
 	}
 	return json.MarshalIndent(doc, "", "  ")
 }

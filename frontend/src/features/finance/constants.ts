@@ -154,6 +154,8 @@ export const SYSTEM_REASON_LABEL_KEYS: Record<string, string> = {
   "system:account_changed": "finance.reason.account_changed",
   "system:rental_cancelled": "finance.reason.rental_cancelled",
   "system:charge_reversed": "finance.reason.charge_reversed",
+  "system:invoice_voided": "finance.reason.invoice_voided",
+  "system:due_changed": "finance.reason.due_changed",
   "system:payment_refund": "finance.reason.payment_refund",
 };
 

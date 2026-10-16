@@ -130,7 +130,8 @@ func MovementFilter(q map[string]string) model.MovementFilter {
 func ExpenseFilter(q map[string]string) model.ExpenseFilter {
 	return model.ExpenseFilter{
 		Q: strings.TrimSpace(q["q"]), CategoryUUIDs: uuids(q["category"]), BranchUUIDs: uuids(q["branch"]),
-		VehicleUUIDs: uuids(q["vehicle"]), Statuses: csv(q["status"]), From: datePtr(q["from"]), To: datePtr(q["to"]),
+		VehicleUUIDs: uuids(q["vehicle"]), SupplierUUIDs: uuids(q["supplier"]), Statuses: csv(q["status"]),
+		From: datePtr(q["from"]), To: datePtr(q["to"]),
 	}
 }
 

@@ -83,36 +83,47 @@ WITH agg AS (
         COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'credit' AND e.purpose <> 'deposit'), 0)::numeric AS credit,
         COALESCE(SUM(CASE
             WHEN e.purpose = 'deposit' THEN 0
-            WHEN e.direction = 'debit' AND e.kind <> 'reversal' THEN e.amount
-            WHEN e.direction = 'credit' AND e.kind = 'reversal' THEN -e.amount
+            WHEN e.side = 'debit' AND e.kind <> 'reversal' THEN e.amount
+            WHEN e.side = 'credit' AND e.kind = 'reversal' THEN -e.amount
             ELSE 0 END) FILTER (WHERE e.due_date < sqlc.arg(today)::date), 0)::numeric AS charges_overdue,
         COALESCE(SUM(CASE
             WHEN e.purpose = 'deposit' THEN 0
-            WHEN e.direction = 'debit' AND e.kind <> 'reversal' THEN e.amount
-            WHEN e.direction = 'credit' AND e.kind = 'reversal' THEN -e.amount
+            WHEN e.side = 'debit' AND e.kind <> 'reversal' THEN e.amount
+            WHEN e.side = 'credit' AND e.kind = 'reversal' THEN -e.amount
             ELSE 0 END) FILTER (WHERE e.due_date < sqlc.arg(soon)::date), 0)::numeric AS charges_soon,
         COALESCE(SUM(CASE
             WHEN e.purpose = 'deposit' THEN 0
-            WHEN e.direction = 'debit' AND e.kind <> 'reversal' THEN e.amount
-            WHEN e.direction = 'credit' AND e.kind = 'reversal' THEN -e.amount
+            WHEN e.side = 'debit' AND e.kind <> 'reversal' THEN e.amount
+            WHEN e.side = 'credit' AND e.kind = 'reversal' THEN -e.amount
             ELSE 0 END) FILTER (WHERE e.due_date < sqlc.arg(due_before)::date), 0)::numeric AS charges_before,
         COALESCE(SUM(CASE
             WHEN e.purpose = 'deposit' THEN 0
-            WHEN e.direction = 'credit' AND e.kind <> 'reversal' THEN e.amount
-            WHEN e.direction = 'debit' AND e.kind = 'reversal' THEN -e.amount
+            WHEN e.side = 'credit' AND e.kind <> 'reversal' THEN e.amount
+            WHEN e.side = 'debit' AND e.kind = 'reversal' THEN -e.amount
             ELSE 0 END), 0)::numeric AS settlements,
         COALESCE(SUM(CASE WHEN e.direction = 'credit' THEN e.amount ELSE -e.amount END)
             FILTER (WHERE e.purpose = 'deposit'), 0)::numeric AS deposit_held,
         MAX(e.created_at)::timestamptz AS last_entry_at,
         COUNT(*)::bigint AS entry_count
-    FROM ledger_entries e
+    FROM (
+        -- The aging side: a supplier account's charges are its credits
+        -- (payables), its settlements the debits (payments).
+        SELECT le.*, pa.party_kind,
+            (CASE WHEN pa.party_kind = 'supplier'
+                THEN (CASE le.direction WHEN 'debit' THEN 'credit' ELSE 'debit' END)
+                ELSE le.direction END)::text AS side
+        FROM ledger_entries le
+        JOIN accounts pa ON pa.organization_id = le.organization_id AND pa.id = le.account_id
+        WHERE le.organization_id = sqlc.arg(organization_id)
+          AND pa.organization_id = sqlc.arg(organization_id)
+    ) e
     WHERE e.organization_id = sqlc.arg(organization_id)
       AND (sqlc.narg(branch_ids)::bigint[] IS NULL OR e.branch_id = ANY(sqlc.narg(branch_ids)::bigint[]))
     GROUP BY e.account_id
 ), base AS (
     SELECT a.id, a.uuid, a.code, a.party_kind, a.name, a.currency, a.payment_term_days, a.status, a.note,
         a.created_at, a.updated_at, a.branch_id,
-        c.uuid AS customer_uuid, c.customer_type,
+        c.uuid AS customer_uuid, c.customer_type, sp.uuid AS supplier_uuid,
         b.uuid AS branch_uuid, b.code AS branch_code, b.name AS branch_name,
         COALESCE(agg.debit, 0)::numeric AS debit,
         COALESCE(agg.credit, 0)::numeric AS credit,
@@ -127,6 +138,7 @@ WITH agg AS (
     FROM accounts a
     LEFT JOIN agg ON agg.account_id = a.id
     LEFT JOIN customers c ON c.organization_id = a.organization_id AND c.id = a.customer_id
+    LEFT JOIN suppliers sp ON sp.organization_id = a.organization_id AND sp.id = a.supplier_id
     LEFT JOIN branches b ON b.organization_id = a.organization_id AND b.id = a.branch_id
     WHERE a.organization_id = sqlc.arg(organization_id)
       AND (
@@ -145,7 +157,7 @@ WITH agg AS (
     FROM base
 )
 SELECT s.id, s.uuid, s.code, s.party_kind, s.name, s.currency, s.payment_term_days, s.status, s.note,
-    s.created_at, s.updated_at, s.customer_uuid, s.customer_type, s.branch_uuid, s.branch_code, s.branch_name,
+    s.created_at, s.updated_at, s.customer_uuid, s.customer_type, s.supplier_uuid, s.branch_uuid, s.branch_code, s.branch_name,
     s.debit, s.credit, s.balance, s.overdue, s.due_soon, s.deposit_held, s.last_entry_at, s.entry_count,
     s.balance_status,
     COUNT(*) OVER ()::bigint AS total
@@ -183,14 +195,15 @@ LIMIT sqlc.arg(limit_count) OFFSET sqlc.arg(offset_count);
 INSERT INTO ledger_entries (
     organization_id, account_id, kind, direction, purpose, amount, currency, entry_date, due_date, description,
     reason, source_type, source_uuid, rental_id, reservation_id, rental_charge_id, payment_id, payment_refund_id,
-    accrual_key, reverses_entry_id, adjusts_entry_id, offset_group, branch_id, created_by, billing_period_id
+    accrual_key, reverses_entry_id, adjusts_entry_id, offset_group, branch_id, created_by, supplier_invoice_id,
+    supplier_payment_id, billing_period_id
 ) VALUES (
     sqlc.arg(organization_id), sqlc.arg(account_id), sqlc.arg(kind), sqlc.arg(direction), sqlc.arg(purpose),
     sqlc.arg(amount), sqlc.arg(currency), sqlc.arg(entry_date), sqlc.arg(due_date), sqlc.arg(description),
     sqlc.arg(reason), sqlc.arg(source_type), sqlc.narg(source_uuid), sqlc.narg(rental_id), sqlc.narg(reservation_id),
     sqlc.narg(rental_charge_id), sqlc.narg(payment_id), sqlc.narg(payment_refund_id), sqlc.narg(accrual_key),
     sqlc.narg(reverses_entry_id), sqlc.narg(adjusts_entry_id), sqlc.narg(offset_group), sqlc.narg(branch_id),
-    sqlc.narg(created_by), sqlc.narg(billing_period_id)
+    sqlc.narg(created_by), sqlc.narg(supplier_invoice_id), sqlc.narg(supplier_payment_id), sqlc.narg(billing_period_id)
 )
 RETURNING id, uuid;
 
@@ -224,7 +237,8 @@ RETURNING id, uuid;
 -- name: GetLedgerEntryRow :one
 SELECT e.id, e.uuid, e.account_id, e.kind, e.direction, e.purpose, e.amount, e.currency, e.entry_date, e.due_date,
     e.description, e.reason, e.source_type, e.source_uuid, e.rental_id, e.reservation_id, e.rental_charge_id,
-    e.payment_id, e.payment_refund_id, e.accrual_key, e.branch_id, e.offset_group,
+    e.payment_id, e.payment_refund_id, e.accrual_key, e.branch_id, e.offset_group, e.supplier_invoice_id,
+    e.supplier_payment_id,
     EXISTS (
         SELECT 1 FROM ledger_entries r
         WHERE r.organization_id = e.organization_id AND r.reverses_entry_id = e.id
@@ -419,40 +433,52 @@ ORDER BY b.code NULLS FIRST;
 
 -- name: LedgerAccountAging :many
 -- Per account: balance and the open charges by due bucket (FIFO), for the
--- organization summary.
-SELECT e.account_id,
+-- organization summary. Supplier accounts age their payables; deposit
+-- entries stay out of the balance and the aging.
+SELECT e.account_id, e.party_kind,
     COALESCE(SUM(CASE WHEN e.purpose = 'deposit' THEN 0 WHEN e.direction = 'debit' THEN e.amount ELSE -e.amount END), 0)::numeric AS balance,
     COALESCE(SUM(CASE WHEN e.direction = 'credit' THEN e.amount ELSE -e.amount END)
         FILTER (WHERE e.purpose = 'deposit'), 0)::numeric AS deposit_held,
     COALESCE(SUM(CASE
         WHEN e.purpose = 'deposit' THEN 0
-        WHEN e.direction = 'debit' AND e.kind <> 'reversal' THEN e.amount
-        WHEN e.direction = 'credit' AND e.kind = 'reversal' THEN -e.amount
+        WHEN e.side = 'debit' AND e.kind <> 'reversal' THEN e.amount
+        WHEN e.side = 'credit' AND e.kind = 'reversal' THEN -e.amount
         ELSE 0 END) FILTER (WHERE e.due_date < sqlc.arg(late)::date), 0)::numeric AS charges_late,
     COALESCE(SUM(CASE
         WHEN e.purpose = 'deposit' THEN 0
-        WHEN e.direction = 'debit' AND e.kind <> 'reversal' THEN e.amount
-        WHEN e.direction = 'credit' AND e.kind = 'reversal' THEN -e.amount
+        WHEN e.side = 'debit' AND e.kind <> 'reversal' THEN e.amount
+        WHEN e.side = 'credit' AND e.kind = 'reversal' THEN -e.amount
         ELSE 0 END) FILTER (WHERE e.due_date < sqlc.arg(today)::date), 0)::numeric AS charges_overdue,
     COALESCE(SUM(CASE
         WHEN e.purpose = 'deposit' THEN 0
-        WHEN e.direction = 'debit' AND e.kind <> 'reversal' THEN e.amount
-        WHEN e.direction = 'credit' AND e.kind = 'reversal' THEN -e.amount
+        WHEN e.side = 'debit' AND e.kind <> 'reversal' THEN e.amount
+        WHEN e.side = 'credit' AND e.kind = 'reversal' THEN -e.amount
         ELSE 0 END) FILTER (WHERE e.due_date < sqlc.arg(soon)::date), 0)::numeric AS charges_soon,
     COALESCE(SUM(CASE
         WHEN e.purpose = 'deposit' THEN 0
-        WHEN e.direction = 'debit' AND e.kind <> 'reversal' THEN e.amount
-        WHEN e.direction = 'credit' AND e.kind = 'reversal' THEN -e.amount
+        WHEN e.side = 'debit' AND e.kind <> 'reversal' THEN e.amount
+        WHEN e.side = 'credit' AND e.kind = 'reversal' THEN -e.amount
         ELSE 0 END), 0)::numeric AS charges_all,
     COALESCE(SUM(CASE
         WHEN e.purpose = 'deposit' THEN 0
-        WHEN e.direction = 'credit' AND e.kind <> 'reversal' THEN e.amount
-        WHEN e.direction = 'debit' AND e.kind = 'reversal' THEN -e.amount
+        WHEN e.side = 'credit' AND e.kind <> 'reversal' THEN e.amount
+        WHEN e.side = 'debit' AND e.kind = 'reversal' THEN -e.amount
         ELSE 0 END), 0)::numeric AS settlements
-FROM ledger_entries e
+FROM (
+    -- The aging side: a supplier account's charges are its credits
+    -- (payables), its settlements the debits (payments).
+    SELECT le.*, pa.party_kind,
+        (CASE WHEN pa.party_kind = 'supplier'
+            THEN (CASE le.direction WHEN 'debit' THEN 'credit' ELSE 'debit' END)
+            ELSE le.direction END)::text AS side
+    FROM ledger_entries le
+    JOIN accounts pa ON pa.organization_id = le.organization_id AND pa.id = le.account_id
+    WHERE le.organization_id = sqlc.arg(organization_id)
+      AND pa.organization_id = sqlc.arg(organization_id)
+) e
 WHERE e.organization_id = sqlc.arg(organization_id)
   AND (sqlc.narg(branch_ids)::bigint[] IS NULL OR e.branch_id = ANY(sqlc.narg(branch_ids)::bigint[]))
-GROUP BY e.account_id;
+GROUP BY e.account_id, e.party_kind;
 
 -- name: ListRentalBalances :many
 -- Balances per rental (entries of its reservation).

@@ -185,6 +185,13 @@ const (
 	PermTenantKabisRead      = "tenant.kabis.read"
 	PermTenantKabisRetry     = "tenant.kabis.retry"
 	PermTenantKabisReconcile = "tenant.kabis.reconcile"
+	// Suppliers (TEC-721, migration 000106). Supplier invoices use
+	// PermTenantFinanceExpenses*, supplier payments PermTenantFinanceCash*.
+	PermTenantSuppliersRead        = "tenant.suppliers.read"
+	PermTenantSuppliersWrite       = "tenant.suppliers.write"
+	PermTenantSuppliersExport      = "tenant.suppliers.export"
+	PermTenantSuppliersImport      = "tenant.suppliers.import"
+	PermTenantSuppliersBulkArchive = "tenant.suppliers.bulk.archive"
 )
 
 // Collections (TEC-718, migration 000102). Recording, allocating,

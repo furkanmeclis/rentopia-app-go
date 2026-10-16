@@ -54,6 +54,8 @@
   "actions.field_tasks.assign": "Assign to staff",
   "actions.cash_movements.set_category": "Set category",
   "actions.expenses.set_category": "Set category",
+  "actions.suppliers.archive": "Archive",
+  "confirm.suppliers.archive": "The selected suppliers are archived and take no new invoices. A rollback restores their previous status.",
   "actions.finance_collections.allocate": "Allocate credit",
   "confirm.finance_collections.allocate": "Allocate the remaining credit of {{count}} selected collections to the oldest open items?"
 }

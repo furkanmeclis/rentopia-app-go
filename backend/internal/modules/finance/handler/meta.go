@@ -163,3 +163,60 @@ func ExpensesMeta() resourcemeta.ResourceMeta {
 		Includes: []string{}, BulkActions: adapters.NewExpensesBulk(nil).BulkActions(),
 	}
 }
+
+// SupplierInvoicesMeta is the table contract of GET /v1/tenant/finance/supplier-invoices.
+func SupplierInvoicesMeta() resourcemeta.ResourceMeta {
+	p := "supplier_invoices"
+	return resourcemeta.ResourceMeta{
+		Resource: model.ResourceSupplierInvoices, DefaultSort: "-invoice_date",
+		DefaultFields: []string{"invoice_no", "supplier", "invoice_date", "due_date", "total_amount", "open_amount", "due_state", "status"},
+		Capabilities: resourcemeta.Capabilities{Create: true, Read: true, Update: true, Search: true, Filter: true, Sort: true,
+			Export: true},
+		SearchableFields: []string{"invoice_no", "description", "supplier"},
+		SortableFields:   []string{"invoice_date", "due_date", "total_amount", "open_amount", "created_at"},
+		FilterableFields: []string{"supplier", "status", "due_state", "category", "branch", "from", "to", "due_to", "window"},
+		Columns: []resourcemeta.Column{
+			col(p, "invoice_no", str, false, false, true), col(p, "supplier", enum, false, true, true),
+			col(p, "invoice_date", dt, true, false, true), col(p, "due_date", dt, true, false, true),
+			col(p, "category", enum, false, true, false), col(p, "branch", enum, false, true, false),
+			col(p, "vehicle", str, false, false, false), col(p, "net_amount", str, false, false, false),
+			col(p, "vat_amount", str, false, false, false), col(p, "total_amount", str, true, false, true),
+			col(p, "paid_amount", str, false, false, false), col(p, "open_amount", str, true, false, true),
+			col(p, "due_state", enum, false, true, true), col(p, "status", enum, false, true, true),
+			col(p, "attachment", str, false, false, false), col(p, "created_at", dt, true, false, false),
+			col(p, "uuid", id, false, false, false),
+		},
+		Filters: []resourcemeta.Filter{
+			facet(p, "status", "finance.supplier_invoice_status"), facet(p, "due_state", "finance.due_state"),
+			facet(p, "category", "finance.expense_categories"), facet(p, "branch", "branches"), facet(p, "supplier", "suppliers"),
+		},
+		Includes: []string{}, BulkActions: []bulkengine.BulkActionDef{},
+	}
+}
+
+// SupplierPaymentsMeta is the table contract of GET /v1/tenant/finance/supplier-payments.
+func SupplierPaymentsMeta() resourcemeta.ResourceMeta {
+	p := "supplier_payments"
+	return resourcemeta.ResourceMeta{
+		Resource: model.ResourceSupplierPayments, DefaultSort: "-payment_date",
+		DefaultFields:    []string{"payment_date", "supplier", "cash_account", "method", "amount", "allocated_amount", "status"},
+		Capabilities:     resourcemeta.Capabilities{Create: true, Read: true, Search: true, Filter: true, Sort: true, Export: true},
+		SearchableFields: []string{"reference", "description", "supplier"},
+		SortableFields:   []string{"payment_date", "amount", "created_at"},
+		FilterableFields: []string{"supplier", "cash_account", "status", "method", "invoice", "from", "to"},
+		Columns: []resourcemeta.Column{
+			col(p, "payment_date", dt, true, false, true), col(p, "supplier", enum, false, true, true),
+			col(p, "cash_account", enum, false, true, true), col(p, "method", enum, false, true, true),
+			col(p, "reference", str, false, false, false), col(p, "amount", str, true, false, true),
+			col(p, "allocated_amount", str, false, false, true), col(p, "unallocated_amount", str, false, false, false),
+			col(p, "invoices", str, false, false, false), col(p, "branch", enum, false, false, false),
+			col(p, "status", enum, false, true, true), col(p, "created_at", dt, true, false, false),
+			col(p, "uuid", id, false, false, false),
+		},
+		Filters: []resourcemeta.Filter{
+			facet(p, "status", "finance.supplier_payment_status"), facet(p, "method", "finance.supplier_payment_method"),
+			facet(p, "cash_account", "finance.cash_accounts"), facet(p, "supplier", "suppliers"),
+		},
+		Includes: []string{}, BulkActions: []bulkengine.BulkActionDef{},
+	}
+}

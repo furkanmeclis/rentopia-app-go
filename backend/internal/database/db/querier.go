@@ -133,6 +133,7 @@ type Querier interface {
 	CountImportJobsForActor(ctx context.Context, actorID int64) (int64, error)
 	CountInspectionCharges(ctx context.Context, arg CountInspectionChargesParams) (int64, error)
 	CountInvitations(ctx context.Context, arg CountInvitationsParams) (int64, error)
+	CountLiveInvoiceAllocations(ctx context.Context, arg CountLiveInvoiceAllocationsParams) (int64, error)
 	CountLivePolicyLateCharges(ctx context.Context, arg CountLivePolicyLateChargesParams) (int64, error)
 	CountNotificationsForUser(ctx context.Context, arg CountNotificationsForUserParams) (int64, error)
 	CountOTPChallengesSince(ctx context.Context, arg CountOTPChallengesSinceParams) (int64, error)
@@ -347,6 +348,9 @@ type Querier interface {
 	// Import rollback of a pass the import created (its charges were reversed
 	// first; they keep their rows without the pass link).
 	DeleteTollPass(ctx context.Context, arg DeleteTollPassParams) error
+	// Import rollback of a created card: removed only while nothing refers to
+	// it (no ledger account, vehicle or expense); otherwise it is archived.
+	DeleteUnreferencedSupplier(ctx context.Context, arg DeleteUnreferencedSupplierParams) (int64, error)
 	DeleteUserTOTP(ctx context.Context, userID int64) error
 	DeleteVehicleTollTag(ctx context.Context, arg DeleteVehicleTollTagParams) (int64, error)
 	DeleteWebAuthnCredentialByCredentialID(ctx context.Context, credentialID string) error
@@ -376,6 +380,9 @@ type Querier interface {
 	// First device registration opts the user into push (the OS permission
 	// prompt is the consent). An existing preference row is left untouched.
 	EnsureNotificationPreferencesPushDefault(ctx context.Context, userID int64) error
+	// The ledger account of a supplier, opened on its first invoice / payment.
+	// The caller holds LockOrganizationAccountCodes (per-organization code).
+	EnsureSupplierAccount(ctx context.Context, arg EnsureSupplierAccountParams) (EnsureSupplierAccountRow, error)
 	// Recorded expenses grouped by one dimension (category, branch, vehicle,
 	// month) inside a period.
 	ExpenseReport(ctx context.Context, arg ExpenseReportParams) ([]ExpenseReportRow, error)
@@ -388,6 +395,9 @@ type Querier interface {
 	ExtraFacets(ctx context.Context, organizationID int64) ([]ExtraFacetsRow, error)
 	FailPayment(ctx context.Context, arg FailPaymentParams) (int64, error)
 	FinalizeInspection(ctx context.Context, arg FinalizeInspectionParams) (int64, error)
+	// Free-text supplier names: live suppliers with this title (case and
+	// surrounding spaces ignored).
+	FindSupplierIDsByTitle(ctx context.Context, arg FindSupplierIDsByTitleParams) ([]FindSupplierIDsByTitleRow, error)
 	// Vehicles with the plate (live ones first; a soft-deleted vehicle still
 	// matches a pass from its time).
 	FindTollVehiclesByPlate(ctx context.Context, arg FindTollVehiclesByPlateParams) ([]FindTollVehiclesByPlateRow, error)
@@ -420,6 +430,7 @@ type Querier interface {
 	// organization; its plate becomes the guarantee label.
 	FleetVehicleRef(ctx context.Context, arg FleetVehicleRefParams) (string, error)
 	GetAccountByCustomer(ctx context.Context, arg GetAccountByCustomerParams) (GetAccountByCustomerRow, error)
+	GetAccountBySupplier(ctx context.Context, arg GetAccountBySupplierParams) (GetAccountBySupplierRow, error)
 	GetAccountRow(ctx context.Context, arg GetAccountRowParams) (GetAccountRowRow, error)
 	GetAccountRowByID(ctx context.Context, arg GetAccountRowByIDParams) (GetAccountRowByIDRow, error)
 	// Resolves a tenant brand reference: a display brand uuid, or (older
@@ -606,6 +617,7 @@ type Querier interface {
 	GetIntegrationAccountByID(ctx context.Context, arg GetIntegrationAccountByIDParams) (GetIntegrationAccountByIDRow, error)
 	GetInvitationByUUID(ctx context.Context, arg GetInvitationByUUIDParams) (OrganizationInvitation, error)
 	GetInvitationPreviewByTokenHash(ctx context.Context, tokenHash string) (GetInvitationPreviewByTokenHashRow, error)
+	GetInvoiceExpense(ctx context.Context, arg GetInvoiceExpenseParams) (GetInvoiceExpenseRow, error)
 	GetKabisCustomer(ctx context.Context, arg GetKabisCustomerParams) (GetKabisCustomerRow, error)
 	GetKabisNotification(ctx context.Context, arg GetKabisNotificationParams) (GetKabisNotificationRow, error)
 	GetKabisNotificationByRentalEvent(ctx context.Context, arg GetKabisNotificationByRentalEventParams) (GetKabisNotificationByRentalEventRow, error)
@@ -793,6 +805,25 @@ type Querier interface {
 	GetStorageLinkByUUID(ctx context.Context, argUuid uuid.UUID) (StorageLink, error)
 	GetStorageTrashByOriginalKey(ctx context.Context, originalKey string) (StorageTrash, error)
 	GetStorageTrashByUUID(ctx context.Context, argUuid uuid.UUID) (StorageTrash, error)
+	GetSupplierByCode(ctx context.Context, arg GetSupplierByCodeParams) (Supplier, error)
+	GetSupplierByTaxNumber(ctx context.Context, arg GetSupplierByTaxNumberParams) (Supplier, error)
+	GetSupplierByUUID(ctx context.Context, arg GetSupplierByUUIDParams) (Supplier, error)
+	// Supplier invoices and payments (TEC-721, docs/design/suppliers.md): the
+	// payables side of the finance ledger. Every query filters by
+	// organization_id; branch scope: invoices / payments of the caller's
+	// branches (head office rows, branch_id NULL, need every branch).
+	//
+	// Invoice due state (computed, Europe/Istanbul calendar day "today"):
+	//   settled   status paid / void, nothing open
+	//   overdue   open amount > 0 and due_date < today
+	//   due_soon  open amount > 0 and due_date < today + window
+	//   later     open amount > 0, due later
+	GetSupplierForFinance(ctx context.Context, arg GetSupplierForFinanceParams) (GetSupplierForFinanceRow, error)
+	GetSupplierForFinanceByID(ctx context.Context, arg GetSupplierForFinanceByIDParams) (GetSupplierForFinanceByIDRow, error)
+	GetSupplierInvoiceRow(ctx context.Context, arg GetSupplierInvoiceRowParams) (GetSupplierInvoiceRowRow, error)
+	GetSupplierInvoiceRowByID(ctx context.Context, arg GetSupplierInvoiceRowByIDParams) (GetSupplierInvoiceRowByIDRow, error)
+	GetSupplierPaymentRow(ctx context.Context, arg GetSupplierPaymentRowParams) (GetSupplierPaymentRowRow, error)
+	GetSupplierSearchDocument(ctx context.Context, arg GetSupplierSearchDocumentParams) (GetSupplierSearchDocumentRow, error)
 	// A rental's handover / return task and the delivery facts of its
 	// reservation (placement.Locate).
 	GetTaskPlacementFacts(ctx context.Context, arg GetTaskPlacementFactsParams) (GetTaskPlacementFactsRow, error)
@@ -901,6 +932,8 @@ type Querier interface {
 	// (organization_id NULL = platform job) and every query names the scope.
 	InsertIntegrationAccount(ctx context.Context, arg InsertIntegrationAccountParams) (int64, error)
 	InsertIntegrationAttempt(ctx context.Context, arg InsertIntegrationAttemptParams) (InsertIntegrationAttemptRow, error)
+	// The expense row an invoice is the source of (unpaid: no cash account).
+	InsertInvoiceExpense(ctx context.Context, arg InsertInvoiceExpenseParams) (InsertInvoiceExpenseRow, error)
 	// The notification's integration job, created in the rental's transaction
 	// (outbox: a pending job is due at once; the sweep picks it up if the
 	// process stops before the first step). Blocked / waiting jobs have no
@@ -975,6 +1008,15 @@ type Querier interface {
 	InsertStorageShare(ctx context.Context, arg InsertStorageShareParams) (StorageShare, error)
 	InsertStorageStar(ctx context.Context, arg InsertStorageStarParams) (StorageStar, error)
 	InsertStorageTrash(ctx context.Context, arg InsertStorageTrashParams) (StorageTrash, error)
+	InsertSupplier(ctx context.Context, arg InsertSupplierParams) (Supplier, error)
+	// ------------------------------------------------------------- invoices
+	InsertSupplierInvoice(ctx context.Context, arg InsertSupplierInvoiceParams) (InsertSupplierInvoiceRow, error)
+	InsertSupplierInvoiceLine(ctx context.Context, arg InsertSupplierInvoiceLineParams) error
+	// ------------------------------------------------------------- payments
+	InsertSupplierPayment(ctx context.Context, arg InsertSupplierPaymentParams) (InsertSupplierPaymentRow, error)
+	InsertSupplierPaymentAllocation(ctx context.Context, arg InsertSupplierPaymentAllocationParams) error
+	// Idempotent: one payment entry per supplier payment.
+	InsertSupplierPaymentEntry(ctx context.Context, arg InsertSupplierPaymentEntryParams) (InsertSupplierPaymentEntryRow, error)
 	// A toll / processing fee charge or the reversal of one. Toll charges are
 	// facts reported by the provider: they are recorded approved (decided by
 	// the system), never edited, and reversed by a negative row.
@@ -990,6 +1032,7 @@ type Querier interface {
 	InsertVehicleTollTag(ctx context.Context, arg InsertVehicleTollTagParams) (uuid.UUID, error)
 	InvalidateActiveOTPs(ctx context.Context, arg InvalidateActiveOTPsParams) error
 	InvalidateDocumentApprovals(ctx context.Context, arg InvalidateDocumentApprovalsParams) error
+	IsSupplierPaymentMovement(ctx context.Context, arg IsSupplierPaymentMovementParams) (bool, error)
 	IssueDocumentVersion(ctx context.Context, arg IssueDocumentVersionParams) (int64, error)
 	KabisEventFacets(ctx context.Context, arg KabisEventFacetsParams) ([]KabisEventFacetsRow, error)
 	KabisStatusFacets(ctx context.Context, arg KabisStatusFacetsParams) ([]KabisStatusFacetsRow, error)
@@ -997,9 +1040,13 @@ type Querier interface {
 	LatestOTPChallenge(ctx context.Context, arg LatestOTPChallengeParams) (LatestOTPChallengeRow, error)
 	LatestOrganizationSettingsVersion(ctx context.Context, organizationID int64) (int32, error)
 	// Per account: balance and the open charges by due bucket (FIFO), for the
-	// organization summary.
+	// organization summary. Supplier accounts age their payables; deposit
+	// entries stay out of the balance and the aging.
 	LedgerAccountAging(ctx context.Context, arg LedgerAccountAgingParams) ([]LedgerAccountAgingRow, error)
 	LedgerBranchBreakdown(ctx context.Context, arg LedgerBranchBreakdownParams) ([]LedgerBranchBreakdownRow, error)
+	// A new supplier card adopts the vehicles and expenses that name it in
+	// free text and have no supplier yet. Returns how many rows it linked.
+	LinkFreeTextToSupplier(ctx context.Context, arg LinkFreeTextToSupplierParams) (int64, error)
 	// The policy late fee the return computed belongs to the return form.
 	LinkLateChargeToInspection(ctx context.Context, arg LinkLateChargeToInspectionParams) (LinkLateChargeToInspectionRow, error)
 	// One page of accounts with their balances over the entries the caller may
@@ -1239,6 +1286,8 @@ type Querier interface {
 	// status: 'pending' (open, not expired), 'expired' (open, past expires_at),
 	// 'accepted', 'revoked'.
 	ListInvitations(ctx context.Context, arg ListInvitationsParams) ([]ListInvitationsRow, error)
+	// Payments allocated to one invoice (invoice detail).
+	ListInvoicePayments(ctx context.Context, arg ListInvoicePaymentsParams) ([]ListInvoicePaymentsRow, error)
 	ListKabisNotifications(ctx context.Context, arg ListKabisNotificationsParams) ([]ListKabisNotificationsRow, error)
 	// The rental's drivers with their current records (identity and licence
 	// numbers sealed; the builder opens them). A driver whose record was
@@ -1257,6 +1306,8 @@ type Querier interface {
 	ListLiveRentalAccruals(ctx context.Context, arg ListLiveRentalAccrualsParams) ([]ListLiveRentalAccrualsRow, error)
 	// Every live rental group of the organization (eligibility candidates).
 	ListLiveRentalGroupsForVehicles(ctx context.Context, organizationID int64) ([]ListLiveRentalGroupsForVehiclesRow, error)
+	// The invoice's accrual that is not reversed (at most one: RT-A23).
+	ListLiveSupplierInvoiceAccruals(ctx context.Context, arg ListLiveSupplierInvoiceAccrualsParams) ([]ListLiveSupplierInvoiceAccrualsRow, error)
 	ListLogPurgeRules(ctx context.Context) ([]LogPurgeRule, error)
 	ListMemberBranchIDs(ctx context.Context, arg ListMemberBranchIDsParams) ([]int64, error)
 	// Live branches granted to members with branch_scope = 'selected'.
@@ -1282,6 +1333,8 @@ type Querier interface {
 	// Open items of an account: live accruals (rent, charges) with what is
 	// allocated to them. Branch scope applies to the entry's branch.
 	ListOpenItems(ctx context.Context, arg ListOpenItemsParams) ([]ListOpenItemsRow, error)
+	// Open invoices of a supplier, oldest due date first (FIFO allocation).
+	ListOpenSupplierInvoices(ctx context.Context, arg ListOpenSupplierInvoicesParams) ([]ListOpenSupplierInvoicesRow, error)
 	ListOperationTaskFacets(ctx context.Context, arg ListOperationTaskFacetsParams) ([]ListOperationTaskFacetsRow, error)
 	ListOperationTasks(ctx context.Context, arg ListOperationTasksParams) ([]ListOperationTasksRow, error)
 	ListOrganizationBranchOptions(ctx context.Context, organizationID int64) ([]ListOrganizationBranchOptionsRow, error)
@@ -1311,6 +1364,7 @@ type Querier interface {
 	// Open (planned / in transit) transfers of a vehicle overlapping
 	// [starts_at, ends_at) (NULL end = unbounded), except exclude_id.
 	ListOverlappingVehicleTransfers(ctx context.Context, arg ListOverlappingVehicleTransfersParams) ([]ListOverlappingVehicleTransfersRow, error)
+	ListPaymentAllocationInvoiceIDs(ctx context.Context, arg ListPaymentAllocationInvoiceIDsParams) ([]int64, error)
 	ListPaymentLinks(ctx context.Context, arg ListPaymentLinksParams) ([]ListPaymentLinksRow, error)
 	ListPaymentRefunds(ctx context.Context, arg ListPaymentRefundsParams) ([]ListPaymentRefundsRow, error)
 	ListPayments(ctx context.Context, arg ListPaymentsParams) ([]ListPaymentsRow, error)
@@ -1434,6 +1488,13 @@ type Querier interface {
 	ListStorageStarsByUser(ctx context.Context, userID int64) ([]StorageStar, error)
 	ListStorageTrash(ctx context.Context, arg ListStorageTrashParams) ([]StorageTrash, error)
 	ListStuckProcessingNotificationIDs(ctx context.Context, staleMinutes int32) ([]int64, error)
+	ListSupplierFacets(ctx context.Context, organizationID int64) ([]ListSupplierFacetsRow, error)
+	ListSupplierInvoiceLines(ctx context.Context, arg ListSupplierInvoiceLinesParams) ([]ListSupplierInvoiceLinesRow, error)
+	ListSupplierInvoices(ctx context.Context, arg ListSupplierInvoicesParams) ([]ListSupplierInvoicesRow, error)
+	ListSupplierPaymentAllocations(ctx context.Context, arg ListSupplierPaymentAllocationsParams) ([]ListSupplierPaymentAllocationsRow, error)
+	ListSupplierPayments(ctx context.Context, arg ListSupplierPaymentsParams) ([]ListSupplierPaymentsRow, error)
+	ListSupplierSearchDocuments(ctx context.Context, organizationID int64) ([]ListSupplierSearchDocumentsRow, error)
+	ListSuppliers(ctx context.Context, arg ListSuppliersParams) ([]ListSuppliersRow, error)
 	ListTenantMembers(ctx context.Context, arg ListTenantMembersParams) ([]ListTenantMembersRow, error)
 	ListTenantPermissions(ctx context.Context) ([]ListTenantPermissionsRow, error)
 	ListTenantRolePermissionSlugsByRoleID(ctx context.Context, roleID int64) ([]string, error)
@@ -1569,6 +1630,14 @@ type Querier interface {
 	// of the transaction.
 	LockOrganizationCollectionCodes(ctx context.Context, organizationID int64) error
 	LockOrganizationRow(ctx context.Context, id int64) (Organization, error)
+	// Tenant resource: suppliers (TEC-721, docs/design/suppliers.md). Every
+	// query filters by organization_id. The balance of a supplier is its
+	// ledger account's (debits minus credits; negative = we owe), over the
+	// entries in the caller's branch scope; the due figures come from its open
+	// invoices (also branch scoped).
+	// Serialises generated supplier codes of one organization for the rest of
+	// the transaction.
+	LockOrganizationSupplierCodes(ctx context.Context, organizationID int64) error
 	// Serialises draft edits and activation of one plan.
 	LockRatePlan(ctx context.Context, arg LockRatePlanParams) (int64, error)
 	// Periodic billing of rentals (TEC-723, docs/design/corporate-agreements.md):
@@ -1585,6 +1654,7 @@ type Querier interface {
 	LockRunnerJob(ctx context.Context, arg LockRunnerJobParams) (int64, error)
 	// Serialises every change of one deposit (take, verify, resolve, cancel).
 	LockSecurityDeposit(ctx context.Context, arg LockSecurityDepositParams) (LockSecurityDepositRow, error)
+	LockSupplierInvoices(ctx context.Context, arg LockSupplierInvoicesParams) ([]LockSupplierInvoicesRow, error)
 	LockTollPassByExternal(ctx context.Context, arg LockTollPassByExternalParams) (LockTollPassByExternalRow, error)
 	LockTollPassByUUID(ctx context.Context, arg LockTollPassByUUIDParams) (LockTollPassByUUIDRow, error)
 	MarkAllNotificationsReadForUser(ctx context.Context, arg MarkAllNotificationsReadForUserParams) (int64, error)
@@ -1645,6 +1715,7 @@ type Querier interface {
 	// Per organization and year counter (row lock of the upsert serialises
 	// concurrent creates of one organization).
 	NextReservationNumber(ctx context.Context, arg NextReservationNumberParams) (int64, error)
+	NextSupplierCodeNumber(ctx context.Context, organizationID int64) (int64, error)
 	// Another live rule with the same route and product (NULL = generic).
 	OneWayRouteTaken(ctx context.Context, arg OneWayRouteTakenParams) (bool, error)
 	// Reservations of an account with an open balance (pay link target).
@@ -1709,7 +1780,54 @@ type Querier interface {
 	// deadline first. Reservation rule: pick-up or return branch in the
 	// filter. overdue = deadline passed.
 	OverviewWaitingReservations(ctx context.Context, arg OverviewWaitingReservationsParams) ([]OverviewWaitingReservationsRow, error)
+	// Open supplier invoices by due state (caller's branch scope).
+	PayablesSummary(ctx context.Context, arg PayablesSummaryParams) (PayablesSummaryRow, error)
 	PingDB(ctx context.Context) (int32, error)
+	// Live (unreversed) debit accruals of rentals, all dates: what each rental
+	// billed, by purpose and charge kind.
+	ProfitBilledAccruals(ctx context.Context, arg ProfitBilledAccrualsParams) ([]ProfitBilledAccrualsRow, error)
+	// Usage blocks (maintenance, damage, cleaning, out of service, other)
+	// overlapping [from_ts, to_ts); an open block runs to to_ts.
+	ProfitBlocks(ctx context.Context, arg ProfitBlocksParams) ([]ProfitBlocksRow, error)
+	ProfitBranchesByUUID(ctx context.Context, arg ProfitBranchesByUUIDParams) ([]ProfitBranchesByUUIDRow, error)
+	// Recorded expenses dated in the period (supplier invoices included: each
+	// invoice has its expense row). Provider commissions are left out: they
+	// are attributed through the collections of the rental.
+	ProfitExpenses(ctx context.Context, arg ProfitExpensesParams) ([]ProfitExpensesRow, error)
+	// Ledger entries dated in the period that belong to a rental: accruals,
+	// collections, refunds, deposit legs and the reversals of those. The
+	// rental comes from the entry, the reversed entry, its collection document
+	// or the live rental of its reservation (online prepayments).
+	ProfitLedgerFacts(ctx context.Context, arg ProfitLedgerFactsParams) ([]ProfitLedgerFactsRow, error)
+	ProfitLegsForRentals(ctx context.Context, arg ProfitLegsForRentalsParams) ([]ProfitLegsForRentalsRow, error)
+	// Legs (handed over) of live rentals that overlap [from_ts, to_ts).
+	ProfitLegsOverlapping(ctx context.Context, arg ProfitLegsOverlappingParams) ([]ProfitLegsOverlappingRow, error)
+	// Maintenance done with a cost in the period (vehicle records).
+	ProfitMaintenance(ctx context.Context, arg ProfitMaintenanceParams) ([]ProfitMaintenanceRow, error)
+	// Provider commissions of the rentals' live collections (online payments).
+	ProfitPaymentCommissions(ctx context.Context, arg ProfitPaymentCommissionsParams) ([]ProfitPaymentCommissionsRow, error)
+	ProfitRentalGroupsByUUID(ctx context.Context, arg ProfitRentalGroupsByUUIDParams) ([]ProfitRentalGroupsByUUIDRow, error)
+	// Rentals with their sale facts: the planned end (open legs), the channel
+	// commission and the share of the sold price that is extras / fees
+	// (reservation quote snapshot: extra, one-way and delivery lines plus the
+	// extras of every extension).
+	ProfitRentals(ctx context.Context, arg ProfitRentalsParams) ([]ProfitRentalsRow, error)
+	// Cash basis of supplier invoices: the amounts posted supplier payments
+	// dated in the period allocated to an invoice, with the invoice's expense
+	// row (category, branch, vehicle).
+	ProfitSupplierPayments(ctx context.Context, arg ProfitSupplierPaymentsParams) ([]ProfitSupplierPaymentsRow, error)
+	// Completed transfers with a cost that arrived in [from_ts, to_ts).
+	ProfitTransfers(ctx context.Context, arg ProfitTransfersParams) ([]ProfitTransfersRow, error)
+	ProfitVehicleIDsInGroups(ctx context.Context, arg ProfitVehicleIDsInGroupsParams) ([]int64, error)
+	// Vehicle profitability report (TEC-727, docs/design/vehicle-profitability.md).
+	// Read-only facts of one organization for a period; the attribution
+	// (swap split, commissions, overhead allocation, occupancy) is done in Go
+	// (internal/modules/profitability/usecase). Every query filters on
+	// organization_id; money is TRY only.
+	// Every vehicle of the organization (deleted ones too: they may have
+	// income or costs in a past period). The service window and the home
+	// branch drive occupancy and the overhead pools.
+	ProfitVehicles(ctx context.Context, organizationID int64) ([]ProfitVehiclesRow, error)
 	PurgeCustomerDocuments(ctx context.Context, arg PurgeCustomerDocumentsParams) error
 	QueueImportJob(ctx context.Context, argUuid uuid.UUID) (ImportJob, error)
 	ReassignCatalogModelRules(ctx context.Context, arg ReassignCatalogModelRulesParams) (int64, error)
@@ -1731,6 +1849,8 @@ type Querier interface {
 	ReleaseVehicleBlock(ctx context.Context, arg ReleaseVehicleBlockParams) (int64, error)
 	RemoveUserRoleBySlug(ctx context.Context, arg RemoveUserRoleBySlugParams) error
 	RemoveVehicleRentalGroup(ctx context.Context, arg RemoveVehicleRentalGroupParams) (int64, error)
+	// The kept free-text names of linked rows follow a renamed card.
+	RenameSupplierFreeText(ctx context.Context, arg RenameSupplierFreeTextParams) error
 	RentalGroupCodeTaken(ctx context.Context, arg RentalGroupCodeTakenParams) (bool, error)
 	RentalProductCodeTaken(ctx context.Context, arg RentalProductCodeTakenParams) (bool, error)
 	// Compensation of a failed create: the quote is usable again.
@@ -1854,6 +1974,12 @@ type Querier interface {
 	SetSMSMessageJob(ctx context.Context, arg SetSMSMessageJobParams) error
 	SetSecurityDepositAccount(ctx context.Context, arg SetSecurityDepositAccountParams) error
 	SetSecurityDepositCheckout(ctx context.Context, arg SetSecurityDepositCheckoutParams) error
+	SetSupplierInvoiceAttachment(ctx context.Context, arg SetSupplierInvoiceAttachmentParams) (int64, error)
+	// paid_amount is the sum of the invoice's live allocations; the status
+	// follows it.
+	SetSupplierInvoicePaid(ctx context.Context, arg SetSupplierInvoicePaidParams) (int64, error)
+	SetSupplierPaymentPosting(ctx context.Context, arg SetSupplierPaymentPostingParams) error
+	SetSupplierStatus(ctx context.Context, arg SetSupplierStatusParams) (string, error)
 	SetTollPassMatch(ctx context.Context, arg SetTollPassMatchParams) error
 	SetUserEmailVerified(ctx context.Context, id int64) (User, error)
 	SetVehicleActive(ctx context.Context, arg SetVehicleActiveParams) (Vehicle, error)
@@ -1893,7 +2019,12 @@ type Querier interface {
 	SupersedeInspection(ctx context.Context, arg SupersedeInspectionParams) (int64, error)
 	SupersedeOpenOTPChallenges(ctx context.Context, arg SupersedeOpenOTPChallengesParams) error
 	SupersedeRatePlanVersion(ctx context.Context, arg SupersedeRatePlanVersionParams) (int64, error)
+	SupplierTaxNumberTaken(ctx context.Context, arg SupplierTaxNumberTakenParams) (bool, error)
 	SyncCatalogBrandsDisplayName(ctx context.Context, displayBrandID int64) (int64, error)
+	// The invoice's classification follows onto its expense row.
+	SyncInvoiceExpense(ctx context.Context, arg SyncInvoiceExpenseParams) (int64, error)
+	// Keeps the account's display name and terms in step with the card.
+	SyncSupplierAccount(ctx context.Context, arg SyncSupplierAccountParams) error
 	TenantCountCatalogBrands(ctx context.Context, arg TenantCountCatalogBrandsParams) (int64, error)
 	TenantCountCatalogModels(ctx context.Context, arg TenantCountCatalogModelsParams) (int64, error)
 	TenantCountCatalogTypes(ctx context.Context, arg TenantCountCatalogTypesParams) (int64, error)
@@ -1975,6 +2106,8 @@ type Querier interface {
 	UpdateSMSMessageStatus(ctx context.Context, arg UpdateSMSMessageStatusParams) error
 	UpdateServicePoint(ctx context.Context, arg UpdateServicePointParams) (ServicePoint, error)
 	UpdateStepupSettings(ctx context.Context, arg UpdateStepupSettingsParams) (StepupSetting, error)
+	UpdateSupplier(ctx context.Context, arg UpdateSupplierParams) (Supplier, error)
+	UpdateSupplierInvoiceDetails(ctx context.Context, arg UpdateSupplierInvoiceDetailsParams) (int64, error)
 	UpdateTenantRole(ctx context.Context, arg UpdateTenantRoleParams) (int64, error)
 	// A pass that arrived again with changed facts (a new revision).
 	UpdateTollPassFacts(ctx context.Context, arg UpdateTollPassFactsParams) error
@@ -2022,6 +2155,8 @@ type Querier interface {
 	VoidCollection(ctx context.Context, arg VoidCollectionParams) (int64, error)
 	VoidExpense(ctx context.Context, arg VoidExpenseParams) (int64, error)
 	VoidRentalDocuments(ctx context.Context, arg VoidRentalDocumentsParams) ([]uuid.UUID, error)
+	VoidSupplierInvoice(ctx context.Context, arg VoidSupplierInvoiceParams) (int64, error)
+	VoidSupplierPayment(ctx context.Context, arg VoidSupplierPaymentParams) (int64, error)
 	WithdrawAllCustomerConsents(ctx context.Context, arg WithdrawAllCustomerConsentsParams) error
 	WithdrawCustomerConsent(ctx context.Context, arg WithdrawCustomerConsentParams) (int64, error)
 }

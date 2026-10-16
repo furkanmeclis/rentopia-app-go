@@ -158,6 +158,11 @@ export const Permission = {
   TenantAgreementsRead: "tenant.agreements.read",
   TenantAgreementsWrite: "tenant.agreements.write",
   TenantAgreementsExport: "tenant.agreements.export",
+  TenantSuppliersRead: "tenant.suppliers.read",
+  TenantSuppliersWrite: "tenant.suppliers.write",
+  TenantSuppliersExport: "tenant.suppliers.export",
+  TenantSuppliersImport: "tenant.suppliers.import",
+  TenantSuppliersBulkArchive: "tenant.suppliers.bulk.archive",
 } as const;
 
 export type PermissionSlug = (typeof Permission)[keyof typeof Permission];
@@ -525,6 +530,18 @@ export const permissions = {
       collections: {
         bulkAllocate: Permission.TenantFinanceCollectionsBulkAllocate,
       },
+    },
+    /**
+     * Supplier cards (TEC-721). Supplier invoices use `finance.expenses.*`,
+     * supplier payments `finance.cash.*`, the statement
+     * `finance.accounts.read`.
+     */
+    suppliers: {
+      read: Permission.TenantSuppliersRead,
+      write: Permission.TenantSuppliersWrite,
+      export: Permission.TenantSuppliersExport,
+      import: Permission.TenantSuppliersImport,
+      bulkArchive: Permission.TenantSuppliersBulkArchive,
     },
   },
 } as const;

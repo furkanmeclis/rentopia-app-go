@@ -127,7 +127,11 @@ export type IoResource =
   | "tenant.expenses"
   | "tenant.security_deposits"
   | "tenant.toll_passes"
+  | "tenant.suppliers"
+  | "tenant.supplier_invoices"
+  | "tenant.supplier_payments"
   | "tenant.finance_collections"
+  | "tenant.vehicle_profitability"
   | "tenant.agreements";
 
 export const EXPORT_PATHS: Record<IoResource, string> = {
@@ -160,7 +164,12 @@ export const EXPORT_PATHS: Record<IoResource, string> = {
   "tenant.security_deposits": "/v1/tenant/finance/deposits/export",
   "tenant.toll_passes": "/v1/tenant/toll-passes/export",
   "tenant.agreements": "/v1/tenant/agreements/export",
+  "tenant.suppliers": "/v1/tenant/suppliers/export",
+  "tenant.supplier_invoices": "/v1/tenant/finance/supplier-invoices/export",
+  "tenant.supplier_payments": "/v1/tenant/finance/supplier-payments/export",
   "tenant.finance_collections": "/v1/tenant/finance/collections/export",
+  "tenant.vehicle_profitability":
+    "/v1/tenant/reports/vehicle-profitability/export",
 };
 
 export const IMPORT_PATHS: Partial<
@@ -205,6 +214,10 @@ export const IMPORT_PATHS: Partial<
   "tenant.toll_passes": {
     upload: "/v1/tenant/toll-passes/import",
     sample: "/v1/tenant/toll-passes/import/sample",
+  },
+  "tenant.suppliers": {
+    upload: "/v1/tenant/suppliers/import",
+    sample: "/v1/tenant/suppliers/import/sample",
   },
 };
 
@@ -358,5 +371,26 @@ export const IMPORT_SCHEMA: Partial<
     { key: "branch_code", labelKey: "finance.io.branch_code" },
     { key: "plate", labelKey: "finance.io.plate" },
     { key: "cash_account_code", labelKey: "finance.io.cash_account_code" },
+  ],
+  // Rows update the supplier with the same code (else tax number).
+  "tenant.suppliers": [
+    { key: "code", labelKey: "suppliers.io.code" },
+    { key: "title", labelKey: "suppliers.io.title", required: true },
+    { key: "supplier_type", labelKey: "suppliers.io.supplier_type" },
+    { key: "tax_number", labelKey: "suppliers.io.tax_number" },
+    { key: "tax_office", labelKey: "suppliers.io.tax_office" },
+    { key: "phone", labelKey: "suppliers.io.phone" },
+    { key: "email", labelKey: "suppliers.io.email" },
+    { key: "website", labelKey: "suppliers.io.website" },
+    { key: "address", labelKey: "suppliers.io.address" },
+    { key: "city", labelKey: "suppliers.io.city" },
+    { key: "billing_address", labelKey: "suppliers.io.billing_address" },
+    { key: "billing_email", labelKey: "suppliers.io.billing_email" },
+    { key: "e_invoice", labelKey: "suppliers.io.e_invoice" },
+    { key: "bank_name", labelKey: "suppliers.io.bank_name" },
+    { key: "iban", labelKey: "suppliers.io.iban" },
+    { key: "payment_term_days", labelKey: "suppliers.io.payment_term_days" },
+    { key: "status", labelKey: "suppliers.io.status" },
+    { key: "note", labelKey: "suppliers.io.note" },
   ],
 };

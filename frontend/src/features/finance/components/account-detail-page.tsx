@@ -324,7 +324,8 @@ function Figure({
   );
 }
 
-function StatementTable({
+/** The statement of one account (also the supplier detail's tab). */
+export function StatementTable({
   account,
   onReverse,
   liveOrg,

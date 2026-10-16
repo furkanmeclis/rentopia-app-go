@@ -82,6 +82,9 @@ func accountOf(r db.ListAccountsRow) model.Account {
 	if r.CustomerUuid.Valid {
 		a.Customer = &model.Ref{UUID: r.CustomerUuid.Bytes, Name: r.Name}
 	}
+	if r.SupplierUuid.Valid {
+		a.Supplier = &model.Ref{UUID: r.SupplierUuid.Bytes, Name: r.Name}
+	}
 	return a
 }
 
@@ -445,19 +448,26 @@ func (s *Service) Summary(ctx context.Context, orgID int64) (model.Summary, erro
 	}
 	out := model.Summary{
 		Currency: string(money.TRY), Receivable: money.Zero(), Payable: money.Zero(), Overdue: money.Zero(), DueSoon: money.Zero(),
-		DepositHeld: money.Zero(), AccountsByStat: map[string]int64{}, ByBranch: []model.BranchBalance{},
+		DepositHeld: money.Zero(), PayableOverdue: money.Zero(), PayableDueSoon: money.Zero(), AccountsByStat: map[string]int64{},
+		ByBranch: []model.BranchBalance{},
 	}
 	late, overdue, soon, later := money.Zero(), money.Zero(), money.Zero(), money.Zero()
 	for _, r := range rows {
 		bal, settled := m(r.Balance), m(r.Settlements)
 		open := func(c pgtype.Numeric) money.Money { return m(c).Sub(settled).ClampZero() }
 		oLate, oOver, oSoon, oAll := open(r.ChargesLate), open(r.ChargesOverdue), open(r.ChargesSoon), open(r.ChargesAll)
-		late = late.Add(oLate)
-		overdue = overdue.Add(oOver.Sub(oLate))
-		soon = soon.Add(oSoon.Sub(oOver))
-		later = later.Add(oAll.Sub(oSoon))
-		out.Overdue = out.Overdue.Add(oOver)
-		out.DueSoon = out.DueSoon.Add(oSoon.Sub(oOver))
+		if r.PartyKind == model.PartySupplier {
+			// Supplier accounts age their payables (TEC-721).
+			out.PayableOverdue = out.PayableOverdue.Add(oOver)
+			out.PayableDueSoon = out.PayableDueSoon.Add(oSoon.Sub(oOver))
+		} else {
+			late = late.Add(oLate)
+			overdue = overdue.Add(oOver.Sub(oLate))
+			soon = soon.Add(oSoon.Sub(oOver))
+			later = later.Add(oAll.Sub(oSoon))
+			out.Overdue = out.Overdue.Add(oOver)
+			out.DueSoon = out.DueSoon.Add(oSoon.Sub(oOver))
+		}
 		out.DepositHeld = out.DepositHeld.Add(m(r.DepositHeld))
 		status := model.BalanceClosed
 		switch {
@@ -736,6 +746,10 @@ func (s *Service) Reverse(ctx context.Context, orgID int64, id uuid.UUID, in mod
 	switch {
 	case e.Kind == model.KindReversal:
 		return model.Entry{}, stateErr("reversal_of_reversal", "a reversal cannot be reversed; post the entry again")
+	case e.SupplierInvoiceID.Valid:
+		return model.Entry{}, stateErr("managed_by_supplier_invoice", "the entry follows its supplier invoice: void the invoice or change its due date")
+	case e.SupplierPaymentID.Valid:
+		return model.Entry{}, stateErr("managed_by_supplier_payment", "the entry follows its supplier payment: void the payment")
 	case e.Kind == model.KindAccrual:
 		return model.Entry{}, stateErr("accrual_managed_by_rental", "accruals follow their rental: waive the charge or change the rental, or post an adjustment")
 	case e.Kind == model.KindOffset:

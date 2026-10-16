@@ -150,7 +150,6 @@
   "tabs.calendar": "Calendar",
   "tabs.odometer": "Km / fuel",
   "tabs.damage": "Damage records",
-  "tabs.finance": "Income / expense",
   "tabs.groups": "Groups",
   "tabs.history": "Movement history",
   "tabs.kasko": "Kasko",
@@ -246,7 +245,6 @@
   "header.current_branch": "Current branch",
   "header.home_branch": "Home branch",
   "coming.damage": "Damage records arrive with M3",
-  "coming.finance": "Income / expense arrives with M4",
   "summary.inspection": "Inspection",
   "summary.insurance": "Traffic insurance",
   "summary.kasko_policy": "Kasko policy",
@@ -274,5 +272,9 @@
   "odometer.source_maintenance": "Maintenance",
   "odometer.empty_title": "No km / fuel readings",
   "odometer.empty_description": "Km and fuel entered on status changes or when completing maintenance show up here.",
-  "tabs.tolls": "Tolls"
+  "tabs.tolls": "Tolls",
+  "fields.supplier": "Supplier card",
+  "fields.supplier_none": "No card (free text)",
+  "fields.supplier_hint": "The chosen supplier's legal name becomes the supplier name.",
+  "tabs.profitability": "Profitability"
 }

@@ -39,6 +39,7 @@ import enTenantRoles from "@/locales/en/tenant_roles.json";
 import enTenantSettings from "@/locales/en/tenant_settings.json";
 import enPayments from "@/locales/en/payments.json";
 import enFinance from "@/locales/en/finance.json";
+import enSuppliers from "@/locales/en/suppliers.json";
 import enUsers from "@/locales/en/users.json";
 import enVehicleRecords from "@/locales/en/vehicle_records.json";
 import enOneWayRules from "@/locales/en/one_way_rules.json";
@@ -56,6 +57,7 @@ import enTolls from "@/locales/en/tolls.json";
 import enKabis from "@/locales/en/kabis.json";
 import enAgreements from "@/locales/en/agreements.json";
 import enDeposits from "@/locales/en/deposits.json";
+import enProfitability from "@/locales/en/profitability.json";
 import enContracts from "@/locales/en/contracts.json";
 import enInspections from "@/locales/en/inspections.json";
 import enFieldTasks from "@/locales/en/field_tasks.json";
@@ -99,6 +101,7 @@ import trTenantRoles from "@/locales/tr/tenant_roles.json";
 import trTenantSettings from "@/locales/tr/tenant_settings.json";
 import trPayments from "@/locales/tr/payments.json";
 import trFinance from "@/locales/tr/finance.json";
+import trSuppliers from "@/locales/tr/suppliers.json";
 import trUsers from "@/locales/tr/users.json";
 import trVehicleRecords from "@/locales/tr/vehicle_records.json";
 import trOneWayRules from "@/locales/tr/one_way_rules.json";
@@ -116,6 +119,7 @@ import trTolls from "@/locales/tr/tolls.json";
 import trKabis from "@/locales/tr/kabis.json";
 import trAgreements from "@/locales/tr/agreements.json";
 import trDeposits from "@/locales/tr/deposits.json";
+import trProfitability from "@/locales/tr/profitability.json";
 import trContracts from "@/locales/tr/contracts.json";
 import trInspections from "@/locales/tr/inspections.json";
 import trFieldTasks from "@/locales/tr/field_tasks.json";
@@ -151,6 +155,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     kabis: trKabis,
     agreements: trAgreements,
     deposits: trDeposits,
+    profitability: trProfitability,
     contracts: trContracts,
     inspections: trInspections,
     field_tasks: trFieldTasks,
@@ -185,6 +190,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     tenant_settings: trTenantSettings,
     payments: trPayments,
     finance: trFinance,
+    suppliers: trSuppliers,
   },
   en: {
     common: enCommon,
@@ -213,6 +219,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     kabis: enKabis,
     agreements: enAgreements,
     deposits: enDeposits,
+    profitability: enProfitability,
     contracts: enContracts,
     inspections: enInspections,
     field_tasks: enFieldTasks,
@@ -247,6 +254,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     tenant_settings: enTenantSettings,
     payments: enPayments,
     finance: enFinance,
+    suppliers: enSuppliers,
   },
 };
 export function loadMessages(locale: AppLocale) {

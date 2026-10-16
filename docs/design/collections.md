@@ -27,7 +27,7 @@ Allocation modes on create and on `POST /collections/{uuid}/allocations`:
 - `manual`: the items named, the amount defaulting to the item's open amount. An amount above the item's open amount or above what the collection has left is a validation error.
 - `none` (create only): keep everything as credit.
 
-What a collection pays beyond its open items is the customer's **credit**; it is allocated later by hand, by the bulk action, or automatically when the rental accrues (below). Deposits (`purpose = deposit`) are held, never allocated; TEC-719 settles them with deduction / offset documents that are allocated (see open items).
+What a collection pays beyond its open items is the customer's **credit**; it is allocated later by hand, by the bulk action, or automatically when the rental accrues (below). Deposits (`purpose = deposit`) are held, never allocated; TEC-719 settles them with deduction / offset documents that are allocated (see open items). Supplier accounts take no collections (`supplier_account`); they are settled by supplier payments ([suppliers.md](./suppliers.md)).
 
 ### Safety
 
