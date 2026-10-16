@@ -99,7 +99,7 @@ export function SuppliersPage() {
           enableSorting: true,
           gridSecondary: true,
           cell: ({ row }) => (
-            <code className="bg-muted rounded px-1.5 py-0.5 text-xs font-semibold">
+            <code className="bg-muted rounded px-1.5 py-0.5 text-xs font-semibold whitespace-nowrap">
               {row.original.code}
             </code>
           ),

@@ -32,6 +32,10 @@ Balance = opening balance + money in − money out.
   - **Amounts:** give either the total including VAT or the net amount together with a VAT rate; the other figures are derived.
   - **Payment:** naming a paying account writes an `expense` out-movement.
   - **Corrections:** amounts, VAT and the paying account are fixed once recorded. Voiding an expense reverses its movement; to change any of these, void the expense and record it again. Category, date, texts, branch and vehicle stay editable.
+- **Suppliers (TEC-721).**
+  - An expense can name a supplier card (`supplier_uuid`, `expenses.supplier_id`). The free-text `supplier_name` follows the card.
+  - Each supplier invoice creates one expense row (`expenses.supplier_invoice_id`). That row is read-only (`managed_by_supplier_invoice`) and follows the invoice.
+  - A `supplier_payment` movement posted with a supplier is a supplier payment, and is voided only through it.
 - **Attachments.** `PUT|GET|DELETE /finance/expenses/{uuid}/file` stores PDF, JPEG, PNG or WEBP files up to 10 MB under `ExpenseAttachmentObjectKey`, in the private bucket. The API streams the file back, so the browser never sees an S3 key.
 - **Branch scope.** A member limited to some branches sees and writes only their branches' accounts, movements and expenses. Head-office accounts need access to all branches.
 
@@ -95,5 +99,5 @@ The RT-A01 isolation cases in `httpserver/isolation_test.go` cover every route.
 ## Open items
 
 - iyzico payments credit the customer ledger but are not deposited into a bank account automatically. A settlement import (provider payouts → bank movement) would close that loop.
-- **TEC-718 / TEC-719:** Supplier payments are movements with free-text supplier names until supplier accounts exist. They should then post to the supplier's ledger account as well.
+- **TEC-721 (done):** Supplier payments are recorded through `/finance/supplier-payments`. Each one writes a `supplier_payment` movement and a ledger entry on the supplier account, and is allocated to invoices (`suppliers.md`). Older manual `supplier_payment` movements carry no supplier and stay unlinked.
 - **TEC-722:** Expense VAT is recorded but not yet reported for VAT returns or e-invoice matching.
