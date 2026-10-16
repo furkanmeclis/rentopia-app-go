@@ -241,7 +241,7 @@ func Meta() resourcemeta.ResourceMeta {
 		Capabilities: resourcemeta.Capabilities{Create: true, Read: true, Update: true, Search: true, Filter: true, Sort: true,
 			Export: true, Import: true, Bulk: true},
 		SearchableFields: []string{"title", "code", "tax_number", "email", "phone", "city", "contacts"},
-		SortableFields:   []string{"code", "title", "balance", "open_amount", "overdue_amount", "next_due_date", "created_at"},
+		SortableFields:   []string{"code", "title", "balance", "payable", "open_amount", "overdue_amount", "next_due_date", "created_at"},
 		FilterableFields: []string{"supplier_type", "status", "city", "due_state"},
 		Columns: []resourcemeta.Column{
 			col("code", str, true, false, true), col("title", str, true, false, true), col("supplier_type", enum, false, true, true),

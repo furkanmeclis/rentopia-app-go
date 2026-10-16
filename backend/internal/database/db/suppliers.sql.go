@@ -528,6 +528,8 @@ ORDER BY
     CASE WHEN $7::text = 'title' AND $8::boolean THEN lower(sh.title) END DESC,
     CASE WHEN $7::text = 'balance' AND NOT $8::boolean THEN sh.balance END ASC,
     CASE WHEN $7::text = 'balance' AND $8::boolean THEN sh.balance END DESC,
+    CASE WHEN $7::text = 'payable' AND NOT $8::boolean THEN -sh.balance END ASC,
+    CASE WHEN $7::text = 'payable' AND $8::boolean THEN -sh.balance END DESC,
     CASE WHEN $7::text = 'open_amount' AND NOT $8::boolean THEN sh.open_amount END ASC,
     CASE WHEN $7::text = 'open_amount' AND $8::boolean THEN sh.open_amount END DESC,
     CASE WHEN $7::text = 'overdue_amount' AND NOT $8::boolean THEN sh.overdue_amount END ASC,

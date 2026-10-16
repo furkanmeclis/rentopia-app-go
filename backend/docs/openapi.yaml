@@ -18063,7 +18063,7 @@ paths:
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
         - $ref: "#/components/parameters/Q"
-        - { name: sort, in: query, schema: { type: string }, description: "`code`, `title`, `balance`, `open_amount`, `overdue_amount`, `next_due_date` or `created_at`; prefix `-` for descending. Default `title`." }
+        - { name: sort, in: query, schema: { type: string }, description: "`code`, `title`, `balance`, `payable`, `open_amount`, `overdue_amount`, `next_due_date` or `created_at`; prefix `-` for descending. Default `title`." }
         - { name: supplier_type, in: query, schema: { type: string }, description: "service, insurance, vehicle_supplier, parts, fuel, other (comma-separated)" }
         - { name: status, in: query, schema: { type: string }, description: "active, archived" }
         - { name: city, in: query, schema: { type: string }, description: "Cities (comma-separated)" }

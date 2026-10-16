@@ -739,7 +739,7 @@ func TestFreeTextSupplierMigration(t *testing.T) {
 	exec(migration(t, "000801_seed_suppliers_rbac.up.sql"))
 
 	type sup struct {
-		code, title, kind string
+		code, title, kind  string
 		vehicles, expenses int
 	}
 	rows, err := conn.Query(ctx, `SELECT s.code, s.title, s.supplier_type,

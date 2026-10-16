@@ -210,6 +210,8 @@ ORDER BY
     CASE WHEN sqlc.arg(sort_field)::text = 'title' AND sqlc.arg(sort_desc)::boolean THEN lower(sh.title) END DESC,
     CASE WHEN sqlc.arg(sort_field)::text = 'balance' AND NOT sqlc.arg(sort_desc)::boolean THEN sh.balance END ASC,
     CASE WHEN sqlc.arg(sort_field)::text = 'balance' AND sqlc.arg(sort_desc)::boolean THEN sh.balance END DESC,
+    CASE WHEN sqlc.arg(sort_field)::text = 'payable' AND NOT sqlc.arg(sort_desc)::boolean THEN -sh.balance END ASC,
+    CASE WHEN sqlc.arg(sort_field)::text = 'payable' AND sqlc.arg(sort_desc)::boolean THEN -sh.balance END DESC,
     CASE WHEN sqlc.arg(sort_field)::text = 'open_amount' AND NOT sqlc.arg(sort_desc)::boolean THEN sh.open_amount END ASC,
     CASE WHEN sqlc.arg(sort_field)::text = 'open_amount' AND sqlc.arg(sort_desc)::boolean THEN sh.open_amount END DESC,
     CASE WHEN sqlc.arg(sort_field)::text = 'overdue_amount' AND NOT sqlc.arg(sort_desc)::boolean THEN sh.overdue_amount END ASC,

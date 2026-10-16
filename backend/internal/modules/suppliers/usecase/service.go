@@ -48,7 +48,7 @@ var (
 
 // SortColumns are the sortable list columns.
 var SortColumns = map[string]string{
-	"code": "code", "title": "title", "balance": "balance", "open_amount": "open_amount",
+	"code": "code", "title": "title", "balance": "balance", "payable": "payable", "open_amount": "open_amount",
 	"overdue_amount": "overdue_amount", "next_due_date": "next_due_date", "created_at": "created_at",
 }
 
