@@ -413,10 +413,6 @@ func (s *Service) createCollection(ctx context.Context, orgID int64, in model.Co
 	if err != nil {
 		return uuid.Nil, false, err
 	}
-	desc := opt.description
-	if desc == "" {
-		desc = strings.Trim(t.rental.Reference+" · "+method, " ·")
-	}
 	collUUID := uuid.New()
 	var accUUID uuid.UUID
 	var movementUUID, cashUUID uuid.UUID
@@ -436,6 +432,17 @@ func (s *Service) createCollection(ctx context.Context, orgID int64, in model.Co
 		accUUID = acc.UUID
 		if _, err := q.LockAccount(ctx, db.LockAccountParams{OrganizationID: orgID, ID: acc.ID}); err != nil {
 			return err
+		}
+		if err := q.LockOrganizationCollectionCodes(ctx, orgID); err != nil {
+			return err
+		}
+		code, err := q.NextCollectionCode(ctx, orgID)
+		if err != nil {
+			return err
+		}
+		desc := opt.description
+		if desc == "" {
+			desc = joinParts(t.rental.Reference, code, ref)
 		}
 		var cash pgtype.Int8
 		var movement pgtype.Int8
@@ -476,15 +483,12 @@ func (s *Service) createCollection(ctx context.Context, orgID int64, in model.Co
 			}
 			movement, movementUUID = int8Of(mv.ID), mv.Uuid
 		}
-		if err := q.LockOrganizationCollectionCodes(ctx, orgID); err != nil {
-			return err
-		}
 		var key pgtype.UUID
 		if in.IdempotencyKey != nil {
 			key = uuidOf(*in.IdempotencyKey)
 		}
 		coll, err := q.InsertCollection(ctx, db.InsertCollectionParams{
-			Uuid: collUUID, OrganizationID: orgID, AccountID: acc.ID, Method: method, Provider: model.ProviderManual,
+			Uuid: collUUID, OrganizationID: orgID, Code: code, AccountID: acc.ID, Method: method, Provider: model.ProviderManual,
 			Purpose: purpose, Currency: acc.Currency, Amount: in.Amount.Numeric(), GrossAmount: in.Amount.Numeric(),
 			CommissionAmount: money.Zero().Numeric(), NetAmount: in.Amount.Numeric(), CollectionDate: dateOf(date),
 			ReferenceNo: ref, PayerName: payer, Note: note, BranchID: int8Of(branch), CashAccountID: cash,
@@ -543,6 +547,17 @@ func checkMethodAccount(method, kind string) error {
 		}
 	}
 	return nil
+}
+
+// joinParts joins the non-empty parts of an entry description.
+func joinParts(parts ...string) string {
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return strings.Join(out, " · ")
 }
 
 func allocSource(mode string) string {

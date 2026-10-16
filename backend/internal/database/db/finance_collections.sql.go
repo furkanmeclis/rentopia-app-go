@@ -465,16 +465,12 @@ INSERT INTO collections (
     rental_id, reservation_id, payment_id, ledger_entry_id, cash_movement_id, settlement_status, idempotency_key,
     created_by
 ) VALUES (
-    $1, $2,
-    'TH-' || lpad((
-        SELECT count(*) + 1 FROM collections x WHERE x.organization_id = $2
-    )::text, 6, '0'),
-    $3, $4, $5, $6, $7,
-    $8, $9, $10, $11,
-    $12, $13, $14, $15, $16,
-    $17, $18, $19, $20,
-    $21, $22, $23, $24,
-    $25
+    $1, $2, $3, $4, $5, $6, $7, $8,
+    $9, $10, $11, $12,
+    $13, $14, $15, $16, $17,
+    $18, $19, $20, $21,
+    $22, $23, $24, $25,
+    $26
 )
 RETURNING id, uuid, code
 `
@@ -482,6 +478,7 @@ RETURNING id, uuid, code
 type InsertCollectionParams struct {
 	Uuid             uuid.UUID      `json:"uuid"`
 	OrganizationID   int64          `json:"organization_id"`
+	Code             string         `json:"code"`
 	AccountID        int64          `json:"account_id"`
 	Method           string         `json:"method"`
 	Provider         string         `json:"provider"`
@@ -517,6 +514,7 @@ func (q *Queries) InsertCollection(ctx context.Context, arg InsertCollectionPara
 	row := q.db.QueryRow(ctx, insertCollection,
 		arg.Uuid,
 		arg.OrganizationID,
+		arg.Code,
 		arg.AccountID,
 		arg.Method,
 		arg.Provider,
@@ -1578,6 +1576,20 @@ SELECT pg_advisory_xact_lock(hashtextextended('finance.collections:' || $1::bigi
 func (q *Queries) LockOrganizationCollectionCodes(ctx context.Context, organizationID int64) error {
 	_, err := q.db.Exec(ctx, lockOrganizationCollectionCodes, organizationID)
 	return err
+}
+
+const nextCollectionCode = `-- name: NextCollectionCode :one
+SELECT ('TH-' || lpad((
+    SELECT count(*) + 1 FROM collections x WHERE x.organization_id = $1
+)::text, 6, '0'))::text AS code
+`
+
+// The next TH- code (call under LockOrganizationCollectionCodes).
+func (q *Queries) NextCollectionCode(ctx context.Context, organizationID int64) (string, error) {
+	row := q.db.QueryRow(ctx, nextCollectionCode, organizationID)
+	var code string
+	err := row.Scan(&code)
+	return code, err
 }
 
 const setCashAccountProvider = `-- name: SetCashAccountProvider :execrows

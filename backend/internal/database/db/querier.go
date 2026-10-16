@@ -1527,6 +1527,8 @@ type Querier interface {
 	// found it (optimistic check: 0 rows = the plan is stale, retry).
 	MoveAllocation(ctx context.Context, arg MoveAllocationParams) (int64, error)
 	MoveCatalogBrandsDisplayBrand(ctx context.Context, arg MoveCatalogBrandsDisplayBrandParams) (int64, error)
+	// The next TH- code (call under LockOrganizationCollectionCodes).
+	NextCollectionCode(ctx context.Context, organizationID int64) (string, error)
 	NextInspectionTemplateVersion(ctx context.Context, organizationID int64) (int32, error)
 	NextInspectionVersion(ctx context.Context, arg NextInspectionVersionParams) (int32, error)
 	NextKabisCorrectionSequence(ctx context.Context, arg NextKabisCorrectionSequenceParams) (int32, error)

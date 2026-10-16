@@ -6,6 +6,12 @@
 -- of the transaction.
 SELECT pg_advisory_xact_lock(hashtextextended('finance.collections:' || sqlc.arg(organization_id)::bigint::text, 0));
 
+-- name: NextCollectionCode :one
+-- The next TH- code (call under LockOrganizationCollectionCodes).
+SELECT ('TH-' || lpad((
+    SELECT count(*) + 1 FROM collections x WHERE x.organization_id = sqlc.arg(organization_id)
+)::text, 6, '0'))::text AS code;
+
 -- name: InsertCollection :one
 INSERT INTO collections (
     uuid, organization_id, code, account_id, method, provider, purpose, currency, amount, gross_amount,
@@ -13,11 +19,7 @@ INSERT INTO collections (
     rental_id, reservation_id, payment_id, ledger_entry_id, cash_movement_id, settlement_status, idempotency_key,
     created_by
 ) VALUES (
-    sqlc.arg(uuid), sqlc.arg(organization_id),
-    'TH-' || lpad((
-        SELECT count(*) + 1 FROM collections x WHERE x.organization_id = sqlc.arg(organization_id)
-    )::text, 6, '0'),
-    sqlc.arg(account_id), sqlc.arg(method), sqlc.arg(provider), sqlc.arg(purpose), sqlc.arg(currency),
+    sqlc.arg(uuid), sqlc.arg(organization_id), sqlc.arg(code), sqlc.arg(account_id), sqlc.arg(method), sqlc.arg(provider), sqlc.arg(purpose), sqlc.arg(currency),
     sqlc.arg(amount), sqlc.arg(gross_amount), sqlc.arg(commission_amount), sqlc.arg(net_amount),
     sqlc.arg(collection_date), sqlc.arg(reference_no), sqlc.arg(payer_name), sqlc.arg(note), sqlc.narg(branch_id),
     sqlc.narg(cash_account_id), sqlc.narg(rental_id), sqlc.narg(reservation_id), sqlc.narg(payment_id),

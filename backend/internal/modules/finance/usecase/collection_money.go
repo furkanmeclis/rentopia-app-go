@@ -320,11 +320,18 @@ func (s *Service) postPaymentTx(ctx context.Context, q *db.Queries, orgID, payme
 	if p.LinkPurpose.String == "prepayment" {
 		purpose = model.PurposePrepayment
 	}
+	if err := q.LockOrganizationCollectionCodes(ctx, orgID); err != nil {
+		return 0, uuid.Nil, uuid.Nil, err
+	}
+	code, err := q.NextCollectionCode(ctx, orgID)
+	if err != nil {
+		return 0, uuid.Nil, uuid.Nil, err
+	}
 	entryID := int64(0)
 	entryDate := dateOf(day(at))
 	row, err := q.InsertPaymentCollectionEntry(ctx, db.InsertPaymentCollectionEntryParams{
 		OrganizationID: orgID, AccountID: acc.ID, Purpose: purpose, Amount: p.Amount, Currency: p.Currency,
-		EntryDate: entryDate, Description: p.ReservationReference + " · " + p.Method,
+		EntryDate: entryDate, Description: joinParts(p.ReservationReference, code),
 		SourceUuid: uuidOf(p.Uuid), ReservationID: p.ReservationID, PaymentID: int8Of(p.ID),
 		BranchID: int8Of(p.PickupBranchID), CreatedBy: p.CreatedBy,
 	})
@@ -368,11 +375,8 @@ func (s *Service) postPaymentTx(ctx context.Context, q *db.Queries, orgID, payme
 			return 0, uuid.Nil, uuid.Nil, err
 		}
 	}
-	if err := q.LockOrganizationCollectionCodes(ctx, orgID); err != nil {
-		return 0, uuid.Nil, uuid.Nil, err
-	}
 	coll, err := q.InsertCollection(ctx, db.InsertCollectionParams{
-		Uuid: uuid.New(), OrganizationID: orgID, AccountID: acc.ID, Method: method, Provider: provider, Purpose: purpose,
+		Uuid: uuid.New(), OrganizationID: orgID, Code: code, AccountID: acc.ID, Method: method, Provider: provider, Purpose: purpose,
 		Currency: p.Currency, Amount: p.Amount, GrossAmount: gross.Numeric(), CommissionAmount: commission.Numeric(),
 		NetAmount: net.Numeric(), CollectionDate: entryDate, ReferenceNo: facts.ProviderPaymentID.String,
 		BranchID: int8Of(p.PickupBranchID), RentalID: rentalID, ReservationID: p.ReservationID, PaymentID: int8Of(p.ID),
