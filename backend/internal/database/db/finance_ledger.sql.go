@@ -55,7 +55,10 @@ type EnsureCustomerAccountRow struct {
 //	overdue  = max(0, charges due before today - settlements)
 //	due soon = max(0, charges due before today + N - settlements) - overdue
 //
-// Offsets net to zero on an account and are left out of the aging.
+// Entries of purpose 'deposit' (deposits held, returned, captured, the
+// deposit leg of an offset) are a liability kept apart: they never enter
+// the receivable balance, the aging or the running balance; deposit_held
+// sums them. The other leg of an offset / a capture is a settlement.
 func (q *Queries) EnsureCustomerAccount(ctx context.Context, arg EnsureCustomerAccountParams) (EnsureCustomerAccountRow, error) {
 	row := q.db.QueryRow(ctx, ensureCustomerAccount,
 		arg.OrganizationID,
@@ -827,31 +830,31 @@ func (q *Queries) InsertPaymentRefundEntry(ctx context.Context, arg InsertPaymen
 
 const ledgerAccountAging = `-- name: LedgerAccountAging :many
 SELECT e.account_id,
-    COALESCE(SUM(CASE WHEN e.direction = 'debit' THEN e.amount ELSE -e.amount END), 0)::numeric AS balance,
+    COALESCE(SUM(CASE WHEN e.purpose = 'deposit' THEN 0 WHEN e.direction = 'debit' THEN e.amount ELSE -e.amount END), 0)::numeric AS balance,
     COALESCE(SUM(CASE WHEN e.direction = 'credit' THEN e.amount ELSE -e.amount END)
         FILTER (WHERE e.purpose = 'deposit'), 0)::numeric AS deposit_held,
     COALESCE(SUM(CASE
-        WHEN e.kind = 'offset' THEN 0
+        WHEN e.purpose = 'deposit' THEN 0
         WHEN e.direction = 'debit' AND e.kind <> 'reversal' THEN e.amount
         WHEN e.direction = 'credit' AND e.kind = 'reversal' THEN -e.amount
         ELSE 0 END) FILTER (WHERE e.due_date < $1::date), 0)::numeric AS charges_late,
     COALESCE(SUM(CASE
-        WHEN e.kind = 'offset' THEN 0
+        WHEN e.purpose = 'deposit' THEN 0
         WHEN e.direction = 'debit' AND e.kind <> 'reversal' THEN e.amount
         WHEN e.direction = 'credit' AND e.kind = 'reversal' THEN -e.amount
         ELSE 0 END) FILTER (WHERE e.due_date < $2::date), 0)::numeric AS charges_overdue,
     COALESCE(SUM(CASE
-        WHEN e.kind = 'offset' THEN 0
+        WHEN e.purpose = 'deposit' THEN 0
         WHEN e.direction = 'debit' AND e.kind <> 'reversal' THEN e.amount
         WHEN e.direction = 'credit' AND e.kind = 'reversal' THEN -e.amount
         ELSE 0 END) FILTER (WHERE e.due_date < $3::date), 0)::numeric AS charges_soon,
     COALESCE(SUM(CASE
-        WHEN e.kind = 'offset' THEN 0
+        WHEN e.purpose = 'deposit' THEN 0
         WHEN e.direction = 'debit' AND e.kind <> 'reversal' THEN e.amount
         WHEN e.direction = 'credit' AND e.kind = 'reversal' THEN -e.amount
         ELSE 0 END), 0)::numeric AS charges_all,
     COALESCE(SUM(CASE
-        WHEN e.kind = 'offset' THEN 0
+        WHEN e.purpose = 'deposit' THEN 0
         WHEN e.direction = 'credit' AND e.kind <> 'reversal' THEN e.amount
         WHEN e.direction = 'debit' AND e.kind = 'reversal' THEN -e.amount
         ELSE 0 END), 0)::numeric AS settlements
@@ -919,8 +922,8 @@ func (q *Queries) LedgerAccountAging(ctx context.Context, arg LedgerAccountAging
 
 const ledgerBranchBreakdown = `-- name: LedgerBranchBreakdown :many
 SELECT e.branch_id, b.uuid AS branch_uuid, b.code AS branch_code, b.name AS branch_name,
-    COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'debit'), 0)::numeric AS debit,
-    COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'credit'), 0)::numeric AS credit
+    COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'debit' AND e.purpose <> 'deposit'), 0)::numeric AS debit,
+    COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'credit' AND e.purpose <> 'deposit'), 0)::numeric AS credit
 FROM ledger_entries e
 LEFT JOIN branches b ON b.organization_id = e.organization_id AND b.id = e.branch_id
 WHERE e.organization_id = $1
@@ -973,25 +976,25 @@ func (q *Queries) LedgerBranchBreakdown(ctx context.Context, arg LedgerBranchBre
 const listAccounts = `-- name: ListAccounts :many
 WITH agg AS (
     SELECT e.account_id,
-        COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'debit'), 0)::numeric AS debit,
-        COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'credit'), 0)::numeric AS credit,
+        COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'debit' AND e.purpose <> 'deposit'), 0)::numeric AS debit,
+        COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'credit' AND e.purpose <> 'deposit'), 0)::numeric AS credit,
         COALESCE(SUM(CASE
-            WHEN e.kind = 'offset' THEN 0
+            WHEN e.purpose = 'deposit' THEN 0
             WHEN e.direction = 'debit' AND e.kind <> 'reversal' THEN e.amount
             WHEN e.direction = 'credit' AND e.kind = 'reversal' THEN -e.amount
             ELSE 0 END) FILTER (WHERE e.due_date < $14::date), 0)::numeric AS charges_overdue,
         COALESCE(SUM(CASE
-            WHEN e.kind = 'offset' THEN 0
+            WHEN e.purpose = 'deposit' THEN 0
             WHEN e.direction = 'debit' AND e.kind <> 'reversal' THEN e.amount
             WHEN e.direction = 'credit' AND e.kind = 'reversal' THEN -e.amount
             ELSE 0 END) FILTER (WHERE e.due_date < $15::date), 0)::numeric AS charges_soon,
         COALESCE(SUM(CASE
-            WHEN e.kind = 'offset' THEN 0
+            WHEN e.purpose = 'deposit' THEN 0
             WHEN e.direction = 'debit' AND e.kind <> 'reversal' THEN e.amount
             WHEN e.direction = 'credit' AND e.kind = 'reversal' THEN -e.amount
             ELSE 0 END) FILTER (WHERE e.due_date < $16::date), 0)::numeric AS charges_before,
         COALESCE(SUM(CASE
-            WHEN e.kind = 'offset' THEN 0
+            WHEN e.purpose = 'deposit' THEN 0
             WHEN e.direction = 'credit' AND e.kind <> 'reversal' THEN e.amount
             WHEN e.direction = 'debit' AND e.kind = 'reversal' THEN -e.amount
             ELSE 0 END), 0)::numeric AS settlements,
@@ -1194,8 +1197,8 @@ func (q *Queries) ListAccounts(ctx context.Context, arg ListAccountsParams) ([]L
 
 const listLedgerEntries = `-- name: ListLedgerEntries :many
 WITH scoped AS (
-    SELECT e.id, e.uuid, e.organization_id, e.account_id, e.kind, e.direction, e.purpose, e.amount, e.currency, e.entry_date, e.due_date, e.description, e.reason, e.source_type, e.source_uuid, e.rental_id, e.reservation_id, e.rental_charge_id, e.payment_id, e.payment_refund_id, e.accrual_key, e.accrual_generation, e.reverses_entry_id, e.adjusts_entry_id, e.offset_group, e.branch_id, e.created_by, e.created_at,
-        SUM(CASE WHEN e.direction = 'debit' THEN e.amount ELSE -e.amount END)
+    SELECT e.id, e.uuid, e.organization_id, e.account_id, e.kind, e.direction, e.purpose, e.amount, e.currency, e.entry_date, e.due_date, e.description, e.reason, e.source_type, e.source_uuid, e.rental_id, e.reservation_id, e.rental_charge_id, e.payment_id, e.payment_refund_id, e.accrual_key, e.accrual_generation, e.reverses_entry_id, e.adjusts_entry_id, e.offset_group, e.branch_id, e.created_by, e.created_at, e.security_deposit_id, e.deposit_deduction_id,
+        SUM(CASE WHEN e.purpose = 'deposit' THEN 0 WHEN e.direction = 'debit' THEN e.amount ELSE -e.amount END)
             OVER (PARTITION BY e.account_id ORDER BY e.entry_date, e.id)::numeric AS running_balance
     FROM ledger_entries e
     WHERE e.organization_id = $1
@@ -1463,8 +1466,8 @@ func (q *Queries) ListLiveRentalAccruals(ctx context.Context, arg ListLiveRental
 const listRentalBalances = `-- name: ListRentalBalances :many
 WITH agg AS (
     SELECT e.reservation_id,
-        COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'debit'), 0)::numeric AS debit,
-        COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'credit'), 0)::numeric AS credit,
+        COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'debit' AND e.purpose <> 'deposit'), 0)::numeric AS debit,
+        COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'credit' AND e.purpose <> 'deposit'), 0)::numeric AS credit,
         COALESCE(SUM(CASE WHEN e.direction = 'credit' THEN e.amount ELSE -e.amount END)
             FILTER (WHERE e.purpose = 'deposit'), 0)::numeric AS deposit_held,
         MAX(e.created_at)::timestamptz AS last_entry_at
@@ -1727,15 +1730,15 @@ func (q *Queries) LockOrganizationAccountCodes(ctx context.Context, organization
 
 const openReservationBalances = `-- name: OpenReservationBalances :many
 SELECT res.uuid, res.reference, res.status,
-    (COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'debit'), 0)
-        - COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'credit'), 0))::numeric AS balance
+    (COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'debit' AND e.purpose <> 'deposit'), 0)
+        - COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'credit' AND e.purpose <> 'deposit'), 0))::numeric AS balance
 FROM ledger_entries e
 JOIN reservations res ON res.organization_id = e.organization_id AND res.id = e.reservation_id
 WHERE e.organization_id = $1
   AND e.account_id = $2
 GROUP BY res.id, res.uuid, res.reference, res.status
-HAVING (COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'debit'), 0)
-        - COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'credit'), 0)) > 0
+HAVING (COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'debit' AND e.purpose <> 'deposit'), 0)
+        - COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'credit' AND e.purpose <> 'deposit'), 0)) > 0
 ORDER BY res.id DESC
 `
 
@@ -1778,11 +1781,11 @@ func (q *Queries) OpenReservationBalances(ctx context.Context, arg OpenReservati
 }
 
 const sumLedgerEntries = `-- name: SumLedgerEntries :one
-SELECT COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'debit'), 0)::numeric AS debit,
-    COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'credit'), 0)::numeric AS credit,
+SELECT COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'debit' AND e.purpose <> 'deposit'), 0)::numeric AS debit,
+    COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'credit' AND e.purpose <> 'deposit'), 0)::numeric AS credit,
     COALESCE(SUM(CASE WHEN e.direction = 'credit' THEN e.amount ELSE -e.amount END)
         FILTER (WHERE e.purpose = 'deposit'), 0)::numeric AS deposit_held,
-    COALESCE(SUM(CASE WHEN e.direction = 'debit' THEN e.amount ELSE -e.amount END)
+    COALESCE(SUM(CASE WHEN e.purpose = 'deposit' THEN 0 WHEN e.direction = 'debit' THEN e.amount ELSE -e.amount END)
         FILTER (WHERE $1::date IS NOT NULL AND e.entry_date < $1::date), 0)::numeric AS opening,
     COUNT(*)::bigint AS entry_count
 FROM ledger_entries e
