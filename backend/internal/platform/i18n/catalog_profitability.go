@@ -6,8 +6,6 @@ package i18n
 // edit the same map literal.
 
 var trProfitability = map[string]string{
-	"export.title.tenant.vehicle_profitability":      "Araç kârlılığı raporu",
-	"resources.tenant.vehicle_profitability":         "Araç kârlılığı",
 	"vehicle_profitability.plate":                    "Plaka",
 	"vehicle_profitability.home_branch":              "Bağlı şube",
 	"vehicle_profitability.rental_days":              "Kiralama günü",
@@ -52,8 +50,6 @@ var trProfitability = map[string]string{
 }
 
 var enProfitability = map[string]string{
-	"export.title.tenant.vehicle_profitability":      "Vehicle profitability report",
-	"resources.tenant.vehicle_profitability":         "Vehicle profitability",
 	"vehicle_profitability.plate":                    "Plate",
 	"vehicle_profitability.home_branch":              "Home branch",
 	"vehicle_profitability.rental_days":              "Rental days",
