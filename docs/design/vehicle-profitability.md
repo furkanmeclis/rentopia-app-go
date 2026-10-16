@@ -13,7 +13,7 @@ Status: **implemented** (M4, §11.5). Per vehicle and period: what the vehicle e
 
 ## 1. Choice: query time, no cache table
 
-The report is computed on each request: a handful of period-bounded queries (every one starts with `organization_id`) load the facts, and Go attributes them. Nothing is materialised, so there is nothing to invalidate and nothing to keep tenant-safe besides the queries themselves. Migration 001100 adds the four indexes the period scans needed: `ledger_entries (organization_id, entry_date)`, `rental_vehicles (organization_id, out_at)`, maintenance done with a cost by date, completed transfers with a cost by arrival. The down migration drops them and loses no data.
+The report is computed on each request: a handful of period-bounded queries (every one starts with `organization_id`) load the facts, and Go attributes them. Nothing is materialised, so there is nothing to invalidate and nothing to keep tenant-safe besides the queries themselves. Migration 000107 adds the four indexes the period scans needed: `ledger_entries (organization_id, entry_date)`, `rental_vehicles (organization_id, out_at)`, maintenance done with a cost by date, completed transfers with a cost by arrival. The down migration drops them and loses no data.
 
 The engine works on all vehicles of the organization for the whole period, then selects the rows. A vehicle's figures therefore never depend on the row filters (branch, rental group, search): the overhead pools and the revenue / rental-day weights are always the full fleet.
 
