@@ -83,9 +83,10 @@ type CashAccountValues = {
   bank_name: string;
   iban: string;
   note: string;
+  provider: string;
 };
 
-/** Create / edit a till or a bank account. */
+/** Create / edit a till, a bank account or a provider clearing account. */
 export function CashAccountDialog({
   account,
   open,
@@ -143,6 +144,7 @@ export function CashAccountDialog({
         bank_name: z.string().max(128),
         iban: z.string().max(42),
         note: z.string().max(2000),
+        provider: z.string(),
       })}
       defaultValues={{
         code: account?.code ?? "",
@@ -154,6 +156,7 @@ export function CashAccountDialog({
         bank_name: account?.bank_name ?? "",
         iban: account?.iban ?? "",
         note: account?.note ?? "",
+        provider: account?.provider ?? NONE,
       }}
       onSubmit={async (v) => {
         const branch = v.branch_uuid !== NONE ? v.branch_uuid : undefined;
@@ -177,6 +180,14 @@ export function CashAccountDialog({
               bank_name: v.bank_name.trim(),
               iban: v.iban.trim(),
               note: v.note.trim(),
+              provider:
+                v.kind === "cash"
+                  ? undefined
+                  : v.provider !== NONE
+                    ? (v.provider as "iyzico")
+                    : editing
+                      ? ""
+                      : undefined,
             },
           });
           close(false);
@@ -192,7 +203,7 @@ export function CashAccountDialog({
           name="kind"
           label={t("finance.fields.kind")}
           disabled={editing}
-          options={(["cash", "bank"] as const).map((k) => ({
+          options={(["cash", "bank", "clearing"] as const).map((k) => ({
             value: k,
             label: t(CASH_KIND_LABEL_KEYS[k]),
           }))}
@@ -215,6 +226,15 @@ export function CashAccountDialog({
         />
         <AppInput name="bank_name" label={t("finance.fields.bank_name")} />
         <AppInput name="iban" label={t("finance.fields.iban")} />
+        <AppSelect
+          name="provider"
+          label={t("finance.fields.settlement_provider")}
+          description={t("finance.fields.settlement_provider_hint")}
+          options={[
+            { value: NONE, label: t("finance.fields.no_provider") },
+            { value: "iyzico", label: "iyzico" },
+          ]}
+        />
       </div>
       <AppTextarea name="note" label={t("finance.fields.note")} />
     </FinanceFormDialog>

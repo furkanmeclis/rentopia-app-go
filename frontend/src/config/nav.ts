@@ -21,6 +21,7 @@ import {
   Smartphone,
   ChartColumn,
   Coins,
+  HandCoins,
   Cpu,
   Download,
   Landmark,
@@ -458,6 +459,13 @@ export function tenantNav(slug: string): NavCatalog {
             titleKey: "layout.nav_finance_accounts",
             href: routes.tenant.finance.accounts(slug),
             icon: Coins,
+            permission: permissions.tenant.finance.accounts.read,
+          },
+          {
+            id: "finance-collections",
+            titleKey: "layout.nav_finance_collections",
+            href: routes.tenant.finance.collections(slug),
+            icon: HandCoins,
             permission: permissions.tenant.finance.accounts.read,
           },
           {

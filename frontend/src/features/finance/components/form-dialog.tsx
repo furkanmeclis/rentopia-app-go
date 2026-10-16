@@ -24,6 +24,8 @@ type FinanceFormDialogProps<T extends FieldValues> = {
   onSubmit: (values: T) => Promise<void>;
   children: ReactNode;
   destructive?: boolean;
+  /** Dialog width / height classes (default: a narrow form). */
+  className?: string;
 };
 
 /**
@@ -44,6 +46,7 @@ export function FinanceFormDialog<T extends FieldValues>({
   onSubmit,
   children,
   destructive,
+  className,
 }: FinanceFormDialogProps<T>) {
   const { t } = useLocale();
   return (
@@ -52,7 +55,7 @@ export function FinanceFormDialog<T extends FieldValues>({
       onOpenChange={onOpenChange}
       title={title}
       description={description}
-      className="max-h-[90dvh] overflow-y-auto sm:max-w-lg"
+      className={className ?? "max-h-[90dvh] overflow-y-auto sm:max-w-lg"}
       footer={
         <>
           <Button

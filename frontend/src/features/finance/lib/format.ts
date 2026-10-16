@@ -51,6 +51,20 @@ export function isPositiveAmount(raw: string): boolean {
   return AMOUNT_RE.test(v) && Number(v) > 0;
 }
 
+/** API decimal ("1300.50") → integer kuruş (previews only; the API decides). */
+export function centsOf(value: string | null | undefined): number {
+  if (!value) return 0;
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.round(n * 100) : 0;
+}
+
+/** Integer kuruş → API decimal ("1300.50"). */
+export function fromCents(cents: number): string {
+  const sign = cents < 0 ? "-" : "";
+  const abs = Math.abs(Math.round(cents));
+  return `${sign}${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, "0")}`;
+}
+
 /** "Kira tahakkuku · ACME-2026-000012" style label of an entry. */
 export function entryTitle(t: Translate, entry: LedgerEntry): string {
   const kind = t(ENTRY_KIND_LABEL_KEYS[entry.kind]);
@@ -83,6 +97,22 @@ export function todayISO(): string {
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
+}
+
+/** An API timestamp (UTC) as "dd.MM.yyyy HH:mm" in Istanbul time. */
+export function istanbulDateTime(value: string, locale: AppLocale): string {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat(locale === "en" ? "en-GB" : "tr-TR", {
+    timeZone: "Europe/Istanbul",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+    .format(d)
+    .replace(",", "");
 }
 
 /** First day of the current month (Istanbul) as yyyy-MM-dd. */

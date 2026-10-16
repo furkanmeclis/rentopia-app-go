@@ -11,7 +11,16 @@ import (
 const (
 	CashKindCash = "cash"
 	CashKindBank = "bank"
+	// CashKindClearing is a provider balance (iyzico) that receives online
+	// collections before the payout to the bank (TEC-718).
+	CashKindClearing = "clearing"
 )
+
+// CashKinds in display order.
+var CashKinds = []string{CashKindCash, CashKindBank, CashKindClearing}
+
+// SettlementProviders are the providers a cash account can settle.
+var SettlementProviders = []string{"iyzico"}
 
 // Movement kinds.
 const (
@@ -52,8 +61,8 @@ type DefaultCategory struct {
 	Sort       int32
 }
 
-// DefaultCategories are seeded for every organization (migration 000097
-// for existing ones, the organization hook for new ones).
+// DefaultCategories are seeded for every organization (migrations 000097
+// and 000101 for existing ones, the organization hook for new ones).
 var DefaultCategories = []DefaultCategory{
 	{"maintenance", "Bakım", 10},
 	{"insurance", "Sigorta", 20},
@@ -62,17 +71,20 @@ var DefaultCategories = []DefaultCategory{
 	{"cleaning", "Temizlik", 50},
 	{"vehicle_procurement", "Araç tedariki", 60},
 	{"operations", "Operasyon", 70},
+	{"payment_commission", "Ödeme komisyonu", 75},
 	{"other", "Diğer", 80},
 }
 
 // CashAccount is a till or a bank account with its balance.
 type CashAccount struct {
-	UUID           uuid.UUID   `json:"uuid"`
-	Code           string      `json:"code"`
-	Name           string      `json:"name"`
-	Kind           string      `json:"kind"`
-	Branch         *Ref        `json:"branch"`
-	Currency       string      `json:"currency"`
+	UUID     uuid.UUID `json:"uuid"`
+	Code     string    `json:"code"`
+	Name     string    `json:"name"`
+	Kind     string    `json:"kind"`
+	Branch   *Ref      `json:"branch"`
+	Currency string    `json:"currency"`
+	// Provider: the online provider whose net settlement lands here.
+	Provider       *string     `json:"provider"`
 	OpeningBalance money.Money `json:"opening_balance"`
 	OpeningDate    Date        `json:"opening_date"`
 	BankName       string      `json:"bank_name"`
@@ -102,6 +114,8 @@ type CashAccountInput struct {
 	IBAN           *string      `json:"iban"`
 	Note           *string      `json:"note"`
 	Status         *string      `json:"status"`
+	// Provider marks the settlement account of an online provider ("" clears).
+	Provider *string `json:"provider"`
 }
 
 // CashAccountFilter filters the cash accounts list.

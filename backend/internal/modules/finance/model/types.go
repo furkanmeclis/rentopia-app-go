@@ -87,6 +87,8 @@ const (
 	SourceTollCharge    = "toll_charge"
 	SourceCashMovement  = "cash_movement"
 	SourceManual        = "manual"
+	// SourceCollection: a collection document's entry (TEC-718).
+	SourceCollection = "collection"
 )
 
 // System reasons of automatic reversals (shown translated in the panel).

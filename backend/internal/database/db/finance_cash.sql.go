@@ -264,7 +264,7 @@ func (q *Queries) GetCashAccountByCode(ctx context.Context, arg GetCashAccountBy
 
 const getCashAccountRow = `-- name: GetCashAccountRow :one
 SELECT c.id, c.uuid, c.code, c.name, c.kind, c.branch_id, c.currency, c.opening_balance, c.opening_date, c.bank_name,
-    c.iban, c.status, c.note, c.created_at, c.updated_at
+    c.iban, c.status, c.note, c.created_at, c.updated_at, c.provider
 FROM cash_accounts c
 WHERE c.organization_id = $1
   AND c.uuid = $2
@@ -291,6 +291,7 @@ type GetCashAccountRowRow struct {
 	Note           string             `json:"note"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	Provider       pgtype.Text        `json:"provider"`
 }
 
 func (q *Queries) GetCashAccountRow(ctx context.Context, arg GetCashAccountRowParams) (GetCashAccountRowRow, error) {
@@ -312,6 +313,7 @@ func (q *Queries) GetCashAccountRow(ctx context.Context, arg GetCashAccountRowPa
 		&i.Note,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Provider,
 	)
 	return i, err
 }
@@ -923,7 +925,7 @@ WITH agg AS (
     GROUP BY m.cash_account_id
 )
 SELECT c.id, c.uuid, c.code, c.name, c.kind, c.currency, c.opening_balance, c.opening_date, c.bank_name, c.iban,
-    c.status, c.note, c.created_at, c.updated_at,
+    c.status, c.note, c.created_at, c.updated_at, c.provider,
     b.uuid AS branch_uuid, b.code AS branch_code, b.name AS branch_name,
     COALESCE(agg.total_in, 0)::numeric AS total_in, COALESCE(agg.total_out, 0)::numeric AS total_out,
     (c.opening_balance + COALESCE(agg.total_in, 0) - COALESCE(agg.total_out, 0))::numeric AS balance,
@@ -990,6 +992,7 @@ type ListCashAccountsRow struct {
 	Note           string             `json:"note"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	Provider       pgtype.Text        `json:"provider"`
 	BranchUuid     pgtype.UUID        `json:"branch_uuid"`
 	BranchCode     pgtype.Text        `json:"branch_code"`
 	BranchName     pgtype.Text        `json:"branch_name"`
@@ -1038,6 +1041,7 @@ func (q *Queries) ListCashAccounts(ctx context.Context, arg ListCashAccountsPara
 			&i.Note,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Provider,
 			&i.BranchUuid,
 			&i.BranchCode,
 			&i.BranchName,
@@ -1540,7 +1544,7 @@ func (q *Queries) ListTransferPair(ctx context.Context, arg ListTransferPairPara
 }
 
 const lockCashAccounts = `-- name: LockCashAccounts :many
-SELECT c.id, c.kind, c.currency, c.status, c.opening_balance
+SELECT c.id, c.kind, c.currency, c.status, c.opening_balance, c.branch_id
 FROM cash_accounts c
 WHERE c.organization_id = $1
   AND c.id = ANY($2::bigint[])
@@ -1559,6 +1563,7 @@ type LockCashAccountsRow struct {
 	Currency       string         `json:"currency"`
 	Status         string         `json:"status"`
 	OpeningBalance pgtype.Numeric `json:"opening_balance"`
+	BranchID       pgtype.Int8    `json:"branch_id"`
 }
 
 // Transfers lock both accounts in id order (no deadlock between two
@@ -1578,6 +1583,7 @@ func (q *Queries) LockCashAccounts(ctx context.Context, arg LockCashAccountsPara
 			&i.Currency,
 			&i.Status,
 			&i.OpeningBalance,
+			&i.BranchID,
 		); err != nil {
 			return nil, err
 		}
