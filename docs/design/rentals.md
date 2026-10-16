@@ -127,7 +127,7 @@ Since M4 these rows are also the field tasks ([field-tasks.md](./field-tasks.md)
 | cleaning | return check with `cleaning`, vehicle swap | staff; completing makes the vehicle available |
 | maintenance | return check with `maintenance` | staff; completing makes the vehicle available |
 | preparation (after a return) | return check with `preparing` | staff; completing makes the vehicle available |
-| deposit | mobile return form ([inspections.md](./inspections.md)), or the return check with `deposit_task` | staff |
+| deposit | mobile return form ([inspections.md](./inspections.md)), or the return check with `deposit_task` | resolving the security deposit ([deposits.md](./deposits.md)), or staff |
 
 - Handover and return tasks cannot be completed by hand (`record_handover` / `record_return`).
 - Reservation changes reschedule the due times of live tasks.

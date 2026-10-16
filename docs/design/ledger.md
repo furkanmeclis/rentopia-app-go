@@ -16,8 +16,8 @@ Module: `backend/internal/modules/finance`. Panel: Finans → Cari hesaplar.
 
 Columns of `ledger_entries`:
 
-- **What happened:** `kind` (`accrual`, `collection`, `payment`, `refund`, `offset`, `adjustment`, `reversal`), `direction` (`debit` / `credit`), `purpose` (`rent`, `charge`, `prepayment`, `deposit`, `general`), `amount > 0`, `currency`, `entry_date`, `due_date`.
-- **Where it came from:** a generic source (`source_type`, `source_uuid`) plus typed FKs: rental, reservation, rental charge, payment, payment refund and cash movement. The typed FKs are composite `(organization_id, id)`, so no row can point into another organization.
+- **What happened:** `kind` (`accrual`, `collection`, `payment`, `refund`, `offset`, `adjustment`, `reversal`, and since TEC-719 `deposit_hold`, `deposit_return`, `deposit_capture`), `direction` (`debit` / `credit`), `purpose` (`rent`, `charge`, `prepayment`, `deposit`, `general`), `amount > 0`, `currency`, `entry_date`, `due_date`.
+- **Where it came from:** a generic source (`source_type`, `source_uuid`) plus typed FKs: rental, reservation, rental charge, payment, payment refund, cash movement, and (TEC-719, migration 000700) security deposit and deposit deduction. The typed FKs are composite `(organization_id, id)`, so no row can point into another organization.
 - **Who and why:** `branch_id`, `created_by`, `reason`.
 - **Bookkeeping:**
   - `accrual_key` and `accrual_generation`
@@ -46,6 +46,7 @@ Both require `tenant.finance.ledger.adjust`, except automatic reversals, which c
 | Payment refund | `refund` (debit), one per refund | Posted after the refund. |
 | Manual collection / refund | `collection` / `refund`, optionally also posted to a till or bank account | From the panel. |
 | Deposit offset | Two `offset` entries sharing an `offset_group`: a deposit debit and a credit to the rent, charge or general debt | From the panel. |
+| Security deposit (TEC-719) | `deposit_hold` (credit) when cash / a transfer is taken, `deposit_capture` (debit) + `collection` (credit, applied to the charge) per deduction, `deposit_return` (debit) for the rest paid back; all deposit legs have purpose `deposit`. A pre-auth posts only the captured collections. Unique per deposit / deduction. | From the deposit flow, see [deposits.md](./deposits.md). |
 
 `SyncRental` reconciles one rental inside the caller's transaction. That covers handover, extension, charge decision or override, and toll charging. It compares the desired accruals with the live ones:
 
@@ -67,11 +68,11 @@ Covered by `TestRT_A23_RentDebitedOnce` (finance) and `TestTollChargesReachTheLe
 
 ## Balances and statuses
 
-The balance of an account is debits minus credits, computed over the entries inside the caller's branch scope.
+The balance of an account is debits minus credits, computed over the entries inside the caller's branch scope. **Entries of purpose `deposit` are not part of it** (TEC-719): a deposit held is a liability towards the customer, kept apart as `deposit_held` (deposit credits minus deposit debits). It never reduces the receivable. The same rule applies to the statement's running balance, the rental balances, the summary, the branch breakdown and the open reservation balances.
 
 Due states are calculated as follows:
 
-- Credits are applied to debits oldest-first. Offsets are excluded, because they settle the deposit.
+- Credits are applied to debits oldest-first. Deposit-purpose entries are excluded; the other leg of an offset or a deposit capture (a credit to the rent, a charge or the general debt) counts as a settlement.
 - `overdue` is the part of the charges that were due before today and are still unpaid.
 - `due_soon` is the part due within 7 days.
 
@@ -97,7 +98,7 @@ The summary (`/finance/summary`) gives organization totals, a breakdown by branc
 - `entries`:
   - meta, list, export
   - `{uuid}`
-  - `{uuid}/reverse`
+  - `{uuid}/reverse` (accruals, offsets and deposit postings are refused: they follow their rental / pair / deposit)
 - `rentals/{uuid}`, `customers/{uuid}`: the ledger cards on the rental and customer detail pages.
 
 Permissions (migration 000098, `rbac.go`, `permissions.ts`): `tenant.finance.accounts.read|write|export` and `tenant.finance.ledger.adjust`.
@@ -136,6 +137,7 @@ Toll posting is tested in `internal/modules/tolls/ledger_integration_test.go`. `
 
 - **TEC-721:** Reservations collected by a channel (`collecting_party <> 'us'`) are not accrued. They belong on the partner's account once partner accounts exist.
 - **TEC-722:** Invoices link to entries through `ledger_entry_links`. There is no invoice table or FK yet.
-- **TEC-718 / TEC-719:** Supplier accounts exist only as `party_kind = 'supplier'` with a nullable `supplier_id`. The supplier FK arrives with the supplier table.
+- **TEC-718 / TEC-721:** Supplier accounts exist only as `party_kind = 'supplier'` with a nullable `supplier_id`. The supplier FK arrives with the supplier table.
+- **TEC-719 (done):** security deposits post through the ledger with the deposit purpose kept outside the balance ([deposits.md](./deposits.md)). Before TEC-719 a deposit collection reduced the balance; existing rows follow the new rule as soon as the queries run.
 - The pay link sent with a statement covers one reservation's open balance. A pay link for the whole account has to be added in payments.
 - iyzico collections credit the customer account but are not deposited automatically into a bank account in the cash book (see `cash-accounts.md`).
