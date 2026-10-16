@@ -17,7 +17,7 @@ Panel: Finans → Kasa ve banka, Kasa / banka hareketleri, Giderler, Gider kateg
 
 Columns of `cash_movements`:
 
-- **What happened:** `kind` (`collection`, `expense`, `refund`, `supplier_payment`, `transfer_in`, `transfer_out`, `adjustment`, `reversal`), `direction` (`in` / `out`), `amount > 0`, `movement_date`.
+- **What happened:** `kind` (`collection`, `expense`, `refund`, `supplier_payment`, `transfer_in`, `transfer_out`, `adjustment`, `reversal`, and since TEC-719 `deposit_in` / `deposit_out`), `direction` (`in` / `out`), `amount > 0`, `movement_date`.
 - **What it belongs to:** an optional category, plus links to a ledger entry (customer collections and refunds), an expense, the counter movement of a transfer (`transfer_group`), and the movement it reverses.
 - **Who and why:** branch, `created_by`, `reason`.
 
@@ -28,6 +28,7 @@ Balance = opening balance + money in − money out.
 - **Transfers are atomic.** One transaction locks both accounts with a single `SELECT … FOR UPDATE ORDER BY id` (so concurrent transfers in opposite directions cannot deadlock), then writes `transfer_out` on the source and `transfer_in` on the target with a shared `transfer_group`. Both accounts must be active and in the same currency.
 - **A till cannot go negative.** A movement, transfer or expense payment that would take a till below zero is refused (`insufficient_funds`). Bank accounts may go negative: overdraft facilities are the bank's business.
 - **A customer collection or refund can name a cash account.** The ledger entry and the cash movement are then written in the same transaction and linked.
+- **Security deposits (TEC-719).** A cash / transfer deposit enters its till / bank account as `deposit_in` (linked to the `deposit_hold` entry); the rest paid back leaves as `deposit_out`. They are kept apart from collections and refunds; the cash flow report counts them in money in / out only. See [deposits.md](./deposits.md).
 - **Expenses.**
   - **Amounts:** give either the total including VAT or the net amount together with a VAT rate; the other figures are derived.
   - **Payment:** naming a paying account writes an `expense` out-movement.

@@ -328,6 +328,7 @@ func main() {
 		financeadapters.NewSupplierInvoicesIO(financeSvc),
 		financeadapters.NewSupplierPaymentsIO(financeSvc),
 		supplieradapters.NewIO(supplierSvc),
+		financeadapters.NewDepositsIO(financeSvc),
 		financeadapters.NewCollectionsIO(financeSvc),
 	)
 	exportSvc := exportusecase.New(queries, store, ioReg, nil, notifSvc, activityRec, log)

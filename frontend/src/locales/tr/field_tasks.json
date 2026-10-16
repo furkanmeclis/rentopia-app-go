@@ -10,6 +10,7 @@
   "actions.open": "Görevi aç",
   "actions.open_handover_form": "Teslim formuna geç",
   "actions.open_return_form": "İade formuna geç",
+  "actions.resolve_deposit": "Depozitoyu sonuçlandır",
   "actions.open_rental": "Kiralamayı aç",
   "actions.report_issue": "Sorun bildir",
   "actions.resume": "Yola devam et",

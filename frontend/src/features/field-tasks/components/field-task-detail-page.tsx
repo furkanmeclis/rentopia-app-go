@@ -10,6 +10,7 @@ import {
   Pencil,
   Phone,
   Play,
+  ShieldCheck,
   UserCheck,
   XCircle,
 } from "lucide-react";
@@ -64,6 +65,7 @@ import { useTenantLiveRefetch } from "@/features/tenant/hooks/use-tenant-live-re
 import { cn } from "@/lib/utils";
 import { datetime } from "@/lib/utils/format";
 import { useLocale } from "@/providers/locale-provider";
+import { usePermission } from "@/providers/permission-provider";
 
 function Row({
   label,
@@ -433,7 +435,16 @@ function ActionButtons({
 }) {
   const { t } = useLocale();
   const { slug } = useTenant();
+  const { can: allowed } = usePermission();
   const none = task.actions.length === 0;
+  // The deposit task (opened by the return) leads to the deposit
+  // resolution; resolving the deposit completes the task (TEC-719).
+  const depositHref =
+    task.task_type === "deposit" &&
+    task.rental &&
+    allowed(permissions.tenant.finance.deposits.read)
+      ? `${routes.tenant.finance.deposits(slug)}?rental=${task.rental.uuid}`
+      : null;
   return (
     <div className="grid gap-2">
       {none ? (
@@ -458,6 +469,16 @@ function ActionButtons({
             {task.inspection === "return"
               ? t("field_tasks.actions.open_return_form")
               : t("field_tasks.actions.open_handover_form")}
+          </Link>
+        </Button>
+      ) : null}
+      {depositHref &&
+      task.status !== "completed" &&
+      task.status !== "cancelled" ? (
+        <Button asChild>
+          <Link href={depositHref}>
+            <ShieldCheck className="size-4" />
+            {t("field_tasks.actions.resolve_deposit")}
           </Link>
         </Button>
       ) : null}

@@ -168,6 +168,12 @@ const (
 	PermTenantFinanceExpensesImport          = "tenant.finance.expenses.import"
 	PermTenantFinanceExpensesBulkSetCategory = "tenant.finance.expenses.bulk.set_category"
 	PermTenantFinanceReportsRead             = "tenant.finance.reports.read"
+	// Security deposits and pre-authorizations (TEC-719, migration 000104):
+	// write takes / releases, deduct captures deductions (with a reason).
+	PermTenantFinanceDepositsRead   = "tenant.finance.deposits.read"
+	PermTenantFinanceDepositsWrite  = "tenant.finance.deposits.write"
+	PermTenantFinanceDepositsDeduct = "tenant.finance.deposits.deduct"
+	PermTenantFinanceDepositsExport = "tenant.finance.deposits.export"
 	// Toll passes (TEC-725, migration 000094). Vehicle tags use
 	// PermTenantVehiclesWrite, the processing fee PermTenantSettingsWrite.
 	PermTenantTollsRead   = "tenant.tolls.read"

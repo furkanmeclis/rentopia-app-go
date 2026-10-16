@@ -697,6 +697,8 @@ func (s *Service) ReverseMovement(ctx context.Context, orgID int64, id uuid.UUID
 		return nil, stateErr("expense_payment", "void the expense to reverse its payment")
 	case mv.Kind == model.MoveSupplierPayment && s.isSupplierPaymentMovement(ctx, orgID, mv.ID):
 		return nil, stateErr("supplier_payment", "void the supplier payment to reverse its movement")
+	case mv.Kind == model.MoveDepositIn || mv.Kind == model.MoveDepositOut:
+		return nil, stateErr("deposit_movement", "deposit movements follow their deposit (resolve or release it)")
 	case mv.Reversed:
 		return nil, stateErr("already_reversed", "the movement is already reversed")
 	}

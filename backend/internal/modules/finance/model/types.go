@@ -59,7 +59,10 @@ const (
 )
 
 // EntryKinds in display order.
-var EntryKinds = []string{KindAccrual, KindCollection, KindPayment, KindRefund, KindOffset, KindAdjustment, KindReversal}
+var EntryKinds = []string{
+	KindAccrual, KindCollection, KindPayment, KindRefund, KindOffset, KindAdjustment, KindReversal,
+	KindDepositHold, KindDepositReturn, KindDepositCapture,
+}
 
 // Directions.
 const (

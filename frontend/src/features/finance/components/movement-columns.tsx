@@ -211,6 +211,8 @@ export function useMovementColumns({
             if (
               m.kind === "reversal" ||
               m.kind === "expense" ||
+              m.kind === "deposit_in" ||
+              m.kind === "deposit_out" ||
               m.reversed_by_uuid
             ) {
               return null;

@@ -1,5 +1,6 @@
 // Package iyzicofake is an in-process fake of the iyzico endpoints the
-// adapter uses (Checkout Form initialize / retrieve, refund v2, BIN check)
+// adapter uses (Checkout Form initialize / retrieve, the pre-auth form,
+// post-auth and cancel, refund v2, BIN check)
 // plus a minimal hosted payment page. It checks the IYZWSv2 authorization
 // of every request, signs its answers like iyzico and builds signed
 // webhooks, so tests (and local browser checks, cmd/iyzico-fake) exercise
@@ -50,6 +51,11 @@ type Checkout struct {
 	State          string
 	PaymentID      string
 	Refunded       money.Money
+	// PreAuth: opened as a pre-authorization; Captured is what post-auth
+	// took (once), Cancelled a released pre-authorization.
+	PreAuth   bool
+	Captured  money.Money
+	Cancelled bool
 }
 
 // Fake is the fake iyzico server.
@@ -68,9 +74,22 @@ type Fake struct {
 	Retrieves   atomic.Int64
 	Initializes atomic.Int64
 	Refunds     atomic.Int64
+	PostAuths   atomic.Int64
+	Cancels     atomic.Int64
 	// FailRefunds makes the refund endpoint refuse every refund (a
 	// provider-side failure in tests).
 	FailRefunds atomic.Bool
+}
+
+// Payment returns a copy of a completed checkout by provider payment id.
+func (f *Fake) Payment(paymentID string) (Checkout, bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	c, ok := f.payments[paymentID]
+	if !ok {
+		return Checkout{}, false
+	}
+	return *c, true
 }
 
 // New starts a fake (Close it with f.Server.Close()).
@@ -233,8 +252,9 @@ func (f *Fake) serve(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/payment/bin/check":
 		writeJSON(w, map[string]any{"status": "success", "binNumber": s("binNumber"), "cardAssociation": "MASTER_CARD"})
-	case "/payment/iyzipos/checkoutform/initialize/auth/ecom":
+	case "/payment/iyzipos/checkoutform/initialize/auth/ecom", "/payment/iyzipos/checkoutform/initialize/preauth/ecom":
 		f.Initializes.Add(1)
+		preAuth := strings.Contains(r.URL.Path, "/preauth/")
 		price, err := money.ParseRound(s("price"))
 		if err != nil || !price.IsPositive() || s("callbackUrl") == "" || s("conversationId") == "" {
 			failure(w, "11", "Geçersiz istek")
@@ -247,6 +267,7 @@ func (f *Fake) serve(w http.ResponseWriter, r *http.Request) {
 		f.checkouts[token] = &Checkout{
 			Token: token, APIKey: apiKey, ConversationID: s("conversationId"), BasketID: s("basketId"), Price: price,
 			PaidPrice: paid, Currency: s("currency"), CallbackURL: s("callbackUrl"), State: StateInit, Refunded: money.Zero(),
+			PreAuth: preAuth, Captured: money.Zero(),
 		}
 		f.mu.Unlock()
 		writeJSON(w, map[string]any{
@@ -291,6 +312,51 @@ func (f *Fake) serve(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{
 			"status": "success", "paymentId": c.PaymentID, "price": json.Number(iyzico.FormatPrice(amount)),
 			"currency": c.Currency, "hostReference": "refund-" + strconv.FormatInt(f.seq, 10),
+		})
+	case "/payment/postauth":
+		f.PostAuths.Add(1)
+		amount, err := money.ParseRound(s("paidPrice"))
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		c, ok := f.payments[s("paymentId")]
+		if !ok || c.APIKey != apiKey || !c.PreAuth || err != nil || !amount.IsPositive() {
+			failure(w, "5093", "Ödeme bulunamadı")
+			return
+		}
+		if c.Cancelled || c.Captured.IsPositive() {
+			failure(w, "5097", "Provizyon kapatılmış")
+			return
+		}
+		if amount.Cmp(c.Price) > 0 {
+			failure(w, "5098", "Tutar provizyon tutarını aşıyor")
+			return
+		}
+		c.Captured = amount
+		paid := iyzico.FormatPrice(amount)
+		price := iyzico.FormatPrice(c.Price)
+		writeJSON(w, map[string]any{
+			"status": "success", "locale": "tr", "conversationId": s("conversationId"), "paymentId": c.PaymentID,
+			"basketId": c.BasketID, "currency": c.Currency, "price": json.Number(price), "paidPrice": json.Number(paid),
+			"paymentStatus": "SUCCESS",
+			"signature":     iyzico.Sign(secret, c.PaymentID, c.Currency, c.BasketID, s("conversationId"), paid, price),
+		})
+	case "/payment/cancel":
+		f.Cancels.Add(1)
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		c, ok := f.payments[s("paymentId")]
+		if !ok || c.APIKey != apiKey {
+			failure(w, "5093", "Ödeme bulunamadı")
+			return
+		}
+		if c.Cancelled || c.Captured.IsPositive() {
+			failure(w, "5097", "Provizyon kapatılmış")
+			return
+		}
+		c.Cancelled = true
+		writeJSON(w, map[string]any{
+			"status": "success", "locale": "tr", "conversationId": s("conversationId"), "paymentId": c.PaymentID,
+			"price": json.Number(iyzico.FormatPrice(c.Price)), "currency": c.Currency,
 		})
 	default:
 		failure(w, "404", "unknown endpoint")

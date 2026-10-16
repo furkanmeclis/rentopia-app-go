@@ -584,6 +584,25 @@ type DateRuleVersionTarget struct {
 	BranchID          pgtype.Int8 `json:"branch_id"`
 }
 
+type DepositDeduction struct {
+	ID                  int64              `json:"id"`
+	Uuid                uuid.UUID          `json:"uuid"`
+	OrganizationID      int64              `json:"organization_id"`
+	DepositID           int64              `json:"deposit_id"`
+	Amount              pgtype.Numeric     `json:"amount"`
+	AppliesTo           string             `json:"applies_to"`
+	Reason              string             `json:"reason"`
+	RentalChargeID      pgtype.Int8        `json:"rental_charge_id"`
+	InspectionDamageID  pgtype.Int8        `json:"inspection_damage_id"`
+	DocumentObjectKey   pgtype.Text        `json:"document_object_key"`
+	DocumentName        string             `json:"document_name"`
+	DocumentContentType string             `json:"document_content_type"`
+	DocumentSizeBytes   int64              `json:"document_size_bytes"`
+	CreatedBy           pgtype.Int8        `json:"created_by"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Document struct {
 	ID               int64              `json:"id"`
 	Uuid             uuid.UUID          `json:"uuid"`
@@ -1113,37 +1132,39 @@ type KabisNotification struct {
 }
 
 type LedgerEntry struct {
-	ID                int64              `json:"id"`
-	Uuid              uuid.UUID          `json:"uuid"`
-	OrganizationID    int64              `json:"organization_id"`
-	AccountID         int64              `json:"account_id"`
-	Kind              string             `json:"kind"`
-	Direction         string             `json:"direction"`
-	Purpose           string             `json:"purpose"`
-	Amount            pgtype.Numeric     `json:"amount"`
-	Currency          string             `json:"currency"`
-	EntryDate         pgtype.Date        `json:"entry_date"`
-	DueDate           pgtype.Date        `json:"due_date"`
-	Description       string             `json:"description"`
-	Reason            string             `json:"reason"`
-	SourceType        string             `json:"source_type"`
-	SourceUuid        pgtype.UUID        `json:"source_uuid"`
-	RentalID          pgtype.Int8        `json:"rental_id"`
-	ReservationID     pgtype.Int8        `json:"reservation_id"`
-	RentalChargeID    pgtype.Int8        `json:"rental_charge_id"`
-	PaymentID         pgtype.Int8        `json:"payment_id"`
-	PaymentRefundID   pgtype.Int8        `json:"payment_refund_id"`
-	AccrualKey        pgtype.Text        `json:"accrual_key"`
-	AccrualGeneration pgtype.Int4        `json:"accrual_generation"`
-	ReversesEntryID   pgtype.Int8        `json:"reverses_entry_id"`
-	AdjustsEntryID    pgtype.Int8        `json:"adjusts_entry_id"`
-	OffsetGroup       pgtype.UUID        `json:"offset_group"`
-	BranchID          pgtype.Int8        `json:"branch_id"`
-	CreatedBy         pgtype.Int8        `json:"created_by"`
-	CreatedAt         pgtype.Timestamptz `json:"created_at"`
-	CollectionID      pgtype.Int8        `json:"collection_id"`
-	SupplierInvoiceID pgtype.Int8        `json:"supplier_invoice_id"`
-	SupplierPaymentID pgtype.Int8        `json:"supplier_payment_id"`
+	ID                 int64              `json:"id"`
+	Uuid               uuid.UUID          `json:"uuid"`
+	OrganizationID     int64              `json:"organization_id"`
+	AccountID          int64              `json:"account_id"`
+	Kind               string             `json:"kind"`
+	Direction          string             `json:"direction"`
+	Purpose            string             `json:"purpose"`
+	Amount             pgtype.Numeric     `json:"amount"`
+	Currency           string             `json:"currency"`
+	EntryDate          pgtype.Date        `json:"entry_date"`
+	DueDate            pgtype.Date        `json:"due_date"`
+	Description        string             `json:"description"`
+	Reason             string             `json:"reason"`
+	SourceType         string             `json:"source_type"`
+	SourceUuid         pgtype.UUID        `json:"source_uuid"`
+	RentalID           pgtype.Int8        `json:"rental_id"`
+	ReservationID      pgtype.Int8        `json:"reservation_id"`
+	RentalChargeID     pgtype.Int8        `json:"rental_charge_id"`
+	PaymentID          pgtype.Int8        `json:"payment_id"`
+	PaymentRefundID    pgtype.Int8        `json:"payment_refund_id"`
+	AccrualKey         pgtype.Text        `json:"accrual_key"`
+	AccrualGeneration  pgtype.Int4        `json:"accrual_generation"`
+	ReversesEntryID    pgtype.Int8        `json:"reverses_entry_id"`
+	AdjustsEntryID     pgtype.Int8        `json:"adjusts_entry_id"`
+	OffsetGroup        pgtype.UUID        `json:"offset_group"`
+	BranchID           pgtype.Int8        `json:"branch_id"`
+	CreatedBy          pgtype.Int8        `json:"created_by"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	CollectionID       pgtype.Int8        `json:"collection_id"`
+	SecurityDepositID  pgtype.Int8        `json:"security_deposit_id"`
+	DepositDeductionID pgtype.Int8        `json:"deposit_deduction_id"`
+	SupplierInvoiceID  pgtype.Int8        `json:"supplier_invoice_id"`
+	SupplierPaymentID  pgtype.Int8        `json:"supplier_payment_id"`
 }
 
 type LedgerEntryLink struct {
@@ -2026,6 +2047,44 @@ type Role struct {
 type RolePermission struct {
 	RoleID       int64 `json:"role_id"`
 	PermissionID int64 `json:"permission_id"`
+}
+
+type SecurityDeposit struct {
+	ID                     int64              `json:"id"`
+	Uuid                   uuid.UUID          `json:"uuid"`
+	OrganizationID         int64              `json:"organization_id"`
+	RentalID               int64              `json:"rental_id"`
+	ReservationID          int64              `json:"reservation_id"`
+	CustomerID             int64              `json:"customer_id"`
+	AccountID              pgtype.Int8        `json:"account_id"`
+	BranchID               int64              `json:"branch_id"`
+	Amount                 pgtype.Numeric     `json:"amount"`
+	Currency               string             `json:"currency"`
+	Method                 string             `json:"method"`
+	Status                 string             `json:"status"`
+	CashAccountID          pgtype.Int8        `json:"cash_account_id"`
+	PosReference           string             `json:"pos_reference"`
+	Provider               string             `json:"provider"`
+	IntegrationAccountID   pgtype.Int8        `json:"integration_account_id"`
+	ProviderToken          string             `json:"provider_token"`
+	ProviderPaymentID      string             `json:"provider_payment_id"`
+	PaymentPageUrl         string             `json:"payment_page_url"`
+	ProviderData           []byte             `json:"provider_data"`
+	AuthorizationExpiresAt pgtype.Timestamptz `json:"authorization_expires_at"`
+	CapturedAmount         pgtype.Numeric     `json:"captured_amount"`
+	ReturnedAmount         pgtype.Numeric     `json:"returned_amount"`
+	Note                   string             `json:"note"`
+	HeldAt                 pgtype.Timestamptz `json:"held_at"`
+	ResolvedAt             pgtype.Timestamptz `json:"resolved_at"`
+	ResolutionKey          string             `json:"resolution_key"`
+	ResolutionNote         string             `json:"resolution_note"`
+	ResolvedBy             pgtype.Int8        `json:"resolved_by"`
+	CancelReason           string             `json:"cancel_reason"`
+	CustomerNoticeStatus   string             `json:"customer_notice_status"`
+	CustomerNotice         []byte             `json:"customer_notice"`
+	CreatedBy              pgtype.Int8        `json:"created_by"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
 }
 
 type ServicePoint struct {

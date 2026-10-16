@@ -165,6 +165,9 @@ export const routes = {
         `/t/${encodeURIComponent(slug)}/finance/supplier-payments`,
       payables: (slug: string) =>
         `/t/${encodeURIComponent(slug)}/finance/payables`,
+      /** Security deposits; `?rental=` opens that rental's resolution. */
+      deposits: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/finance/deposits`,
       collections: (slug: string) =>
         `/t/${encodeURIComponent(slug)}/finance/collections`,
       collection: (slug: string, uuid: string) =>

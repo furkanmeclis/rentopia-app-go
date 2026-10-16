@@ -10,6 +10,7 @@
   "actions.open": "Open task",
   "actions.open_handover_form": "Open the handover form",
   "actions.open_return_form": "Open the return form",
+  "actions.resolve_deposit": "Resolve the deposit",
   "actions.open_rental": "Open rental",
   "actions.report_issue": "Report an issue",
   "actions.resume": "Resume the trip",

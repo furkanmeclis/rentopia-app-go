@@ -27,7 +27,7 @@ Allocation modes on create and on `POST /collections/{uuid}/allocations`:
 - `manual`: the items named, the amount defaulting to the item's open amount. An amount above the item's open amount or above what the collection has left is a validation error.
 - `none` (create only): keep everything as credit.
 
-What a collection pays beyond its open items is the customer's **credit**; it is allocated later by hand, by the bulk action, or automatically when the rental accrues (below). Deposits (`purpose = deposit`) are held, never allocated (TEC-719 settles them with offsets). Supplier accounts take no collections (`supplier_account`); they are settled by supplier payments ([suppliers.md](./suppliers.md)).
+What a collection pays beyond its open items is the customer's **credit**; it is allocated later by hand, by the bulk action, or automatically when the rental accrues (below). Deposits (`purpose = deposit`) are held, never allocated; TEC-719 settles them with deduction / offset documents that are allocated (see open items). Supplier accounts take no collections (`supplier_account`); they are settled by supplier payments ([suppliers.md](./suppliers.md)).
 
 ### Safety
 
@@ -101,6 +101,6 @@ Branch scope: a collection belongs to its branch (head office collections need e
 
 - Branch collections recorded in finance do not change the reservation's `paid_amount` / payment status; those still come from the payments module (online payments and reservation collections). The rental's money state is the ledger.
 - Aging (overdue / due soon on accounts and the summary) still applies credits to debits oldest first over balances; it does not read allocations yet.
-- Deposit offsets (TEC-719) settle a rent or charge without an allocation row, so such an item still shows as open.
+- Deposit settlements (TEC-719): a deposit deduction and the settling leg of an offset each get a collection document (method of the deposit, or `other` for an offset) allocated to their charge / the rental's items, so the item shows as paid. These documents are not refundable or voidable (`deposit_managed`); deposit holds and returns never get a document and are never credit ([deposits.md](./deposits.md)).
 - Payment-backed branch collections (reservation collections) have no till: a refund goes through payments without a cash movement.
 - Provider payouts (clearing → bank) are manual transfers; a settlement report import would close that loop.

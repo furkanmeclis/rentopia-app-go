@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
+import { RentalDepositCard } from "@/features/deposits/components/rental-deposit-card";
+import { DEPOSIT_STATUS_LABEL_KEYS } from "@/features/deposits/constants";
 import type {
   Inspection,
   InspectionDraftRequest,
@@ -160,71 +162,81 @@ export function VerifyStep({ ins, readOnly, commit }: StepProps) {
   );
 }
 
-/** Step 2 (handover): money from payments — display only. */
+/**
+ * Step 2 (handover): money from payments (display only) and the security
+ * deposit card ("Depozito al", TEC-719).
+ */
 export function AmountsStep({ ins }: StepProps) {
   const { t, locale } = useLocale();
   const a = ins.rental.amounts;
   const balance = Number(a.balance);
+  const depositStatus =
+    a.deposit_status === "none"
+      ? t("deposits.status.none")
+      : t(DEPOSIT_STATUS_LABEL_KEYS[a.deposit_status]);
   return (
-    <EntitySectionCard title={t("inspections.amounts.title")}>
-      <EntityDetail
-        sections={[
-          {
-            id: "amounts",
-            fields: [
-              {
-                key: "total",
-                label: t("inspections.amounts.total"),
-                value: money(a.total, a.currency, locale),
-              },
-              {
-                key: "paid",
-                label: t("inspections.amounts.paid"),
-                value: money(a.paid, a.currency, locale),
-              },
-              {
-                key: "balance",
-                label: t("inspections.amounts.balance"),
-                value: (
-                  <span
-                    className={
-                      balance > 0 ? "text-destructive font-semibold" : ""
-                    }
-                  >
-                    {money(a.balance, a.currency, locale)}
-                  </span>
-                ),
-              },
-              {
-                key: "payment_status",
-                label: t("inspections.amounts.payment_status"),
-                value: a.payment_status || "—",
-              },
-              {
-                key: "deposit",
-                label: t("inspections.amounts.deposit"),
-                value: a.deposit_amount
-                  ? money(a.deposit_amount, a.currency, locale)
-                  : "—",
-              },
-              {
-                key: "deposit_status",
-                label: t("inspections.amounts.deposit_status"),
-                value: t("inspections.amounts.deposit_not_tracked"),
-              },
-            ],
-          },
-        ]}
-      />
-      {balance > 0 ? (
-        <Alert className="mt-3">
-          <AlertTriangle className="size-4" />
-          <AlertDescription>
-            {t("inspections.amounts.balance_hint")}
-          </AlertDescription>
-        </Alert>
-      ) : null}
-    </EntitySectionCard>
+    <div className="space-y-4">
+      <EntitySectionCard title={t("inspections.amounts.title")}>
+        <EntityDetail
+          sections={[
+            {
+              id: "amounts",
+              fields: [
+                {
+                  key: "total",
+                  label: t("inspections.amounts.total"),
+                  value: money(a.total, a.currency, locale),
+                },
+                {
+                  key: "paid",
+                  label: t("inspections.amounts.paid"),
+                  value: money(a.paid, a.currency, locale),
+                },
+                {
+                  key: "balance",
+                  label: t("inspections.amounts.balance"),
+                  value: (
+                    <span
+                      className={
+                        balance > 0 ? "text-destructive font-semibold" : ""
+                      }
+                    >
+                      {money(a.balance, a.currency, locale)}
+                    </span>
+                  ),
+                },
+                {
+                  key: "payment_status",
+                  label: t("inspections.amounts.payment_status"),
+                  value: a.payment_status || "—",
+                },
+                {
+                  key: "deposit",
+                  label: t("inspections.amounts.deposit"),
+                  value: a.deposit_amount
+                    ? money(a.deposit_amount, a.currency, locale)
+                    : "—",
+                },
+                {
+                  key: "deposit_status",
+                  label: t("inspections.amounts.deposit_status"),
+                  value: depositStatus,
+                },
+              ],
+            },
+          ]}
+        />
+        {balance > 0 ? (
+          <Alert className="mt-3">
+            <AlertTriangle className="size-4" />
+            <AlertDescription>
+              {t("inspections.amounts.balance_hint")}
+            </AlertDescription>
+          </Alert>
+        ) : null}
+      </EntitySectionCard>
+      <RentalDepositCard rentalUuid={ins.rental.uuid} />
+    </div>
   );
 }
 

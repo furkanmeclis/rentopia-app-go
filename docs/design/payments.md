@@ -41,7 +41,7 @@ The tenant shell has no step-up policy yet (the step-up engine guards platform r
 
 ### 3.1 Provider layer
 
-`payments.Provider` = `integrations.Adapter` + `CreateCheckout` (hosted 3DS checkout / pay-with-provider page), `Retrieve` (read and verify a checkout result), `Refund` (partial / full), `ParseWebhook` and `VerifyWebhook`. `PreAuthorizer` (`PreAuth`, `Capture`, `Void`) is the optional deposit flow; iyzico's pre-auth needs card data on the merchant side, so the iyzico adapter does not implement it (deposits stay at the branch). **No card field ever exists in Rentopia**: the customer pays on iyzico's Checkout Form page.
+`payments.Provider` = `integrations.Adapter` + `CreateCheckout` (hosted 3DS checkout / pay-with-provider page), `Retrieve` (read and verify a checkout result), `Refund` (partial / full), `ParseWebhook` and `VerifyWebhook`. `PreAuthorizer` (`PreAuth`, `Capture`, `Void`) is the optional deposit flow. Since TEC-719 the iyzico adapter implements it with the Checkout Form's pre-auth variant (hosted, no card data), post-auth and cancel; pending sandbox verification ([deposits.md](./deposits.md) §5). **No card field ever exists in Rentopia**: the customer pays on iyzico's Checkout Form page.
 
 ### 3.2 iyzico adapter
 
@@ -176,6 +176,6 @@ Public (OpenAPI tag `Payments`): `GET /v1/public/pay/{token}` (organization name
 - **Real iyzico sandbox** (TEC-684, İdes merchant access): run §3.3 against the sandbox, set the merchant notification URL, then flip an account to live.
 - Pay-by-link delivery (SMS / e-mail to the customer) is manual (copy link); notifications can send it once templates exist.
 - Customer-facing booking channels (web / widget / API) that create staff-approved requests themselves are M4; the protocol and the queue are ready.
-- Deposits / pre-authorization stay at the branch (iyzico has no hosted pre-auth); `PreAuthorizer` is the extension point.
+- Deposits / pre-authorization: implemented in TEC-719 ([deposits.md](./deposits.md)); the pre-auth webhook is not routed to deposits yet (staff verify with a retrieve).
 - A tenant step-up policy for integration changes (§2.4).
 - Several pending checkouts of one link can each succeed (a customer paying twice): both are recorded, the reservation is confirmed once, the extra is refunded by staff.

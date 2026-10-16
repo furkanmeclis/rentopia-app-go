@@ -90,14 +90,15 @@ A supplier account's credits are its charges. Aging and account status are party
 
 `/finance/summary` reports supplier payables separately, in `payable_overdue` and `payable_due_soon`, so they do not mix with customer receivables.
 
-### Collections (TEC-718)
+### Collections and deposits (TEC-718, TEC-719)
 
 Collections are customer-side only:
 
 - **No collection documents.** A supplier payment is a `payment` entry with source `supplier_payment`. It never creates a collection document and does not appear in the collections list.
 - **No collections on supplier accounts.** Creating a collection (`/finance/collections`, or the account's `collections` route) and listing open items are refused with `supplier_account`.
 - **Not allocatable.** The `collection_allocations` guard accepts only live debit accruals on the collection's own account, so supplier invoice accruals (credits) can never be allocated.
-- **Aging.** Aging on balances stays party-aware as described above. Collections do not change it.
+- **Deposits (TEC-719).** Deposit deductions and offsets create collection documents on the renter's customer account (method `other`, scoped by purpose). They never touch a supplier account.
+- **Aging.** Aging on balances is both party-aware (supplier sides flipped) and deposit-aware (`purpose = deposit` stays out of the balance and the aging). Supplier entries are never deposit-purpose (invoices are `charge`, payments `general`), so the two rules do not interact.
 
 ## Vehicles
 

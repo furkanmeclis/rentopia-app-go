@@ -2,7 +2,6 @@
   "amounts.balance": "Remaining payment",
   "amounts.balance_hint": "Collect the remaining payment before handing the vehicle over (Payments tab).",
   "amounts.deposit": "Deposit / provision",
-  "amounts.deposit_not_tracked": "Taken at the branch (no record in the system)",
   "amounts.deposit_status": "Deposit status",
   "amounts.paid": "Paid",
   "amounts.payment_status": "Payment status",

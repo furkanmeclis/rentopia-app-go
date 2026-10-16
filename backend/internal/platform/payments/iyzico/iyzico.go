@@ -1,7 +1,9 @@
 // Package iyzico is the iyzico payment adapter (TEC-707): Checkout Form
 // (hosted, 3DS) initialize + retrieve, refund (v2, by payment id), a BIN
 // check as the connection test, and the X-IYZ-SIGNATURE-V3 webhook
-// signature. Requests are authenticated with iyzico's HMAC scheme IYZWSv2:
+// signature. For security deposits (TEC-719) it is also a
+// payments.PreAuthorizer: the checkout form's pre-auth initialize,
+// post-auth (capture) and cancel (release). Requests are authenticated with iyzico's HMAC scheme IYZWSv2:
 //
 //	signature = hex(HMAC-SHA256(secretKey, randomKey + uriPath + body))
 //	Authorization: IYZWSv2 base64("apiKey:" + apiKey + "&randomKey:" + randomKey + "&signature:" + signature)
@@ -44,9 +46,16 @@ const (
 	DefaultLive    = "https://api.iyzipay.com"
 
 	pathInitialize = "/payment/iyzipos/checkoutform/initialize/auth/ecom"
-	pathRetrieve   = "/payment/iyzipos/checkoutform/auth/ecom/detail"
-	pathRefund     = "/v2/payment/refund"
-	pathBinCheck   = "/payment/bin/check"
+	// Pre-authorization (security deposits, TEC-719): the hosted checkout
+	// form's pre-auth variant (the direct /payment/preauth needs card
+	// fields on our side), post-auth to capture, cancel to release. Pending
+	// sandbox verification (TEC-684, docs/design/deposits.md §5).
+	pathPreAuthInitialize = "/payment/iyzipos/checkoutform/initialize/preauth/ecom"
+	pathPostAuth          = "/payment/postauth"
+	pathCancel            = "/payment/cancel"
+	pathRetrieve          = "/payment/iyzipos/checkoutform/auth/ecom/detail"
+	pathRefund            = "/v2/payment/refund"
+	pathBinCheck          = "/payment/bin/check"
 
 	// SignatureHeader carries the webhook signature.
 	SignatureHeader = "X-IYZ-SIGNATURE-V3"
@@ -91,7 +100,10 @@ func New(cfg Config) *Adapter {
 	return &Adapter{cfg: cfg}
 }
 
-var _ payments.Provider = (*Adapter)(nil)
+var (
+	_ payments.Provider      = (*Adapter)(nil)
+	_ payments.PreAuthorizer = (*Adapter)(nil)
+)
 
 // Kind implements integrations.Adapter.
 func (a *Adapter) Kind() string { return integrations.KindPayment }
@@ -259,6 +271,16 @@ func (a *Adapter) Check(ctx context.Context, account integrations.Account) error
 
 // CreateCheckout implements payments.Provider (Checkout Form initialize).
 func (a *Adapter) CreateCheckout(ctx context.Context, account integrations.Account, in payments.CheckoutRequest) (payments.Checkout, error) {
+	return a.initialize(ctx, account, pathInitialize, in)
+}
+
+// PreAuth implements payments.PreAuthorizer: the same hosted form, opened
+// as a pre-authorization (the amount is held on the card, not taken).
+func (a *Adapter) PreAuth(ctx context.Context, account integrations.Account, in payments.CheckoutRequest) (payments.Checkout, error) {
+	return a.initialize(ctx, account, pathPreAuthInitialize, in)
+}
+
+func (a *Adapter) initialize(ctx context.Context, account integrations.Account, path string, in payments.CheckoutRequest) (payments.Checkout, error) {
 	price := FormatPrice(in.Amount)
 	locale := in.Locale
 	if locale == "" {
@@ -287,7 +309,7 @@ func (a *Adapter) CreateCheckout(ctx context.Context, account integrations.Accou
 			"id": in.ItemID, "name": in.ItemName, "category1": in.ItemCategory, "itemType": "VIRTUAL", "price": price,
 		}},
 	}
-	out, err := a.post(ctx, account, pathInitialize, body)
+	out, err := a.post(ctx, account, path, body)
 	if err != nil {
 		return payments.Checkout{}, err
 	}
@@ -398,6 +420,66 @@ func (a *Adapter) Refund(ctx context.Context, account integrations.Account, in p
 		}
 	}
 	return payments.RefundResult{RefundID: id, Amount: amount(out, "price")}, nil
+}
+
+// Capture implements payments.PreAuthorizer (post-auth): takes amount (at
+// most the authorized amount) from a pre-authorization; iyzico releases
+// the rest of the hold. A signed answer (paymentId:currency:basketId:
+// conversationId:paidPrice:price) is verified when present.
+func (a *Adapter) Capture(ctx context.Context, account integrations.Account, in payments.CaptureRequest) (payments.Result, error) {
+	locale := in.Locale
+	if locale == "" {
+		locale = "tr"
+	}
+	out, err := a.post(ctx, account, pathPostAuth, map[string]any{
+		"locale": locale, "conversationId": in.ConversationID, "paymentId": in.PaymentID,
+		"paidPrice": FormatPrice(in.Amount), "currency": in.Currency, "ip": in.IP,
+	})
+	if err != nil {
+		return payments.Result{}, err
+	}
+	if sig := str(out, "signature"); sig != "" {
+		secret := account.Credentials[FieldSecretKey]
+		ok := false
+		for _, paid := range numberForms(str(out, "paidPrice")) {
+			for _, price := range numberForms(str(out, "price")) {
+				if equalHex(sig, Sign(secret, str(out, "paymentId"), str(out, "currency"), str(out, "basketId"),
+					str(out, "conversationId"), paid, price)) {
+					ok = true
+				}
+			}
+		}
+		if !ok {
+			return payments.Result{}, payments.ErrInvalidSignature
+		}
+	}
+	if str(out, "paymentId") != "" && str(out, "paymentId") != in.PaymentID {
+		return payments.Result{}, fmt.Errorf("%w: post-auth answered another payment", payments.ErrMalformed)
+	}
+	return payments.Result{
+		Status: payments.StatusSucceeded, ProviderStatus: str(out, "paymentStatus"), PaymentID: in.PaymentID,
+		ConversationID: str(out, "conversationId"), BasketID: str(out, "basketId"), Currency: str(out, "currency"),
+		Price: amount(out, "price"), PaidPrice: amount(out, "paidPrice"), Data: map[string]any{},
+	}, nil
+}
+
+// Void implements payments.PreAuthorizer (cancel): releases a
+// pre-authorization nothing was captured from.
+func (a *Adapter) Void(ctx context.Context, account integrations.Account, in payments.VoidRequest) error {
+	locale := in.Locale
+	if locale == "" {
+		locale = "tr"
+	}
+	out, err := a.post(ctx, account, pathCancel, map[string]any{
+		"locale": locale, "conversationId": in.ConversationID, "paymentId": in.PaymentID, "ip": in.IP,
+	})
+	if err != nil {
+		return err
+	}
+	if str(out, "paymentId") != "" && str(out, "paymentId") != in.PaymentID {
+		return fmt.Errorf("%w: cancel answered another payment", payments.ErrMalformed)
+	}
+	return nil
 }
 
 type webhookBody struct {

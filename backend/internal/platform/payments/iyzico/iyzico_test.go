@@ -111,3 +111,59 @@ func TestCheckoutRetrieveRefundWebhook(t *testing.T) {
 		t.Fatalf("malformed webhook: %v", err)
 	}
 }
+
+// TestPreAuthCaptureVoid: the hosted pre-auth form, post-auth of part of
+// the hold (once, never above it) and cancel of an uncaptured one.
+func TestPreAuthCaptureVoid(t *testing.T) {
+	f, a, acc := setup(t)
+	ctx := context.Background()
+	open := func(conv string) payments.Result {
+		t.Helper()
+		co, err := a.PreAuth(ctx, acc, payments.CheckoutRequest{
+			ConversationID: conv, BasketID: conv, Amount: money.MustParse("2000"), Currency: "TRY",
+			CallbackURL: "https://app.test/deposit-preauth/x/callback", ItemID: "KR-1", ItemName: "Depozito", ItemCategory: "Depozito",
+			Buyer: payments.Buyer{ID: "c1", Name: "Ada", Surname: "Yılmaz", IdentityNumber: "11111111111", City: "Istanbul", Country: "Turkey", IP: "10.0.0.1"},
+		})
+		if err != nil || co.Token == "" {
+			t.Fatalf("preauth: %+v %v", co, err)
+		}
+		if c, _ := f.Checkout(co.Token); !c.PreAuth {
+			t.Fatal("the form was not opened as a pre-authorization")
+		}
+		if _, _, err := f.Complete(co.Token, iyzicofake.StatePaid); err != nil {
+			t.Fatal(err)
+		}
+		r, err := a.Retrieve(ctx, acc, payments.RetrieveRequest{Token: co.Token, ConversationID: conv})
+		if err != nil || r.Status != payments.StatusSucceeded || r.PaymentID == "" {
+			t.Fatalf("retrieve: %+v %v", r, err)
+		}
+		return r
+	}
+	conv := "6f1c2d3e-0000-4000-8000-0000000000a1"
+	r := open(conv)
+	var pe *payments.ProviderError
+	if _, err := a.Capture(ctx, acc, payments.CaptureRequest{PaymentID: r.PaymentID, ConversationID: conv, Amount: money.MustParse("2500"), Currency: "TRY"}); !errors.As(err, &pe) {
+		t.Fatalf("capture above the hold: %v", err)
+	}
+	got, err := a.Capture(ctx, acc, payments.CaptureRequest{PaymentID: r.PaymentID, ConversationID: conv, Amount: money.MustParse("750"), Currency: "TRY", IP: "10.0.0.1"})
+	if err != nil || !got.PaidPrice.Equal(money.MustParse("750")) || got.PaymentID != r.PaymentID {
+		t.Fatalf("capture: %+v %v", got, err)
+	}
+	if _, err := a.Capture(ctx, acc, payments.CaptureRequest{PaymentID: r.PaymentID, ConversationID: conv, Amount: money.MustParse("100"), Currency: "TRY"}); !errors.As(err, &pe) {
+		t.Fatalf("second capture: %v", err)
+	}
+	if err := a.Void(ctx, acc, payments.VoidRequest{PaymentID: r.PaymentID, ConversationID: conv}); !errors.As(err, &pe) {
+		t.Fatalf("void after capture: %v", err)
+	}
+	conv2 := "6f1c2d3e-0000-4000-8000-0000000000a2"
+	r2 := open(conv2)
+	if err := a.Void(ctx, acc, payments.VoidRequest{PaymentID: r2.PaymentID, ConversationID: conv2, IP: "10.0.0.1"}); err != nil {
+		t.Fatalf("void: %v", err)
+	}
+	if p, _ := f.Payment(r2.PaymentID); !p.Cancelled {
+		t.Fatal("the pre-authorization was not released")
+	}
+	if f.PostAuths.Load() != 3 || f.Cancels.Load() != 2 {
+		t.Fatalf("post-auths %d, cancels %d", f.PostAuths.Load(), f.Cancels.Load())
+	}
+}
