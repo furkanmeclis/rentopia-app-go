@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 
 	ubltr "github.com/furkanmeclis/go-ubltr"
@@ -127,12 +128,19 @@ func Validate(ctx context.Context, doc Document) ([]byte, Totals, []Problem, err
 		}
 		return nil, Totals{}, nil, err
 	}
-	problems, err := ValidateXML(ctx, data, doc.Profile)
+	problems, err := ValidateXML(ctx, data, doc.Profile, doc.Today)
 	return data, totals, problems, err
 }
 
-// ValidateXML checks built XML against the XSD and the Schematron.
-func ValidateXML(ctx context.Context, data []byte, profile string) ([]Problem, error) {
+// ValidateXML checks built XML against the XSD and the Schematron. today is
+// the Europe/Istanbul business day (YYYY-MM-DD, empty = now): the Schematron
+// compares the issue date with the process clock's date, which runs in UTC
+// and so calls the Istanbul date "future" from 21:00 to 24:00 UTC; that one
+// assertion is re-decided against today.
+func ValidateXML(ctx context.Context, data []byte, profile, today string) ([]Problem, error) {
+	if today == "" {
+		today = TodayIstanbul()
+	}
 	var out []Problem
 	if err := ubltr.ValidateXSD(ctx, data); err != nil {
 		var xe *ubltr.XSDValidationError
@@ -155,6 +163,9 @@ func ValidateXML(ctx context.Context, data []byte, profile string) ([]Problem, e
 			return nil, err
 		}
 		for _, v := range se.Violations {
+			if futureOnlyInUTC(v.Message, today) {
+				continue
+			}
 			code := "schematron"
 			if v.RuleID != "" {
 				code = v.RuleID
@@ -163,6 +174,26 @@ func ValidateXML(ctx context.Context, data []byte, profile string) ([]Problem, e
 		}
 	}
 	return out, nil
+}
+
+var istanbul = func() *time.Location {
+	if loc, err := time.LoadLocation("Europe/Istanbul"); err == nil {
+		return loc
+	}
+	return time.FixedZone("TRT", 3*3600)
+}()
+
+// TodayIstanbul is the current business day.
+func TodayIstanbul() string { return time.Now().In(istanbul).Format(time.DateOnly) }
+
+var futureIssueDateMsg = regexp.MustCompile(`'(\d{4}-\d{2}-\d{2})'.*ileri bir tarih`)
+
+// futureOnlyInUTC reports whether msg is the Schematron's "issue date is
+// after today" assertion for a date that is not after today in Istanbul.
+// Dates after the Istanbul day still fail.
+func futureOnlyInUTC(msg, today string) bool {
+	m := futureIssueDateMsg.FindStringSubmatch(msg)
+	return m != nil && m[1] <= today
 }
 
 func builderField(f string) string {

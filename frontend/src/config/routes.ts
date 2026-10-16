@@ -252,6 +252,9 @@ export const routes = {
       /** Provider accounts ("Entegrasyonlar", TEC-676). */
       integrations: (slug: string) =>
         `/t/${encodeURIComponent(slug)}/settings/integrations`,
+      /** Public booking API keys and webhooks (TEC-728). */
+      publicApi: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/settings/public-api`,
       roles: {
         root: (slug: string) => `/t/${encodeURIComponent(slug)}/settings/roles`,
         create: (slug: string) =>
@@ -259,6 +262,9 @@ export const routes = {
         detail: (slug: string, uuid: string) =>
           `/t/${encodeURIComponent(slug)}/settings/roles/${uuid}`,
       },
+      /** Notification rules, templates and history ("Bildirimler", TEC-733). */
+      notifications: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/settings/notifications`,
       /** Inspection templates ("Teslim / iade formları"). */
       inspectionTemplates: (slug: string) =>
         `/t/${encodeURIComponent(slug)}/settings/inspection-templates`,

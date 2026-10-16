@@ -7164,6 +7164,532 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/public/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open a booking session (browser)
+         * @description For the branded site and the widget. Send the organization's **publishable key** (`rtp_pk_…`) from a page whose
+         *     `Origin` is one of the key's allowed origins; the answer is a short-lived (30 min) booking session token
+         *     (`rtp_ps_…`) used as `Authorization: Bearer` on the other `/v1/public` routes, from that origin only. Secret keys
+         *     are refused here (`SECRET_KEY_IN_BROWSER`). Rate-limited per IP (30 / min) and per key.
+         *
+         *     Example: `POST /api/v1/public/sessions` with `Origin: https://www.example-rentacar.com` and
+         *     `{"publishable_key": "rtp_pk_…"}` → `201 {"data": {"token": "rtp_ps_…", "expires_at": "…", "channel": "web",
+         *     "organization": {"slug": "ornek", "name": "Örnek Rent a Car", "currency": "TRY"}}}`.
+         */
+        post: operations["postPublicSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/locations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Branches and service points
+         * @description Scope `catalog.read`. Active branches with their online-selectable service points (offices, airports, hotels, address zones), working hours and holiday exceptions.
+         */
+        get: operations["getPublicLocations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/vehicle-subgroups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sellable vehicle subgroups
+         * @description Scope `catalog.read`. Published rental products ("alt grup") with their current rental conditions and API image paths (`/v1/public/media/…`, relative to the API base).
+         */
+        get: operations["getPublicVehicleSubgroups"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/extras": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Extra services of the channel
+         * @description Scope `catalog.read`. Published extras sold on the key's channel. Prices depend on the subgroup and dates: send them in a quote.
+         */
+        get: operations["getPublicExtras"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search availability and prices
+         * @description Scope `catalog.read`. Every subgroup on sale (or `subgroup_uuids`) priced for the request on the key's sales channel,
+         *     with the same engine, channel rules and price lists as the panel: the site, the widget and the API answer the same
+         *     request the same way. Capacity is shown as `units_left`, capped at 10. Nothing is stored.
+         *
+         *     Example: `GET /api/v1/public/availability?pickup_branch_uuid=…&starts_at=2026-07-01T10:00:00%2B03:00&ends_at=2026-07-04T10:00:00%2B03:00`.
+         */
+        get: operations["getPublicAvailability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/quotes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Price and store a quote
+         * @description Scope `quotes.write`; `Idempotency-Key` required (a retry with the same key and body answers the stored quote with
+         *     `Idempotent-Replayed: true`; another body → `422 IDEMPOTENCY_KEY_REUSED`). The quote is an immutable price snapshot
+         *     valid until `valid_until` (organization setting, default 30 minutes); only quotes made through the public API with
+         *     the same channel can be booked here. Extras, a coupon code and delivery / collection details are priced in.
+         */
+        post: operations["postPublicQuote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/quotes/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a quote back
+         * @description Scope `quotes.write`. A quote the public API made on the same channel (otherwise 404).
+         */
+        get: operations["getPublicQuote"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/reservations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Book a quote
+         * @description Scope `reservations.write`; `Idempotency-Key` required (20 bookings / 10 min per caller). The quote is re-validated on
+         *     the server (`409 QUOTE_EXPIRED`, `QUOTE_USED`; `QUOTE_PRICE_CHANGED` carries the new quote in `data`), drivers are
+         *     checked against the subgroup's conditions (`422 DRIVER_NOT_ELIGIBLE`), capacity is reserved
+         *     (`409 CAPACITY_UNAVAILABLE` with alternatives). The organization's approval protocol of the channel decides the status
+         *     (`confirmed`, `awaiting_payment`, or `request` for staff review). The renter becomes a new customer card.
+         *
+         *     The answer carries `access_token` **once**: the status, request and payment-link routes need it in
+         *     `X-Reservation-Token` (a secret key may omit it for reservations it made). `external_reference` is for server
+         *     integrations only.
+         */
+        post: operations["postPublicReservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/reservations/{reference}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Reservation status
+         * @description Scope `reservations.read`. Needs the reservation access token (`X-Reservation-Token`), except for a secret key reading a reservation it made. Any mismatch answers 404.
+         */
+        get: operations["getPublicReservation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/reservations/{reference}/change-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for a change
+         * @description Scope `reservations.write`; `Idempotency-Key` required. Staff answer it in the panel (customer requests). One open change request per reservation (`409 REQUEST_EXISTS`).
+         */
+        post: operations["postPublicChangeRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/reservations/{reference}/cancellation-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for a cancellation
+         * @description Scope `reservations.write`; `Idempotency-Key` required. The answer shows the cancellation policy text and fee of the reservation. Staff decide, unless the reservation's policy allows self-cancellation: it is then cancelled at once and the request comes back `resolved` (`outcome: self_cancelled`).
+         */
+        post: operations["postPublicCancellationRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/reservations/{reference}/payment-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Payment link of the amount due
+         * @description Scope `reservations.write`; `Idempotency-Key` required. The hosted pay page (`/pay/{token}`) of the prepayment still due (`awaiting_payment`) or the balance (`confirmed`); an active link for exactly that amount is reused. `409 NOTHING_DUE`, `PAYMENT_UNAVAILABLE` (no online payment account).
+         */
+        post: operations["postPublicPaymentLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/public-api/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Public API overview
+         * @description `tenant.public_api.read`. Channel states of the keys (web, widget, api), failed / pending webhook deliveries of the last 7 days, the scope and event catalogs, and the base URL integrators call.
+         */
+        get: operations["getTenantPublicAPIOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/public-api/keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List API keys
+         * @description `tenant.public_api.read`. Secret keys show their prefix and last four characters only; live resource `tenant.public_api_keys`.
+         */
+        get: operations["getTenantPublicAPIKeys"];
+        put?: never;
+        /**
+         * Issue an API key
+         * @description `tenant.public_api.manage`. The secret is in the answer only (store it now). A publishable key needs at least one allowed origin; a secret key has none.
+         */
+        post: operations["postTenantPublicAPIKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/public-api/keys/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an API key
+         * @description `tenant.public_api.read`.
+         */
+        get: operations["getTenantPublicAPIKey"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update an API key
+         * @description `tenant.public_api.manage`. Name, scopes, allowed origins (removing an origin ends its sessions) and rate limit of an active key; kind and channel are fixed.
+         */
+        patch: operations["patchTenantPublicAPIKey"];
+        trace?: never;
+    };
+    "/v1/tenant/public-api/keys/{uuid}/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate an API key
+         * @description `tenant.public_api.manage`. Issues a successor with the same settings (secret in the answer only); the old key keeps working for `grace_hours` (default 24, 0 = revoked now, at most 168).
+         */
+        post: operations["postTenantPublicAPIKeyRotate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/public-api/keys/{uuid}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke an API key
+         * @description `tenant.public_api.manage`. The key stops at once (its booking sessions too).
+         */
+        post: operations["postTenantPublicAPIKeyRevoke"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/public-api/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List webhook endpoints
+         * @description `tenant.public_api.read`. Live resource `tenant.public_webhooks`.
+         */
+        get: operations["getTenantPublicWebhooks"];
+        put?: never;
+        /**
+         * Add a webhook endpoint
+         * @description `tenant.public_api.manage`. A public `https` URL (private and loopback targets are refused, also after DNS). The
+         *     signing secret (`whsec_…`) is in the answer only. Deliveries are `POST` JSON with `Rentopia-Webhook-Id`,
+         *     `Rentopia-Webhook-Event`, `Rentopia-Webhook-Timestamp` and `Rentopia-Webhook-Signature: v1=<hex HMAC-SHA256 of
+         *     "<timestamp>.<body>">`; any 2xx is a success, other answers are retried with backoff (1 min … 24 h, 8 attempts).
+         *     Events cover reservations made through the public API.
+         */
+        post: operations["postTenantPublicWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/public-api/webhooks/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a webhook endpoint
+         * @description `tenant.public_api.read`.
+         */
+        get: operations["getTenantPublicWebhook"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a webhook endpoint
+         * @description `tenant.public_api.manage`. Its deliveries are deleted too.
+         */
+        delete: operations["deleteTenantPublicWebhook"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a webhook endpoint
+         * @description `tenant.public_api.manage`. Re-enabling resets the failure count.
+         */
+        patch: operations["patchTenantPublicWebhook"];
+        trace?: never;
+    };
+    "/v1/tenant/public-api/webhooks/{uuid}/rotate-secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate the signing secret
+         * @description `tenant.public_api.manage`. The new secret is in the answer only and signs every delivery from now on.
+         */
+        post: operations["postTenantPublicWebhookRotateSecret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/public-api/webhooks/{uuid}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a test event
+         * @description `tenant.public_api.manage`. Sends a signed `ping` now and returns its delivery (not retried).
+         */
+        post: operations["postTenantPublicWebhookTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/public-api/webhook-deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List webhook deliveries
+         * @description `tenant.public_api.read`. Newest first.
+         */
+        get: operations["getTenantPublicWebhookDeliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/public-api/webhook-deliveries/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a webhook delivery
+         * @description `tenant.public_api.read`. With the payload.
+         */
+        get: operations["getTenantPublicWebhookDelivery"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/public-api/webhook-deliveries/{uuid}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry a failed delivery
+         * @description `tenant.public_api.manage`. Queues a failed delivery again and attempts it now.
+         */
+        post: operations["postTenantPublicWebhookDeliveryRetry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/public/pay/{token}": {
         parameters: {
             query?: never;
@@ -14015,6 +14541,281 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/notification-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Notification events and rules
+         * @description `tenant.notification_settings.read` (TEC-733). The event catalog (reservation result, payment pending,
+         *     pickup / return approaching, overdue, invoice, account due, field tasks) with the organization's effective
+         *     rule (ordered channels, fallback, reminder offsets in minutes before the deadline) and the default rule,
+         *     plus the channels a rule may use (`available` = an adapter is installed; an unavailable channel is skipped).
+         */
+        get: operations["getTenantNotificationEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/notification-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace an event's rule
+         * @description `tenant.notification_settings.write`. Channels are tried in order; with `fallback` a failed or skipped
+         *     channel (no provider account, no number / address / subscription, undelivered report) moves on to the next
+         *     one. Reminder offsets (0 to 43200 minutes, at most 5) only for reminder events.
+         */
+        put: operations["putTenantNotificationRule"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/notification-rules/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset an event's rule to the default
+         * @description `tenant.notification_settings.write`.
+         */
+        post: operations["postTenantNotificationRuleReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/notification-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Notification templates
+         * @description `tenant.notification_settings.read`. Every event / channel / language (tr, en) template: the organization's
+         *     own (`custom`) or the default. Templates use `{{variable}}` placeholders of their event only.
+         */
+        get: operations["getTenantNotificationTemplates"];
+        /**
+         * Replace a template
+         * @description `tenant.notification_settings.write`. Unknown placeholders are refused (`unknown_variable`); an e-mail needs a
+         *     subject; an SMS is at most 900 characters.
+         */
+        put: operations["putTenantNotificationTemplate"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/notification-templates/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset a template to the default
+         * @description `tenant.notification_settings.write`.
+         */
+        post: operations["postTenantNotificationTemplateReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/notification-templates/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview a template with sample values
+         * @description `tenant.notification_settings.read`. Without a body the effective template is rendered.
+         */
+        post: operations["postTenantNotificationTemplatePreview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/notification-tests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a test notification
+         * @description `tenant.notification_settings.write`. Sends the event with sample values: customer events to the given
+         *     customer, member events to the caller. Runs the organization's rule (fallback included) unless one channel
+         *     is chosen; logged like any send (marked test).
+         */
+        post: operations["postTenantNotificationTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/notification-deliveries/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Delivery history table contract
+         * @description `tenant.notification_settings.read`.
+         */
+        get: operations["getTenantNotificationDeliveriesMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/notification-deliveries/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Delivery history facets
+         * @description `tenant.notification_settings.read`. Channel, status and event counts.
+         */
+        get: operations["getTenantNotificationDeliveriesFacets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/notification-deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Delivery history
+         * @description `tenant.notification_settings.read`. One row per channel attempt: channel, provider reference, masked
+         *     recipient, result and error. A dispatch is tried at most once per channel.
+         */
+        get: operations["getTenantNotificationDeliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/notification-dispatches/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One dispatch with its channel attempts
+         * @description `tenant.notification_settings.read`. Another organization's dispatch answers 404.
+         */
+        get: operations["getTenantNotificationDispatch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/{orgSlug}/push/vapid-public-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Web push public key for the customer portal
+         * @description Empty when web push is not configured.
+         */
+        get: operations["getCustomerPushVapidKey"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/{orgSlug}/push-subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Subscribe the customer's browser to notifications
+         * @description Customer subscriptions are kept apart from members' subscriptions.
+         */
+        post: operations["postCustomerPushSubscription"];
+        /** Unsubscribe the customer's browser */
+        delete: operations["deleteCustomerPushSubscription"];
         options?: never;
         head?: never;
         patch?: never;
@@ -27113,6 +27914,886 @@ export interface components {
             data: components["schemas"]["AgreementStatement"];
             meta: components["schemas"]["ResponseMeta"];
         };
+        NotificationChannelInfo: {
+            /** @enum {string} */
+            name: "sms" | "email" | "whatsapp" | "push";
+            available: boolean;
+        };
+        NotificationRuleView: {
+            enabled: boolean;
+            channels: ("sms" | "email" | "whatsapp" | "push")[];
+            fallback: boolean;
+            reminder_offsets: number[];
+            custom: boolean;
+        };
+        NotificationEvent: {
+            code: string;
+            /** @enum {string} */
+            group: "reservations" | "rentals" | "finance" | "operations";
+            /** @enum {string} */
+            audience: "customer" | "staff";
+            instant: boolean;
+            reminder: boolean;
+            variables: string[];
+            rule: components["schemas"]["NotificationRuleView"];
+            default_rule: components["schemas"]["NotificationRuleView"];
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        NotificationEvents: {
+            channels: components["schemas"]["NotificationChannelInfo"][];
+            events: components["schemas"]["NotificationEvent"][];
+        };
+        NotificationRuleInput: {
+            event: string;
+            enabled: boolean;
+            channels: ("sms" | "email" | "whatsapp" | "push")[];
+            fallback: boolean;
+            reminder_offsets?: number[];
+        };
+        NotificationTemplateKey: {
+            event: string;
+            /** @enum {string} */
+            channel?: "sms" | "email" | "whatsapp" | "push";
+            /** @enum {string} */
+            language?: "tr" | "en";
+        };
+        NotificationTemplate: {
+            event: string;
+            /** @enum {string} */
+            channel: "sms" | "email" | "whatsapp" | "push";
+            /** @enum {string} */
+            language: "tr" | "en";
+            subject: string;
+            body: string;
+            custom: boolean;
+            variables: string[];
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        NotificationTemplateInput: {
+            event: string;
+            /** @enum {string} */
+            channel: "sms" | "email" | "whatsapp" | "push";
+            /** @enum {string} */
+            language: "tr" | "en";
+            subject: string;
+            body: string;
+        };
+        NotificationPreviewInput: {
+            event: string;
+            /** @enum {string} */
+            channel?: "sms" | "email" | "whatsapp" | "push";
+            /** @enum {string} */
+            language?: "tr" | "en";
+            subject?: string;
+            body?: string;
+        };
+        NotificationPreview: {
+            subject: string;
+            body: string;
+            unknown: string[];
+        };
+        NotificationTestInput: {
+            event: string;
+            /** Format: uuid */
+            customer_uuid?: string;
+            /** @enum {string} */
+            channel?: "sms" | "email" | "whatsapp" | "push";
+        };
+        NotificationDelivery: {
+            /** Format: uuid */
+            uuid: string;
+            /** Format: uuid */
+            dispatch_uuid: string;
+            event: string;
+            /** @enum {string} */
+            audience: "customer" | "staff";
+            /** @enum {string} */
+            channel: "sms" | "email" | "whatsapp" | "push";
+            /** Format: int32 */
+            attempt_no: number;
+            /** @enum {string} */
+            status: "sending" | "sent" | "delivered" | "failed" | "skipped";
+            /** @enum {string} */
+            dispatch_status: "pending" | "sending" | "delivered" | "failed" | "skipped";
+            provider: string;
+            provider_ref: string;
+            recipient_masked: string;
+            recipient_name: string;
+            /** Format: uuid */
+            customer_uuid?: string;
+            /** Format: uuid */
+            user_uuid?: string;
+            subject: string;
+            error: string;
+            ref_type: string;
+            /** Format: uuid */
+            ref_uuid?: string;
+            test: boolean;
+            /** Format: date-time */
+            sent_at?: string;
+            /** Format: date-time */
+            finished_at?: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        NotificationAttempt: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            channel: "sms" | "email" | "whatsapp" | "push";
+            /** Format: int32 */
+            attempt_no: number;
+            /** @enum {string} */
+            status: "sending" | "sent" | "delivered" | "failed" | "skipped";
+            provider: string;
+            provider_ref: string;
+            recipient_masked: string;
+            subject: string;
+            body: string;
+            error: string;
+            /** Format: date-time */
+            sent_at?: string;
+            /** Format: date-time */
+            finished_at?: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        NotificationDispatch: {
+            /** Format: uuid */
+            uuid: string;
+            event: string;
+            /** @enum {string} */
+            audience: "customer" | "staff";
+            /** @enum {string} */
+            status: "pending" | "sending" | "delivered" | "failed" | "skipped";
+            channels: string[];
+            fallback: boolean;
+            language: string;
+            recipient_name: string;
+            /** Format: uuid */
+            customer_uuid?: string;
+            /** Format: uuid */
+            user_uuid?: string;
+            ref_type: string;
+            /** Format: uuid */
+            ref_uuid?: string;
+            last_error: string;
+            test: boolean;
+            /** Format: date-time */
+            scheduled_at: string;
+            /** Format: date-time */
+            completed_at?: string;
+            /** Format: date-time */
+            created_at: string;
+            attempts: components["schemas"]["NotificationAttempt"][];
+        };
+        NotificationFacetValue: {
+            value: string;
+            /** Format: int64 */
+            count: number;
+        };
+        NotificationDeliveryFacets: {
+            channel: components["schemas"]["NotificationFacetValue"][];
+            status: components["schemas"]["NotificationFacetValue"][];
+            event: components["schemas"]["NotificationFacetValue"][];
+        };
+        CustomerPushSubscriptionInput: {
+            endpoint: string;
+            key_p256dh: string;
+            key_auth: string;
+        };
+        EnvelopeNotificationEvents: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["NotificationEvents"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeNotificationEvent: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["NotificationEvent"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeNotificationTemplates: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["NotificationTemplate"][];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeNotificationTemplate: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["NotificationTemplate"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeNotificationPreview: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["NotificationPreview"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeNotificationDispatch: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["NotificationDispatch"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeNotificationDeliveryFacets: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["NotificationDeliveryFacets"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeNotificationDeliveryPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["NotificationDelivery"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCustomerVapidKey: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                vapid_public_key: string;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCustomerPushState: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                subscribed: boolean;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        PublicPlace: {
+            /** Format: uuid */
+            uuid: string;
+            name: string;
+        };
+        PublicSubgroupRef: {
+            /** Format: uuid */
+            uuid: string;
+            code: string;
+            title: string;
+        };
+        PublicSession: {
+            /** @description Booking session token (rtp_ps_…), Bearer on the other routes */
+            token: string;
+            /** Format: date-time */
+            expires_at: string;
+            /** @enum {string} */
+            channel: "web" | "widget" | "api";
+            organization: {
+                slug: string;
+                name: string;
+                currency: string;
+            };
+        };
+        EnvelopePublicSession: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["PublicSession"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        PublicPoint: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            type: "office" | "airport" | "address_zone" | "hotel";
+            name: string;
+            description: string;
+            extra_fee: string;
+            /** @description Staff bring / collect the vehicle at this point */
+            delivery: boolean;
+            min_notice_minutes: number;
+            delivery_conditions: string;
+            latitude: number | null;
+            longitude: number | null;
+            /** @description Weekly hours; null = the branch's */
+            working_hours: {
+                [key: string]: unknown;
+            } | null;
+        };
+        PublicLocation: {
+            /** Format: uuid */
+            uuid: string;
+            code: string;
+            name: string;
+            address: string;
+            city: string;
+            district: string;
+            latitude: number | null;
+            longitude: number | null;
+            phone: string;
+            email: string;
+            /** @description {"mon": {"closed": false, "open": "09:00", "close": "18:00"}, …} */
+            working_hours: {
+                [key: string]: unknown;
+            };
+            holiday_exceptions: {
+                [key: string]: unknown;
+            }[];
+            points: components["schemas"]["PublicPoint"][];
+        };
+        EnvelopePublicLocations: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["PublicLocation"][];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        PublicSubgroup: {
+            /** Format: uuid */
+            uuid: string;
+            code: string;
+            title: string;
+            description: string;
+            segment: string;
+            segment_code: string;
+            /** @description "… veya benzeri" model */
+            representative_model: string;
+            version: number;
+            conditions: {
+                /** @enum {string} */
+                guarantee_type: "EXACT_VEHICLE" | "EXACT_VARIANT" | "GROUP";
+                guarantee_label: string;
+                min_driver_age: number;
+                min_license_years: number;
+                deposit_amount: string;
+                /** @description null = unlimited */
+                included_km_per_day: number | null;
+                extra_km_fee: string;
+                fuel_policy: string;
+            };
+            /** @description API paths (relative to the API base) */
+            images: string[];
+        };
+        EnvelopePublicSubgroups: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["PublicSubgroup"][];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        PublicExtra: {
+            /** Format: uuid */
+            uuid: string;
+            code: string;
+            name: string;
+            description: string;
+            /** @enum {string} */
+            type: "additional_driver" | "child_seat" | "km_package" | "other";
+            /** @enum {string} */
+            charge_type: "per_day" | "per_unit" | "per_rental";
+            min_quantity: number;
+            max_quantity: number;
+            max_total: string | null;
+        };
+        EnvelopePublicExtras: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["PublicExtra"][];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        PublicPrice: {
+            currency: string;
+            billing_days: number;
+            daily_average: string;
+            total: string;
+            prepayment: string;
+        };
+        PublicAvailability: {
+            request: {
+                pickup_branch: components["schemas"]["PublicPlace"];
+                return_branch: components["schemas"]["PublicPlace"];
+                pickup_point: components["schemas"]["PublicPlace"] | null;
+                return_point: components["schemas"]["PublicPlace"] | null;
+                /** Format: date-time */
+                starts_at: string;
+                /** Format: date-time */
+                ends_at: string;
+                channel: string;
+            };
+            items: {
+                subgroup: components["schemas"]["PublicSubgroupRef"];
+                available: boolean;
+                /** @description Sellable units, capped at 10 */
+                units_left: number;
+                /** @description e.g. sold_out, one_way_not_allowed, no_eligible_vehicle, no_plan */
+                reasons: string[];
+                price: components["schemas"]["PublicPrice"] | null;
+            }[];
+            warnings: string[];
+        };
+        EnvelopePublicAvailability: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["PublicAvailability"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        PublicDelivery: {
+            address?: string;
+            district?: string;
+            city?: string;
+            latitude?: number | null;
+            longitude?: number | null;
+            contact_name?: string;
+            contact_phone?: string;
+            flight_number?: string;
+            meeting_note?: string;
+        };
+        PublicQuoteRequest: {
+            /** Format: uuid */
+            subgroup_uuid: string;
+            /** Format: uuid */
+            pickup_branch_uuid?: string | null;
+            /** Format: uuid */
+            pickup_point_uuid?: string | null;
+            /** Format: uuid */
+            return_branch_uuid?: string | null;
+            /** Format: uuid */
+            return_point_uuid?: string | null;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            extras?: {
+                /** Format: uuid */
+                extra_uuid: string;
+                quantity: number;
+            }[];
+            coupon_code?: string;
+            pickup_delivery?: components["schemas"]["PublicDelivery"] | null;
+            return_delivery?: components["schemas"]["PublicDelivery"] | null;
+        };
+        PublicQuote: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            status: "open" | "used" | "superseded";
+            expired: boolean;
+            /** Format: date-time */
+            valid_until: string;
+            subgroup: components["schemas"]["PublicSubgroupRef"];
+            pickup_branch: components["schemas"]["PublicPlace"];
+            return_branch: components["schemas"]["PublicPlace"];
+            pickup_point: components["schemas"]["PublicPlace"] | null;
+            return_point: components["schemas"]["PublicPlace"] | null;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            channel: string;
+            billing_days: number;
+            currency: string;
+            rental_total: string;
+            discount_total: string;
+            extras_total: string;
+            one_way_fee: string;
+            delivery_fee: string;
+            vat_total: string;
+            total: string;
+            /** @description Due online before the booking is confirmed (auto approval) */
+            prepayment: string;
+            extras: {
+                /** Format: uuid */
+                extra_uuid: string;
+                quantity: number;
+            }[];
+            coupon_code: string | null;
+            lines: {
+                kind: string;
+                code: string;
+                name: string;
+                day_date: string | null;
+                quantity: number;
+                unit_price: string;
+                amount: string;
+            }[];
+        };
+        EnvelopePublicQuote: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["PublicQuote"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        PublicDriverInput: {
+            /** @description The (individual) renter drives */
+            same_as_customer?: boolean;
+            first_name?: string;
+            last_name?: string;
+            /** Format: date */
+            birth_date: string;
+            phone?: string;
+            email?: string;
+            licence_number: string;
+            licence_class?: string;
+            /** Format: date */
+            licence_issued_on: string;
+            /** Format: date */
+            licence_expires_on?: string;
+            licence_country?: string;
+        };
+        PublicReservationRequest: {
+            /** Format: uuid */
+            quote_uuid: string;
+            customer: {
+                /** @enum {string} */
+                type?: "individual" | "corporate";
+                first_name?: string;
+                last_name?: string;
+                company_title?: string;
+                tax_office?: string;
+                phone: string;
+                email: string;
+                nationality?: string;
+            };
+            drivers: components["schemas"]["PublicDriverInput"][];
+            note?: string;
+            /** @description Your booking number (secret keys only) */
+            external_reference?: string;
+        };
+        PublicRequest: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            type: "change" | "cancel";
+            /** @enum {string} */
+            status: "open" | "resolved" | "rejected";
+            message: string;
+            /** Format: date-time */
+            requested_starts_at: string | null;
+            /** Format: date-time */
+            requested_ends_at: string | null;
+            policy_text: string;
+            cancellation_fee: string | null;
+            /** @enum {string} */
+            outcome: "" | "self_cancelled";
+            resolution_note: string;
+            /** Format: date-time */
+            resolved_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        EnvelopePublicRequest: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["PublicRequest"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        PublicReservation: {
+            reference: string;
+            /** @enum {string} */
+            status: "request" | "awaiting_review" | "awaiting_payment" | "confirmed" | "cancelled" | "expired" | "no_show";
+            payment_status: string;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            pickup_branch: string;
+            return_branch: string;
+            pickup_point: string;
+            return_point: string;
+            subgroup: string;
+            /** @description The plate once it is fixed */
+            vehicle: string;
+            drivers: string[];
+            extras: {
+                name: string;
+                quantity: number;
+                amount: string;
+            }[];
+            price: {
+                currency: string;
+                total: string;
+                prepayment: string;
+                paid: string;
+                prepayment_due: string;
+                balance: string;
+            };
+            /** Format: date-time */
+            payment_deadline: string | null;
+            policies: {
+                cancellation: string;
+                no_show: string;
+                early_return: string;
+                extension: string;
+                fuel: string;
+                mileage: string;
+            };
+            cancellation: {
+                policy_text: string;
+                fee: string | null;
+                self_cancel: boolean;
+            };
+            actions: {
+                pay: boolean;
+                pay_amount: string | null;
+                request_change: boolean;
+                request_cancellation: boolean;
+            };
+            requests: components["schemas"]["PublicRequest"][];
+        };
+        EnvelopePublicReservation: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["PublicReservation"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopePublicBooked: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                reference: string;
+                status: string;
+                /** @description Shown once; X-Reservation-Token on the reservation routes */
+                access_token: string;
+                reservation: components["schemas"]["PublicReservation"];
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopePublicPaymentLink: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                url: string;
+                amount: string;
+                currency: string;
+                /** Format: date-time */
+                expires_at: string;
+                reused: boolean;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        PublicAPIActor: {
+            /** Format: uuid */
+            uuid: string;
+            name: string;
+            surname: string;
+        };
+        PublicAPIKey: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            kind: "secret" | "publishable";
+            name: string;
+            /** @enum {string} */
+            channel: "web" | "widget" | "api";
+            key_prefix: string;
+            key_last4: string;
+            /** @description The full publishable key (null for secret keys) */
+            publishable_key: string | null;
+            scopes: ("catalog.read" | "quotes.write" | "reservations.write" | "reservations.read")[];
+            allowed_origins: string[];
+            rate_limit_per_minute: number;
+            /** @enum {string} */
+            status: "active" | "revoked";
+            /**
+             * Format: date-time
+             * @description Set while a rotated key is in its grace period
+             */
+            expires_at: string | null;
+            /** Format: uuid */
+            rotated_from_uuid: string | null;
+            /** Format: date-time */
+            last_used_at: string | null;
+            created_by: components["schemas"]["PublicAPIActor"] | null;
+            /** Format: date-time */
+            revoked_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        PublicAPIKeyCreateRequest: {
+            /** @enum {string} */
+            kind: "secret" | "publishable";
+            name: string;
+            /**
+             * @description Default: api (secret), web (publishable)
+             * @enum {string}
+             */
+            channel?: "web" | "widget" | "api";
+            scopes?: ("catalog.read" | "quotes.write" | "reservations.write" | "reservations.read")[];
+            /** @description scheme://host[:port]; publishable keys only */
+            allowed_origins?: string[];
+            rate_limit_per_minute?: number;
+        };
+        PublicAPIKeyPatchRequest: {
+            /** @enum {string} */
+            kind?: "secret" | "publishable";
+            name?: string;
+            /**
+             * @description Default: api (secret), web (publishable)
+             * @enum {string}
+             */
+            channel?: "web" | "widget" | "api";
+            scopes?: ("catalog.read" | "quotes.write" | "reservations.write" | "reservations.read")[];
+            /** @description scheme://host[:port]; publishable keys only */
+            allowed_origins?: string[];
+            rate_limit_per_minute?: number;
+        };
+        EnvelopePublicAPIKey: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["PublicAPIKey"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopePublicAPIIssuedKey: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                key: components["schemas"]["PublicAPIKey"];
+                /** @description The key itself (shown once for secret keys) */
+                secret: string;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopePublicAPIKeyPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["PublicAPIKey"][];
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        PublicWebhook: {
+            /** Format: uuid */
+            uuid: string;
+            name: string;
+            url: string;
+            secret_last4: string;
+            events: string[];
+            /** @enum {string} */
+            status: "active" | "disabled";
+            /** Format: date-time */
+            last_success_at: string | null;
+            /** Format: date-time */
+            last_failure_at: string | null;
+            consecutive_failures: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        PublicWebhookCreateRequest: {
+            name: string;
+            url: string;
+            events?: ("reservation.created" | "reservation.confirmed" | "reservation.changed" | "reservation.cancelled" | "reservation.plate_fixed")[];
+            /** @enum {string} */
+            status?: "active" | "disabled";
+        };
+        PublicWebhookPatchRequest: {
+            name?: string;
+            url?: string;
+            events?: ("reservation.created" | "reservation.confirmed" | "reservation.changed" | "reservation.cancelled" | "reservation.plate_fixed")[];
+            /** @enum {string} */
+            status?: "active" | "disabled";
+        };
+        EnvelopePublicWebhook: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["PublicWebhook"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopePublicWebhookIssued: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                endpoint: components["schemas"]["PublicWebhook"];
+                /** @description Signing secret (shown once) */
+                secret: string;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopePublicWebhookPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["PublicWebhook"][];
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        PublicWebhookDelivery: {
+            /** Format: uuid */
+            uuid: string;
+            endpoint: {
+                /** Format: uuid */
+                uuid: string;
+                name: string;
+                url: string;
+            };
+            event_type: string;
+            /** Format: uuid */
+            event_uuid: string;
+            /** @enum {string} */
+            status: "pending" | "succeeded" | "failed";
+            attempts: number;
+            /** Format: date-time */
+            next_attempt_at: string | null;
+            last_status_code: number | null;
+            last_error: string;
+            /** Format: date-time */
+            delivered_at: string | null;
+            /** @description The event body (detail only) */
+            payload?: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        EnvelopePublicWebhookDelivery: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["PublicWebhookDelivery"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopePublicWebhookDeliveryPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["PublicWebhookDelivery"][];
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        PublicAPIOverview: {
+            channels: {
+                /** @enum {string} */
+                code: "web" | "widget" | "api";
+                active: boolean;
+            }[];
+            deliveries: {
+                failed: number;
+                pending: number;
+            };
+            events: string[];
+            scopes: string[];
+            base_url: string;
+        };
+        EnvelopePublicAPIOverview: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["PublicAPIOverview"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
     };
     responses: {
         /** @description Corporate agreement */
@@ -27425,6 +29106,18 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
+        /**
+         * @description `ORIGIN_NOT_ALLOWED`, `SECRET_KEY_IN_BROWSER`, `INSUFFICIENT_SCOPE`, `CHANNEL_DISABLED` or
+         *     `ORGANIZATION_UNAVAILABLE`
+         */
+        PublicForbidden: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
     };
     parameters: {
         /** @description Organization slug of the customer portal */
@@ -27445,6 +29138,12 @@ export interface components {
         QRSessionID: string;
         /** @description Resource UUID */
         ResourceUUID: string;
+        /** @description Client-chosen key (1-255 visible ASCII characters); a retry with the same key and body replays the answer */
+        IdempotencyKey: string;
+        /** @description The access token of the booking answer (optional for a secret key reading its own reservations) */
+        ReservationToken: string;
+        /** @description Reservation reference (e.g. ORN-2026-000123) */
+        PublicReference: string;
         /** @description User UUID */
         UserUUID: string;
         /** @description Service point UUID */
@@ -40630,6 +42329,995 @@ export interface operations {
             429: components["responses"]["TooManyRequests"];
         };
     };
+    postPublicSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @example rtp_pk_3vQ9… */
+                    publishable_key: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Booking session */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicSession"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PublicForbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getPublicLocations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Locations */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicLocations"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PublicForbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getPublicVehicleSubgroups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Subgroups */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicSubgroups"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PublicForbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getPublicExtras: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Extras */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicExtras"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PublicForbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getPublicAvailability: {
+        parameters: {
+            query: {
+                /** @description Pick-up branch (or a point) */
+                pickup_branch_uuid?: string;
+                pickup_point_uuid?: string;
+                /** @description Default: the pick-up branch */
+                return_branch_uuid?: string;
+                return_point_uuid?: string;
+                starts_at: string;
+                ends_at: string;
+                /** @description Comma-separated subgroup uuids */
+                subgroup_uuids?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Availability */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicAvailability"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PublicForbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    postPublicQuote: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Client-chosen key (1-255 visible ASCII characters); a retry with the same key and body replays the answer */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "subgroup_uuid": "4f6b9b1e-2c51-4e0a-9b44-7a1f0f2a5c11",
+                 *       "pickup_branch_uuid": "0d0f3c1b-7e22-4f7a-8f0b-0b9a2c6c1f33",
+                 *       "starts_at": "2026-07-01T10:00:00+03:00",
+                 *       "ends_at": "2026-07-04T10:00:00+03:00",
+                 *       "extras": [
+                 *         {
+                 *           "extra_uuid": "9a1e6c2d-5b7f-4c3e-8d2a-6f4b1e0c9d77",
+                 *           "quantity": 1
+                 *         }
+                 *       ]
+                 *     }
+                 */
+                "application/json": components["schemas"]["PublicQuoteRequest"];
+            };
+        };
+        responses: {
+            /** @description Quote */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicQuote"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PublicForbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getPublicQuote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Quote */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicQuote"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PublicForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postPublicReservation: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Client-chosen key (1-255 visible ASCII characters); a retry with the same key and body replays the answer */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "quote_uuid": "1b2c3d4e-5f60-4718-8293-a4b5c6d7e8f9",
+                 *       "customer": {
+                 *         "type": "individual",
+                 *         "first_name": "Ayşe",
+                 *         "last_name": "Demir",
+                 *         "phone": "0532 111 22 33",
+                 *         "email": "ayse@example.com"
+                 *       },
+                 *       "drivers": [
+                 *         {
+                 *           "same_as_customer": true,
+                 *           "birth_date": "1990-05-05",
+                 *           "licence_number": "B123456",
+                 *           "licence_issued_on": "2015-04-01"
+                 *         }
+                 *       ]
+                 *     }
+                 */
+                "application/json": components["schemas"]["PublicReservationRequest"];
+            };
+        };
+        responses: {
+            /** @description Booked */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicBooked"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PublicForbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getPublicReservation: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The access token of the booking answer (optional for a secret key reading its own reservations) */
+                "X-Reservation-Token"?: components["parameters"]["ReservationToken"];
+            };
+            path: {
+                /** @description Reservation reference (e.g. ORN-2026-000123) */
+                reference: components["parameters"]["PublicReference"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reservation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicReservation"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PublicForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postPublicChangeRequest: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The access token of the booking answer (optional for a secret key reading its own reservations) */
+                "X-Reservation-Token"?: components["parameters"]["ReservationToken"];
+                /** @description Client-chosen key (1-255 visible ASCII characters); a retry with the same key and body replays the answer */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Reservation reference (e.g. ORN-2026-000123) */
+                reference: components["parameters"]["PublicReference"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    message?: string;
+                    /** Format: date-time */
+                    requested_starts_at?: string | null;
+                    /** Format: date-time */
+                    requested_ends_at?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Request */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicRequest"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PublicForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    postPublicCancellationRequest: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The access token of the booking answer (optional for a secret key reading its own reservations) */
+                "X-Reservation-Token"?: components["parameters"]["ReservationToken"];
+                /** @description Client-chosen key (1-255 visible ASCII characters); a retry with the same key and body replays the answer */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Reservation reference (e.g. ORN-2026-000123) */
+                reference: components["parameters"]["PublicReference"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    message?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Request */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicRequest"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PublicForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    postPublicPaymentLink: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The access token of the booking answer (optional for a secret key reading its own reservations) */
+                "X-Reservation-Token"?: components["parameters"]["ReservationToken"];
+                /** @description Client-chosen key (1-255 visible ASCII characters); a retry with the same key and body replays the answer */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Reservation reference (e.g. ORN-2026-000123) */
+                reference: components["parameters"]["PublicReference"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Payment link */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicPaymentLink"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PublicForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getTenantPublicAPIOverview: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Overview */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicAPIOverview"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantPublicAPIKeys: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description `name`, `last_used_at`, `created_at`; prefix `-` for descending */
+                sort?: string;
+                /** @description secret, publishable */
+                kind?: string;
+                /** @description web, widget, api */
+                channel?: string;
+                /** @description active, revoked */
+                status?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Key page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicAPIKeyPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantPublicAPIKey: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicAPIKeyCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Issued key */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicAPIIssuedKey"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantPublicAPIKey: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Key */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicAPIKey"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchTenantPublicAPIKey: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicAPIKeyPatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Key */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicAPIKey"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantPublicAPIKeyRotate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    grace_hours?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Successor key */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicAPIIssuedKey"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantPublicAPIKeyRevoke: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Key */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicAPIKey"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantPublicWebhooks: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description `name`, `created_at`; prefix `-` for descending */
+                sort?: string;
+                /** @description active, disabled */
+                status?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Endpoint page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicWebhookPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantPublicWebhook: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicWebhookCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Endpoint with its secret */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicWebhookIssued"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantPublicWebhook: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Endpoint */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicWebhook"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteTenantPublicWebhook: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchTenantPublicWebhook: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicWebhookPatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Endpoint */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicWebhook"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantPublicWebhookRotateSecret: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Endpoint with its new secret */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicWebhookIssued"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantPublicWebhookTest: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Delivery */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicWebhookDelivery"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantPublicWebhookDeliveries: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                /** @description `created_at`; prefix `-` for descending */
+                sort?: string;
+                /** @description Endpoint uuids */
+                endpoint?: string;
+                /** @description pending, succeeded, failed */
+                status?: string;
+                /** @description Event names */
+                event_type?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Delivery page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicWebhookDeliveryPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantPublicWebhookDelivery: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Delivery */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicWebhookDelivery"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantPublicWebhookDeliveryRetry: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Delivery */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicWebhookDelivery"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     getPublicPayLink: {
         parameters: {
             query?: {
@@ -53531,6 +56219,487 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["TenantForbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantNotificationEvents: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Channels and events */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeNotificationEvents"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    putTenantNotificationRule: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationRuleInput"];
+            };
+        };
+        responses: {
+            /** @description Event with its rule */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeNotificationEvent"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantNotificationRuleReset: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationTemplateKey"];
+            };
+        };
+        responses: {
+            /** @description Event with the default rule */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeNotificationEvent"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantNotificationTemplates: {
+        parameters: {
+            query?: {
+                event?: string;
+                channel?: "sms" | "email" | "whatsapp" | "push";
+                language?: "tr" | "en";
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Templates */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeNotificationTemplates"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    putTenantNotificationTemplate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationTemplateInput"];
+            };
+        };
+        responses: {
+            /** @description Template */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeNotificationTemplate"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantNotificationTemplateReset: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationTemplateKey"];
+            };
+        };
+        responses: {
+            /** @description Default template */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeNotificationTemplate"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantNotificationTemplatePreview: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationPreviewInput"];
+            };
+        };
+        responses: {
+            /** @description Rendered template */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeNotificationPreview"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantNotificationTest: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationTestInput"];
+            };
+        };
+        responses: {
+            /** @description Dispatch with its attempts */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeNotificationDispatch"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantNotificationDeliveriesMeta: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource meta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantNotificationDeliveriesFacets: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Facets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeNotificationDeliveryFacets"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantNotificationDeliveries: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description `created_at`, `channel`, `status` or `event_code`; prefix `-` for descending. */
+                sort?: string;
+                /** @description sms, email, whatsapp, push (comma separated) */
+                channel?: string;
+                /** @description sending, sent, delivered, failed, skipped (comma separated) */
+                status?: string;
+                /** @description Event codes (comma separated) */
+                event?: string;
+                /** @description customer, staff */
+                audience?: string;
+                created_from?: string;
+                created_to?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Delivery page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeNotificationDeliveryPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantNotificationDispatch: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dispatch */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeNotificationDispatch"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getCustomerPushVapidKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization slug of the customer portal */
+                orgSlug: components["parameters"]["PortalOrgSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Public key */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerVapidKey"];
+                };
+            };
+            401: components["responses"]["CustomerSessionRequired"];
+        };
+    };
+    postCustomerPushSubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization slug of the customer portal */
+                orgSlug: components["parameters"]["PortalOrgSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerPushSubscriptionInput"];
+            };
+        };
+        responses: {
+            /** @description Subscribed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerPushState"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["CustomerSessionRequired"];
+            /** @description Web push is not configured (PUSH_NOT_CONFIGURED) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deleteCustomerPushSubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization slug of the customer portal */
+                orgSlug: components["parameters"]["PortalOrgSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    endpoint: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Unsubscribed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCustomerPushState"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["CustomerSessionRequired"];
         };
     };
 }

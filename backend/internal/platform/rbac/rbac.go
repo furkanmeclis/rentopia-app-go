@@ -222,6 +222,20 @@ const (
 	PermTenantInvoicesBulkSend             = "tenant.invoices.bulk.send"
 )
 
+// Public booking API (TEC-728, migration 000116): API keys, webhook
+// endpoints and their deliveries.
+const (
+	PermTenantPublicAPIRead   = "tenant.public_api.read"
+	PermTenantPublicAPIManage = "tenant.public_api.manage"
+)
+
+// Notification engine (TEC-733): rules, templates, delivery history and
+// test sends.
+const (
+	PermTenantNotificationSettingsRead  = "tenant.notification_settings.read"
+	PermTenantNotificationSettingsWrite = "tenant.notification_settings.write"
+)
+
 // Channel manager (TEC-736, migration 000114). The channel account itself
 // is an integration account (PermTenantIntegrationsManage).
 const (
