@@ -87,5 +87,6 @@
   "resources.tenant.cash_movements": "Kasa / banka hareketleri",
   "resources.tenant.expenses": "Giderler",
   "resources.tenant.security_deposits": "Depozitolar",
-  "resources.tenant.finance_collections": "Tahsilatlar"
+  "resources.tenant.finance_collections": "Tahsilatlar",
+  "resources.tenant.agreements": "Kurumsal anlaşmalar"
 }

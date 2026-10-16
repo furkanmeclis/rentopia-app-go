@@ -40,13 +40,18 @@ export const SCOPE_LABEL_KEYS: Record<RatePlanScope, string> = {
   branch: "pricing.scope.branch",
   channel: "pricing.scope.channel",
   branch_channel: "pricing.scope.branch_channel",
+  agreement: "pricing.scope.agreement",
 };
+
+/** Every plan scope (list filter); agreement tariffs are created from the agreement. */
+export const ALL_PLAN_SCOPES: RatePlanScope[] = [...PLAN_SCOPES, "agreement"];
 
 export const SCOPE_HINT_KEYS: Record<RatePlanScope, string> = {
   common: "pricing.scope.common_hint",
   branch: "pricing.scope.branch_hint",
   channel: "pricing.scope.channel_hint",
   branch_channel: "pricing.scope.branch_channel_hint",
+  agreement: "pricing.scope.agreement_hint",
 };
 
 export const STATUS_LABEL_KEYS: Record<PricingStatus, string> = {

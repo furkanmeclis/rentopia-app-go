@@ -163,6 +163,12 @@ export const routes = {
         `/t/${encodeURIComponent(slug)}/finance/collections/${uuid}`,
     },
     /** HGS / OGS toll passes and their review queue (TEC-725). */
+    /** Corporate agreements and long-term rentals (TEC-723). */
+    agreements: {
+      root: (slug: string) => `/t/${encodeURIComponent(slug)}/agreements`,
+      detail: (slug: string, uuid: string) =>
+        `/t/${encodeURIComponent(slug)}/agreements/${uuid}`,
+    },
     kabis: {
       root: (slug: string) => `/t/${encodeURIComponent(slug)}/kabis`,
       detail: (slug: string, uuid: string) =>

@@ -304,6 +304,33 @@ function CustomerCard({ reservation }: { reservation: Reservation }) {
                       },
                     ]
                   : []),
+                ...(reservation.agreement
+                  ? [
+                      {
+                        key: "agreement",
+                        label: t("reservations.fields.agreement"),
+                        value: (
+                          <span className="flex flex-wrap items-center gap-1.5">
+                            <Link
+                              className="font-medium underline-offset-2 hover:underline"
+                              href={routes.tenant.agreements.detail(
+                                slug,
+                                reservation.agreement.uuid,
+                              )}
+                            >
+                              {reservation.agreement.code} ·{" "}
+                              {reservation.agreement.name}
+                            </Link>
+                            {reservation.open_account ? (
+                              <Badge variant="outline">
+                                {t("reservations.fields.open_account")}
+                              </Badge>
+                            ) : null}
+                          </span>
+                        ),
+                      },
+                    ]
+                  : []),
               ],
             },
           ]}

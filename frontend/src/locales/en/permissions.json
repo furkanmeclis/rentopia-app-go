@@ -204,5 +204,9 @@
   "labels.tenant.kabis.retry": "Retry KABİS notifications",
   "labels.tenant.kabis.reconcile": "Mark KABİS notifications reported manually / reconciled",
   "groups.tenant_kabis": "KABİS notifications",
-  "labels.tenant.finance.collections.bulk.allocate": "Bulk allocate collections"
+  "labels.tenant.finance.collections.bulk.allocate": "Bulk allocate collections",
+  "labels.tenant.agreements.read": "View corporate agreements",
+  "labels.tenant.agreements.write": "Manage corporate agreements",
+  "labels.tenant.agreements.export": "Export corporate agreements",
+  "groups.tenant_agreements": "Corporate agreements"
 }

@@ -359,5 +359,14 @@
   "actions.finance.collection_allocated": "Collection allocated",
   "actions.finance.collection_allocation_released": "Collection allocation released",
   "actions.finance.collection_refunded": "Collection refunded",
-  "actions.finance.collection_voided": "Collection voided"
+  "actions.finance.collection_voided": "Collection voided",
+  "resources.tenant.agreements": "Corporate agreements",
+  "actions.agreements.created": "Agreement created",
+  "actions.agreements.updated": "Agreement updated",
+  "actions.agreements.deleted": "Agreement deleted",
+  "actions.agreements.status_changed": "Agreement status changed",
+  "actions.agreements.contact_added": "Contact added",
+  "actions.agreements.contact_removed": "Contact removed",
+  "actions.agreements.driver_added": "Driver permitted",
+  "actions.agreements.driver_removed": "Driver removed"
 }

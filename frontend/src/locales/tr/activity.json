@@ -359,5 +359,14 @@
   "actions.finance.collection_allocated": "Tahsilat dağıtıldı",
   "actions.finance.collection_allocation_released": "Tahsilat dağıtımı geri alındı",
   "actions.finance.collection_refunded": "Tahsilat iade edildi",
-  "actions.finance.collection_voided": "Tahsilat iptal edildi"
+  "actions.finance.collection_voided": "Tahsilat iptal edildi",
+  "resources.tenant.agreements": "Kurumsal anlaşmalar",
+  "actions.agreements.created": "Anlaşma oluşturuldu",
+  "actions.agreements.updated": "Anlaşma güncellendi",
+  "actions.agreements.deleted": "Anlaşma silindi",
+  "actions.agreements.status_changed": "Anlaşma durumu değişti",
+  "actions.agreements.contact_added": "Yetkili kişi eklendi",
+  "actions.agreements.contact_removed": "Yetkili kişi kaldırıldı",
+  "actions.agreements.driver_added": "İzinli sürücü eklendi",
+  "actions.agreements.driver_removed": "İzinli sürücü kaldırıldı"
 }

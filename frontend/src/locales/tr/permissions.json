@@ -204,5 +204,9 @@
   "labels.tenant.kabis.retry": "KABİS bildirimlerini yeniden dene",
   "labels.tenant.kabis.reconcile": "KABİS bildirimlerini manuel bildirildi / uzlaştırıldı olarak işaretle",
   "groups.tenant_kabis": "KABİS bildirimleri",
-  "labels.tenant.finance.collections.bulk.allocate": "Tahsilatları toplu dağıt"
+  "labels.tenant.finance.collections.bulk.allocate": "Tahsilatları toplu dağıt",
+  "labels.tenant.agreements.read": "Kurumsal anlaşmaları görüntüle",
+  "labels.tenant.agreements.write": "Kurumsal anlaşmaları yönet",
+  "labels.tenant.agreements.export": "Kurumsal anlaşmaları dışa aktar",
+  "groups.tenant_agreements": "Kurumsal anlaşmalar"
 }

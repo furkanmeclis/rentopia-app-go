@@ -6072,6 +6072,12 @@ export interface paths {
          *     capacity; `confirm_now` (needs `tenant.reservations.confirm`) confirms at once. The quote
          *     breakdown and the policy (settings) version are copied as an immutable snapshot. A coupon
          *     is redeemed, physical extras are held (`409 EQUIPMENT_UNAVAILABLE`).
+         *     A quote sold under a corporate agreement (TEC-723) needs the agreement active and valid on
+         *     the pick-up day, its customer as the customer or invoice addressee (set automatically for
+         *     an employee), permitted drivers only (`drivers.N.driver_uuid` `not_permitted`), and with an
+         *     open account it is confirmed without prepayment while the customer's exposure stays within
+         *     the credit limit (`422 CREDIT_LIMIT_EXCEEDED`, `data` = limit, balance, pending, total,
+         *     exposure).
          */
         post: operations["postTenantReservation"];
         delete?: never;
@@ -12216,6 +12222,324 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenant/agreements/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Corporate agreements table contract
+         * @description `tenant.agreements.read`.
+         */
+        get: operations["getTenantAgreementsMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/agreements/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Corporate agreement list facets
+         * @description `tenant.agreements.read`. Status, customer, branch, invoice period and validity counts in the caller's branch scope.
+         */
+        get: operations["getTenantAgreementsFacets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/agreements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List corporate agreements
+         * @description `tenant.agreements.read`. Head office agreements and the agreements of the branches in the caller's scope.
+         */
+        get: operations["getTenantAgreements"];
+        put?: never;
+        /**
+         * Create a corporate agreement
+         * @description `tenant.agreements.write`. With a corporate customer; code `KA-000001` per organization.
+         *     Draft unless `activate`. The payment term is written onto the customer's ledger account
+         *     (opened on first use). An open account needs a credit limit. A member limited to some
+         *     branches must name a branch in the scope.
+         */
+        post: operations["postTenantAgreement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/agreements/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export corporate agreements
+         * @description `tenant.agreements.export`. `query` honours `q` and the list filters; the job runs with the requester's branch scope.
+         */
+        post: operations["postTenantAgreementsExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/agreements/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Corporate agreement detail
+         * @description `tenant.agreements.read`. With contacts (masked), permitted drivers, the customer's ledger account and, for an open account, the exposure.
+         */
+        get: operations["getTenantAgreement"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a draft agreement
+         * @description `tenant.agreements.write`. Only a draft without reservations (`409` otherwise: terminate it).
+         */
+        delete: operations["deleteTenantAgreement"];
+        options?: never;
+        head?: never;
+        /**
+         * Edit a corporate agreement
+         * @description `tenant.agreements.write`. The fields sent change; the customer never changes; a terminated agreement is final (`409`). A new payment term goes onto the customer's account; a new invoice period applies to rentals created from then on.
+         */
+        patch: operations["patchTenantAgreement"];
+        trace?: never;
+    };
+    "/v1/tenant/agreements/{uuid}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change the status of an agreement
+         * @description `tenant.agreements.write`. draft → active; active ↔ suspended; draft / active / suspended → terminated (reason 3-500 characters). Only an active agreement sells.
+         */
+        post: operations["postTenantAgreementStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/agreements/{uuid}/contacts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Authorise a contact
+         * @description `tenant.agreements.write`. A contact of the agreement's corporate customer, with a role.
+         */
+        post: operations["postTenantAgreementContact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/agreements/{uuid}/contacts/{agreementContactUuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Withdraw an authorised contact
+         * @description `tenant.agreements.write`.
+         */
+        delete: operations["deleteTenantAgreementContact"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/agreements/{uuid}/drivers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Permit a driver
+         * @description `tenant.agreements.write`. A driver record or an individual customer (every driver of that customer). With no permitted driver listed anyone may drive.
+         */
+        post: operations["postTenantAgreementDriver"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/agreements/{uuid}/drivers/{agreementDriverUuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Withdraw a permitted driver
+         * @description `tenant.agreements.write`.
+         */
+        delete: operations["deleteTenantAgreementDriver"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/agreements/{uuid}/tariffs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Agreement tariffs
+         * @description `tenant.agreements.read`. The agreement's rate plans (scope agreement); they are edited through `/v1/tenant/rate-plans` (`tenant.pricing.write` / `activate`).
+         */
+        get: operations["getTenantAgreementTariffs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/agreements/{uuid}/rentals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Reservations and rentals under the agreement
+         * @description `tenant.agreements.read`. Reservations sold under the agreement (pick-up or return branch in the caller's scope) with their rental and the rent accrued so far.
+         */
+        get: operations["getTenantAgreementRentals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/agreements/{uuid}/billing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Billing plan of the agreement's rentals
+         * @description `tenant.agreements.read`. Every billing period (every revision) of the agreement's
+         *     periodically billed rentals: dates, days, partial flag, amount, km allowance,
+         *     maintenance marker, status (`planned`, `posted`, `superseded`, `reversed`) and, once
+         *     posted, the accrual entry (`entry_uuid`: invoices link to it, TEC-722).
+         */
+        get: operations["getTenantAgreementBilling"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/agreements/{uuid}/statement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Agreement statement
+         * @description `tenant.agreements.read`. Ledger entries of the agreement's reservations and rentals (deposits aside), oldest first, with a running balance.
+         */
+        get: operations["getTenantAgreementStatement"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/agreements/{uuid}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Agreement activity
+         * @description `tenant.agreements.read`. Newest first.
+         */
+        get: operations["getTenantAgreementActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -17338,6 +17662,11 @@ export interface components {
             product_uuid?: string | null;
             /** Format: uuid */
             customer_uuid?: string | null;
+            /**
+             * Format: uuid
+             * @description Sell under a corporate agreement (active, valid on the pick-up day): its tariff and coupon eligibility apply
+             */
+            agreement_uuid?: string | null;
             extras?: components["schemas"]["ExtraSelection"][];
             coupon_code?: string;
             manual_discount?: components["schemas"]["ManualDiscount"] | null;
@@ -17360,6 +17689,11 @@ export interface components {
             /** Format: date-time */
             ends_at?: string | null;
             channel?: string;
+            /**
+             * Format: uuid
+             * @description Price the products under a corporate agreement
+             */
+            agreement_uuid?: string | null;
             product_uuids?: string[];
             pickup_delivery?: components["schemas"]["DeliveryDetails"] | null;
             return_delivery?: components["schemas"]["DeliveryDetails"] | null;
@@ -17447,6 +17781,9 @@ export interface components {
             conditions: components["schemas"]["ReservationConditions"] | null;
             previous_conditions: components["schemas"]["ReservationConditions"] | null;
             warnings: string[];
+            agreement?: components["schemas"]["AgreementPricing"];
+            /** @description Monthly period plan of a periodically billed agreement sale (partial first / last periods pro rata by days) */
+            billing_plan?: components["schemas"]["BillingPeriodPlan"][];
         };
         Quote: {
             /** Format: uuid */
@@ -17458,6 +17795,7 @@ export interface components {
             expired: boolean;
             reservation: components["schemas"]["ReservationRef"] | null;
             customer: components["schemas"]["ReservationCustomerRef"] | null;
+            agreement?: components["schemas"]["AgreementRef"] | null;
             product: components["schemas"]["ReservationProductRef"];
             pickup_branch: components["schemas"]["ReservationBranchRef"];
             return_branch: components["schemas"]["ReservationBranchRef"];
@@ -17580,6 +17918,8 @@ export interface components {
             note?: string;
             request_only?: boolean;
             confirm_now?: boolean;
+            /** @description Default true: a sale under an agreement with an open account is confirmed without prepayment within the credit limit (`422 CREDIT_LIMIT_EXCEEDED` above it); false follows the prepayment flow */
+            use_open_account?: boolean | null;
         };
         ReservationReasonRequest: {
             reason?: string;
@@ -17730,6 +18070,9 @@ export interface components {
             billing_days: number;
             customer: components["schemas"]["ReservationCustomerRef"];
             invoice_customer: components["schemas"]["ReservationCustomerRef"] | null;
+            agreement?: components["schemas"]["AgreementRef"] | null;
+            /** @description Confirmed without prepayment on the agreement's open account */
+            open_account?: boolean;
             drivers: components["schemas"]["ReservationDriver"][];
             channel: string;
             /** @enum {string} */
@@ -18041,8 +18384,10 @@ export interface components {
             uuid: string;
             name: string;
             /** @enum {string} */
-            scope: "common" | "branch" | "channel" | "branch_channel";
+            scope: "common" | "branch" | "channel" | "branch_channel" | "agreement";
             rental_product: components["schemas"]["PricingProductRef"];
+            /** @description The corporate agreement of an agreement tariff (scope agreement) */
+            agreement?: components["schemas"]["AgreementRef"] | null;
             branch: components["schemas"]["PricingBranchRef"] | null;
             channel: string | null;
             /** @enum {string} */
@@ -18077,7 +18422,12 @@ export interface components {
             /** Format: uuid */
             rental_product_uuid: string;
             /** @enum {string} */
-            scope: "common" | "branch" | "channel" | "branch_channel";
+            scope: "common" | "branch" | "channel" | "branch_channel" | "agreement";
+            /**
+             * Format: uuid
+             * @description Corporate agreement of an agreement tariff (scope agreement, TEC-723): it prices only sales under that agreement and beats every public plan
+             */
+            agreement_uuid?: string | null;
             /**
              * Format: uuid
              * @description branch / branch_channel scopes
@@ -18319,6 +18669,11 @@ export interface components {
             kind: components["schemas"]["FleetFacet"][];
         };
         PricingPreviewRequest: {
+            /**
+             * Format: uuid
+             * @description Price under a corporate agreement: its tariff and coupon eligibility apply (TEC-723)
+             */
+            agreement_uuid?: string | null;
             /** Format: uuid */
             rental_product_uuid: string;
             /** Format: uuid */
@@ -18424,6 +18779,8 @@ export interface components {
                 name: string;
                 scope: string;
                 priority: number;
+                /** @description Agreement uuid of an agreement tariff */
+                agreement_id?: string;
             };
             band: components["schemas"]["RateBand"];
             days: {
@@ -18492,6 +18849,7 @@ export interface components {
                 refs: string[];
             } | null;
             coupon?: components["schemas"]["PricingCouponResult"] | null;
+            agreement?: components["schemas"]["AgreementPricing"];
         };
         PricingPreview: {
             current: components["schemas"]["PricingPreviewSide"];
@@ -23251,8 +23609,405 @@ export interface components {
             };
             meta: components["schemas"]["ResponseMeta"];
         };
+        AgreementRef: {
+            /** Format: uuid */
+            uuid: string;
+            /** @example KA-000001 */
+            code: string;
+            name: string;
+        };
+        /** @description The corporate agreement a side / quote was priced under (null = a public sale) */
+        AgreementPricing: {
+            /** Format: uuid */
+            uuid: string;
+            code: string;
+            name: string;
+            /** @description The agreement's own tariff priced the sale */
+            tariff_applied: boolean;
+            coupon_eligible: boolean;
+            /** @enum {string} */
+            invoice_period: "monthly" | "per_rental";
+        } | null;
+        BillingPeriodPlan: {
+            no: number;
+            /** @description First billing day index (from 0) */
+            from_day: number;
+            /** @description Billing day index after the last one */
+            to_day: number;
+            /** Format: date */
+            starts_on: string;
+            /**
+             * Format: date
+             * @description Exclusive
+             */
+            ends_on: string;
+            days: number;
+            partial: boolean;
+            amount: string;
+        };
+        AgreementCustomerRef: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            customer_type: "individual" | "corporate";
+            display_name: string;
+            identity_masked?: string;
+        };
+        AgreementBranchRef: {
+            /** Format: uuid */
+            uuid: string;
+            code?: string;
+            name: string;
+        };
+        AgreementActor: {
+            /** Format: uuid */
+            uuid: string;
+            name: string;
+            surname: string;
+            email: string;
+        };
+        AgreementContact: {
+            /** Format: uuid */
+            uuid: string;
+            /** Format: uuid */
+            contact_uuid: string;
+            full_name: string;
+            title: string;
+            phone_masked: string;
+            email_masked: string;
+            is_primary: boolean;
+            /** @enum {string} */
+            role: "signatory" | "billing" | "operations" | "other";
+            note: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        AgreementDriver: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            kind: "driver" | "customer";
+            /** Format: uuid */
+            driver_uuid: string | null;
+            /** Format: uuid */
+            customer_uuid: string | null;
+            name: string;
+            /** @description The customer the driver record belongs to */
+            owner: string;
+            licence_masked?: string;
+            /** Format: date */
+            licence_expires_on?: string | null;
+            note: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        Agreement: {
+            /** Format: uuid */
+            uuid: string;
+            /** @example KA-000001 */
+            code: string;
+            name: string;
+            /** @enum {string} */
+            status: "draft" | "active" | "suspended" | "terminated";
+            /** @enum {string} */
+            validity: "upcoming" | "current" | "expired";
+            customer: components["schemas"]["AgreementCustomerRef"];
+            branch: components["schemas"]["AgreementBranchRef"] | null;
+            /** Format: date */
+            valid_from: string;
+            /**
+             * Format: date
+             * @description Inclusive; null = open ended
+             */
+            valid_to: string | null;
+            /** @enum {string} */
+            invoice_period: "monthly" | "per_rental";
+            payment_term_days: number;
+            open_account: boolean;
+            credit_limit: string | null;
+            coupon_eligible: boolean;
+            monthly_km_allowance: number | null;
+            maintenance_interval_days: number | null;
+            maintenance_interval_km: number | null;
+            currency: string;
+            notes: string;
+            /** Format: date-time */
+            terminated_at: string | null;
+            termination_reason: string;
+            account: {
+                /** Format: uuid */
+                uuid: string;
+                code: string;
+                payment_term_days: number;
+            } | null;
+            exposure: {
+                credit_limit: string;
+                /** @description The customer's ledger balance (deposits aside) */
+                balance: string;
+                /** @description Rent of live agreement reservations not accrued yet */
+                pending: string;
+                available: string;
+            } | null;
+            contacts: components["schemas"]["AgreementContact"][];
+            drivers: components["schemas"]["AgreementDriver"][];
+            created_by: components["schemas"]["AgreementActor"] | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        AgreementListItem: {
+            /** Format: uuid */
+            uuid: string;
+            code: string;
+            name: string;
+            /** @enum {string} */
+            status: "draft" | "active" | "suspended" | "terminated";
+            /** @enum {string} */
+            validity: "upcoming" | "current" | "expired";
+            customer: components["schemas"]["AgreementCustomerRef"];
+            branch: components["schemas"]["AgreementBranchRef"] | null;
+            /** Format: date */
+            valid_from: string;
+            /** Format: date */
+            valid_to: string | null;
+            /** @enum {string} */
+            invoice_period: "monthly" | "per_rental";
+            payment_term_days: number;
+            open_account: boolean;
+            credit_limit: string | null;
+            coupon_eligible: boolean;
+            currency: string;
+            /** Format: int64 */
+            reservation_count: number;
+            /** Format: int64 */
+            tariff_count: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        AgreementInput: {
+            /**
+             * Format: uuid
+             * @description Create only (a corporate customer)
+             */
+            customer_uuid?: string | null;
+            name?: string | null;
+            /**
+             * Format: uuid
+             * @description Managing branch (null on create = head office)
+             */
+            branch_uuid?: string | null;
+            /** @description Make it a head office agreement (needs every branch) */
+            clear_branch?: boolean;
+            /** Format: date */
+            valid_from?: string | null;
+            /** Format: date */
+            valid_to?: string | null;
+            clear_valid_to?: boolean;
+            /** @enum {string|null} */
+            invoice_period?: "monthly" | "per_rental" | null;
+            payment_term_days?: number | null;
+            open_account?: boolean | null;
+            credit_limit?: string | null;
+            coupon_eligible?: boolean | null;
+            /** @description 0 clears */
+            monthly_km_allowance?: number | null;
+            /** @description 0 clears */
+            maintenance_interval_days?: number | null;
+            /** @description 0 clears */
+            maintenance_interval_km?: number | null;
+            notes?: string | null;
+            /** @description Create active (create only) */
+            activate?: boolean;
+        };
+        AgreementStatusRequest: {
+            /** @enum {string} */
+            status: "active" | "suspended" | "terminated";
+            reason?: string;
+        };
+        AgreementContactRequest: {
+            /** Format: uuid */
+            contact_uuid: string;
+            /** @enum {string} */
+            role?: "signatory" | "billing" | "operations" | "other";
+            note?: string;
+        };
+        AgreementDriverRequest: {
+            /** Format: uuid */
+            driver_uuid?: string | null;
+            /** Format: uuid */
+            customer_uuid?: string | null;
+            note?: string;
+        };
+        AgreementFacets: {
+            status: components["schemas"]["Facet"][];
+            customer: components["schemas"]["Facet"][];
+            branch: components["schemas"]["Facet"][];
+            invoice_period: components["schemas"]["Facet"][];
+            validity: components["schemas"]["Facet"][];
+        };
+        AgreementRentalRow: {
+            /** Format: uuid */
+            reservation_uuid: string;
+            reference: string;
+            status: string;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            product: components["schemas"]["AgreementBranchRef"];
+            customer: components["schemas"]["AgreementCustomerRef"];
+            total: string;
+            currency: string;
+            open_account: boolean;
+            rental: {
+                /** Format: uuid */
+                uuid: string;
+                status: string;
+                /** @enum {string} */
+                rent_billing: "handover" | "periodic";
+                /** Format: date-time */
+                actual_pickup_at: string | null;
+                /** Format: date-time */
+                actual_return_at: string | null;
+            } | null;
+            rent_accrued: string;
+            rent_open: string;
+            plate: string;
+            /** Format: uuid */
+            vehicle_uuid: string | null;
+        };
+        AgreementPeriod: {
+            /** Format: uuid */
+            uuid: string;
+            rental: components["schemas"]["AgreementBranchRef"];
+            rental_status: string;
+            no: number;
+            revision: number;
+            /** Format: date */
+            starts_on: string;
+            /** Format: date */
+            ends_on: string;
+            days: number;
+            partial: boolean;
+            amount: string;
+            currency: string;
+            km_allowance: number | null;
+            maintenance_due: boolean;
+            /** @example agreement:12:r345:p3 */
+            accrual_key: string;
+            /** @enum {string} */
+            status: "planned" | "posted" | "superseded" | "reversed";
+            /** Format: date-time */
+            posted_at: string | null;
+            /** Format: date-time */
+            closed_at: string | null;
+            /** Format: uuid */
+            entry_uuid: string | null;
+            /** Format: date */
+            entry_date: string | null;
+            /** Format: date */
+            due_date: string | null;
+        };
+        AgreementBillingPlan: {
+            periods: components["schemas"]["AgreementPeriod"][];
+            planned: string;
+            posted: string;
+        };
+        AgreementStatementRow: {
+            /** Format: uuid */
+            entry_uuid: string;
+            /** Format: date */
+            entry_date: string;
+            /** Format: date */
+            due_date: string;
+            kind: string;
+            /** @enum {string} */
+            direction: "debit" | "credit";
+            purpose: string;
+            amount: string;
+            debit: string;
+            credit: string;
+            balance: string;
+            description: string;
+            reason: string;
+            accrual_key: string;
+            periodic: boolean;
+            reservation: components["schemas"]["AgreementBranchRef"];
+            /** Format: uuid */
+            rental_uuid: string | null;
+        };
+        AgreementStatement: {
+            rows: components["schemas"]["AgreementStatementRow"][];
+            debit: string;
+            credit: string;
+            balance: string;
+        };
+        EnvelopeAgreement: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["Agreement"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeAgreementPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["AgreementListItem"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeAgreementFacets: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["AgreementFacets"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeAgreementTariffs: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["RatePlan"][];
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeAgreementRentals: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["AgreementRentalRow"][];
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeAgreementBilling: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["AgreementBillingPlan"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeAgreementStatement: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["AgreementStatement"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
     };
     responses: {
+        /** @description Corporate agreement */
+        AgreementOK: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["EnvelopeAgreement"];
+            };
+        };
         /** @description KABİS notification */
         KabisNotificationOK: {
             headers: {
@@ -37207,6 +37962,8 @@ export interface operations {
                 status?: string;
                 /** @description Plans with pending draft changes */
                 has_draft?: boolean;
+                /** @description Corporate agreement uuids (agreement tariffs); comma-separated */
+                agreement?: string;
             };
             header: {
                 /**
@@ -46281,6 +47038,560 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantAgreementsMeta: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource meta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantAgreementsFacets: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Facets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeAgreementFacets"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantAgreements: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description `code`, `name`, `customer`, `status`, `valid_from`, `valid_to` or `created_at`; prefix `-` for descending. */
+                sort?: string;
+                /** @description draft, active, suspended, terminated (comma separated) */
+                status?: string;
+                /** @description Customer uuids */
+                customer?: string;
+                /** @description Branch uuids */
+                branch?: string;
+                /** @description monthly, per_rental */
+                invoice_period?: string;
+                /** @description upcoming, current, expired (against today, Europe/Istanbul) */
+                validity?: string;
+                /** @description Valid on or after this day (overlap) */
+                valid_from?: string;
+                /** @description Valid on or before this day (overlap) */
+                valid_to?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Agreement page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeAgreementPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantAgreement: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgreementInput"];
+            };
+        };
+        responses: {
+            201: components["responses"]["AgreementOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantAgreementsExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Export job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeExportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantAgreement: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["AgreementOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteTenantAgreement: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    patchTenantAgreement: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgreementInput"];
+            };
+        };
+        responses: {
+            200: components["responses"]["AgreementOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantAgreementStatus: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgreementStatusRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["AgreementOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantAgreementContact: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgreementContactRequest"];
+            };
+        };
+        responses: {
+            201: components["responses"]["AgreementOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteTenantAgreementContact: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                agreementContactUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["AgreementOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTenantAgreementDriver: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgreementDriverRequest"];
+            };
+        };
+        responses: {
+            201: components["responses"]["AgreementOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteTenantAgreementDriver: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                agreementDriverUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["AgreementOK"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantAgreementTariffs: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tariffs */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeAgreementTariffs"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantAgreementRentals: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rentals */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeAgreementRentals"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantAgreementBilling: {
+        parameters: {
+            query?: {
+                /** @description One rental only */
+                rental?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Billing plan */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeAgreementBilling"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantAgreementStatement: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Statement */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeAgreementStatement"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantAgreementActivity: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Activity page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeFleetActivityPage"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
 }

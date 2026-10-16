@@ -110,7 +110,8 @@ export function RateMatrixPage() {
   const canWrite = can(permissions.tenant.pricing.write);
   const branches = useBranchOptions();
   const channels = useChannelOptions();
-  const [scope, setScope] = useState<RatePlanScope>("common");
+  const [scope, setScope] =
+    useState<Exclude<RatePlanScope, "agreement">>("common");
   const [branch, setBranch] = useState("");
   const [channel, setChannel] = useState("");
   const [priority, setPriority] = useState("0");
@@ -394,7 +395,9 @@ export function RateMatrixPage() {
               <Label htmlFor="matrix-scope">{t("pricing.fields.scope")}</Label>
               <Select
                 value={scope}
-                onValueChange={(v) => setScope(v as RatePlanScope)}
+                onValueChange={(v) =>
+                  setScope(v as Exclude<RatePlanScope, "agreement">)
+                }
               >
                 <SelectTrigger id="matrix-scope">
                   <SelectValue />

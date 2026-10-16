@@ -309,5 +309,7 @@
   "preview.capped": "Üst limit",
   "preview.warnings.coupons_unavailable": "Kampanyalar şu an değerlendirilemiyor.",
   "validation.extra": "Ek hizmet seçin.",
-  "validation.extra_quantity": "Geçerli bir adet girin."
+  "validation.extra_quantity": "Geçerli bir adet girin.",
+  "scope.agreement": "Anlaşma",
+  "scope.agreement_hint": "Yalnızca anlaşmayla yapılan satışlar; genel tarifelerden önce gelir."
 }

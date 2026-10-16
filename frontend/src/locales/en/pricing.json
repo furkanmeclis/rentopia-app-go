@@ -309,5 +309,7 @@
   "preview.capped": "Capped",
   "preview.warnings.coupons_unavailable": "Campaigns cannot be evaluated right now.",
   "validation.extra": "Choose an extra.",
-  "validation.extra_quantity": "Enter a valid quantity."
+  "validation.extra_quantity": "Enter a valid quantity.",
+  "scope.agreement": "Agreement",
+  "scope.agreement_hint": "Sales under the agreement only; beats every public tariff."
 }
