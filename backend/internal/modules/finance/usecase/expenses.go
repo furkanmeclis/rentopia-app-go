@@ -209,6 +209,16 @@ func (s *Service) ListExpenses(ctx context.Context, orgID int64, f model.Expense
 		}
 		p.VehicleIds = append(p.VehicleIds, v.ID)
 	}
+	for _, id := range f.SupplierUUIDs {
+		sup, err := s.q.GetSupplierForFinance(ctx, db.GetSupplierForFinanceParams{OrganizationID: orgID, Uuid: id})
+		if notFound(err) {
+			return nil, 0, validation("supplier", "not_found", "unknown supplier")
+		}
+		if err != nil {
+			return nil, 0, err
+		}
+		p.SupplierIds = append(p.SupplierIds, sup.ID)
+	}
 	branches, err := s.branchIDs(ctx, orgID, "branch", f.BranchUUIDs)
 	if err != nil {
 		return nil, 0, err
@@ -228,7 +238,8 @@ func (s *Service) ListExpenses(ctx context.Context, orgID int64, f model.Expense
 			Currency: r.Currency, NetAmount: m(r.NetAmount), VATRate: money.Rate(m(r.VatRate).Minor()), VATAmount: m(r.VatAmount),
 			TotalAmount: m(r.TotalAmount), Branch: refOf(r.BranchUuid, r.BranchCode, r.BranchName),
 			Vehicle: refOf(r.VehicleUuid, r.VehiclePlate, pgtype.Text{}), CashAccount: refOf(r.CashAccountUuid, r.CashAccountCode, r.CashAccountName),
-			MovementUUID: uuidPtr(r.MovementUuid), Status: r.Status, VoidReason: r.VoidReason, VoidedAt: timePtr(r.VoidedAt),
+			MovementUUID: uuidPtr(r.MovementUuid), Supplier: refOf(r.SupplierUuid, r.SupplierCode, r.SupplierTitle),
+			SupplierInvoice: refOf(r.SupplierInvoiceUuid, r.SupplierInvoiceNo, pgtype.Text{}), Status: r.Status, VoidReason: r.VoidReason, VoidedAt: timePtr(r.VoidedAt),
 			CreatedBy: actorOf(r.CreatedByUuid, r.CreatedByName, r.CreatedBySurname, r.CreatedByEmail),
 			CreatedAt: r.CreatedAt.Time.UTC(), UpdatedAt: r.UpdatedAt.Time.UTC(),
 		}
@@ -351,6 +362,10 @@ func (s *Service) CreateExpense(ctx context.Context, orgID int64, in model.Expen
 	if err != nil {
 		return model.Expense{}, err
 	}
+	supplierID, supplier, err := s.expenseSupplier(ctx, orgID, in.SupplierUUID, supplier)
+	if err != nil {
+		return model.Expense{}, err
+	}
 	var id uuid.UUID
 	var cashUUID uuid.UUID
 	err = s.tx(ctx, func(q *db.Queries) error {
@@ -374,7 +389,7 @@ func (s *Service) CreateExpense(ctx context.Context, orgID int64, in model.Expen
 			OrganizationID: orgID, CategoryID: cat.ID, ExpenseDate: dateOf(date), Description: desc, SupplierName: supplier,
 			DocumentNo: docNo, Currency: currency, NetAmount: net.Numeric(), VatRate: money.New(int64(rate)).Numeric(),
 			VatAmount: vat.Numeric(), TotalAmount: total.Numeric(), BranchID: branch, VehicleID: vehicle, CashAccountID: cash,
-			CreatedBy: actorID(ctx),
+			CreatedBy: actorID(ctx), SupplierID: supplierID,
 		})
 		if err != nil {
 			return err
@@ -416,6 +431,9 @@ func (s *Service) PatchExpense(ctx context.Context, orgID int64, id uuid.UUID, i
 	if row.Status != model.ExpenseRecorded {
 		return model.Expense{}, stateErr("expense_void", "a void expense cannot change")
 	}
+	if row.SupplierInvoiceID.Valid {
+		return model.Expense{}, errManagedByInvoice
+	}
 	ve := &ValidationError{}
 	if in.NetAmount != nil || in.TotalAmount != nil || in.VATRate != nil || in.Currency != nil || in.CashAccountUUID != nil {
 		ve.add("total_amount", "immutable", "amounts and the paying account are fixed; void the expense and record it again")
@@ -423,6 +441,7 @@ func (s *Service) PatchExpense(ctx context.Context, orgID int64, id uuid.UUID, i
 	p := db.UpdateExpenseDetailsParams{
 		OrganizationID: orgID, ID: row.ID, CategoryID: row.CategoryID, ExpenseDate: row.ExpenseDate, Description: row.Description,
 		SupplierName: row.SupplierName, DocumentNo: row.DocumentNo, BranchID: row.BranchID, VehicleID: row.VehicleID,
+		SupplierID: row.SupplierID,
 	}
 	if in.ExpenseDate != nil {
 		p.ExpenseDate = dateOf(optionalDate(ve, "expense_date", in.ExpenseDate, row.ExpenseDate.Time))
@@ -432,6 +451,19 @@ func (s *Service) PatchExpense(ctx context.Context, orgID int64, id uuid.UUID, i
 	}
 	if in.SupplierName != nil {
 		p.SupplierName = strings.TrimSpace(*in.SupplierName)
+		if in.SupplierUUID == nil {
+			p.SupplierID = s.linkSupplierByName(ctx, orgID, p.SupplierName)
+		}
+	}
+	if in.ClearSupplier {
+		p.SupplierID = pgtype.Int8{}
+	}
+	if in.SupplierUUID != nil {
+		id, name, err := s.expenseSupplier(ctx, orgID, in.SupplierUUID, p.SupplierName)
+		if err != nil {
+			return model.Expense{}, err
+		}
+		p.SupplierID, p.SupplierName = id, name
 	}
 	if in.DocumentNo != nil {
 		p.DocumentNo = strings.TrimSpace(*in.DocumentNo)
@@ -494,6 +526,9 @@ func (s *Service) SetExpenseCategory(ctx context.Context, orgID int64, id, categ
 	if err != nil {
 		return uuid.Nil, err
 	}
+	if row.SupplierInvoiceID.Valid {
+		return uuid.Nil, errManagedByInvoice
+	}
 	cat, err := s.activeCategory(ctx, orgID, "category_uuid", &category)
 	if err != nil {
 		return uuid.Nil, err
@@ -531,6 +566,9 @@ func (s *Service) VoidExpense(ctx context.Context, orgID int64, id uuid.UUID, re
 	}
 	if row.Status != model.ExpenseRecorded {
 		return model.Expense{}, stateErr("already_void", "the expense is already void")
+	}
+	if row.SupplierInvoiceID.Valid {
+		return model.Expense{}, errManagedByInvoice
 	}
 	err = s.tx(ctx, func(q *db.Queries) error {
 		n, err := q.VoidExpense(ctx, db.VoidExpenseParams{
@@ -576,6 +614,24 @@ func (s *Service) VoidExpense(ctx context.Context, orgID int64, id uuid.UUID, re
 	}
 	s.publish(ctx, model.ResourceExpenses, "updated", id)
 	return s.GetExpense(ctx, orgID, id)
+}
+
+// errManagedByInvoice: the expense row was generated from a supplier
+// invoice; the invoice is changed or voided instead (TEC-721).
+var errManagedByInvoice = &StateError{Code: "managed_by_supplier_invoice", Message: "this expense follows its supplier invoice; change or void the invoice"}
+
+// expenseSupplier resolves the supplier of an expense: an explicit
+// supplier_uuid (its title becomes the kept free-text name), or the one
+// active supplier whose title matches the free-text name.
+func (s *Service) expenseSupplier(ctx context.Context, orgID int64, id *uuid.UUID, name string) (pgtype.Int8, string, error) {
+	if id != nil {
+		sup, err := s.supplierFor(ctx, s.q, orgID, "supplier_uuid", id, false)
+		if err != nil {
+			return pgtype.Int8{}, name, err
+		}
+		return int8Of(sup.ID), sup.Title, nil
+	}
+	return s.linkSupplierByName(ctx, orgID, name), name, nil
 }
 
 // FileUpload is an uploaded attachment.

@@ -117,8 +117,23 @@ func (s *Service) applyInput(ctx context.Context, orgID int64, f *repository.Veh
 		}
 	}
 	applyText(ve, "supplier_name", in.SupplierName, 255, &f.SupplierName)
+	switch {
+	case in.SupplierUUID.Set && in.SupplierUUID.Value == nil:
+		f.SupplierID = pgtype.Int8{}
+	case in.SupplierUUID.Set:
+		sp, err := s.repo.GetSupplier(ctx, orgID, *in.SupplierUUID.Value)
+		if err != nil {
+			ve.add("supplier_uuid", "not_found", "supplier was not found")
+		} else {
+			f.SupplierID, f.SupplierName = pgtype.Int8{Int64: sp.ID, Valid: true}, sp.Title
+		}
+	case in.SupplierName != nil:
+		// A free-text name links the supplier card with that title (TEC-721).
+		f.SupplierID = s.repo.SupplierByTitle(ctx, orgID, f.SupplierName)
+	}
 	if f.Ownership == model.OwnershipOwned {
 		f.SupplierName = ""
+		f.SupplierID = pgtype.Int8{}
 	} else if f.Ownership == model.OwnershipSupplied && f.SupplierName == "" && !ve.has("ownership") {
 		ve.add("supplier_name", "required", "supplier_name is required for supplied vehicles")
 	}
@@ -305,7 +320,7 @@ func fieldsFromVehicle(v db.Vehicle) repository.VehicleFields {
 		Transmission: v.Transmission, Fuel: v.Fuel, BodyType: v.BodyType, Seats: v.Seats, Luggage: v.Luggage,
 		AirConditioning: v.AirConditioning, AttributesVerified: v.AttributesVerified, Color: v.Color,
 		HomeBranchID: v.HomeBranchID, CurrentBranchID: v.CurrentBranchID, FleetPool: v.FleetPool,
-		Ownership: v.Ownership, SupplierName: v.SupplierName, InServiceDate: v.InServiceDate,
+		Ownership: v.Ownership, SupplierName: v.SupplierName, SupplierID: v.SupplierID, InServiceDate: v.InServiceDate,
 		OutOfServiceDate: v.OutOfServiceDate, OdometerKm: v.OdometerKm, FuelLevel: v.FuelLevel,
 		Status: v.Status, IsActive: v.IsActive,
 	}

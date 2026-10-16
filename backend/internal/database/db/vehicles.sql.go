@@ -100,40 +100,44 @@ WHERE v.organization_id = $1
   AND ($3::boolean IS NULL OR v.is_active = $3)
   AND ($4::text[] IS NULL OR v.status = ANY($4::text[]))
   AND ($5::text[] IS NULL OR v.ownership = ANY($5::text[]))
-  AND ($6::text[] IS NULL OR v.fleet_pool = ANY($6::text[]))
-  AND ($7::text[] IS NULL OR (
+  AND ($6::uuid[] IS NULL OR v.supplier_id IN (
+    SELECT sx.id FROM suppliers sx
+    WHERE sx.organization_id = v.organization_id AND sx.uuid = ANY($6::uuid[])
+  ))
+  AND ($7::text[] IS NULL OR v.fleet_pool = ANY($7::text[]))
+  AND ($8::text[] IS NULL OR (
     CASE
       WHEN dx.document_expires_at IS NULL THEN 'none'
-      WHEN dx.document_expires_at < $8::date THEN 'expired'
-      WHEN dx.document_expires_at <= $8::date + $9::int THEN 'expiring'
+      WHEN dx.document_expires_at < $9::date THEN 'expired'
+      WHEN dx.document_expires_at <= $9::date + $10::int THEN 'expiring'
       ELSE 'valid'
-    END) = ANY($7::text[]))
-  AND ($10::uuid[] IS NULL OR hb.uuid = ANY($10::uuid[]))
-  AND ($11::uuid[] IS NULL OR cb.uuid = ANY($11::uuid[]))
-  AND ($12::uuid[] IS NULL OR EXISTS (
+    END) = ANY($8::text[]))
+  AND ($11::uuid[] IS NULL OR hb.uuid = ANY($11::uuid[]))
+  AND ($12::uuid[] IS NULL OR cb.uuid = ANY($12::uuid[]))
+  AND ($13::uuid[] IS NULL OR EXISTS (
     SELECT 1 FROM vehicle_rental_groups vg
     JOIN rental_groups g ON g.organization_id = vg.organization_id AND g.id = vg.rental_group_id
     WHERE vg.organization_id = v.organization_id AND vg.vehicle_id = v.id
-      AND g.deleted_at IS NULL AND g.uuid = ANY($12::uuid[])
+      AND g.deleted_at IS NULL AND g.uuid = ANY($13::uuid[])
   ))
-  AND ($13::uuid[] IS NULL OR EXISTS (
+  AND ($14::uuid[] IS NULL OR EXISTS (
     SELECT 1 FROM vehicle_rental_groups vg
     JOIN rental_groups g ON g.organization_id = vg.organization_id AND g.id = vg.rental_group_id
     JOIN vehicle_segments s ON s.organization_id = g.organization_id AND s.id = g.segment_id
     WHERE vg.organization_id = v.organization_id AND vg.vehicle_id = v.id
-      AND g.deleted_at IS NULL AND s.uuid = ANY($13::uuid[])
+      AND g.deleted_at IS NULL AND s.uuid = ANY($14::uuid[])
   ))
   AND (
-    $14::text IS NULL
-    OR v.plate ILIKE '%' || $14 || '%'
-    OR v.plate_key LIKE '%' || upper(regexp_replace($14, '[^A-Za-z0-9]', '', 'g')) || '%'
-    OR v.vin ILIKE '%' || $14 || '%'
-    OR v.color ILIKE '%' || $14 || '%'
-    OR v.manual_brand ILIKE '%' || $14 || '%'
-    OR v.manual_model ILIKE '%' || $14 || '%'
-    OR t.raw_name ILIKE '%' || $14 || '%'
-    OR m.name ILIKE '%' || $14 || '%'
-    OR d.name ILIKE '%' || $14 || '%'
+    $15::text IS NULL
+    OR v.plate ILIKE '%' || $15 || '%'
+    OR v.plate_key LIKE '%' || upper(regexp_replace($15, '[^A-Za-z0-9]', '', 'g')) || '%'
+    OR v.vin ILIKE '%' || $15 || '%'
+    OR v.color ILIKE '%' || $15 || '%'
+    OR v.manual_brand ILIKE '%' || $15 || '%'
+    OR v.manual_model ILIKE '%' || $15 || '%'
+    OR t.raw_name ILIKE '%' || $15 || '%'
+    OR m.name ILIKE '%' || $15 || '%'
+    OR d.name ILIKE '%' || $15 || '%'
   )
 `
 
@@ -143,6 +147,7 @@ type CountVehiclesParams struct {
 	IsActive            pgtype.Bool `json:"is_active"`
 	Statuses            []string    `json:"statuses"`
 	Ownerships          []string    `json:"ownerships"`
+	SupplierUuids       []uuid.UUID `json:"supplier_uuids"`
 	Pools               []string    `json:"pools"`
 	DocumentStatuses    []string    `json:"document_statuses"`
 	Today               pgtype.Date `json:"today"`
@@ -161,6 +166,7 @@ func (q *Queries) CountVehicles(ctx context.Context, arg CountVehiclesParams) (i
 		arg.IsActive,
 		arg.Statuses,
 		arg.Ownerships,
+		arg.SupplierUuids,
 		arg.Pools,
 		arg.DocumentStatuses,
 		arg.Today,
@@ -182,7 +188,7 @@ INSERT INTO vehicles (
     organization_id, plate, vin, catalog_type_id, manual_entry, manual_brand, manual_model, manual_type,
     model_year, transmission, fuel, body_type, seats, luggage, air_conditioning, attributes_verified,
     color, home_branch_id, current_branch_id, fleet_pool, ownership, supplier_name,
-    in_service_date, out_of_service_date, odometer_km, fuel_level, status, is_active
+    in_service_date, out_of_service_date, odometer_km, fuel_level, status, is_active, supplier_id
 ) VALUES (
     $1, $2, $3, $4,
     $5, $6, $7, $8,
@@ -190,9 +196,9 @@ INSERT INTO vehicles (
     $13, $14, $15, $16,
     $17, $18, $19, $20,
     $21, $22, $23, $24,
-    $25, $26, $27, $28
+    $25, $26, $27, $28, $29
 )
-RETURNING id, uuid, organization_id, plate, plate_key, vin, catalog_type_id, manual_entry, manual_brand, manual_model, manual_type, model_year, transmission, fuel, body_type, seats, luggage, air_conditioning, attributes_verified, color, home_branch_id, current_branch_id, fleet_pool, ownership, supplier_name, in_service_date, out_of_service_date, odometer_km, fuel_level, status, status_changed_at, is_active, created_at, updated_at, deleted_at
+RETURNING id, uuid, organization_id, plate, plate_key, vin, catalog_type_id, manual_entry, manual_brand, manual_model, manual_type, model_year, transmission, fuel, body_type, seats, luggage, air_conditioning, attributes_verified, color, home_branch_id, current_branch_id, fleet_pool, ownership, supplier_name, in_service_date, out_of_service_date, odometer_km, fuel_level, status, status_changed_at, is_active, created_at, updated_at, deleted_at, supplier_id
 `
 
 type CreateVehicleParams struct {
@@ -224,6 +230,7 @@ type CreateVehicleParams struct {
 	FuelLevel          pgtype.Int2 `json:"fuel_level"`
 	Status             string      `json:"status"`
 	IsActive           bool        `json:"is_active"`
+	SupplierID         pgtype.Int8 `json:"supplier_id"`
 }
 
 // Tenant resource: fleet vehicles (TEC-692), their status events and rental
@@ -265,6 +272,7 @@ func (q *Queries) CreateVehicle(ctx context.Context, arg CreateVehicleParams) (V
 		arg.FuelLevel,
 		arg.Status,
 		arg.IsActive,
+		arg.SupplierID,
 	)
 	var i Vehicle
 	err := row.Scan(
@@ -303,6 +311,7 @@ func (q *Queries) CreateVehicle(ctx context.Context, arg CreateVehicleParams) (V
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.SupplierID,
 	)
 	return i, err
 }
@@ -538,7 +547,7 @@ func (q *Queries) GetLiveRentalGroupForVehicles(ctx context.Context, arg GetLive
 }
 
 const getVehicleByPlate = `-- name: GetVehicleByPlate :one
-SELECT id, uuid, organization_id, plate, plate_key, vin, catalog_type_id, manual_entry, manual_brand, manual_model, manual_type, model_year, transmission, fuel, body_type, seats, luggage, air_conditioning, attributes_verified, color, home_branch_id, current_branch_id, fleet_pool, ownership, supplier_name, in_service_date, out_of_service_date, odometer_km, fuel_level, status, status_changed_at, is_active, created_at, updated_at, deleted_at FROM vehicles
+SELECT id, uuid, organization_id, plate, plate_key, vin, catalog_type_id, manual_entry, manual_brand, manual_model, manual_type, model_year, transmission, fuel, body_type, seats, luggage, air_conditioning, attributes_verified, color, home_branch_id, current_branch_id, fleet_pool, ownership, supplier_name, in_service_date, out_of_service_date, odometer_km, fuel_level, status, status_changed_at, is_active, created_at, updated_at, deleted_at, supplier_id FROM vehicles
 WHERE organization_id = $1
   AND plate_key = upper(regexp_replace($2::text, '[^A-Za-z0-9]', '', 'g'))
   AND deleted_at IS NULL
@@ -591,6 +600,7 @@ func (q *Queries) GetVehicleByPlate(ctx context.Context, arg GetVehicleByPlatePa
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.SupplierID,
 	)
 	return i, err
 }
@@ -633,7 +643,7 @@ func (q *Queries) GetVehicleCatalogType(ctx context.Context, argUuid uuid.UUID) 
 }
 
 const getVehicleDetail = `-- name: GetVehicleDetail :one
-SELECT v.id, v.uuid, v.organization_id, v.plate, v.plate_key, v.vin, v.catalog_type_id, v.manual_entry, v.manual_brand, v.manual_model, v.manual_type, v.model_year, v.transmission, v.fuel, v.body_type, v.seats, v.luggage, v.air_conditioning, v.attributes_verified, v.color, v.home_branch_id, v.current_branch_id, v.fleet_pool, v.ownership, v.supplier_name, v.in_service_date, v.out_of_service_date, v.odometer_km, v.fuel_level, v.status, v.status_changed_at, v.is_active, v.created_at, v.updated_at, v.deleted_at,
+SELECT v.id, v.uuid, v.organization_id, v.plate, v.plate_key, v.vin, v.catalog_type_id, v.manual_entry, v.manual_brand, v.manual_model, v.manual_type, v.model_year, v.transmission, v.fuel, v.body_type, v.seats, v.luggage, v.air_conditioning, v.attributes_verified, v.color, v.home_branch_id, v.current_branch_id, v.fleet_pool, v.ownership, v.supplier_name, v.in_service_date, v.out_of_service_date, v.odometer_km, v.fuel_level, v.status, v.status_changed_at, v.is_active, v.created_at, v.updated_at, v.deleted_at, v.supplier_id,
     t.uuid AS type_uuid, t.raw_name AS type_name, t.tsb_type_code AS type_code, t.years AS type_years,
     t.model_id AS catalog_model_id, m.name AS model_name,
     d.uuid AS brand_uuid, d.name AS brand_name,
@@ -641,6 +651,7 @@ SELECT v.id, v.uuid, v.organization_id, v.plate, v.plate_key, v.vin, v.catalog_t
     COALESCE(mg.uuid, '00000000-0000-0000-0000-000000000000'::uuid)::uuid AS model_group_uuid,
     hb.uuid AS home_branch_uuid, hb.code AS home_branch_code, hb.name AS home_branch_name,
     cb.uuid AS current_branch_uuid, cb.code AS current_branch_code, cb.name AS current_branch_name,
+    sp.uuid AS supplier_uuid, sp.code AS supplier_code, sp.title AS supplier_title,
     k.value AS kasko_value, COALESCE(k.period, '')::text AS kasko_period,
     dx.inspection_until::date AS inspection_until, dx.insurance_until::date AS insurance_until,
     dx.kasko_until::date AS kasko_until, dx.document_expires_at::date AS document_expires_at,
@@ -650,6 +661,7 @@ SELECT v.id, v.uuid, v.organization_id, v.plate, v.plate_key, v.vin, v.catalog_t
 FROM vehicles v
 JOIN branches hb ON hb.organization_id = v.organization_id AND hb.id = v.home_branch_id
 JOIN branches cb ON cb.organization_id = v.organization_id AND cb.id = v.current_branch_id
+LEFT JOIN suppliers sp ON sp.organization_id = v.organization_id AND sp.id = v.supplier_id
 LEFT JOIN catalog_types t ON t.id = v.catalog_type_id
 LEFT JOIN catalog_models m ON m.id = t.model_id
 LEFT JOIN catalog_brands tb ON tb.id = t.brand_id
@@ -719,6 +731,9 @@ type GetVehicleDetailRow struct {
 	CurrentBranchUuid   uuid.UUID      `json:"current_branch_uuid"`
 	CurrentBranchCode   string         `json:"current_branch_code"`
 	CurrentBranchName   string         `json:"current_branch_name"`
+	SupplierUuid        pgtype.UUID    `json:"supplier_uuid"`
+	SupplierCode        pgtype.Text    `json:"supplier_code"`
+	SupplierTitle       pgtype.Text    `json:"supplier_title"`
 	KaskoValue          pgtype.Numeric `json:"kasko_value"`
 	KaskoPeriod         string         `json:"kasko_period"`
 	InspectionUntil     pgtype.Date    `json:"inspection_until"`
@@ -768,6 +783,7 @@ func (q *Queries) GetVehicleDetail(ctx context.Context, arg GetVehicleDetailPara
 		&i.Vehicle.CreatedAt,
 		&i.Vehicle.UpdatedAt,
 		&i.Vehicle.DeletedAt,
+		&i.Vehicle.SupplierID,
 		&i.TypeUuid,
 		&i.TypeName,
 		&i.TypeCode,
@@ -784,6 +800,9 @@ func (q *Queries) GetVehicleDetail(ctx context.Context, arg GetVehicleDetailPara
 		&i.CurrentBranchUuid,
 		&i.CurrentBranchCode,
 		&i.CurrentBranchName,
+		&i.SupplierUuid,
+		&i.SupplierCode,
+		&i.SupplierTitle,
 		&i.KaskoValue,
 		&i.KaskoPeriod,
 		&i.InspectionUntil,
@@ -1414,43 +1433,47 @@ WHERE v.organization_id = $1
   AND ($3::boolean IS NULL OR v.is_active = $3)
   AND ($4::text[] IS NULL OR v.status = ANY($4::text[]))
   AND ($5::text[] IS NULL OR v.ownership = ANY($5::text[]))
-  AND ($6::text[] IS NULL OR v.fleet_pool = ANY($6::text[]))
-  AND ($7::text[] IS NULL OR (
+  AND ($6::uuid[] IS NULL OR v.supplier_id IN (
+    SELECT sx.id FROM suppliers sx
+    WHERE sx.organization_id = v.organization_id AND sx.uuid = ANY($6::uuid[])
+  ))
+  AND ($7::text[] IS NULL OR v.fleet_pool = ANY($7::text[]))
+  AND ($8::text[] IS NULL OR (
     CASE
       WHEN dx.document_expires_at IS NULL THEN 'none'
-      WHEN dx.document_expires_at < $8::date THEN 'expired'
-      WHEN dx.document_expires_at <= $8::date + $9::int THEN 'expiring'
+      WHEN dx.document_expires_at < $9::date THEN 'expired'
+      WHEN dx.document_expires_at <= $9::date + $10::int THEN 'expiring'
       ELSE 'valid'
-    END) = ANY($7::text[]))
-  AND ($10::uuid[] IS NULL OR hb.uuid = ANY($10::uuid[]))
-  AND ($11::uuid[] IS NULL OR cb.uuid = ANY($11::uuid[]))
-  AND ($12::uuid[] IS NULL OR EXISTS (
+    END) = ANY($8::text[]))
+  AND ($11::uuid[] IS NULL OR hb.uuid = ANY($11::uuid[]))
+  AND ($12::uuid[] IS NULL OR cb.uuid = ANY($12::uuid[]))
+  AND ($13::uuid[] IS NULL OR EXISTS (
     SELECT 1 FROM vehicle_rental_groups vg
     JOIN rental_groups g ON g.organization_id = vg.organization_id AND g.id = vg.rental_group_id
     WHERE vg.organization_id = v.organization_id AND vg.vehicle_id = v.id
-      AND g.deleted_at IS NULL AND g.uuid = ANY($12::uuid[])
+      AND g.deleted_at IS NULL AND g.uuid = ANY($13::uuid[])
   ))
-  AND ($13::uuid[] IS NULL OR EXISTS (
+  AND ($14::uuid[] IS NULL OR EXISTS (
     SELECT 1 FROM vehicle_rental_groups vg
     JOIN rental_groups g ON g.organization_id = vg.organization_id AND g.id = vg.rental_group_id
     JOIN vehicle_segments s ON s.organization_id = g.organization_id AND s.id = g.segment_id
     WHERE vg.organization_id = v.organization_id AND vg.vehicle_id = v.id
-      AND g.deleted_at IS NULL AND s.uuid = ANY($13::uuid[])
+      AND g.deleted_at IS NULL AND s.uuid = ANY($14::uuid[])
   ))
   AND (
-    $14::text IS NULL
-    OR v.plate ILIKE '%' || $14 || '%'
-    OR v.plate_key LIKE '%' || upper(regexp_replace($14, '[^A-Za-z0-9]', '', 'g')) || '%'
-    OR v.vin ILIKE '%' || $14 || '%'
-    OR v.color ILIKE '%' || $14 || '%'
-    OR v.manual_brand ILIKE '%' || $14 || '%'
-    OR v.manual_model ILIKE '%' || $14 || '%'
-    OR t.raw_name ILIKE '%' || $14 || '%'
-    OR m.name ILIKE '%' || $14 || '%'
-    OR d.name ILIKE '%' || $14 || '%'
+    $15::text IS NULL
+    OR v.plate ILIKE '%' || $15 || '%'
+    OR v.plate_key LIKE '%' || upper(regexp_replace($15, '[^A-Za-z0-9]', '', 'g')) || '%'
+    OR v.vin ILIKE '%' || $15 || '%'
+    OR v.color ILIKE '%' || $15 || '%'
+    OR v.manual_brand ILIKE '%' || $15 || '%'
+    OR v.manual_model ILIKE '%' || $15 || '%'
+    OR t.raw_name ILIKE '%' || $15 || '%'
+    OR m.name ILIKE '%' || $15 || '%'
+    OR d.name ILIKE '%' || $15 || '%'
   )
 ORDER BY v.id ASC
-LIMIT $15
+LIMIT $16
 `
 
 type ListVehicleUUIDsParams struct {
@@ -1459,6 +1482,7 @@ type ListVehicleUUIDsParams struct {
 	IsActive            pgtype.Bool `json:"is_active"`
 	Statuses            []string    `json:"statuses"`
 	Ownerships          []string    `json:"ownerships"`
+	SupplierUuids       []uuid.UUID `json:"supplier_uuids"`
 	Pools               []string    `json:"pools"`
 	DocumentStatuses    []string    `json:"document_statuses"`
 	Today               pgtype.Date `json:"today"`
@@ -1478,6 +1502,7 @@ func (q *Queries) ListVehicleUUIDs(ctx context.Context, arg ListVehicleUUIDsPara
 		arg.IsActive,
 		arg.Statuses,
 		arg.Ownerships,
+		arg.SupplierUuids,
 		arg.Pools,
 		arg.DocumentStatuses,
 		arg.Today,
@@ -1508,7 +1533,7 @@ func (q *Queries) ListVehicleUUIDs(ctx context.Context, arg ListVehicleUUIDsPara
 }
 
 const listVehicles = `-- name: ListVehicles :many
-SELECT v.id, v.uuid, v.organization_id, v.plate, v.plate_key, v.vin, v.catalog_type_id, v.manual_entry, v.manual_brand, v.manual_model, v.manual_type, v.model_year, v.transmission, v.fuel, v.body_type, v.seats, v.luggage, v.air_conditioning, v.attributes_verified, v.color, v.home_branch_id, v.current_branch_id, v.fleet_pool, v.ownership, v.supplier_name, v.in_service_date, v.out_of_service_date, v.odometer_km, v.fuel_level, v.status, v.status_changed_at, v.is_active, v.created_at, v.updated_at, v.deleted_at,
+SELECT v.id, v.uuid, v.organization_id, v.plate, v.plate_key, v.vin, v.catalog_type_id, v.manual_entry, v.manual_brand, v.manual_model, v.manual_type, v.model_year, v.transmission, v.fuel, v.body_type, v.seats, v.luggage, v.air_conditioning, v.attributes_verified, v.color, v.home_branch_id, v.current_branch_id, v.fleet_pool, v.ownership, v.supplier_name, v.in_service_date, v.out_of_service_date, v.odometer_km, v.fuel_level, v.status, v.status_changed_at, v.is_active, v.created_at, v.updated_at, v.deleted_at, v.supplier_id,
     t.uuid AS type_uuid, t.raw_name AS type_name, t.tsb_type_code AS type_code, t.years AS type_years,
     t.model_id AS catalog_model_id, m.name AS model_name,
     d.uuid AS brand_uuid, d.name AS brand_name,
@@ -1516,6 +1541,7 @@ SELECT v.id, v.uuid, v.organization_id, v.plate, v.plate_key, v.vin, v.catalog_t
     COALESCE(mg.uuid, '00000000-0000-0000-0000-000000000000'::uuid)::uuid AS model_group_uuid,
     hb.uuid AS home_branch_uuid, hb.code AS home_branch_code, hb.name AS home_branch_name,
     cb.uuid AS current_branch_uuid, cb.code AS current_branch_code, cb.name AS current_branch_name,
+    sp.uuid AS supplier_uuid, sp.code AS supplier_code, sp.title AS supplier_title,
     k.value AS kasko_value, COALESCE(k.period, '')::text AS kasko_period,
     dx.inspection_until::date AS inspection_until, dx.insurance_until::date AS insurance_until,
     dx.kasko_until::date AS kasko_until, dx.document_expires_at::date AS document_expires_at,
@@ -1525,6 +1551,7 @@ SELECT v.id, v.uuid, v.organization_id, v.plate, v.plate_key, v.vin, v.catalog_t
 FROM vehicles v
 JOIN branches hb ON hb.organization_id = v.organization_id AND hb.id = v.home_branch_id
 JOIN branches cb ON cb.organization_id = v.organization_id AND cb.id = v.current_branch_id
+LEFT JOIN suppliers sp ON sp.organization_id = v.organization_id AND sp.id = v.supplier_id
 LEFT JOIN catalog_types t ON t.id = v.catalog_type_id
 LEFT JOIN catalog_models m ON m.id = t.model_id
 LEFT JOIN catalog_brands tb ON tb.id = t.brand_id
@@ -1577,72 +1604,76 @@ WHERE v.organization_id = $1
   AND ($3::boolean IS NULL OR v.is_active = $3)
   AND ($4::text[] IS NULL OR v.status = ANY($4::text[]))
   AND ($5::text[] IS NULL OR v.ownership = ANY($5::text[]))
-  AND ($6::text[] IS NULL OR v.fleet_pool = ANY($6::text[]))
-  AND ($7::text[] IS NULL OR (
+  AND ($6::uuid[] IS NULL OR v.supplier_id IN (
+    SELECT sx.id FROM suppliers sx
+    WHERE sx.organization_id = v.organization_id AND sx.uuid = ANY($6::uuid[])
+  ))
+  AND ($7::text[] IS NULL OR v.fleet_pool = ANY($7::text[]))
+  AND ($8::text[] IS NULL OR (
     CASE
       WHEN dx.document_expires_at IS NULL THEN 'none'
-      WHEN dx.document_expires_at < $8::date THEN 'expired'
-      WHEN dx.document_expires_at <= $8::date + $9::int THEN 'expiring'
+      WHEN dx.document_expires_at < $9::date THEN 'expired'
+      WHEN dx.document_expires_at <= $9::date + $10::int THEN 'expiring'
       ELSE 'valid'
-    END) = ANY($7::text[]))
-  AND ($10::uuid[] IS NULL OR hb.uuid = ANY($10::uuid[]))
-  AND ($11::uuid[] IS NULL OR cb.uuid = ANY($11::uuid[]))
-  AND ($12::uuid[] IS NULL OR EXISTS (
+    END) = ANY($8::text[]))
+  AND ($11::uuid[] IS NULL OR hb.uuid = ANY($11::uuid[]))
+  AND ($12::uuid[] IS NULL OR cb.uuid = ANY($12::uuid[]))
+  AND ($13::uuid[] IS NULL OR EXISTS (
     SELECT 1 FROM vehicle_rental_groups vg
     JOIN rental_groups g ON g.organization_id = vg.organization_id AND g.id = vg.rental_group_id
     WHERE vg.organization_id = v.organization_id AND vg.vehicle_id = v.id
-      AND g.deleted_at IS NULL AND g.uuid = ANY($12::uuid[])
+      AND g.deleted_at IS NULL AND g.uuid = ANY($13::uuid[])
   ))
-  AND ($13::uuid[] IS NULL OR EXISTS (
+  AND ($14::uuid[] IS NULL OR EXISTS (
     SELECT 1 FROM vehicle_rental_groups vg
     JOIN rental_groups g ON g.organization_id = vg.organization_id AND g.id = vg.rental_group_id
     JOIN vehicle_segments s ON s.organization_id = g.organization_id AND s.id = g.segment_id
     WHERE vg.organization_id = v.organization_id AND vg.vehicle_id = v.id
-      AND g.deleted_at IS NULL AND s.uuid = ANY($13::uuid[])
+      AND g.deleted_at IS NULL AND s.uuid = ANY($14::uuid[])
   ))
   AND (
-    $14::text IS NULL
-    OR v.plate ILIKE '%' || $14 || '%'
-    OR v.plate_key LIKE '%' || upper(regexp_replace($14, '[^A-Za-z0-9]', '', 'g')) || '%'
-    OR v.vin ILIKE '%' || $14 || '%'
-    OR v.color ILIKE '%' || $14 || '%'
-    OR v.manual_brand ILIKE '%' || $14 || '%'
-    OR v.manual_model ILIKE '%' || $14 || '%'
-    OR t.raw_name ILIKE '%' || $14 || '%'
-    OR m.name ILIKE '%' || $14 || '%'
-    OR d.name ILIKE '%' || $14 || '%'
+    $15::text IS NULL
+    OR v.plate ILIKE '%' || $15 || '%'
+    OR v.plate_key LIKE '%' || upper(regexp_replace($15, '[^A-Za-z0-9]', '', 'g')) || '%'
+    OR v.vin ILIKE '%' || $15 || '%'
+    OR v.color ILIKE '%' || $15 || '%'
+    OR v.manual_brand ILIKE '%' || $15 || '%'
+    OR v.manual_model ILIKE '%' || $15 || '%'
+    OR t.raw_name ILIKE '%' || $15 || '%'
+    OR m.name ILIKE '%' || $15 || '%'
+    OR d.name ILIKE '%' || $15 || '%'
   )
 ORDER BY
-  CASE WHEN $15::text = 'plate' AND NOT $16::boolean THEN v.plate_key END ASC,
-  CASE WHEN $15::text = 'plate' AND $16::boolean THEN v.plate_key END DESC,
-  CASE WHEN $15::text = 'model_year' AND NOT $16::boolean THEN v.model_year END ASC,
-  CASE WHEN $15::text = 'model_year' AND $16::boolean THEN v.model_year END DESC,
-  CASE WHEN $15::text = 'odometer_km' AND NOT $16::boolean THEN v.odometer_km END ASC,
-  CASE WHEN $15::text = 'odometer_km' AND $16::boolean THEN v.odometer_km END DESC,
-  CASE WHEN $15::text = 'status' AND NOT $16::boolean THEN v.status END ASC,
-  CASE WHEN $15::text = 'status' AND $16::boolean THEN v.status END DESC,
-  CASE WHEN $15::text = 'kasko_value' AND NOT $16::boolean THEN k.value END ASC NULLS LAST,
-  CASE WHEN $15::text = 'kasko_value' AND $16::boolean THEN k.value END DESC NULLS LAST,
-  CASE WHEN $15::text = 'inspection_until' AND NOT $16::boolean THEN dx.inspection_until END ASC NULLS LAST,
-  CASE WHEN $15::text = 'inspection_until' AND $16::boolean THEN dx.inspection_until END DESC NULLS LAST,
-  CASE WHEN $15::text = 'insurance_until' AND NOT $16::boolean THEN dx.insurance_until END ASC NULLS LAST,
-  CASE WHEN $15::text = 'insurance_until' AND $16::boolean THEN dx.insurance_until END DESC NULLS LAST,
-  CASE WHEN $15::text = 'kasko_until' AND NOT $16::boolean THEN dx.kasko_until END ASC NULLS LAST,
-  CASE WHEN $15::text = 'kasko_until' AND $16::boolean THEN dx.kasko_until END DESC NULLS LAST,
-  CASE WHEN $15::text = 'document_expires_at' AND NOT $16::boolean THEN dx.document_expires_at END ASC NULLS LAST,
-  CASE WHEN $15::text = 'document_expires_at' AND $16::boolean THEN dx.document_expires_at END DESC NULLS LAST,
-  CASE WHEN $15::text = 'next_maintenance_date' AND NOT $16::boolean THEN mx.next_maintenance_date END ASC NULLS LAST,
-  CASE WHEN $15::text = 'next_maintenance_date' AND $16::boolean THEN mx.next_maintenance_date END DESC NULLS LAST,
-  CASE WHEN $15::text = 'next_maintenance_km' AND NOT $16::boolean THEN mx.next_maintenance_km END ASC NULLS LAST,
-  CASE WHEN $15::text = 'next_maintenance_km' AND $16::boolean THEN mx.next_maintenance_km END DESC NULLS LAST,
-  CASE WHEN $15::text = 'is_active' AND NOT $16::boolean THEN v.is_active END ASC,
-  CASE WHEN $15::text = 'is_active' AND $16::boolean THEN v.is_active END DESC,
-  CASE WHEN $15::text = 'updated_at' AND NOT $16::boolean THEN v.updated_at END ASC,
-  CASE WHEN $15::text = 'updated_at' AND $16::boolean THEN v.updated_at END DESC,
-  CASE WHEN $15::text = 'created_at' AND NOT $16::boolean THEN v.created_at END ASC,
-  CASE WHEN $15::text = 'created_at' AND $16::boolean THEN v.created_at END DESC,
+  CASE WHEN $16::text = 'plate' AND NOT $17::boolean THEN v.plate_key END ASC,
+  CASE WHEN $16::text = 'plate' AND $17::boolean THEN v.plate_key END DESC,
+  CASE WHEN $16::text = 'model_year' AND NOT $17::boolean THEN v.model_year END ASC,
+  CASE WHEN $16::text = 'model_year' AND $17::boolean THEN v.model_year END DESC,
+  CASE WHEN $16::text = 'odometer_km' AND NOT $17::boolean THEN v.odometer_km END ASC,
+  CASE WHEN $16::text = 'odometer_km' AND $17::boolean THEN v.odometer_km END DESC,
+  CASE WHEN $16::text = 'status' AND NOT $17::boolean THEN v.status END ASC,
+  CASE WHEN $16::text = 'status' AND $17::boolean THEN v.status END DESC,
+  CASE WHEN $16::text = 'kasko_value' AND NOT $17::boolean THEN k.value END ASC NULLS LAST,
+  CASE WHEN $16::text = 'kasko_value' AND $17::boolean THEN k.value END DESC NULLS LAST,
+  CASE WHEN $16::text = 'inspection_until' AND NOT $17::boolean THEN dx.inspection_until END ASC NULLS LAST,
+  CASE WHEN $16::text = 'inspection_until' AND $17::boolean THEN dx.inspection_until END DESC NULLS LAST,
+  CASE WHEN $16::text = 'insurance_until' AND NOT $17::boolean THEN dx.insurance_until END ASC NULLS LAST,
+  CASE WHEN $16::text = 'insurance_until' AND $17::boolean THEN dx.insurance_until END DESC NULLS LAST,
+  CASE WHEN $16::text = 'kasko_until' AND NOT $17::boolean THEN dx.kasko_until END ASC NULLS LAST,
+  CASE WHEN $16::text = 'kasko_until' AND $17::boolean THEN dx.kasko_until END DESC NULLS LAST,
+  CASE WHEN $16::text = 'document_expires_at' AND NOT $17::boolean THEN dx.document_expires_at END ASC NULLS LAST,
+  CASE WHEN $16::text = 'document_expires_at' AND $17::boolean THEN dx.document_expires_at END DESC NULLS LAST,
+  CASE WHEN $16::text = 'next_maintenance_date' AND NOT $17::boolean THEN mx.next_maintenance_date END ASC NULLS LAST,
+  CASE WHEN $16::text = 'next_maintenance_date' AND $17::boolean THEN mx.next_maintenance_date END DESC NULLS LAST,
+  CASE WHEN $16::text = 'next_maintenance_km' AND NOT $17::boolean THEN mx.next_maintenance_km END ASC NULLS LAST,
+  CASE WHEN $16::text = 'next_maintenance_km' AND $17::boolean THEN mx.next_maintenance_km END DESC NULLS LAST,
+  CASE WHEN $16::text = 'is_active' AND NOT $17::boolean THEN v.is_active END ASC,
+  CASE WHEN $16::text = 'is_active' AND $17::boolean THEN v.is_active END DESC,
+  CASE WHEN $16::text = 'updated_at' AND NOT $17::boolean THEN v.updated_at END ASC,
+  CASE WHEN $16::text = 'updated_at' AND $17::boolean THEN v.updated_at END DESC,
+  CASE WHEN $16::text = 'created_at' AND NOT $17::boolean THEN v.created_at END ASC,
+  CASE WHEN $16::text = 'created_at' AND $17::boolean THEN v.created_at END DESC,
   v.id DESC
-LIMIT $18 OFFSET $17
+LIMIT $19 OFFSET $18
 `
 
 type ListVehiclesParams struct {
@@ -1651,6 +1682,7 @@ type ListVehiclesParams struct {
 	IsActive            pgtype.Bool `json:"is_active"`
 	Statuses            []string    `json:"statuses"`
 	Ownerships          []string    `json:"ownerships"`
+	SupplierUuids       []uuid.UUID `json:"supplier_uuids"`
 	Pools               []string    `json:"pools"`
 	DocumentStatuses    []string    `json:"document_statuses"`
 	Today               pgtype.Date `json:"today"`
@@ -1684,6 +1716,9 @@ type ListVehiclesRow struct {
 	CurrentBranchUuid   uuid.UUID      `json:"current_branch_uuid"`
 	CurrentBranchCode   string         `json:"current_branch_code"`
 	CurrentBranchName   string         `json:"current_branch_name"`
+	SupplierUuid        pgtype.UUID    `json:"supplier_uuid"`
+	SupplierCode        pgtype.Text    `json:"supplier_code"`
+	SupplierTitle       pgtype.Text    `json:"supplier_title"`
 	KaskoValue          pgtype.Numeric `json:"kasko_value"`
 	KaskoPeriod         string         `json:"kasko_period"`
 	InspectionUntil     pgtype.Date    `json:"inspection_until"`
@@ -1701,6 +1736,7 @@ func (q *Queries) ListVehicles(ctx context.Context, arg ListVehiclesParams) ([]L
 		arg.IsActive,
 		arg.Statuses,
 		arg.Ownerships,
+		arg.SupplierUuids,
 		arg.Pools,
 		arg.DocumentStatuses,
 		arg.Today,
@@ -1758,6 +1794,7 @@ func (q *Queries) ListVehicles(ctx context.Context, arg ListVehiclesParams) ([]L
 			&i.Vehicle.CreatedAt,
 			&i.Vehicle.UpdatedAt,
 			&i.Vehicle.DeletedAt,
+			&i.Vehicle.SupplierID,
 			&i.TypeUuid,
 			&i.TypeName,
 			&i.TypeCode,
@@ -1774,6 +1811,9 @@ func (q *Queries) ListVehicles(ctx context.Context, arg ListVehiclesParams) ([]L
 			&i.CurrentBranchUuid,
 			&i.CurrentBranchCode,
 			&i.CurrentBranchName,
+			&i.SupplierUuid,
+			&i.SupplierCode,
+			&i.SupplierTitle,
 			&i.KaskoValue,
 			&i.KaskoPeriod,
 			&i.InspectionUntil,
@@ -1820,7 +1860,7 @@ SET is_active = $1
 WHERE organization_id = $2
   AND uuid = $3
   AND deleted_at IS NULL
-RETURNING id, uuid, organization_id, plate, plate_key, vin, catalog_type_id, manual_entry, manual_brand, manual_model, manual_type, model_year, transmission, fuel, body_type, seats, luggage, air_conditioning, attributes_verified, color, home_branch_id, current_branch_id, fleet_pool, ownership, supplier_name, in_service_date, out_of_service_date, odometer_km, fuel_level, status, status_changed_at, is_active, created_at, updated_at, deleted_at
+RETURNING id, uuid, organization_id, plate, plate_key, vin, catalog_type_id, manual_entry, manual_brand, manual_model, manual_type, model_year, transmission, fuel, body_type, seats, luggage, air_conditioning, attributes_verified, color, home_branch_id, current_branch_id, fleet_pool, ownership, supplier_name, in_service_date, out_of_service_date, odometer_km, fuel_level, status, status_changed_at, is_active, created_at, updated_at, deleted_at, supplier_id
 `
 
 type SetVehicleActiveParams struct {
@@ -1868,6 +1908,7 @@ func (q *Queries) SetVehicleActive(ctx context.Context, arg SetVehicleActivePara
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.SupplierID,
 	)
 	return i, err
 }
@@ -1878,7 +1919,7 @@ SET current_branch_id = $1
 WHERE organization_id = $2
   AND uuid = $3
   AND deleted_at IS NULL
-RETURNING id, uuid, organization_id, plate, plate_key, vin, catalog_type_id, manual_entry, manual_brand, manual_model, manual_type, model_year, transmission, fuel, body_type, seats, luggage, air_conditioning, attributes_verified, color, home_branch_id, current_branch_id, fleet_pool, ownership, supplier_name, in_service_date, out_of_service_date, odometer_km, fuel_level, status, status_changed_at, is_active, created_at, updated_at, deleted_at
+RETURNING id, uuid, organization_id, plate, plate_key, vin, catalog_type_id, manual_entry, manual_brand, manual_model, manual_type, model_year, transmission, fuel, body_type, seats, luggage, air_conditioning, attributes_verified, color, home_branch_id, current_branch_id, fleet_pool, ownership, supplier_name, in_service_date, out_of_service_date, odometer_km, fuel_level, status, status_changed_at, is_active, created_at, updated_at, deleted_at, supplier_id
 `
 
 type SetVehicleCurrentBranchParams struct {
@@ -1926,6 +1967,7 @@ func (q *Queries) SetVehicleCurrentBranch(ctx context.Context, arg SetVehicleCur
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.SupplierID,
 	)
 	return i, err
 }
@@ -1939,7 +1981,7 @@ SET status = $1::text,
 WHERE organization_id = $4
   AND uuid = $5
   AND deleted_at IS NULL
-RETURNING id, uuid, organization_id, plate, plate_key, vin, catalog_type_id, manual_entry, manual_brand, manual_model, manual_type, model_year, transmission, fuel, body_type, seats, luggage, air_conditioning, attributes_verified, color, home_branch_id, current_branch_id, fleet_pool, ownership, supplier_name, in_service_date, out_of_service_date, odometer_km, fuel_level, status, status_changed_at, is_active, created_at, updated_at, deleted_at
+RETURNING id, uuid, organization_id, plate, plate_key, vin, catalog_type_id, manual_entry, manual_brand, manual_model, manual_type, model_year, transmission, fuel, body_type, seats, luggage, air_conditioning, attributes_verified, color, home_branch_id, current_branch_id, fleet_pool, ownership, supplier_name, in_service_date, out_of_service_date, odometer_km, fuel_level, status, status_changed_at, is_active, created_at, updated_at, deleted_at, supplier_id
 `
 
 type SetVehicleStatusParams struct {
@@ -1995,6 +2037,7 @@ func (q *Queries) SetVehicleStatus(ctx context.Context, arg SetVehicleStatusPara
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.SupplierID,
 	)
 	return i, err
 }
@@ -2043,15 +2086,16 @@ SET plate = $1,
     fleet_pool = $19,
     ownership = $20,
     supplier_name = $21,
-    in_service_date = $22,
-    out_of_service_date = $23,
-    odometer_km = $24,
-    fuel_level = $25,
-    is_active = $26
-WHERE organization_id = $27
-  AND uuid = $28
+    supplier_id = $22,
+    in_service_date = $23,
+    out_of_service_date = $24,
+    odometer_km = $25,
+    fuel_level = $26,
+    is_active = $27
+WHERE organization_id = $28
+  AND uuid = $29
   AND deleted_at IS NULL
-RETURNING id, uuid, organization_id, plate, plate_key, vin, catalog_type_id, manual_entry, manual_brand, manual_model, manual_type, model_year, transmission, fuel, body_type, seats, luggage, air_conditioning, attributes_verified, color, home_branch_id, current_branch_id, fleet_pool, ownership, supplier_name, in_service_date, out_of_service_date, odometer_km, fuel_level, status, status_changed_at, is_active, created_at, updated_at, deleted_at
+RETURNING id, uuid, organization_id, plate, plate_key, vin, catalog_type_id, manual_entry, manual_brand, manual_model, manual_type, model_year, transmission, fuel, body_type, seats, luggage, air_conditioning, attributes_verified, color, home_branch_id, current_branch_id, fleet_pool, ownership, supplier_name, in_service_date, out_of_service_date, odometer_km, fuel_level, status, status_changed_at, is_active, created_at, updated_at, deleted_at, supplier_id
 `
 
 type UpdateVehicleParams struct {
@@ -2076,6 +2120,7 @@ type UpdateVehicleParams struct {
 	FleetPool          string      `json:"fleet_pool"`
 	Ownership          string      `json:"ownership"`
 	SupplierName       string      `json:"supplier_name"`
+	SupplierID         pgtype.Int8 `json:"supplier_id"`
 	InServiceDate      pgtype.Date `json:"in_service_date"`
 	OutOfServiceDate   pgtype.Date `json:"out_of_service_date"`
 	OdometerKm         int32       `json:"odometer_km"`
@@ -2108,6 +2153,7 @@ func (q *Queries) UpdateVehicle(ctx context.Context, arg UpdateVehicleParams) (V
 		arg.FleetPool,
 		arg.Ownership,
 		arg.SupplierName,
+		arg.SupplierID,
 		arg.InServiceDate,
 		arg.OutOfServiceDate,
 		arg.OdometerKm,
@@ -2153,6 +2199,7 @@ func (q *Queries) UpdateVehicle(ctx context.Context, arg UpdateVehicleParams) (V
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.SupplierID,
 	)
 	return i, err
 }

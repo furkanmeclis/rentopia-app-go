@@ -63,6 +63,7 @@ export type BulkResource =
   | "tenant.cash_movements"
   | "tenant.expenses"
   | "tenant.field_tasks"
+  | "tenant.suppliers"
   | "tenant.finance_collections";
 
 /**
@@ -85,6 +86,7 @@ export const BULK_PATHS: Record<BulkResource, string> = {
   "tenant.cash_movements": "/v1/tenant/finance/movements/bulk",
   "tenant.expenses": "/v1/tenant/finance/expenses/bulk",
   "tenant.field_tasks": "/v1/tenant/field-tasks/bulk",
+  "tenant.suppliers": "/v1/tenant/suppliers/bulk",
   "tenant.finance_collections": "/v1/tenant/finance/collections/bulk",
 };
 

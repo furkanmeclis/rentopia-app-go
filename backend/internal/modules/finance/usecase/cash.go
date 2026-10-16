@@ -496,6 +496,14 @@ func (s *Service) RecordMovement(ctx context.Context, orgID int64, id uuid.UUID,
 	if _, _, err := s.cashAccount(ctx, orgID, id); err != nil {
 		return model.Movement{}, err
 	}
+	if in.SupplierUUID != nil {
+		// A supplier payment naming its supplier posts to the supplier's
+		// account as well (TEC-721).
+		if in.Kind != model.MoveSupplierPayment {
+			return model.Movement{}, validation("supplier_uuid", "invalid", "only supplier payments name a supplier")
+		}
+		return s.supplierPaymentFromMovement(ctx, orgID, id, in)
+	}
 	ve := &ValidationError{}
 	if !contains(model.ManualMovementKinds, in.Kind) {
 		ve.add("kind", "invalid", "kind must be collection, refund, supplier_payment or adjustment")
@@ -687,6 +695,8 @@ func (s *Service) ReverseMovement(ctx context.Context, orgID int64, id uuid.UUID
 		return nil, stateErr("reversal_of_reversal", "a reversal cannot be reversed")
 	case mv.Kind == model.MoveExpense:
 		return nil, stateErr("expense_payment", "void the expense to reverse its payment")
+	case mv.Kind == model.MoveSupplierPayment && s.isSupplierPaymentMovement(ctx, orgID, mv.ID):
+		return nil, stateErr("supplier_payment", "void the supplier payment to reverse its movement")
 	case mv.Kind == model.MoveDepositIn || mv.Kind == model.MoveDepositOut:
 		return nil, stateErr("deposit_movement", "deposit movements follow their deposit (resolve or release it)")
 	case mv.Reversed:
@@ -776,6 +786,11 @@ func (s *Service) SetMovementCategory(ctx context.Context, orgID int64, id uuid.
 		prev = &p
 	}
 	return prev, nil
+}
+
+func (s *Service) isSupplierPaymentMovement(ctx context.Context, orgID, movementID int64) bool {
+	ok, err := s.q.IsSupplierPaymentMovement(ctx, db.IsSupplierPaymentMovementParams{OrganizationID: orgID, CashMovementID: int8Of(movementID)})
+	return err != nil || ok
 }
 
 func deref(v *string) string {

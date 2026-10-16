@@ -62,6 +62,8 @@ import (
 	reservationusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/usecase"
 	smsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/sms"
 	smsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/sms/usecase"
+	supplieradapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/suppliers/adapters"
+	supplierusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/suppliers/usecase"
 	tenantmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tenant"
 	tollsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tolls"
 	tollsadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tolls/adapters"
@@ -253,6 +255,9 @@ func main() {
 	financeSvc.SetLogger(log)
 	rentalsSvc.SetLedger(financeSvc)
 	paymentsSvc.SetLedger(financeSvc)
+	// Suppliers (TEC-721): exports, imports and bulk archive.
+	supplierSvc := supplierusecase.New(pool, queries, financeSvc, nil)
+	supplierSvc.SetLogger(log)
 	// Field tasks (TEC-724): bulk cancellations re-plan delivery tasks,
 	// bulk assign runs here.
 	fieldTasksSvc := fieldtasksusecase.New(pool, queries)
@@ -320,6 +325,9 @@ func main() {
 		financeadapters.NewCashAccountsIO(financeSvc),
 		financeadapters.NewMovementsIO(financeSvc),
 		financeadapters.NewExpensesIO(financeSvc),
+		financeadapters.NewSupplierInvoicesIO(financeSvc),
+		financeadapters.NewSupplierPaymentsIO(financeSvc),
+		supplieradapters.NewIO(supplierSvc),
 		financeadapters.NewDepositsIO(financeSvc),
 		financeadapters.NewCollectionsIO(financeSvc),
 	)
@@ -341,6 +349,7 @@ func main() {
 		customeradapters.NewBulk(customerSvc),
 		financeadapters.NewMovementsBulk(financeSvc),
 		financeadapters.NewExpensesBulk(financeSvc),
+		supplieradapters.NewBulk(supplierSvc),
 		financeadapters.NewCollectionsBulk(financeSvc),
 	)
 	bulkSvc := bulkusecase.New(queries, bulkReg, nil, notifSvc, activityRec, cfg.Bulk, log)
@@ -359,12 +368,14 @@ func main() {
 		fleetadapters.NewProductsSearch(queries),
 		vehicleadapters.NewSearch(queries),
 		customeradapters.NewSearch(queries),
+		supplieradapters.NewSearch(queries),
 	)
 	searchClient := searchengine.NewClient(cfg.Search, log)
 	searchIndexer := searchengine.NewIndexer(searchClient, searchReg, nil, log)
 	// Vehicle imports / bulk changes keep the Cmd+K index current.
 	vehicleSvc.SetSearchIndexer(searchIndexer)
 	customerSvc.SetSearchIndexer(searchIndexer)
+	supplierSvc.SetSearchIndexer(searchIndexer)
 	// Deliveries run inline here; mobile pushes go through the queue (retries).
 	queueClient := queue.NewClient(cfg.Redis)
 	defer func() { _ = queueClient.Close() }()

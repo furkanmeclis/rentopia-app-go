@@ -154,6 +154,17 @@ export const routes = {
         `/t/${encodeURIComponent(slug)}/finance/expense-categories`,
       reports: (slug: string) =>
         `/t/${encodeURIComponent(slug)}/finance/reports`,
+      /** Suppliers, their invoices / payments and due payables (TEC-721). */
+      suppliers: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/finance/suppliers`,
+      supplier: (slug: string, uuid: string) =>
+        `/t/${encodeURIComponent(slug)}/finance/suppliers/${uuid}`,
+      supplierInvoices: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/finance/supplier-invoices`,
+      supplierPayments: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/finance/supplier-payments`,
+      payables: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/finance/payables`,
       /** Security deposits; `?rental=` opens that rental's resolution. */
       deposits: (slug: string) =>
         `/t/${encodeURIComponent(slug)}/finance/deposits`,

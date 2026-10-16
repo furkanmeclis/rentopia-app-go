@@ -87,6 +87,9 @@ const bulkActionIconCatalog: Record<
   "tenant.field_tasks": {
     assign: UserCheck,
   },
+  "tenant.suppliers": {
+    archive: Archive,
+  },
   "tenant.finance_collections": {
     allocate: Split,
   },

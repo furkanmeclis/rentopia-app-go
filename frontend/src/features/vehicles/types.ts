@@ -40,4 +40,6 @@ export type ListVehiclesParams = {
   is_active?: "true" | "false";
   /** Next document to renew: expired / expiring / valid / none. */
   document_status?: string;
+  /** Supplier uuids (supplied vehicles, TEC-721). */
+  supplier?: string;
 };

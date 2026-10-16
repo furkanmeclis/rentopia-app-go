@@ -204,5 +204,11 @@
   "labels.tenant.kabis.retry": "KABİS bildirimlerini yeniden dene",
   "labels.tenant.kabis.reconcile": "KABİS bildirimlerini manuel bildirildi / uzlaştırıldı olarak işaretle",
   "groups.tenant_kabis": "KABİS bildirimleri",
+  "labels.tenant.suppliers.read": "Tedarikçileri görüntüle",
+  "labels.tenant.suppliers.write": "Tedarikçi ekle ve düzenle",
+  "labels.tenant.suppliers.export": "Tedarikçileri dışa aktar",
+  "labels.tenant.suppliers.import": "Tedarikçileri içe aktar",
+  "labels.tenant.suppliers.bulk.archive": "Tedarikçileri toplu arşivle",
+  "groups.tenant_suppliers": "Tedarikçiler",
   "labels.tenant.finance.collections.bulk.allocate": "Tahsilatları toplu dağıt"
 }

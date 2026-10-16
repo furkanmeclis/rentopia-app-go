@@ -274,5 +274,8 @@
   "odometer.source_maintenance": "Bakım",
   "odometer.empty_title": "Km / yakıt kaydı yok",
   "odometer.empty_description": "Durum değişikliklerinde veya bakım tamamlarken girilen km ve yakıt burada listelenir.",
-  "tabs.tolls": "HGS / OGS"
+  "tabs.tolls": "HGS / OGS",
+  "fields.supplier": "Tedarikçi kartı",
+  "fields.supplier_none": "Kart seçilmedi (serbest metin)",
+  "fields.supplier_hint": "Seçilen tedarikçinin unvanı tedarikçi adı olarak yazılır."
 }
