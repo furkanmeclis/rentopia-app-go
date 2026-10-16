@@ -147,6 +147,10 @@ import (
 	rentaladapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/rentals/adapters"
 	rentalhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/rentals/handler"
 	rentalusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/rentals/usecase"
+	reportsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reports"
+	reportsadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reports/adapters"
+	reportshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reports/handler"
+	reportsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reports/usecase"
 	reservationsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations"
 	reservationadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/adapters"
 	reservationhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/handler"
@@ -694,6 +698,10 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	// Vehicle profitability report (TEC-727): read-only over the ledger,
 	// expenses and fleet tables.
 	profitabilitySvc := profitabilityusecase.New(deps.Queries)
+	// Reports (TEC-738): occupancy, income / expense, channels, aging and
+	// the branch comparison, read-only (occupancy and branches reuse the
+	// profitability engine).
+	reportsSvc := reportsusecase.New(deps.Queries, profitabilitySvc)
 	ioReg := ioengine.NewRegistry(
 		ioadapters.NewUsers(deps.Queries),
 		ioadapters.NewRoles(deps.Queries),
@@ -731,6 +739,12 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		invoiceadapters.NewIO(invoicesSvc),
 		// Vehicle profitability report (TEC-727).
 		profitabilityadapters.NewIO(profitabilitySvc),
+		// Reports (TEC-738).
+		reportsadapters.NewOccupancyIO(reportsSvc),
+		reportsadapters.NewIncomeExpenseIO(reportsSvc),
+		reportsadapters.NewChannelsIO(reportsSvc),
+		reportsadapters.NewAgingIO(reportsSvc),
+		reportsadapters.NewBranchesIO(reportsSvc),
 	)
 	exportSvc := exportusecase.New(deps.Queries, deps.Storage, ioReg, jobQueue, notifSvc, activityRec, log)
 	importSvc := importusecase.New(deps.Queries, deps.Storage, ioReg, jobQueue, notifSvc, activityRec, log)
@@ -901,6 +915,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	overviewmodule.RegisterRoutes(mux, overviewhandler.New(overviewusecase.New(deps.Queries)), tokens, loader, tenantResolver)
 	profitabilitymodule.RegisterRoutes(mux, profitabilityhandler.New(profitabilitySvc),
 		exportH.TenantExport(profitabilitymodule.Resource, profitabilitymodule.ExportQueryKeys...), tokens, loader, tenantResolver)
+	reportsmodule.RegisterRoutes(mux, reportshandler.New(reportsSvc), exportH.TenantExport, tokens, loader, tenantResolver)
 	contractsH := contractshandler.New(contractsSvc, activityRec)
 	contractsH.SetRateLimiter(contractsmodule.Limiter{L: ratelimit.New(deps.Redis, cfg.App.Env)})
 	contractsmodule.RegisterRoutes(mux, contractsH, tokens, loader, tenantResolver)

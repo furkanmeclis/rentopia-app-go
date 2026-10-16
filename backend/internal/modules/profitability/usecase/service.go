@@ -152,6 +152,32 @@ func (s *Service) Report(ctx context.Context, orgID int64, f model.Filter) (mode
 	return out, nil
 }
 
+// Breakdown is the per-vehicle, per-month figures of the rows the filter
+// selects (same engine, same rules as Report). Months carry the totals of
+// those rows.
+func (s *Service) Breakdown(ctx context.Context, orgID int64, f model.Filter) (model.Breakdown, error) {
+	c, err := s.compute(ctx, orgID, f)
+	if err != nil {
+		return model.Breakdown{}, err
+	}
+	out := model.Breakdown{From: c.from.String(), To: c.to.String(), Method: c.method, Vehicles: []model.VehicleMonths{}}
+	trend := make([]acc, len(c.res.buckets))
+	for _, v := range c.rows {
+		r := c.res.vehicles[v.id]
+		vm := model.VehicleMonths{VehicleID: v.id, HomeBranchID: v.home, Vehicle: v.ref, Months: make([]model.Figures, len(r.buckets))}
+		var sum acc
+		for b, a := range r.buckets {
+			sum = add(sum, a)
+			trend[b] = add(trend[b], a)
+			vm.Months[b] = figures(a, 0)
+		}
+		vm.Totals = figures(sum, len(r.rentals))
+		out.Vehicles = append(out.Vehicles, vm)
+	}
+	out.Months = trendPoints(c.res.buckets, trend)
+	return out, nil
+}
+
 // Vehicle is the profitability of one vehicle (vehicle detail tab).
 func (s *Service) Vehicle(ctx context.Context, orgID int64, id uuid.UUID, f model.Filter) (model.VehicleReport, error) {
 	f.VehicleUUID = &id

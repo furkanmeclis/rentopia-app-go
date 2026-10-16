@@ -95,5 +95,12 @@
   "nav_finance_supplier_payments": "Supplier payments",
   "nav_finance_payables": "Due supplier payments",
   "nav_finance_profitability": "Vehicle profitability",
+  "section_reports": "Reports",
+  "nav_reports_hub": "Report center",
+  "nav_reports_occupancy": "Occupancy",
+  "nav_reports_income_expense": "Income / expense",
+  "nav_reports_channels": "Channel performance",
+  "nav_reports_aging": "Receivables / due dates",
+  "nav_reports_branches": "Branch comparison",
   "nav_agreements": "Corporate agreements"
 }
