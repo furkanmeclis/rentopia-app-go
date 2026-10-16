@@ -153,14 +153,14 @@ func validReason(v string) (string, bool) {
 
 // sniff accepts PDF, JPEG, PNG and WebP attachments.
 func sniff(head []byte) (string, string, bool) {
-	switch ct := http.DetectContentType(head); {
-	case ct == "application/pdf":
+	switch ct := http.DetectContentType(head); ct {
+	case "application/pdf":
 		return ct, "pdf", true
-	case ct == "image/jpeg":
+	case "image/jpeg":
 		return ct, "jpg", true
-	case ct == "image/png":
+	case "image/png":
 		return ct, "png", true
-	case ct == "image/webp":
+	case "image/webp":
 		return ct, "webp", true
 	}
 	return "", "", false

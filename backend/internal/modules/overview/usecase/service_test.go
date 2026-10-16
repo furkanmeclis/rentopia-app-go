@@ -155,12 +155,10 @@ func (s *seeder) payment(reservation int64, amount, status string, verified *tim
 }
 
 func (s *seeder) refund(payment int64, amount string) {
-	s.id(`INSERT INTO payment_refunds (organization_id, payment_id, amount, status) VALUES ($1, $2, $3, 'succeeded') RETURNING id`,
-		s.org, payment, amount)
-	if _, err := s.pool.Exec(context.Background(), `UPDATE payment_refunds SET updated_at = $3
-		WHERE organization_id = $1 AND payment_id = $2`, s.org, payment, at(-1)); err != nil {
-		s.t.Fatal(err)
-	}
+	// updated_at is set on insert: the BEFORE UPDATE trigger would stamp
+	// the real clock and move the refund out of the test's fixed "today".
+	s.id(`INSERT INTO payment_refunds (organization_id, payment_id, amount, status, updated_at)
+		VALUES ($1, $2, $3, 'succeeded', $4) RETURNING id`, s.org, payment, amount, at(-1))
 }
 
 func (s *seeder) job(status string) {
