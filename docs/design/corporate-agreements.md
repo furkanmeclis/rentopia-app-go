@@ -2,7 +2,7 @@
 
 Status: **implemented** (M4). Module: `backend/internal/modules/agreements` (CRUD, contacts, permitted drivers, the views). The pricing engine (`internal/platform/pricing`), pricing, reservations, rentals and finance (`usecase/billing.go`) carry the sale and billing rules. Panel: `frontend/src/features/agreements`, Müşteriler → Kurumsal anlaşmalar, and the reservation wizard.
 
-## Data model (migration 001000)
+## Data model (migration 000108)
 
 | Table | Purpose |
 |-------|---------|
@@ -75,7 +75,7 @@ Posted rows are history: a trigger refuses changing their figures or deleting th
 
 `meta`, `facets`, list (q, status, customer, branch, invoice_period, validity, valid_from / valid_to window; sort code / name / customer / status / valid_from / valid_to / created_at), create, `export` (io engine), `{uuid}` get / patch / delete (draft without sales), `{uuid}/status`, `{uuid}/contacts` (+ `DELETE …/{agreementContactUuid}`), `{uuid}/drivers` (+ `DELETE …/{agreementDriverUuid}`), `{uuid}/tariffs`, `{uuid}/rentals`, `{uuid}/billing?rental=`, `{uuid}/statement`, `{uuid}/activity`. Rate plans gain `agreement_uuid` / the `agreement` filter; previews, quotes and searches `agreement_uuid`; reservations `use_open_account`, `agreement`, `open_account`.
 
-Permissions (migration 001001, `rbac.go`, `permissions.ts`): `tenant.agreements.read` (owner, admin, merkez_yoneticisi, sube_yoneticisi, muhasebe, rezervasyon_satis, teslim_iade, member), `.write` (owner, admin, merkez_yoneticisi), `.export` (+ sube_yoneticisi, muhasebe). Tariffs need `tenant.pricing.write` / `activate`.
+Permissions (migration 000109, `rbac.go`, `permissions.ts`): `tenant.agreements.read` (owner, admin, merkez_yoneticisi, sube_yoneticisi, muhasebe, rezervasyon_satis, teslim_iade, member), `.write` (owner, admin, merkez_yoneticisi), `.export` (+ sube_yoneticisi, muhasebe). Tariffs need `tenant.pricing.write` / `activate`.
 
 Activity `agreements.created / updated / deleted / status_changed / contact_added / contact_removed / driver_added / driver_removed`; live list `tenant.agreements`.
 
