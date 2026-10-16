@@ -7,7 +7,6 @@ import type {
   CashMovementRequest,
   CashTransfer,
   CashTransferRequest,
-  CollectionRequest,
   Expense,
   ExpenseCategory,
   ExpenseCategoryInput,
@@ -15,6 +14,12 @@ import type {
   FinanceAccount,
   FinanceAccountCreate,
   FinanceAccountPatch,
+  FinanceAllocateRequest,
+  FinanceCollection,
+  FinanceCollectionCreate,
+  FinanceCollectionRefundRequest,
+  FinanceOpenItems,
+  FinanceReleaseRequest,
   FinanceCustomerLedger,
   FinanceRentalBalance,
   FinanceRentalLedger,
@@ -42,6 +47,85 @@ const BASE = "/v1/tenant/finance";
  * the organization through `tenantRequest` (`X-Organization`).
  */
 export const financeService = {
+  collectionsMeta(slug: string) {
+    return tenantRequest<ResourceMeta>(slug, "GET", `${BASE}/collections/meta`);
+  },
+  collections(slug: string, params: ListParams) {
+    return tenantRequest<Page<FinanceCollection>>(
+      slug,
+      "GET",
+      `${BASE}/collections`,
+      { query: params },
+    );
+  },
+  collection(slug: string, uuid: string) {
+    return tenantRequest<FinanceCollection>(
+      slug,
+      "GET",
+      `${BASE}/collections/${uuid}`,
+    );
+  },
+  createCollection(slug: string, body: FinanceCollectionCreate) {
+    return tenantRequest<FinanceCollection>(
+      slug,
+      "POST",
+      `${BASE}/collections`,
+      { body, silent: true },
+    );
+  },
+  allocateCollection(slug: string, uuid: string, body: FinanceAllocateRequest) {
+    return tenantRequest<FinanceCollection>(
+      slug,
+      "POST",
+      `${BASE}/collections/${uuid}/allocations`,
+      { body, silent: true },
+    );
+  },
+  releaseAllocation(slug: string, uuid: string, body: FinanceReleaseRequest) {
+    return tenantRequest<FinanceCollection>(
+      slug,
+      "POST",
+      `${BASE}/collections/${uuid}/allocations/release`,
+      { body, silent: true },
+    );
+  },
+  refundCollection(
+    slug: string,
+    uuid: string,
+    body: FinanceCollectionRefundRequest,
+  ) {
+    return tenantRequest<FinanceCollection>(
+      slug,
+      "POST",
+      `${BASE}/collections/${uuid}/refund`,
+      { body, silent: true },
+    );
+  },
+  voidCollection(slug: string, uuid: string, body: { reason: string }) {
+    return tenantRequest<FinanceCollection>(
+      slug,
+      "POST",
+      `${BASE}/collections/${uuid}/void`,
+      { body, silent: true },
+    );
+  },
+  openItems(
+    slug: string,
+    accountUuid: string,
+    params: { rental?: string; open?: boolean },
+  ) {
+    return tenantRequest<FinanceOpenItems>(
+      slug,
+      "GET",
+      `${BASE}/accounts/${accountUuid}/open-items`,
+      {
+        query: {
+          rental: params.rental,
+          open: params.open ? "true" : undefined,
+        },
+      },
+    );
+  },
   summary(slug: string) {
     return tenantRequest<FinanceSummary>(slug, "GET", `${BASE}/summary`);
   },
@@ -93,14 +177,6 @@ export const financeService = {
       "GET",
       `${BASE}/accounts/${uuid}/statement`,
       { query: params },
-    );
-  },
-  collect(slug: string, uuid: string, body: CollectionRequest) {
-    return tenantRequest<LedgerEntry>(
-      slug,
-      "POST",
-      `${BASE}/accounts/${uuid}/collections`,
-      { body, silent: true },
     );
   },
   refund(slug: string, uuid: string, body: RefundRequest) {

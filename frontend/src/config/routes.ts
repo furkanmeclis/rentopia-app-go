@@ -154,6 +154,10 @@ export const routes = {
         `/t/${encodeURIComponent(slug)}/finance/expense-categories`,
       reports: (slug: string) =>
         `/t/${encodeURIComponent(slug)}/finance/reports`,
+      collections: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/finance/collections`,
+      collection: (slug: string, uuid: string) =>
+        `/t/${encodeURIComponent(slug)}/finance/collections/${uuid}`,
     },
     /** HGS / OGS toll passes and their review queue (TEC-725). */
     kabis: {

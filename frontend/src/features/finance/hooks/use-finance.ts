@@ -8,11 +8,14 @@ import type {
   CashAccountInput,
   CashMovementRequest,
   CashTransferRequest,
-  CollectionRequest,
   ExpenseCategoryInput,
   ExpenseInput,
   FinanceAccountCreate,
   FinanceAccountPatch,
+  FinanceAllocateRequest,
+  FinanceCollectionCreate,
+  FinanceCollectionRefundRequest,
+  FinanceReleaseRequest,
   ListParams,
   OffsetRequest,
   RefundRequest,
@@ -54,6 +57,19 @@ export const financeKeys = {
     ["finance", slug, "expenses", p] as const,
   report: (slug: string, kind: string, p: Record<string, string | undefined>) =>
     ["finance", slug, "report", kind, p] as const,
+  collections: (slug: string, p: ListParams) =>
+    ["finance", slug, "collections", p] as const,
+  collection: (slug: string, uuid: string) =>
+    ["finance", slug, "collection", uuid] as const,
+  openItems: (slug: string, account: string, rental?: string, open?: boolean) =>
+    [
+      "finance",
+      slug,
+      "open-items",
+      account,
+      rental ?? "",
+      open ?? false,
+    ] as const,
 };
 
 const META = {
@@ -62,6 +78,7 @@ const META = {
   cash: financeService.cashAccountsMeta,
   movements: financeService.movementsMeta,
   expenses: financeService.expensesMeta,
+  collections: financeService.collectionsMeta,
 } as const;
 
 export function useFinanceMeta(resource: keyof typeof META) {
@@ -230,6 +247,75 @@ function useFinanceMutation<V, R>(
   });
 }
 
+export function useCollectionsList(params: ListParams, enabled = true) {
+  const { slug } = useTenant();
+  return useQuery({
+    queryKey: financeKeys.collections(slug, params),
+    queryFn: () => financeService.collections(slug, params),
+    placeholderData: (previous) => previous,
+    enabled,
+  });
+}
+
+export function useCollection(uuid: string) {
+  const { slug } = useTenant();
+  return useQuery({
+    queryKey: financeKeys.collection(slug, uuid),
+    queryFn: () => financeService.collection(slug, uuid),
+    enabled: Boolean(uuid),
+  });
+}
+
+export function useOpenItems(
+  account: string | undefined,
+  rental?: string,
+  open = false,
+  enabled = true,
+) {
+  const { slug } = useTenant();
+  return useQuery({
+    queryKey: financeKeys.openItems(slug, account ?? "", rental, open),
+    queryFn: () =>
+      financeService.openItems(slug, account ?? "", { rental, open }),
+    enabled: enabled && Boolean(account),
+  });
+}
+
+export const useCreateCollection = () =>
+  useFinanceMutation(
+    (slug, body: FinanceCollectionCreate) =>
+      financeService.createCollection(slug, body),
+    "finance.toast.collection_recorded",
+  );
+
+export const useAllocateCollection = (uuid: string) =>
+  useFinanceMutation(
+    (slug, body: FinanceAllocateRequest) =>
+      financeService.allocateCollection(slug, uuid, body),
+    "finance.toast.collection_allocated",
+  );
+
+export const useReleaseAllocation = (uuid: string) =>
+  useFinanceMutation(
+    (slug, body: FinanceReleaseRequest) =>
+      financeService.releaseAllocation(slug, uuid, body),
+    "finance.toast.allocation_released",
+  );
+
+export const useRefundCollection = (uuid: string) =>
+  useFinanceMutation(
+    (slug, body: FinanceCollectionRefundRequest) =>
+      financeService.refundCollection(slug, uuid, body),
+    "finance.toast.collection_refunded",
+  );
+
+export const useVoidCollection = (uuid: string) =>
+  useFinanceMutation(
+    (slug, body: { reason: string }) =>
+      financeService.voidCollection(slug, uuid, body),
+    "finance.toast.collection_voided",
+  );
+
 export const useCreateAccount = () =>
   useFinanceMutation(
     (slug, body: FinanceAccountCreate) =>
@@ -242,12 +328,6 @@ export const usePatchAccount = (uuid: string) =>
     (slug, body: FinanceAccountPatch) =>
       financeService.patchAccount(slug, uuid, body),
     "finance.toast.account_saved",
-  );
-
-export const useCollect = (uuid: string) =>
-  useFinanceMutation(
-    (slug, body: CollectionRequest) => financeService.collect(slug, uuid, body),
-    "finance.toast.collection_recorded",
   );
 
 export const useRefund = (uuid: string) =>

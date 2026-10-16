@@ -199,5 +199,6 @@
   "labels.tenant.kabis.read": "KABİS bildirimlerini görüntüle",
   "labels.tenant.kabis.retry": "KABİS bildirimlerini yeniden dene",
   "labels.tenant.kabis.reconcile": "KABİS bildirimlerini manuel bildirildi / uzlaştırıldı olarak işaretle",
-  "groups.tenant_kabis": "KABİS bildirimleri"
+  "groups.tenant_kabis": "KABİS bildirimleri",
+  "labels.tenant.finance.collections.bulk.allocate": "Tahsilatları toplu dağıt"
 }

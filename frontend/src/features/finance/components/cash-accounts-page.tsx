@@ -117,7 +117,7 @@ export function CashAccountsPage() {
           labelKey: "finance.columns.cash_kind",
           enableSorting: false,
           filterVariant: "faceted",
-          filterOptions: (["cash", "bank"] as const).map((k) => ({
+          filterOptions: (["cash", "bank", "clearing"] as const).map((k) => ({
             value: k,
             labelKey: CASH_KIND_LABEL_KEYS[k],
             label: t(CASH_KIND_LABEL_KEYS[k]),
