@@ -571,6 +571,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	financeSvc.SetLogger(log)
 	rentalsSvc.SetLedger(financeSvc)
 	paymentsSvc.SetLedger(financeSvc)
+	financeSvc.SetPayments(paymentsSvc)
 	// Customer portal (TEC-715): reference + contact + one-time code, a
 	// customer session of its own, documents, pay remaining, requests.
 	portalSvc := customerportalusecase.New(deps.DB, deps.Queries, smsSvc, reservationSvc)
@@ -669,6 +670,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		financeadapters.NewCashAccountsIO(financeSvc),
 		financeadapters.NewMovementsIO(financeSvc),
 		financeadapters.NewExpensesIO(financeSvc),
+		financeadapters.NewCollectionsIO(financeSvc),
 	)
 	exportSvc := exportusecase.New(deps.Queries, deps.Storage, ioReg, jobQueue, notifSvc, activityRec, log)
 	importSvc := importusecase.New(deps.Queries, deps.Storage, ioReg, jobQueue, notifSvc, activityRec, log)
@@ -691,6 +693,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		customeradapters.NewBulk(customerSvc),
 		financeadapters.NewMovementsBulk(financeSvc),
 		financeadapters.NewExpensesBulk(financeSvc),
+		financeadapters.NewCollectionsBulk(financeSvc),
 	)
 	bulkSvc := bulkusecase.New(deps.Queries, bulkReg, jobQueue, notifSvc, activityRec, cfg.Bulk, log)
 	// Tenant jobs run with the requester's current membership (permissions
@@ -858,6 +861,10 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 			Import: importH.TenantUpload(financemodule.ResourceExpenses),
 			Sample: importH.TenantSample(financemodule.ResourceExpenses),
 			Bulk:   bulkH.TenantExecute(financemodule.ResourceExpenses),
+		},
+		Collections: financemodule.ResourceEngines{
+			Export: exportH.TenantExport(financemodule.ResourceCollections, financemodule.CollectionQueryKeys...),
+			Bulk:   bulkH.TenantExecute(financemodule.ResourceCollections),
 		},
 	}, tokens, loader, tenantResolver)
 	portalH := customerportalhandler.New(portalSvc, activityRec)

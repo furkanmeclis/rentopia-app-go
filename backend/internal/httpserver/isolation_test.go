@@ -583,6 +583,12 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			"from_account_uuid": ids["cashAccount"], "to_account_uuid": ids["bankAccount"], "amount": "100", "description": m,
 		}), http.StatusCreated, "transfer")
 		ids["cashMovement"] = asMap(asMap(transfer.data)["out"])["uuid"].(string)
+		// Collections (TEC-718): a cash collection into the till, kept as
+		// credit (the branch payment above is a collection too).
+		ids["collection"] = str(must(call(o, http.MethodPost, "/v1/tenant/finance/collections", map[string]any{
+			"account_uuid": ids["financeAccount"], "amount": "50", "method": "cash", "cash_account_uuid": ids["cashAccount"],
+			"payer_name": m + " Ödeyen", "reference_no": m, "allocation_mode": "none",
+		}), http.StatusCreated, "create collection"), "uuid")
 		ids["expenseCategory"] = str(must(call(o, http.MethodPost, "/v1/tenant/finance/expense-categories", map[string]any{
 			"code": "iso_cat", "name": m + " Kategori",
 		}), http.StatusCreated, "create expense category"), "uuid")
@@ -828,6 +834,10 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		"GET /v1/tenant/finance/expenses": {
 			"?category=" + b["expenseCategory"], "?vehicle=" + b["vehicle"], "?branch=" + b["home"], "?q=" + orgB.marker,
 		},
+		"GET /v1/tenant/finance/collections": {
+			"?account=" + b["financeAccount"], "?rental=" + b["rental"], "?branch=" + b["home"],
+			"?cash_account=" + b["cashAccount"], "?q=" + orgB.marker,
+		},
 		"GET /v1/tenant/finance/rental-balances":    {"?q=" + orgB.marker},
 		"GET /v1/tenant/finance/expense-categories": {"?q=" + orgB.marker},
 		"GET /v1/tenant/rate-plans/matrix": {
@@ -1028,6 +1038,19 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			"target": map[string]any{"scope": "ids", "ids": []string{orgB.ids["cashMovement"]}, "params": map[string]any{"category_uuid": orgA.ids["expenseCategory"]}}}, nil},
 		{"POST /v1/tenant/finance/movements/bulk", map[string]any{"action": "set_category",
 			"target": map[string]any{"scope": "ids", "ids": []string{orgA.ids["cashMovement"]}, "params": map[string]any{"category_uuid": orgB.ids["expenseCategory"]}}}, reject},
+		{"POST /v1/tenant/finance/collections", map[string]any{"account_uuid": orgB.ids["financeAccount"], "amount": "1",
+			"method": "cash", "cash_account_uuid": orgA.ids["cashAccount"]}, reject},
+		{"POST /v1/tenant/finance/collections", map[string]any{"account_uuid": orgA.ids["financeAccount"], "amount": "1",
+			"method": "cash", "cash_account_uuid": orgB.ids["cashAccount"]}, reject},
+		{"POST /v1/tenant/finance/collections", map[string]any{"rental_uuid": orgB.ids["rental"], "amount": "1",
+			"method": "cash", "cash_account_uuid": orgA.ids["cashAccount"]}, reject},
+		{"POST /v1/tenant/finance/collections", map[string]any{"account_uuid": orgA.ids["financeAccount"], "amount": "1",
+			"method": "cash", "cash_account_uuid": orgA.ids["cashAccount"], "branch_uuid": orgB.ids["home"]}, reject},
+		{"POST /v1/tenant/finance/collections", map[string]any{"account_uuid": orgA.ids["financeAccount"], "amount": "1",
+			"method": "cash", "cash_account_uuid": orgA.ids["cashAccount"], "allocation_mode": "manual",
+			"allocations": []map[string]any{{"entry_uuid": orgB.ids["ledgerEntry"]}}}, reject},
+		{"POST /v1/tenant/finance/collections/bulk", map[string]any{"action": "allocate",
+			"target": map[string]any{"scope": "ids", "ids": []string{orgB.ids["collection"]}}}, nil},
 		{"POST /v1/tenant/finance/expenses/bulk", map[string]any{"action": "set_category",
 			"target": map[string]any{"scope": "ids", "ids": []string{orgB.ids["expense"]}, "params": map[string]any{"category_uuid": orgA.ids["expenseCategory"]}}}, nil},
 		{"POST /v1/tenant/finance/expenses/bulk", map[string]any{"action": "set_category",
@@ -1056,6 +1079,14 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			"cash_account_uuid": orgB.ids["cashAccount"]}, reject},
 		{"POST /v1/tenant/finance/accounts/" + orgA.ids["financeAccount"] + "/collections", map[string]any{"amount": "1",
 			"rental_uuid": orgB.ids["rental"]}, reject},
+		{"POST /v1/tenant/finance/collections/" + orgA.ids["collection"] + "/allocations", map[string]any{"mode": "manual",
+			"items": []map[string]any{{"entry_uuid": orgB.ids["ledgerEntry"]}}}, reject},
+		{"POST /v1/tenant/finance/collections/" + orgA.ids["collection"] + "/allocations", map[string]any{"mode": "auto",
+			"rental_uuid": orgB.ids["rental"]}, reject},
+		{"POST /v1/tenant/finance/collections/" + orgA.ids["collection"] + "/allocations/release", map[string]any{
+			"entry_uuid": orgB.ids["ledgerEntry"], "reason": "izolasyon"}, reject},
+		{"POST /v1/tenant/finance/collections/" + orgA.ids["collection"] + "/refund", map[string]any{"amount": "1",
+			"reason": "izolasyon", "cash_account_uuid": orgB.ids["cashAccount"]}, reject},
 		{"POST /v1/tenant/finance/accounts/" + orgA.ids["financeAccount"] + "/adjustments", map[string]any{"amount": "1",
 			"direction": "debit", "reason": "izolasyon", "adjusts_entry_uuid": orgB.ids["ledgerEntry"]}, reject},
 		{"POST /v1/tenant/finance/cash-accounts/" + orgA.ids["cashAccount"] + "/movements", map[string]any{"kind": "collection",
@@ -1375,6 +1406,8 @@ func paramKey(prev, name string) string {
 		return "expenseCategory"
 	case "expenses/uuid":
 		return "expense"
+	case "collections/uuid":
+		return "collection"
 	case "toll-passes/uuid":
 		return "tollPass"
 	case "toll-tags/tagUuid":
