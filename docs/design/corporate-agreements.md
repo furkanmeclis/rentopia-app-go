@@ -71,7 +71,7 @@ Posted rows are history: a trigger refuses changing their figures or deleting th
 
 **Vehicle profitability (TEC-727).** The report reads the period accruals like any rent accrual: on the accrual basis each posted period counts in its own month (a period reversal counts on the reversed accrual's date), on the cash basis the collections count; a periodic rental has no handover accrual, so nothing is counted twice ([vehicle-profitability.md](./vehicle-profitability.md)).
 
-**Invoicing (TEC-722).** Not built here: `GET /agreements/{uuid}/billing` exposes each posted period's accrual entry (`entry_uuid`, entry / due dates) for invoices to link through `ledger_entry_links`.
+**Invoicing (TEC-722).** Each posted period's accrual is an ordinary invoiceable item ([einvoice.md](./einvoice.md)): it is listed by the items and uninvoiced-rentals queries, invoiced on its own through `ledger_entry_links` (one live link per entry, so never twice), and its draft line names the period (`Araç kiralama bedeli (REF) — N. dönem dd.mm.yyyy–dd.mm.yyyy`) with the period's days. Non-rent parts of the quote (extras, one-way, delivery) get their share of the period (`(dönem payı)`), the rent line the rest, so the lines add up to the accrual. A superseded period's new accrual is a new item; the reversed accrual's link follows the invoice rules. `GET /agreements/{uuid}/billing` also lists each posted period's entry (`entry_uuid`, entry / due dates).
 
 ## API (`/v1/tenant/agreements`)
 
@@ -95,7 +95,7 @@ Activity `agreements.created / updated / deleted / status_changed / contact_adde
 
 ## Open items
 
-- Invoices per period (TEC-722) link to the exposed entries; nothing is invoiced here.
+- Superseding an already invoiced period (early return) reverses its accrual; the invoice correction (return / cancel) follows the e-invoice flow and is not automated.
 - An extension of an open-account reservation does not re-check the credit limit.
 - Km overage at period end and maintenance tasks are not generated automatically; periods only carry the allowance and the maintenance marker.
 - Agreement search documents (Cmd+K) and bulk actions are not provided.

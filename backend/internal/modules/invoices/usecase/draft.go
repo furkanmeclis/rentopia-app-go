@@ -91,6 +91,9 @@ func rentParts(e db.ListInvoiceableEntriesRow, facts db.GetInvoiceRentalFactsRow
 	single := []draftLine{{kind: model.KindRent, name: "Araç kiralama bedeli (" + ref + ")", entryID: e.ID, gross: amount}}
 	var snap resmodel.PriceSnapshot
 	if err := json.Unmarshal(facts.QuoteSnapshot, &snap); err != nil || snap.Pricing == nil {
+		if e.BillingPeriodID.Valid {
+			return periodParts(e, ref, nil, amount)
+		}
 		return single
 	}
 	cur := amount.Currency()
@@ -128,6 +131,9 @@ func rentParts(e db.ListInvoiceableEntriesRow, facts db.GetInvoiceRentalFactsRow
 		add(model.KindRent, "Kiralama uzatma ("+strconv.Itoa(x.AddedDays)+" gün)", days(x.AddedDays), x.RentalAmount)
 		add(model.KindExtra, "Uzatma ek hizmetleri", 0, x.ExtrasAmount)
 	}
+	if e.BillingPeriodID.Valid {
+		return periodParts(e, ref, parts, amount)
+	}
 	sum := money.NewIn(0, cur)
 	for _, p := range parts {
 		sum = sum.Add(p.gross)
@@ -143,6 +149,52 @@ func rentParts(e db.ListInvoiceableEntriesRow, facts db.GetInvoiceRentalFactsRow
 		}
 	}
 	return single
+}
+
+// periodParts is the rent accrual of one billing period of a rental billed
+// per period (corporate agreements, TEC-723): the period's share of the
+// sale. Every non-rent part of the snapshot (extras, one-way, delivery)
+// gets its share amount / sale total (rounded to the kuruş); the rent line
+// takes the rest, so the lines add up to the accrual exactly. The rent
+// line names the period and carries its days.
+func periodParts(e db.ListInvoiceableEntriesRow, ref string, parts []draftLine, amount money.Money) []draftLine {
+	cur := amount.Currency()
+	name := "Araç kiralama bedeli (" + ref + ")"
+	if e.PeriodNo.Valid && e.PeriodStartsOn.Valid && e.PeriodEndsOn.Valid {
+		last := e.PeriodEndsOn.Time.AddDate(0, 0, -1)
+		name += " — " + strconv.Itoa(int(e.PeriodNo.Int32)) + ". dönem " +
+			e.PeriodStartsOn.Time.Format("02.01.2006") + "–" + last.Format("02.01.2006")
+	}
+	var d int32
+	if e.PeriodDays.Valid {
+		d = days(int(e.PeriodDays.Int32))
+	}
+	rent := draftLine{kind: model.KindRent, name: clip(name, 255), days: d, entryID: e.ID, gross: amount}
+	total := money.NewIn(0, cur)
+	for _, p := range parts {
+		total = total.Add(p.gross)
+	}
+	if !total.IsPositive() {
+		return []draftLine{rent}
+	}
+	out := []draftLine{rent}
+	for _, p := range parts {
+		if p.kind == model.KindRent {
+			continue
+		}
+		share := money.NewIn(p.gross.Minor(), cur).Ratio(amount.Minor(), total.Minor())
+		if !share.IsPositive() {
+			continue
+		}
+		p.gross = share
+		p.name = clip(p.name+" (dönem payı)", 255)
+		out = append(out, p)
+		out[0].gross = out[0].gross.Sub(share)
+	}
+	if !out[0].gross.IsPositive() {
+		return []draftLine{rent}
+	}
+	return out
 }
 
 // linesFor builds the draft lines of the items (in item order) with the

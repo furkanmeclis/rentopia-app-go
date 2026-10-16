@@ -1333,7 +1333,9 @@ type Querier interface {
 	ListInvoiceTaxMappings(ctx context.Context, organizationID int64) ([]ListInvoiceTaxMappingsRow, error)
 	// Live accruals (debit, not reversed) that no standing invoice covers: the
 	// rent of a rental and approved charges. Filters: an account, a rental,
-	// explicit entries; the branch scope applies to the entry's branch.
+	// explicit entries; the branch scope applies to the entry's branch. A rent
+	// accrual of a rental billed per period (corporate agreements, TEC-723)
+	// carries its billing period: each period is its own item.
 	ListInvoiceableEntries(ctx context.Context, arg ListInvoiceableEntriesParams) ([]ListInvoiceableEntriesRow, error)
 	ListInvoices(ctx context.Context, arg ListInvoicesParams) ([]ListInvoicesRow, error)
 	ListKabisNotifications(ctx context.Context, arg ListKabisNotificationsParams) ([]ListKabisNotificationsRow, error)
