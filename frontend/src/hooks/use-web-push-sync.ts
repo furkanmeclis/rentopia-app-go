@@ -2,7 +2,10 @@
 
 import { useEffect, useRef } from "react";
 
-import { registerWebPush } from "@/lib/web-push/register";
+import {
+  notificationPermission,
+  registerWebPush,
+} from "@/lib/web-push/register";
 import { notificationPreferencesService } from "@/services/notification-preferences.service";
 
 /**
@@ -14,12 +17,7 @@ export function useWebPushSync(enabled = true) {
 
   useEffect(() => {
     if (!enabled || syncedRef.current) return;
-    if (
-      typeof window === "undefined" ||
-      Notification.permission !== "granted"
-    ) {
-      return;
-    }
+    if (notificationPermission() !== "granted") return;
 
     let cancelled = false;
     syncedRef.current = true;

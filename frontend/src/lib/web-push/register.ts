@@ -10,6 +10,18 @@ export type WebPushSupport = {
 
 const DEFAULT_SW_URL = "/app-push-sw.js";
 
+/**
+ * Current notification permission, or null where the Notification API does
+ * not exist (iOS Safari outside an installed web app, some in-app browsers).
+ * Read it through here: a bare `Notification` reference throws there.
+ */
+export function notificationPermission(): NotificationPermission | null {
+  if (typeof window === "undefined" || !("Notification" in window)) {
+    return null;
+  }
+  return window.Notification.permission;
+}
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -65,11 +77,11 @@ export async function registerWebPush(opts?: {
 }): Promise<PushSubscription | null> {
   if (!hasBrowserPushSupport()) return null;
 
-  const permission = Notification.permission;
-  if (permission === "denied") return null;
+  const permission = notificationPermission();
+  if (permission === null || permission === "denied") return null;
   if (permission === "default") {
     if (opts?.silent) return null;
-    const next = await Notification.requestPermission();
+    const next = await window.Notification.requestPermission();
     if (next !== "granted") return null;
   }
 
