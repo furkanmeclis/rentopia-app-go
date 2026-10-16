@@ -1402,12 +1402,14 @@ SELECT e.id, e.uuid, e.account_id, e.purpose, e.amount, e.currency, e.entry_date
     a.uuid AS account_uuid, a.code AS account_code, a.name AS account_name, a.customer_id AS account_customer_id,
     r.uuid AS rental_uuid, r.reference AS rental_reference,
     ch.uuid AS charge_uuid, ch.kind AS charge_kind, ch.reason AS charge_reason,
-    b.uuid AS branch_uuid, b.code AS branch_code, b.name AS branch_name
+    b.uuid AS branch_uuid, b.code AS branch_code, b.name AS branch_name,
+    e.billing_period_id, bp.period_no, bp.starts_on AS period_starts_on, bp.ends_on AS period_ends_on, bp.days AS period_days
 FROM ledger_entries e
 JOIN accounts a ON a.organization_id = e.organization_id AND a.id = e.account_id
 LEFT JOIN rentals r ON r.organization_id = e.organization_id AND r.id = e.rental_id
 LEFT JOIN rental_charges ch ON ch.organization_id = e.organization_id AND ch.id = e.rental_charge_id
 LEFT JOIN branches b ON b.organization_id = e.organization_id AND b.id = e.branch_id
+LEFT JOIN rental_billing_periods bp ON bp.organization_id = e.organization_id AND bp.id = e.billing_period_id
 WHERE e.organization_id = $1
   AND a.organization_id = $1
   AND e.kind = 'accrual'
@@ -1466,11 +1468,18 @@ type ListInvoiceableEntriesRow struct {
 	BranchUuid        pgtype.UUID    `json:"branch_uuid"`
 	BranchCode        pgtype.Text    `json:"branch_code"`
 	BranchName        pgtype.Text    `json:"branch_name"`
+	BillingPeriodID   pgtype.Int8    `json:"billing_period_id"`
+	PeriodNo          pgtype.Int4    `json:"period_no"`
+	PeriodStartsOn    pgtype.Date    `json:"period_starts_on"`
+	PeriodEndsOn      pgtype.Date    `json:"period_ends_on"`
+	PeriodDays        pgtype.Int4    `json:"period_days"`
 }
 
 // Live accruals (debit, not reversed) that no standing invoice covers: the
 // rent of a rental and approved charges. Filters: an account, a rental,
-// explicit entries; the branch scope applies to the entry's branch.
+// explicit entries; the branch scope applies to the entry's branch. A rent
+// accrual of a rental billed per period (corporate agreements, TEC-723)
+// carries its billing period: each period is its own item.
 func (q *Queries) ListInvoiceableEntries(ctx context.Context, arg ListInvoiceableEntriesParams) ([]ListInvoiceableEntriesRow, error) {
 	rows, err := q.db.Query(ctx, listInvoiceableEntries,
 		arg.OrganizationID,
@@ -1511,6 +1520,11 @@ func (q *Queries) ListInvoiceableEntries(ctx context.Context, arg ListInvoiceabl
 			&i.BranchUuid,
 			&i.BranchCode,
 			&i.BranchName,
+			&i.BillingPeriodID,
+			&i.PeriodNo,
+			&i.PeriodStartsOn,
+			&i.PeriodEndsOn,
+			&i.PeriodDays,
 		); err != nil {
 			return nil, err
 		}

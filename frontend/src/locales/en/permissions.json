@@ -218,5 +218,9 @@
   "labels.tenant.suppliers.export": "Export suppliers",
   "labels.tenant.suppliers.import": "Import suppliers",
   "labels.tenant.suppliers.bulk.archive": "Bulk archive suppliers",
-  "groups.tenant_suppliers": "Suppliers"
+  "groups.tenant_suppliers": "Suppliers",
+  "labels.tenant.agreements.read": "View corporate agreements",
+  "labels.tenant.agreements.write": "Manage corporate agreements",
+  "labels.tenant.agreements.export": "Export corporate agreements",
+  "groups.tenant_agreements": "Corporate agreements"
 }

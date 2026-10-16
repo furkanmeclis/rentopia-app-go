@@ -218,5 +218,9 @@
   "labels.tenant.suppliers.export": "Tedarikçileri dışa aktar",
   "labels.tenant.suppliers.import": "Tedarikçileri içe aktar",
   "labels.tenant.suppliers.bulk.archive": "Tedarikçileri toplu arşivle",
-  "groups.tenant_suppliers": "Tedarikçiler"
+  "groups.tenant_suppliers": "Tedarikçiler",
+  "labels.tenant.agreements.read": "Kurumsal anlaşmaları görüntüle",
+  "labels.tenant.agreements.write": "Kurumsal anlaşmaları yönet",
+  "labels.tenant.agreements.export": "Kurumsal anlaşmaları dışa aktar",
+  "groups.tenant_agreements": "Kurumsal anlaşmalar"
 }

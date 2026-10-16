@@ -30,6 +30,7 @@ const (
 	CodePricing           = "PRICING_UNAVAILABLE"
 	CodeDriverNotEligible = "DRIVER_NOT_ELIGIBLE"
 	CodeExtensionConflict = "EXTENSION_CONFLICT"
+	CodeCreditLimit       = "CREDIT_LIMIT_EXCEEDED"
 )
 
 // Handler serves /v1/tenant/reservations, /quotes and /resolution-tasks.
@@ -666,6 +667,12 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 			}
 		}
 		response.ErrorWithData(w, r, http.StatusUnprocessableEntity, CodeDriverNotEligible, ee.Error(), out, ee.Drivers)
+		return
+	}
+	var cl *usecase.CreditLimitError
+	if errors.As(err, &cl) {
+		response.ErrorWithData(w, r, http.StatusUnprocessableEntity, CodeCreditLimit, cl.Error(),
+			[]response.Detail{{Field: "use_open_account", Code: "credit_limit_exceeded", Message: cl.Error()}}, cl)
 		return
 	}
 	var xe *usecase.ExtensionConflictError

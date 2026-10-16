@@ -518,9 +518,12 @@ func (q *Queries) GetRefundForLedger(ctx context.Context, arg GetRefundForLedger
 const getRentalLedgerFacts = `-- name: GetRentalLedgerFacts :one
 SELECT r.id, r.uuid, r.reference, r.status, r.reservation_id, r.actual_pickup_at, r.actual_pickup_branch_id,
     res.uuid AS reservation_uuid, res.customer_id, res.invoice_customer_id, res.total_amount, res.currency,
-    res.collecting_party, res.pickup_branch_id
+    res.collecting_party, res.pickup_branch_id,
+    r.rent_billing, r.actual_return_at, res.starts_at, res.ends_at, res.agreement_id,
+    ag.monthly_km_allowance, ag.payment_term_days AS agreement_term_days
 FROM rentals r
 JOIN reservations res ON res.organization_id = r.organization_id AND res.id = r.reservation_id
+LEFT JOIN corporate_agreements ag ON ag.organization_id = res.organization_id AND ag.id = res.agreement_id
 WHERE r.organization_id = $1
   AND res.organization_id = $1
   AND r.id = $2
@@ -546,6 +549,13 @@ type GetRentalLedgerFactsRow struct {
 	Currency             string             `json:"currency"`
 	CollectingParty      string             `json:"collecting_party"`
 	PickupBranchID       int64              `json:"pickup_branch_id"`
+	RentBilling          string             `json:"rent_billing"`
+	ActualReturnAt       pgtype.Timestamptz `json:"actual_return_at"`
+	StartsAt             pgtype.Timestamptz `json:"starts_at"`
+	EndsAt               pgtype.Timestamptz `json:"ends_at"`
+	AgreementID          pgtype.Int8        `json:"agreement_id"`
+	MonthlyKmAllowance   pgtype.Int4        `json:"monthly_km_allowance"`
+	AgreementTermDays    pgtype.Int4        `json:"agreement_term_days"`
 }
 
 // What the rent accrual of a rental depends on.
@@ -567,6 +577,13 @@ func (q *Queries) GetRentalLedgerFacts(ctx context.Context, arg GetRentalLedgerF
 		&i.Currency,
 		&i.CollectingParty,
 		&i.PickupBranchID,
+		&i.RentBilling,
+		&i.ActualReturnAt,
+		&i.StartsAt,
+		&i.EndsAt,
+		&i.AgreementID,
+		&i.MonthlyKmAllowance,
+		&i.AgreementTermDays,
 	)
 	return i, err
 }
@@ -622,14 +639,14 @@ INSERT INTO ledger_entries (
     organization_id, account_id, kind, direction, purpose, amount, currency, entry_date, due_date, description,
     reason, source_type, source_uuid, rental_id, reservation_id, rental_charge_id, payment_id, payment_refund_id,
     accrual_key, reverses_entry_id, adjusts_entry_id, offset_group, branch_id, created_by, supplier_invoice_id,
-    supplier_payment_id
+    supplier_payment_id, billing_period_id
 ) VALUES (
     $1, $2, $3, $4, $5,
     $6, $7, $8, $9, $10,
     $11, $12, $13, $14, $15,
     $16, $17, $18, $19,
     $20, $21, $22, $23,
-    $24, $25, $26
+    $24, $25, $26, $27
 )
 RETURNING id, uuid
 `
@@ -661,6 +678,7 @@ type InsertLedgerEntryParams struct {
 	CreatedBy         pgtype.Int8    `json:"created_by"`
 	SupplierInvoiceID pgtype.Int8    `json:"supplier_invoice_id"`
 	SupplierPaymentID pgtype.Int8    `json:"supplier_payment_id"`
+	BillingPeriodID   pgtype.Int8    `json:"billing_period_id"`
 }
 
 type InsertLedgerEntryRow struct {
@@ -696,6 +714,7 @@ func (q *Queries) InsertLedgerEntry(ctx context.Context, arg InsertLedgerEntryPa
 		arg.CreatedBy,
 		arg.SupplierInvoiceID,
 		arg.SupplierPaymentID,
+		arg.BillingPeriodID,
 	)
 	var i InsertLedgerEntryRow
 	err := row.Scan(&i.ID, &i.Uuid)
@@ -871,7 +890,7 @@ SELECT e.account_id, e.party_kind,
 FROM (
     -- The aging side: a supplier account's charges are its credits
     -- (payables), its settlements the debits (payments).
-    SELECT le.id, le.uuid, le.organization_id, le.account_id, le.kind, le.direction, le.purpose, le.amount, le.currency, le.entry_date, le.due_date, le.description, le.reason, le.source_type, le.source_uuid, le.rental_id, le.reservation_id, le.rental_charge_id, le.payment_id, le.payment_refund_id, le.accrual_key, le.accrual_generation, le.reverses_entry_id, le.adjusts_entry_id, le.offset_group, le.branch_id, le.created_by, le.created_at, le.collection_id, le.security_deposit_id, le.deposit_deduction_id, le.supplier_invoice_id, le.supplier_payment_id, pa.party_kind,
+    SELECT le.id, le.uuid, le.organization_id, le.account_id, le.kind, le.direction, le.purpose, le.amount, le.currency, le.entry_date, le.due_date, le.description, le.reason, le.source_type, le.source_uuid, le.rental_id, le.reservation_id, le.rental_charge_id, le.payment_id, le.payment_refund_id, le.accrual_key, le.accrual_generation, le.reverses_entry_id, le.adjusts_entry_id, le.offset_group, le.branch_id, le.created_by, le.created_at, le.collection_id, le.security_deposit_id, le.deposit_deduction_id, le.supplier_invoice_id, le.supplier_payment_id, le.billing_period_id, pa.party_kind,
         (CASE WHEN pa.party_kind = 'supplier'
             THEN (CASE le.direction WHEN 'debit' THEN 'credit' ELSE 'debit' END)
             ELSE le.direction END)::text AS side
@@ -1029,7 +1048,7 @@ WITH agg AS (
     FROM (
         -- The aging side: a supplier account's charges are its credits
         -- (payables), its settlements the debits (payments).
-        SELECT le.id, le.uuid, le.organization_id, le.account_id, le.kind, le.direction, le.purpose, le.amount, le.currency, le.entry_date, le.due_date, le.description, le.reason, le.source_type, le.source_uuid, le.rental_id, le.reservation_id, le.rental_charge_id, le.payment_id, le.payment_refund_id, le.accrual_key, le.accrual_generation, le.reverses_entry_id, le.adjusts_entry_id, le.offset_group, le.branch_id, le.created_by, le.created_at, le.collection_id, le.security_deposit_id, le.deposit_deduction_id, le.supplier_invoice_id, le.supplier_payment_id, pa.party_kind,
+        SELECT le.id, le.uuid, le.organization_id, le.account_id, le.kind, le.direction, le.purpose, le.amount, le.currency, le.entry_date, le.due_date, le.description, le.reason, le.source_type, le.source_uuid, le.rental_id, le.reservation_id, le.rental_charge_id, le.payment_id, le.payment_refund_id, le.accrual_key, le.accrual_generation, le.reverses_entry_id, le.adjusts_entry_id, le.offset_group, le.branch_id, le.created_by, le.created_at, le.collection_id, le.security_deposit_id, le.deposit_deduction_id, le.supplier_invoice_id, le.supplier_payment_id, le.billing_period_id, pa.party_kind,
             (CASE WHEN pa.party_kind = 'supplier'
                 THEN (CASE le.direction WHEN 'debit' THEN 'credit' ELSE 'debit' END)
                 ELSE le.direction END)::text AS side
@@ -1235,7 +1254,7 @@ func (q *Queries) ListAccounts(ctx context.Context, arg ListAccountsParams) ([]L
 
 const listLedgerEntries = `-- name: ListLedgerEntries :many
 WITH scoped AS (
-    SELECT e.id, e.uuid, e.organization_id, e.account_id, e.kind, e.direction, e.purpose, e.amount, e.currency, e.entry_date, e.due_date, e.description, e.reason, e.source_type, e.source_uuid, e.rental_id, e.reservation_id, e.rental_charge_id, e.payment_id, e.payment_refund_id, e.accrual_key, e.accrual_generation, e.reverses_entry_id, e.adjusts_entry_id, e.offset_group, e.branch_id, e.created_by, e.created_at, e.collection_id, e.security_deposit_id, e.deposit_deduction_id, e.supplier_invoice_id, e.supplier_payment_id,
+    SELECT e.id, e.uuid, e.organization_id, e.account_id, e.kind, e.direction, e.purpose, e.amount, e.currency, e.entry_date, e.due_date, e.description, e.reason, e.source_type, e.source_uuid, e.rental_id, e.reservation_id, e.rental_charge_id, e.payment_id, e.payment_refund_id, e.accrual_key, e.accrual_generation, e.reverses_entry_id, e.adjusts_entry_id, e.offset_group, e.branch_id, e.created_by, e.created_at, e.collection_id, e.security_deposit_id, e.deposit_deduction_id, e.supplier_invoice_id, e.supplier_payment_id, e.billing_period_id,
         SUM(CASE WHEN e.purpose = 'deposit' THEN 0 WHEN e.direction = 'debit' THEN e.amount ELSE -e.amount END)
             OVER (PARTITION BY e.account_id ORDER BY e.entry_date, e.id)::numeric AS running_balance
     FROM ledger_entries e
@@ -1437,7 +1456,7 @@ func (q *Queries) ListLedgerEntries(ctx context.Context, arg ListLedgerEntriesPa
 
 const listLiveRentalAccruals = `-- name: ListLiveRentalAccruals :many
 SELECT e.id, e.uuid, e.account_id, e.accrual_key, e.amount, e.currency, e.purpose, e.rental_charge_id, e.branch_id,
-    e.due_date, e.reservation_id
+    e.due_date, e.reservation_id, e.billing_period_id
 FROM ledger_entries e
 WHERE e.organization_id = $1
   AND e.rental_id = $2
@@ -1455,17 +1474,18 @@ type ListLiveRentalAccrualsParams struct {
 }
 
 type ListLiveRentalAccrualsRow struct {
-	ID             int64          `json:"id"`
-	Uuid           uuid.UUID      `json:"uuid"`
-	AccountID      int64          `json:"account_id"`
-	AccrualKey     pgtype.Text    `json:"accrual_key"`
-	Amount         pgtype.Numeric `json:"amount"`
-	Currency       string         `json:"currency"`
-	Purpose        string         `json:"purpose"`
-	RentalChargeID pgtype.Int8    `json:"rental_charge_id"`
-	BranchID       pgtype.Int8    `json:"branch_id"`
-	DueDate        pgtype.Date    `json:"due_date"`
-	ReservationID  pgtype.Int8    `json:"reservation_id"`
+	ID              int64          `json:"id"`
+	Uuid            uuid.UUID      `json:"uuid"`
+	AccountID       int64          `json:"account_id"`
+	AccrualKey      pgtype.Text    `json:"accrual_key"`
+	Amount          pgtype.Numeric `json:"amount"`
+	Currency        string         `json:"currency"`
+	Purpose         string         `json:"purpose"`
+	RentalChargeID  pgtype.Int8    `json:"rental_charge_id"`
+	BranchID        pgtype.Int8    `json:"branch_id"`
+	DueDate         pgtype.Date    `json:"due_date"`
+	ReservationID   pgtype.Int8    `json:"reservation_id"`
+	BillingPeriodID pgtype.Int8    `json:"billing_period_id"`
 }
 
 // Accruals of one rental (rent and charges) that are not reversed.
@@ -1490,6 +1510,7 @@ func (q *Queries) ListLiveRentalAccruals(ctx context.Context, arg ListLiveRental
 			&i.BranchID,
 			&i.DueDate,
 			&i.ReservationID,
+			&i.BillingPeriodID,
 		); err != nil {
 			return nil, err
 		}

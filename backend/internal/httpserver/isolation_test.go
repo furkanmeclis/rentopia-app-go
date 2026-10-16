@@ -628,6 +628,20 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		ids["heldDeposit"] = str(must(call(o, http.MethodPost, "/v1/tenant/finance/deposits", map[string]any{
 			"rental_uuid": ids["rental"], "method": "pos_preauth", "pos_reference": "PRV2-" + m, "amount": "400",
 		}), http.StatusCreated, "take second deposit"), "uuid")
+		// Corporate agreements (TEC-723): an agreement of the corporate
+		// customer with an authorised contact and a permitted driver.
+		ids["agreement"] = str(must(call(o, http.MethodPost, "/v1/tenant/agreements", map[string]any{
+			"customer_uuid": ids["customer"], "name": m + " Filo", "valid_from": date(-30), "invoice_period": "monthly",
+			"payment_term_days": 30, "open_account": true, "credit_limit": "100000", "activate": true, "notes": m,
+		}), http.StatusCreated, "create agreement"), "uuid")
+		agrContacts := must(call(o, http.MethodPost, "/v1/tenant/agreements/"+ids["agreement"]+"/contacts", map[string]any{
+			"contact_uuid": ids["contact"], "role": "billing",
+		}), http.StatusCreated, "agreement contact")
+		ids["agreementContact"] = asMap(asMap(agrContacts.data)["contacts"].([]any)[0])["uuid"].(string)
+		agrDrivers := must(call(o, http.MethodPost, "/v1/tenant/agreements/"+ids["agreement"]+"/drivers", map[string]any{
+			"driver_uuid": ids["driver"],
+		}), http.StatusCreated, "agreement driver")
+		ids["agreementDriver"] = asMap(asMap(agrDrivers.data)["drivers"].([]any)[0])["uuid"].(string)
 		// E-invoices (TEC-722): a draft of the rental's customer stored as
 		// the module stores it (the accrual / link flow is covered by the
 		// invoices tests), its receiver completed through the API and
@@ -929,6 +943,9 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			"?scope=branch&branch=" + b["branch"],
 			"?scope=branch_channel&branch=" + b["home"] + "&channel=web",
 		},
+		"GET /v1/tenant/agreements": {
+			"?customer=" + b["customer"], "?branch=" + b["home"], "?q=" + orgB.marker, "?validity=current",
+		},
 	}
 	for _, rt := range routes {
 		method, path, _ := strings.Cut(rt, " ")
@@ -1107,6 +1124,20 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		// Finance: bodies naming B's customer, branch, accounts, category,
 		// vehicle; bulk targets / params of B.
 		{"POST /v1/tenant/finance/accounts", map[string]any{"customer_uuid": orgB.ids["customer"]}, reject},
+		// Corporate agreements: B's customer / branch in an agreement body,
+		// B's agreement on a quote, a search, a preview and a tariff.
+		{"POST /v1/tenant/agreements", map[string]any{"customer_uuid": orgB.ids["customer"], "name": "x", "valid_from": date(0)}, reject},
+		{"POST /v1/tenant/agreements", map[string]any{"customer_uuid": orgA.ids["customer"], "name": "x", "valid_from": date(0),
+			"branch_uuid": orgB.ids["home"]}, reject},
+		{"POST /v1/tenant/quotes", map[string]any{"pickup_branch_uuid": orgA.ids["home"], "starts_at": day(20), "ends_at": day(21),
+			"channel": "branch", "product_uuid": orgA.ids["product"], "agreement_uuid": orgB.ids["agreement"]}, reject},
+		{"POST /v1/tenant/quotes/search", map[string]any{"pickup_branch_uuid": orgA.ids["home"], "starts_at": day(20), "ends_at": day(21),
+			"channel": "branch", "agreement_uuid": orgB.ids["agreement"]}, reject},
+		{"POST /v1/tenant/pricing/preview", previewBody(orgA.ids["product"], orgA.ids["home"], map[string]any{
+			"agreement_uuid": orgB.ids["agreement"],
+		}), reject},
+		{"POST /v1/tenant/rate-plans", map[string]any{"rental_product_uuid": orgA.ids["product"], "scope": "agreement",
+			"agreement_uuid": orgB.ids["agreement"], "bands": []map[string]any{{"min_days": 1, "daily_price": "1"}}}, reject},
 		{"POST /v1/tenant/finance/cash-accounts", map[string]any{"code": "X1", "name": "x", "kind": "cash", "branch_uuid": orgB.ids["home"]}, reject},
 		{"POST /v1/tenant/finance/transfers", map[string]any{"from_account_uuid": orgA.ids["cashAccount"], "to_account_uuid": orgB.ids["bankAccount"],
 			"amount": "1"}, reject},
@@ -1551,6 +1582,12 @@ func paramKey(prev, name string) string {
 		return "tollTag"
 	case "kabis-notifications/uuid":
 		return "kabisNotification"
+	case "agreements/uuid":
+		return "agreement"
+	case "contacts/agreementContactUuid":
+		return "agreementContact"
+	case "drivers/agreementDriverUuid":
+		return "agreementDriver"
 	case "invoices/uuid":
 		return "invoice"
 	}

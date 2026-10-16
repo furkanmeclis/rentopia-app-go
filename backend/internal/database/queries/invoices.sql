@@ -62,18 +62,22 @@ SET is_einvoice = EXCLUDED.is_einvoice, alias = EXCLUDED.alias, title = EXCLUDED
 -- name: ListInvoiceableEntries :many
 -- Live accruals (debit, not reversed) that no standing invoice covers: the
 -- rent of a rental and approved charges. Filters: an account, a rental,
--- explicit entries; the branch scope applies to the entry's branch.
+-- explicit entries; the branch scope applies to the entry's branch. A rent
+-- accrual of a rental billed per period (corporate agreements, TEC-723)
+-- carries its billing period: each period is its own item.
 SELECT e.id, e.uuid, e.account_id, e.purpose, e.amount, e.currency, e.entry_date, e.description, e.branch_id,
     e.rental_id, e.reservation_id, e.rental_charge_id,
     a.uuid AS account_uuid, a.code AS account_code, a.name AS account_name, a.customer_id AS account_customer_id,
     r.uuid AS rental_uuid, r.reference AS rental_reference,
     ch.uuid AS charge_uuid, ch.kind AS charge_kind, ch.reason AS charge_reason,
-    b.uuid AS branch_uuid, b.code AS branch_code, b.name AS branch_name
+    b.uuid AS branch_uuid, b.code AS branch_code, b.name AS branch_name,
+    e.billing_period_id, bp.period_no, bp.starts_on AS period_starts_on, bp.ends_on AS period_ends_on, bp.days AS period_days
 FROM ledger_entries e
 JOIN accounts a ON a.organization_id = e.organization_id AND a.id = e.account_id
 LEFT JOIN rentals r ON r.organization_id = e.organization_id AND r.id = e.rental_id
 LEFT JOIN rental_charges ch ON ch.organization_id = e.organization_id AND ch.id = e.rental_charge_id
 LEFT JOIN branches b ON b.organization_id = e.organization_id AND b.id = e.branch_id
+LEFT JOIN rental_billing_periods bp ON bp.organization_id = e.organization_id AND bp.id = e.billing_period_id
 WHERE e.organization_id = sqlc.arg(organization_id)
   AND a.organization_id = sqlc.arg(organization_id)
   AND e.kind = 'accrual'

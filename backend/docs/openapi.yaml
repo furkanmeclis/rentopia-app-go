@@ -10155,6 +10155,12 @@ paths:
         capacity; `confirm_now` (needs `tenant.reservations.confirm`) confirms at once. The quote
         breakdown and the policy (settings) version are copied as an immutable snapshot. A coupon
         is redeemed, physical extras are held (`409 EQUIPMENT_UNAVAILABLE`).
+        A quote sold under a corporate agreement (TEC-723) needs the agreement active and valid on
+        the pick-up day, its customer as the customer or invoice addressee (set automatically for
+        an employee), permitted drivers only (`drivers.N.driver_uuid` `not_permitted`), and with an
+        open account it is confirmed without prepayment while the customer's exposure stays within
+        the credit limit (`422 CREDIT_LIMIT_EXCEEDED`, `data` = limit, balance, pending, total,
+        exposure).
       security:
         - bearerAuth: []
       parameters:
@@ -11959,6 +11965,7 @@ paths:
         - { name: channel, in: query, description: "Channel codes; comma-separated", schema: { type: string } }
         - { name: status, in: query, description: "draft, active, inactive; comma-separated", schema: { type: string } }
         - { name: has_draft, in: query, description: "Plans with pending draft changes", schema: { type: boolean } }
+        - { name: agreement, in: query, description: "Corporate agreement uuids (agreement tariffs); comma-separated", schema: { type: string } }
       responses:
         "200":
           description: Plan page
@@ -19969,6 +19976,401 @@ paths:
         "403": { $ref: "#/components/responses/TenantForbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/tenant/agreements/meta:
+    get:
+      tags: [Tenant]
+      operationId: getTenantAgreementsMeta
+      summary: Corporate agreements table contract
+      description: "`tenant.agreements.read`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Resource meta
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeResourceMeta" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/agreements/facets:
+    get:
+      tags: [Tenant]
+      operationId: getTenantAgreementsFacets
+      summary: Corporate agreement list facets
+      description: "`tenant.agreements.read`. Status, customer, branch, invoice period and validity counts in the caller's branch scope."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Facets
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeAgreementFacets" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/agreements:
+    get:
+      tags: [Tenant]
+      operationId: getTenantAgreements
+      summary: List corporate agreements
+      description: "`tenant.agreements.read`. Head office agreements and the agreements of the branches in the caller's scope."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - name: sort
+          in: query
+          description: "`code`, `name`, `customer`, `status`, `valid_from`, `valid_to` or `created_at`; prefix `-` for descending."
+          schema: { type: string }
+        - { name: status, in: query, schema: { type: string }, description: "draft, active, suspended, terminated (comma separated)" }
+        - { name: customer, in: query, schema: { type: string }, description: Customer uuids }
+        - { name: branch, in: query, schema: { type: string }, description: Branch uuids }
+        - { name: invoice_period, in: query, schema: { type: string }, description: "monthly, per_rental" }
+        - { name: validity, in: query, schema: { type: string }, description: "upcoming, current, expired (against today, Europe/Istanbul)" }
+        - { name: valid_from, in: query, schema: { type: string, format: date }, description: Valid on or after this day (overlap) }
+        - { name: valid_to, in: query, schema: { type: string, format: date }, description: Valid on or before this day (overlap) }
+      responses:
+        "200":
+          description: Agreement page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeAgreementPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantAgreement
+      summary: Create a corporate agreement
+      description: |
+        `tenant.agreements.write`. With a corporate customer; code `KA-000001` per organization.
+        Draft unless `activate`. The payment term is written onto the customer's ledger account
+        (opened on first use). An open account needs a credit limit. A member limited to some
+        branches must name a branch in the scope.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AgreementInput" }
+      responses:
+        "201": { $ref: "#/components/responses/AgreementOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/agreements/export:
+    post:
+      tags: [Tenant]
+      operationId: postTenantAgreementsExport
+      summary: Export corporate agreements
+      description: "`tenant.agreements.export`. `query` honours `q` and the list filters; the job runs with the requester's branch scope."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExportRequest" }
+      responses:
+        "202":
+          description: Export job queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeExportJob" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/agreements/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantAgreement
+      summary: Corporate agreement detail
+      description: "`tenant.agreements.read`. With contacts (masked), permitted drivers, the customer's ledger account and, for an open account, the exposure."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200": { $ref: "#/components/responses/AgreementOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantAgreement
+      summary: Edit a corporate agreement
+      description: "`tenant.agreements.write`. The fields sent change; the customer never changes; a terminated agreement is final (`409`). A new payment term goes onto the customer's account; a new invoice period applies to rentals created from then on."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AgreementInput" }
+      responses:
+        "200": { $ref: "#/components/responses/AgreementOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantAgreement
+      summary: Delete a draft agreement
+      description: "`tenant.agreements.write`. Only a draft without reservations (`409` otherwise: terminate it)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/agreements/{uuid}/status:
+    post:
+      tags: [Tenant]
+      operationId: postTenantAgreementStatus
+      summary: Change the status of an agreement
+      description: "`tenant.agreements.write`. draft → active; active ↔ suspended; draft / active / suspended → terminated (reason 3-500 characters). Only an active agreement sells."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AgreementStatusRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/AgreementOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/agreements/{uuid}/contacts:
+    post:
+      tags: [Tenant]
+      operationId: postTenantAgreementContact
+      summary: Authorise a contact
+      description: "`tenant.agreements.write`. A contact of the agreement's corporate customer, with a role."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AgreementContactRequest" }
+      responses:
+        "201": { $ref: "#/components/responses/AgreementOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/agreements/{uuid}/contacts/{agreementContactUuid}:
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantAgreementContact
+      summary: Withdraw an authorised contact
+      description: "`tenant.agreements.write`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - { name: agreementContactUuid, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { $ref: "#/components/responses/AgreementOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/agreements/{uuid}/drivers:
+    post:
+      tags: [Tenant]
+      operationId: postTenantAgreementDriver
+      summary: Permit a driver
+      description: "`tenant.agreements.write`. A driver record or an individual customer (every driver of that customer). With no permitted driver listed anyone may drive."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AgreementDriverRequest" }
+      responses:
+        "201": { $ref: "#/components/responses/AgreementOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/agreements/{uuid}/drivers/{agreementDriverUuid}:
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantAgreementDriver
+      summary: Withdraw a permitted driver
+      description: "`tenant.agreements.write`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - { name: agreementDriverUuid, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { $ref: "#/components/responses/AgreementOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/agreements/{uuid}/tariffs:
+    get:
+      tags: [Tenant]
+      operationId: getTenantAgreementTariffs
+      summary: Agreement tariffs
+      description: "`tenant.agreements.read`. The agreement's rate plans (scope agreement); they are edited through `/v1/tenant/rate-plans` (`tenant.pricing.write` / `activate`)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Tariffs
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeAgreementTariffs" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/agreements/{uuid}/rentals:
+    get:
+      tags: [Tenant]
+      operationId: getTenantAgreementRentals
+      summary: Reservations and rentals under the agreement
+      description: "`tenant.agreements.read`. Reservations sold under the agreement (pick-up or return branch in the caller's scope) with their rental and the rent accrued so far."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Rentals
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeAgreementRentals" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/agreements/{uuid}/billing:
+    get:
+      tags: [Tenant]
+      operationId: getTenantAgreementBilling
+      summary: Billing plan of the agreement's rentals
+      description: |
+        `tenant.agreements.read`. Every billing period (every revision) of the agreement's
+        periodically billed rentals: dates, days, partial flag, amount, km allowance,
+        maintenance marker, status (`planned`, `posted`, `superseded`, `reversed`) and, once
+        posted, the accrual entry (`entry_uuid`: invoices link to it, TEC-722).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - { name: rental, in: query, schema: { type: string, format: uuid }, description: One rental only }
+      responses:
+        "200":
+          description: Billing plan
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeAgreementBilling" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/agreements/{uuid}/statement:
+    get:
+      tags: [Tenant]
+      operationId: getTenantAgreementStatement
+      summary: Agreement statement
+      description: "`tenant.agreements.read`. Ledger entries of the agreement's reservations and rentals (deposits aside), oldest first, with a running balance."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Statement
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeAgreementStatement" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/agreements/{uuid}/activity:
+    get:
+      tags: [Tenant]
+      operationId: getTenantAgreementActivity
+      summary: Agreement activity
+      description: "`tenant.agreements.read`. Newest first."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Activity page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeFleetActivityPage" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
 components:
   securitySchemes:
     customerSession:
@@ -20161,6 +20563,12 @@ components:
       schema: { type: integer, minimum: 1950, maximum: 2100 }
 
   responses:
+    AgreementOK:
+      description: Corporate agreement
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/EnvelopeAgreement"
     InvoiceOK:
       description: Invoice
       content:
@@ -26517,6 +26925,7 @@ components:
         channel: { type: string, description: Sales channel code (default branch) }
         product_uuid: { type: [string, "null"], format: uuid }
         customer_uuid: { type: [string, "null"], format: uuid }
+        agreement_uuid: { type: [string, "null"], format: uuid, description: "Sell under a corporate agreement (active, valid on the pick-up day): its tariff and coupon eligibility apply" }
         extras:
           type: array
           items: { $ref: "#/components/schemas/ExtraSelection" }
@@ -26546,6 +26955,7 @@ components:
         starts_at: { type: [string, "null"], format: date-time }
         ends_at: { type: [string, "null"], format: date-time }
         channel: { type: string }
+        agreement_uuid: { type: [string, "null"], format: uuid, description: Price the products under a corporate agreement }
         product_uuids:
           type: array
           items: { type: string, format: uuid }
@@ -26682,6 +27092,11 @@ components:
         warnings:
           type: array
           items: { type: string }
+        agreement: { $ref: "#/components/schemas/AgreementPricing" }
+        billing_plan:
+          description: "Monthly period plan of a periodically billed agreement sale (partial first / last periods pro rata by days)"
+          type: array
+          items: { $ref: "#/components/schemas/BillingPeriodPlan" }
 
     Quote:
       type: object
@@ -26698,6 +27113,10 @@ components:
         customer:
           oneOf:
             - $ref: "#/components/schemas/ReservationCustomerRef"
+            - type: "null"
+        agreement:
+          oneOf:
+            - $ref: "#/components/schemas/AgreementRef"
             - type: "null"
         product: { $ref: "#/components/schemas/ReservationProductRef" }
         pickup_branch: { $ref: "#/components/schemas/ReservationBranchRef" }
@@ -26856,6 +27275,7 @@ components:
         note: { type: string, maxLength: 2000 }
         request_only: { type: boolean }
         confirm_now: { type: boolean }
+        use_open_account: { type: [boolean, "null"], description: "Default true: a sale under an agreement with an open account is confirmed without prepayment within the credit limit (`422 CREDIT_LIMIT_EXCEEDED` above it); false follows the prepayment flow" }
 
     ReservationReasonRequest:
       type: object
@@ -27072,6 +27492,11 @@ components:
           oneOf:
             - $ref: "#/components/schemas/ReservationCustomerRef"
             - type: "null"
+        agreement:
+          oneOf:
+            - $ref: "#/components/schemas/AgreementRef"
+            - type: "null"
+        open_account: { type: boolean, description: Confirmed without prepayment on the agreement's open account }
         drivers:
           type: array
           items: { $ref: "#/components/schemas/ReservationDriver" }
@@ -27455,8 +27880,13 @@ components:
       properties:
         uuid: { type: string, format: uuid }
         name: { type: string }
-        scope: { type: string, enum: [common, branch, channel, branch_channel] }
+        scope: { type: string, enum: [common, branch, channel, branch_channel, agreement] }
         rental_product: { $ref: "#/components/schemas/PricingProductRef" }
+        agreement:
+          description: The corporate agreement of an agreement tariff (scope agreement)
+          oneOf:
+            - $ref: "#/components/schemas/AgreementRef"
+            - type: "null"
         branch:
           oneOf:
             - $ref: "#/components/schemas/PricingBranchRef"
@@ -27500,7 +27930,8 @@ components:
       required: [rental_product_uuid, scope]
       properties:
         rental_product_uuid: { type: string, format: uuid }
-        scope: { type: string, enum: [common, branch, channel, branch_channel] }
+        scope: { type: string, enum: [common, branch, channel, branch_channel, agreement] }
+        agreement_uuid: { type: [string, "null"], format: uuid, description: "Corporate agreement of an agreement tariff (scope agreement, TEC-723): it prices only sales under that agreement and beats every public plan" }
         branch_uuid: { type: [string, "null"], format: uuid, description: branch / branch_channel scopes }
         channel: { type: [string, "null"], description: "Sales channel code (channel / branch_channel scopes)" }
         name: { type: string, maxLength: 255 }
@@ -27798,6 +28229,7 @@ components:
       additionalProperties: false
       required: [rental_product_uuid, branch_uuid, channel, start_at, end_at]
       properties:
+        agreement_uuid: { type: [string, "null"], format: uuid, description: "Price under a corporate agreement: its tariff and coupon eligibility apply (TEC-723)" }
         rental_product_uuid: { type: string, format: uuid }
         branch_uuid: { type: string, format: uuid }
         return_branch_uuid: { type: [string, "null"], format: uuid, description: One-way fee from the one-way rules }
@@ -27888,6 +28320,7 @@ components:
             name: { type: string }
             scope: { type: string }
             priority: { type: integer }
+            agreement_id: { type: string, description: "Agreement uuid of an agreement tariff" }
         band: { $ref: "#/components/schemas/RateBand" }
         days:
           type: array
@@ -27966,6 +28399,7 @@ components:
           oneOf:
             - $ref: "#/components/schemas/PricingCouponResult"
             - type: "null"
+        agreement: { $ref: "#/components/schemas/AgreementPricing" }
 
     PricingPreview:
       type: object
@@ -34349,4 +34783,403 @@ components:
             items:
               type: array
               items: { $ref: "#/components/schemas/ExpenseCategory" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    # ------------------------------------------------ corporate agreements (TEC-723)
+
+    AgreementRef:
+      type: object
+      required: [uuid, code, name]
+      properties:
+        uuid: { type: string, format: uuid }
+        code: { type: string, example: KA-000001 }
+        name: { type: string }
+
+    AgreementPricing:
+      description: The corporate agreement a side / quote was priced under (null = a public sale)
+      type: [object, "null"]
+      required: [uuid, code, name, tariff_applied, coupon_eligible, invoice_period]
+      properties:
+        uuid: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        tariff_applied: { type: boolean, description: The agreement's own tariff priced the sale }
+        coupon_eligible: { type: boolean }
+        invoice_period: { type: string, enum: [monthly, per_rental] }
+
+    BillingPeriodPlan:
+      type: object
+      required: [no, from_day, to_day, starts_on, ends_on, days, partial, amount]
+      properties:
+        no: { type: integer }
+        from_day: { type: integer, description: First billing day index (from 0) }
+        to_day: { type: integer, description: Billing day index after the last one }
+        starts_on: { type: string, format: date }
+        ends_on: { type: string, format: date, description: Exclusive }
+        days: { type: integer }
+        partial: { type: boolean }
+        amount: { type: string }
+
+    AgreementCustomerRef:
+      type: object
+      required: [uuid, customer_type, display_name]
+      properties:
+        uuid: { type: string, format: uuid }
+        customer_type: { type: string, enum: [individual, corporate] }
+        display_name: { type: string }
+        identity_masked: { type: string }
+
+    AgreementBranchRef:
+      type: object
+      required: [uuid, name]
+      properties:
+        uuid: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+
+    AgreementActor:
+      type: object
+      required: [uuid, name, surname, email]
+      properties:
+        uuid: { type: string, format: uuid }
+        name: { type: string }
+        surname: { type: string }
+        email: { type: string }
+
+    AgreementContact:
+      type: object
+      required: [uuid, contact_uuid, full_name, title, phone_masked, email_masked, is_primary, role, note, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        contact_uuid: { type: string, format: uuid }
+        full_name: { type: string }
+        title: { type: string }
+        phone_masked: { type: string }
+        email_masked: { type: string }
+        is_primary: { type: boolean }
+        role: { type: string, enum: [signatory, billing, operations, other] }
+        note: { type: string }
+        created_at: { type: string, format: date-time }
+
+    AgreementDriver:
+      type: object
+      required: [uuid, kind, driver_uuid, customer_uuid, name, owner, note, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        kind: { type: string, enum: [driver, customer] }
+        driver_uuid: { type: [string, "null"], format: uuid }
+        customer_uuid: { type: [string, "null"], format: uuid }
+        name: { type: string }
+        owner: { type: string, description: The customer the driver record belongs to }
+        licence_masked: { type: string }
+        licence_expires_on: { type: [string, "null"], format: date }
+        note: { type: string }
+        created_at: { type: string, format: date-time }
+
+    Agreement:
+      type: object
+      required: [uuid, code, name, status, validity, customer, branch, valid_from, valid_to, invoice_period, payment_term_days, open_account, credit_limit, coupon_eligible, monthly_km_allowance, maintenance_interval_days, maintenance_interval_km, currency, notes, terminated_at, termination_reason, account, exposure, contacts, drivers, created_by, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        code: { type: string, example: KA-000001 }
+        name: { type: string }
+        status: { type: string, enum: [draft, active, suspended, terminated] }
+        validity: { type: string, enum: [upcoming, current, expired] }
+        customer: { $ref: "#/components/schemas/AgreementCustomerRef" }
+        branch:
+          oneOf:
+            - $ref: "#/components/schemas/AgreementBranchRef"
+            - type: "null"
+        valid_from: { type: string, format: date }
+        valid_to: { type: [string, "null"], format: date, description: Inclusive; null = open ended }
+        invoice_period: { type: string, enum: [monthly, per_rental] }
+        payment_term_days: { type: integer }
+        open_account: { type: boolean }
+        credit_limit: { type: [string, "null"] }
+        coupon_eligible: { type: boolean }
+        monthly_km_allowance: { type: [integer, "null"] }
+        maintenance_interval_days: { type: [integer, "null"] }
+        maintenance_interval_km: { type: [integer, "null"] }
+        currency: { type: string }
+        notes: { type: string }
+        terminated_at: { type: [string, "null"], format: date-time }
+        termination_reason: { type: string }
+        account:
+          oneOf:
+            - type: object
+              required: [uuid, code, payment_term_days]
+              properties:
+                uuid: { type: string, format: uuid }
+                code: { type: string }
+                payment_term_days: { type: integer }
+            - type: "null"
+        exposure:
+          oneOf:
+            - type: object
+              required: [credit_limit, balance, pending, available]
+              properties:
+                credit_limit: { type: string }
+                balance: { type: string, description: The customer's ledger balance (deposits aside) }
+                pending: { type: string, description: Rent of live agreement reservations not accrued yet }
+                available: { type: string }
+            - type: "null"
+        contacts:
+          type: array
+          items: { $ref: "#/components/schemas/AgreementContact" }
+        drivers:
+          type: array
+          items: { $ref: "#/components/schemas/AgreementDriver" }
+        created_by:
+          oneOf:
+            - $ref: "#/components/schemas/AgreementActor"
+            - type: "null"
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    AgreementListItem:
+      type: object
+      required: [uuid, code, name, status, validity, customer, branch, valid_from, valid_to, invoice_period, payment_term_days, open_account, credit_limit, coupon_eligible, currency, reservation_count, tariff_count, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        status: { type: string, enum: [draft, active, suspended, terminated] }
+        validity: { type: string, enum: [upcoming, current, expired] }
+        customer: { $ref: "#/components/schemas/AgreementCustomerRef" }
+        branch:
+          oneOf:
+            - $ref: "#/components/schemas/AgreementBranchRef"
+            - type: "null"
+        valid_from: { type: string, format: date }
+        valid_to: { type: [string, "null"], format: date }
+        invoice_period: { type: string, enum: [monthly, per_rental] }
+        payment_term_days: { type: integer }
+        open_account: { type: boolean }
+        credit_limit: { type: [string, "null"] }
+        coupon_eligible: { type: boolean }
+        currency: { type: string }
+        reservation_count: { type: integer, format: int64 }
+        tariff_count: { type: integer, format: int64 }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    AgreementInput:
+      type: object
+      additionalProperties: false
+      properties:
+        customer_uuid: { type: [string, "null"], format: uuid, description: Create only (a corporate customer) }
+        name: { type: [string, "null"], maxLength: 255 }
+        branch_uuid: { type: [string, "null"], format: uuid, description: Managing branch (null on create = head office) }
+        clear_branch: { type: boolean, description: Make it a head office agreement (needs every branch) }
+        valid_from: { type: [string, "null"], format: date }
+        valid_to: { type: [string, "null"], format: date }
+        clear_valid_to: { type: boolean }
+        invoice_period: { type: [string, "null"], enum: [monthly, per_rental, null] }
+        payment_term_days: { type: [integer, "null"], minimum: 0, maximum: 365 }
+        open_account: { type: [boolean, "null"] }
+        credit_limit: { type: [string, "null"] }
+        coupon_eligible: { type: [boolean, "null"] }
+        monthly_km_allowance: { type: [integer, "null"], description: "0 clears" }
+        maintenance_interval_days: { type: [integer, "null"], description: "0 clears" }
+        maintenance_interval_km: { type: [integer, "null"], description: "0 clears" }
+        notes: { type: [string, "null"], maxLength: 5000 }
+        activate: { type: boolean, description: Create active (create only) }
+
+    AgreementStatusRequest:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: { type: string, enum: [active, suspended, terminated] }
+        reason: { type: string, maxLength: 500 }
+
+    AgreementContactRequest:
+      type: object
+      additionalProperties: false
+      required: [contact_uuid]
+      properties:
+        contact_uuid: { type: string, format: uuid }
+        role: { type: string, enum: [signatory, billing, operations, other] }
+        note: { type: string, maxLength: 500 }
+
+    AgreementDriverRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        driver_uuid: { type: [string, "null"], format: uuid }
+        customer_uuid: { type: [string, "null"], format: uuid }
+        note: { type: string, maxLength: 500 }
+
+    AgreementFacets:
+      type: object
+      required: [status, customer, branch, invoice_period, validity]
+      properties:
+        status: { type: array, items: { $ref: "#/components/schemas/Facet" } }
+        customer: { type: array, items: { $ref: "#/components/schemas/Facet" } }
+        branch: { type: array, items: { $ref: "#/components/schemas/Facet" } }
+        invoice_period: { type: array, items: { $ref: "#/components/schemas/Facet" } }
+        validity: { type: array, items: { $ref: "#/components/schemas/Facet" } }
+
+    AgreementRentalRow:
+      type: object
+      required: [reservation_uuid, reference, status, starts_at, ends_at, product, customer, total, currency, open_account, rental, rent_accrued, rent_open, plate, vehicle_uuid]
+      properties:
+        reservation_uuid: { type: string, format: uuid }
+        reference: { type: string }
+        status: { type: string }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+        product: { $ref: "#/components/schemas/AgreementBranchRef" }
+        customer: { $ref: "#/components/schemas/AgreementCustomerRef" }
+        total: { type: string }
+        currency: { type: string }
+        open_account: { type: boolean }
+        rental:
+          oneOf:
+            - type: object
+              required: [uuid, status, rent_billing, actual_pickup_at, actual_return_at]
+              properties:
+                uuid: { type: string, format: uuid }
+                status: { type: string }
+                rent_billing: { type: string, enum: [handover, periodic] }
+                actual_pickup_at: { type: [string, "null"], format: date-time }
+                actual_return_at: { type: [string, "null"], format: date-time }
+            - type: "null"
+        rent_accrued: { type: string }
+        rent_open: { type: string }
+        plate: { type: string }
+        vehicle_uuid: { type: [string, "null"], format: uuid }
+
+    AgreementPeriod:
+      type: object
+      required: [uuid, rental, rental_status, no, revision, starts_on, ends_on, days, partial, amount, currency, km_allowance, maintenance_due, accrual_key, status, posted_at, closed_at, entry_uuid, entry_date, due_date]
+      properties:
+        uuid: { type: string, format: uuid }
+        rental: { $ref: "#/components/schemas/AgreementBranchRef" }
+        rental_status: { type: string }
+        no: { type: integer }
+        revision: { type: integer }
+        starts_on: { type: string, format: date }
+        ends_on: { type: string, format: date }
+        days: { type: integer }
+        partial: { type: boolean }
+        amount: { type: string }
+        currency: { type: string }
+        km_allowance: { type: [integer, "null"] }
+        maintenance_due: { type: boolean }
+        accrual_key: { type: string, example: "agreement:12:r345:p3" }
+        status: { type: string, enum: [planned, posted, superseded, reversed] }
+        posted_at: { type: [string, "null"], format: date-time }
+        closed_at: { type: [string, "null"], format: date-time }
+        entry_uuid: { type: [string, "null"], format: uuid }
+        entry_date: { type: [string, "null"], format: date }
+        due_date: { type: [string, "null"], format: date }
+
+    AgreementBillingPlan:
+      type: object
+      required: [periods, planned, posted]
+      properties:
+        periods: { type: array, items: { $ref: "#/components/schemas/AgreementPeriod" } }
+        planned: { type: string }
+        posted: { type: string }
+
+    AgreementStatementRow:
+      type: object
+      required: [entry_uuid, entry_date, due_date, kind, direction, purpose, amount, debit, credit, balance, description, reason, accrual_key, periodic, reservation, rental_uuid]
+      properties:
+        entry_uuid: { type: string, format: uuid }
+        entry_date: { type: string, format: date }
+        due_date: { type: string, format: date }
+        kind: { type: string }
+        direction: { type: string, enum: [debit, credit] }
+        purpose: { type: string }
+        amount: { type: string }
+        debit: { type: string }
+        credit: { type: string }
+        balance: { type: string }
+        description: { type: string }
+        reason: { type: string }
+        accrual_key: { type: string }
+        periodic: { type: boolean }
+        reservation: { $ref: "#/components/schemas/AgreementBranchRef" }
+        rental_uuid: { type: [string, "null"], format: uuid }
+
+    AgreementStatement:
+      type: object
+      required: [rows, debit, credit, balance]
+      properties:
+        rows: { type: array, items: { $ref: "#/components/schemas/AgreementStatementRow" } }
+        debit: { type: string }
+        credit: { type: string }
+        balance: { type: string }
+
+    EnvelopeAgreement:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/Agreement" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeAgreementPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/AgreementListItem" } }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeAgreementFacets:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/AgreementFacets" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeAgreementTariffs:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/RatePlan" } }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeAgreementRentals:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/AgreementRentalRow" } }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeAgreementBilling:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/AgreementBillingPlan" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeAgreementStatement:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/AgreementStatement" }
         meta: { $ref: "#/components/schemas/ResponseMeta" }

@@ -57,10 +57,10 @@ WHERE organization_id = sqlc.arg(organization_id)
 -- --------------------------------------------------------------- rate plans
 
 -- name: CreateRatePlan :one
-INSERT INTO rate_plans (organization_id, rental_product_id, scope, branch_id, channel, name)
+INSERT INTO rate_plans (organization_id, rental_product_id, scope, branch_id, channel, name, agreement_id)
 VALUES (
     sqlc.arg(organization_id), sqlc.arg(rental_product_id), sqlc.arg(scope), sqlc.narg(branch_id),
-    sqlc.narg(channel), sqlc.arg(name)
+    sqlc.narg(channel), sqlc.arg(name), sqlc.narg(agreement_id)
 )
 RETURNING id, uuid;
 
@@ -68,10 +68,12 @@ RETURNING id, uuid;
 SELECT p.id, p.uuid, p.scope, p.branch_id, p.channel, p.name, p.status, p.current_version, p.active_version,
     p.activated_at, p.created_at, p.updated_at, p.rental_product_id,
     rp.uuid AS product_uuid, rp.code AS product_code, rp.title AS product_title, rp.segment_id AS product_segment_id,
-    b.uuid AS branch_uuid, b.code AS branch_code, b.name AS branch_name
+    b.uuid AS branch_uuid, b.code AS branch_code, b.name AS branch_name,
+    p.agreement_id, ag.uuid AS agreement_uuid, ag.code AS agreement_code, ag.name AS agreement_name
 FROM rate_plans p
 JOIN rental_products rp ON rp.organization_id = p.organization_id AND rp.id = p.rental_product_id
 LEFT JOIN branches b ON b.organization_id = p.organization_id AND b.id = p.branch_id
+LEFT JOIN corporate_agreements ag ON ag.organization_id = p.organization_id AND ag.id = p.agreement_id
 WHERE p.organization_id = sqlc.arg(organization_id)
   AND p.uuid = sqlc.arg(uuid)
   AND p.deleted_at IS NULL;
@@ -114,10 +116,12 @@ SELECT p.id, p.uuid, p.scope, p.branch_id, p.channel, p.name, p.status, p.curren
     (SELECT COUNT(*) FROM rate_bands rb
      WHERE rb.organization_id = p.organization_id AND rb.rate_plan_version_id = COALESCE(dv.id, av.id))::bigint AS band_count,
     (SELECT MIN(rb.daily_price) FROM rate_bands rb
-     WHERE rb.organization_id = p.organization_id AND rb.rate_plan_version_id = COALESCE(dv.id, av.id))::numeric AS price_from
+     WHERE rb.organization_id = p.organization_id AND rb.rate_plan_version_id = COALESCE(dv.id, av.id))::numeric AS price_from,
+    ag.uuid AS agreement_uuid, ag.code AS agreement_code, ag.name AS agreement_name
 FROM rate_plans p
 JOIN rental_products rp ON rp.organization_id = p.organization_id AND rp.id = p.rental_product_id
 LEFT JOIN branches b ON b.organization_id = p.organization_id AND b.id = p.branch_id
+LEFT JOIN corporate_agreements ag ON ag.organization_id = p.organization_id AND ag.id = p.agreement_id
 LEFT JOIN rate_plan_versions dv ON dv.organization_id = p.organization_id AND dv.rate_plan_id = p.id AND dv.status = 'draft'
 LEFT JOIN rate_plan_versions av ON av.organization_id = p.organization_id AND av.rate_plan_id = p.id AND av.status = 'active'
 WHERE p.organization_id = sqlc.arg(organization_id)
@@ -129,6 +133,7 @@ WHERE p.organization_id = sqlc.arg(organization_id)
   AND (sqlc.narg(channels)::text[] IS NULL OR p.channel = ANY(sqlc.narg(channels)::text[]))
   AND (sqlc.narg(statuses)::text[] IS NULL OR p.status = ANY(sqlc.narg(statuses)::text[]))
   AND (sqlc.narg(has_draft)::boolean IS NULL OR (dv.id IS NOT NULL) = sqlc.narg(has_draft)::boolean)
+  AND (sqlc.narg(agreement_uuids)::uuid[] IS NULL OR ag.uuid = ANY(sqlc.narg(agreement_uuids)::uuid[]))
   AND (
     sqlc.narg(q)::text IS NULL
     OR p.name ILIKE '%' || sqlc.narg(q) || '%'
@@ -161,6 +166,7 @@ FROM rate_plans p
 JOIN rental_products rp ON rp.organization_id = p.organization_id AND rp.id = p.rental_product_id
 LEFT JOIN branches b ON b.organization_id = p.organization_id AND b.id = p.branch_id
 LEFT JOIN rate_plan_versions dv ON dv.organization_id = p.organization_id AND dv.rate_plan_id = p.id AND dv.status = 'draft'
+LEFT JOIN corporate_agreements ag ON ag.organization_id = p.organization_id AND ag.id = p.agreement_id
 WHERE p.organization_id = sqlc.arg(organization_id)
   AND p.deleted_at IS NULL
   AND (sqlc.narg(branch_ids)::bigint[] IS NULL OR p.branch_id IS NULL OR p.branch_id = ANY(sqlc.narg(branch_ids)::bigint[]))
@@ -170,6 +176,7 @@ WHERE p.organization_id = sqlc.arg(organization_id)
   AND (sqlc.narg(channels)::text[] IS NULL OR p.channel = ANY(sqlc.narg(channels)::text[]))
   AND (sqlc.narg(statuses)::text[] IS NULL OR p.status = ANY(sqlc.narg(statuses)::text[]))
   AND (sqlc.narg(has_draft)::boolean IS NULL OR (dv.id IS NOT NULL) = sqlc.narg(has_draft)::boolean)
+  AND (sqlc.narg(agreement_uuids)::uuid[] IS NULL OR ag.uuid = ANY(sqlc.narg(agreement_uuids)::uuid[]))
   AND (
     sqlc.narg(q)::text IS NULL
     OR p.name ILIKE '%' || sqlc.narg(q) || '%'
@@ -299,10 +306,12 @@ WHERE rb.organization_id = sqlc.arg(organization_id) AND rb.rate_plan_version_id
 -- product (product_id NULL): engine candidates and activation conflicts.
 SELECT p.id, p.uuid, p.rental_product_id, p.scope, p.branch_id, p.channel, p.name,
     b.uuid AS branch_uuid,
-    v.id AS version_id, v.uuid AS version_uuid, v.version, v.priority
+    v.id AS version_id, v.uuid AS version_uuid, v.version, v.priority,
+    p.agreement_id, ag.uuid AS agreement_uuid
 FROM rate_plans p
 JOIN rate_plan_versions v ON v.organization_id = p.organization_id AND v.rate_plan_id = p.id AND v.status = 'active'
 LEFT JOIN branches b ON b.organization_id = p.organization_id AND b.id = p.branch_id
+LEFT JOIN corporate_agreements ag ON ag.organization_id = p.organization_id AND ag.id = p.agreement_id
 WHERE p.organization_id = sqlc.arg(organization_id)
   AND p.deleted_at IS NULL
   AND p.status = 'active'

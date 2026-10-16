@@ -56,6 +56,9 @@ type CouponRedemption struct {
 	CustomerUUID    *uuid.UUID
 	ReservationUUID uuid.UUID
 	ActorID         *int64
+	// Corporate: sold under a corporate agreement (only corporate_eligible
+	// campaigns apply).
+	Corporate bool
 }
 
 // CouponRedeemer keeps the campaign redemption counter (TEC-703): Redeem

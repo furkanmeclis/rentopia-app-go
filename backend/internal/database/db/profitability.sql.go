@@ -217,7 +217,9 @@ SELECT f.id, f.kind, f.direction, f.purpose, f.amount, f.entry_date, f.original_
        f.rental_id::bigint AS rental_id
 FROM (
     SELECT
-        e.id, e.kind, e.direction, e.purpose, e.amount, e.entry_date,
+        e.id, e.kind, e.direction, e.purpose, e.amount,
+        (CASE WHEN e.kind = 'reversal' AND e.billing_period_id IS NOT NULL AND o.billing_period_id IS NOT NULL
+              THEN o.entry_date ELSE e.entry_date END)::date AS entry_date,
         COALESCE(o.kind, '')::text AS original_kind,
         COALESCE(o.purpose, '')::text AS original_purpose,
         COALESCE(ch.kind, '')::text AS charge_kind,
@@ -235,13 +237,17 @@ FROM (
         AND (c.ledger_entry_id = COALESCE(o.id, e.id) OR c.id = COALESCE(e.collection_id, o.collection_id))
     WHERE e.organization_id = $1
       AND e.currency = 'TRY'
-      AND e.entry_date >= $2::date AND e.entry_date <= $3::date
+      AND (
+          (e.entry_date >= $2::date AND e.entry_date <= $3::date)
+          OR (e.kind = 'reversal' AND e.billing_period_id IS NOT NULL)
+      )
       AND (
           e.kind IN ('accrual', 'collection', 'refund', 'deposit_hold', 'deposit_return')
           OR (e.kind = 'reversal' AND o.kind IN ('accrual', 'collection', 'refund'))
       )
 ) f
 WHERE f.rental_id IS NOT NULL
+  AND f.entry_date >= $2::date AND f.entry_date <= $3::date
 ORDER BY f.entry_date, f.id
 `
 
@@ -268,6 +274,11 @@ type ProfitLedgerFactsRow struct {
 // collections, refunds, deposit legs and the reversals of those. The
 // rental comes from the entry, the reversed entry, its collection document
 // or the live rental of its reservation (online prepayments).
+// Periodic rent (corporate agreements, TEC-723): a rental billed per period
+// has no handover accrual (the database refuses it), one accrual per posted
+// billing period dated at the period's start. A reversal of such an accrual
+// (early return: superseded / reversed period) counts on the reversed
+// period's date, so every posted period lands in its own month.
 func (q *Queries) ProfitLedgerFacts(ctx context.Context, arg ProfitLedgerFactsParams) ([]ProfitLedgerFactsRow, error) {
 	rows, err := q.db.Query(ctx, profitLedgerFacts, arg.OrganizationID, arg.DateFrom, arg.DateTo)
 	if err != nil {

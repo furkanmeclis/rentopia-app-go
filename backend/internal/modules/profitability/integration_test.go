@@ -678,3 +678,154 @@ func TestProfitabilityExport(t *testing.T) {
 		t.Error("export without an organization")
 	}
 }
+
+// TestProfitabilityPeriodicRental: a rental billed per period (corporate
+// agreement, monthly invoicing, TEC-723) has no handover accrual; its rent
+// reaches the ledger one accrual per posted billing period, dated at the
+// period's start.
+//
+//	R4  V4 (home B1), 8 500.00 sold (850.00 extras = 10 %), from 02-15 10:00
+//	    for 85 days (planned end 05-11): periods Feb 14 days 1 400.00,
+//	    Mar 31 days 3 100.00, Apr 30 days 3 000.00, May 10 days 1 000.00.
+//	    Feb, Mar, Apr posted. Returned early on 04-20 10:00 (billing day
+//	    64), processed on 05-02: April is superseded by 1 900.00 (19 of
+//	    30 days; reversal dated 05-02, new revision dated 04-01), May was
+//	    only planned and never reached the ledger.
+//	    Cash: 1 400.00 on 02-20, 3 100.00 on 03-05.
+//
+// Accrual basis: every posted period in its own month (Feb 1 400, Mar
+// 3 100, Apr 1 900, May 0) — the April reversal counts on the period's
+// date, not on the day it was posted. Cash basis: the collections, split
+// rent / extras by the live accruals (5 760 : 640).
+func TestProfitabilityPeriodicRental(t *testing.T) {
+	f := newFx(t, "prfp")
+	f.svc.SetClock(func() time.Time { return time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC) })
+	b1 := f.branch("MRK")
+	v4 := f.vehicle("34 PRF 4", b1)
+	segment := f.id(`INSERT INTO vehicle_segments (organization_id, code, name) VALUES ($1, 'EKO', 'Ekonomi')`, f.org)
+	group := f.id(`INSERT INTO rental_groups (organization_id, code, name, segment_id) VALUES ($1, 'G1', 'Grup 1', $2)`, f.org, segment)
+	product := f.id(`INSERT INTO rental_products (organization_id, code, title, segment_id, status) VALUES ($1, 'EKO', 'Ekonomi', $2, 'published')`,
+		f.org, segment)
+	f.exec(`INSERT INTO rental_product_versions (organization_id, product_id, version, guarantee_type, rental_group_id, min_driver_age, min_license_years)
+		VALUES ($1, $2, 1, 'GROUP', $3, 18, 1)`, f.org, product, group)
+	customer := f.id(`INSERT INTO customers (organization_id, customer_type, company_title, phone, email)
+		VALUES ($1, 'corporate', 'Acme Lojistik A.Ş.', '+902121112233', 'filo@example.test')`, f.org)
+	account := f.id(`INSERT INTO accounts (organization_id, code, party_kind, customer_id, name) VALUES ($1, 'CR-000001', 'customer', $2, 'Acme')`,
+		f.org, customer)
+	till := f.id(`INSERT INTO cash_accounts (organization_id, code, name, kind, branch_id, opening_balance) VALUES ($1, 'KASA', 'Kasa', 'cash', $2, 0)`,
+		f.org, b1.id)
+
+	starts, plannedEnd, returned := ist(2, 15, 10), ist(5, 11, 10), ist(4, 20, 10)
+	res := f.id(`INSERT INTO reservations (organization_id, reference, status, pickup_branch_id, return_branch_id, starts_at, ends_at,
+		rental_product_id, product_version, sold_rental_product_id, sold_product_version, guarantee_type, product_snapshot, sold_snapshot,
+		customer_id, channel, collecting_party, commission_amount, currency, total_amount, quote_snapshot)
+		VALUES ($1, 'PRF-P1', 'confirmed', $2, $2, $3, $4, $5, 1, $5, 1, 'GROUP', '{}', '{}', $6, 'branch', 'us', 0, 'TRY', 8500,
+		'{"lines":[{"kind":"day","amount":"7650.00"},{"kind":"extra","amount":"850.00"}],"extensions":null}')`,
+		f.org, b1.id, starts, plannedEnd, product, customer)
+	r4 := f.row(`INSERT INTO rentals (organization_id, reference, reservation_id, status, vehicle_id, actual_pickup_at, actual_return_at, rent_billing)
+		VALUES ($1, 'PRF-P1', $2, 'returned', $3, $4, $5, 'periodic')`, f.org, res, v4.id, starts, returned)
+	f.exec(`INSERT INTO rental_vehicles (organization_id, rental_id, vehicle_id, reason, out_at, in_at) VALUES ($1, $2, $3, 'handover', $4, $5)`,
+		f.org, r4.id, v4.id, starts, returned)
+
+	key := func(n int) string { return fmt.Sprintf("agreement:fx:r%d:p%d", r4.id, n) }
+	ledger := func(kind, direction, purpose, amount, day string, extra map[string]any) int64 {
+		source := "rental"
+		if s, ok := extra["source_type"]; ok {
+			source = s.(string)
+			delete(extra, "source_type")
+		}
+		cols := []string{"organization_id", "account_id", "kind", "direction", "purpose", "amount", "entry_date", "due_date", "source_type",
+			"rental_id", "reservation_id"}
+		args := []any{f.org, account, kind, direction, purpose, amount, day, day, source, r4.id, res}
+		for k, v := range extra {
+			cols = append(cols, k)
+			args = append(args, v)
+		}
+		ph := make([]string, len(args))
+		for i := range args {
+			ph[i] = fmt.Sprintf("$%d", i+1)
+		}
+		return f.id("INSERT INTO ledger_entries ("+strings.Join(cols, ", ")+") VALUES ("+strings.Join(ph, ", ")+")", args...)
+	}
+	// post plans a period and accrues it at its start (what SyncRental does).
+	post := func(n, rev, from, to int, startsOn, endsOn, amount string) (period, entry int64) {
+		period = f.id(`INSERT INTO rental_billing_periods (organization_id, rental_id, period_no, revision, day_from, day_to, starts_on, ends_on,
+			days, partial, amount, accrual_key) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+			f.org, r4.id, n, rev, from, to, startsOn, endsOn, to-from, rev > 1 || n == 1, amount, key(n))
+		entry = ledger("accrual", "debit", "rent", amount, startsOn, map[string]any{"accrual_key": key(n), "billing_period_id": period})
+		f.exec(`UPDATE rental_billing_periods SET status = 'posted', ledger_entry_id = $3, posted_at = $4 WHERE organization_id = $1 AND id = $2`,
+			f.org, period, entry, ist(5, 2, 9))
+		return period, entry
+	}
+	post(1, 1, 0, 14, "2026-02-15", "2026-03-01", "1400.00")
+	post(2, 1, 14, 45, "2026-03-01", "2026-04-01", "3100.00")
+	p3, e3 := post(3, 1, 45, 75, "2026-04-01", "2026-05-01", "3000.00")
+	// The early return, processed on 05-02: April reversed and accrued again
+	// for the 19 days kept.
+	ledger("reversal", "credit", "rent", "3000.00", "2026-05-02", map[string]any{
+		"reverses_entry_id": e3, "billing_period_id": p3, "reason": "system:amount_changed",
+	})
+	f.exec(`UPDATE rental_billing_periods SET status = 'superseded', closed_at = $3 WHERE organization_id = $1 AND id = $2`,
+		f.org, p3, ist(5, 2, 9))
+	post(3, 2, 45, 64, "2026-04-01", "2026-04-20", "1900.00")
+
+	// Never both: the handover accrual of the whole rent is refused.
+	if _, err := f.pool.Exec(f.ctx, `INSERT INTO ledger_entries (organization_id, account_id, kind, direction, purpose, amount, entry_date,
+		due_date, source_type, rental_id, accrual_key) VALUES ($1, $2, 'accrual', 'debit', 'rent', 8500, '2026-02-15', '2026-02-15', 'rental', $3, $4)`,
+		f.org, account, r4.id, fmt.Sprintf("rental:%d:rent", r4.id)); err == nil {
+		t.Fatal("a handover accrual was accepted on a periodic rental")
+	}
+
+	for i, c := range []struct{ day, amount string }{{"2026-02-20", "1400.00"}, {"2026-03-05", "3100.00"}} {
+		e := ledger("collection", "credit", "general", c.amount, c.day, map[string]any{"source_type": "collection"})
+		f.exec(`INSERT INTO collections (organization_id, code, account_id, method, amount, gross_amount, net_amount, collection_date, rental_id,
+			reservation_id, ledger_entry_id, branch_id, cash_account_id) VALUES ($1, $2, $3, 'cash', $4, $4, $4, $5, $6, $7, $8, $9, $10)`,
+			f.org, fmt.Sprintf("TH-%06d", i+1), account, c.amount, c.day, r4.id, res, e, b1.id, till)
+	}
+
+	from, to := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC), time.Date(2026, 5, 31, 0, 0, 0, 0, time.UTC)
+	months := []string{"2026-02", "2026-03", "2026-04", "2026-05"}
+	for _, c := range []struct {
+		basis  string
+		months [4]want
+		total  want
+	}{
+		{model.BasisAccrual, [4]want{
+			{rent: 126000, extras: 14000, gross: 140000, contrib: 140000},
+			{rent: 279000, extras: 31000, gross: 310000, contrib: 310000},
+			{rent: 171000, extras: 19000, gross: 190000, contrib: 190000},
+			{},
+		}, want{rent: 576000, extras: 64000, gross: 640000, contrib: 640000}},
+		{model.BasisCash, [4]want{
+			{rent: 126000, extras: 14000, gross: 140000, contrib: 140000},
+			{rent: 279000, extras: 31000, gross: 310000, contrib: 310000},
+			{}, {},
+		}, want{rent: 405000, extras: 45000, gross: 450000, contrib: 450000}},
+	} {
+		rep, err := f.svc.Report(f.scope(nil), f.org, model.Filter{From: &from, To: &to, Basis: c.basis, Allocation: model.AllocationRentalDays})
+		if err != nil {
+			t.Fatalf("%s: %v", c.basis, err)
+		}
+		if len(rep.Rows) != 1 || len(rep.Trend) != 4 {
+			t.Fatalf("%s: %d rows, %d trend points", c.basis, len(rep.Rows), len(rep.Trend))
+		}
+		check(t, c.basis+" V4", rowOf(t, rep, v4), c.total)
+		for i, p := range rep.Trend {
+			if p.Month != months[i] {
+				t.Fatalf("%s: trend month %s, want %s", c.basis, p.Month, months[i])
+			}
+			check(t, c.basis+" "+p.Month, p.Figures, c.months[i])
+		}
+		// One month alone gives the same figures as its trend point.
+		apr, aprEnd := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC), time.Date(2026, 4, 30, 0, 0, 0, 0, time.UTC)
+		rep, err = f.svc.Report(f.scope(nil), f.org, model.Filter{From: &apr, To: &aprEnd, Basis: c.basis, Allocation: model.AllocationRentalDays})
+		if err != nil {
+			t.Fatalf("%s april: %v", c.basis, err)
+		}
+		if c.basis == model.BasisAccrual {
+			check(t, "accrual april alone", rowOf(t, rep, v4), c.months[2])
+		} else if len(rep.Rows) == 1 {
+			check(t, "cash april alone", rep.Rows[0].Figures, c.months[2])
+		}
+	}
+}

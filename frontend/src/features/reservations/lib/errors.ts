@@ -28,6 +28,11 @@ export type ReservationProblem =
     }
   | { kind: "drivers"; drivers: ReservationDriver[]; message: string }
   | { kind: "equipment"; message: string }
+  | {
+      kind: "credit_limit";
+      data: { credit_limit: string; exposure: string } | null;
+      message: string;
+    }
   | { kind: "coupon"; reason: string; message: string }
   | {
       kind: "extension";
@@ -65,6 +70,12 @@ export function reservationProblem(error: unknown): ReservationProblem {
       };
     case "EQUIPMENT_UNAVAILABLE":
       return { kind: "equipment", message: error.message };
+    case "CREDIT_LIMIT_EXCEEDED":
+      return {
+        kind: "credit_limit",
+        data: errorData<{ credit_limit: string; exposure: string }>(error),
+        message: error.message,
+      };
     case "EXTENSION_CONFLICT":
       return {
         kind: "extension",

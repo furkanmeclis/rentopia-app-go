@@ -382,5 +382,14 @@
   "actions.invoices.return_created": "Return invoice created",
   "actions.invoices.downloaded": "Invoice downloaded",
   "actions.invoices.settings_updated": "Invoice settings updated",
-  "resources.tenant.vehicle_profitability": "Vehicle profitability"
+  "resources.tenant.vehicle_profitability": "Vehicle profitability",
+  "resources.tenant.agreements": "Corporate agreements",
+  "actions.agreements.created": "Agreement created",
+  "actions.agreements.updated": "Agreement updated",
+  "actions.agreements.deleted": "Agreement deleted",
+  "actions.agreements.status_changed": "Agreement status changed",
+  "actions.agreements.contact_added": "Contact added",
+  "actions.agreements.contact_removed": "Contact removed",
+  "actions.agreements.driver_added": "Driver permitted",
+  "actions.agreements.driver_removed": "Driver removed"
 }

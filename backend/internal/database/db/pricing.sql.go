@@ -183,6 +183,7 @@ FROM rate_plans p
 JOIN rental_products rp ON rp.organization_id = p.organization_id AND rp.id = p.rental_product_id
 LEFT JOIN branches b ON b.organization_id = p.organization_id AND b.id = p.branch_id
 LEFT JOIN rate_plan_versions dv ON dv.organization_id = p.organization_id AND dv.rate_plan_id = p.id AND dv.status = 'draft'
+LEFT JOIN corporate_agreements ag ON ag.organization_id = p.organization_id AND ag.id = p.agreement_id
 WHERE p.organization_id = $1
   AND p.deleted_at IS NULL
   AND ($2::bigint[] IS NULL OR p.branch_id IS NULL OR p.branch_id = ANY($2::bigint[]))
@@ -192,13 +193,14 @@ WHERE p.organization_id = $1
   AND ($6::text[] IS NULL OR p.channel = ANY($6::text[]))
   AND ($7::text[] IS NULL OR p.status = ANY($7::text[]))
   AND ($8::boolean IS NULL OR (dv.id IS NOT NULL) = $8::boolean)
+  AND ($9::uuid[] IS NULL OR ag.uuid = ANY($9::uuid[]))
   AND (
-    $9::text IS NULL
-    OR p.name ILIKE '%' || $9 || '%'
-    OR rp.code ILIKE '%' || $9 || '%'
-    OR rp.title ILIKE '%' || $9 || '%'
-    OR b.name ILIKE '%' || $9 || '%'
-    OR b.code ILIKE '%' || $9 || '%'
+    $10::text IS NULL
+    OR p.name ILIKE '%' || $10 || '%'
+    OR rp.code ILIKE '%' || $10 || '%'
+    OR rp.title ILIKE '%' || $10 || '%'
+    OR b.name ILIKE '%' || $10 || '%'
+    OR b.code ILIKE '%' || $10 || '%'
   )
 `
 
@@ -211,6 +213,7 @@ type CountRatePlansParams struct {
 	Channels       []string    `json:"channels"`
 	Statuses       []string    `json:"statuses"`
 	HasDraft       pgtype.Bool `json:"has_draft"`
+	AgreementUuids []uuid.UUID `json:"agreement_uuids"`
 	Q              pgtype.Text `json:"q"`
 }
 
@@ -224,6 +227,7 @@ func (q *Queries) CountRatePlans(ctx context.Context, arg CountRatePlansParams) 
 		arg.Channels,
 		arg.Statuses,
 		arg.HasDraft,
+		arg.AgreementUuids,
 		arg.Q,
 	)
 	var column_1 int64
@@ -312,10 +316,10 @@ func (q *Queries) CreateDateRuleVersion(ctx context.Context, arg CreateDateRuleV
 
 const createRatePlan = `-- name: CreateRatePlan :one
 
-INSERT INTO rate_plans (organization_id, rental_product_id, scope, branch_id, channel, name)
+INSERT INTO rate_plans (organization_id, rental_product_id, scope, branch_id, channel, name, agreement_id)
 VALUES (
     $1, $2, $3, $4,
-    $5, $6
+    $5, $6, $7
 )
 RETURNING id, uuid
 `
@@ -327,6 +331,7 @@ type CreateRatePlanParams struct {
 	BranchID        pgtype.Int8 `json:"branch_id"`
 	Channel         pgtype.Text `json:"channel"`
 	Name            string      `json:"name"`
+	AgreementID     pgtype.Int8 `json:"agreement_id"`
 }
 
 type CreateRatePlanRow struct {
@@ -343,6 +348,7 @@ func (q *Queries) CreateRatePlan(ctx context.Context, arg CreateRatePlanParams) 
 		arg.BranchID,
 		arg.Channel,
 		arg.Name,
+		arg.AgreementID,
 	)
 	var i CreateRatePlanRow
 	err := row.Scan(&i.ID, &i.Uuid)
@@ -755,10 +761,12 @@ const getRatePlan = `-- name: GetRatePlan :one
 SELECT p.id, p.uuid, p.scope, p.branch_id, p.channel, p.name, p.status, p.current_version, p.active_version,
     p.activated_at, p.created_at, p.updated_at, p.rental_product_id,
     rp.uuid AS product_uuid, rp.code AS product_code, rp.title AS product_title, rp.segment_id AS product_segment_id,
-    b.uuid AS branch_uuid, b.code AS branch_code, b.name AS branch_name
+    b.uuid AS branch_uuid, b.code AS branch_code, b.name AS branch_name,
+    p.agreement_id, ag.uuid AS agreement_uuid, ag.code AS agreement_code, ag.name AS agreement_name
 FROM rate_plans p
 JOIN rental_products rp ON rp.organization_id = p.organization_id AND rp.id = p.rental_product_id
 LEFT JOIN branches b ON b.organization_id = p.organization_id AND b.id = p.branch_id
+LEFT JOIN corporate_agreements ag ON ag.organization_id = p.organization_id AND ag.id = p.agreement_id
 WHERE p.organization_id = $1
   AND p.uuid = $2
   AND p.deleted_at IS NULL
@@ -790,6 +798,10 @@ type GetRatePlanRow struct {
 	BranchUuid       pgtype.UUID        `json:"branch_uuid"`
 	BranchCode       pgtype.Text        `json:"branch_code"`
 	BranchName       pgtype.Text        `json:"branch_name"`
+	AgreementID      pgtype.Int8        `json:"agreement_id"`
+	AgreementUuid    pgtype.UUID        `json:"agreement_uuid"`
+	AgreementCode    pgtype.Text        `json:"agreement_code"`
+	AgreementName    pgtype.Text        `json:"agreement_name"`
 }
 
 func (q *Queries) GetRatePlan(ctx context.Context, arg GetRatePlanParams) (GetRatePlanRow, error) {
@@ -816,6 +828,10 @@ func (q *Queries) GetRatePlan(ctx context.Context, arg GetRatePlanParams) (GetRa
 		&i.BranchUuid,
 		&i.BranchCode,
 		&i.BranchName,
+		&i.AgreementID,
+		&i.AgreementUuid,
+		&i.AgreementCode,
+		&i.AgreementName,
 	)
 	return i, err
 }
@@ -1014,10 +1030,12 @@ func (q *Queries) ListActiveDateRuleVersions(ctx context.Context, arg ListActive
 const listActiveRatePlans = `-- name: ListActiveRatePlans :many
 SELECT p.id, p.uuid, p.rental_product_id, p.scope, p.branch_id, p.channel, p.name,
     b.uuid AS branch_uuid,
-    v.id AS version_id, v.uuid AS version_uuid, v.version, v.priority
+    v.id AS version_id, v.uuid AS version_uuid, v.version, v.priority,
+    p.agreement_id, ag.uuid AS agreement_uuid
 FROM rate_plans p
 JOIN rate_plan_versions v ON v.organization_id = p.organization_id AND v.rate_plan_id = p.id AND v.status = 'active'
 LEFT JOIN branches b ON b.organization_id = p.organization_id AND b.id = p.branch_id
+LEFT JOIN corporate_agreements ag ON ag.organization_id = p.organization_id AND ag.id = p.agreement_id
 WHERE p.organization_id = $1
   AND p.deleted_at IS NULL
   AND p.status = 'active'
@@ -1043,6 +1061,8 @@ type ListActiveRatePlansRow struct {
 	VersionUuid     uuid.UUID   `json:"version_uuid"`
 	Version         int32       `json:"version"`
 	Priority        int32       `json:"priority"`
+	AgreementID     pgtype.Int8 `json:"agreement_id"`
+	AgreementUuid   pgtype.UUID `json:"agreement_uuid"`
 }
 
 // Active plans (with their active version) of one product or of every
@@ -1069,6 +1089,8 @@ func (q *Queries) ListActiveRatePlans(ctx context.Context, arg ListActiveRatePla
 			&i.VersionUuid,
 			&i.Version,
 			&i.Priority,
+			&i.AgreementID,
+			&i.AgreementUuid,
 		); err != nil {
 			return nil, err
 		}
@@ -1879,10 +1901,12 @@ SELECT p.id, p.uuid, p.scope, p.branch_id, p.channel, p.name, p.status, p.curren
     (SELECT COUNT(*) FROM rate_bands rb
      WHERE rb.organization_id = p.organization_id AND rb.rate_plan_version_id = COALESCE(dv.id, av.id))::bigint AS band_count,
     (SELECT MIN(rb.daily_price) FROM rate_bands rb
-     WHERE rb.organization_id = p.organization_id AND rb.rate_plan_version_id = COALESCE(dv.id, av.id))::numeric AS price_from
+     WHERE rb.organization_id = p.organization_id AND rb.rate_plan_version_id = COALESCE(dv.id, av.id))::numeric AS price_from,
+    ag.uuid AS agreement_uuid, ag.code AS agreement_code, ag.name AS agreement_name
 FROM rate_plans p
 JOIN rental_products rp ON rp.organization_id = p.organization_id AND rp.id = p.rental_product_id
 LEFT JOIN branches b ON b.organization_id = p.organization_id AND b.id = p.branch_id
+LEFT JOIN corporate_agreements ag ON ag.organization_id = p.organization_id AND ag.id = p.agreement_id
 LEFT JOIN rate_plan_versions dv ON dv.organization_id = p.organization_id AND dv.rate_plan_id = p.id AND dv.status = 'draft'
 LEFT JOIN rate_plan_versions av ON av.organization_id = p.organization_id AND av.rate_plan_id = p.id AND av.status = 'active'
 WHERE p.organization_id = $1
@@ -1894,31 +1918,32 @@ WHERE p.organization_id = $1
   AND ($6::text[] IS NULL OR p.channel = ANY($6::text[]))
   AND ($7::text[] IS NULL OR p.status = ANY($7::text[]))
   AND ($8::boolean IS NULL OR (dv.id IS NOT NULL) = $8::boolean)
+  AND ($9::uuid[] IS NULL OR ag.uuid = ANY($9::uuid[]))
   AND (
-    $9::text IS NULL
-    OR p.name ILIKE '%' || $9 || '%'
-    OR rp.code ILIKE '%' || $9 || '%'
-    OR rp.title ILIKE '%' || $9 || '%'
-    OR b.name ILIKE '%' || $9 || '%'
-    OR b.code ILIKE '%' || $9 || '%'
+    $10::text IS NULL
+    OR p.name ILIKE '%' || $10 || '%'
+    OR rp.code ILIKE '%' || $10 || '%'
+    OR rp.title ILIKE '%' || $10 || '%'
+    OR b.name ILIKE '%' || $10 || '%'
+    OR b.code ILIKE '%' || $10 || '%'
   )
 ORDER BY
-  CASE WHEN $10::text = 'name' AND NOT $11::boolean THEN p.name END ASC,
-  CASE WHEN $10::text = 'name' AND $11::boolean THEN p.name END DESC,
-  CASE WHEN $10::text = 'rental_product' AND NOT $11::boolean THEN rp.code END ASC,
-  CASE WHEN $10::text = 'rental_product' AND $11::boolean THEN rp.code END DESC,
-  CASE WHEN $10::text = 'scope' AND NOT $11::boolean THEN p.scope END ASC,
-  CASE WHEN $10::text = 'scope' AND $11::boolean THEN p.scope END DESC,
-  CASE WHEN $10::text = 'status' AND NOT $11::boolean THEN p.status END ASC,
-  CASE WHEN $10::text = 'status' AND $11::boolean THEN p.status END DESC,
-  CASE WHEN $10::text = 'priority' AND NOT $11::boolean THEN COALESCE(dv.priority, av.priority, 0) END ASC,
-  CASE WHEN $10::text = 'priority' AND $11::boolean THEN COALESCE(dv.priority, av.priority, 0) END DESC,
-  CASE WHEN $10::text = 'updated_at' AND NOT $11::boolean THEN p.updated_at END ASC,
-  CASE WHEN $10::text = 'updated_at' AND $11::boolean THEN p.updated_at END DESC,
-  CASE WHEN $10::text = 'created_at' AND NOT $11::boolean THEN p.created_at END ASC,
-  CASE WHEN $10::text = 'created_at' AND $11::boolean THEN p.created_at END DESC,
+  CASE WHEN $11::text = 'name' AND NOT $12::boolean THEN p.name END ASC,
+  CASE WHEN $11::text = 'name' AND $12::boolean THEN p.name END DESC,
+  CASE WHEN $11::text = 'rental_product' AND NOT $12::boolean THEN rp.code END ASC,
+  CASE WHEN $11::text = 'rental_product' AND $12::boolean THEN rp.code END DESC,
+  CASE WHEN $11::text = 'scope' AND NOT $12::boolean THEN p.scope END ASC,
+  CASE WHEN $11::text = 'scope' AND $12::boolean THEN p.scope END DESC,
+  CASE WHEN $11::text = 'status' AND NOT $12::boolean THEN p.status END ASC,
+  CASE WHEN $11::text = 'status' AND $12::boolean THEN p.status END DESC,
+  CASE WHEN $11::text = 'priority' AND NOT $12::boolean THEN COALESCE(dv.priority, av.priority, 0) END ASC,
+  CASE WHEN $11::text = 'priority' AND $12::boolean THEN COALESCE(dv.priority, av.priority, 0) END DESC,
+  CASE WHEN $11::text = 'updated_at' AND NOT $12::boolean THEN p.updated_at END ASC,
+  CASE WHEN $11::text = 'updated_at' AND $12::boolean THEN p.updated_at END DESC,
+  CASE WHEN $11::text = 'created_at' AND NOT $12::boolean THEN p.created_at END ASC,
+  CASE WHEN $11::text = 'created_at' AND $12::boolean THEN p.created_at END DESC,
   rp.code ASC, p.id ASC
-LIMIT $13 OFFSET $12
+LIMIT $14 OFFSET $13
 `
 
 type ListRatePlansParams struct {
@@ -1930,6 +1955,7 @@ type ListRatePlansParams struct {
 	Channels       []string    `json:"channels"`
 	Statuses       []string    `json:"statuses"`
 	HasDraft       pgtype.Bool `json:"has_draft"`
+	AgreementUuids []uuid.UUID `json:"agreement_uuids"`
 	Q              pgtype.Text `json:"q"`
 	SortField      string      `json:"sort_field"`
 	SortDesc       bool        `json:"sort_desc"`
@@ -1960,6 +1986,9 @@ type ListRatePlansRow struct {
 	Priority       int32              `json:"priority"`
 	BandCount      int64              `json:"band_count"`
 	PriceFrom      pgtype.Numeric     `json:"price_from"`
+	AgreementUuid  pgtype.UUID        `json:"agreement_uuid"`
+	AgreementCode  pgtype.Text        `json:"agreement_code"`
+	AgreementName  pgtype.Text        `json:"agreement_name"`
 }
 
 func (q *Queries) ListRatePlans(ctx context.Context, arg ListRatePlansParams) ([]ListRatePlansRow, error) {
@@ -1972,6 +2001,7 @@ func (q *Queries) ListRatePlans(ctx context.Context, arg ListRatePlansParams) ([
 		arg.Channels,
 		arg.Statuses,
 		arg.HasDraft,
+		arg.AgreementUuids,
 		arg.Q,
 		arg.SortField,
 		arg.SortDesc,
@@ -2008,6 +2038,9 @@ func (q *Queries) ListRatePlans(ctx context.Context, arg ListRatePlansParams) ([
 			&i.Priority,
 			&i.BandCount,
 			&i.PriceFrom,
+			&i.AgreementUuid,
+			&i.AgreementCode,
+			&i.AgreementName,
 		); err != nil {
 			return nil, err
 		}

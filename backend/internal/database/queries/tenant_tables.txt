@@ -101,6 +101,10 @@ supplier_payments
 supplier_payment_allocations
 collections
 collection_allocations
+corporate_agreements
+agreement_contacts
+agreement_drivers
+rental_billing_periods
 invoice_settings
 invoice_tax_mappings
 invoice_sequences

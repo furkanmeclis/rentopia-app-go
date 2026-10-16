@@ -39,7 +39,8 @@ Both require `tenant.finance.ledger.adjust`, except automatic reversals, which c
 
 | Fact | Entry | Trigger |
 |------|-------|---------|
-| Rent | `accrual` / `rent`, key `rental:<id>:rent` | When the rental is handed over (status `active`, `return_check` or `returned`). Only when `collecting_party = 'us'`. The amount is the reservation's `total_amount`, posted to the invoice customer (or the customer if there is none). The due date is the handover day plus `payment_term_days`. An extension that changes the total reverses the accrual and accrues the new amount. |
+| Rent | `accrual` / `rent`, key `rental:<id>:rent` | When the rental is handed over (status `active`, `return_check` or `returned`). Only when `collecting_party = 'us'`. The amount is the reservation's `total_amount`, posted to the invoice customer (or the customer if there is none). The due date is the handover day plus `payment_term_days`. An extension that changes the total reverses the accrual and accrues the new amount. Only for `rentals.rent_billing = handover`. |
+| Rent of a periodically billed rental (TEC-723) | `accrual` / `rent` per billing period, key `agreement:<agreement>:r<rental>:p<n>`, `billing_period_id` set | Each monthly period once it starts and the rental is under way (the hourly job, the handover, an extension, the return). The periods split the reservation total by days and add up to it. Never together with the handover accrual: see [corporate-agreements.md](./corporate-agreements.md). |
 | Rental charge (damage, fuel, km, late fee, toll, toll fee …) | `accrual` / `charge`, key `rental_charge:<id>` | When the charge is approved. Proposed, waived and disputed-but-unapproved charges are never accrued. A charge with a reversal row is not due either. |
 | Toll charge reversal (TEC-725) | `reversal` of the charge's accrual, reason `system:charge_reversed` | The reversal row itself (negative amount, `reversal_of_id`) is never accrued. |
 | iyzico / branch payment | `collection` (credit), one per payment (`uq_ledger_entries_payment`), plus its collection document | When the payment is applied. The insert is `ON CONFLICT DO NOTHING`, so a webhook retry does nothing. See [collections.md](./collections.md). |
@@ -60,6 +61,10 @@ Running `SyncRental` again changes nothing.
 Collections allocated to an accrual that is reversed are released and carried to the accrual that replaces it; the rental's own collections then pay its open items oldest first ([collections.md](./collections.md)).
 
 Posting from payments is fail-soft: a failure is logged and the payment still applies. The worker's expire-holds chain runs a catch-up sweep, `PostPending`, which posts missing payment and refund entries. This also back-posts payments that existed before the ledger.
+
+### Handover vs periodic rent (TEC-723)
+
+A rental's rent reaches the ledger either at the handover (`rent_billing = handover`, one `rental:<id>:rent` accrual) or per billing period (`periodic`). The database keeps the two apart: the insert trigger `ledger_entries_rent_billing` refuses a rent accrual without `billing_period_id` on a periodic rental, one with a period on a handover rental and one whose period belongs to another rental or key; `rentals_rent_billing_fixed` refuses changing the mode while a live rent accrual exists. Posted billing periods are immutable (superseded or reversed, never edited or deleted). `ApplyCustomerTerms` writes an agreement's payment term onto the customer's account.
 
 ### Single accrual (RT-A23)
 

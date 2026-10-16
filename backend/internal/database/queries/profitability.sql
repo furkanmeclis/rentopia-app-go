@@ -80,11 +80,18 @@ WHERE r.organization_id = sqlc.arg(organization_id) AND r.id = ANY(sqlc.arg(rent
 -- collections, refunds, deposit legs and the reversals of those. The
 -- rental comes from the entry, the reversed entry, its collection document
 -- or the live rental of its reservation (online prepayments).
+-- Periodic rent (corporate agreements, TEC-723): a rental billed per period
+-- has no handover accrual (the database refuses it), one accrual per posted
+-- billing period dated at the period's start. A reversal of such an accrual
+-- (early return: superseded / reversed period) counts on the reversed
+-- period's date, so every posted period lands in its own month.
 SELECT f.id, f.kind, f.direction, f.purpose, f.amount, f.entry_date, f.original_kind, f.original_purpose, f.charge_kind,
        f.rental_id::bigint AS rental_id
 FROM (
     SELECT
-        e.id, e.kind, e.direction, e.purpose, e.amount, e.entry_date,
+        e.id, e.kind, e.direction, e.purpose, e.amount,
+        (CASE WHEN e.kind = 'reversal' AND e.billing_period_id IS NOT NULL AND o.billing_period_id IS NOT NULL
+              THEN o.entry_date ELSE e.entry_date END)::date AS entry_date,
         COALESCE(o.kind, '')::text AS original_kind,
         COALESCE(o.purpose, '')::text AS original_purpose,
         COALESCE(ch.kind, '')::text AS charge_kind,
@@ -102,13 +109,17 @@ FROM (
         AND (c.ledger_entry_id = COALESCE(o.id, e.id) OR c.id = COALESCE(e.collection_id, o.collection_id))
     WHERE e.organization_id = sqlc.arg(organization_id)
       AND e.currency = 'TRY'
-      AND e.entry_date >= sqlc.arg(date_from)::date AND e.entry_date <= sqlc.arg(date_to)::date
+      AND (
+          (e.entry_date >= sqlc.arg(date_from)::date AND e.entry_date <= sqlc.arg(date_to)::date)
+          OR (e.kind = 'reversal' AND e.billing_period_id IS NOT NULL)
+      )
       AND (
           e.kind IN ('accrual', 'collection', 'refund', 'deposit_hold', 'deposit_return')
           OR (e.kind = 'reversal' AND o.kind IN ('accrual', 'collection', 'refund'))
       )
 ) f
 WHERE f.rental_id IS NOT NULL
+  AND f.entry_date >= sqlc.arg(date_from)::date AND f.entry_date <= sqlc.arg(date_to)::date
 ORDER BY f.entry_date, f.id;
 
 -- name: ProfitBilledAccruals :many

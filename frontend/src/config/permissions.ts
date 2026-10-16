@@ -155,6 +155,9 @@ export const Permission = {
   TenantKabisRead: "tenant.kabis.read",
   TenantKabisRetry: "tenant.kabis.retry",
   TenantKabisReconcile: "tenant.kabis.reconcile",
+  TenantAgreementsRead: "tenant.agreements.read",
+  TenantAgreementsWrite: "tenant.agreements.write",
+  TenantAgreementsExport: "tenant.agreements.export",
   TenantInvoicesRead: "tenant.invoices.read",
   TenantInvoicesWrite: "tenant.invoices.write",
   TenantInvoicesCancel: "tenant.invoices.cancel",
@@ -385,6 +388,16 @@ export const permissions = {
       read: Permission.TenantRentalsRead,
       write: Permission.TenantRentalsWrite,
       close: Permission.TenantRentalsClose,
+    },
+    /**
+     * Corporate agreements (TEC-723). Agreement tariffs are rate plans
+     * (`pricing.write` / `activate`); overriding one in a quote stays
+     * `price.override`.
+     */
+    agreements: {
+      read: Permission.TenantAgreementsRead,
+      write: Permission.TenantAgreementsWrite,
+      export: Permission.TenantAgreementsExport,
     },
     /**
      * Field tasks: `read` = the assignment board, `assign` = plan, assign

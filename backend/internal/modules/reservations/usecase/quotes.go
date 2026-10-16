@@ -45,6 +45,9 @@ type quoteSpec struct {
 	// (an unchanged side of a change keeps its fee without a new check).
 	pickupDelivery, returnDelivery *fieldmodel.Delivery
 	checkPickup, checkReturn       bool
+	// agreement is the corporate agreement of the sale (TEC-723); changes
+	// of a reservation load it from the reservation.
+	agreement *agreement
 }
 
 // priced is the outcome of pricing a spec.
@@ -54,6 +57,8 @@ type priced struct {
 	side     pricingmodel.PreviewSide
 	warnings []string
 	settings int32
+	// agreement is the agreement part of the priced side.
+	agreement *pricingmodel.AgreementPricing
 }
 
 // pricingFieldMap renames pricing preview fields to the quote body's.
@@ -141,6 +146,15 @@ func (s *Service) price(ctx context.Context, orgID int64, spec quoteSpec) (price
 		id := spec.customer.Uuid
 		in.CustomerUUID = &id
 	}
+	if spec.agreement == nil && spec.reservationID != 0 {
+		if spec.agreement, err = s.reservationAgreement(ctx, orgID, spec.reservationID); err != nil {
+			return out, err
+		}
+	}
+	if spec.agreement != nil {
+		id := spec.agreement.Uuid
+		in.AgreementUUID = &id
+	}
 	fees, err := s.deliveryFees(ctx, orgID, spec, res)
 	if err != nil {
 		return out, err
@@ -168,6 +182,7 @@ func (s *Service) price(ctx context.Context, orgID int64, spec quoteSpec) (price
 		return out, mapPricingErr(err)
 	}
 	out.side = preview.Current
+	out.agreement = preview.Current.Agreement
 	out.warnings = []string{}
 	for _, w := range preview.Warnings {
 		if w != "no_changes" {
@@ -268,6 +283,11 @@ func (s *Service) Search(ctx context.Context, orgID int64, in model.QuoteSearchI
 	if err != nil {
 		return model.QuoteSearchResult{}, mapAvailabilitySearchErr(err)
 	}
+	if in.AgreementUUID != nil {
+		if _, err := s.agreementForSale(ctx, orgID, *in.AgreementUUID, res.Request.StartsAt, "agreement_uuid"); err != nil {
+			return model.QuoteSearchResult{}, err
+		}
+	}
 	out := model.QuoteSearchResult{Request: res.Request, Items: []model.QuoteSearchItem{}, Warnings: []string{}}
 	seen := map[string]bool{}
 	ve := &ValidationError{}
@@ -293,6 +313,7 @@ func (s *Service) Search(ctx context.Context, orgID int64, in model.QuoteSearchI
 		preview, err := s.pricing.Preview(ctx, orgID, pricingmodel.PreviewInput{
 			RentalProductUUID: &id, BranchUUID: &res.Request.PickupBranch.UUID, ReturnBranchUUID: &res.Request.ReturnBranch.UUID,
 			Channel: res.Request.Channel, StartAt: &res.Request.StartsAt, EndAt: &res.Request.EndsAt, Deliveries: fees,
+			AgreementUUID: in.AgreementUUID,
 		})
 		switch {
 		case err != nil:
@@ -340,8 +361,15 @@ func (s *Service) CreateQuote(ctx context.Context, orgID int64, in model.QuoteIn
 	if err != nil {
 		return model.Quote{}, err
 	}
+	var ag *agreement
+	if in.AgreementUUID != nil {
+		if ag, err = s.agreementForSale(ctx, orgID, *in.AgreementUUID, *in.StartsAt, "agreement_uuid"); err != nil {
+			return model.Quote{}, err
+		}
+	}
 	spec := quoteSpec{
-		purpose: model.PurposeNew, customer: customer, where: whereOf(in.Where, in.Channel), productUUID: *in.ProductUUID,
+		agreement: ag,
+		purpose:   model.PurposeNew, customer: customer, where: whereOf(in.Where, in.Channel), productUUID: *in.ProductUUID,
 		extras: in.Extras, coupon: strings.ToUpper(strings.TrimSpace(in.CouponCode)), manual: in.ManualDiscount,
 		deliveryFee: strings.TrimSpace(string(in.DeliveryFee)), pickupDelivery: cleanDelivery(in.PickupDelivery),
 		returnDelivery: cleanDelivery(in.ReturnDelivery), checkPickup: true, checkReturn: true,
@@ -392,6 +420,14 @@ func (s *Service) storeQuote(ctx context.Context, orgID int64, spec quoteSpec, p
 	}
 	breakdown := model.QuoteBreakdown{
 		Pricing: b, Extension: extra.extension, Conditions: conditions, PreviousConditions: extra.previous, Warnings: p.warnings,
+		Agreement: p.agreement,
+	}
+	// A periodically billed agreement sale shows its monthly plan (the
+	// partial first / last periods pro rata by days) before anything is
+	// posted; extension quotes charge the added days only, so the plan of
+	// the extended rental is the reservation's after the change.
+	if spec.agreement != nil && spec.agreement.InvoicePeriod == "monthly" && extra.override == nil {
+		breakdown.BillingPlan = pricing.PeriodPlan(b.StartsAt, b.EndsAt, b.Total)
 	}
 	product, err := s.q.GetReservationProductByUUID(ctx, db.GetReservationProductByUUIDParams{OrganizationID: orgID, Uuid: p.item.Product.UUID})
 	if err != nil {
@@ -456,6 +492,9 @@ func (s *Service) storeQuote(ctx context.Context, orgID int64, spec quoteSpec, p
 	}
 	if spec.customer != nil {
 		params.CustomerID = int8Of(spec.customer.ID)
+	}
+	if spec.agreement != nil {
+		params.AgreementID = int8Of(spec.agreement.ID)
 	}
 	if b.VATRate != nil {
 		params.VatRateBp = pgtype.Int4{Int32: int32(*b.VATRate), Valid: true}
@@ -700,6 +739,7 @@ func (s *Service) quoteView(row db.GetQuoteRow, lines []db.ListQuoteLinesRow) mo
 	if row.ReservationUuid.Valid {
 		q.Reservation = &model.ReservationRef{UUID: row.ReservationUuid.Bytes, Reference: row.ReservationReference.String}
 	}
+	q.Agreement = agreementRef(row.AgreementUuid, row.AgreementCode, row.AgreementName)
 	if row.VehicleUuid.Valid {
 		q.Vehicle = &model.VehicleRef{UUID: row.VehicleUuid.Bytes, Plate: row.VehiclePlate.String}
 	}

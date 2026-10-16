@@ -139,6 +139,9 @@ type CouponQuery struct {
 	Subtotal             money.Money
 	CustomerUUID         *uuid.UUID
 	At                   time.Time
+	// Corporate: the sale is made under a corporate agreement that allows
+	// campaigns (only corporate_eligible campaigns apply).
+	Corporate bool
 }
 
 // CouponEvaluator checks a coupon code / automatic campaign (TEC-703,

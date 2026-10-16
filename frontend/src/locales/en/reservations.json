@@ -437,5 +437,10 @@
   "tabs.customer_requests": "Customer requests",
   "events.customer_request": "Customer request received",
   "events.customer_request_resolved": "Customer request resolved",
-  "events.customer_request_rejected": "Customer request rejected"
+  "events.customer_request_rejected": "Customer request rejected",
+  "fields.agreement": "Corporate agreement",
+  "fields.open_account": "Open account",
+  "problems.credit_limit": "The open-account limit would be exceeded",
+  "problems.credit_limit_detail": "Exposure would be {{exposure}}; the limit is {{limit}}.",
+  "problems.continue_with_prepayment": "Continue with prepayment"
 }

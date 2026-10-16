@@ -355,6 +355,12 @@ func (s *Service) Return(ctx context.Context, orgID int64, id uuid.UUID, in mode
 			if err != nil {
 				return err
 			}
+			// The ledger follows the return: an early return of a rental
+			// billed per period cuts its billing plan (TEC-723); a handover
+			// rental's rent stays as accrued.
+			if err := s.ledger.SyncRental(hctx, q, orgID, c.ID); err != nil {
+				return err
+			}
 			// KABİS: the rental end notification of the actual return.
 			if kabisAfter, err = s.recordKabis(hctx, q, orgID, c.ID, kabismodel.CauseReturn); err != nil {
 				return err

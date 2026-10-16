@@ -205,6 +205,9 @@ type QuoteInput struct {
 	CouponCode     string               `json:"coupon_code"`
 	ManualDiscount *ManualDiscountInput `json:"manual_discount"`
 	DeliveryFee    pricingmodel.Decimal `json:"delivery_fee"`
+	// AgreementUUID sells under a corporate agreement (TEC-723): its
+	// tariff and coupon eligibility apply.
+	AgreementUUID *uuid.UUID `json:"agreement_uuid"`
 }
 
 // QuoteSearchInput is the body of POST /v1/tenant/quotes/search: every
@@ -213,6 +216,8 @@ type QuoteSearchInput struct {
 	Where
 	Channel      string      `json:"channel"`
 	ProductUUIDs []uuid.UUID `json:"product_uuids"`
+	// AgreementUUID prices the products under a corporate agreement.
+	AgreementUUID *uuid.UUID `json:"agreement_uuid"`
 }
 
 // PriceSummary is the price of one product in a quote search.
@@ -311,6 +316,19 @@ type QuoteBreakdown struct {
 	Conditions         *Conditions `json:"conditions"`
 	PreviousConditions *Conditions `json:"previous_conditions"`
 	Warnings           []string    `json:"warnings"`
+	// Agreement names the corporate agreement of the sale and whether its
+	// tariff applied (TEC-723).
+	Agreement *pricingmodel.AgreementPricing `json:"agreement,omitempty"`
+	// BillingPlan is the monthly period plan of a periodically billed
+	// agreement sale (partial first / last periods pro rata by days).
+	BillingPlan []pricing.BillingPeriod `json:"billing_plan,omitempty"`
+}
+
+// AgreementRef is a corporate agreement embedded in a record.
+type AgreementRef struct {
+	UUID uuid.UUID `json:"uuid"`
+	Code string    `json:"code"`
+	Name string    `json:"name"`
 }
 
 // ManualDiscountView is the applied staff discount.
@@ -335,6 +353,7 @@ type Quote struct {
 	Expired             bool                 `json:"expired"`
 	Reservation         *ReservationRef      `json:"reservation"`
 	Customer            *CustomerRef         `json:"customer"`
+	Agreement           *AgreementRef        `json:"agreement"`
 	Product             ProductRef           `json:"product"`
 	PickupBranch        BranchRef            `json:"pickup_branch"`
 	ReturnBranch        BranchRef            `json:"return_branch"`
@@ -445,6 +464,10 @@ type CreateInput struct {
 	// ConfirmNow confirms immediately (staff with tenant.reservations.confirm
 	// at the counter), skipping the review / payment wait.
 	ConfirmNow bool `json:"confirm_now"`
+	// UseOpenAccount (default true) confirms a sale under an agreement with
+	// an open account without prepayment, within its credit limit; false
+	// follows the normal prepayment flow.
+	UseOpenAccount *bool `json:"use_open_account"`
 }
 
 // ReasonInput is the body of actions that need a reason (cancel, no-show).
@@ -622,6 +645,8 @@ type Reservation struct {
 	BillingDays         int                  `json:"billing_days"`
 	Customer            CustomerRef          `json:"customer"`
 	InvoiceCustomer     *CustomerRef         `json:"invoice_customer"`
+	Agreement           *AgreementRef        `json:"agreement"`
+	OpenAccount         bool                 `json:"open_account"`
 	Drivers             []ReservationDriver  `json:"drivers"`
 	Channel             string               `json:"channel"`
 	ApprovalProtocol    string               `json:"approval_protocol"`

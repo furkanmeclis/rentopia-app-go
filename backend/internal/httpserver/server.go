@@ -19,6 +19,10 @@ import (
 	activitymodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/activity"
 	activityhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/activity/handler"
 	activityusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/activity/usecase"
+	agreementsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/agreements"
+	agreementadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/agreements/adapters"
+	agreementhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/agreements/handler"
+	agreementusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/agreements/usecase"
 	authmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/auth"
 	authhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/auth/handler"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/auth/identity"
@@ -597,6 +601,10 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	// organization's payment account (iyzico pre-auth / post-auth / cancel).
 	financeSvc.SetPreAuth(integrationAccountsSvc, cfg.Auth.FrontendURL, iyzicoAdapter)
 	financeSvc.SetPayments(paymentsSvc)
+	// Corporate agreements (TEC-723): the payment term goes onto the
+	// customer's ledger account; tariffs are agreement-scoped rate plans.
+	agreementsSvc := agreementusecase.New(deps.DB, deps.Queries, financeSvc, pricingSvc)
+	agreementsSvc.SetResourceEvents(resourceEvents)
 	// E-invoices / e-archive (TEC-722): drafts link the ledger's accruals,
 	// go-ubltr builds and validates the UBL-TR XML, sending runs on the
 	// integration runner.
@@ -647,6 +655,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	financemodule.RegisterLiveResources(tenantLive)
 	tollsmodule.RegisterLiveResources(tenantLive)
 	kabismodule.RegisterLiveResources(tenantLive)
+	agreementsmodule.RegisterLiveResources(tenantLive)
 	invoicesmodule.RegisterLiveResources(tenantLive)
 	suppliersmodule.RegisterLiveResources(tenantLive)
 	resourceEvents.AddResolver(tenantmodule.ChannelResolver(tenantmodule.QueriesLookup(deps.Queries)))
@@ -718,6 +727,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		supplieradapters.NewIO(supplierSvc),
 		financeadapters.NewDepositsIO(financeSvc),
 		financeadapters.NewCollectionsIO(financeSvc),
+		agreementadapters.NewIO(agreementsSvc),
 		invoiceadapters.NewIO(invoicesSvc),
 		// Vehicle profitability report (TEC-727).
 		profitabilityadapters.NewIO(profitabilitySvc),
@@ -875,6 +885,9 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		Export: exportH.TenantExport(rentalsmodule.Resource, rentalsmodule.ExportQueryKeys...),
 	}, tokens, loader, tenantResolver)
 	kabismodule.RegisterRoutes(mux, kabishandler.New(kabisSvc, activityRec), tokens, loader, tenantResolver)
+	agreementsmodule.RegisterRoutes(mux, agreementhandler.New(agreementsSvc, activityRec), agreementsmodule.EngineHandlers{
+		Export: exportH.TenantExport(agreementsmodule.Resource, agreementsmodule.ExportQueryKeys...),
+	}, tokens, loader, tenantResolver)
 	tollsmodule.RegisterRoutes(mux, tollshandler.New(tollsSvc, activityRec), tollsmodule.EngineHandlers{
 		Export: exportH.TenantExport(tollsmodule.Resource, tollsmodule.ExportQueryKeys...),
 		Import: importH.TenantUpload(tollsmodule.Resource),

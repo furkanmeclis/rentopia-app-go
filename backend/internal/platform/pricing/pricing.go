@@ -8,8 +8,10 @@
 //
 //  1. Billing days = ceil(duration / 24h), min 1 (rentaltime).
 //  2. Rate plan: among the candidates that match the branch / channel, the
-//     most specific scope wins (branch+channel → branch → channel →
-//     common); inside that scope the highest priority wins; two plans with
+//     most specific scope wins (agreement → branch+channel → branch →
+//     channel → common; an agreement plan only matches a sale under its
+//     corporate agreement, TEC-723); inside that scope the highest
+//     priority wins; two plans with
 //     the same scope and priority are ErrAmbiguousPlan (activation prevents
 //     it; the engine still refuses to guess).
 //  3. Duration band: chosen once from the WHOLE rental length; every day
@@ -48,14 +50,19 @@ const (
 	ScopeChannel       = "channel"
 	ScopeBranch        = "branch"
 	ScopeBranchChannel = "branch_channel"
+	// ScopeAgreement is a corporate agreement tariff (TEC-723): it prices
+	// only sales made under its agreement and beats every public plan.
+	ScopeAgreement = "agreement"
 )
 
 // Scopes lists the plan scopes (API enum order).
-var Scopes = []string{ScopeCommon, ScopeBranch, ScopeChannel, ScopeBranchChannel}
+var Scopes = []string{ScopeCommon, ScopeBranch, ScopeChannel, ScopeBranchChannel, ScopeAgreement}
 
 // ScopeRank orders the scopes by precedence (higher wins).
 func ScopeRank(scope string) int {
 	switch scope {
+	case ScopeAgreement:
+		return 5
 	case ScopeBranchChannel:
 		return 4
 	case ScopeBranch:
@@ -162,14 +169,24 @@ type Plan struct {
 	Scope     string `json:"scope"`
 	BranchID  string `json:"branch_id,omitempty"`
 	Channel   string `json:"channel,omitempty"`
-	Priority  int    `json:"priority"`
-	Bands     []Band `json:"bands"`
+	// AgreementID is the corporate agreement of an agreement plan.
+	AgreementID string `json:"agreement_id,omitempty"`
+	Priority    int    `json:"priority"`
+	Bands       []Band `json:"bands"`
 }
 
 // Matches reports whether the plan applies to a sale at branch through
-// channel.
+// channel (no agreement: an agreement plan never matches).
 func (p Plan) Matches(branchID, channel string) bool {
+	return p.MatchesFor(branchID, channel, "")
+}
+
+// MatchesFor reports whether the plan applies to a sale at branch through
+// channel under agreementID ("" = a public sale).
+func (p Plan) MatchesFor(branchID, channel, agreementID string) bool {
 	switch p.Scope {
+	case ScopeAgreement:
+		return agreementID != "" && p.AgreementID == agreementID
 	case ScopeCommon:
 		return true
 	case ScopeBranch:
@@ -286,6 +303,9 @@ type Input struct {
 	Product  Product
 	BranchID string
 	Channel  string
+	// AgreementID is the corporate agreement the sale is made under ("" =
+	// a public sale); its agreement plans then beat the public ones.
+	AgreementID string
 	// Plans are the candidate (active) plan versions of the product; the
 	// engine picks one.
 	Plans []Plan
@@ -325,6 +345,8 @@ type PlanRef struct {
 	Name      string `json:"name"`
 	Scope     string `json:"scope"`
 	Priority  int    `json:"priority"`
+	// AgreementID names the corporate agreement of an agreement tariff.
+	AgreementID string `json:"agreement_id,omitempty"`
 }
 
 // RuleRef names the date rule version applied to a day.
@@ -414,7 +436,7 @@ func Calculate(in Input) (Breakdown, error) {
 	}
 	days := rng.BillingDays()
 
-	plan, err := SelectPlan(in.Plans, in.BranchID, in.Channel)
+	plan, err := SelectPlanFor(in.Plans, in.BranchID, in.Channel, in.AgreementID)
 	if err != nil {
 		return Breakdown{}, err
 	}
@@ -427,7 +449,7 @@ func Calculate(in Input) (Breakdown, error) {
 		Currency: band.DailyPrice.Currency(), StartsAt: rng.Start, EndsAt: rng.End, BillingDays: days,
 		Plan: PlanRef{
 			ID: plan.ID, VersionID: plan.VersionID, Version: plan.Version, Name: plan.Name,
-			Scope: plan.Scope, Priority: plan.Priority,
+			Scope: plan.Scope, Priority: plan.Priority, AgreementID: plan.AgreementID,
 		},
 		Band:  band,
 		Days:  make([]DayLine, 0, days),
@@ -568,12 +590,19 @@ func Calculate(in Input) (Breakdown, error) {
 	return out, nil
 }
 
-// SelectPlan picks the plan for a sale at branch through channel.
+// SelectPlan picks the plan for a public sale at branch through channel.
 func SelectPlan(plans []Plan, branchID, channel string) (Plan, error) {
+	return SelectPlanFor(plans, branchID, channel, "")
+}
+
+// SelectPlanFor picks the plan for a sale at branch through channel under
+// agreementID ("" = public): the agreement's own plans win over every
+// public plan.
+func SelectPlanFor(plans []Plan, branchID, channel, agreementID string) (Plan, error) {
 	bestRank := 0
 	var best []Plan
 	for _, p := range plans {
-		if !p.Matches(branchID, channel) {
+		if !p.MatchesFor(branchID, channel, agreementID) {
 			continue
 		}
 		rank := ScopeRank(p.Scope)

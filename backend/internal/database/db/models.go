@@ -44,6 +44,28 @@ type ActivityEvent struct {
 	OrganizationID pgtype.Int8        `json:"organization_id"`
 }
 
+type AgreementContact struct {
+	ID                int64              `json:"id"`
+	Uuid              uuid.UUID          `json:"uuid"`
+	OrganizationID    int64              `json:"organization_id"`
+	AgreementID       int64              `json:"agreement_id"`
+	CustomerContactID int64              `json:"customer_contact_id"`
+	Role              string             `json:"role"`
+	Note              string             `json:"note"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
+type AgreementDriver struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	AgreementID    int64              `json:"agreement_id"`
+	DriverID       pgtype.Int8        `json:"driver_id"`
+	CustomerID     pgtype.Int8        `json:"customer_id"`
+	Note           string             `json:"note"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
 type AppLog struct {
 	ID        int64              `json:"id"`
 	Uuid      uuid.UUID          `json:"uuid"`
@@ -407,6 +429,35 @@ type ContractTemplate struct {
 	ArchivedAt     pgtype.Timestamptz `json:"archived_at"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CorporateAgreement struct {
+	ID                      int64              `json:"id"`
+	Uuid                    uuid.UUID          `json:"uuid"`
+	OrganizationID          int64              `json:"organization_id"`
+	Code                    string             `json:"code"`
+	Name                    string             `json:"name"`
+	CustomerID              int64              `json:"customer_id"`
+	BranchID                pgtype.Int8        `json:"branch_id"`
+	Status                  string             `json:"status"`
+	ValidFrom               pgtype.Date        `json:"valid_from"`
+	ValidTo                 pgtype.Date        `json:"valid_to"`
+	InvoicePeriod           string             `json:"invoice_period"`
+	PaymentTermDays         int32              `json:"payment_term_days"`
+	OpenAccount             bool               `json:"open_account"`
+	CreditLimit             pgtype.Numeric     `json:"credit_limit"`
+	CouponEligible          bool               `json:"coupon_eligible"`
+	MonthlyKmAllowance      pgtype.Int4        `json:"monthly_km_allowance"`
+	MaintenanceIntervalDays pgtype.Int4        `json:"maintenance_interval_days"`
+	MaintenanceIntervalKm   pgtype.Int4        `json:"maintenance_interval_km"`
+	Currency                string             `json:"currency"`
+	Notes                   string             `json:"notes"`
+	TerminatedAt            pgtype.Timestamptz `json:"terminated_at"`
+	TerminationReason       string             `json:"termination_reason"`
+	CreatedBy               pgtype.Int8        `json:"created_by"`
+	CreatedAt               pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt               pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type Customer struct {
@@ -1292,6 +1343,7 @@ type LedgerEntry struct {
 	DepositDeductionID pgtype.Int8        `json:"deposit_deduction_id"`
 	SupplierInvoiceID  pgtype.Int8        `json:"supplier_invoice_id"`
 	SupplierPaymentID  pgtype.Int8        `json:"supplier_payment_id"`
+	BillingPeriodID    pgtype.Int8        `json:"billing_period_id"`
 }
 
 type LedgerEntryLink struct {
@@ -1765,6 +1817,7 @@ type Quote struct {
 	PickupDelivery      []byte             `json:"pickup_delivery"`
 	ReturnDelivery      []byte             `json:"return_delivery"`
 	DeliveryOverride    pgtype.Numeric     `json:"delivery_override"`
+	AgreementID         pgtype.Int8        `json:"agreement_id"`
 }
 
 type QuoteLine struct {
@@ -1811,6 +1864,7 @@ type RatePlan struct {
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+	AgreementID     pgtype.Int8        `json:"agreement_id"`
 }
 
 type RatePlanVersion struct {
@@ -1875,6 +1929,33 @@ type Rental struct {
 	CancelledAt          pgtype.Timestamptz `json:"cancelled_at"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	RentBilling          string             `json:"rent_billing"`
+}
+
+type RentalBillingPeriod struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	RentalID       int64              `json:"rental_id"`
+	AgreementID    pgtype.Int8        `json:"agreement_id"`
+	PeriodNo       int32              `json:"period_no"`
+	Revision       int32              `json:"revision"`
+	DayFrom        int32              `json:"day_from"`
+	DayTo          int32              `json:"day_to"`
+	StartsOn       pgtype.Date        `json:"starts_on"`
+	EndsOn         pgtype.Date        `json:"ends_on"`
+	Days           int32              `json:"days"`
+	Partial        bool               `json:"partial"`
+	Amount         pgtype.Numeric     `json:"amount"`
+	Currency       string             `json:"currency"`
+	KmAllowance    pgtype.Int4        `json:"km_allowance"`
+	AccrualKey     string             `json:"accrual_key"`
+	Status         string             `json:"status"`
+	LedgerEntryID  pgtype.Int8        `json:"ledger_entry_id"`
+	PostedAt       pgtype.Timestamptz `json:"posted_at"`
+	ClosedAt       pgtype.Timestamptz `json:"closed_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 type RentalCharge struct {
@@ -2092,6 +2173,8 @@ type Reservation struct {
 	ApprovalProtocol     string             `json:"approval_protocol"`
 	PickupDelivery       []byte             `json:"pickup_delivery"`
 	ReturnDelivery       []byte             `json:"return_delivery"`
+	AgreementID          pgtype.Int8        `json:"agreement_id"`
+	OpenAccount          bool               `json:"open_account"`
 }
 
 type ReservationDriver struct {

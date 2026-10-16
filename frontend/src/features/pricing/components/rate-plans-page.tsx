@@ -30,7 +30,7 @@ import { ResourceIOToolbar } from "@/features/io";
 import { VersionBadge } from "@/features/pricing/components/pricing-shared";
 import { RatePlanCreateDrawer } from "@/features/pricing/components/rate-plan-drawer";
 import {
-  PLAN_SCOPES,
+  ALL_PLAN_SCOPES,
   PRICING_STATUSES,
   RATE_PLANS_RESOURCE,
   SCOPE_LABEL_KEYS,
@@ -147,15 +147,20 @@ export function RatePlansPage() {
           enableSorting: true,
           gridSecondary: true,
           filterVariant: "faceted",
-          filterOptions: PLAN_SCOPES.map((s) => ({
+          filterOptions: ALL_PLAN_SCOPES.map((s) => ({
             value: s,
             labelKey: SCOPE_LABEL_KEYS[s],
             label: `${t(SCOPE_LABEL_KEYS[s])} (${countOf(facets?.scope, s)})`,
           })),
           cell: ({ row }) => (
-            <Badge variant="secondary">
-              {t(SCOPE_LABEL_KEYS[row.original.scope])}
-            </Badge>
+            <span className="flex flex-wrap items-center gap-1">
+              <Badge variant="secondary">
+                {t(SCOPE_LABEL_KEYS[row.original.scope])}
+              </Badge>
+              {row.original.agreement ? (
+                <Badge variant="outline">{row.original.agreement.code}</Badge>
+              ) : null}
+            </span>
           ),
         }),
         createColumn<RatePlan>({

@@ -28,6 +28,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { permissions } from "@/config/permissions";
 import { routes } from "@/config/routes";
+import {
+  AgreementQuoteInfo,
+  WizardAgreementPicker,
+} from "@/features/agreements";
 import { AvailabilitySearchForm } from "@/features/availability/components/availability-search-form";
 import { CAPACITY_REASON_LABEL_KEYS } from "@/features/availability/constants";
 import { deliveryProblems } from "@/features/field-tasks/lib/field-tasks";
@@ -143,6 +147,7 @@ function ProblemAlert({
   onRequote,
   onStep,
   onOverride,
+  onPrepayment,
   pending,
 }: {
   problem: ReservationProblem;
@@ -153,6 +158,7 @@ function ProblemAlert({
   onRequote: () => void;
   onStep: (step: Step) => void;
   onOverride: () => void;
+  onPrepayment: () => void;
   pending: boolean;
 }) {
   const { t, locale } = useLocale();
@@ -296,6 +302,32 @@ function ProblemAlert({
           </AlertDescription>
         </Alert>
       );
+    case "credit_limit":
+      return (
+        <Alert variant="destructive">
+          <AlertTriangle className="size-4" />
+          <AlertTitle>{t("reservations.problems.credit_limit")}</AlertTitle>
+          <AlertDescription className="space-y-2">
+            <p>
+              {problem.data
+                ? t("reservations.problems.credit_limit_detail", {
+                    exposure: moneyText(problem.data.exposure, locale),
+                    limit: moneyText(problem.data.credit_limit, locale),
+                  })
+                : problem.message}
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={pending}
+              onClick={onPrepayment}
+            >
+              {t("reservations.problems.continue_with_prepayment")}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      );
     case "equipment":
       return (
         <Alert variant="destructive">
@@ -333,6 +365,10 @@ export function QuoteSummary({ quote }: { quote: Quote }) {
   const discount = quote.breakdown.pricing?.discount;
   return (
     <div className="space-y-4">
+      <AgreementQuoteInfo
+        agreement={quote.breakdown.agreement}
+        plan={quote.breakdown.billing_plan}
+      />
       <PriceLinesTable
         lines={quote.lines}
         persistKey="tenant-reservation-quote-lines-v1"
@@ -438,6 +474,8 @@ export function ReservationWizardPage() {
   const [search, setSearch] = useState<QuoteSearchRequest | null>(null);
   const [product, setProduct] = useState<QuoteSearchItem | null>(null);
   const [customerUuid, setCustomerUuid] = useState("");
+  const [agreementUuid, setAgreementUuid] = useState("");
+  const [useOpenAccount, setUseOpenAccount] = useState(true);
   const [drivers, setDrivers] = useState<WizardDrivers>({
     selected: {},
     primary: "",
@@ -500,6 +538,7 @@ export function ReservationWizardPage() {
       ...search,
       product_uuid: product.product.uuid,
       customer_uuid: customerUuid || null,
+      agreement_uuid: agreementUuid || null,
       extras: Object.entries(quantities).map(([extra_uuid, quantity]) => ({
         extra_uuid,
         quantity,
@@ -507,7 +546,7 @@ export function ReservationWizardPage() {
       coupon_code: discount.coupon.trim() || undefined,
       manual_discount: manual,
     };
-  }, [customerUuid, discount, product, quantities, search]);
+  }, [agreementUuid, customerUuid, discount, product, quantities, search]);
 
   /** Prices the selection on the server; coupon problems stay on the extras step. */
   const makeQuote = async () => {
@@ -542,7 +581,11 @@ export function ReservationWizardPage() {
     setProblem(null);
   };
 
-  const submit = async (values: OptionValues, override?: string) => {
+  const submit = async (
+    values: OptionValues,
+    override?: string,
+    openAccount = useOpenAccount,
+  ) => {
     if (!quote) return;
     setOptions(values);
     setProblem(null);
@@ -558,6 +601,7 @@ export function ReservationWizardPage() {
       request_only: values.mode === "request_only",
       confirm_now: values.mode === "confirm_now",
       eligibility_override: override ? { reason: override } : null,
+      use_open_account: agreementUuid ? openAccount : undefined,
     };
     try {
       const reservation = await createReservation.mutateAsync(body);
@@ -729,12 +773,26 @@ export function ReservationWizardPage() {
               customerUuid={customerUuid}
               onCustomerChange={(uuid) => {
                 setCustomerUuid(uuid);
+                setAgreementUuid("");
+                setUseOpenAccount(true);
                 setDrivers({ selected: {}, primary: "" });
                 invalidateQuote();
               }}
               drivers={drivers}
               onDriversChange={setDrivers}
             />
+            <div className="mt-4">
+              <WizardAgreementPicker
+                customerUuid={customerUuid}
+                value={agreementUuid}
+                onChange={(uuid) => {
+                  setAgreementUuid(uuid);
+                  invalidateQuote();
+                }}
+                useOpenAccount={useOpenAccount}
+                onUseOpenAccountChange={setUseOpenAccount}
+              />
+            </div>
             <div className="mt-6 flex justify-between gap-2">
               <Button
                 type="button"
@@ -846,6 +904,10 @@ export function ReservationWizardPage() {
                     onStep={goto}
                     onOverride={() => {
                       if (options) void submit(options, overrideReason.trim());
+                    }}
+                    onPrepayment={() => {
+                      setUseOpenAccount(false);
+                      if (options) void submit(options, undefined, false);
                     }}
                     pending={createReservation.isPending}
                   />

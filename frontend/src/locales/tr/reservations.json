@@ -437,5 +437,10 @@
   "tabs.customer_requests": "Müşteri talepleri",
   "events.customer_request": "Müşteri talebi alındı",
   "events.customer_request_resolved": "Müşteri talebi sonuçlandı",
-  "events.customer_request_rejected": "Müşteri talebi reddedildi"
+  "events.customer_request_rejected": "Müşteri talebi reddedildi",
+  "fields.agreement": "Kurumsal anlaşma",
+  "fields.open_account": "Açık hesap",
+  "problems.credit_limit": "Açık hesap limiti aşılıyor",
+  "problems.credit_limit_detail": "Risk {{exposure}} olur; limit {{limit}}.",
+  "problems.continue_with_prepayment": "Ön ödemeli devam et"
 }

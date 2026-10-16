@@ -92,5 +92,6 @@
   "resources.tenant.security_deposits": "Depozitolar",
   "resources.tenant.finance_collections": "Tahsilatlar",
   "resources.tenant.invoices": "Faturalar",
-  "resources.tenant.vehicle_profitability": "Araç kârlılığı"
+  "resources.tenant.vehicle_profitability": "Araç kârlılığı",
+  "resources.tenant.agreements": "Kurumsal anlaşmalar"
 }

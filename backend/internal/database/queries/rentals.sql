@@ -3,12 +3,21 @@
 -- the list queries and checked by the use case on single rows.
 
 -- name: InsertRental :one
+-- rent_billing (TEC-723): a reservation sold under a corporate agreement
+-- with a monthly invoice period is billed per period; everything else
+-- accrues its rent at the handover.
 INSERT INTO rentals (
     organization_id, reference, reservation_id, status, vehicle_id, allocation_id, settings_version,
-    policy_snapshot, note, created_by
+    policy_snapshot, note, created_by, rent_billing
 ) VALUES (
     sqlc.arg(organization_id), sqlc.arg(reference), sqlc.arg(reservation_id), 'preparation', sqlc.arg(vehicle_id),
-    sqlc.narg(allocation_id), sqlc.arg(settings_version), sqlc.arg(policy_snapshot), sqlc.arg(note), sqlc.narg(created_by)
+    sqlc.narg(allocation_id), sqlc.arg(settings_version), sqlc.arg(policy_snapshot), sqlc.arg(note), sqlc.narg(created_by),
+    COALESCE((
+        SELECT CASE WHEN ag.invoice_period = 'monthly' THEN 'periodic' ELSE 'handover' END
+        FROM reservations res
+        JOIN corporate_agreements ag ON ag.organization_id = res.organization_id AND ag.id = res.agreement_id
+        WHERE res.organization_id = sqlc.arg(organization_id) AND res.id = sqlc.arg(reservation_id)
+    ), 'handover')
 )
 RETURNING id, uuid;
 

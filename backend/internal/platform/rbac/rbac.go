@@ -200,6 +200,15 @@ const (
 // PermTenantFinanceLedgerAdjust.
 const PermTenantFinanceCollectionsBulkAllocate = "tenant.finance.collections.bulk.allocate"
 
+// Corporate agreements (TEC-723, migration 000111). Agreement tariffs are
+// rate plans (PermTenantPricingWrite / PermTenantPricingActivate);
+// overriding a tariff in a quote stays PermTenantPriceOverride.
+const (
+	PermTenantAgreementsRead   = "tenant.agreements.read"
+	PermTenantAgreementsWrite  = "tenant.agreements.write"
+	PermTenantAgreementsExport = "tenant.agreements.export"
+)
+
 // E-invoices / e-archive invoices (TEC-722, migration 000109). The
 // integrator account itself is an integration account
 // (PermTenantIntegrationsManage).
