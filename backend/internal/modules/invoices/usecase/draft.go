@@ -298,7 +298,8 @@ func (s *Service) Items(ctx context.Context, orgID int64, f model.ItemFilter) ([
 	p := db.ListInvoiceableEntriesParams{OrganizationID: orgID, BranchIds: orgctx.BranchScope(ctx)}
 	if f.AccountUUID != nil {
 		acc, err := s.q.GetInvoiceAccountByUUID(ctx, db.GetInvoiceAccountByUUIDParams{OrganizationID: orgID, Uuid: *f.AccountUUID})
-		if notFound(err) {
+		// Sales invoices only: a supplier account has nothing to invoice.
+		if notFound(err) || (err == nil && acc.PartyKind != "customer") {
 			return []model.Item{}, nil
 		}
 		if err != nil {

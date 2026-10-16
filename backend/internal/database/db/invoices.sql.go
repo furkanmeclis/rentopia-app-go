@@ -1413,6 +1413,9 @@ WHERE e.organization_id = $1
   AND e.kind = 'accrual'
   AND e.direction = 'debit'
   AND a.party_kind = 'customer'
+  -- Sales only: supplier invoices / payments (TEC-721) are purchase documents.
+  AND e.supplier_invoice_id IS NULL
+  AND e.supplier_payment_id IS NULL
   AND NOT EXISTS (
       SELECT 1 FROM ledger_entries rv
       WHERE rv.organization_id = e.organization_id AND rv.reverses_entry_id = e.id
@@ -1791,10 +1794,16 @@ const listUninvoicedRentals = `-- name: ListUninvoicedRentals :many
 WITH open_items AS (
     SELECT e.rental_id, e.amount, e.entry_date, e.branch_id
     FROM ledger_entries e
+    JOIN accounts a ON a.organization_id = e.organization_id AND a.id = e.account_id
     WHERE e.organization_id = $1
+      AND a.organization_id = $1
       AND e.kind = 'accrual'
       AND e.direction = 'debit'
       AND e.rental_id IS NOT NULL
+      -- Customer-side accruals only, never supplier-account entries (TEC-721).
+      AND a.party_kind = 'customer'
+      AND e.supplier_invoice_id IS NULL
+      AND e.supplier_payment_id IS NULL
       AND NOT EXISTS (
           SELECT 1 FROM ledger_entries rv
           WHERE rv.organization_id = e.organization_id AND rv.reverses_entry_id = e.id

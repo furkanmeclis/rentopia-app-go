@@ -19,12 +19,13 @@ Code:
 
 - **An invoice is a document on top of the ledger.** It links the live accruals it covers (the rent of a rental, extras, the one-way fee, approved charges and re-invoiced tolls) through `ledger_entry_links`. It never posts a debt or a revenue line of its own (RT-A22 + RT-A23). Sending, failing, cancelling or returning an invoice changes no ledger entry and no balance.
 - **No double invoicing.** An accrual can have only one live invoice link (`uq_ledger_entry_links_invoiced`, a partial unique index on `(organization_id, entry_id)` where `invoice_id IS NOT NULL AND released_at IS NULL`). A link is released (`released_at`, `release_reason` = `cancelled` / `returned` / `removed`) in three cases: the invoice is cancelled, an IADE invoice returning it is issued, or the item is taken off a draft. The item can then be invoiced again.
+- **Sales only.** Only customer-account accruals are invoiceable. Supplier invoices and payments ([suppliers.md](./suppliers.md), TEC-721) are purchase documents on the supplier account: their entries are never invoice items, a supplier account cannot get a draft, and the rentals picker counts customer-side accruals only.
 - **The UUID (ETTN) exists before the first send.** It is generated when the draft is created, and it is the document's `UUID` and the integrator's idempotency key. The send job's idempotency key is `<org>:einvoice:send:<uuid>` (`ON CONFLICT (provider, idempotency_key)`), so a repeated finalize or retry never creates a second job.
 - **An uncertain result asks Status first.** A timeout or an unclassified answer from `Send` makes the runner call `Status` before any second `Send` (integration-jobs.md). Only "unavailable" (nothing reached the integrator) is retried as a send.
 - **The document is validated before it is sent.** Finalize builds the XML and runs XSD + Schematron (`efatura` or `earsiv` rules). Any problem keeps the draft unnumbered and is stored and returned per field (`receiver.identity_number`, `lines.2.vat_rate`, `supplier.tax_office`, …). Nothing is sent.
 - **Failures are visible.** A failed or held send shows on the invoices screen (the status chip, the "Needs action" switch, the nav badge) and on the operations overview (integration jobs of kind `einvoice.*` link to the invoices page with `needs_action=true`).
 
-## 2. Tables (migrations 000900 – 000901)
+## 2. Tables (migrations 000110 – 000111)
 
 | Table / change | Notes |
 |-------|-------|
@@ -36,9 +37,9 @@ Code:
 | `invoice_lines` | Position, kind (`rent`, `extra`, `one_way`, `charge`, `toll`), linked entry, name, quantity / unit, the net / VAT / total amounts, the VAT rate and the exemption code and reason. |
 | `ledger_entry_links` | Gains `invoice_id` (FK, only with `document_type = 'invoice'`), `amount`, `released_at` and `release_reason`, plus the partial unique index above. `document_ref` still holds the invoice uuid. |
 | `integration_accounts` | Kind `einvoice`, providers `einvoice` (official slot) and `einvoice_fake`. The CHECK lists are rewritten in full. |
-| 000901 | Permissions (§8). |
+| 000111 | Permissions (§8). |
 
-The down migrations drop the tables, the new `ledger_entry_links` columns and index, and put back the earlier kind / provider lists. 000901 down removes the permissions and their role grants.
+The down migrations drop the tables, the new `ledger_entry_links` columns and index, and put back the earlier kind / provider lists. 000111 down removes the permissions and their role grants.
 
 ## 3. Statuses and flow
 
