@@ -1952,6 +1952,31 @@ func (q *Queries) SetReservationAssignee(ctx context.Context, arg SetReservation
 	return result.RowsAffected(), nil
 }
 
+const setReservationCommission = `-- name: SetReservationCommission :execrows
+UPDATE reservations
+SET commission_amount = $1,
+    net_receivable = total_amount - $1
+WHERE organization_id = $2
+  AND id = $3
+  AND collecting_party = 'channel'
+`
+
+type SetReservationCommissionParams struct {
+	CommissionAmount pgtype.Numeric `json:"commission_amount"`
+	OrganizationID   int64          `json:"organization_id"`
+	ID               int64          `json:"id"`
+}
+
+// A channel booking's commission changed (channel manager, TEC-736): the
+// net receivable follows the current total.
+func (q *Queries) SetReservationCommission(ctx context.Context, arg SetReservationCommissionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setReservationCommission, arg.CommissionAmount, arg.OrganizationID, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const setReservationEquipment = `-- name: SetReservationEquipment :exec
 UPDATE reservations
 SET equipment_allocations = $1::uuid[]

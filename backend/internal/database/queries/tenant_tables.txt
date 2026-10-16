@@ -111,3 +111,9 @@ invoice_sequences
 einvoice_taxpayers
 invoices
 invoice_lines
+channel_accounts
+channel_mappings
+channel_offers
+channel_reservations
+channel_messages
+channel_sync_runs
