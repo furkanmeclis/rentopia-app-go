@@ -25,7 +25,7 @@ Code:
 - **The document is validated before it is sent.** Finalize builds the XML and runs XSD + Schematron (`efatura` or `earsiv` rules). Any problem keeps the draft unnumbered and is stored and returned per field (`receiver.identity_number`, `lines.2.vat_rate`, `supplier.tax_office`, …). Nothing is sent.
 - **Failures are visible.** A failed or held send shows on the invoices screen (the status chip, the "Needs action" switch, the nav badge) and on the operations overview (integration jobs of kind `einvoice.*` link to the invoices page with `needs_action=true`).
 
-## 2. Tables (migrations 000110 – 000111)
+## 2. Tables (migrations 000108 – 000109)
 
 | Table / change | Notes |
 |-------|-------|
@@ -37,9 +37,9 @@ Code:
 | `invoice_lines` | Position, kind (`rent`, `extra`, `one_way`, `charge`, `toll`), linked entry, name, quantity / unit, the net / VAT / total amounts, the VAT rate and the exemption code and reason. |
 | `ledger_entry_links` | Gains `invoice_id` (FK, only with `document_type = 'invoice'`), `amount`, `released_at` and `release_reason`, plus the partial unique index above. `document_ref` still holds the invoice uuid. |
 | `integration_accounts` | Kind `einvoice`, providers `einvoice` (official slot) and `einvoice_fake`. The CHECK lists are rewritten in full. |
-| 000111 | Permissions (§8). |
+| 000109 | Permissions (§8). |
 
-The down migrations drop the tables, the new `ledger_entry_links` columns and index, and put back the earlier kind / provider lists. 000111 down removes the permissions and their role grants.
+The down migrations drop the tables, the new `ledger_entry_links` columns and index, and put back the earlier kind / provider lists. 000109 down removes the permissions and their role grants.
 
 ## 3. Statuses and flow
 

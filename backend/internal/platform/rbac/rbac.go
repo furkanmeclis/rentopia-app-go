@@ -200,7 +200,7 @@ const (
 // PermTenantFinanceLedgerAdjust.
 const PermTenantFinanceCollectionsBulkAllocate = "tenant.finance.collections.bulk.allocate"
 
-// E-invoices / e-archive invoices (TEC-722, migration 000111). The
+// E-invoices / e-archive invoices (TEC-722, migration 000109). The
 // integrator account itself is an integration account
 // (PermTenantIntegrationsManage).
 const (
