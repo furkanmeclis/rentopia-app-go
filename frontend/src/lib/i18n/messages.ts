@@ -53,6 +53,7 @@ import enCustomers from "@/locales/en/customers.json";
 import enReservations from "@/locales/en/reservations.json";
 import enRentals from "@/locales/en/rentals.json";
 import enTolls from "@/locales/en/tolls.json";
+import enKabis from "@/locales/en/kabis.json";
 import enContracts from "@/locales/en/contracts.json";
 import enInspections from "@/locales/en/inspections.json";
 import enFieldTasks from "@/locales/en/field_tasks.json";
@@ -110,6 +111,7 @@ import trCustomers from "@/locales/tr/customers.json";
 import trReservations from "@/locales/tr/reservations.json";
 import trRentals from "@/locales/tr/rentals.json";
 import trTolls from "@/locales/tr/tolls.json";
+import trKabis from "@/locales/tr/kabis.json";
 import trContracts from "@/locales/tr/contracts.json";
 import trInspections from "@/locales/tr/inspections.json";
 import trFieldTasks from "@/locales/tr/field_tasks.json";
@@ -142,6 +144,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     reservations: trReservations,
     rentals: trRentals,
     tolls: trTolls,
+    kabis: trKabis,
     contracts: trContracts,
     inspections: trInspections,
     field_tasks: trFieldTasks,
@@ -201,6 +204,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     reservations: enReservations,
     rentals: enRentals,
     tolls: enTolls,
+    kabis: enKabis,
     contracts: enContracts,
     inspections: enInspections,
     field_tasks: enFieldTasks,

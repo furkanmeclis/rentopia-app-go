@@ -100,6 +100,9 @@ import (
 	oauthprovidermodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/oauthprovider"
 	oauthproviderhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/oauthprovider/handler"
 	oauthproviderusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/oauthprovider/usecase"
+	kabismodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/kabis"
+	kabishandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/kabis/handler"
+	kabisusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/kabis/usecase"
 	logsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/logs"
 	logshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/logs/handler"
 	logsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/logs/usecase"
@@ -468,8 +471,12 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	// Toll providers (TEC-725): none is chosen yet (TEC-683); the fake is
 	// registered outside production only.
 	tollProviders := tollsmodule.Providers(cfg.App.Env, log)
+	// KABİS adapters (TEC-726): the official slot (waiting on dependency
+	// until TEC-682) and the fake outside production only.
+	kabisProviders := kabismodule.Providers(cfg.App.Env, log)
 	integrationAdapters := append([]integrations.Adapter{iyzicoAdapter}, smsmodule.Adapters(smsProviders)...)
 	integrationAdapters = append(integrationAdapters, tollsmodule.Adapters(tollProviders)...)
+	integrationAdapters = append(integrationAdapters, kabismodule.Adapters(kabisProviders)...)
 	integrationAccountsSvc := integrationaccountsusecase.New(deps.Queries, integrationVault,
 		integrations.NewRegistry(integrationAdapters...))
 	// Generic integration job runner (TEC-751): steps go to the
@@ -536,6 +543,16 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	tollsSvc := tollsusecase.New(deps.DB, deps.Queries, integrationAccountsSvc, integrationRunner, integrationOps, tollProviders...)
 	tollsSvc.SetResourceEvents(resourceEvents)
 	tollsSvc.SetLogger(log)
+	// KABİS notifications (TEC-726): recorded in the handover / return
+	// transaction of rentals, sent through the integration runner.
+	kabisSvc, err := kabisusecase.New(deps.DB, deps.Queries, fieldCipher, integrationRunner, integrationOps, kabisProviders...)
+	if err != nil {
+		return nil, fmt.Errorf("httpserver: kabis: %w", err)
+	}
+	kabisSvc.SetStore(deps.Storage)
+	kabisSvc.SetResourceEvents(resourceEvents)
+	kabisSvc.SetLogger(log)
+	rentalsSvc.SetKabis(kabisSvc)
 	// Inspections (TEC-712 / 713 / 714): mobile handover / return forms on
 	// the rentals use cases, evidence in private storage behind signed
 	// short-lived media links, signatures linked to contract approvals.
@@ -590,6 +607,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	customerportalmodule.RegisterLiveResources(tenantLive)
 	financemodule.RegisterLiveResources(tenantLive)
 	tollsmodule.RegisterLiveResources(tenantLive)
+	kabismodule.RegisterLiveResources(tenantLive)
 	resourceEvents.AddResolver(tenantmodule.ChannelResolver(tenantmodule.QueriesLookup(deps.Queries)))
 	uc.AddChannelRules(tenantmodule.ChannelRule(tenantLive, tenantResolver))
 	catalogmodule.RegisterLiveResources(liveResources)
@@ -801,6 +819,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	rentalsmodule.RegisterRoutes(mux, rentalhandler.New(rentalsSvc, activityRec), rentalsmodule.EngineHandlers{
 		Export: exportH.TenantExport(rentalsmodule.Resource, rentalsmodule.ExportQueryKeys...),
 	}, tokens, loader, tenantResolver)
+	kabismodule.RegisterRoutes(mux, kabishandler.New(kabisSvc, activityRec), tokens, loader, tenantResolver)
 	tollsmodule.RegisterRoutes(mux, tollshandler.New(tollsSvc, activityRec), tollsmodule.EngineHandlers{
 		Export: exportH.TenantExport(tollsmodule.Resource, tollsmodule.ExportQueryKeys...),
 		Import: importH.TenantUpload(tollsmodule.Resource),

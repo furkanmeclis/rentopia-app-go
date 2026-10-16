@@ -8,6 +8,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
 	availmodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/availability/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fieldtasks/placement"
+	kabismodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/kabis/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/rentals/model"
 	resusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/usecase"
 	"github.com/google/uuid"
@@ -285,6 +286,7 @@ func (s *Service) reflectReservation(ctx context.Context, orgID int64, id uuid.U
 	if err != nil {
 		return
 	}
+	var kabisAfter func(context.Context)
 	err = s.tx(ctx, func(q *db.Queries) error {
 		action := model.EventReservationChanged
 		if ev == resusecase.LifecycleDriversChanged {
@@ -295,6 +297,12 @@ func (s *Service) reflectReservation(ctx context.Context, orgID int64, id uuid.U
 			if err := q.CopyReservationDriversToRental(ctx, db.CopyReservationDriversToRentalParams{
 				OrganizationID: orgID, RentalID: c.ID, ReservationID: res.ID,
 			}); err != nil {
+				return err
+			}
+			// KABİS: drivers of a handed-over rental changed: a correction
+			// of the reported start (nothing before the handover).
+			var err error
+			if kabisAfter, err = s.recordKabis(ctx, q, orgID, c.ID, kabismodel.CauseDriversChanged); err != nil {
 				return err
 			}
 		}
@@ -316,6 +324,7 @@ func (s *Service) reflectReservation(ctx context.Context, orgID int64, id uuid.U
 		slog.Default().Warn("rental_reflect_reservation_failed", "rental", id, "error", err)
 		return
 	}
+	runAfter(ctx, kabisAfter)
 	s.publish(ctx, model.ResourceRentals, "updated", id)
 }
 

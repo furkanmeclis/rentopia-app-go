@@ -342,5 +342,10 @@
   "actions.finance.expense_updated": "Expense updated",
   "actions.finance.expense_voided": "Expense voided",
   "actions.finance.expense_attachment_uploaded": "Expense attachment uploaded",
-  "actions.finance.expense_attachment_deleted": "Expense attachment removed"
+  "actions.finance.expense_attachment_deleted": "Expense attachment removed",
+  "resources.tenant.kabis_notifications": "KABİS notifications",
+  "actions.kabis.retried": "KABİS notification retried",
+  "actions.kabis.reported_manually": "KABİS notification marked reported manually",
+  "actions.kabis.reconciled": "KABİS notification reconciled",
+  "actions.kabis.attachment_downloaded": "KABİS notification attachment downloaded"
 }

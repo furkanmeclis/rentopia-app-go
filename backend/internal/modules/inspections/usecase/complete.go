@@ -23,7 +23,8 @@ import (
 // Handover: the rentals Handover use case records the actual time, place,
 // km and fuel, makes the rental active and finalizes the form in the same
 // transaction. Without a signature the handover needs a waiver
-// (tenant.signature.waive). The KABİS hook runs after the commit.
+// (tenant.signature.waive). The KABİS rental start notification is
+// recorded in the same transaction by the rentals use case (TEC-726).
 //
 // Return: the rentals Return use case records the return (late fee from
 // the policy snapshot) and, in the same transaction, the form's charges

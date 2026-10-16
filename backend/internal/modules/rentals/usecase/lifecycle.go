@@ -9,6 +9,7 @@ import (
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
 	availmodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/availability/model"
+	kabismodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/kabis/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/rentals/model"
 	vehiclemodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/model"
 	vehicleusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/usecase"
@@ -167,6 +168,7 @@ func (s *Service) Handover(ctx context.Context, orgID int64, id uuid.UUID, in mo
 	}
 	var tasks []uuid.UUID
 	var touched []uuid.UUID
+	var kabisAfter func(context.Context)
 	_, err = s.avail.StartRental(unscoped(ctx), orgID, c.AllocationUuid.Bytes, at,
 		s.hookOf(func(hctx context.Context, q *db.Queries, tx pgx.Tx, r availmodel.HookResult) error {
 			tasks = nil
@@ -226,6 +228,11 @@ func (s *Service) Handover(ctx context.Context, orgID int64, id uuid.UUID, in mo
 			if err := s.ledger.SyncRental(hctx, q, orgID, c.ID); err != nil {
 				return err
 			}
+			// KABİS: the rental start notification of the actual handover,
+			// in this transaction (TEC-726).
+			if kabisAfter, err = s.recordKabis(hctx, q, orgID, c.ID, kabismodel.CauseHandover); err != nil {
+				return err
+			}
 			if in.Finalize != nil {
 				return in.Finalize(hctx, tx, leg.ID)
 			}
@@ -234,6 +241,7 @@ func (s *Service) Handover(ctx context.Context, orgID int64, id uuid.UUID, in mo
 	if err != nil {
 		return model.Rental{}, mapEngineErr(err)
 	}
+	runAfter(ctx, kabisAfter)
 	s.prepareDocuments(ctx, orgID, c.ReservationID, c.Uuid, []string{DocHandoverForm}, "handover")
 	s.publish(ctx, model.ResourceOperationTasks, "updated", tasks...)
 	s.publish(ctx, "tenant.reservations", "updated", append(touched, c.ReservationUuid)...)
@@ -288,6 +296,7 @@ func (s *Service) Return(ctx context.Context, orgID int64, id uuid.UUID, in mode
 		late = int32(at.Sub(c.PlannedReturnAt.Time) / time.Minute)
 	}
 	var tasks, touched []uuid.UUID
+	var kabisAfter func(context.Context)
 	res, err := s.avail.SetRentalEnd(unscoped(ctx), orgID, c.AllocationUuid.Bytes, availmodel.RentalEnd{
 		EndsAt: at, ReturnBranchID: branch.ID, ReturnPointID: point.Int64, SetPoint: true, Force: true,
 		Hook: s.hookOf(func(hctx context.Context, q *db.Queries, tx pgx.Tx, r availmodel.HookResult) error {
@@ -346,6 +355,10 @@ func (s *Service) Return(ctx context.Context, orgID int64, id uuid.UUID, in mode
 			if err != nil {
 				return err
 			}
+			// KABİS: the rental end notification of the actual return.
+			if kabisAfter, err = s.recordKabis(hctx, q, orgID, c.ID, kabismodel.CauseReturn); err != nil {
+				return err
+			}
 			if in.Finalize != nil {
 				leg, err := q.GetRentalLegForInspection(hctx, db.GetRentalLegForInspectionParams{OrganizationID: orgID, RentalID: c.ID, VehicleID: c.VehicleID})
 				if err != nil {
@@ -359,6 +372,7 @@ func (s *Service) Return(ctx context.Context, orgID int64, id uuid.UUID, in mode
 	if err != nil {
 		return model.Rental{}, mapEngineErr(err)
 	}
+	runAfter(ctx, kabisAfter)
 	s.lateReturnTasks(ctx, orgID, c, res.Affected, map[string]any{"cause": "return", "late_minutes": late, "clipped": res.Clipped})
 	s.prepareDocuments(ctx, orgID, c.ReservationID, c.Uuid, []string{DocReturnForm}, "return")
 	s.publish(ctx, model.ResourceOperationTasks, "updated", tasks...)
@@ -650,6 +664,7 @@ func (s *Service) Swap(ctx context.Context, orgID int64, id uuid.UUID, in model.
 		return model.Rental{}, err
 	}
 	var tasks, touched []uuid.UUID
+	var kabisAfter func(context.Context)
 	oldAlloc := c.AllocationID
 	_, err = s.avail.SwapRentalVehicle(unscoped(ctx), orgID, c.AllocationUuid.Bytes, availmodel.RentalSwap{
 		VehicleUUID: target.Uuid, At: at, BranchID: branch.ID, ActorID: actorID(ctx), Note: "rental " + c.Reference + " swap",
@@ -739,12 +754,19 @@ func (s *Service) Swap(ctx context.Context, orgID int64, id uuid.UUID, in model.
 			}
 			t, err := s.reservations.RecordPlanEffects(hctx, tx, orgID, r, "rental", c.Uuid)
 			touched = t
+			if err != nil {
+				return err
+			}
+			// KABİS: the reported start names the old plate: a correction
+			// (or an update of a start that was not sent yet).
+			kabisAfter, err = s.recordKabis(hctx, q, orgID, c.ID, kabismodel.CauseVehicleSwap)
 			return err
 		}),
 	})
 	if err != nil {
 		return model.Rental{}, mapEngineErr(err)
 	}
+	runAfter(ctx, kabisAfter)
 	s.prepareDocuments(ctx, orgID, c.ReservationID, c.Uuid, nil, "vehicle_swapped")
 	s.publish(ctx, model.ResourceOperationTasks, "updated", tasks...)
 	s.publish(ctx, "tenant.reservations", "updated", append(touched, c.ReservationUuid)...)

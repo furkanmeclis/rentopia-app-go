@@ -74,6 +74,32 @@ func (s *Service) open(orgID int64, column, enc string) (string, error) {
 	return s.cipher.Decrypt(enc, aad(column, orgID))
 }
 
+// Sensitive value columns other modules may open for an authority report
+// (KABİS, docs/design/kabis.md). The associated data binds a ciphertext to
+// its column and organization, as for the customers module itself.
+const (
+	ColumnCustomerIdentity = colCustomerIdentity
+	ColumnDriverIdentity   = colDriverIdentity
+	ColumnDriverLicence    = colDriverLicence
+)
+
+// Decrypter opens field cipher values (crypto.FieldCipher).
+type Decrypter interface {
+	Decrypt(encoded, aad string) (string, error)
+}
+
+// OpenSensitive decrypts a stored customer / driver value of the
+// organization ("" stays ""). Callers never log or return the plaintext.
+func OpenSensitive(c Decrypter, orgID int64, column, enc string) (string, error) {
+	if enc == "" {
+		return "", nil
+	}
+	if c == nil {
+		return "", ErrCipherUnavailable
+	}
+	return c.Decrypt(enc, aad(column, orgID))
+}
+
 // identityIndex is the blind index of a customer identity number (import
 // matching, lookups).
 func (s *Service) identityIndex(orgID int64, kind, normalized string) string {

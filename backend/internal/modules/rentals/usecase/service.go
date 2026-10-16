@@ -120,6 +120,15 @@ type ExtendResult struct {
 	Total      string
 }
 
+// KabisRecorder records the KABİS notification of an actual rental event
+// (TEC-726, docs/design/kabis.md) inside the rental's transaction (q is
+// bound to it): handover, return, a vehicle swap or a driver change. It is
+// idempotent per rental and event. The returned function runs after the
+// commit (may be nil).
+type KabisRecorder interface {
+	RecordRentalEvent(ctx context.Context, q *db.Queries, orgID, rentalID int64, cause string) (func(context.Context), error)
+}
+
 // Service implements rentals and operation tasks.
 type Service struct {
 	pool         *pgxpool.Pool
@@ -129,6 +138,7 @@ type Service struct {
 	vehicles     *vehicleusecase.Service
 	documents    model.Documents
 	ledger       Ledger
+	kabis        KabisRecorder
 	events       resourceevents.Publisher
 	now          func() time.Time
 }
@@ -153,6 +163,24 @@ func (s *Service) SetDocuments(d model.Documents) {
 func (s *Service) SetLedger(l Ledger) {
 	if l != nil {
 		s.ledger = l
+	}
+}
+
+// SetKabis wires the KABİS notifications (TEC-726).
+func (s *Service) SetKabis(k KabisRecorder) { s.kabis = k }
+
+// recordKabis records the KABİS notification of an actual event inside the
+// transaction; the after-commit step is returned (nil when not wired).
+func (s *Service) recordKabis(ctx context.Context, q *db.Queries, orgID, rentalID int64, cause string) (func(context.Context), error) {
+	if s.kabis == nil {
+		return nil, nil
+	}
+	return s.kabis.RecordRentalEvent(ctx, q, orgID, rentalID, cause)
+}
+
+func runAfter(ctx context.Context, fn func(context.Context)) {
+	if fn != nil {
+		fn(ctx)
 	}
 }
 
