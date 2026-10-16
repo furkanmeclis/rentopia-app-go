@@ -439,6 +439,7 @@ func changedFields(in model.VehicleInput) []string {
 	add(in.FleetPool != nil, "fleet_pool")
 	add(in.Ownership != nil, "ownership")
 	add(in.SupplierName != nil, "supplier_name")
+	add(in.SupplierUUID.Set, "supplier_uuid")
 	add(in.InServiceDate.Set, "in_service_date")
 	add(in.OutOfServiceDate.Set, "out_of_service_date")
 	add(in.OdometerKm != nil, "odometer_km")
