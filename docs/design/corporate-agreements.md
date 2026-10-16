@@ -17,7 +17,7 @@ Status: **implemented** (M4). Module: `backend/internal/modules/agreements` (CRU
 
 Every table carries `organization_id` first in its indexes and composite FKs, and is in `tenant_tables.txt`. Branch scope: an agreement with a branch is visible inside that branch's scope; a head office agreement to every member. Creating a head office agreement needs every branch.
 
-The payment term is written onto the customer's ledger account (`finance.ApplyCustomerTerms`, opening the account on first use) whenever an agreement is created or its term changes, so due dates of the customer's accruals follow the agreement.
+The payment term is written onto the customer's ledger account (`finance.ApplyCustomerTerms`, opening the account on first use) whenever an agreement is created or its term changes, so the account shows the agreement's terms. A customer may hold several agreements and the account keeps the last term written, so accruals of a rental sold under an agreement (whole rent, periods, charges) take their due date from that agreement's own term (`SyncRental`, `agreement_term_days`).
 
 ## Agreement tariffs (pricing scope `agreement`)
 
@@ -57,7 +57,7 @@ Every period gets its day share, rounding never drifts and the amounts add up to
 1. posted periods are fixed; the rest is re-planned from the end of the last posted period to the planned end with `R = total − posted`;
 2. an early return at billing day `k` cuts the plan: periods starting at or after `k` are reversed, the period containing `k` is superseded by a new revision with `round(amount · kept days / days)`;
 3. planned rows are rewritten only when the plan changed;
-4. every posted period plus every planned period that started by today (rental under way) is a desired accrual, key `agreement:<agreement id>:r<rental id>:p<n>`, entry date = period start, due = start + the account's term. The existing reconciliation reverses and re-accrues an amount change (a superseded period) and reverses what is no longer due (a reversed period).
+4. every posted period plus every planned period that started by today (rental under way) is a desired accrual, key `agreement:<agreement id>:r<rental id>:p<n>`, entry date = period start, due = start + the agreement's payment term. The existing reconciliation reverses and re-accrues an amount change (a superseded period) and reverses what is no longer due (a reversed period).
 
 Posted rows are history: a trigger refuses changing their figures or deleting them (only `posted → superseded / reversed`); planned rows never touched the ledger and are replaced freely.
 

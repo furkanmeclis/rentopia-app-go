@@ -149,6 +149,13 @@ func (s *Service) SyncRental(ctx context.Context, q *db.Queries, orgID, rentalID
 		}
 	}
 	today := s.today()
+	// Due dates: the account's payment term, or for a sale under a
+	// corporate agreement the agreement's own term (a customer may hold
+	// several agreements; the account carries the last one written).
+	term := acc.Term
+	if f.AgreementTermDays.Valid {
+		term = f.AgreementTermDays.Int32
+	}
 	kept := map[string]bool{}
 	released := []int64{}
 	carried := map[string][]releasedPair{}
@@ -208,7 +215,7 @@ func (s *Service) SyncRental(ctx context.Context, q *db.Queries, orgID, rentalID
 		row, err := q.InsertLedgerEntry(ctx, db.InsertLedgerEntryParams{
 			OrganizationID: orgID, AccountID: acc.ID, Kind: model.KindAccrual, Direction: model.Debit, Purpose: w.purpose,
 			Amount: w.amount.Numeric(), Currency: f.Currency, EntryDate: dateOf(entryDate),
-			DueDate: dateOf(dueAfter(entryDate, acc.Term)), Description: w.desc, SourceType: sourceOfKey(int8Of(w.chargeID)),
+			DueDate: dateOf(dueAfter(entryDate, term)), Description: w.desc, SourceType: sourceOfKey(int8Of(w.chargeID)),
 			SourceUuid: uuidOf(f.Uuid), RentalID: int8Of(f.ID), ReservationID: int8Of(f.ReservationID),
 			RentalChargeID: int8Of(w.chargeID), AccrualKey: pgtype.Text{String: key, Valid: true},
 			BranchID: int8Of(branchID), CreatedBy: actorID(ctx), BillingPeriodID: int8Of(w.periodID),

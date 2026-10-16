@@ -626,6 +626,9 @@ func TestRT_A24_MonthlyAccrualNeverTwice(t *testing.T) {
 	f := newFx(t)
 	a := f.agreement(model.InvoiceMonthly, nil)
 	f.tariff(a, "500")
+	// A second agreement of the same customer rewrites the account's term
+	// (15 days); the rental keeps its own agreement's 30 days.
+	f.agreement(model.InvoicePerRental, func(in *model.Input) { in.PaymentTermDays = ip32(15) })
 	r, res := f.longTerm(&a, 75)
 	start, end, total := f.reservationRange(res.UUID)
 
@@ -724,6 +727,10 @@ func TestRT_A24_MonthlyAccrualNeverTwice(t *testing.T) {
 	live, n, whole = f.liveRent(r.UUID)
 	if !live.Equal(newTotal) || n != len(full) || whole != 0 {
 		t.Fatalf("at the end: %s in %d entries (%d periods, total %s)", live, n, len(full), newTotal)
+	}
+	if f.count(`SELECT COUNT(*) FROM ledger_entries WHERE organization_id = $1 AND rental_id = $2 AND kind = 'accrual'
+		AND due_date - entry_date <> 30`, f.org, f.rentalID(r.UUID)) != 0 {
+		t.Fatal("period accruals are not due after the agreement's 30-day term")
 	}
 	keys := f.count(`SELECT COUNT(DISTINCT accrual_key) FROM ledger_entries WHERE organization_id = $1 AND rental_id = $2 AND kind = 'accrual'`,
 		f.org, f.rentalID(r.UUID))

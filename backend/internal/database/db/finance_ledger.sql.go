@@ -515,7 +515,7 @@ SELECT r.id, r.uuid, r.reference, r.status, r.reservation_id, r.actual_pickup_at
     res.uuid AS reservation_uuid, res.customer_id, res.invoice_customer_id, res.total_amount, res.currency,
     res.collecting_party, res.pickup_branch_id,
     r.rent_billing, r.actual_return_at, res.starts_at, res.ends_at, res.agreement_id,
-    ag.monthly_km_allowance
+    ag.monthly_km_allowance, ag.payment_term_days AS agreement_term_days
 FROM rentals r
 JOIN reservations res ON res.organization_id = r.organization_id AND res.id = r.reservation_id
 LEFT JOIN corporate_agreements ag ON ag.organization_id = res.organization_id AND ag.id = res.agreement_id
@@ -550,6 +550,7 @@ type GetRentalLedgerFactsRow struct {
 	EndsAt               pgtype.Timestamptz `json:"ends_at"`
 	AgreementID          pgtype.Int8        `json:"agreement_id"`
 	MonthlyKmAllowance   pgtype.Int4        `json:"monthly_km_allowance"`
+	AgreementTermDays    pgtype.Int4        `json:"agreement_term_days"`
 }
 
 // What the rent accrual of a rental depends on.
@@ -577,6 +578,7 @@ func (q *Queries) GetRentalLedgerFacts(ctx context.Context, arg GetRentalLedgerF
 		&i.EndsAt,
 		&i.AgreementID,
 		&i.MonthlyKmAllowance,
+		&i.AgreementTermDays,
 	)
 	return i, err
 }
