@@ -1,0 +1,3 @@
+DROP INDEX IF EXISTS idx_ledger_entries_organization_accrual_date;
+DROP INDEX IF EXISTS idx_reservations_organization_channel_starts;
+DROP INDEX IF EXISTS idx_reservations_organization_channel_created;

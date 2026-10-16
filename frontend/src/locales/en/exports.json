@@ -93,5 +93,10 @@
   "resources.tenant.finance_collections": "Collections",
   "resources.tenant.invoices": "Invoices",
   "resources.tenant.vehicle_profitability": "Vehicle profitability",
+  "resources.tenant.report_occupancy": "Occupancy report",
+  "resources.tenant.report_income_expense": "Income / expense report",
+  "resources.tenant.report_channels": "Channel performance",
+  "resources.tenant.report_aging": "Receivable / payable aging",
+  "resources.tenant.report_branches": "Branch comparison",
   "resources.tenant.agreements": "Corporate agreements"
 }

@@ -95,5 +95,12 @@
   "nav_finance_supplier_payments": "Tedarikçi ödemeleri",
   "nav_finance_payables": "Vadesi yaklaşan ödemeler",
   "nav_finance_profitability": "Araç kârlılığı",
+  "section_reports": "Raporlar",
+  "nav_reports_hub": "Rapor merkezi",
+  "nav_reports_occupancy": "Doluluk",
+  "nav_reports_income_expense": "Gelir / gider",
+  "nav_reports_channels": "Kanal performansı",
+  "nav_reports_aging": "Cari / vade",
+  "nav_reports_branches": "Şube karşılaştırma",
   "nav_agreements": "Kurumsal anlaşmalar"
 }
