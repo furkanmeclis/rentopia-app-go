@@ -222,5 +222,11 @@
   "labels.tenant.agreements.read": "Kurumsal anlaşmaları görüntüle",
   "labels.tenant.agreements.write": "Kurumsal anlaşmaları yönet",
   "labels.tenant.agreements.export": "Kurumsal anlaşmaları dışa aktar",
-  "groups.tenant_agreements": "Kurumsal anlaşmalar"
+  "groups.tenant_agreements": "Kurumsal anlaşmalar",
+  "labels.tenant.public_api.read": "Public API anahtarlarını ve webhook'ları görüntüle",
+  "labels.tenant.public_api.manage": "Public API anahtarlarını ve webhook'ları yönet",
+  "groups.tenant_public_api": "Public API",
+  "labels.tenant.notification_settings.read": "Bildirim ayarlarını ve gönderim geçmişini görüntüle",
+  "labels.tenant.notification_settings.write": "Bildirim kurallarını ve şablonlarını yönet",
+  "groups.tenant_notification_settings": "Bildirimler"
 }

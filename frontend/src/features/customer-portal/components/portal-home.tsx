@@ -185,6 +185,7 @@ export function PortalHome({ orgSlug }: { orgSlug: string }) {
   return (
     <PortalShell
       organizationName={info.data?.organization.name}
+      orgSlug={orgSlug}
       onSignOut={session.data ? () => signOut.mutate() : undefined}
       signingOut={signOut.isPending}
     >

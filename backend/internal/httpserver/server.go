@@ -118,6 +118,10 @@ import (
 	notifhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications/handler"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications/providers"
 	notifusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifications/usecase"
+	notifyenginemodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifyengine"
+	notifyengineadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifyengine/adapters"
+	notifyenginehandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifyengine/handler"
+	notifyengineusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifyengine/usecase"
 	organizationsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations"
 	orgadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/adapters"
 	orghandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/handler"
@@ -142,6 +146,9 @@ import (
 	profitabilityadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/profitability/adapters"
 	profitabilityhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/profitability/handler"
 	profitabilityusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/profitability/usecase"
+	publicapimodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/publicapi"
+	publicapihandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/publicapi/handler"
+	publicapiusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/publicapi/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/qrlogin"
 	rentalsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/rentals"
 	rentaladapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/rentals/adapters"
@@ -522,11 +529,24 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	// E-mail one-time codes (customer portal sign-in) go through the
 	// platform mailer.
 	smsSvc.SetMailer(mailer)
+	// Notification engine (TEC-733): rules, templates, delivery log; the
+	// reservation transitions record their customer notifications (sent by
+	// the worker sweep), test sends go out inline.
+	notifyEngine := notifyengineusecase.New(deps.DB, deps.Queries, cfg.Auth.FrontendURL)
+	notifyEngine.SetActivity(activityRec)
+	notifyEngine.SetLogger(log)
+	notifySMS := notifyengineadapters.NewSMS(smsSvc, deps.Queries)
+	notifyEngine.Register(notifySMS, notifyengineadapters.NewEmail(mailer),
+		notifyengineadapters.NewPush(notifSvc, deps.Queries, notifyengineadapters.VAPID{
+			PublicKey: cfg.VAPID.PublicKey, PrivateKey: cfg.VAPID.PrivateKey, Subject: cfg.VAPID.Subject,
+		}))
+	integrationRunner.AddListener(notifySMS)
 	paymentsSvc := paymentsusecase.New(deps.DB, deps.Queries, integrationAccountsSvc, reservationSvc,
 		paymentsusecase.Config{PublicBaseURL: cfg.Auth.FrontendURL}, iyzicoAdapter)
 	paymentsSvc.SetResourceEvents(resourceEvents)
 	paymentsSvc.SetLogger(log)
 	reservationSvc.SetPaymentLinks(paymentsSvc)
+	reservationSvc.SetTransitionNotifier(notifyEngine)
 	// Contracts (TEC-710): templates, rendered / hashed document versions,
 	// PDFs (headless Chromium; in the worker when a queue is wired).
 	contractsSvc := contractsusecase.New(deps.DB, deps.Queries, orgSettingsSvc, deps.Storage)
@@ -561,7 +581,6 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	fieldTasksSvc.SetResourceEvents(resourceEvents)
 	fieldTasksSvc.SetLogger(log)
 	reservationSvc.SetDeliveryQuoter(fieldTasksSvc)
-	reservationSvc.SetLifecycleListener(reservationusecase.Listeners{rentalsSvc, fieldTasksSvc})
 	// Toll passes (TEC-725): provider fetch jobs on the integration runner,
 	// file import fallback, matching to rentals (toll charges), review
 	// queue. The finance ledger (TEC-717) plugs in with SetLedger.
@@ -630,6 +649,20 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	portalSvc.SetResourceEvents(resourceEvents)
 	portalSvc.SetLogger(log)
 	portalSvc.SetInvoices(invoicesSvc)
+	// Public booking API (TEC-728): /v1/public/* for the branded site, the
+	// widget and integrations, on the same quote / reservation use cases;
+	// lifecycle events of its reservations become signed webhooks.
+	publicAPISvc, err := publicapiusecase.New(deps.DB, deps.Queries, fieldCipher, orgSettingsSvc, reservationSvc, customerSvc, portalSvc)
+	if err != nil {
+		return nil, fmt.Errorf("httpserver: public api: %w", err)
+	}
+	publicAPISvc.SetActivity(activityRec)
+	publicAPISvc.SetResourceEvents(resourceEvents)
+	publicAPISvc.SetLogger(log)
+	publicAPISvc.SetBaseURL(strings.TrimRight(cfg.Auth.FrontendURL, "/") + "/api")
+	publicAPISvc.AllowPrivateWebhooks(!strings.EqualFold(strings.TrimSpace(cfg.App.Env), "production"))
+	publicAPISvc.SetImmediateDelivery(true)
+	reservationSvc.SetLifecycleListener(reservationusecase.Listeners{rentalsSvc, fieldTasksSvc, publicAPISvc})
 	// Rental group membership removals re-plan the commitments that relied
 	// on them (or are refused); moved reservations record plan_moved.
 	vehicleSvc.SetMembershipGuard(availabilitySvc)
@@ -656,6 +689,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	inspectionsmodule.RegisterLiveResources(tenantLive)
 	contractsmodule.RegisterLiveResources(tenantLive)
 	customerportalmodule.RegisterLiveResources(tenantLive)
+	publicapimodule.RegisterLiveResources(tenantLive)
 	financemodule.RegisterLiveResources(tenantLive)
 	tollsmodule.RegisterLiveResources(tenantLive)
 	kabismodule.RegisterLiveResources(tenantLive)
@@ -971,6 +1005,14 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	portalH := customerportalhandler.New(portalSvc, activityRec)
 	portalH.SetRateLimiter(customerportalmodule.Limiter{L: ratelimit.New(deps.Redis, cfg.App.Env)})
 	customerportalmodule.RegisterRoutes(mux, portalH, tokens, loader, tenantResolver)
+	publicapimodule.RegisterRoutes(mux,
+		publicapihandler.NewPublic(publicAPISvc, ratelimit.New(deps.Redis, cfg.App.Env)),
+		publicapihandler.NewPanel(publicAPISvc, activityRec), tokens, loader, tenantResolver)
+	notifyH := notifyenginehandler.New(notifyEngine, cfg.VAPID.PublicKey)
+	notifyenginemodule.RegisterRoutes(mux, notifyH, tokens, loader, tenantResolver)
+	if tenantResolver != nil {
+		notifyenginemodule.RegisterCustomerRoutes(mux, notifyH, portalH.RequireSession)
+	}
 	settingsmodule.RegisterRoutes(mux, settingshandler.New(
 		settingsusecase.New(deps.Queries),
 		deps.Storage,
