@@ -91,5 +91,6 @@
   "nav_finance_supplier_invoices": "Supplier invoices",
   "nav_finance_supplier_payments": "Supplier payments",
   "nav_finance_payables": "Due supplier payments",
-  "nav_finance_collections": "Collections"
+  "nav_finance_collections": "Collections",
+  "nav_finance_profitability": "Vehicle profitability"
 }

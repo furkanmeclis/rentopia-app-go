@@ -371,5 +371,6 @@
   "actions.finance.collection_allocated": "Collection allocated",
   "actions.finance.collection_allocation_released": "Collection allocation released",
   "actions.finance.collection_refunded": "Collection refunded",
-  "actions.finance.collection_voided": "Collection voided"
+  "actions.finance.collection_voided": "Collection voided",
+  "resources.tenant.vehicle_profitability": "Vehicle profitability"
 }

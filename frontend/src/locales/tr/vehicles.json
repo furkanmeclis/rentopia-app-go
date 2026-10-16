@@ -150,7 +150,6 @@
   "tabs.calendar": "Takvim",
   "tabs.odometer": "Km / yakıt",
   "tabs.damage": "Hasar kayıtları",
-  "tabs.finance": "Gelir / gider",
   "tabs.groups": "Gruplar",
   "tabs.history": "Hareket geçmişi",
   "tabs.kasko": "Kasko",
@@ -246,7 +245,6 @@
   "header.current_branch": "Bulunduğu şube",
   "header.home_branch": "Kayıtlı şube",
   "coming.damage": "Hasar kayıtları M3 ile gelecek",
-  "coming.finance": "Gelir / gider M4 ile gelecek",
   "summary.inspection": "Muayene",
   "summary.insurance": "Trafik sigortası",
   "summary.kasko_policy": "Kasko poliçesi",
@@ -277,5 +275,6 @@
   "tabs.tolls": "HGS / OGS",
   "fields.supplier": "Tedarikçi kartı",
   "fields.supplier_none": "Kart seçilmedi (serbest metin)",
-  "fields.supplier_hint": "Seçilen tedarikçinin unvanı tedarikçi adı olarak yazılır."
+  "fields.supplier_hint": "Seçilen tedarikçinin unvanı tedarikçi adı olarak yazılır.",
+  "tabs.profitability": "Kârlılık"
 }
