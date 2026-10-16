@@ -480,7 +480,8 @@ func (q *Queries) GetExpensePayment(ctx context.Context, arg GetExpensePaymentPa
 const getExpenseRow = `-- name: GetExpenseRow :one
 SELECT x.id, x.uuid, x.category_id, x.expense_date, x.description, x.supplier_name, x.document_no, x.currency,
     x.net_amount, x.vat_rate, x.vat_amount, x.total_amount, x.branch_id, x.vehicle_id, x.cash_account_id,
-    x.attachment_object_key, x.attachment_name, x.attachment_content_type, x.attachment_size_bytes, x.status
+    x.attachment_object_key, x.attachment_name, x.attachment_content_type, x.attachment_size_bytes, x.status,
+    x.supplier_id, x.supplier_invoice_id
 FROM expenses x
 WHERE x.organization_id = $1
   AND x.uuid = $2
@@ -512,6 +513,8 @@ type GetExpenseRowRow struct {
 	AttachmentContentType string         `json:"attachment_content_type"`
 	AttachmentSizeBytes   int64          `json:"attachment_size_bytes"`
 	Status                string         `json:"status"`
+	SupplierID            pgtype.Int8    `json:"supplier_id"`
+	SupplierInvoiceID     pgtype.Int8    `json:"supplier_invoice_id"`
 }
 
 func (q *Queries) GetExpenseRow(ctx context.Context, arg GetExpenseRowParams) (GetExpenseRowRow, error) {
@@ -538,6 +541,8 @@ func (q *Queries) GetExpenseRow(ctx context.Context, arg GetExpenseRowParams) (G
 		&i.AttachmentContentType,
 		&i.AttachmentSizeBytes,
 		&i.Status,
+		&i.SupplierID,
+		&i.SupplierInvoiceID,
 	)
 	return i, err
 }
@@ -822,12 +827,12 @@ func (q *Queries) InsertCashMovement(ctx context.Context, arg InsertCashMovement
 const insertExpense = `-- name: InsertExpense :one
 INSERT INTO expenses (
     organization_id, category_id, expense_date, description, supplier_name, document_no, currency, net_amount,
-    vat_rate, vat_amount, total_amount, branch_id, vehicle_id, cash_account_id, created_by
+    vat_rate, vat_amount, total_amount, branch_id, vehicle_id, cash_account_id, created_by, supplier_id
 ) VALUES (
     $1, $2, $3, $4,
     $5, $6, $7, $8, $9,
     $10, $11, $12, $13,
-    $14, $15
+    $14, $15, $16
 )
 RETURNING id, uuid
 `
@@ -848,6 +853,7 @@ type InsertExpenseParams struct {
 	VehicleID      pgtype.Int8    `json:"vehicle_id"`
 	CashAccountID  pgtype.Int8    `json:"cash_account_id"`
 	CreatedBy      pgtype.Int8    `json:"created_by"`
+	SupplierID     pgtype.Int8    `json:"supplier_id"`
 }
 
 type InsertExpenseRow struct {
@@ -872,6 +878,7 @@ func (q *Queries) InsertExpense(ctx context.Context, arg InsertExpenseParams) (I
 		arg.VehicleID,
 		arg.CashAccountID,
 		arg.CreatedBy,
+		arg.SupplierID,
 	)
 	var i InsertExpenseRow
 	err := row.Scan(&i.ID, &i.Uuid)
@@ -1318,6 +1325,8 @@ SELECT x.id, x.uuid, x.expense_date, x.description, x.supplier_name, x.document_
     v.uuid AS vehicle_uuid, v.plate AS vehicle_plate,
     ca.uuid AS cash_account_uuid, ca.code AS cash_account_code, ca.name AS cash_account_name,
     m.uuid AS movement_uuid,
+    sp.uuid AS supplier_uuid, sp.code AS supplier_code, sp.title AS supplier_title,
+    si.uuid AS supplier_invoice_uuid, si.invoice_no AS supplier_invoice_no,
     u.uuid AS created_by_uuid, u.name AS created_by_name, u.surname AS created_by_surname, u.email AS created_by_email,
     COUNT(*) OVER ()::bigint AS total
 FROM expenses x
@@ -1326,6 +1335,8 @@ LEFT JOIN branches b ON b.organization_id = x.organization_id AND b.id = x.branc
 LEFT JOIN vehicles v ON v.organization_id = x.organization_id AND v.id = x.vehicle_id
 LEFT JOIN cash_accounts ca ON ca.organization_id = x.organization_id AND ca.id = x.cash_account_id
 LEFT JOIN cash_movements m ON m.organization_id = x.organization_id AND m.expense_id = x.id AND m.kind = 'expense'
+LEFT JOIN suppliers sp ON sp.organization_id = x.organization_id AND sp.id = x.supplier_id
+LEFT JOIN supplier_invoices si ON si.organization_id = x.organization_id AND si.id = x.supplier_invoice_id
 LEFT JOIN users u ON u.id = x.created_by
 WHERE x.organization_id = $1
   AND ($2::bigint[] IS NULL OR x.branch_id = ANY($2::bigint[]))
@@ -1334,25 +1345,26 @@ WHERE x.organization_id = $1
   AND ($5::bigint[] IS NULL OR x.category_id = ANY($5::bigint[]))
   AND ($6::bigint[] IS NULL OR x.branch_id = ANY($6::bigint[]))
   AND ($7::bigint[] IS NULL OR x.vehicle_id = ANY($7::bigint[]))
-  AND ($8::text[] IS NULL OR x.status = ANY($8::text[]))
-  AND ($9::date IS NULL OR x.expense_date >= $9::date)
-  AND ($10::date IS NULL OR x.expense_date <= $10::date)
+  AND ($8::bigint[] IS NULL OR x.supplier_id = ANY($8::bigint[]))
+  AND ($9::text[] IS NULL OR x.status = ANY($9::text[]))
+  AND ($10::date IS NULL OR x.expense_date >= $10::date)
+  AND ($11::date IS NULL OR x.expense_date <= $11::date)
   AND (
-    $11::text IS NULL
-    OR x.description ILIKE '%' || $11 || '%'
-    OR x.supplier_name ILIKE '%' || $11 || '%'
-    OR x.document_no ILIKE '%' || $11 || '%'
-    OR v.plate ILIKE '%' || $11 || '%'
+    $12::text IS NULL
+    OR x.description ILIKE '%' || $12 || '%'
+    OR x.supplier_name ILIKE '%' || $12 || '%'
+    OR x.document_no ILIKE '%' || $12 || '%'
+    OR v.plate ILIKE '%' || $12 || '%'
   )
 ORDER BY
-    CASE WHEN $12::text = 'expense_date' AND NOT $13::boolean THEN x.expense_date END ASC,
-    CASE WHEN $12::text = 'expense_date' AND $13::boolean THEN x.expense_date END DESC,
-    CASE WHEN $12::text = 'total_amount' AND NOT $13::boolean THEN x.total_amount END ASC,
-    CASE WHEN $12::text = 'total_amount' AND $13::boolean THEN x.total_amount END DESC,
-    CASE WHEN $12::text = 'created_at' AND NOT $13::boolean THEN x.created_at END ASC,
-    CASE WHEN $12::text = 'created_at' AND $13::boolean THEN x.created_at END DESC,
+    CASE WHEN $13::text = 'expense_date' AND NOT $14::boolean THEN x.expense_date END ASC,
+    CASE WHEN $13::text = 'expense_date' AND $14::boolean THEN x.expense_date END DESC,
+    CASE WHEN $13::text = 'total_amount' AND NOT $14::boolean THEN x.total_amount END ASC,
+    CASE WHEN $13::text = 'total_amount' AND $14::boolean THEN x.total_amount END DESC,
+    CASE WHEN $13::text = 'created_at' AND NOT $14::boolean THEN x.created_at END ASC,
+    CASE WHEN $13::text = 'created_at' AND $14::boolean THEN x.created_at END DESC,
     x.id DESC
-LIMIT $15 OFFSET $14
+LIMIT $16 OFFSET $15
 `
 
 type ListExpensesParams struct {
@@ -1363,6 +1375,7 @@ type ListExpensesParams struct {
 	CategoryIds     []int64     `json:"category_ids"`
 	FilterBranchIds []int64     `json:"filter_branch_ids"`
 	VehicleIds      []int64     `json:"vehicle_ids"`
+	SupplierIds     []int64     `json:"supplier_ids"`
 	Statuses        []string    `json:"statuses"`
 	DateFrom        pgtype.Date `json:"date_from"`
 	DateTo          pgtype.Date `json:"date_to"`
@@ -1406,6 +1419,11 @@ type ListExpensesRow struct {
 	CashAccountCode       pgtype.Text        `json:"cash_account_code"`
 	CashAccountName       pgtype.Text        `json:"cash_account_name"`
 	MovementUuid          pgtype.UUID        `json:"movement_uuid"`
+	SupplierUuid          pgtype.UUID        `json:"supplier_uuid"`
+	SupplierCode          pgtype.Text        `json:"supplier_code"`
+	SupplierTitle         pgtype.Text        `json:"supplier_title"`
+	SupplierInvoiceUuid   pgtype.UUID        `json:"supplier_invoice_uuid"`
+	SupplierInvoiceNo     pgtype.Text        `json:"supplier_invoice_no"`
 	CreatedByUuid         pgtype.UUID        `json:"created_by_uuid"`
 	CreatedByName         pgtype.Text        `json:"created_by_name"`
 	CreatedBySurname      pgtype.Text        `json:"created_by_surname"`
@@ -1422,6 +1440,7 @@ func (q *Queries) ListExpenses(ctx context.Context, arg ListExpensesParams) ([]L
 		arg.CategoryIds,
 		arg.FilterBranchIds,
 		arg.VehicleIds,
+		arg.SupplierIds,
 		arg.Statuses,
 		arg.DateFrom,
 		arg.DateTo,
@@ -1471,6 +1490,11 @@ func (q *Queries) ListExpenses(ctx context.Context, arg ListExpensesParams) ([]L
 			&i.CashAccountCode,
 			&i.CashAccountName,
 			&i.MovementUuid,
+			&i.SupplierUuid,
+			&i.SupplierCode,
+			&i.SupplierTitle,
+			&i.SupplierInvoiceUuid,
+			&i.SupplierInvoiceNo,
 			&i.CreatedByUuid,
 			&i.CreatedByName,
 			&i.CreatedBySurname,
@@ -1769,9 +1793,9 @@ const updateExpenseDetails = `-- name: UpdateExpenseDetails :execrows
 UPDATE expenses
 SET category_id = $1, expense_date = $2, description = $3,
     supplier_name = $4, document_no = $5, branch_id = $6,
-    vehicle_id = $7
-WHERE organization_id = $8
-  AND id = $9
+    vehicle_id = $7, supplier_id = $8
+WHERE organization_id = $9
+  AND id = $10
   AND status = 'recorded'
 `
 
@@ -1783,6 +1807,7 @@ type UpdateExpenseDetailsParams struct {
 	DocumentNo     string      `json:"document_no"`
 	BranchID       pgtype.Int8 `json:"branch_id"`
 	VehicleID      pgtype.Int8 `json:"vehicle_id"`
+	SupplierID     pgtype.Int8 `json:"supplier_id"`
 	OrganizationID int64       `json:"organization_id"`
 	ID             int64       `json:"id"`
 }
@@ -1798,6 +1823,7 @@ func (q *Queries) UpdateExpenseDetails(ctx context.Context, arg UpdateExpenseDet
 		arg.DocumentNo,
 		arg.BranchID,
 		arg.VehicleID,
+		arg.SupplierID,
 		arg.OrganizationID,
 		arg.ID,
 	)

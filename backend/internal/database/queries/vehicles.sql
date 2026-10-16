@@ -13,7 +13,7 @@ INSERT INTO vehicles (
     organization_id, plate, vin, catalog_type_id, manual_entry, manual_brand, manual_model, manual_type,
     model_year, transmission, fuel, body_type, seats, luggage, air_conditioning, attributes_verified,
     color, home_branch_id, current_branch_id, fleet_pool, ownership, supplier_name,
-    in_service_date, out_of_service_date, odometer_km, fuel_level, status, is_active
+    in_service_date, out_of_service_date, odometer_km, fuel_level, status, is_active, supplier_id
 ) VALUES (
     sqlc.arg(organization_id), sqlc.arg(plate), sqlc.arg(vin), sqlc.narg(catalog_type_id),
     sqlc.arg(manual_entry), sqlc.arg(manual_brand), sqlc.arg(manual_model), sqlc.arg(manual_type),
@@ -21,7 +21,7 @@ INSERT INTO vehicles (
     sqlc.narg(seats), sqlc.narg(luggage), sqlc.arg(air_conditioning), sqlc.arg(attributes_verified),
     sqlc.arg(color), sqlc.arg(home_branch_id), sqlc.arg(current_branch_id), sqlc.arg(fleet_pool),
     sqlc.arg(ownership), sqlc.arg(supplier_name), sqlc.narg(in_service_date), sqlc.narg(out_of_service_date),
-    sqlc.arg(odometer_km), sqlc.narg(fuel_level), sqlc.arg(status), sqlc.arg(is_active)
+    sqlc.arg(odometer_km), sqlc.narg(fuel_level), sqlc.arg(status), sqlc.arg(is_active), sqlc.narg(supplier_id)
 )
 RETURNING *;
 
@@ -48,6 +48,7 @@ SET plate = sqlc.arg(plate),
     fleet_pool = sqlc.arg(fleet_pool),
     ownership = sqlc.arg(ownership),
     supplier_name = sqlc.arg(supplier_name),
+    supplier_id = sqlc.narg(supplier_id),
     in_service_date = sqlc.narg(in_service_date),
     out_of_service_date = sqlc.narg(out_of_service_date),
     odometer_km = sqlc.arg(odometer_km),
@@ -122,6 +123,7 @@ SELECT sqlc.embed(v),
     COALESCE(mg.uuid, '00000000-0000-0000-0000-000000000000'::uuid)::uuid AS model_group_uuid,
     hb.uuid AS home_branch_uuid, hb.code AS home_branch_code, hb.name AS home_branch_name,
     cb.uuid AS current_branch_uuid, cb.code AS current_branch_code, cb.name AS current_branch_name,
+    sp.uuid AS supplier_uuid, sp.code AS supplier_code, sp.title AS supplier_title,
     k.value AS kasko_value, COALESCE(k.period, '')::text AS kasko_period,
     dx.inspection_until::date AS inspection_until, dx.insurance_until::date AS insurance_until,
     dx.kasko_until::date AS kasko_until, dx.document_expires_at::date AS document_expires_at,
@@ -131,6 +133,7 @@ SELECT sqlc.embed(v),
 FROM vehicles v
 JOIN branches hb ON hb.organization_id = v.organization_id AND hb.id = v.home_branch_id
 JOIN branches cb ON cb.organization_id = v.organization_id AND cb.id = v.current_branch_id
+LEFT JOIN suppliers sp ON sp.organization_id = v.organization_id AND sp.id = v.supplier_id
 LEFT JOIN catalog_types t ON t.id = v.catalog_type_id
 LEFT JOIN catalog_models m ON m.id = t.model_id
 LEFT JOIN catalog_brands tb ON tb.id = t.brand_id
@@ -185,6 +188,7 @@ SELECT sqlc.embed(v),
     COALESCE(mg.uuid, '00000000-0000-0000-0000-000000000000'::uuid)::uuid AS model_group_uuid,
     hb.uuid AS home_branch_uuid, hb.code AS home_branch_code, hb.name AS home_branch_name,
     cb.uuid AS current_branch_uuid, cb.code AS current_branch_code, cb.name AS current_branch_name,
+    sp.uuid AS supplier_uuid, sp.code AS supplier_code, sp.title AS supplier_title,
     k.value AS kasko_value, COALESCE(k.period, '')::text AS kasko_period,
     dx.inspection_until::date AS inspection_until, dx.insurance_until::date AS insurance_until,
     dx.kasko_until::date AS kasko_until, dx.document_expires_at::date AS document_expires_at,
@@ -194,6 +198,7 @@ SELECT sqlc.embed(v),
 FROM vehicles v
 JOIN branches hb ON hb.organization_id = v.organization_id AND hb.id = v.home_branch_id
 JOIN branches cb ON cb.organization_id = v.organization_id AND cb.id = v.current_branch_id
+LEFT JOIN suppliers sp ON sp.organization_id = v.organization_id AND sp.id = v.supplier_id
 LEFT JOIN catalog_types t ON t.id = v.catalog_type_id
 LEFT JOIN catalog_models m ON m.id = t.model_id
 LEFT JOIN catalog_brands tb ON tb.id = t.brand_id
@@ -246,6 +251,10 @@ WHERE v.organization_id = sqlc.arg(organization_id)
   AND (sqlc.narg(is_active)::boolean IS NULL OR v.is_active = sqlc.narg(is_active))
   AND (sqlc.narg(statuses)::text[] IS NULL OR v.status = ANY(sqlc.narg(statuses)::text[]))
   AND (sqlc.narg(ownerships)::text[] IS NULL OR v.ownership = ANY(sqlc.narg(ownerships)::text[]))
+  AND (sqlc.narg(supplier_uuids)::uuid[] IS NULL OR v.supplier_id IN (
+    SELECT sx.id FROM suppliers sx
+    WHERE sx.organization_id = v.organization_id AND sx.uuid = ANY(sqlc.narg(supplier_uuids)::uuid[])
+  ))
   AND (sqlc.narg(pools)::text[] IS NULL OR v.fleet_pool = ANY(sqlc.narg(pools)::text[]))
   AND (sqlc.narg(document_statuses)::text[] IS NULL OR (
     CASE
@@ -349,6 +358,10 @@ WHERE v.organization_id = sqlc.arg(organization_id)
   AND (sqlc.narg(is_active)::boolean IS NULL OR v.is_active = sqlc.narg(is_active))
   AND (sqlc.narg(statuses)::text[] IS NULL OR v.status = ANY(sqlc.narg(statuses)::text[]))
   AND (sqlc.narg(ownerships)::text[] IS NULL OR v.ownership = ANY(sqlc.narg(ownerships)::text[]))
+  AND (sqlc.narg(supplier_uuids)::uuid[] IS NULL OR v.supplier_id IN (
+    SELECT sx.id FROM suppliers sx
+    WHERE sx.organization_id = v.organization_id AND sx.uuid = ANY(sqlc.narg(supplier_uuids)::uuid[])
+  ))
   AND (sqlc.narg(pools)::text[] IS NULL OR v.fleet_pool = ANY(sqlc.narg(pools)::text[]))
   AND (sqlc.narg(document_statuses)::text[] IS NULL OR (
     CASE
@@ -421,6 +434,10 @@ WHERE v.organization_id = sqlc.arg(organization_id)
   AND (sqlc.narg(is_active)::boolean IS NULL OR v.is_active = sqlc.narg(is_active))
   AND (sqlc.narg(statuses)::text[] IS NULL OR v.status = ANY(sqlc.narg(statuses)::text[]))
   AND (sqlc.narg(ownerships)::text[] IS NULL OR v.ownership = ANY(sqlc.narg(ownerships)::text[]))
+  AND (sqlc.narg(supplier_uuids)::uuid[] IS NULL OR v.supplier_id IN (
+    SELECT sx.id FROM suppliers sx
+    WHERE sx.organization_id = v.organization_id AND sx.uuid = ANY(sqlc.narg(supplier_uuids)::uuid[])
+  ))
   AND (sqlc.narg(pools)::text[] IS NULL OR v.fleet_pool = ANY(sqlc.narg(pools)::text[]))
   AND (sqlc.narg(document_statuses)::text[] IS NULL OR (
     CASE

@@ -254,12 +254,12 @@ WHERE organization_id = sqlc.arg(organization_id)
 -- name: InsertExpense :one
 INSERT INTO expenses (
     organization_id, category_id, expense_date, description, supplier_name, document_no, currency, net_amount,
-    vat_rate, vat_amount, total_amount, branch_id, vehicle_id, cash_account_id, created_by
+    vat_rate, vat_amount, total_amount, branch_id, vehicle_id, cash_account_id, created_by, supplier_id
 ) VALUES (
     sqlc.arg(organization_id), sqlc.arg(category_id), sqlc.arg(expense_date), sqlc.arg(description),
     sqlc.arg(supplier_name), sqlc.arg(document_no), sqlc.arg(currency), sqlc.arg(net_amount), sqlc.arg(vat_rate),
     sqlc.arg(vat_amount), sqlc.arg(total_amount), sqlc.narg(branch_id), sqlc.narg(vehicle_id),
-    sqlc.narg(cash_account_id), sqlc.narg(created_by)
+    sqlc.narg(cash_account_id), sqlc.narg(created_by), sqlc.narg(supplier_id)
 )
 RETURNING id, uuid;
 
@@ -269,7 +269,7 @@ RETURNING id, uuid;
 UPDATE expenses
 SET category_id = sqlc.arg(category_id), expense_date = sqlc.arg(expense_date), description = sqlc.arg(description),
     supplier_name = sqlc.arg(supplier_name), document_no = sqlc.arg(document_no), branch_id = sqlc.narg(branch_id),
-    vehicle_id = sqlc.narg(vehicle_id)
+    vehicle_id = sqlc.narg(vehicle_id), supplier_id = sqlc.narg(supplier_id)
 WHERE organization_id = sqlc.arg(organization_id)
   AND id = sqlc.arg(id)
   AND status = 'recorded';
@@ -301,7 +301,8 @@ WHERE organization_id = sqlc.arg(organization_id)
 -- name: GetExpenseRow :one
 SELECT x.id, x.uuid, x.category_id, x.expense_date, x.description, x.supplier_name, x.document_no, x.currency,
     x.net_amount, x.vat_rate, x.vat_amount, x.total_amount, x.branch_id, x.vehicle_id, x.cash_account_id,
-    x.attachment_object_key, x.attachment_name, x.attachment_content_type, x.attachment_size_bytes, x.status
+    x.attachment_object_key, x.attachment_name, x.attachment_content_type, x.attachment_size_bytes, x.status,
+    x.supplier_id, x.supplier_invoice_id
 FROM expenses x
 WHERE x.organization_id = sqlc.arg(organization_id)
   AND x.uuid = sqlc.arg(uuid);
@@ -323,6 +324,8 @@ SELECT x.id, x.uuid, x.expense_date, x.description, x.supplier_name, x.document_
     v.uuid AS vehicle_uuid, v.plate AS vehicle_plate,
     ca.uuid AS cash_account_uuid, ca.code AS cash_account_code, ca.name AS cash_account_name,
     m.uuid AS movement_uuid,
+    sp.uuid AS supplier_uuid, sp.code AS supplier_code, sp.title AS supplier_title,
+    si.uuid AS supplier_invoice_uuid, si.invoice_no AS supplier_invoice_no,
     u.uuid AS created_by_uuid, u.name AS created_by_name, u.surname AS created_by_surname, u.email AS created_by_email,
     COUNT(*) OVER ()::bigint AS total
 FROM expenses x
@@ -331,6 +334,8 @@ LEFT JOIN branches b ON b.organization_id = x.organization_id AND b.id = x.branc
 LEFT JOIN vehicles v ON v.organization_id = x.organization_id AND v.id = x.vehicle_id
 LEFT JOIN cash_accounts ca ON ca.organization_id = x.organization_id AND ca.id = x.cash_account_id
 LEFT JOIN cash_movements m ON m.organization_id = x.organization_id AND m.expense_id = x.id AND m.kind = 'expense'
+LEFT JOIN suppliers sp ON sp.organization_id = x.organization_id AND sp.id = x.supplier_id
+LEFT JOIN supplier_invoices si ON si.organization_id = x.organization_id AND si.id = x.supplier_invoice_id
 LEFT JOIN users u ON u.id = x.created_by
 WHERE x.organization_id = sqlc.arg(organization_id)
   AND (sqlc.narg(branch_ids)::bigint[] IS NULL OR x.branch_id = ANY(sqlc.narg(branch_ids)::bigint[]))
@@ -339,6 +344,7 @@ WHERE x.organization_id = sqlc.arg(organization_id)
   AND (sqlc.narg(category_ids)::bigint[] IS NULL OR x.category_id = ANY(sqlc.narg(category_ids)::bigint[]))
   AND (sqlc.narg(filter_branch_ids)::bigint[] IS NULL OR x.branch_id = ANY(sqlc.narg(filter_branch_ids)::bigint[]))
   AND (sqlc.narg(vehicle_ids)::bigint[] IS NULL OR x.vehicle_id = ANY(sqlc.narg(vehicle_ids)::bigint[]))
+  AND (sqlc.narg(supplier_ids)::bigint[] IS NULL OR x.supplier_id = ANY(sqlc.narg(supplier_ids)::bigint[]))
   AND (sqlc.narg(statuses)::text[] IS NULL OR x.status = ANY(sqlc.narg(statuses)::text[]))
   AND (sqlc.narg(date_from)::date IS NULL OR x.expense_date >= sqlc.narg(date_from)::date)
   AND (sqlc.narg(date_to)::date IS NULL OR x.expense_date <= sqlc.narg(date_to)::date)

@@ -319,7 +319,8 @@ func (q *Queries) GetCustomerDisplay(ctx context.Context, arg GetCustomerDisplay
 const getLedgerEntryRow = `-- name: GetLedgerEntryRow :one
 SELECT e.id, e.uuid, e.account_id, e.kind, e.direction, e.purpose, e.amount, e.currency, e.entry_date, e.due_date,
     e.description, e.reason, e.source_type, e.source_uuid, e.rental_id, e.reservation_id, e.rental_charge_id,
-    e.payment_id, e.payment_refund_id, e.accrual_key, e.branch_id, e.offset_group,
+    e.payment_id, e.payment_refund_id, e.accrual_key, e.branch_id, e.offset_group, e.supplier_invoice_id,
+    e.supplier_payment_id,
     EXISTS (
         SELECT 1 FROM ledger_entries r
         WHERE r.organization_id = e.organization_id AND r.reverses_entry_id = e.id
@@ -335,29 +336,31 @@ type GetLedgerEntryRowParams struct {
 }
 
 type GetLedgerEntryRowRow struct {
-	ID              int64          `json:"id"`
-	Uuid            uuid.UUID      `json:"uuid"`
-	AccountID       int64          `json:"account_id"`
-	Kind            string         `json:"kind"`
-	Direction       string         `json:"direction"`
-	Purpose         string         `json:"purpose"`
-	Amount          pgtype.Numeric `json:"amount"`
-	Currency        string         `json:"currency"`
-	EntryDate       pgtype.Date    `json:"entry_date"`
-	DueDate         pgtype.Date    `json:"due_date"`
-	Description     string         `json:"description"`
-	Reason          string         `json:"reason"`
-	SourceType      string         `json:"source_type"`
-	SourceUuid      pgtype.UUID    `json:"source_uuid"`
-	RentalID        pgtype.Int8    `json:"rental_id"`
-	ReservationID   pgtype.Int8    `json:"reservation_id"`
-	RentalChargeID  pgtype.Int8    `json:"rental_charge_id"`
-	PaymentID       pgtype.Int8    `json:"payment_id"`
-	PaymentRefundID pgtype.Int8    `json:"payment_refund_id"`
-	AccrualKey      pgtype.Text    `json:"accrual_key"`
-	BranchID        pgtype.Int8    `json:"branch_id"`
-	OffsetGroup     pgtype.UUID    `json:"offset_group"`
-	Reversed        bool           `json:"reversed"`
+	ID                int64          `json:"id"`
+	Uuid              uuid.UUID      `json:"uuid"`
+	AccountID         int64          `json:"account_id"`
+	Kind              string         `json:"kind"`
+	Direction         string         `json:"direction"`
+	Purpose           string         `json:"purpose"`
+	Amount            pgtype.Numeric `json:"amount"`
+	Currency          string         `json:"currency"`
+	EntryDate         pgtype.Date    `json:"entry_date"`
+	DueDate           pgtype.Date    `json:"due_date"`
+	Description       string         `json:"description"`
+	Reason            string         `json:"reason"`
+	SourceType        string         `json:"source_type"`
+	SourceUuid        pgtype.UUID    `json:"source_uuid"`
+	RentalID          pgtype.Int8    `json:"rental_id"`
+	ReservationID     pgtype.Int8    `json:"reservation_id"`
+	RentalChargeID    pgtype.Int8    `json:"rental_charge_id"`
+	PaymentID         pgtype.Int8    `json:"payment_id"`
+	PaymentRefundID   pgtype.Int8    `json:"payment_refund_id"`
+	AccrualKey        pgtype.Text    `json:"accrual_key"`
+	BranchID          pgtype.Int8    `json:"branch_id"`
+	OffsetGroup       pgtype.UUID    `json:"offset_group"`
+	SupplierInvoiceID pgtype.Int8    `json:"supplier_invoice_id"`
+	SupplierPaymentID pgtype.Int8    `json:"supplier_payment_id"`
+	Reversed          bool           `json:"reversed"`
 }
 
 func (q *Queries) GetLedgerEntryRow(ctx context.Context, arg GetLedgerEntryRowParams) (GetLedgerEntryRowRow, error) {
@@ -386,6 +389,8 @@ func (q *Queries) GetLedgerEntryRow(ctx context.Context, arg GetLedgerEntryRowPa
 		&i.AccrualKey,
 		&i.BranchID,
 		&i.OffsetGroup,
+		&i.SupplierInvoiceID,
+		&i.SupplierPaymentID,
 		&i.Reversed,
 	)
 	return i, err
@@ -613,43 +618,46 @@ const insertLedgerEntry = `-- name: InsertLedgerEntry :one
 INSERT INTO ledger_entries (
     organization_id, account_id, kind, direction, purpose, amount, currency, entry_date, due_date, description,
     reason, source_type, source_uuid, rental_id, reservation_id, rental_charge_id, payment_id, payment_refund_id,
-    accrual_key, reverses_entry_id, adjusts_entry_id, offset_group, branch_id, created_by
+    accrual_key, reverses_entry_id, adjusts_entry_id, offset_group, branch_id, created_by, supplier_invoice_id,
+    supplier_payment_id
 ) VALUES (
     $1, $2, $3, $4, $5,
     $6, $7, $8, $9, $10,
     $11, $12, $13, $14, $15,
     $16, $17, $18, $19,
     $20, $21, $22, $23,
-    $24
+    $24, $25, $26
 )
 RETURNING id, uuid
 `
 
 type InsertLedgerEntryParams struct {
-	OrganizationID  int64          `json:"organization_id"`
-	AccountID       int64          `json:"account_id"`
-	Kind            string         `json:"kind"`
-	Direction       string         `json:"direction"`
-	Purpose         string         `json:"purpose"`
-	Amount          pgtype.Numeric `json:"amount"`
-	Currency        string         `json:"currency"`
-	EntryDate       pgtype.Date    `json:"entry_date"`
-	DueDate         pgtype.Date    `json:"due_date"`
-	Description     string         `json:"description"`
-	Reason          string         `json:"reason"`
-	SourceType      string         `json:"source_type"`
-	SourceUuid      pgtype.UUID    `json:"source_uuid"`
-	RentalID        pgtype.Int8    `json:"rental_id"`
-	ReservationID   pgtype.Int8    `json:"reservation_id"`
-	RentalChargeID  pgtype.Int8    `json:"rental_charge_id"`
-	PaymentID       pgtype.Int8    `json:"payment_id"`
-	PaymentRefundID pgtype.Int8    `json:"payment_refund_id"`
-	AccrualKey      pgtype.Text    `json:"accrual_key"`
-	ReversesEntryID pgtype.Int8    `json:"reverses_entry_id"`
-	AdjustsEntryID  pgtype.Int8    `json:"adjusts_entry_id"`
-	OffsetGroup     pgtype.UUID    `json:"offset_group"`
-	BranchID        pgtype.Int8    `json:"branch_id"`
-	CreatedBy       pgtype.Int8    `json:"created_by"`
+	OrganizationID    int64          `json:"organization_id"`
+	AccountID         int64          `json:"account_id"`
+	Kind              string         `json:"kind"`
+	Direction         string         `json:"direction"`
+	Purpose           string         `json:"purpose"`
+	Amount            pgtype.Numeric `json:"amount"`
+	Currency          string         `json:"currency"`
+	EntryDate         pgtype.Date    `json:"entry_date"`
+	DueDate           pgtype.Date    `json:"due_date"`
+	Description       string         `json:"description"`
+	Reason            string         `json:"reason"`
+	SourceType        string         `json:"source_type"`
+	SourceUuid        pgtype.UUID    `json:"source_uuid"`
+	RentalID          pgtype.Int8    `json:"rental_id"`
+	ReservationID     pgtype.Int8    `json:"reservation_id"`
+	RentalChargeID    pgtype.Int8    `json:"rental_charge_id"`
+	PaymentID         pgtype.Int8    `json:"payment_id"`
+	PaymentRefundID   pgtype.Int8    `json:"payment_refund_id"`
+	AccrualKey        pgtype.Text    `json:"accrual_key"`
+	ReversesEntryID   pgtype.Int8    `json:"reverses_entry_id"`
+	AdjustsEntryID    pgtype.Int8    `json:"adjusts_entry_id"`
+	OffsetGroup       pgtype.UUID    `json:"offset_group"`
+	BranchID          pgtype.Int8    `json:"branch_id"`
+	CreatedBy         pgtype.Int8    `json:"created_by"`
+	SupplierInvoiceID pgtype.Int8    `json:"supplier_invoice_id"`
+	SupplierPaymentID pgtype.Int8    `json:"supplier_payment_id"`
 }
 
 type InsertLedgerEntryRow struct {
@@ -683,6 +691,8 @@ func (q *Queries) InsertLedgerEntry(ctx context.Context, arg InsertLedgerEntryPa
 		arg.OffsetGroup,
 		arg.BranchID,
 		arg.CreatedBy,
+		arg.SupplierInvoiceID,
+		arg.SupplierPaymentID,
 	)
 	var i InsertLedgerEntryRow
 	err := row.Scan(&i.ID, &i.Uuid)
@@ -826,39 +836,50 @@ func (q *Queries) InsertPaymentRefundEntry(ctx context.Context, arg InsertPaymen
 }
 
 const ledgerAccountAging = `-- name: LedgerAccountAging :many
-SELECT e.account_id,
+SELECT e.account_id, e.party_kind,
     COALESCE(SUM(CASE WHEN e.direction = 'debit' THEN e.amount ELSE -e.amount END), 0)::numeric AS balance,
     COALESCE(SUM(CASE WHEN e.direction = 'credit' THEN e.amount ELSE -e.amount END)
         FILTER (WHERE e.purpose = 'deposit'), 0)::numeric AS deposit_held,
     COALESCE(SUM(CASE
         WHEN e.kind = 'offset' THEN 0
-        WHEN e.direction = 'debit' AND e.kind <> 'reversal' THEN e.amount
-        WHEN e.direction = 'credit' AND e.kind = 'reversal' THEN -e.amount
+        WHEN e.side = 'debit' AND e.kind <> 'reversal' THEN e.amount
+        WHEN e.side = 'credit' AND e.kind = 'reversal' THEN -e.amount
         ELSE 0 END) FILTER (WHERE e.due_date < $1::date), 0)::numeric AS charges_late,
     COALESCE(SUM(CASE
         WHEN e.kind = 'offset' THEN 0
-        WHEN e.direction = 'debit' AND e.kind <> 'reversal' THEN e.amount
-        WHEN e.direction = 'credit' AND e.kind = 'reversal' THEN -e.amount
+        WHEN e.side = 'debit' AND e.kind <> 'reversal' THEN e.amount
+        WHEN e.side = 'credit' AND e.kind = 'reversal' THEN -e.amount
         ELSE 0 END) FILTER (WHERE e.due_date < $2::date), 0)::numeric AS charges_overdue,
     COALESCE(SUM(CASE
         WHEN e.kind = 'offset' THEN 0
-        WHEN e.direction = 'debit' AND e.kind <> 'reversal' THEN e.amount
-        WHEN e.direction = 'credit' AND e.kind = 'reversal' THEN -e.amount
+        WHEN e.side = 'debit' AND e.kind <> 'reversal' THEN e.amount
+        WHEN e.side = 'credit' AND e.kind = 'reversal' THEN -e.amount
         ELSE 0 END) FILTER (WHERE e.due_date < $3::date), 0)::numeric AS charges_soon,
     COALESCE(SUM(CASE
         WHEN e.kind = 'offset' THEN 0
-        WHEN e.direction = 'debit' AND e.kind <> 'reversal' THEN e.amount
-        WHEN e.direction = 'credit' AND e.kind = 'reversal' THEN -e.amount
+        WHEN e.side = 'debit' AND e.kind <> 'reversal' THEN e.amount
+        WHEN e.side = 'credit' AND e.kind = 'reversal' THEN -e.amount
         ELSE 0 END), 0)::numeric AS charges_all,
     COALESCE(SUM(CASE
         WHEN e.kind = 'offset' THEN 0
-        WHEN e.direction = 'credit' AND e.kind <> 'reversal' THEN e.amount
-        WHEN e.direction = 'debit' AND e.kind = 'reversal' THEN -e.amount
+        WHEN e.side = 'credit' AND e.kind <> 'reversal' THEN e.amount
+        WHEN e.side = 'debit' AND e.kind = 'reversal' THEN -e.amount
         ELSE 0 END), 0)::numeric AS settlements
-FROM ledger_entries e
+FROM (
+    -- The aging side: a supplier account's charges are its credits
+    -- (payables), its settlements the debits (payments).
+    SELECT le.id, le.uuid, le.organization_id, le.account_id, le.kind, le.direction, le.purpose, le.amount, le.currency, le.entry_date, le.due_date, le.description, le.reason, le.source_type, le.source_uuid, le.rental_id, le.reservation_id, le.rental_charge_id, le.payment_id, le.payment_refund_id, le.accrual_key, le.accrual_generation, le.reverses_entry_id, le.adjusts_entry_id, le.offset_group, le.branch_id, le.created_by, le.created_at, le.supplier_invoice_id, le.supplier_payment_id, pa.party_kind,
+        (CASE WHEN pa.party_kind = 'supplier'
+            THEN (CASE le.direction WHEN 'debit' THEN 'credit' ELSE 'debit' END)
+            ELSE le.direction END)::text AS side
+    FROM ledger_entries le
+    JOIN accounts pa ON pa.organization_id = le.organization_id AND pa.id = le.account_id
+    WHERE le.organization_id = $4
+      AND pa.organization_id = $4
+) e
 WHERE e.organization_id = $4
   AND ($5::bigint[] IS NULL OR e.branch_id = ANY($5::bigint[]))
-GROUP BY e.account_id
+GROUP BY e.account_id, e.party_kind
 `
 
 type LedgerAccountAgingParams struct {
@@ -871,6 +892,7 @@ type LedgerAccountAgingParams struct {
 
 type LedgerAccountAgingRow struct {
 	AccountID      int64          `json:"account_id"`
+	PartyKind      string         `json:"party_kind"`
 	Balance        pgtype.Numeric `json:"balance"`
 	DepositHeld    pgtype.Numeric `json:"deposit_held"`
 	ChargesLate    pgtype.Numeric `json:"charges_late"`
@@ -881,7 +903,7 @@ type LedgerAccountAgingRow struct {
 }
 
 // Per account: balance and the open charges by due bucket (FIFO), for the
-// organization summary.
+// organization summary. Supplier accounts age their payables.
 func (q *Queries) LedgerAccountAging(ctx context.Context, arg LedgerAccountAgingParams) ([]LedgerAccountAgingRow, error) {
 	rows, err := q.db.Query(ctx, ledgerAccountAging,
 		arg.Late,
@@ -899,6 +921,7 @@ func (q *Queries) LedgerAccountAging(ctx context.Context, arg LedgerAccountAging
 		var i LedgerAccountAgingRow
 		if err := rows.Scan(
 			&i.AccountID,
+			&i.PartyKind,
 			&i.Balance,
 			&i.DepositHeld,
 			&i.ChargesLate,
@@ -977,36 +1000,47 @@ WITH agg AS (
         COALESCE(SUM(e.amount) FILTER (WHERE e.direction = 'credit'), 0)::numeric AS credit,
         COALESCE(SUM(CASE
             WHEN e.kind = 'offset' THEN 0
-            WHEN e.direction = 'debit' AND e.kind <> 'reversal' THEN e.amount
-            WHEN e.direction = 'credit' AND e.kind = 'reversal' THEN -e.amount
+            WHEN e.side = 'debit' AND e.kind <> 'reversal' THEN e.amount
+            WHEN e.side = 'credit' AND e.kind = 'reversal' THEN -e.amount
             ELSE 0 END) FILTER (WHERE e.due_date < $14::date), 0)::numeric AS charges_overdue,
         COALESCE(SUM(CASE
             WHEN e.kind = 'offset' THEN 0
-            WHEN e.direction = 'debit' AND e.kind <> 'reversal' THEN e.amount
-            WHEN e.direction = 'credit' AND e.kind = 'reversal' THEN -e.amount
+            WHEN e.side = 'debit' AND e.kind <> 'reversal' THEN e.amount
+            WHEN e.side = 'credit' AND e.kind = 'reversal' THEN -e.amount
             ELSE 0 END) FILTER (WHERE e.due_date < $15::date), 0)::numeric AS charges_soon,
         COALESCE(SUM(CASE
             WHEN e.kind = 'offset' THEN 0
-            WHEN e.direction = 'debit' AND e.kind <> 'reversal' THEN e.amount
-            WHEN e.direction = 'credit' AND e.kind = 'reversal' THEN -e.amount
+            WHEN e.side = 'debit' AND e.kind <> 'reversal' THEN e.amount
+            WHEN e.side = 'credit' AND e.kind = 'reversal' THEN -e.amount
             ELSE 0 END) FILTER (WHERE e.due_date < $16::date), 0)::numeric AS charges_before,
         COALESCE(SUM(CASE
             WHEN e.kind = 'offset' THEN 0
-            WHEN e.direction = 'credit' AND e.kind <> 'reversal' THEN e.amount
-            WHEN e.direction = 'debit' AND e.kind = 'reversal' THEN -e.amount
+            WHEN e.side = 'credit' AND e.kind <> 'reversal' THEN e.amount
+            WHEN e.side = 'debit' AND e.kind = 'reversal' THEN -e.amount
             ELSE 0 END), 0)::numeric AS settlements,
         COALESCE(SUM(CASE WHEN e.direction = 'credit' THEN e.amount ELSE -e.amount END)
             FILTER (WHERE e.purpose = 'deposit'), 0)::numeric AS deposit_held,
         MAX(e.created_at)::timestamptz AS last_entry_at,
         COUNT(*)::bigint AS entry_count
-    FROM ledger_entries e
+    FROM (
+        -- The aging side: a supplier account's charges are its credits
+        -- (payables), its settlements the debits (payments).
+        SELECT le.id, le.uuid, le.organization_id, le.account_id, le.kind, le.direction, le.purpose, le.amount, le.currency, le.entry_date, le.due_date, le.description, le.reason, le.source_type, le.source_uuid, le.rental_id, le.reservation_id, le.rental_charge_id, le.payment_id, le.payment_refund_id, le.accrual_key, le.accrual_generation, le.reverses_entry_id, le.adjusts_entry_id, le.offset_group, le.branch_id, le.created_by, le.created_at, le.supplier_invoice_id, le.supplier_payment_id, pa.party_kind,
+            (CASE WHEN pa.party_kind = 'supplier'
+                THEN (CASE le.direction WHEN 'debit' THEN 'credit' ELSE 'debit' END)
+                ELSE le.direction END)::text AS side
+        FROM ledger_entries le
+        JOIN accounts pa ON pa.organization_id = le.organization_id AND pa.id = le.account_id
+        WHERE le.organization_id = $17
+          AND pa.organization_id = $17
+    ) e
     WHERE e.organization_id = $17
       AND ($18::bigint[] IS NULL OR e.branch_id = ANY($18::bigint[]))
     GROUP BY e.account_id
 ), base AS (
     SELECT a.id, a.uuid, a.code, a.party_kind, a.name, a.currency, a.payment_term_days, a.status, a.note,
         a.created_at, a.updated_at, a.branch_id,
-        c.uuid AS customer_uuid, c.customer_type,
+        c.uuid AS customer_uuid, c.customer_type, sp.uuid AS supplier_uuid,
         b.uuid AS branch_uuid, b.code AS branch_code, b.name AS branch_name,
         COALESCE(agg.debit, 0)::numeric AS debit,
         COALESCE(agg.credit, 0)::numeric AS credit,
@@ -1021,6 +1055,7 @@ WITH agg AS (
     FROM accounts a
     LEFT JOIN agg ON agg.account_id = a.id
     LEFT JOIN customers c ON c.organization_id = a.organization_id AND c.id = a.customer_id
+    LEFT JOIN suppliers sp ON sp.organization_id = a.organization_id AND sp.id = a.supplier_id
     LEFT JOIN branches b ON b.organization_id = a.organization_id AND b.id = a.branch_id
     WHERE a.organization_id = $17
       AND (
@@ -1029,7 +1064,7 @@ WITH agg AS (
         OR agg.account_id IS NOT NULL
       )
 ), shaped AS (
-    SELECT base.id, base.uuid, base.code, base.party_kind, base.name, base.currency, base.payment_term_days, base.status, base.note, base.created_at, base.updated_at, base.branch_id, base.customer_uuid, base.customer_type, base.branch_uuid, base.branch_code, base.branch_name, base.debit, base.credit, base.balance, base.overdue, base.due_soon, base.open_before, base.deposit_held, base.last_entry_at, base.entry_count,
+    SELECT base.id, base.uuid, base.code, base.party_kind, base.name, base.currency, base.payment_term_days, base.status, base.note, base.created_at, base.updated_at, base.branch_id, base.customer_uuid, base.customer_type, base.supplier_uuid, base.branch_uuid, base.branch_code, base.branch_name, base.debit, base.credit, base.balance, base.overdue, base.due_soon, base.open_before, base.deposit_held, base.last_entry_at, base.entry_count,
         (CASE
             WHEN base.balance = 0 THEN 'closed'
             WHEN base.overdue > 0 THEN 'overdue'
@@ -1039,7 +1074,7 @@ WITH agg AS (
     FROM base
 )
 SELECT s.id, s.uuid, s.code, s.party_kind, s.name, s.currency, s.payment_term_days, s.status, s.note,
-    s.created_at, s.updated_at, s.customer_uuid, s.customer_type, s.branch_uuid, s.branch_code, s.branch_name,
+    s.created_at, s.updated_at, s.customer_uuid, s.customer_type, s.supplier_uuid, s.branch_uuid, s.branch_code, s.branch_name,
     s.debit, s.credit, s.balance, s.overdue, s.due_soon, s.deposit_held, s.last_entry_at, s.entry_count,
     s.balance_status,
     COUNT(*) OVER ()::bigint AS total
@@ -1109,6 +1144,7 @@ type ListAccountsRow struct {
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 	CustomerUuid    pgtype.UUID        `json:"customer_uuid"`
 	CustomerType    pgtype.Text        `json:"customer_type"`
+	SupplierUuid    pgtype.UUID        `json:"supplier_uuid"`
 	BranchUuid      pgtype.UUID        `json:"branch_uuid"`
 	BranchCode      pgtype.Text        `json:"branch_code"`
 	BranchName      pgtype.Text        `json:"branch_name"`
@@ -1168,6 +1204,7 @@ func (q *Queries) ListAccounts(ctx context.Context, arg ListAccountsParams) ([]L
 			&i.UpdatedAt,
 			&i.CustomerUuid,
 			&i.CustomerType,
+			&i.SupplierUuid,
 			&i.BranchUuid,
 			&i.BranchCode,
 			&i.BranchName,
@@ -1194,7 +1231,7 @@ func (q *Queries) ListAccounts(ctx context.Context, arg ListAccountsParams) ([]L
 
 const listLedgerEntries = `-- name: ListLedgerEntries :many
 WITH scoped AS (
-    SELECT e.id, e.uuid, e.organization_id, e.account_id, e.kind, e.direction, e.purpose, e.amount, e.currency, e.entry_date, e.due_date, e.description, e.reason, e.source_type, e.source_uuid, e.rental_id, e.reservation_id, e.rental_charge_id, e.payment_id, e.payment_refund_id, e.accrual_key, e.accrual_generation, e.reverses_entry_id, e.adjusts_entry_id, e.offset_group, e.branch_id, e.created_by, e.created_at,
+    SELECT e.id, e.uuid, e.organization_id, e.account_id, e.kind, e.direction, e.purpose, e.amount, e.currency, e.entry_date, e.due_date, e.description, e.reason, e.source_type, e.source_uuid, e.rental_id, e.reservation_id, e.rental_charge_id, e.payment_id, e.payment_refund_id, e.accrual_key, e.accrual_generation, e.reverses_entry_id, e.adjusts_entry_id, e.offset_group, e.branch_id, e.created_by, e.created_at, e.supplier_invoice_id, e.supplier_payment_id,
         SUM(CASE WHEN e.direction = 'debit' THEN e.amount ELSE -e.amount END)
             OVER (PARTITION BY e.account_id ORDER BY e.entry_date, e.id)::numeric AS running_balance
     FROM ledger_entries e
