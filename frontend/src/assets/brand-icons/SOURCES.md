@@ -1,0 +1,28 @@
+# Marka logoları — kaynaklar
+
+Entegrasyon ekranlarında kullanılan dış servis logoları. Hepsi 2026-10-16 tarihinde indirildi.
+
+SVG'lere uygulanan temizlik: `viewBox` korundu, kök `width`/`height` kaldırıldı; `<script>`, `<foreignObject>`, `<metadata>`, editör ad alanları/öznitelikleri (sodipodi, inkscape, adobe, `data-name`), yorumlar, DOCTYPE/XML bildirimi ve harici `href`'ler silindi. Renkler ve path verisi değiştirilmedi. Hiçbir dosyada gömülü raster (`<image>`) yok. Dosyalar UTF-8.
+
+Logolar ilgili kurum ve firmaların ticari markasıdır. Yalnızca o servisle entegrasyonu göstermek için, orijinal oranları ve renkleriyle kullanılmalıdır.
+
+| Dosya | Servis | Kaynak URL | Kaynak türü | Not |
+|---|---|---|---|---|
+| `iyzico.svg` | iyzico | https://www.iyzico.com/assets/uploads/zip/BeyazZemindeKullanim.zip (`iyzico-white-bg.svg`), sayfa: https://www.iyzico.com/hakkimizda/iyzico-marka-kilavuzu | Resmî marka kılavuzu | Beyaz zemin versiyonu. Kullanım kuralları: https://www.iyzico.com/assets/uploads/pdf/iyzico_Kurumsal_Guide_04_2026.pdf |
+| `netgsm.svg` | Netgsm | https://cdn.netgsm.com.tr/images/logos/netgsm/dark/netgsm-logo.svg | Firmanın kendi CDN'i (netgsm.com.tr'de kullanılıyor) | Açık zemin için koyu versiyon. Resmî basın kiti bulunamadı. |
+| `iletimerkezi.svg` | İleti Merkezi | https://www.iletimerkezi.com/ (header'daki inline SVG, `aria-label="iletiMerkezi Logo"`) | Firmanın sitesindeki inline SVG | Sitede yalnızca **beyaz** (`#fff`) versiyon var; koyu zemin gerekir. Renkli versiyon ve basın kiti bulunamadı. |
+| `yolcu360.svg` | Yolcu360 | https://strapi.yolcu360.com/yolcu360_logo_13e7491e19.svg | Firmanın sitesindeki .svg dosyası | Basın kiti bulunamadı. |
+| `obilet.svg` | Obilet | https://s3.eu-central-1.amazonaws.com/static.obilet.com/images/blog/logo-red.svg (blog.obilet.com'da kullanılıyor) | Firmanın kendi statik deposu | Kırmızı versiyon. Basın kiti bulunamadı. |
+| `egm.svg` | Emniyet Genel Müdürlüğü (KABİS) | https://commons.wikimedia.org/wiki/File:Logo_of_General_Directorate_of_Security_(Turkey).svg | Wikimedia Commons | Commons kaynağı: Resmî Gazete, 26.01.2019 (https://www.resmigazete.gov.tr/eskiler/2019/01/20190126-2-1.pdf). Yazar: T.C. İçişleri Bakanlığı. 5846 sayılı FSEK md. 31 kapsamında kullanımı serbest. egm.gov.tr'de yalnızca PNG var. 62,9 KB olduğu için SVGO 3.3.2 ile küçültüldü (preset-default, `removeViewBox` ve `cleanupIds` kapalı, `floatPrecision: 2`). Sonuç 48,4 KB; görsel fark yok. |
+| `kgm.svg` | Karayolları Genel Müdürlüğü | https://www.uab.gov.tr/assets/images/logos/kgm.svg (sayfa: https://www.uab.gov.tr/kurumsal-kimlik-kilavuzu) | Ulaştırma ve Altyapı Bakanlığı kurumsal kimlik sayfası | Bakanlık sitesindeki dosya tek renk gri (`#6c6c6c`). Renkli resmî versiyon (turuncu/siyah) Commons'ta var, kaynağı aynı kılavuz: https://commons.wikimedia.org/wiki/File:KGM_logo.svg (kamu malı). Öncelik sırası gereği resmî site dosyası seçildi. `File:Logo_TCK.svg` bir kullanıcının JPG'den yeniden çizimi olduğu için kullanılmadı. |
+| `gib.svg` | Gelir İdaresi Başkanlığı | https://www.gib.gov.tr/gib_logo_orijinal.svg | Kurumun kendi sitesi | Commons kopyası (https://commons.wikimedia.org/wiki/File:Gelir_İdaresi_Başkanlığı_logo.svg) kamu malı olarak işaretli. |
+| `troy.svg` | TROY | https://www.troyodeme.com/upload/cmspagefile/file/medya-merkezi/TROY-Logolar.zip (`SVG/TROY Logo.svg`), sayfa: https://www.troyodeme.com/tr/troy-hakkinda/medya-merkezi | Resmî medya merkezi | Kullanım kuralları: https://www.troyodeme.com/upload/cmspagefile/file/medya-merkezi/TROY-Kurumsal-Kimlik-Kilavuzu-2025.pdf ve TROY-Kart-Kullanim-Kilavuzu-2025.pdf. Zip'te koyu zemin, zeminli ve sloganlı versiyonlar da var. |
+| `sovos.svg` | Sovos (eski Foriba) | https://sovos.com/tr/wp-content/uploads/sites/10/2023/07/Sovos-Logo.svg | Firmanın sitesindeki .svg dosyası | Koyu (lacivert) versiyon. Aynı dizinde `Sovos-Logo-White.svg` da var. |
+| `logo-yazilim.svg` | Logo Yazılım | https://www.logo.com.tr/logo.svg | Firmanın sitesindeki .svg dosyası | Basın kiti bulunamadı. |
+| `nes.svg` | NES Bilgi | https://nes.com.tr/brand/nes_red_logo.svg (nesbilgi.com.tr'de kullanılıyor) | Firmanın sitesindeki `/brand/` dosyası | Kırmızı versiyon. Beyaz versiyon: `/brand/nes_white_logo.svg`. |
+| `uyumsoft.svg` | Uyumsoft | https://www.uyumsoft.com/ (header'daki inline SVG, `aria-label="Ana sayfaya dön."`) | Firmanın sitesindeki inline SVG | Basın kiti bulunamadı. |
+| `hgs.png` | HGS (PTT) | https://www.ptt.gov.tr/_next/static/media/hgs.b2c43c0b.png | ptt.gov.tr | **SVG bulunamadı.** PTT'nin ve hgsmusteri.ptt.gov.tr'nin sitelerinde yalnızca PNG var (428×161, şeffaf). hgs.com.tr yanıt vermiyor. Commons'ta resmî SVG yok. |
+| `edm.png` | EDM Bilişim | https://portal2.edmbilisim.com.tr/EFaturaUI/Style/img/edm_logo_big.png | Firmanın e-Fatura portalı | **SVG bulunamadı.** edmbilisim.com.tr ve /basin/ sayfasında yalnızca 122×54 PNG var; portaldaki en büyük sürüm 250×94 PNG. Yüksek çözünürlüklü PNG bulunamadı. |
+| `izibiz.webp` | İzibiz | https://izibiz.com.tr/wp-content/uploads/2022/11/400dpiLogo_trns.webp | Firmanın sitesi | **SVG bulunamadı.** Sitede yalnızca bu WebP var (şeffaf, 2423 px genişlik). Aynı adla PNG/SVG yok (404). Portaldaki `izibiz-logo.jpg` yalnızca 156 px. Yüksek çözünürlüklü PNG bulunamadı, en iyi raster olduğu için WebP olarak bırakıldı. |
+| `ogs.svg` | OGS | — | — | **Bulunamadı.** OGS kaldırıldı ve geçişler HGS'ye taşındı. KGM ve PTT sitelerinde güncel bir OGS logosu yok. ogs.com.tr, geçiş sistemiyle ilgisi olmayan "OGS A.Ş." adlı bir yazılım firmasına ait. |
+| `efatura.svg` | GİB e-Fatura | — | — | **Bulunamadı.** ebelge.gib.gov.tr ve efatura.gov.tr'de ayrı bir e-Fatura logosu yok; yalnızca afiş görselleri ve metin var. e-Fatura için `gib.svg` kullanılabilir. |
