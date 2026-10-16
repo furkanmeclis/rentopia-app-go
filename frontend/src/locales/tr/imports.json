@@ -119,5 +119,6 @@
   "resources.tenant.toll_passes": "HGS/OGS geçişleri",
   "resources.tenant.cash_accounts": "Kasa ve banka hesapları",
   "resources.tenant.cash_movements": "Kasa / banka hareketleri",
-  "resources.tenant.expenses": "Giderler"
+  "resources.tenant.expenses": "Giderler",
+  "resources.tenant.suppliers": "Tedarikçiler"
 }

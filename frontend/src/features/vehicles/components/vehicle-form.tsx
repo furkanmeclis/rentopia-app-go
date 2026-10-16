@@ -5,6 +5,7 @@ import { useCallback, useMemo, useRef } from "react";
 import { get, useFormContext, useWatch } from "react-hook-form";
 
 import {
+  AppCombobox,
   AppDatePicker,
   AppForm,
   AppInput,
@@ -22,7 +23,9 @@ import {
   type ComboboxOption,
 } from "@/components/ui/async-combobox";
 import { Button } from "@/components/ui/button";
+import { permissions } from "@/config/permissions";
 import { useBranchesList } from "@/features/branches/hooks/use-branches";
+import { useSupplierOptions } from "@/features/suppliers/hooks/use-suppliers";
 import {
   BODY_TYPES,
   BODY_TYPE_LABEL_KEYS,
@@ -46,6 +49,7 @@ import {
   type VehicleFormValues,
 } from "@/features/vehicles/schemas/vehicle-form";
 import { useLocale } from "@/providers/locale-provider";
+import { usePermission } from "@/providers/permission-provider";
 
 type VehicleFormProps = {
   mode: "create" | "edit";
@@ -248,15 +252,36 @@ function ModelYearField() {
 
 function SupplierField() {
   const { t } = useLocale();
+  const { can } = usePermission();
   const { control } = useFormContext<VehicleFormValues>();
-  const ownership = useWatch({ control, name: "ownership" });
+  const [ownership, supplier] = useWatch({
+    control,
+    name: ["ownership", "supplier_uuid"],
+  });
+  const canPick = can(permissions.tenant.suppliers.read);
+  const suppliers = useSupplierOptions(ownership === "supplied" && canPick);
   if (ownership !== "supplied") return null;
   return (
-    <AppInput
-      name="supplier_name"
-      label={t("vehicles.fields.supplier_name")}
-      maxLength={255}
-    />
+    <>
+      {canPick ? (
+        <AppCombobox
+          name="supplier_uuid"
+          label={t("vehicles.fields.supplier")}
+          description={t("vehicles.fields.supplier_hint")}
+          options={[
+            { value: NONE, label: t("vehicles.fields.supplier_none") },
+            ...suppliers,
+          ]}
+        />
+      ) : null}
+      {supplier === NONE ? (
+        <AppInput
+          name="supplier_name"
+          label={t("vehicles.fields.supplier_name")}
+          maxLength={255}
+        />
+      ) : null}
+    </>
   );
 }
 

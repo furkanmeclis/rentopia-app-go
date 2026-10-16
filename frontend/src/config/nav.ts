@@ -20,6 +20,7 @@ import {
   ScanSearch,
   Smartphone,
   ChartColumn,
+  TrendingUp,
   Coins,
   HandCoins,
   Cpu,
@@ -52,6 +53,7 @@ import {
   Store,
   Tags,
   TicketPercent,
+  Truck,
   Upload,
   Users,
 } from "lucide-react";
@@ -65,6 +67,7 @@ import { customerRequestsNavItem } from "@/features/customer-portal/nav";
 import { TollReviewNavAdornment } from "@/features/tolls/nav";
 import { InvoicesNavAdornment } from "@/features/invoices/nav";
 import { KabisNavAdornment } from "@/features/kabis/nav";
+import { PayablesNavAdornment } from "@/features/suppliers/nav";
 import { MyFieldTasksNavAdornment } from "@/features/field-tasks/nav";
 import {
   ApprovalsNavAdornment,
@@ -514,10 +517,46 @@ export function tenantNav(slug: string): NavCatalog {
             permission: permissions.tenant.finance.expenses.read,
           },
           {
+            id: "finance-suppliers",
+            titleKey: "layout.nav_finance_suppliers",
+            href: routes.tenant.finance.suppliers(slug),
+            icon: Truck,
+            permission: permissions.tenant.suppliers.read,
+          },
+          {
+            id: "finance-supplier-invoices",
+            titleKey: "layout.nav_finance_supplier_invoices",
+            href: routes.tenant.finance.supplierInvoices(slug),
+            icon: FileText,
+            permission: permissions.tenant.finance.expenses.read,
+          },
+          {
+            id: "finance-supplier-payments",
+            titleKey: "layout.nav_finance_supplier_payments",
+            href: routes.tenant.finance.supplierPayments(slug),
+            icon: Banknote,
+            permission: permissions.tenant.finance.cash.read,
+          },
+          {
+            id: "finance-payables",
+            titleKey: "layout.nav_finance_payables",
+            href: routes.tenant.finance.payables(slug),
+            icon: CalendarClock,
+            permission: permissions.tenant.finance.expenses.read,
+            Adornment: PayablesNavAdornment,
+          },
+          {
             id: "finance-reports",
             titleKey: "layout.nav_finance_reports",
             href: routes.tenant.finance.reports(slug),
             icon: ChartColumn,
+            permission: permissions.tenant.finance.reports.read,
+          },
+          {
+            id: "finance-profitability",
+            titleKey: "layout.nav_finance_profitability",
+            href: routes.tenant.finance.profitability(slug),
+            icon: TrendingUp,
             permission: permissions.tenant.finance.reports.read,
           },
         ],

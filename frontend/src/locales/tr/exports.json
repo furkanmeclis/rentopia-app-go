@@ -86,7 +86,11 @@
   "resources.tenant.cash_accounts": "Kasa ve banka hesapları",
   "resources.tenant.cash_movements": "Kasa / banka hareketleri",
   "resources.tenant.expenses": "Giderler",
+  "resources.tenant.suppliers": "Tedarikçiler",
+  "resources.tenant.supplier_invoices": "Gider faturaları",
+  "resources.tenant.supplier_payments": "Tedarikçi ödemeleri",
   "resources.tenant.security_deposits": "Depozitolar",
   "resources.tenant.finance_collections": "Tahsilatlar",
-  "resources.tenant.invoices": "Faturalar"
+  "resources.tenant.invoices": "Faturalar",
+  "resources.tenant.vehicle_profitability": "Araç kârlılığı"
 }

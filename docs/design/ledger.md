@@ -46,6 +46,8 @@ Both require `tenant.finance.ledger.adjust`, except automatic reversals, which c
 | Payment refund | `refund` (debit), one per refund, naming the collection (`collection_id`) | Posted only after the provider confirmed the refund. |
 | Collection (TEC-718) / manual refund | `collection` (`source_type collection`) / `refund`, with the cash movement into / out of a till or bank account | From the panel: [collections.md](./collections.md). |
 | Deposit offset | Two `offset` entries sharing an `offset_group`: a deposit debit and a credit to the rent, charge or general debt | From the panel. |
+| Supplier invoice (TEC-721) | `accrual` / `charge`, **credit** on the supplier account, key `supplier_invoice:<id>`, source `supplier_invoice` | When the invoice is recorded. A due date, amount or account change re-accrues (`system:due_changed`, `system:amount_changed`, `system:account_changed`). A void reverses it (`system:invoice_voided`). See `suppliers.md`. |
+| Supplier payment (TEC-721) | `payment` (debit), one per payment (`uq_ledger_entries_supplier_payment`), source `supplier_payment` | Together with the cash movement. A void reverses it. |
 | Security deposit (TEC-719) | `deposit_hold` (credit) when cash / a transfer is taken, `deposit_capture` (debit) + `collection` (credit, applied to the charge) per deduction, `deposit_return` (debit) for the rest paid back; all deposit legs have purpose `deposit`. A pre-auth posts only the captured collections. Unique per deposit / deduction. | From the deposit flow, see [deposits.md](./deposits.md). |
 
 `SyncRental` reconciles one rental inside the caller's transaction. That covers handover, extension, charge decision or override, and toll charging. It compares the desired accruals with the live ones:
@@ -78,6 +80,8 @@ Due states are calculated as follows:
 - `overdue` is the part of the charges that were due before today and are still unpaid.
 - `due_soon` is the part due within 7 days.
 
+Aging is party-aware. For supplier accounts, credits are the charges, so the direction is flipped before matching. `overdue` and `due_soon` then describe payables. The aging and account list rows return `party_kind`.
+
 An account's status, in order of precedence:
 
 1. `overdue`
@@ -86,7 +90,9 @@ An account's status, in order of precedence:
 4. `payable` (balance < 0)
 5. `closed`
 
-The summary (`/finance/summary`) gives organization totals, a breakdown by branch, and the open amount by due date (overdue 30+, overdue, within 7 days, later). `/finance/rental-balances` gives the balance per rental.
+The summary (`/finance/summary`) gives organization totals, a breakdown by branch, and the open amount by due date (overdue 30+, overdue, within 7 days, later). `/finance/rental-balances` gives the balance per rental. Supplier payables are kept out of the receivable figures and reported separately, in `payable_overdue` and `payable_due_soon`.
+
+Supplier invoice and payment entries cannot be reversed through `entries/{uuid}/reverse`. They are voided through their invoice or payment, which writes the reversal.
 
 ## API (`/v1/tenant/finance/*`)
 
@@ -140,7 +146,7 @@ Toll posting is tested in `internal/modules/tolls/ledger_integration_test.go`. `
 
 - **TEC-721:** Reservations collected by a channel (`collecting_party <> 'us'`) are not accrued. They belong on the partner's account once partner accounts exist.
 - **TEC-722 (done):** Invoices link to entries through `ledger_entry_links`, which now carries `invoice_id`, the linked `amount` and a release (`released_at`, `release_reason`). One live invoice link per entry (`uq_ledger_entry_links_invoiced`). An invoice never posts to the ledger; see [einvoice.md](./einvoice.md).
-- **TEC-718 / TEC-721:** Supplier accounts exist only as `party_kind = 'supplier'` with a nullable `supplier_id`. The supplier FK arrives with the supplier table.
+- **TEC-721 (done):** `accounts.supplier_id` now references `suppliers` (`fk_accounts_supplier`). Supplier invoices and payments post to the supplier account (`suppliers.md`).
 - **TEC-719 (done):** security deposits post through the ledger with the deposit purpose kept outside the balance ([deposits.md](./deposits.md)). Before TEC-719 a deposit collection reduced the balance; existing rows follow the new rule as soon as the queries run.
 - The pay link sent with a statement covers one reservation's open balance. A pay link for the whole account has to be added in payments.
 - Aging still applies credits to debits oldest first; per-item allocations (TEC-718) are not read by it yet.

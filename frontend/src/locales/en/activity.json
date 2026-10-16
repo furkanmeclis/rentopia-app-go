@@ -355,6 +355,18 @@
   "actions.kabis.reported_manually": "KABİS notification marked reported manually",
   "actions.kabis.reconciled": "KABİS notification reconciled",
   "actions.kabis.attachment_downloaded": "KABİS notification attachment downloaded",
+  "resources.tenant.suppliers": "Suppliers",
+  "resources.tenant.supplier_invoices": "Supplier invoices",
+  "resources.tenant.supplier_payments": "Supplier payments",
+  "actions.suppliers.created": "Supplier created",
+  "actions.suppliers.updated": "Supplier updated",
+  "actions.finance.supplier_invoice_created": "Supplier invoice recorded",
+  "actions.finance.supplier_invoice_updated": "Supplier invoice updated",
+  "actions.finance.supplier_invoice_voided": "Supplier invoice voided",
+  "actions.finance.supplier_invoice_attachment_uploaded": "Invoice file uploaded",
+  "actions.finance.supplier_invoice_attachment_deleted": "Invoice file removed",
+  "actions.finance.supplier_payment_recorded": "Supplier payment recorded",
+  "actions.finance.supplier_payment_voided": "Supplier payment voided",
   "resources.tenant.finance_collections": "Collections",
   "actions.finance.collection_allocated": "Collection allocated",
   "actions.finance.collection_allocation_released": "Collection allocation released",
@@ -369,5 +381,6 @@
   "actions.invoices.cancelled": "Invoice cancelled",
   "actions.invoices.return_created": "Return invoice created",
   "actions.invoices.downloaded": "Invoice downloaded",
-  "actions.invoices.settings_updated": "Invoice settings updated"
+  "actions.invoices.settings_updated": "Invoice settings updated",
+  "resources.tenant.vehicle_profitability": "Vehicle profitability"
 }

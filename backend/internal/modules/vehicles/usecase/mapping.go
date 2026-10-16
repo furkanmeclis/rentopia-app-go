@@ -52,6 +52,9 @@ func MapVehicle(row repository.VehicleRow, today time.Time) model.Vehicle {
 		StatusChangedAt: v.StatusChangedAt.Time.UTC(), RentalGroups: []model.GroupRef{},
 		IsActive: v.IsActive, CreatedAt: v.CreatedAt.Time.UTC(), UpdatedAt: v.UpdatedAt.Time.UTC(),
 	}
+	if row.SupplierUuid.Valid {
+		out.Supplier = &model.SupplierRef{UUID: row.SupplierUuid.Bytes, Code: row.SupplierCode.String, Name: row.SupplierTitle.String}
+	}
 	if v.ManualEntry {
 		out.Brand, out.Model, out.TypeName = v.ManualBrand, v.ManualModel, v.ManualType
 	} else if out.Catalog != nil {

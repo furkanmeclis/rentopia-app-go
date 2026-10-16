@@ -12,6 +12,7 @@ import (
 	branchadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/branches/adapters"
 	customeradapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/customers/adapters"
 	fleetadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/fleet/adapters"
+	supplieradapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/suppliers/adapters"
 	vehicleadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/adapters"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/searchengine"
 	searchadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/searchengine/adapters"
@@ -53,6 +54,7 @@ func main() {
 		fleetadapters.NewProductsSearch(queries),
 		vehicleadapters.NewSearch(queries),
 		customeradapters.NewSearch(queries),
+		supplieradapters.NewSearch(queries),
 	)
 	indexer := searchengine.NewIndexer(client, reg, nil, log)
 	if err := indexer.ProcessReindex(ctx, ""); err != nil {

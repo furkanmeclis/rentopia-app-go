@@ -222,6 +222,9 @@ func (s *Service) OpenItems(ctx context.Context, orgID int64, accountUUID uuid.U
 	if err != nil {
 		return model.OpenItems{}, err
 	}
+	if acc.PartyKind == model.PartySupplier {
+		return model.OpenItems{}, errSupplierCollection()
+	}
 	p := db.ListOpenItemsParams{OrganizationID: orgID, AccountID: acc.ID, BranchIds: orgctx.BranchScope(ctx), OpenOnly: openOnly}
 	if rental != nil {
 		r, err := s.rentalRef(ctx, orgID, *rental)
@@ -272,6 +275,13 @@ type collectionTarget struct {
 	hasRental bool
 }
 
+// errSupplierCollection: a supplier account is settled by supplier payments
+// and its payables are supplier invoices (TEC-721); collections, their open
+// items and allocations are customer-side only.
+func errSupplierCollection() error {
+	return validation("account_uuid", "supplier_account", "a supplier account takes supplier payments, not collections")
+}
+
 func (s *Service) resolveTarget(ctx context.Context, orgID int64, accountUUID, rentalUUID *uuid.UUID) (collectionTarget, error) {
 	t := collectionTarget{}
 	if accountUUID != nil {
@@ -281,6 +291,9 @@ func (s *Service) resolveTarget(ctx context.Context, orgID int64, accountUUID, r
 		}
 		if err != nil {
 			return t, err
+		}
+		if acc.PartyKind == model.PartySupplier {
+			return t, errSupplierCollection()
 		}
 		t.acc, t.hasAcc = acc, true
 		r, ok, err := s.postingRental(ctx, orgID, acc, rentalUUID)

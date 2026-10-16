@@ -212,5 +212,11 @@
   "labels.tenant.invoices.export": "Export invoices",
   "labels.tenant.invoices.settings": "Manage invoice settings",
   "labels.tenant.invoices.bulk.create_for_rentals": "Invoice rentals in bulk",
-  "labels.tenant.invoices.bulk.send": "Send invoices in bulk"
+  "labels.tenant.invoices.bulk.send": "Send invoices in bulk",
+  "labels.tenant.suppliers.read": "View suppliers",
+  "labels.tenant.suppliers.write": "Create and edit suppliers",
+  "labels.tenant.suppliers.export": "Export suppliers",
+  "labels.tenant.suppliers.import": "Import suppliers",
+  "labels.tenant.suppliers.bulk.archive": "Bulk archive suppliers",
+  "groups.tenant_suppliers": "Suppliers"
 }

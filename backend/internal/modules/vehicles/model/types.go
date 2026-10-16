@@ -109,31 +109,33 @@ type Vehicle struct {
 	Model    string `json:"model"`
 	TypeName string `json:"type_name"`
 	// Label is "<brand> <model> <type>".
-	Label              string     `json:"label"`
-	ModelYear          int16      `json:"model_year"`
-	Transmission       *string    `json:"transmission"`
-	Fuel               *string    `json:"fuel"`
-	BodyType           *string    `json:"body_type"`
-	Seats              *int16     `json:"seats"`
-	Luggage            *int16     `json:"luggage"`
-	AirConditioning    bool       `json:"air_conditioning"`
-	AttributesVerified bool       `json:"attributes_verified"`
-	Color              string     `json:"color"`
-	HomeBranch         BranchRef  `json:"home_branch"`
-	CurrentBranch      BranchRef  `json:"current_branch"`
-	FleetPool          string     `json:"fleet_pool"`
-	Ownership          string     `json:"ownership"`
-	SupplierName       string     `json:"supplier_name"`
-	InServiceDate      *string    `json:"in_service_date"`
-	OutOfServiceDate   *string    `json:"out_of_service_date"`
-	InService          bool       `json:"in_service"`
-	OdometerKm         int32      `json:"odometer_km"`
-	FuelLevel          *int16     `json:"fuel_level"`
-	Status             string     `json:"status"`
-	StatusChangedAt    time.Time  `json:"status_changed_at"`
-	KaskoValue         *string    `json:"kasko_value"`
-	KaskoPeriod        *string    `json:"kasko_period"`
-	RentalGroups       []GroupRef `json:"rental_groups"`
+	Label              string    `json:"label"`
+	ModelYear          int16     `json:"model_year"`
+	Transmission       *string   `json:"transmission"`
+	Fuel               *string   `json:"fuel"`
+	BodyType           *string   `json:"body_type"`
+	Seats              *int16    `json:"seats"`
+	Luggage            *int16    `json:"luggage"`
+	AirConditioning    bool      `json:"air_conditioning"`
+	AttributesVerified bool      `json:"attributes_verified"`
+	Color              string    `json:"color"`
+	HomeBranch         BranchRef `json:"home_branch"`
+	CurrentBranch      BranchRef `json:"current_branch"`
+	FleetPool          string    `json:"fleet_pool"`
+	Ownership          string    `json:"ownership"`
+	SupplierName       string    `json:"supplier_name"`
+	// Supplier is the supplier card of a supplied vehicle (TEC-721).
+	Supplier         *SupplierRef `json:"supplier"`
+	InServiceDate    *string      `json:"in_service_date"`
+	OutOfServiceDate *string      `json:"out_of_service_date"`
+	InService        bool         `json:"in_service"`
+	OdometerKm       int32        `json:"odometer_km"`
+	FuelLevel        *int16       `json:"fuel_level"`
+	Status           string       `json:"status"`
+	StatusChangedAt  time.Time    `json:"status_changed_at"`
+	KaskoValue       *string      `json:"kasko_value"`
+	KaskoPeriod      *string      `json:"kasko_period"`
+	RentalGroups     []GroupRef   `json:"rental_groups"`
 	// Expiry tracking (TEC-693), computed from the current document of each
 	// type (latest valid_until) and the open maintenance plans.
 	InspectionUntil     *string   `json:"inspection_until"`
@@ -173,10 +175,14 @@ type VehicleInput struct {
 	FleetPool          *string        `json:"fleet_pool"`
 	Ownership          *string        `json:"ownership"`
 	SupplierName       *string        `json:"supplier_name"`
-	InServiceDate      OptionalString `json:"in_service_date"`
-	OutOfServiceDate   OptionalString `json:"out_of_service_date"`
-	OdometerKm         *int32         `json:"odometer_km"`
-	FuelLevel          OptionalInt    `json:"fuel_level"`
+	// SupplierUUID links the supplier card (null clears it); its title
+	// becomes supplier_name. A free-text supplier_name alone links the one
+	// active supplier with that title.
+	SupplierUUID     OptionalUUID   `json:"supplier_uuid"`
+	InServiceDate    OptionalString `json:"in_service_date"`
+	OutOfServiceDate OptionalString `json:"out_of_service_date"`
+	OdometerKm       *int32         `json:"odometer_km"`
+	FuelLevel        OptionalInt    `json:"fuel_level"`
 	// Status is the initial status on create; on patch a different status
 	// is a recorded transition (same as POST /status without a note).
 	Status   *string `json:"status"`
@@ -304,6 +310,7 @@ type ListFilter struct {
 	CurrentBranchUUIDs []uuid.UUID
 	GroupUUIDs         []uuid.UUID
 	SegmentUUIDs       []uuid.UUID
+	SupplierUUIDs      []uuid.UUID
 	// DocumentStatuses filters by the expiry state of the vehicle's next
 	// document (expired / expiring / valid / none).
 	DocumentStatuses []string
@@ -319,7 +326,7 @@ type ListFilter struct {
 // QueryKeys are the list filters (HTTP list, export and bulk "all matching").
 var QueryKeys = []string{
 	"is_active", "status", "ownership", "pool", "home_branch", "current_branch", "rental_group", "segment",
-	"document_status",
+	"document_status", "supplier",
 }
 
 // FilterFromQuery maps list query params to a filter; multi-value params
@@ -335,6 +342,7 @@ func FilterFromQuery(query map[string]string) ListFilter {
 		GroupUUIDs:         splitUUIDs(query["rental_group"]),
 		SegmentUUIDs:       splitUUIDs(query["segment"]),
 		DocumentStatuses:   SplitList(query["document_status"]),
+		SupplierUUIDs:      splitUUIDs(query["supplier"]),
 	}
 	if v, err := strconv.ParseBool(strings.TrimSpace(query["is_active"])); err == nil {
 		f.IsActive = &v
@@ -438,6 +446,13 @@ func (o *OptionalInt) UnmarshalJSON(b []byte) error {
 	}
 	o.Value = &v
 	return nil
+}
+
+// SupplierRef is the supplier card of a vehicle.
+type SupplierRef struct {
+	UUID uuid.UUID `json:"uuid"`
+	Code string    `json:"code"`
+	Name string    `json:"name"`
 }
 
 // OptionalUUID distinguishes an absent JSON field from an explicit null.

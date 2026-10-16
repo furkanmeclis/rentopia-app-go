@@ -87,6 +87,8 @@ var isolationAllowlist = map[string]string{
 	"POST /v1/tenant/toll-passes/fetch":            "no body; fetches with the caller's organization's active toll account (tolls fetch test)",
 	"PATCH /v1/tenant/toll-settings":               "processing fee / fetch options of the caller's organization; no foreign references",
 	"PUT /v1/tenant/invoices/settings":             "invoice settings of the caller's organization (series, supplier address, tax mapping); no foreign references",
+	"POST /v1/tenant/suppliers":                    "body has no foreign references (title, tax number, contact and billing values)",
+	"POST /v1/tenant/suppliers/import":             "rows match supplier code / tax number inside the organization (suppliers adapters); the job is the {uuid} cases",
 }
 
 type isoOrg struct {
@@ -599,6 +601,19 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		}), http.StatusCreated, "create expense"), "uuid")
 		must(upload(o, http.MethodPut, "/v1/tenant/finance/expenses/"+ids["expense"]+"/file", "file", "fis.png", png, nil),
 			http.StatusOK, "upload expense receipt")
+		// Suppliers (TEC-721): a card, an invoice with its file and a payment.
+		ids["supplier"] = str(must(call(o, http.MethodPost, "/v1/tenant/suppliers", map[string]any{
+			"title": m + " Tedarikçi", "supplier_type": "service", "note": m,
+		}), http.StatusCreated, "create supplier"), "uuid")
+		ids["supplierInvoice"] = str(must(call(o, http.MethodPost, "/v1/tenant/finance/supplier-invoices", map[string]any{
+			"supplier_uuid": ids["supplier"], "invoice_no": "F-1", "category_uuid": ids["expenseCategory"], "total_amount": "240",
+			"vat_rate": "20", "branch_uuid": ids["home"], "description": m + " fatura",
+		}), http.StatusCreated, "create supplier invoice"), "uuid")
+		must(upload(o, http.MethodPut, "/v1/tenant/finance/supplier-invoices/"+ids["supplierInvoice"]+"/file", "file", "fatura.png", png, nil),
+			http.StatusOK, "upload supplier invoice")
+		ids["supplierPayment"] = str(must(call(o, http.MethodPost, "/v1/tenant/finance/supplier-payments", map[string]any{
+			"supplier_uuid": ids["supplier"], "cash_account_uuid": ids["bankAccount"], "amount": "100", "description": m + " ödeme",
+		}), http.StatusCreated, "create supplier payment"), "uuid")
 		// Security deposits (TEC-719): a POS pre-auth resolved with one
 		// deduction (and its document), then a second one still held.
 		ids["deposit"] = str(must(call(o, http.MethodPost, "/v1/tenant/finance/deposits", map[string]any{
@@ -824,7 +839,16 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			"?from=" + day(0) + "&to=" + day(14) + "&vehicle=" + b["vehicle"],
 			"?from=" + day(0) + "&to=" + day(14) + "&home_branch=" + b["home"] + "&rental_group=" + b["group"] + "&segment=" + b["segment"],
 		},
-		"GET /v1/tenant/vehicles":              {"?home_branch=" + b["home"], "?rental_group=" + b["group"], "?segment=" + b["segment"]},
+		"GET /v1/tenant/vehicles": {
+			"?home_branch=" + b["home"], "?rental_group=" + b["group"], "?segment=" + b["segment"], "?supplier=" + b["supplier"],
+		},
+		"GET /v1/tenant/suppliers": {"?q=" + orgB.marker},
+		"GET /v1/tenant/finance/supplier-invoices": {
+			"?supplier=" + b["supplier"], "?category=" + b["expenseCategory"], "?branch=" + b["home"], "?q=" + orgB.marker,
+		},
+		"GET /v1/tenant/finance/supplier-payments": {
+			"?supplier=" + b["supplier"], "?cash_account=" + b["bankAccount"], "?invoice=" + b["supplierInvoice"], "?q=" + orgB.marker,
+		},
 		"GET /v1/tenant/transfers":             {"?vehicle=" + b["vehicle"], "?from_branch=" + b["home"], "?to_branch=" + b["branch"]},
 		"GET /v1/tenant/one-way-rules":         {"?from_branch=" + b["home"], "?to_branch=" + b["branch"]},
 		"GET /v1/tenant/products":              {"?segment=" + b["segment"], "?rental_group=" + b["group"]},
@@ -879,7 +903,7 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			"?account=" + b["cashAccount"], "?category=" + b["expenseCategory"], "?branch=" + b["home"], "?q=" + orgB.marker,
 		},
 		"GET /v1/tenant/finance/expenses": {
-			"?category=" + b["expenseCategory"], "?vehicle=" + b["vehicle"], "?branch=" + b["home"], "?q=" + orgB.marker,
+			"?supplier=" + b["supplier"], "?category=" + b["expenseCategory"], "?vehicle=" + b["vehicle"], "?branch=" + b["home"], "?q=" + orgB.marker,
 		},
 		"GET /v1/tenant/finance/deposits": {
 			"?branch=" + b["home"], "?rental=" + b["rental"], "?q=" + orgB.marker, "?held_over_days=0",
@@ -896,6 +920,11 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		"GET /v1/tenant/invoices/items":              {"?rental=" + b["rental"], "?account=" + b["financeAccount"]},
 		"GET /v1/tenant/invoices/uninvoiced-rentals": {"?q=" + orgB.marker},
 		"GET /v1/tenant/finance/expense-categories":  {"?q=" + orgB.marker},
+		// Vehicle profitability (TEC-727): B's branch / rental group as a
+		// filter is unknown in A (not_found); the plain call is leak-scanned.
+		"GET /v1/tenant/reports/vehicle-profitability": {
+			"?branch=" + b["home"], "?rental_group=" + b["group"], "?q=" + orgB.marker, "?basis=cash&allocation=revenue",
+		},
 		"GET /v1/tenant/rate-plans/matrix": {
 			"?scope=branch&branch=" + b["branch"],
 			"?scope=branch_channel&branch=" + b["home"] + "&channel=web",
@@ -1085,6 +1114,25 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			"amount": "1"}, reject},
 		{"POST /v1/tenant/finance/expenses", map[string]any{"category_uuid": orgB.ids["expenseCategory"], "total_amount": "1"}, reject},
 		{"POST /v1/tenant/finance/expenses", map[string]any{"category_uuid": orgA.ids["expenseCategory"], "total_amount": "1",
+			"branch_uuid": orgA.ids["home"], "supplier_uuid": orgB.ids["supplier"]}, reject},
+		{"POST /v1/tenant/finance/supplier-invoices", map[string]any{"supplier_uuid": orgB.ids["supplier"], "invoice_no": "X",
+			"category_uuid": orgA.ids["expenseCategory"], "total_amount": "1", "branch_uuid": orgA.ids["home"]}, reject},
+		{"POST /v1/tenant/finance/supplier-invoices", map[string]any{"supplier_uuid": orgA.ids["supplier"], "invoice_no": "X",
+			"category_uuid": orgB.ids["expenseCategory"], "total_amount": "1", "branch_uuid": orgA.ids["home"]}, reject},
+		{"POST /v1/tenant/finance/supplier-invoices", map[string]any{"supplier_uuid": orgA.ids["supplier"], "invoice_no": "X",
+			"category_uuid": orgA.ids["expenseCategory"], "total_amount": "1", "branch_uuid": orgB.ids["home"]}, reject},
+		{"POST /v1/tenant/finance/supplier-invoices", map[string]any{"supplier_uuid": orgA.ids["supplier"], "invoice_no": "X",
+			"category_uuid": orgA.ids["expenseCategory"], "total_amount": "1", "vehicle_uuid": orgB.ids["vehicle"]}, reject},
+		{"POST /v1/tenant/finance/supplier-payments", map[string]any{"supplier_uuid": orgB.ids["supplier"],
+			"cash_account_uuid": orgA.ids["bankAccount"], "amount": "1"}, reject},
+		{"POST /v1/tenant/finance/supplier-payments", map[string]any{"supplier_uuid": orgA.ids["supplier"],
+			"cash_account_uuid": orgB.ids["bankAccount"], "amount": "1"}, reject},
+		{"POST /v1/tenant/finance/supplier-payments", map[string]any{"supplier_uuid": orgA.ids["supplier"],
+			"cash_account_uuid": orgA.ids["bankAccount"], "amount": "1",
+			"allocations": []map[string]any{{"invoice_uuid": orgB.ids["supplierInvoice"], "amount": "1"}}}, reject},
+		{"POST /v1/tenant/suppliers/bulk", map[string]any{"action": "archive",
+			"target": map[string]any{"scope": "ids", "ids": []string{orgB.ids["supplier"]}}}, nil},
+		{"POST /v1/tenant/finance/expenses", map[string]any{"category_uuid": orgA.ids["expenseCategory"], "total_amount": "1",
 			"branch_uuid": orgB.ids["home"]}, reject},
 		{"POST /v1/tenant/finance/expenses", map[string]any{"category_uuid": orgA.ids["expenseCategory"], "total_amount": "1",
 			"branch_uuid": orgA.ids["home"], "vehicle_uuid": orgB.ids["vehicle"]}, reject},
@@ -1167,6 +1215,12 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		{"POST /v1/tenant/finance/cash-accounts/" + orgA.ids["cashAccount"] + "/movements", map[string]any{"kind": "collection",
 			"amount": "1", "category_uuid": orgB.ids["expenseCategory"]}, reject},
 		{"PATCH /v1/tenant/finance/expenses/" + orgA.ids["expense"], map[string]any{"category_uuid": orgB.ids["expenseCategory"]}, reject},
+		{"PATCH /v1/tenant/finance/expenses/" + orgA.ids["expense"], map[string]any{"supplier_uuid": orgB.ids["supplier"]}, reject},
+		{"PATCH /v1/tenant/finance/supplier-invoices/" + orgA.ids["supplierInvoice"], map[string]any{"category_uuid": orgB.ids["expenseCategory"]}, reject},
+		{"PATCH /v1/tenant/finance/supplier-invoices/" + orgA.ids["supplierInvoice"], map[string]any{"branch_uuid": orgB.ids["home"]}, reject},
+		{"POST /v1/tenant/finance/cash-accounts/" + orgA.ids["bankAccount"] + "/movements", map[string]any{"kind": "supplier_payment",
+			"amount": "1", "supplier_uuid": orgB.ids["supplier"]}, reject},
+		{"PATCH /v1/tenant/vehicles/" + orgA.ids["vehicle"], map[string]any{"ownership": "supplied", "supplier_uuid": orgB.ids["supplier"]}, reject},
 		{"PATCH /v1/tenant/finance/cash-accounts/" + orgA.ids["cashAccount"], map[string]any{"branch_uuid": orgB.ids["home"]}, reject},
 		{"POST /v1/tenant/reservations/" + orgA.ids["reservation"] + "/change", map[string]any{"quote_uuid": orgB.ids["quoteOpen"]}, reject},
 		{"POST /v1/tenant/reservations/" + orgA.ids["reservation"] + "/quotes", map[string]any{"product_uuid": orgB.ids["product"]}, reject},
@@ -1487,6 +1541,12 @@ func paramKey(prev, name string) string {
 		return "collection"
 	case "toll-passes/uuid":
 		return "tollPass"
+	case "suppliers/uuid":
+		return "supplier"
+	case "supplier-invoices/uuid":
+		return "supplierInvoice"
+	case "supplier-payments/uuid":
+		return "supplierPayment"
 	case "toll-tags/tagUuid":
 		return "tollTag"
 	case "kabis-notifications/uuid":

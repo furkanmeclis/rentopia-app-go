@@ -22,6 +22,9 @@ const (
 	ResourceCashAccounts = model.ResourceCashAccounts
 	ResourceMovements    = model.ResourceMovements
 	ResourceExpenses     = model.ResourceExpenses
+	// Supplier invoices and payments (TEC-721).
+	ResourceSupplierInvoices = model.ResourceSupplierInvoices
+	ResourceSupplierPayments = model.ResourceSupplierPayments
 	// ResourceCollections: collections (TEC-718).
 	ResourceCollections = model.ResourceCollections
 	// ResourceDeposits: security deposits (TEC-719).
@@ -40,6 +43,7 @@ type ResourceEngines struct {
 // EngineHandlers are the shared engine handlers per finance resource.
 type EngineHandlers struct {
 	Accounts, Entries, CashAccounts, Movements, Expenses ResourceEngines
+	SupplierInvoices, SupplierPayments                   ResourceEngines
 	Collections, Deposits                                ResourceEngines
 }
 
@@ -178,6 +182,29 @@ func RegisterRoutes(
 	route("GET /v1/tenant/finance/expenses/{uuid}/file", h.DownloadAttachment, expRead)
 	route("DELETE /v1/tenant/finance/expenses/{uuid}/file", h.DeleteAttachment, expWrite)
 
+	// Supplier invoices (expense documents: tenant.finance.expenses.*) and
+	// supplier payments (money out: tenant.finance.cash.*), TEC-721.
+	route("GET /v1/tenant/finance/payables/summary", h.PayablesSummary, expRead)
+	route("GET /v1/tenant/finance/supplier-invoices/meta", h.SupplierInvoicesMeta, expRead)
+	route("GET /v1/tenant/finance/supplier-invoices", h.ListSupplierInvoices, expRead)
+	route("POST /v1/tenant/finance/supplier-invoices", h.CreateSupplierInvoice, expWrite)
+	if engines.SupplierInvoices.Export != nil {
+		route("POST /v1/tenant/finance/supplier-invoices/export", engines.SupplierInvoices.Export, expRead, expExport)
+	}
+	route("GET /v1/tenant/finance/supplier-invoices/{uuid}", h.GetSupplierInvoice, expRead)
+	route("PATCH /v1/tenant/finance/supplier-invoices/{uuid}", h.PatchSupplierInvoice, expWrite)
+	route("POST /v1/tenant/finance/supplier-invoices/{uuid}/void", h.VoidSupplierInvoice, expWrite)
+	route("PUT /v1/tenant/finance/supplier-invoices/{uuid}/file", h.UploadInvoiceAttachment, expWrite)
+	route("GET /v1/tenant/finance/supplier-invoices/{uuid}/file", h.DownloadInvoiceAttachment, expRead)
+	route("DELETE /v1/tenant/finance/supplier-invoices/{uuid}/file", h.DeleteInvoiceAttachment, expWrite)
+	route("GET /v1/tenant/finance/supplier-payments/meta", h.SupplierPaymentsMeta, cashRead)
+	route("GET /v1/tenant/finance/supplier-payments", h.ListSupplierPayments, cashRead)
+	route("POST /v1/tenant/finance/supplier-payments", h.CreateSupplierPayment, cashWrite)
+	if engines.SupplierPayments.Export != nil {
+		route("POST /v1/tenant/finance/supplier-payments/export", engines.SupplierPayments.Export, cashRead, cashExport)
+	}
+	route("GET /v1/tenant/finance/supplier-payments/{uuid}", h.GetSupplierPayment, cashRead)
+	route("POST /v1/tenant/finance/supplier-payments/{uuid}/void", h.VoidSupplierPayment, cashWrite)
 	// Security deposits and pre-authorizations (TEC-719). Deductions also
 	// need tenant.finance.deposits.deduct (checked by the use case).
 	depRead, depWrite := perm(rbac.PermTenantFinanceDepositsRead), perm(rbac.PermTenantFinanceDepositsWrite)
@@ -212,18 +239,23 @@ func RegisterLiveResources(reg *resourceevents.Registry) {
 	reg.Register(model.ResourceMovements, rbac.PermTenantFinanceCashRead)
 	reg.Register(model.ResourceExpenses, rbac.PermTenantFinanceExpensesRead)
 	reg.Register(model.ResourceCategories, rbac.PermTenantFinanceExpensesRead)
+	reg.Register(model.ResourceSupplierInvoices, rbac.PermTenantFinanceExpensesRead)
+	reg.Register(model.ResourceSupplierPayments, rbac.PermTenantFinanceCashRead)
 	reg.Register(model.ResourceCollections, rbac.PermTenantFinanceAccountsRead)
 	reg.Register(model.ResourceDeposits, rbac.PermTenantFinanceDepositsRead)
 }
 
 // Export / bulk query keys per resource.
 var (
-	AccountQueryKeys    = []string{"q", "balance_status", "status", "party_kind", "branch", "due_before", "min_balance", "max_balance"}
-	EntryQueryKeys      = []string{"q", "account", "rental", "kind", "purpose", "direction", "branch", "from", "to"}
-	CashQueryKeys       = []string{"q", "kind", "status", "branch", "head_office"}
-	MovementQueryKeys   = []string{"q", "account", "kind", "direction", "category", "branch", "from", "to"}
-	ExpenseQueryKeys    = []string{"q", "category", "branch", "vehicle", "status", "from", "to"}
-	CollectionQueryKeys = []string{
+	// Supplier invoices / payments (TEC-721).
+	SupplierInvoiceQueryKeys = []string{"q", "supplier", "status", "due_state", "category", "branch", "from", "to", "due_to", "window"}
+	SupplierPaymentQueryKeys = []string{"q", "supplier", "cash_account", "status", "method", "invoice", "from", "to"}
+	AccountQueryKeys         = []string{"q", "balance_status", "status", "party_kind", "branch", "due_before", "min_balance", "max_balance"}
+	EntryQueryKeys           = []string{"q", "account", "rental", "kind", "purpose", "direction", "branch", "from", "to"}
+	CashQueryKeys            = []string{"q", "kind", "status", "branch", "head_office"}
+	MovementQueryKeys        = []string{"q", "account", "kind", "direction", "category", "branch", "from", "to"}
+	ExpenseQueryKeys         = []string{"q", "category", "branch", "vehicle", "supplier", "status", "from", "to"}
+	CollectionQueryKeys      = []string{
 		"q", "method", "status", "allocation_status", "branch", "cash_account", "account", "rental", "from", "to",
 	}
 	DepositQueryKeys = []string{"q", "status", "method", "branch", "rental", "from", "to", "held_over_days"}

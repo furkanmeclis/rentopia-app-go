@@ -139,6 +139,11 @@ export function ExpensesPage() {
                     .join(" · ")}
                 </div>
               ) : null}
+              {row.original.supplier_invoice ? (
+                <Badge variant="secondary" className="text-[10px]">
+                  {t("finance.expenses.from_invoice")}
+                </Badge>
+              ) : null}
             </div>
           ),
         }),
@@ -247,7 +252,9 @@ export function ExpensesPage() {
                     label: t("finance.actions.edit"),
                     icon: Pencil,
                     permission: permissions.tenant.finance.expenses.write,
-                    disabled: e.status === "void",
+                    // Rows generated from a supplier invoice follow it.
+                    disabled:
+                      e.status === "void" || Boolean(e.supplier_invoice),
                     onSelect: () => setEditing(e),
                   },
                   ...(e.attachment
@@ -275,7 +282,8 @@ export function ExpensesPage() {
                     icon: Ban,
                     permission: permissions.tenant.finance.expenses.write,
                     variant: "destructive" as const,
-                    disabled: e.status === "void",
+                    disabled:
+                      e.status === "void" || Boolean(e.supplier_invoice),
                     onSelect: () => setVoiding(e),
                   },
                 ]}
@@ -357,7 +365,9 @@ export function ExpensesPage() {
         data={query.data?.items ?? []}
         getRowId={(row) => row.uuid}
         onRowClick={(row) =>
-          row.status === "recorded" ? setEditing(row) : undefined
+          row.status === "recorded" && !row.supplier_invoice
+            ? setEditing(row)
+            : undefined
         }
         isLoading={query.isLoading}
         isError={query.isError}

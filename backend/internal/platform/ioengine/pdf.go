@@ -11,16 +11,23 @@ import (
 
 const pdfContentWidth = 190.0
 
+// pdfLandscapeContentWidth is the table width of a landscape A4 page.
+const pdfLandscapeContentWidth = 277.0
+
 // EncodePDF renders a letterheaded A4 table.
 func EncodePDF(ds Dataset, locale string, lh *Letterhead, title string) ([]byte, error) {
-	pdf := gofpdf.New("P", "mm", "A4", "")
+	orientation, contentWidth, pageBottom := "P", pdfContentWidth, 270.0
+	if ds.Landscape {
+		orientation, contentWidth, pageBottom = "L", pdfLandscapeContentWidth, 183.0
+	}
+	pdf := gofpdf.New(orientation, "mm", "A4", "")
 	pdf.SetAutoPageBreak(true, 18)
 	if err := registerPDFFonts(pdf); err != nil {
 		return nil, err
 	}
 	pdf.AddPage()
 	loc := i18n.Normalize(locale)
-	colWidths := pdfColumnWidths(ds.Columns, pdfContentWidth)
+	colWidths := pdfColumnWidths(ds.Columns, contentWidth)
 
 	y := 12.0
 	if lh != nil {
@@ -28,18 +35,24 @@ func EncodePDF(ds Dataset, locale string, lh *Letterhead, title string) ([]byte,
 	}
 	setPDFFont(pdf, "B", 14)
 	pdf.SetXY(10, y)
-	pdf.Cell(pdfContentWidth, 8, title)
+	pdf.Cell(contentWidth, 8, title)
 	y += 10
 	setPDFFont(pdf, "", 9)
 	pdf.SetXY(10, y)
-	pdf.Cell(pdfContentWidth, 5, ExportedAtLabel(locale))
-	y += 8
+	pdf.Cell(contentWidth, 5, ExportedAtLabel(locale))
+	y += 6
+	for _, note := range ds.Notes {
+		pdf.SetXY(10, y)
+		pdf.MultiCell(contentWidth, 4.5, note, "", "L", false)
+		y = pdf.GetY()
+	}
+	y += 2
 
 	drawPDFHeaderRow(pdf, ds.Columns, colWidths, y, lh, loc)
 	y += 6
 	setPDFFont(pdf, "", 8)
 	for _, row := range ds.Rows {
-		if y > 270 {
+		if y > pageBottom {
 			pdf.AddPage()
 			y = 12
 			drawPDFHeaderRow(pdf, ds.Columns, colWidths, y, lh, loc)
@@ -51,7 +64,7 @@ func EncodePDF(ds Dataset, locale string, lh *Letterhead, title string) ([]byte,
 	if lh != nil && lh.FooterText != "" {
 		pdf.SetY(-12)
 		setPDFFont(pdf, "I", 8)
-		pdf.Cell(pdfContentWidth, 5, lh.FooterText)
+		pdf.Cell(contentWidth, 5, lh.FooterText)
 	}
 
 	var buf bytes.Buffer

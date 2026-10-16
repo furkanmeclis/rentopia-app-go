@@ -212,5 +212,11 @@
   "labels.tenant.invoices.export": "Faturaları dışa aktar",
   "labels.tenant.invoices.settings": "Fatura ayarlarını yönet",
   "labels.tenant.invoices.bulk.create_for_rentals": "Kiralamaları toplu faturala",
-  "labels.tenant.invoices.bulk.send": "Faturaları toplu gönder"
+  "labels.tenant.invoices.bulk.send": "Faturaları toplu gönder",
+  "labels.tenant.suppliers.read": "Tedarikçileri görüntüle",
+  "labels.tenant.suppliers.write": "Tedarikçi ekle ve düzenle",
+  "labels.tenant.suppliers.export": "Tedarikçileri dışa aktar",
+  "labels.tenant.suppliers.import": "Tedarikçileri içe aktar",
+  "labels.tenant.suppliers.bulk.archive": "Tedarikçileri toplu arşivle",
+  "groups.tenant_suppliers": "Tedarikçiler"
 }

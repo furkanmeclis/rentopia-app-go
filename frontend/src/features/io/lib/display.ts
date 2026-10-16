@@ -29,8 +29,12 @@ const RESOURCE_LABEL_KEYS: Record<IoResource, string> = {
   "tenant.expenses": "finance.expenses.title",
   "tenant.security_deposits": "deposits.title",
   "tenant.toll_passes": "tolls.title",
+  "tenant.suppliers": "suppliers.title",
+  "tenant.supplier_invoices": "suppliers.invoices.title",
+  "tenant.supplier_payments": "suppliers.payments.title",
   "tenant.finance_collections": "finance.collections.title",
   "tenant.invoices": "invoices.title",
+  "tenant.vehicle_profitability": "profitability.title",
 };
 
 export function resourceLabelKey(resource: string): string | null {

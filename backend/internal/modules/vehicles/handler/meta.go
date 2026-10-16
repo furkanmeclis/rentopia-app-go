@@ -38,7 +38,7 @@ func Meta() rm.ResourceMeta {
 		},
 		FilterableFields: []string{
 			"status", "rental_group", "segment", "home_branch", "current_branch", "ownership", "pool", "is_active",
-			"document_status",
+			"document_status", "supplier",
 		},
 		Columns: []rm.Column{
 			col("plate", s, true, true),

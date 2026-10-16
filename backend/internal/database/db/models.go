@@ -796,6 +796,8 @@ type Expense struct {
 	CreatedBy             pgtype.Int8        `json:"created_by"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	SupplierID            pgtype.Int8        `json:"supplier_id"`
+	SupplierInvoiceID     pgtype.Int8        `json:"supplier_invoice_id"`
 }
 
 type ExpenseCategory struct {
@@ -1288,6 +1290,8 @@ type LedgerEntry struct {
 	CollectionID       pgtype.Int8        `json:"collection_id"`
 	SecurityDepositID  pgtype.Int8        `json:"security_deposit_id"`
 	DepositDeductionID pgtype.Int8        `json:"deposit_deduction_id"`
+	SupplierInvoiceID  pgtype.Int8        `json:"supplier_invoice_id"`
+	SupplierPaymentID  pgtype.Int8        `json:"supplier_payment_id"`
 }
 
 type LedgerEntryLink struct {
@@ -2353,6 +2357,111 @@ type StorageTrash struct {
 	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
 }
 
+type Supplier struct {
+	ID              int64              `json:"id"`
+	Uuid            uuid.UUID          `json:"uuid"`
+	OrganizationID  int64              `json:"organization_id"`
+	Code            string             `json:"code"`
+	Title           string             `json:"title"`
+	SupplierType    string             `json:"supplier_type"`
+	TaxNumber       string             `json:"tax_number"`
+	TaxOffice       string             `json:"tax_office"`
+	Phone           string             `json:"phone"`
+	Email           string             `json:"email"`
+	Website         string             `json:"website"`
+	Address         string             `json:"address"`
+	City            string             `json:"city"`
+	BillingAddress  string             `json:"billing_address"`
+	BillingEmail    string             `json:"billing_email"`
+	EInvoice        bool               `json:"e_invoice"`
+	BankName        string             `json:"bank_name"`
+	Iban            string             `json:"iban"`
+	PaymentTermDays int32              `json:"payment_term_days"`
+	Contacts        []byte             `json:"contacts"`
+	Status          string             `json:"status"`
+	Note            string             `json:"note"`
+	CreatedBy       pgtype.Int8        `json:"created_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SupplierInvoice struct {
+	ID                    int64              `json:"id"`
+	Uuid                  uuid.UUID          `json:"uuid"`
+	OrganizationID        int64              `json:"organization_id"`
+	SupplierID            int64              `json:"supplier_id"`
+	AccountID             int64              `json:"account_id"`
+	InvoiceNo             string             `json:"invoice_no"`
+	InvoiceDate           pgtype.Date        `json:"invoice_date"`
+	DueDate               pgtype.Date        `json:"due_date"`
+	Currency              string             `json:"currency"`
+	CategoryID            int64              `json:"category_id"`
+	BranchID              pgtype.Int8        `json:"branch_id"`
+	VehicleID             pgtype.Int8        `json:"vehicle_id"`
+	Description           string             `json:"description"`
+	NetAmount             pgtype.Numeric     `json:"net_amount"`
+	VatAmount             pgtype.Numeric     `json:"vat_amount"`
+	TotalAmount           pgtype.Numeric     `json:"total_amount"`
+	PaidAmount            pgtype.Numeric     `json:"paid_amount"`
+	Status                string             `json:"status"`
+	AttachmentObjectKey   pgtype.Text        `json:"attachment_object_key"`
+	AttachmentName        string             `json:"attachment_name"`
+	AttachmentContentType string             `json:"attachment_content_type"`
+	AttachmentSizeBytes   int64              `json:"attachment_size_bytes"`
+	VoidReason            string             `json:"void_reason"`
+	VoidedBy              pgtype.Int8        `json:"voided_by"`
+	VoidedAt              pgtype.Timestamptz `json:"voided_at"`
+	CreatedBy             pgtype.Int8        `json:"created_by"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SupplierInvoiceLine struct {
+	ID             int64          `json:"id"`
+	OrganizationID int64          `json:"organization_id"`
+	InvoiceID      int64          `json:"invoice_id"`
+	LineNo         int32          `json:"line_no"`
+	Description    string         `json:"description"`
+	NetAmount      pgtype.Numeric `json:"net_amount"`
+	VatRate        pgtype.Numeric `json:"vat_rate"`
+	VatAmount      pgtype.Numeric `json:"vat_amount"`
+	TotalAmount    pgtype.Numeric `json:"total_amount"`
+}
+
+type SupplierPayment struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	SupplierID     int64              `json:"supplier_id"`
+	AccountID      int64              `json:"account_id"`
+	CashAccountID  int64              `json:"cash_account_id"`
+	Amount         pgtype.Numeric     `json:"amount"`
+	Currency       string             `json:"currency"`
+	PaymentDate    pgtype.Date        `json:"payment_date"`
+	Method         string             `json:"method"`
+	Reference      string             `json:"reference"`
+	Description    string             `json:"description"`
+	BranchID       pgtype.Int8        `json:"branch_id"`
+	LedgerEntryID  pgtype.Int8        `json:"ledger_entry_id"`
+	CashMovementID pgtype.Int8        `json:"cash_movement_id"`
+	Status         string             `json:"status"`
+	VoidReason     string             `json:"void_reason"`
+	VoidedBy       pgtype.Int8        `json:"voided_by"`
+	VoidedAt       pgtype.Timestamptz `json:"voided_at"`
+	CreatedBy      pgtype.Int8        `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SupplierPaymentAllocation struct {
+	ID             int64              `json:"id"`
+	OrganizationID int64              `json:"organization_id"`
+	PaymentID      int64              `json:"payment_id"`
+	InvoiceID      int64              `json:"invoice_id"`
+	Amount         pgtype.Numeric     `json:"amount"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
 type TollPass struct {
 	ID                   int64              `json:"id"`
 	Uuid                 uuid.UUID          `json:"uuid"`
@@ -2499,6 +2608,7 @@ type Vehicle struct {
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt          pgtype.Timestamptz `json:"deleted_at"`
+	SupplierID         pgtype.Int8        `json:"supplier_id"`
 }
 
 type VehicleAllocation struct {

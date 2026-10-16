@@ -49,6 +49,7 @@ type VehicleFields struct {
 	FleetPool          string
 	Ownership          string
 	SupplierName       string
+	SupplierID         pgtype.Int8
 	InServiceDate      pgtype.Date
 	OutOfServiceDate   pgtype.Date
 	OdometerKm         int32
@@ -111,7 +112,7 @@ func (r *Postgres) ListVehicles(ctx context.Context, orgID int64, f model.ListFi
 		DocumentStatuses: stringsArg(f.DocumentStatuses), Today: dateArg(f.Today),
 		DocumentHorizonDays: model.DocumentReminderDays,
 		HomeBranchUuids:     uuidsArg(f.HomeBranchUUIDs), CurrentBranchUuids: uuidsArg(f.CurrentBranchUUIDs),
-		GroupUuids: uuidsArg(f.GroupUUIDs), SegmentUuids: uuidsArg(f.SegmentUUIDs), Q: textArg(f.Q),
+		GroupUuids: uuidsArg(f.GroupUUIDs), SegmentUuids: uuidsArg(f.SegmentUUIDs), SupplierUuids: uuidsArg(f.SupplierUUIDs), Q: textArg(f.Q),
 		SortField: f.SortField, SortDesc: f.SortDesc, LimitCount: f.Limit, OffsetCount: f.Offset,
 	})
 	if err != nil {
@@ -123,7 +124,7 @@ func (r *Postgres) ListVehicles(ctx context.Context, orgID int64, f model.ListFi
 		DocumentStatuses: stringsArg(f.DocumentStatuses), Today: dateArg(f.Today),
 		DocumentHorizonDays: model.DocumentReminderDays,
 		HomeBranchUuids:     uuidsArg(f.HomeBranchUUIDs), CurrentBranchUuids: uuidsArg(f.CurrentBranchUUIDs),
-		GroupUuids: uuidsArg(f.GroupUUIDs), SegmentUuids: uuidsArg(f.SegmentUUIDs), Q: textArg(f.Q),
+		GroupUuids: uuidsArg(f.GroupUUIDs), SegmentUuids: uuidsArg(f.SegmentUUIDs), SupplierUuids: uuidsArg(f.SupplierUUIDs), Q: textArg(f.Q),
 	})
 	if err != nil {
 		return nil, 0, err
@@ -142,7 +143,7 @@ func (r *Postgres) ListVehicleUUIDs(ctx context.Context, orgID int64, f model.Li
 		DocumentStatuses: stringsArg(f.DocumentStatuses), Today: dateArg(f.Today),
 		DocumentHorizonDays: model.DocumentReminderDays,
 		HomeBranchUuids:     uuidsArg(f.HomeBranchUUIDs), CurrentBranchUuids: uuidsArg(f.CurrentBranchUUIDs),
-		GroupUuids: uuidsArg(f.GroupUUIDs), SegmentUuids: uuidsArg(f.SegmentUUIDs), Q: textArg(f.Q),
+		GroupUuids: uuidsArg(f.GroupUUIDs), SegmentUuids: uuidsArg(f.SegmentUUIDs), SupplierUuids: uuidsArg(f.SupplierUUIDs), Q: textArg(f.Q),
 		LimitCount: limit,
 	})
 }
@@ -179,7 +180,7 @@ func (r *Postgres) CreateVehicle(ctx context.Context, orgID int64, f VehicleFiel
 		ModelYear: f.ModelYear, Transmission: f.Transmission, Fuel: f.Fuel, BodyType: f.BodyType,
 		Seats: f.Seats, Luggage: f.Luggage, AirConditioning: f.AirConditioning, AttributesVerified: f.AttributesVerified,
 		Color: f.Color, HomeBranchID: f.HomeBranchID, CurrentBranchID: f.CurrentBranchID, FleetPool: f.FleetPool,
-		Ownership: f.Ownership, SupplierName: f.SupplierName, InServiceDate: f.InServiceDate,
+		Ownership: f.Ownership, SupplierName: f.SupplierName, SupplierID: f.SupplierID, InServiceDate: f.InServiceDate,
 		OutOfServiceDate: f.OutOfServiceDate, OdometerKm: f.OdometerKm, FuelLevel: f.FuelLevel,
 		Status: f.Status, IsActive: f.IsActive,
 	})
@@ -193,7 +194,7 @@ func (r *Postgres) UpdateVehicle(ctx context.Context, orgID int64, id uuid.UUID,
 		ModelYear: f.ModelYear, Transmission: f.Transmission, Fuel: f.Fuel, BodyType: f.BodyType,
 		Seats: f.Seats, Luggage: f.Luggage, AirConditioning: f.AirConditioning, AttributesVerified: f.AttributesVerified,
 		Color: f.Color, HomeBranchID: f.HomeBranchID, CurrentBranchID: f.CurrentBranchID, FleetPool: f.FleetPool,
-		Ownership: f.Ownership, SupplierName: f.SupplierName, InServiceDate: f.InServiceDate,
+		Ownership: f.Ownership, SupplierName: f.SupplierName, SupplierID: f.SupplierID, InServiceDate: f.InServiceDate,
 		OutOfServiceDate: f.OutOfServiceDate, OdometerKm: f.OdometerKm, FuelLevel: f.FuelLevel,
 		IsActive: f.IsActive,
 	})
@@ -451,6 +452,25 @@ func (r *Postgres) ListActivity(ctx context.Context, orgID int64, id uuid.UUID, 
 }
 
 // --- helpers ----------------------------------------------------------------------
+
+// GetSupplier resolves a supplier card of the organization.
+func (r *Postgres) GetSupplier(ctx context.Context, orgID int64, id uuid.UUID) (db.GetSupplierForFinanceRow, error) {
+	row, err := r.q.GetSupplierForFinance(ctx, db.GetSupplierForFinanceParams{OrganizationID: orgID, Uuid: id})
+	return row, mapErr(err)
+}
+
+// SupplierByTitle returns the one active supplier whose title matches a
+// free-text name (case-insensitive); none or several → invalid.
+func (r *Postgres) SupplierByTitle(ctx context.Context, orgID int64, title string) pgtype.Int8 {
+	if title == "" {
+		return pgtype.Int8{}
+	}
+	rows, err := r.q.FindSupplierIDsByTitle(ctx, db.FindSupplierIDsByTitleParams{OrganizationID: orgID, Title: title})
+	if err != nil || len(rows) != 1 {
+		return pgtype.Int8{}
+	}
+	return pgtype.Int8{Int64: rows[0].ID, Valid: true}
+}
 
 func mapErr(err error) error {
 	if err == nil {

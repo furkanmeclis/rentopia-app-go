@@ -79,6 +79,8 @@ export function createVehicleFormSchema(t: Translate) {
         ),
       ownership: z.string(),
       supplier_name: z.string().max(255),
+      supplier_uuid: z.string(),
+      had_supplier: z.boolean(),
       in_service_date: z.string(),
       out_of_service_date: z.string(),
       odometer_km: optionalInt(t, 0, 5_000_000, "vehicles.validation.km"),
@@ -119,7 +121,11 @@ export function createVehicleFormSchema(t: Translate) {
           message: t("vehicles.validation.model_year_invalid"),
         });
       }
-      if (v.ownership === "supplied" && !v.supplier_name.trim()) {
+      if (
+        v.ownership === "supplied" &&
+        !v.supplier_name.trim() &&
+        v.supplier_uuid === NONE
+      ) {
         ctx.addIssue({
           code: "custom",
           path: ["supplier_name"],
@@ -174,6 +180,8 @@ export function vehicleFormDefaults(vehicle?: Vehicle): VehicleFormValues {
     fleet_pool: vehicle?.fleet_pool ?? "MAIN",
     ownership: vehicle?.ownership ?? "owned",
     supplier_name: vehicle?.supplier_name ?? "",
+    supplier_uuid: vehicle?.supplier?.uuid ?? NONE,
+    had_supplier: Boolean(vehicle?.supplier),
     in_service_date: vehicle?.in_service_date ?? "",
     out_of_service_date: vehicle?.out_of_service_date ?? "",
     odometer_km: vehicle ? String(vehicle.odometer_km) : "",
@@ -234,6 +242,16 @@ export function vehicleFormToRequest(
     body.manual_type = values.manual_type.trim();
   } else {
     body.catalog_type_uuid = values.catalog_type_uuid;
+  }
+  if (values.ownership === "supplied") {
+    // A chosen card links the supplier (its title becomes the name);
+    // "no card" clears an existing link, otherwise the free-text name
+    // links the card with that title server-side.
+    if (values.supplier_uuid !== NONE) {
+      body.supplier_uuid = values.supplier_uuid;
+    } else if (values.had_supplier) {
+      body.supplier_uuid = null;
+    }
   }
   if (mode === "create") {
     body.status = values.status as VehicleStatus;
