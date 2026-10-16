@@ -61,6 +61,7 @@ import {
 } from "@/features/finance/hooks/use-finance";
 import { errorText } from "@/features/finance/lib/format";
 import type { FinanceAccount, LedgerEntry } from "@/features/finance/types";
+import { InvoicesCard } from "@/features/invoices/components/invoices-card";
 import { ResourceIOToolbar } from "@/features/io";
 import { useTenant } from "@/features/tenant/components/tenant-provider";
 import { tenantLiveList } from "@/features/tenant/lib/live";
@@ -255,6 +256,7 @@ export function AccountDetailPage({ uuid }: { uuid: string }) {
             <>
               <OpenItemsCard accountUuid={a.uuid} />
               <AccountCollectionsCard accountUuid={a.uuid} />
+              <InvoicesCard account={a.uuid} />
             </>
           ) : null}
 

@@ -209,6 +209,19 @@ const (
 	PermTenantAgreementsExport = "tenant.agreements.export"
 )
 
+// E-invoices / e-archive invoices (TEC-722, migration 000109). The
+// integrator account itself is an integration account
+// (PermTenantIntegrationsManage).
+const (
+	PermTenantInvoicesRead                 = "tenant.invoices.read"
+	PermTenantInvoicesWrite                = "tenant.invoices.write"
+	PermTenantInvoicesCancel               = "tenant.invoices.cancel"
+	PermTenantInvoicesExport               = "tenant.invoices.export"
+	PermTenantInvoicesSettings             = "tenant.invoices.settings"
+	PermTenantInvoicesBulkCreateForRentals = "tenant.invoices.bulk.create_for_rentals"
+	PermTenantInvoicesBulkSend             = "tenant.invoices.bulk.send"
+)
+
 // Tenant template role keys seeded by migrations 000030 and 000041.
 const (
 	TenantRoleOwner            = "owner"

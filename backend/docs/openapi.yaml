@@ -15786,6 +15786,34 @@ paths:
         "401": { $ref: "#/components/responses/CustomerSessionRequired" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/customer/{orgSlug}/reservations/{uuid}/invoices/{invoiceUuid}/pdf:
+    get:
+      tags: [Customer]
+      operationId: getCustomerReservationInvoicePdf
+      summary: Download an invoice of the reservation
+      description: |
+        Renter sessions only (a driver session gets 404). The PDF of an issued invoice of the session's own
+        reservation (rendered once from the stored UBL-TR XML; 409 `PDF_NOT_READY` while it cannot be rendered).
+        The browser never sees a storage key.
+      security:
+        - customerSession: []
+      parameters:
+        - $ref: "#/components/parameters/PortalOrgSlug"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - name: invoiceUuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: PDF
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/CustomerSessionRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
   /v1/customer/{orgSlug}/reservations/{uuid}/documents/{documentUuid}/pdf:
     get:
       tags: [Customer]
@@ -16633,6 +16661,489 @@ paths:
             schema: { $ref: "#/components/schemas/KabisResolveRequest" }
       responses:
         "200": { $ref: "#/components/responses/KabisNotificationOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/invoices/meta:
+    get:
+      tags: [Tenant]
+      operationId: getTenantInvoicesMeta
+      summary: Invoice list contract
+      description: "`tenant.invoices.read`. Columns, filters, sortable fields and bulk actions of the invoice list."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Resource meta
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeResourceMeta" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/invoices/facets:
+    get:
+      tags: [Tenant]
+      operationId: getTenantInvoicesFacets
+      summary: Invoice counts
+      description: "`tenant.invoices.read`. Status, profile and branch counts in the caller's branch scope; `needs_action` (failed sends, sends waiting for a person or a dependency) is the nav / finance badge."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Facets
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeInvoiceFacets" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/invoices/items:
+    get:
+      tags: [Tenant]
+      operationId: getTenantInvoiceItems
+      summary: Invoiceable ledger items
+      description: |
+        `tenant.invoices.read`. The live accruals (rent, approved charges) of an account or a rental that no
+        standing invoice covers, inside the caller's branch scope — what "Fatura kes" can cover. One of
+        `account` or `rental` is required.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - { name: account, in: query, schema: { type: string, format: uuid }, description: Customer account uuid }
+        - { name: rental, in: query, schema: { type: string, format: uuid }, description: Rental uuid }
+      responses:
+        "200":
+          description: Items
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeInvoiceItems" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/invoices/uninvoiced-rentals:
+    get:
+      tags: [Tenant]
+      operationId: getTenantUninvoicedRentals
+      summary: Rentals with invoiceable items
+      description: "`tenant.invoices.read`. The picker of the bulk action `create_for_rentals`: rentals with at least one invoiceable item, in the caller's branch scope."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+      responses:
+        "200":
+          description: Rental page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeUninvoicedRentalPage" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/invoices/settings:
+    get:
+      tags: [Tenant]
+      operationId: getTenantInvoiceSettings
+      summary: Invoice settings
+      description: "`tenant.invoices.read`. Series, supplier data (company settings + district / city), what is still missing, the tax mapping per line kind (defaults: 20 % KDV) and the integrator connection state (none, waiting = TEC-685, test, unavailable, ready)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeInvoiceSettings" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    put:
+      tags: [Tenant]
+      operationId: putTenantInvoiceSettings
+      summary: Save invoice settings
+      description: "`tenant.invoices.settings`. Fields left out stay; `tax_mappings` replace the named line kinds (a 0 % rate needs a GİB exemption code and reason). Audited."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceSettingsRequest" }
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeInvoiceSettings" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/invoices:
+    get:
+      tags: [Tenant]
+      operationId: getTenantInvoices
+      summary: List invoices
+      description: "`tenant.invoices.read`. Invoices of the branches in the caller's scope."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - name: sort
+          in: query
+          description: "`issue_date`, `created_at`, `number` or `payable_amount`; prefix `-` for descending (default `-issue_date`)."
+          schema: { type: string }
+        - { name: status, in: query, schema: { type: string }, description: "draft, queued, sent, awaiting_result, succeeded, failed, cancelled (comma separated)" }
+        - { name: profile, in: query, schema: { type: string }, description: "TEMELFATURA, TICARIFATURA, EARSIVFATURA (comma separated)" }
+        - { name: invoice_type, in: query, schema: { type: string }, description: "SATIS, IADE" }
+        - { name: branch, in: query, schema: { type: string }, description: Branch uuids (comma separated) }
+        - { name: account, in: query, schema: { type: string, format: uuid }, description: Customer account uuid }
+        - { name: rental, in: query, schema: { type: string, format: uuid }, description: "Rental uuid (its invoice and every invoice covering one of its items)" }
+        - { name: from, in: query, schema: { type: string, format: date }, description: Issue date from }
+        - { name: to, in: query, schema: { type: string, format: date }, description: Issue date to (inclusive) }
+        - { name: needs_action, in: query, schema: { type: string }, description: "`true` = failed sends and sends waiting for a person / dependency" }
+      responses:
+        "200":
+          description: Invoice page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeInvoicePage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantInvoice
+      summary: Cut a draft invoice ("Fatura kes")
+      description: |
+        `tenant.invoices.write`. A draft from a rental's invoiceable items, or from an account's (all, or the
+        `entry_uuids` named). The draft links the items through `ledger_entry_links` and posts nothing to the
+        ledger (RT-A22). The receiver is the account's customer; the taxpayer lookup decides TEMELFATURA
+        (e-Fatura) or EARSIVFATURA. A repeated `idempotency_key` (or `Idempotency-Key` header) answers the first
+        draft. Errors: `409 NOTHING_TO_INVOICE` (all invoiced / nothing accrued), `409 ALREADY_INVOICED`
+        (a concurrent draft took an item), `400` with `not_invoiceable` / `not_found` details.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceCreateRequest" }
+      responses:
+        "201": { $ref: "#/components/responses/InvoiceOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/invoices/export:
+    post:
+      tags: [Tenant]
+      operationId: postTenantInvoicesExport
+      summary: Export invoices
+      description: "`tenant.invoices.read` + `tenant.invoices.export`. `query` honours the list filters; the job runs with the requester's branch scope."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExportRequest" }
+      responses:
+        "202":
+          description: Export job queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeExportJob" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/invoices/bulk:
+    post:
+      tags: [Tenant]
+      operationId: postTenantInvoicesBulk
+      summary: Bulk invoice actions
+      description: |
+        `create_for_rentals` (`tenant.invoices.bulk.create_for_rentals`, reversible: the rollback cancels drafts
+        that were not finalized): targets are rental uuids (or the uninvoiced-rentals query); one draft per rental.
+        `send` (`tenant.invoices.bulk.send`): finalizes and sends drafts (invoice uuids or the list query).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BulkExecuteRequest" }
+      responses:
+        "200":
+          description: Sync bulk result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeBulkSyncResult" }
+        "202":
+          description: Async bulk job queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeBulkJob" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/invoices/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantInvoice
+      summary: Get an invoice
+      description: "`tenant.invoices.read`. Receiver (identity hint only), lines, ledger links, validation problems per field, the send / cancel jobs with their attempt history, and the actions the invoice allows."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200": { $ref: "#/components/responses/InvoiceOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantInvoice
+      summary: Edit a draft invoice
+      description: "`tenant.invoices.write`. Drafts only (`409 INVOICE_NOT_DRAFT`): issue date (today or up to 7 days back), note, profile (must match the receiver's e-Fatura registration), receiver (a new identity number repeats the taxpayer lookup), line names / VAT / exemption; `remove_entry_uuids` takes items off (their links are released). Amounts follow the ledger items."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoicePatchRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/InvoiceOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/invoices/{uuid}/validate:
+    post:
+      tags: [Tenant]
+      operationId: postTenantInvoiceValidate
+      summary: Validate a draft
+      description: "`tenant.invoices.write`. Builds the draft with go-ubltr under a placeholder number and checks it (module checks, GİB XSD, Schematron — e-Arşiv rules for EARSIVFATURA). The problems are stored on the draft and returned per form field."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Validation result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeInvoiceValidation" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/invoices/{uuid}/finalize:
+    post:
+      tags: [Tenant]
+      operationId: postTenantInvoiceFinalize
+      summary: Finalize and send
+      description: |
+        `tenant.invoices.write`. Numbers the draft (series + year + sequence), builds the UBL-TR XML with go-ubltr,
+        validates it (XSD + Schematron), stores it privately and queues the send on the integration runner — all
+        or nothing: problems answer `422 INVOICE_DOCUMENT_INVALID` with the problems per field, and nothing is
+        numbered or sent. Without a working integrator the send waits (`queued`, `hold_reason`). A finalized
+        invoice answers as it is (idempotent).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200": { $ref: "#/components/responses/InvoiceOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenant/invoices/{uuid}/retry:
+    post:
+      tags: [Tenant]
+      operationId: postTenantInvoiceRetry
+      summary: Retry a send
+      description: |
+        `tenant.invoices.write`. Audited. Waiting on the dependency: the integrator is looked up again
+        (`rerouted`; still none `409 EINVOICE_DEPENDENCY_PENDING`). Otherwise a status check first: the document is
+        sent again only when the integrator confirms it does not have it (`already_done`, `in_progress`,
+        `resubmitted`); an unknown answer sends nothing (`409 INVOICE_UNVERIFIED`, the invoice in `data`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: What the retry did
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeInvoiceRetry" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/invoices/{uuid}/cancel:
+    post:
+      tags: [Tenant]
+      operationId: postTenantInvoiceCancel
+      summary: Cancel an invoice
+      description: |
+        `tenant.invoices.cancel`. A draft, an unsent invoice (the send has not started) and a failed one are
+        cancelled at once; an issued e-Arşiv invoice is cancelled through the integrator (a cancel job; the invoice
+        becomes `cancelled` when confirmed); an issued e-Fatura answers `409 USE_RETURN_INVOICE`. The items are
+        freed for a new invoice. A reason (3-500) is required except for drafts.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceCancelRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/InvoiceOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/invoices/{uuid}/return:
+    post:
+      tags: [Tenant]
+      operationId: postTenantInvoiceReturn
+      summary: Create the return (IADE) invoice
+      description: "`tenant.invoices.cancel`. The IADE draft of an issued sales invoice: same receiver and lines, TEMELFATURA instead of TICARIFATURA, a billing reference to the returned invoice. When it is issued the returned invoice is marked returned and its items are freed. Nothing is posted to the ledger. A second call answers the existing return."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceReturnRequest" }
+      responses:
+        "201": { $ref: "#/components/responses/InvoiceOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/invoices/{uuid}/preview:
+    get:
+      tags: [Tenant]
+      operationId: getTenantInvoicePreview
+      summary: HTML preview
+      description: "`tenant.invoices.read`. The go-ubltr HTML render (the module's XSLT; no scripts, CSP sandbox): the stored document of a finalized invoice, or the draft under a placeholder number. A draft that cannot be built yet answers `422`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: HTML document
+          content:
+            text/html:
+              schema: { type: string }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+
+  /v1/tenant/invoices/{uuid}/xml:
+    get:
+      tags: [Tenant]
+      operationId: getTenantInvoiceXml
+      summary: Download the UBL-TR XML
+      description: "`tenant.invoices.read`. Streamed by the API from private storage; `409 INVOICE_NO_DOCUMENT` for a draft. Audited."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: XML
+          content:
+            application/xml:
+              schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/invoices/{uuid}/pdf:
+    get:
+      tags: [Tenant]
+      operationId: getTenantInvoicePdf
+      summary: Download the PDF
+      description: "`tenant.invoices.read`. Rendered once from the stored XML (go-ubltr HTML, headless Chromium) and kept privately; `503 PDF_UNAVAILABLE` without Chromium, `409 INVOICE_NO_DOCUMENT` for a draft. Audited."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: PDF
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/TenantForbidden" }
@@ -20058,6 +20569,12 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/EnvelopeAgreement"
+    InvoiceOK:
+      description: Invoice
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/EnvelopeInvoice"
     KabisNotificationOK:
       description: KABİS notification
       content:
@@ -31336,7 +31853,7 @@ components:
       allOf:
         - $ref: "#/components/schemas/CustomerReservationSummary"
         - type: object
-          required: [pickup_point, return_point, vehicle, drivers, extras, policies, cancellation, actions, documents, requests]
+          required: [pickup_point, return_point, vehicle, drivers, extras, policies, cancellation, actions, documents, invoices, requests]
           properties:
             pickup_point: { type: string }
             return_point: { type: string }
@@ -31378,6 +31895,7 @@ components:
                 request_change: { type: boolean }
                 request_cancel: { type: boolean }
             documents: { type: array, items: { $ref: "#/components/schemas/PortalDocument" } }
+            invoices: { type: array, items: { $ref: "#/components/schemas/PortalInvoice" }, description: "Issued invoices (renter sessions only)" }
             requests: { type: array, items: { $ref: "#/components/schemas/CustomerRequest" } }
 
     EnvelopeCustomerReservation:
@@ -31880,6 +32398,533 @@ components:
           properties:
             action: { type: string, enum: [revalidated, already_done, in_progress, resubmitted] }
             notification: { $ref: "#/components/schemas/KabisNotificationDetail" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    InvoiceStatus:
+      type: string
+      description: |
+        draft (editable, unnumbered), queued (numbered, the send waits or is due; `hold_reason` when it waits on
+        the integrator dependency), sent (outcome being verified), awaiting_result (the integrator accepted it,
+        GİB has not answered), succeeded (issued), failed (the integrator confirmed it was not issued), cancelled.
+      enum: [draft, queued, sent, awaiting_result, succeeded, failed, cancelled]
+
+    InvoiceProfile:
+      type: string
+      enum: [TEMELFATURA, TICARIFATURA, EARSIVFATURA]
+
+    InvoiceLineKind:
+      type: string
+      enum: [rent, extra, one_way, charge, toll]
+
+    InvoiceRef:
+      type: object
+      required: [uuid, code, name]
+      properties:
+        uuid: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+
+    InvoiceRentalRef:
+      type: object
+      required: [uuid, reference]
+      properties:
+        uuid: { type: string, format: uuid }
+        reference: { type: string }
+
+    InvoiceOtherRef:
+      type: object
+      required: [uuid, number]
+      properties:
+        uuid: { type: string, format: uuid }
+        number: { type: [string, "null"] }
+        status: { type: string }
+
+    Invoice:
+      type: object
+      required: [uuid, number, profile, invoice_type, status, issue_date, currency, receiver_type, receiver_name, receiver_identity_hint, receiver_einvoice, line_extension_amount, tax_amount, payable_amount, linked_amount, rounding_amount, branch, account, rental, returns, external_ref, hold_reason, last_error, job_status, attempts, needs_action, problem_count, returned, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid, description: "The ETTN (sent unchanged on every attempt)" }
+        number: { type: [string, "null"], description: "SSSYYYYNNNNNNNNN, set when finalized" }
+        profile: { $ref: "#/components/schemas/InvoiceProfile" }
+        invoice_type: { type: string, enum: [SATIS, IADE] }
+        status: { $ref: "#/components/schemas/InvoiceStatus" }
+        issue_date: { type: string, format: date }
+        currency: { type: string }
+        receiver_type: { type: string, enum: [individual, corporate] }
+        receiver_name: { type: string }
+        receiver_identity_hint: { type: string }
+        receiver_einvoice: { type: boolean, description: "The receiver is an e-Fatura taxpayer" }
+        line_extension_amount: { type: string }
+        tax_amount: { type: string }
+        payable_amount: { type: string }
+        linked_amount: { type: string, description: "Sum of the ledger items the invoice covers" }
+        rounding_amount: { type: string, description: "payable − linked (VAT rounding; 0 unless unavoidable)" }
+        branch: { $ref: "#/components/schemas/InvoiceRef" }
+        account:
+          oneOf:
+            - $ref: "#/components/schemas/InvoiceRef"
+            - type: "null"
+        rental:
+          oneOf:
+            - $ref: "#/components/schemas/InvoiceRentalRef"
+            - type: "null"
+        returns:
+          oneOf:
+            - $ref: "#/components/schemas/InvoiceOtherRef"
+            - type: "null"
+        external_ref: { type: string, description: "The integrator's reference" }
+        hold_reason: { type: string, description: "no_account, adapter_unverified, adapter_unavailable" }
+        last_error: { type: string }
+        job_status: { type: [string, "null"], description: "Integration job status of the send" }
+        attempts: { type: integer }
+        needs_action: { type: boolean }
+        problem_count: { type: integer }
+        returned: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    InvoiceReceiver:
+      type: object
+      required: [type, identity_type, identity_hint, name, first_name, last_name, tax_office, address, district, city, postal_code, country, email, einvoice, alias, taxpayer_source, taxpayer_checked_at]
+      properties:
+        type: { type: string, enum: [individual, corporate] }
+        identity_type: { type: [string, "null"], enum: [vkn, tckn, null] }
+        identity_hint: { type: string, description: "Masked; the number itself is never returned" }
+        name: { type: string }
+        first_name: { type: string }
+        last_name: { type: string }
+        tax_office: { type: string }
+        address: { type: string }
+        district: { type: string }
+        city: { type: string }
+        postal_code: { type: string }
+        country: { type: string }
+        email: { type: string }
+        einvoice: { type: boolean }
+        alias: { type: string }
+        taxpayer_source: { type: string, enum: ["", provider, cache, customer_flag] }
+        taxpayer_checked_at: { type: [string, "null"], format: date-time }
+
+    InvoiceLine:
+      type: object
+      required: [uuid, position, kind, name, days, entry_uuid, gross_amount, net_amount, vat_rate, vat_amount, total_amount, exemption_code, exemption_reason]
+      properties:
+        uuid: { type: string, format: uuid }
+        position: { type: integer }
+        kind: { $ref: "#/components/schemas/InvoiceLineKind" }
+        name: { type: string }
+        days: { type: integer, description: "Quantity in days (rent); 0 = one piece" }
+        entry_uuid: { type: [string, "null"], format: uuid }
+        gross_amount: { type: string, description: "The ledger part the line carries" }
+        net_amount: { type: string }
+        vat_rate: { type: string }
+        vat_amount: { type: string }
+        total_amount: { type: string }
+        exemption_code: { type: string }
+        exemption_reason: { type: string }
+
+    InvoiceLink:
+      type: object
+      required: [entry_uuid, entry_kind, purpose, entry_amount, amount, entry_date, description, rental, released, released_at, release_reason]
+      properties:
+        entry_uuid: { type: string, format: uuid }
+        entry_kind: { type: string }
+        purpose: { type: string }
+        entry_amount: { type: string }
+        amount: { type: string }
+        entry_date: { type: string, format: date }
+        description: { type: string }
+        rental:
+          oneOf:
+            - $ref: "#/components/schemas/InvoiceRentalRef"
+            - type: "null"
+        released: { type: boolean }
+        released_at: { type: [string, "null"], format: date-time }
+        release_reason: { type: string, enum: ["", cancelled, returned, removed] }
+
+    InvoiceProblem:
+      type: object
+      required: [layer, field, code, message]
+      properties:
+        layer: { type: string, enum: [check, builder, xsd, schematron] }
+        field: { type: string, description: "Form field (receiver.district, lines.0.vat_rate, supplier.tax_number, document …)" }
+        code: { type: string }
+        message: { type: string }
+        path: { type: string }
+
+    InvoiceJobState:
+      type: object
+      required: [uuid, status, attempts, max_attempts, last_error, provider, provider_ref, next_attempt_at, busy]
+      properties:
+        uuid: { type: string, format: uuid }
+        status: { type: string }
+        attempts: { type: integer }
+        max_attempts: { type: integer }
+        last_error: { type: string }
+        provider: { type: string }
+        provider_ref: { type: string }
+        next_attempt_at: { type: [string, "null"], format: date-time }
+        busy: { type: boolean }
+
+    InvoiceActor:
+      type: object
+      required: [uuid, name, surname]
+      properties:
+        uuid: { type: string, format: uuid }
+        name: { type: string }
+        surname: { type: string }
+        email: { type: string }
+
+    InvoiceDetail:
+      allOf:
+        - $ref: "#/components/schemas/Invoice"
+        - type: object
+          required: [receiver, note, lines, links, validation_errors, validated_at, returned_by, job, cancel_job, attempt_log, cancel_attempt_log, actions, cancel_reason, cancelled_at, cancelled_by, finalized_at, sent_at, succeeded_at, returned_at, created_by]
+          properties:
+            receiver: { $ref: "#/components/schemas/InvoiceReceiver" }
+            note: { type: string }
+            lines: { type: array, items: { $ref: "#/components/schemas/InvoiceLine" } }
+            links: { type: array, items: { $ref: "#/components/schemas/InvoiceLink" } }
+            validation_errors: { type: array, items: { $ref: "#/components/schemas/InvoiceProblem" } }
+            validated_at: { type: [string, "null"], format: date-time }
+            returned_by:
+              oneOf:
+                - $ref: "#/components/schemas/InvoiceOtherRef"
+                - type: "null"
+            job:
+              oneOf:
+                - $ref: "#/components/schemas/InvoiceJobState"
+                - type: "null"
+            cancel_job:
+              oneOf:
+                - $ref: "#/components/schemas/InvoiceJobState"
+                - type: "null"
+            attempt_log: { type: array, items: { $ref: "#/components/schemas/IntegrationAttempt" } }
+            cancel_attempt_log: { type: array, items: { $ref: "#/components/schemas/IntegrationAttempt" } }
+            actions:
+              type: object
+              required: [edit, validate, finalize, retry, cancel, return, download_xml, download_pdf, preview]
+              properties:
+                edit: { type: boolean }
+                validate: { type: boolean }
+                finalize: { type: boolean }
+                retry: { type: boolean }
+                cancel: { type: boolean }
+                return: { type: boolean }
+                download_xml: { type: boolean }
+                download_pdf: { type: boolean }
+                preview: { type: boolean }
+            cancel_reason: { type: string }
+            cancelled_at: { type: [string, "null"], format: date-time }
+            cancelled_by:
+              oneOf:
+                - $ref: "#/components/schemas/InvoiceActor"
+                - type: "null"
+            finalized_at: { type: [string, "null"], format: date-time }
+            sent_at: { type: [string, "null"], format: date-time }
+            succeeded_at: { type: [string, "null"], format: date-time }
+            returned_at: { type: [string, "null"], format: date-time }
+            created_by:
+              oneOf:
+                - $ref: "#/components/schemas/InvoiceActor"
+                - type: "null"
+
+    InvoiceItem:
+      type: object
+      required: [entry_uuid, purpose, line_kind, charge_kind, amount, currency, entry_date, description, account, rental, branch]
+      properties:
+        entry_uuid: { type: string, format: uuid }
+        purpose: { type: string }
+        line_kind: { $ref: "#/components/schemas/InvoiceLineKind" }
+        charge_kind: { type: [string, "null"] }
+        amount: { type: string }
+        currency: { type: string }
+        entry_date: { type: string, format: date }
+        description: { type: string }
+        account: { $ref: "#/components/schemas/InvoiceRef" }
+        rental:
+          oneOf:
+            - $ref: "#/components/schemas/InvoiceRentalRef"
+            - type: "null"
+        branch:
+          oneOf:
+            - $ref: "#/components/schemas/InvoiceRef"
+            - type: "null"
+
+    UninvoicedRental:
+      type: object
+      required: [uuid, reference, status, customer_name, branch, open_amount, item_count, first_date, actual_pickup_at, actual_return_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        reference: { type: string }
+        status: { type: string }
+        customer_name: { type: string }
+        branch: { $ref: "#/components/schemas/InvoiceRef" }
+        open_amount: { type: string }
+        item_count: { type: integer, format: int64 }
+        first_date: { type: string, format: date }
+        actual_pickup_at: { type: [string, "null"], format: date-time }
+        actual_return_at: { type: [string, "null"], format: date-time }
+
+    InvoiceFacet:
+      type: object
+      required: [value, count]
+      properties:
+        value: { type: string }
+        label: { type: string }
+        count: { type: integer, format: int64 }
+
+    InvoiceFacets:
+      type: object
+      required: [status, profile, branch, needs_action]
+      properties:
+        status: { type: array, items: { $ref: "#/components/schemas/InvoiceFacet" } }
+        profile: { type: array, items: { $ref: "#/components/schemas/InvoiceFacet" } }
+        branch: { type: array, items: { $ref: "#/components/schemas/InvoiceFacet" } }
+        needs_action: { type: integer, format: int64 }
+
+    InvoiceCreateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        rental_uuid: { type: [string, "null"], format: uuid }
+        account_uuid: { type: [string, "null"], format: uuid }
+        entry_uuids: { type: array, items: { type: string, format: uuid }, description: "With account_uuid: only these items" }
+        branch_uuid: { type: [string, "null"], format: uuid, description: "Issuing branch (default: the rental's pick-up branch / the items' branch)" }
+        issue_date: { type: [string, "null"], format: date }
+        note: { type: [string, "null"] }
+        idempotency_key: { type: string, maxLength: 64 }
+
+    InvoiceReceiverInput:
+      type: object
+      additionalProperties: false
+      properties:
+        type: { type: string, enum: [individual, corporate] }
+        identity_type: { type: string, enum: [vkn, tckn] }
+        identity_number: { type: string, description: "Write-only; sealed at rest" }
+        name: { type: string }
+        first_name: { type: string }
+        last_name: { type: string }
+        tax_office: { type: string }
+        address: { type: string }
+        district: { type: string }
+        city: { type: string }
+        postal_code: { type: string }
+        country: { type: string }
+        email: { type: string }
+
+    InvoiceLinePatch:
+      type: object
+      additionalProperties: false
+      required: [uuid]
+      properties:
+        uuid: { type: string, format: uuid }
+        name: { type: string }
+        vat_rate: { type: string }
+        exemption_code: { type: string }
+        exemption_reason: { type: string }
+
+    InvoicePatchRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        issue_date: { type: string, format: date }
+        note: { type: string }
+        profile: { $ref: "#/components/schemas/InvoiceProfile" }
+        receiver: { $ref: "#/components/schemas/InvoiceReceiverInput" }
+        lines: { type: array, items: { $ref: "#/components/schemas/InvoiceLinePatch" } }
+        remove_entry_uuids: { type: array, items: { type: string, format: uuid } }
+
+    InvoiceCancelRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reason: { type: string, maxLength: 500 }
+
+    InvoiceReturnRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 3, maxLength: 500 }
+        issue_date: { type: [string, "null"], format: date }
+
+    InvoiceTaxMapping:
+      type: object
+      required: [line_kind, vat_rate, exemption_code, exemption_reason, default]
+      properties:
+        line_kind: { $ref: "#/components/schemas/InvoiceLineKind" }
+        vat_rate: { type: string }
+        exemption_code: { type: string }
+        exemption_reason: { type: string }
+        default: { type: boolean, description: "The Turkish default (never saved)" }
+
+    InvoiceSupplier:
+      type: object
+      required: [legal_name, tax_number, tax_office, address, district, city, postal_code, email, phone]
+      properties:
+        legal_name: { type: string }
+        tax_number: { type: string }
+        tax_office: { type: string }
+        address: { type: string }
+        district: { type: string }
+        city: { type: string }
+        postal_code: { type: string }
+        email: { type: string }
+        phone: { type: string }
+
+    InvoiceConnection:
+      type: object
+      required: [state, account_uuid, provider, name]
+      properties:
+        state: { type: string, enum: [none, waiting, test, unavailable, ready] }
+        account_uuid: { type: [string, "null"], format: uuid }
+        provider: { type: string }
+        name: { type: string }
+
+    InvoiceSettings:
+      type: object
+      required: [efatura_series, earsiv_series, supplier_district, supplier_city, supplier_postal_code, default_note, taxpayer_cache_hours, tax_mappings, supplier, missing, connection, updated_at]
+      properties:
+        efatura_series: { type: string }
+        earsiv_series: { type: string }
+        supplier_district: { type: string }
+        supplier_city: { type: string }
+        supplier_postal_code: { type: string }
+        default_note: { type: string }
+        taxpayer_cache_hours: { type: integer }
+        tax_mappings: { type: array, items: { $ref: "#/components/schemas/InvoiceTaxMapping" } }
+        supplier: { $ref: "#/components/schemas/InvoiceSupplier" }
+        missing: { type: array, items: { type: string } }
+        connection: { $ref: "#/components/schemas/InvoiceConnection" }
+        updated_at: { type: [string, "null"], format: date-time }
+
+    InvoiceTaxMappingInput:
+      type: object
+      additionalProperties: false
+      required: [line_kind, vat_rate]
+      properties:
+        line_kind: { $ref: "#/components/schemas/InvoiceLineKind" }
+        vat_rate: { type: string }
+        exemption_code: { type: string }
+        exemption_reason: { type: string }
+
+    InvoiceSettingsRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        efatura_series: { type: string, pattern: "^[A-Z0-9]{3}$" }
+        earsiv_series: { type: string, pattern: "^[A-Z0-9]{3}$" }
+        supplier_district: { type: string }
+        supplier_city: { type: string }
+        supplier_postal_code: { type: string }
+        default_note: { type: string }
+        taxpayer_cache_hours: { type: integer, minimum: 1, maximum: 720 }
+        tax_mappings: { type: array, items: { $ref: "#/components/schemas/InvoiceTaxMappingInput" } }
+
+    PortalInvoice:
+      type: object
+      required: [uuid, number, profile, invoice_type, issue_date, payable_amount, currency, download_path]
+      properties:
+        uuid: { type: string, format: uuid }
+        number: { type: string }
+        profile: { type: string }
+        invoice_type: { type: string }
+        issue_date: { type: string, format: date }
+        payable_amount: { type: string }
+        currency: { type: string }
+        download_path: { type: string, description: "API path relative to /v1" }
+
+    EnvelopeInvoice:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/InvoiceDetail" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeInvoicePage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/Invoice" } }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeInvoiceFacets:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/InvoiceFacets" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeInvoiceItems:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/InvoiceItem" } }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeUninvoicedRentalPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/UninvoicedRental" } }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeInvoiceSettings:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/InvoiceSettings" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeInvoiceValidation:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [valid, problems]
+          properties:
+            valid: { type: boolean }
+            problems: { type: array, items: { $ref: "#/components/schemas/InvoiceProblem" } }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeInvoiceRetry:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [action, invoice]
+          properties:
+            action: { type: string, enum: [rerouted, already_done, in_progress, resubmitted] }
+            invoice: { $ref: "#/components/schemas/InvoiceDetail" }
         meta: { $ref: "#/components/schemas/ResponseMeta" }
 
     EnvelopeTollPass:

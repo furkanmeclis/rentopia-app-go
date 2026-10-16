@@ -91,6 +91,7 @@
   "resources.tenant.supplier_payments": "Supplier payments",
   "resources.tenant.security_deposits": "Security deposits",
   "resources.tenant.finance_collections": "Collections",
+  "resources.tenant.invoices": "Invoices",
   "resources.tenant.vehicle_profitability": "Vehicle profitability",
   "resources.tenant.agreements": "Corporate agreements"
 }

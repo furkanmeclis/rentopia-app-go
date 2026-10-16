@@ -783,6 +783,17 @@ type Driver struct {
 	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
 }
 
+type EinvoiceTaxpayer struct {
+	OrganizationID int64              `json:"organization_id"`
+	IdentityBidx   string             `json:"identity_bidx"`
+	IsEinvoice     bool               `json:"is_einvoice"`
+	Alias          string             `json:"alias"`
+	Title          string             `json:"title"`
+	Provider       string             `json:"provider"`
+	CheckedAt      pgtype.Timestamptz `json:"checked_at"`
+	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
+}
+
 type EquipmentAllocation struct {
 	ID                  int64                            `json:"id"`
 	Uuid                uuid.UUID                        `json:"uuid"`
@@ -1149,6 +1160,122 @@ type IntegrationJob struct {
 	Priority             string             `json:"priority"`
 }
 
+type Invoice struct {
+	ID                   int64              `json:"id"`
+	Uuid                 uuid.UUID          `json:"uuid"`
+	OrganizationID       int64              `json:"organization_id"`
+	BranchID             int64              `json:"branch_id"`
+	AccountID            pgtype.Int8        `json:"account_id"`
+	CustomerID           pgtype.Int8        `json:"customer_id"`
+	RentalID             pgtype.Int8        `json:"rental_id"`
+	ReturnsInvoiceID     pgtype.Int8        `json:"returns_invoice_id"`
+	Series               pgtype.Text        `json:"series"`
+	SequenceYear         pgtype.Int4        `json:"sequence_year"`
+	SequenceNo           pgtype.Int8        `json:"sequence_no"`
+	Number               pgtype.Text        `json:"number"`
+	Profile              string             `json:"profile"`
+	InvoiceType          string             `json:"invoice_type"`
+	Status               string             `json:"status"`
+	IssueDate            pgtype.Date        `json:"issue_date"`
+	Currency             string             `json:"currency"`
+	ReceiverType         string             `json:"receiver_type"`
+	ReceiverIdentityType pgtype.Text        `json:"receiver_identity_type"`
+	ReceiverIdentityEnc  string             `json:"receiver_identity_enc"`
+	ReceiverIdentityHint string             `json:"receiver_identity_hint"`
+	ReceiverName         string             `json:"receiver_name"`
+	ReceiverFirstName    string             `json:"receiver_first_name"`
+	ReceiverLastName     string             `json:"receiver_last_name"`
+	ReceiverTaxOffice    string             `json:"receiver_tax_office"`
+	ReceiverAddress      string             `json:"receiver_address"`
+	ReceiverDistrict     string             `json:"receiver_district"`
+	ReceiverCity         string             `json:"receiver_city"`
+	ReceiverPostalCode   string             `json:"receiver_postal_code"`
+	ReceiverCountry      string             `json:"receiver_country"`
+	ReceiverEmail        string             `json:"receiver_email"`
+	ReceiverEinvoice     bool               `json:"receiver_einvoice"`
+	ReceiverAlias        string             `json:"receiver_alias"`
+	TaxpayerSource       string             `json:"taxpayer_source"`
+	TaxpayerCheckedAt    pgtype.Timestamptz `json:"taxpayer_checked_at"`
+	LineExtensionAmount  pgtype.Numeric     `json:"line_extension_amount"`
+	TaxAmount            pgtype.Numeric     `json:"tax_amount"`
+	PayableAmount        pgtype.Numeric     `json:"payable_amount"`
+	LinkedAmount         pgtype.Numeric     `json:"linked_amount"`
+	Note                 string             `json:"note"`
+	ValidationErrors     []byte             `json:"validation_errors"`
+	ValidatedAt          pgtype.Timestamptz `json:"validated_at"`
+	XmlKey               pgtype.Text        `json:"xml_key"`
+	XmlSha256            string             `json:"xml_sha256"`
+	PdfKey               pgtype.Text        `json:"pdf_key"`
+	IntegrationJobID     pgtype.Int8        `json:"integration_job_id"`
+	ExternalRef          string             `json:"external_ref"`
+	HoldReason           string             `json:"hold_reason"`
+	LastError            string             `json:"last_error"`
+	CancelJobID          pgtype.Int8        `json:"cancel_job_id"`
+	CancelReason         string             `json:"cancel_reason"`
+	CancelledBy          pgtype.Int8        `json:"cancelled_by"`
+	CancelledAt          pgtype.Timestamptz `json:"cancelled_at"`
+	ReturnedAt           pgtype.Timestamptz `json:"returned_at"`
+	FinalizedAt          pgtype.Timestamptz `json:"finalized_at"`
+	SentAt               pgtype.Timestamptz `json:"sent_at"`
+	SucceededAt          pgtype.Timestamptz `json:"succeeded_at"`
+	IdempotencyKey       pgtype.Text        `json:"idempotency_key"`
+	CreatedBy            pgtype.Int8        `json:"created_by"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+type InvoiceLine struct {
+	ID              int64              `json:"id"`
+	Uuid            uuid.UUID          `json:"uuid"`
+	OrganizationID  int64              `json:"organization_id"`
+	InvoiceID       int64              `json:"invoice_id"`
+	Position        int32              `json:"position"`
+	Kind            string             `json:"kind"`
+	Name            string             `json:"name"`
+	Days            int32              `json:"days"`
+	EntryID         pgtype.Int8        `json:"entry_id"`
+	GrossAmount     pgtype.Numeric     `json:"gross_amount"`
+	NetAmount       pgtype.Numeric     `json:"net_amount"`
+	VatRate         pgtype.Numeric     `json:"vat_rate"`
+	VatAmount       pgtype.Numeric     `json:"vat_amount"`
+	ExemptionCode   string             `json:"exemption_code"`
+	ExemptionReason string             `json:"exemption_reason"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type InvoiceSequence struct {
+	OrganizationID int64  `json:"organization_id"`
+	Series         string `json:"series"`
+	Year           int32  `json:"year"`
+	LastValue      int64  `json:"last_value"`
+}
+
+type InvoiceSetting struct {
+	OrganizationID     int64              `json:"organization_id"`
+	EfaturaSeries      string             `json:"efatura_series"`
+	EarsivSeries       string             `json:"earsiv_series"`
+	SupplierDistrict   string             `json:"supplier_district"`
+	SupplierCity       string             `json:"supplier_city"`
+	SupplierPostalCode string             `json:"supplier_postal_code"`
+	DefaultNote        string             `json:"default_note"`
+	TaxpayerCacheHours int32              `json:"taxpayer_cache_hours"`
+	UpdatedBy          pgtype.Int8        `json:"updated_by"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+type InvoiceTaxMapping struct {
+	OrganizationID  int64              `json:"organization_id"`
+	LineKind        string             `json:"line_kind"`
+	VatRate         pgtype.Numeric     `json:"vat_rate"`
+	ExemptionCode   string             `json:"exemption_code"`
+	ExemptionReason string             `json:"exemption_reason"`
+	UpdatedBy       pgtype.Int8        `json:"updated_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
 type KabisNotification struct {
 	ID                    int64              `json:"id"`
 	Uuid                  uuid.UUID          `json:"uuid"`
@@ -1227,6 +1354,10 @@ type LedgerEntryLink struct {
 	DocumentRef    string             `json:"document_ref"`
 	CreatedBy      pgtype.Int8        `json:"created_by"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	InvoiceID      pgtype.Int8        `json:"invoice_id"`
+	Amount         pgtype.Numeric     `json:"amount"`
+	ReleasedAt     pgtype.Timestamptz `json:"released_at"`
+	ReleaseReason  string             `json:"release_reason"`
 }
 
 type LogPurgeRule struct {

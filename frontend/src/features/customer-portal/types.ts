@@ -11,6 +11,7 @@ export type PortalSessionIssued = Schemas["CustomerSessionIssued"];
 export type PortalReservationSummary = Schemas["CustomerReservationSummary"];
 export type PortalReservation = Schemas["CustomerReservation"];
 export type PortalDocument = Schemas["PortalDocument"];
+export type PortalInvoice = Schemas["PortalInvoice"];
 export type PortalRequest = Schemas["CustomerRequest"];
 export type PortalRequestCreate = Schemas["CustomerRequestCreate"];
 export type PortalPayResult = Schemas["CustomerPayResult"];

@@ -48,6 +48,7 @@ type Querier interface {
 	CampaignFacets(ctx context.Context, arg CampaignFacetsParams) ([]CampaignFacetsRow, error)
 	// A new link replaces the reservation's active one.
 	CancelActivePaymentLinks(ctx context.Context, arg CancelActivePaymentLinksParams) (int64, error)
+	CancelInvoice(ctx context.Context, arg CancelInvoiceParams) (int64, error)
 	CancelPaymentLink(ctx context.Context, arg CancelPaymentLinkParams) (int64, error)
 	CancelRental(ctx context.Context, arg CancelRentalParams) (int64, error)
 	// The reservation ended (cancelled, expired, no-show) or no longer asks for
@@ -133,6 +134,8 @@ type Querier interface {
 	CountImportJobsForActor(ctx context.Context, actorID int64) (int64, error)
 	CountInspectionCharges(ctx context.Context, arg CountInspectionChargesParams) (int64, error)
 	CountInvitations(ctx context.Context, arg CountInvitationsParams) (int64, error)
+	// Failed sends and sends waiting for a person (finance screen badge).
+	CountInvoicesNeedingAction(ctx context.Context, arg CountInvoicesNeedingActionParams) (int64, error)
 	CountLiveInvoiceAllocations(ctx context.Context, arg CountLiveInvoiceAllocationsParams) (int64, error)
 	CountLivePolicyLateCharges(ctx context.Context, arg CountLivePolicyLateChargesParams) (int64, error)
 	CountNotificationsForUser(ctx context.Context, arg CountNotificationsForUserParams) (int64, error)
@@ -313,6 +316,7 @@ type Querier interface {
 	DeleteInspectionDamage(ctx context.Context, arg DeleteInspectionDamageParams) (int64, error)
 	DeleteInspectionPhoto(ctx context.Context, arg DeleteInspectionPhotoParams) (int64, error)
 	DeleteInspectionSignature(ctx context.Context, arg DeleteInspectionSignatureParams) (int64, error)
+	DeleteInvoiceLinesOfEntries(ctx context.Context, arg DeleteInvoiceLinesOfEntriesParams) error
 	DeleteLogPurgeRule(ctx context.Context, argUuid uuid.UUID) (int64, error)
 	DeleteMemberBranches(ctx context.Context, arg DeleteMemberBranchesParams) error
 	DeleteMemberRoles(ctx context.Context, arg DeleteMemberRolesParams) error
@@ -395,6 +399,8 @@ type Querier interface {
 	ExtraFacets(ctx context.Context, organizationID int64) ([]ExtraFacetsRow, error)
 	FailPayment(ctx context.Context, arg FailPaymentParams) (int64, error)
 	FinalizeInspection(ctx context.Context, arg FinalizeInspectionParams) (int64, error)
+	// draft → queued: the number, the stored XML and the send job.
+	FinalizeInvoice(ctx context.Context, arg FinalizeInvoiceParams) (int64, error)
 	// Free-text supplier names: live suppliers with this title (case and
 	// surrounding spaces ignored).
 	FindSupplierIDsByTitle(ctx context.Context, arg FindSupplierIDsByTitleParams) ([]FindSupplierIDsByTitleRow, error)
@@ -551,6 +557,7 @@ type Querier interface {
 	// Reservations resolve a driver_uuid of the organization (customer joined).
 	GetDriverByUUID(ctx context.Context, arg GetDriverByUUIDParams) (GetDriverByUUIDRow, error)
 	GetDriverForAgreement(ctx context.Context, arg GetDriverForAgreementParams) (GetDriverForAgreementRow, error)
+	GetEInvoiceTaxpayer(ctx context.Context, arg GetEInvoiceTaxpayerParams) (GetEInvoiceTaxpayerRow, error)
 	// The price row of one extra and product (NULL product = default)
 	// effective at now_at.
 	GetEffectiveExtraPrice(ctx context.Context, arg GetEffectiveExtraPriceParams) (GetEffectiveExtraPriceRow, error)
@@ -617,7 +624,27 @@ type Querier interface {
 	GetIntegrationAccountByID(ctx context.Context, arg GetIntegrationAccountByIDParams) (GetIntegrationAccountByIDRow, error)
 	GetInvitationByUUID(ctx context.Context, arg GetInvitationByUUIDParams) (OrganizationInvitation, error)
 	GetInvitationPreviewByTokenHash(ctx context.Context, tokenHash string) (GetInvitationPreviewByTokenHashRow, error)
+	GetInvoice(ctx context.Context, arg GetInvoiceParams) (GetInvoiceRow, error)
+	GetInvoiceAccountByUUID(ctx context.Context, arg GetInvoiceAccountByUUIDParams) (GetInvoiceAccountByUUIDRow, error)
+	GetInvoiceBranch(ctx context.Context, arg GetInvoiceBranchParams) (GetInvoiceBranchRow, error)
+	GetInvoiceBranchByUUID(ctx context.Context, arg GetInvoiceBranchByUUIDParams) (GetInvoiceBranchByUUIDRow, error)
+	// The receiver's customer record (identity sealed: opened by the service).
+	GetInvoiceCustomer(ctx context.Context, arg GetInvoiceCustomerParams) (GetInvoiceCustomerRow, error)
 	GetInvoiceExpense(ctx context.Context, arg GetInvoiceExpenseParams) (GetInvoiceExpenseRow, error)
+	// The invoice a send or cancel job belongs to.
+	GetInvoiceForJob(ctx context.Context, arg GetInvoiceForJobParams) (GetInvoiceForJobRow, error)
+	GetInvoiceOrganization(ctx context.Context, organizationID int64) (GetInvoiceOrganizationRow, error)
+	// An invoice by id (job listener, operations).
+	GetInvoiceRef(ctx context.Context, arg GetInvoiceRefParams) (GetInvoiceRefRow, error)
+	GetInvoiceRentalByUUID(ctx context.Context, arg GetInvoiceRentalByUUIDParams) (GetInvoiceRentalByUUIDRow, error)
+	// The reservation behind a rental: price snapshot (VAT split lines), the
+	// billing days, the invoice customer, the pick-up branch.
+	GetInvoiceRentalFacts(ctx context.Context, arg GetInvoiceRentalFactsParams) (GetInvoiceRentalFactsRow, error)
+	// E-invoices / e-archive invoices (TEC-722, docs/design/einvoice.md). Every
+	// query names the organization; lists / facets / pickers take the branch
+	// scope (nil = every branch).
+	GetInvoiceSettings(ctx context.Context, organizationID int64) (GetInvoiceSettingsRow, error)
+	GetInvoiceUUIDByIdempotencyKey(ctx context.Context, arg GetInvoiceUUIDByIdempotencyKeyParams) (uuid.UUID, error)
 	GetKabisCustomer(ctx context.Context, arg GetKabisCustomerParams) (GetKabisCustomerRow, error)
 	GetKabisNotification(ctx context.Context, arg GetKabisNotificationParams) (GetKabisNotificationRow, error)
 	GetKabisNotificationByRentalEvent(ctx context.Context, arg GetKabisNotificationByRentalEventParams) (GetKabisNotificationByRentalEventRow, error)
@@ -932,8 +959,18 @@ type Querier interface {
 	// (organization_id NULL = platform job) and every query names the scope.
 	InsertIntegrationAccount(ctx context.Context, arg InsertIntegrationAccountParams) (int64, error)
 	InsertIntegrationAttempt(ctx context.Context, arg InsertIntegrationAttemptParams) (InsertIntegrationAttemptRow, error)
+	InsertInvoice(ctx context.Context, arg InsertInvoiceParams) (int64, error)
 	// The expense row an invoice is the source of (unpaid: no cash account).
 	InsertInvoiceExpense(ctx context.Context, arg InsertInvoiceExpenseParams) (InsertInvoiceExpenseRow, error)
+	// The send / cancel job of an invoice, created in the invoice's
+	// transaction (outbox: a pending job is due at once; the sweep picks it up
+	// if the process stops before the first step). A waiting job has no next
+	// step until an integrator is connected.
+	InsertInvoiceJob(ctx context.Context, arg InsertInvoiceJobParams) (InsertInvoiceJobRow, error)
+	InsertInvoiceLine(ctx context.Context, arg InsertInvoiceLineParams) error
+	// The invoice covers a ledger item. uq_ledger_entry_links_invoiced refuses
+	// an item a standing invoice already covers (RT-A22: no double invoicing).
+	InsertInvoiceLink(ctx context.Context, arg InsertInvoiceLinkParams) error
 	// The notification's integration job, created in the rental's transaction
 	// (outbox: a pending job is due at once; the sweep picks it up if the
 	// process stops before the first step). Blocked / waiting jobs have no
@@ -1032,6 +1069,9 @@ type Querier interface {
 	InsertVehicleTollTag(ctx context.Context, arg InsertVehicleTollTagParams) (uuid.UUID, error)
 	InvalidateActiveOTPs(ctx context.Context, arg InvalidateActiveOTPsParams) error
 	InvalidateDocumentApprovals(ctx context.Context, arg InvalidateDocumentApprovalsParams) error
+	InvoiceBranchFacets(ctx context.Context, arg InvoiceBranchFacetsParams) ([]InvoiceBranchFacetsRow, error)
+	InvoiceProfileFacets(ctx context.Context, arg InvoiceProfileFacetsParams) ([]InvoiceProfileFacetsRow, error)
+	InvoiceStatusFacets(ctx context.Context, arg InvoiceStatusFacetsParams) ([]InvoiceStatusFacetsRow, error)
 	IsSupplierPaymentMovement(ctx context.Context, arg IsSupplierPaymentMovementParams) (bool, error)
 	IssueDocumentVersion(ctx context.Context, arg IssueDocumentVersionParams) (int64, error)
 	KabisEventFacets(ctx context.Context, arg KabisEventFacetsParams) ([]KabisEventFacetsRow, error)
@@ -1286,8 +1326,16 @@ type Querier interface {
 	// status: 'pending' (open, not expired), 'expired' (open, past expires_at),
 	// 'accepted', 'revoked'.
 	ListInvitations(ctx context.Context, arg ListInvitationsParams) ([]ListInvitationsRow, error)
+	ListInvoiceLines(ctx context.Context, arg ListInvoiceLinesParams) ([]ListInvoiceLinesRow, error)
+	ListInvoiceLinks(ctx context.Context, arg ListInvoiceLinksParams) ([]ListInvoiceLinksRow, error)
 	// Payments allocated to one invoice (invoice detail).
 	ListInvoicePayments(ctx context.Context, arg ListInvoicePaymentsParams) ([]ListInvoicePaymentsRow, error)
+	ListInvoiceTaxMappings(ctx context.Context, organizationID int64) ([]ListInvoiceTaxMappingsRow, error)
+	// Live accruals (debit, not reversed) that no standing invoice covers: the
+	// rent of a rental and approved charges. Filters: an account, a rental,
+	// explicit entries; the branch scope applies to the entry's branch.
+	ListInvoiceableEntries(ctx context.Context, arg ListInvoiceableEntriesParams) ([]ListInvoiceableEntriesRow, error)
+	ListInvoices(ctx context.Context, arg ListInvoicesParams) ([]ListInvoicesRow, error)
 	ListKabisNotifications(ctx context.Context, arg ListKabisNotificationsParams) ([]ListKabisNotificationsRow, error)
 	// The rental's drivers with their current records (identity and licence
 	// numbers sealed; the builder opens them). A driver whose record was
@@ -1390,6 +1438,9 @@ type Querier interface {
 	// compared through keyed hashes in the use case). Anonymized / deleted
 	// people are left out.
 	ListPortalContacts(ctx context.Context, arg ListPortalContactsParams) ([]ListPortalContactsRow, error)
+	// Issued invoices of a reservation for the customer portal: the invoice of
+	// its rental, or one covering one of its ledger items.
+	ListPortalReservationInvoices(ctx context.Context, arg ListPortalReservationInvoicesParams) ([]ListPortalReservationInvoicesRow, error)
 	// The reservations a session may see: the customer's (renter session) or
 	// the ones the driver is on (driver session), newest pick-up first.
 	ListPortalReservations(ctx context.Context, arg ListPortalReservationsParams) ([]ListPortalReservationsRow, error)
@@ -1534,6 +1585,9 @@ type Querier interface {
 	// (the provider is asked for these tags).
 	ListTollTagNumbersForFetch(ctx context.Context, arg ListTollTagNumbersForFetchParams) ([]string, error)
 	ListTransferPair(ctx context.Context, arg ListTransferPairParams) ([]ListTransferPairRow, error)
+	// Rentals with at least one invoiceable item (bulk "invoice the selected
+	// rentals" picker).
+	ListUninvoicedRentals(ctx context.Context, arg ListUninvoicedRentalsParams) ([]ListUninvoicedRentalsRow, error)
 	// Catch-up sweep: confirmed payments without their collection entry.
 	ListUnpostedPayments(ctx context.Context, limitCount int32) ([]ListUnpostedPaymentsRow, error)
 	ListUnpostedRefunds(ctx context.Context, limitCount int32) ([]ListUnpostedRefundsRow, error)
@@ -1593,6 +1647,10 @@ type Querier interface {
 	ListVehicleTransfers(ctx context.Context, arg ListVehicleTransfersParams) ([]ListVehicleTransfersRow, error)
 	ListVehicleUUIDs(ctx context.Context, arg ListVehicleUUIDsParams) ([]uuid.UUID, error)
 	ListVehicles(ctx context.Context, arg ListVehiclesParams) ([]ListVehiclesRow, error)
+	// The release sweep: invoices waiting on a dependency, across
+	// organizations (each row carries its organization_id; the service
+	// re-scopes from it).
+	ListWaitingInvoiceJobs(ctx context.Context, limitCount int32) ([]ListWaitingInvoiceJobsRow, error)
 	// The release sweep: notifications waiting on a dependency, across
 	// organizations (each row carries its organization_id; the service
 	// re-scopes from it).
@@ -1676,6 +1734,7 @@ type Querier interface {
 	MarkImportJobFailed(ctx context.Context, arg MarkImportJobFailedParams) (ImportJob, error)
 	MarkImportJobRolledBack(ctx context.Context, id int64) (ImportJob, error)
 	MarkInvitationAccepted(ctx context.Context, arg MarkInvitationAcceptedParams) (int64, error)
+	MarkInvoiceReturned(ctx context.Context, arg MarkInvoiceReturnedParams) error
 	MarkLogPurgeRuleRun(ctx context.Context, arg MarkLogPurgeRuleRunParams) (LogPurgeRule, error)
 	MarkNotificationFailed(ctx context.Context, arg MarkNotificationFailedParams) (Notification, error)
 	MarkNotificationProcessing(ctx context.Context, id int64) (Notification, error)
@@ -1707,6 +1766,8 @@ type Querier interface {
 	NextCollectionCode(ctx context.Context, organizationID int64) (string, error)
 	NextInspectionTemplateVersion(ctx context.Context, organizationID int64) (int32, error)
 	NextInspectionVersion(ctx context.Context, arg NextInspectionVersionParams) (int32, error)
+	// The next number of a series in a year (row lock: serialised per series).
+	NextInvoiceSequence(ctx context.Context, arg NextInvoiceSequenceParams) (int64, error)
 	NextKabisCorrectionSequence(ctx context.Context, arg NextKabisCorrectionSequenceParams) (int32, error)
 	// Reservations (TEC-706), their drivers, event history and plate
 	// assignment history. Every query filters by organization_id first
@@ -1850,6 +1911,9 @@ type Querier interface {
 	ReleaseCampaignRedemption(ctx context.Context, arg ReleaseCampaignRedemptionParams) (int64, error)
 	// Leaves "active" exactly once.
 	ReleaseEquipmentAllocation(ctx context.Context, arg ReleaseEquipmentAllocationParams) (int64, error)
+	// Frees the items of an invoice (cancelled / returned) or the items taken
+	// off a draft (removed): they may be invoiced again.
+	ReleaseInvoiceLinks(ctx context.Context, arg ReleaseInvoiceLinksParams) (int64, error)
 	// "Engeli kapat": the block ends at released_at.
 	ReleaseVehicleBlock(ctx context.Context, arg ReleaseVehicleBlockParams) (int64, error)
 	RemoveUserRoleBySlug(ctx context.Context, arg RemoveUserRoleBySlugParams) error
@@ -1858,6 +1922,7 @@ type Querier interface {
 	RenameSupplierFreeText(ctx context.Context, arg RenameSupplierFreeTextParams) error
 	RentalGroupCodeTaken(ctx context.Context, arg RentalGroupCodeTakenParams) (bool, error)
 	RentalProductCodeTaken(ctx context.Context, arg RentalProductCodeTakenParams) (bool, error)
+	RenumberInvoiceLines(ctx context.Context, arg RenumberInvoiceLinesParams) error
 	// Compensation of a failed create: the quote is usable again.
 	ReopenQuote(ctx context.Context, arg ReopenQuoteParams) error
 	ReplaceUserRoles(ctx context.Context, userID int64) error
@@ -1902,6 +1967,10 @@ type Querier interface {
 	RevokeStorageLink(ctx context.Context, argUuid uuid.UUID) (StorageLink, error)
 	// Resend: a new token (the old link stops working) and a fresh expiry.
 	RotateInvitationToken(ctx context.Context, arg RotateInvitationTokenParams) (OrganizationInvitation, error)
+	// Moves a job that has sent nothing yet (waiting, or pending with no
+	// attempt) to a new route. A job a worker holds, or one that made a call,
+	// is left alone (0 rows).
+	RouteInvoiceJob(ctx context.Context, arg RouteInvoiceJobParams) (int64, error)
 	// Moves a job that has sent nothing yet (blocked, waiting, or pending with
 	// no attempt) to its new state and route. A job a worker holds, or one
 	// that already made a call, is left alone (0 rows).
@@ -1948,6 +2017,10 @@ type Querier interface {
 	SetInspectionSignatureStatus(ctx context.Context, arg SetInspectionSignatureStatusParams) (int64, error)
 	SetIntegrationAccountCheck(ctx context.Context, arg SetIntegrationAccountCheckParams) error
 	SetIntegrationAccountStatus(ctx context.Context, arg SetIntegrationAccountStatusParams) (int64, error)
+	SetInvoiceCancelJob(ctx context.Context, arg SetInvoiceCancelJobParams) error
+	SetInvoiceHold(ctx context.Context, arg SetInvoiceHoldParams) error
+	SetInvoicePDF(ctx context.Context, arg SetInvoicePDFParams) error
+	SetInvoiceValidation(ctx context.Context, arg SetInvoiceValidationParams) error
 	SetKabisResolution(ctx context.Context, arg SetKabisResolutionParams) error
 	SetMemberBranchScope(ctx context.Context, arg SetMemberBranchScopeParams) error
 	SetMemberPrimaryRole(ctx context.Context, arg SetMemberPrimaryRoleParams) error
@@ -2015,6 +2088,9 @@ type Querier interface {
 	SoftDeleteVehicleSegment(ctx context.Context, arg SoftDeleteVehicleSegmentParams) (int64, error)
 	StartOperationTask(ctx context.Context, arg StartOperationTaskParams) (int64, error)
 	StartVehicleTransfer(ctx context.Context, arg StartVehicleTransferParams) (int64, error)
+	// Cancelling an invoice that sent nothing: its job ends as failed (nothing
+	// was sent and nothing will be).
+	StopUnsentInvoiceJob(ctx context.Context, arg StopUnsentInvoiceJobParams) (int64, error)
 	// Totals of the entries the caller may see for one account / reservation.
 	SumLedgerEntries(ctx context.Context, arg SumLedgerEntriesParams) (SumLedgerEntriesRow, error)
 	// What the reservation has received: amounts of confirmed payments minus
@@ -2029,6 +2105,8 @@ type Querier interface {
 	SyncCatalogBrandsDisplayName(ctx context.Context, displayBrandID int64) (int64, error)
 	// The invoice's classification follows onto its expense row.
 	SyncInvoiceExpense(ctx context.Context, arg SyncInvoiceExpenseParams) (int64, error)
+	// Mirrors the send job onto the invoice (runner listener).
+	SyncInvoiceSendState(ctx context.Context, arg SyncInvoiceSendStateParams) error
 	// Keeps the account's display name and terms in step with the card.
 	SyncSupplierAccount(ctx context.Context, arg SyncSupplierAccountParams) error
 	TenantCountCatalogBrands(ctx context.Context, arg TenantCountCatalogBrandsParams) (int64, error)
@@ -2092,6 +2170,8 @@ type Querier interface {
 	UpdateInspectionDamage(ctx context.Context, arg UpdateInspectionDamageParams) (int64, error)
 	UpdateInspectionDraft(ctx context.Context, arg UpdateInspectionDraftParams) (int64, error)
 	UpdateIntegrationAccount(ctx context.Context, arg UpdateIntegrationAccountParams) (int64, error)
+	UpdateInvoiceDraft(ctx context.Context, arg UpdateInvoiceDraftParams) (int64, error)
+	UpdateInvoiceLine(ctx context.Context, arg UpdateInvoiceLineParams) error
 	UpdateLogPurgeRule(ctx context.Context, arg UpdateLogPurgeRuleParams) (LogPurgeRule, error)
 	UpdateOAuthAccountRefreshToken(ctx context.Context, arg UpdateOAuthAccountRefreshTokenParams) error
 	UpdateOAuthProviderSettings(ctx context.Context, arg UpdateOAuthProviderSettingsParams) (OauthProviderSetting, error)
@@ -2137,10 +2217,13 @@ type Querier interface {
 	UpdateWebAuthnCredentialCounter(ctx context.Context, arg UpdateWebAuthnCredentialCounterParams) error
 	UpdateWebAuthnCredentialName(ctx context.Context, arg UpdateWebAuthnCredentialNameParams) (WebauthnCredential, error)
 	UpsertCatalogModelRule(ctx context.Context, arg UpsertCatalogModelRuleParams) (CatalogModelRule, error)
+	UpsertEInvoiceTaxpayer(ctx context.Context, arg UpsertEInvoiceTaxpayerParams) error
 	UpsertExtraStock(ctx context.Context, arg UpsertExtraStockParams) error
 	// Records a job once per provider and idempotency key; a repeated key
 	// counts the delivery and returns the existing row (inserted = false).
 	UpsertIntegrationJob(ctx context.Context, arg UpsertIntegrationJobParams) (UpsertIntegrationJobRow, error)
+	UpsertInvoiceSettings(ctx context.Context, arg UpsertInvoiceSettingsParams) error
+	UpsertInvoiceTaxMapping(ctx context.Context, arg UpsertInvoiceTaxMappingParams) error
 	UpsertNotificationPreferences(ctx context.Context, arg UpsertNotificationPreferencesParams) (NotificationPreference, error)
 	// Mobile push devices (Expo) and their pending push tickets.
 	// A token moves to the calling user when the device switches accounts and is

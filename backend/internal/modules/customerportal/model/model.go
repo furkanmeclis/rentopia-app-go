@@ -215,7 +215,23 @@ type Reservation struct {
 	Cancellation    Cancellation `json:"cancellation"`
 	Actions         Actions      `json:"actions"`
 	Documents       []Document   `json:"documents"`
-	Requests        []Request    `json:"requests"`
+	// Invoices are the reservation's issued invoices (renter sessions only;
+	// TEC-722).
+	Invoices []Invoice `json:"invoices"`
+	Requests []Request `json:"requests"`
+}
+
+// Invoice is an issued invoice of the reservation, with the API path of
+// its PDF (relative to /v1).
+type Invoice struct {
+	UUID         uuid.UUID   `json:"uuid"`
+	Number       string      `json:"number"`
+	Profile      string      `json:"profile"`
+	Type         string      `json:"invoice_type"`
+	IssueDate    string      `json:"issue_date"`
+	Payable      money.Money `json:"payable_amount"`
+	Currency     string      `json:"currency"`
+	DownloadPath string      `json:"download_path"`
 }
 
 // PayResult is the pay page link of "pay remaining".

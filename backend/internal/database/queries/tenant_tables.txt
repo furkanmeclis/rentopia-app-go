@@ -105,3 +105,9 @@ corporate_agreements
 agreement_contacts
 agreement_drivers
 rental_billing_periods
+invoice_settings
+invoice_tax_mappings
+invoice_sequences
+einvoice_taxpayers
+invoices
+invoice_lines

@@ -176,6 +176,14 @@ export const routes = {
       collection: (slug: string, uuid: string) =>
         `/t/${encodeURIComponent(slug)}/finance/collections/${uuid}`,
     },
+    /** E-invoices / e-archive invoices (TEC-722). */
+    invoices: {
+      root: (slug: string) => `/t/${encodeURIComponent(slug)}/finance/invoices`,
+      detail: (slug: string, uuid: string) =>
+        `/t/${encodeURIComponent(slug)}/finance/invoices/${uuid}`,
+      settings: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/settings/invoices`,
+    },
     /** HGS / OGS toll passes and their review queue (TEC-725). */
     /** Corporate agreements and long-term rentals (TEC-723). */
     agreements: {

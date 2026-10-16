@@ -42,6 +42,7 @@ func RegisterRoutes(mux *http.ServeMux, h *handler.Handler, tokens *jwt.Manager,
 	session("GET /v1/customer/{orgSlug}/reservations", h.Reservations)
 	session("GET /v1/customer/{orgSlug}/reservations/{uuid}", h.Reservation)
 	session("GET /v1/customer/{orgSlug}/reservations/{uuid}/documents/{documentUuid}/pdf", h.DocumentPDF)
+	session("GET /v1/customer/{orgSlug}/reservations/{uuid}/invoices/{invoiceUuid}/pdf", h.InvoicePDF)
 	session("POST /v1/customer/{orgSlug}/reservations/{uuid}/pay", h.Pay)
 	session("POST /v1/customer/{orgSlug}/reservations/{uuid}/requests", h.CreateRequest)
 

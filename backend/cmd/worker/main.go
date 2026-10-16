@@ -43,6 +43,9 @@ import (
 	importusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/imports/usecase"
 	integrationaccountsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/accounts/usecase"
 	integrationjobsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/jobs/usecase"
+	invoicesmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/invoices"
+	invoiceadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/invoices/adapters"
+	invoiceusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/invoices/usecase"
 	kabismodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/kabis"
 	kabisusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/kabis/usecase"
 	logsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/logs/usecase"
@@ -229,6 +232,10 @@ func main() {
 	integrationAdapters := append([]integrations.Adapter{iyzicoAdapter}, smsmodule.Adapters(smsProviders)...)
 	integrationAdapters = append(integrationAdapters, tollsmodule.Adapters(tollProviders)...)
 	integrationAdapters = append(integrationAdapters, kabismodule.Adapters(kabisProviders)...)
+	// E-invoice integrators (TEC-722): the official slot and the fake
+	// outside production only.
+	invoiceProviders := invoicesmodule.Providers(cfg.App.Env, log)
+	integrationAdapters = append(integrationAdapters, invoicesmodule.Adapters(invoiceProviders)...)
 	integrationAccountsSvc := integrationaccountsusecase.New(queries, integrationVault,
 		integrations.NewRegistry(integrationAdapters...))
 	integrationOps := integrations.NewOperationRegistry()
@@ -290,6 +297,18 @@ func main() {
 	kabisSvc.SetStore(store)
 	kabisSvc.SetLogger(log)
 	rentalsSvc.SetKabis(kabisSvc)
+	// E-invoices (TEC-722): send / status / cancel steps (runner
+	// operations), the release of waiting sends in the minute sweep, list
+	// export and bulk invoicing.
+	invoicesSvc, err := invoiceusecase.New(pool, queries, fieldCipher, orgsettingsusecase.New(orgsettingsrepository.NewPostgres(pool, queries)),
+		integrationAccountsSvc, integrationRunner, integrationOps, invoiceProviders...)
+	if err != nil {
+		log.Error("invoices_init_failed", "error", err)
+		exit(1)
+	}
+	invoicesSvc.SetStore(store)
+	invoicesSvc.SetPDFRenderer(pdfRenderer)
+	invoicesSvc.SetLogger(log)
 	// Bulk rental group changes go through the engine like the API.
 	vehicleSvc.SetMembershipGuard(availabilitySvc)
 	availabilitySvc.SetPlanMovedHandler(reservationSvc)
@@ -338,6 +357,7 @@ func main() {
 		financeadapters.NewDepositsIO(financeSvc),
 		financeadapters.NewCollectionsIO(financeSvc),
 		agreementadapters.NewIO(agreementsSvc),
+		invoiceadapters.NewIO(invoicesSvc),
 		// Vehicle profitability report (TEC-727).
 		profitabilityadapters.NewIO(profitabilityusecase.New(queries)),
 	)
@@ -361,6 +381,7 @@ func main() {
 		financeadapters.NewExpensesBulk(financeSvc),
 		supplieradapters.NewBulk(supplierSvc),
 		financeadapters.NewCollectionsBulk(financeSvc),
+		invoiceadapters.NewBulk(invoicesSvc),
 	)
 	bulkSvc := bulkusecase.New(queries, bulkReg, nil, notifSvc, activityRec, cfg.Bulk, log)
 	// Tenant jobs run with the requester's current membership (permissions
@@ -411,6 +432,7 @@ func main() {
 	financeSvc.SetResourceEvents(resourceEvents)
 	tollsSvc.SetResourceEvents(resourceEvents)
 	kabisSvc.SetResourceEvents(resourceEvents)
+	invoicesSvc.SetResourceEvents(resourceEvents)
 
 	worker := queue.NewWorker(cfg, log, notifSvc.Deliver).
 		WithExport(exportSvc.ProcessExport).
@@ -467,8 +489,13 @@ func main() {
 			if err != nil {
 				log.Warn("kabis_release_failed", "error", err)
 			}
+			// Waiting e-invoice sends likewise (TEC-722).
+			invoices, err := invoicesSvc.ReleaseWaiting(ctx)
+			if err != nil {
+				log.Warn("invoice_release_failed", "error", err)
+			}
 			n, err := integrationRunner.RunDue(ctx)
-			return released + n, err
+			return released + invoices + n, err
 		}).
 		WithTolls(tollsSvc.ScheduleFetches, tollsSvc.RematchDue).
 		WithAgreementPeriods(financeSvc.AccruePeriods).

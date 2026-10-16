@@ -125,6 +125,8 @@ export const INTEGRATION_PROVIDER_LABEL_KEYS: Record<string, string> = {
   hgs_fake: "payments.integrations.providers.hgs_fake",
   kabis: "payments.integrations.providers.kabis",
   kabis_fake: "payments.integrations.providers.kabis_fake",
+  einvoice: "payments.integrations.providers.einvoice",
+  einvoice_fake: "payments.integrations.providers.einvoice_fake",
 };
 
 /** Connect form hint per provider (where the organization finds its keys). */
@@ -135,6 +137,8 @@ export const INTEGRATION_PROVIDER_HINT_KEYS: Record<string, string> = {
   hgs_fake: "payments.integrations.provider_hints.hgs_fake",
   kabis: "payments.integrations.provider_hints.kabis",
   kabis_fake: "payments.integrations.provider_hints.kabis_fake",
+  einvoice: "payments.integrations.provider_hints.einvoice",
+  einvoice_fake: "payments.integrations.provider_hints.einvoice_fake",
 };
 
 /** Live list resource of integration jobs (backend jobs usecase). */
@@ -194,6 +198,8 @@ export const INTEGRATION_JOB_KIND_LABEL_KEYS: Record<string, string> = {
   "kabis.rental_start": "payments.integrations.jobs.kinds.kabis_rental_start",
   "kabis.rental_end": "payments.integrations.jobs.kinds.kabis_rental_end",
   "kabis.correction": "payments.integrations.jobs.kinds.kabis_correction",
+  "einvoice.send": "payments.integrations.jobs.kinds.einvoice_send",
+  "einvoice.cancel": "payments.integrations.jobs.kinds.einvoice_cancel",
 };
 
 export const ATTEMPT_OPERATION_LABEL_KEYS: Record<string, string> = {

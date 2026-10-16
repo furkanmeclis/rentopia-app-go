@@ -3,9 +3,11 @@ import {
   ArrowRightLeft,
   CircleCheck,
   CircleOff,
+  FilePlus2,
   Hammer,
   Layers,
   ListChecks,
+  Send,
   Split,
   Trash2,
   UserCheck,
@@ -92,6 +94,10 @@ const bulkActionIconCatalog: Record<
   },
   "tenant.finance_collections": {
     allocate: Split,
+  },
+  "tenant.invoices": {
+    create_for_rentals: FilePlus2,
+    send: Send,
   },
 };
 

@@ -86,6 +86,7 @@ var isolationAllowlist = map[string]string{
 	"POST /v1/tenant/toll-passes/import":           "rows match provider transaction ids and plates / tags inside the organization (tolls tests); the job is the {uuid} cases",
 	"POST /v1/tenant/toll-passes/fetch":            "no body; fetches with the caller's organization's active toll account (tolls fetch test)",
 	"PATCH /v1/tenant/toll-settings":               "processing fee / fetch options of the caller's organization; no foreign references",
+	"PUT /v1/tenant/invoices/settings":             "invoice settings of the caller's organization (series, supplier address, tax mapping); no foreign references",
 	"POST /v1/tenant/suppliers":                    "body has no foreign references (title, tax number, contact and billing values)",
 	"POST /v1/tenant/suppliers/import":             "rows match supplier code / tax number inside the organization (suppliers adapters); the job is the {uuid} cases",
 }
@@ -641,6 +642,38 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			"driver_uuid": ids["driver"],
 		}), http.StatusCreated, "agreement driver")
 		ids["agreementDriver"] = asMap(asMap(agrDrivers.data)["drivers"].([]any)[0])["uuid"].(string)
+		// E-invoices (TEC-722): a draft of the rental's customer stored as
+		// the module stores it (the accrual / link flow is covered by the
+		// invoices tests), its receiver completed through the API and
+		// finalized: numbered, XML stored, the send waiting on the
+		// integrator dependency (no e-invoice account).
+		must(call(o, http.MethodPut, "/v1/tenant/invoices/settings", map[string]any{
+			"supplier_district": "Kadıköy", "supplier_city": "İstanbul",
+		}), http.StatusOK, "invoice settings")
+		var invBranch, invAccount, invCustomer, invRental int64
+		if err := pool.QueryRow(ctx, `SELECT b.id, a.id, c.id, r.id FROM branches b, accounts a, customers c, rentals r
+			WHERE b.organization_id = $1 AND b.uuid = $2 AND a.organization_id = $1 AND a.uuid = $3
+			  AND c.organization_id = $1 AND c.uuid = $4 AND r.organization_id = $1 AND r.uuid = $5`,
+			o.org.ID, ids["home"], ids["financeAccount"], ids["customer"], ids["rental"]).Scan(&invBranch, &invAccount, &invCustomer, &invRental); err != nil {
+			t.Fatal(err)
+		}
+		var invID int64
+		var invUUID string
+		if err := pool.QueryRow(ctx, `INSERT INTO invoices (organization_id, branch_id, account_id, customer_id, rental_id, profile, invoice_type,
+			issue_date, receiver_type, receiver_name, line_extension_amount, tax_amount, payable_amount, linked_amount, note)
+			VALUES ($1, $2, $3, $4, $5, 'EARSIVFATURA', 'SATIS', CURRENT_DATE, 'corporate', $6, 100, 20, 120, 120, $7)
+			RETURNING id, uuid::text`, o.org.ID, invBranch, invAccount, invCustomer, invRental, m+" Lojistik", m).Scan(&invID, &invUUID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(ctx, `INSERT INTO invoice_lines (organization_id, invoice_id, position, kind, name, gross_amount, net_amount, vat_rate, vat_amount)
+			VALUES ($1, $2, 1, 'rent', $3, 120, 100, 20, 20)`, o.org.ID, invID, m+" kiralama"); err != nil {
+			t.Fatal(err)
+		}
+		ids["invoice"] = invUUID
+		must(call(o, http.MethodPatch, "/v1/tenant/invoices/"+invUUID, map[string]any{"receiver": map[string]any{
+			"identity_type": "vkn", "identity_number": "4540536920", "tax_office": "Kadıköy", "district": "Moda", "city": "İstanbul",
+		}}), http.StatusOK, "invoice receiver")
+		must(call(o, http.MethodPost, "/v1/tenant/invoices/"+invUUID+"/finalize", nil), http.StatusOK, "finalize invoice")
 		ids["exportJob"] = str(must(call(o, http.MethodPost, "/v1/tenant/branches/export", map[string]any{"format": "csv"}),
 			http.StatusAccepted, "export"), "uuid")
 		ids["importJob"] = str(must(upload(o, http.MethodPost, "/v1/tenant/branches/import", "file", "branches.csv",
@@ -893,8 +926,14 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			"?account=" + b["financeAccount"], "?rental=" + b["rental"], "?branch=" + b["home"],
 			"?cash_account=" + b["cashAccount"], "?q=" + orgB.marker,
 		},
-		"GET /v1/tenant/finance/rental-balances":    {"?q=" + orgB.marker},
-		"GET /v1/tenant/finance/expense-categories": {"?q=" + orgB.marker},
+		"GET /v1/tenant/finance/rental-balances": {"?q=" + orgB.marker},
+		// Invoices (TEC-722): filters naming B's records are unknown in A.
+		"GET /v1/tenant/invoices": {
+			"?rental=" + b["rental"], "?account=" + b["financeAccount"], "?branch=" + b["home"], "?q=" + orgB.marker, "?needs_action=true",
+		},
+		"GET /v1/tenant/invoices/items":              {"?rental=" + b["rental"], "?account=" + b["financeAccount"]},
+		"GET /v1/tenant/invoices/uninvoiced-rentals": {"?q=" + orgB.marker},
+		"GET /v1/tenant/finance/expense-categories":  {"?q=" + orgB.marker},
 		// Vehicle profitability (TEC-727): B's branch / rental group as a
 		// filter is unknown in A (not_found); the plain call is leak-scanned.
 		"GET /v1/tenant/reports/vehicle-profitability": {
@@ -1154,6 +1193,16 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			"cash_account_uuid": orgB.ids["cashAccount"]}, reject},
 		{"POST /v1/tenant/finance/expenses/bulk", map[string]any{"action": "set_category",
 			"target": map[string]any{"scope": "ids", "ids": []string{orgA.ids["expense"]}, "params": map[string]any{"category_uuid": orgB.ids["expenseCategory"]}}}, reject},
+		// Invoices: drafts naming B's rental / account / entry / branch; bulk
+		// of B's invoices and rentals.
+		{"POST /v1/tenant/invoices", map[string]any{"rental_uuid": orgB.ids["rental"]}, reject},
+		{"POST /v1/tenant/invoices", map[string]any{"account_uuid": orgB.ids["financeAccount"]}, reject},
+		{"POST /v1/tenant/invoices", map[string]any{"account_uuid": orgA.ids["financeAccount"], "entry_uuids": []string{orgB.ids["ledgerEntry"]}}, reject},
+		{"POST /v1/tenant/invoices", map[string]any{"rental_uuid": orgA.ids["rental"], "branch_uuid": orgB.ids["home"]}, reject},
+		{"POST /v1/tenant/invoices/bulk", map[string]any{"action": "send",
+			"target": map[string]any{"scope": "ids", "ids": []string{orgB.ids["invoice"]}}}, nil},
+		{"POST /v1/tenant/invoices/bulk", map[string]any{"action": "create_for_rentals",
+			"target": map[string]any{"scope": "ids", "ids": []string{orgB.ids["rental"]}}}, nil},
 	}
 	for _, c := range cases {
 		method, path, _ := strings.Cut(c.route, " ")
@@ -1539,6 +1588,8 @@ func paramKey(prev, name string) string {
 		return "agreementContact"
 	case "drivers/agreementDriverUuid":
 		return "agreementDriver"
+	case "invoices/uuid":
+		return "invoice"
 	}
 	return ""
 }
