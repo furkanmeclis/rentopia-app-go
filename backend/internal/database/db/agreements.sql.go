@@ -18,7 +18,7 @@ SELECT
         SELECT SUM(CASE WHEN e.direction = 'debit' THEN e.amount ELSE -e.amount END)
         FROM ledger_entries e
         JOIN accounts ac ON ac.organization_id = e.organization_id AND ac.id = e.account_id
-        WHERE e.organization_id = $1 AND ac.customer_id = $2
+        WHERE e.organization_id = $1 AND ac.party_kind = 'customer' AND ac.customer_id = $2
           AND e.purpose <> 'deposit'
     ), 0)::numeric AS balance,
     COALESCE((
@@ -150,7 +150,7 @@ SELECT a.id, a.uuid, a.code, a.name, a.customer_id, a.branch_id, a.status, a.val
 FROM corporate_agreements a
 JOIN customers c ON c.organization_id = a.organization_id AND c.id = a.customer_id
 LEFT JOIN branches b ON b.organization_id = a.organization_id AND b.id = a.branch_id
-LEFT JOIN accounts acc ON acc.organization_id = a.organization_id AND acc.customer_id = a.customer_id
+LEFT JOIN accounts acc ON acc.organization_id = a.organization_id AND acc.party_kind = 'customer' AND acc.customer_id = a.customer_id
 LEFT JOIN users cu ON cu.id = a.created_by
 WHERE a.organization_id = $1
   AND c.organization_id = $1
@@ -1540,7 +1540,7 @@ const setAccountTermsForCustomer = `-- name: SetAccountTermsForCustomer :execrow
 UPDATE accounts
 SET payment_term_days = $1
 WHERE organization_id = $2
-  AND customer_id = $3
+  AND party_kind = 'customer' AND customer_id = $3
 `
 
 type SetAccountTermsForCustomerParams struct {
@@ -1549,7 +1549,8 @@ type SetAccountTermsForCustomerParams struct {
 	CustomerID      pgtype.Int8 `json:"customer_id"`
 }
 
-// The agreement's payment term on its customer's ledger account.
+// The agreement's payment term on its customer's ledger account (customer
+// accounts only: supplier accounts carry their own terms).
 func (q *Queries) SetAccountTermsForCustomer(ctx context.Context, arg SetAccountTermsForCustomerParams) (int64, error) {
 	result, err := q.db.Exec(ctx, setAccountTermsForCustomer, arg.PaymentTermDays, arg.OrganizationID, arg.CustomerID)
 	if err != nil {

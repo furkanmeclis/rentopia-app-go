@@ -74,7 +74,7 @@ SELECT a.id, a.uuid, a.code, a.name, a.customer_id, a.branch_id, a.status, a.val
 FROM corporate_agreements a
 JOIN customers c ON c.organization_id = a.organization_id AND c.id = a.customer_id
 LEFT JOIN branches b ON b.organization_id = a.organization_id AND b.id = a.branch_id
-LEFT JOIN accounts acc ON acc.organization_id = a.organization_id AND acc.customer_id = a.customer_id
+LEFT JOIN accounts acc ON acc.organization_id = a.organization_id AND acc.party_kind = 'customer' AND acc.customer_id = a.customer_id
 LEFT JOIN users cu ON cu.id = a.created_by
 WHERE a.organization_id = sqlc.arg(organization_id)
   AND c.organization_id = sqlc.arg(organization_id)
@@ -379,7 +379,7 @@ SELECT
         SELECT SUM(CASE WHEN e.direction = 'debit' THEN e.amount ELSE -e.amount END)
         FROM ledger_entries e
         JOIN accounts ac ON ac.organization_id = e.organization_id AND ac.id = e.account_id
-        WHERE e.organization_id = sqlc.arg(organization_id) AND ac.customer_id = sqlc.arg(customer_id)
+        WHERE e.organization_id = sqlc.arg(organization_id) AND ac.party_kind = 'customer' AND ac.customer_id = sqlc.arg(customer_id)
           AND e.purpose <> 'deposit'
     ), 0)::numeric AS balance,
     COALESCE((
@@ -412,11 +412,12 @@ WHERE a.organization_id = sqlc.arg(organization_id)
 ORDER BY a.code;
 
 -- name: SetAccountTermsForCustomer :execrows
--- The agreement's payment term on its customer's ledger account.
+-- The agreement's payment term on its customer's ledger account (customer
+-- accounts only: supplier accounts carry their own terms).
 UPDATE accounts
 SET payment_term_days = sqlc.arg(payment_term_days)
 WHERE organization_id = sqlc.arg(organization_id)
-  AND customer_id = sqlc.arg(customer_id);
+  AND party_kind = 'customer' AND customer_id = sqlc.arg(customer_id);
 
 -- name: GetReservationAgreementID :one
 SELECT r.agreement_id FROM reservations r

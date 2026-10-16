@@ -17,7 +17,7 @@ Status: **implemented** (M4). Module: `backend/internal/modules/agreements` (CRU
 
 Every table carries `organization_id` first in its indexes and composite FKs, and is in `tenant_tables.txt`. Branch scope: an agreement with a branch is visible inside that branch's scope; a head office agreement to every member. Creating a head office agreement needs every branch.
 
-The payment term is written onto the customer's ledger account (`finance.ApplyCustomerTerms`, opening the account on first use) whenever an agreement is created or its term changes, so the account shows the agreement's terms. A customer may hold several agreements and the account keeps the last term written, so accruals of a rental sold under an agreement (whole rent, periods, charges) take their due date from that agreement's own term (`SyncRental`, `agreement_term_days`).
+The payment term is written onto the customer's ledger account (`finance.ApplyCustomerTerms`, opening the account on first use; customer accounts only, `party_kind = 'customer'`: supplier accounts keep their own terms) whenever an agreement is created or its term changes, so the account shows the agreement's terms. A customer may hold several agreements and the account keeps the last term written, so accruals of a rental sold under an agreement (whole rent, periods, charges) take their due date from that agreement's own term (`SyncRental`, `agreement_term_days`).
 
 ## Agreement tariffs (pricing scope `agreement`)
 

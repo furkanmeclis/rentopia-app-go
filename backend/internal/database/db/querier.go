@@ -1906,7 +1906,8 @@ type Querier interface {
 	// Open deposits by status and method in the caller's branch scope, and
 	// how many have been held since before held_before.
 	SecurityDepositTotals(ctx context.Context, arg SecurityDepositTotalsParams) ([]SecurityDepositTotalsRow, error)
-	// The agreement's payment term on its customer's ledger account.
+	// The agreement's payment term on its customer's ledger account (customer
+	// accounts only: supplier accounts carry their own terms).
 	SetAccountTermsForCustomer(ctx context.Context, arg SetAccountTermsForCustomerParams) (int64, error)
 	SetAgreementStatus(ctx context.Context, arg SetAgreementStatusParams) (int64, error)
 	SetAppSettingsLogo(ctx context.Context, logoObjectKey pgtype.Text) (AppSetting, error)

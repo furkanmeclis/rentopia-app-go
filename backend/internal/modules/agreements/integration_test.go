@@ -410,6 +410,18 @@ func TestAgreementCRUDAndAccountTerms(t *testing.T) {
 	if !errors.As(err, &ve) || ve.Details[0].Field != "credit_limit" {
 		t.Fatalf("open account without limit = %v", err)
 	}
+	// A supplier account (party-aware ledger, TEC-721) keeps its own term:
+	// agreement terms only ever touch the customer's account.
+	var supplierAcc int64
+	f.must(f.pool.QueryRow(context.Background(), `WITH s AS (
+			INSERT INTO suppliers (organization_id, code, title) VALUES ($1, 'TED-000001', 'Servis A.Ş.') RETURNING id
+		) INSERT INTO accounts (organization_id, code, party_kind, supplier_id, name, payment_term_days)
+		SELECT $1, 'TD-000001', 'supplier', s.id, 'Servis A.Ş.', 60 FROM s RETURNING id`, f.org).Scan(&supplierAcc))
+	defer func() {
+		if n := f.count(`SELECT payment_term_days FROM accounts WHERE organization_id = $1 AND id = $2`, f.org, supplierAcc); n != 60 {
+			t.Errorf("supplier account term = %d, want 60", n)
+		}
+	}()
 	a := f.agreement(model.InvoiceMonthly, func(in *model.Input) { in.Activate = false })
 	if a.Code != "KA-000001" || a.Status != model.StatusDraft || a.Account == nil || a.Account.PaymentTermDays != 30 {
 		t.Fatalf("agreement = %+v / account %+v", a, a.Account)
