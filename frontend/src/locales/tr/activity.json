@@ -316,5 +316,10 @@
   "actions.field_tasks.started": "Saha görevinde yola çıkıldı",
   "actions.field_tasks.issue_reported": "Saha görevinde sorun bildirildi",
   "actions.field_tasks.completed": "Saha görevi tamamlandı",
-  "actions.field_tasks.cancelled": "Saha görevi iptal edildi"
+  "actions.field_tasks.cancelled": "Saha görevi iptal edildi",
+  "resources.tenant.kabis_notifications": "KABİS bildirimleri",
+  "actions.kabis.retried": "KABİS bildirimi yeniden denendi",
+  "actions.kabis.reported_manually": "KABİS bildirimi manuel bildirildi olarak işaretlendi",
+  "actions.kabis.reconciled": "KABİS bildirimi uzlaştırıldı",
+  "actions.kabis.attachment_downloaded": "KABİS bildirim eki indirildi"
 }

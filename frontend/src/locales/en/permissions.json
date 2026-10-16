@@ -179,5 +179,9 @@
   "labels.tenant.field_tasks.read": "View the field task board",
   "labels.tenant.field_tasks.assign": "Plan and assign field tasks",
   "labels.tenant.field_tasks.execute": "Work own field tasks",
-  "groups.tenant_field_tasks": "Field tasks"
+  "groups.tenant_field_tasks": "Field tasks",
+  "labels.tenant.kabis.read": "View KABİS notifications",
+  "labels.tenant.kabis.retry": "Retry KABİS notifications",
+  "labels.tenant.kabis.reconcile": "Mark KABİS notifications reported manually / reconciled",
+  "groups.tenant_kabis": "KABİS notifications"
 }

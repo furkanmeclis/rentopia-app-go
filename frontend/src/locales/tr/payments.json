@@ -287,5 +287,18 @@
   "integrations.providers.hgs_fake": "HGS test sağlayıcısı (geliştirme)",
   "integrations.provider_hints.hgs_fake": "Yalnızca geliştirme ve test: araç etiketleri için örnek HGS geçişleri üretir. Herhangi bir API anahtarı girin.",
   "integrations.fields.customer_no": "Müşteri no",
-  "integrations.jobs.kinds.toll_fetch": "HGS/OGS geçiş sorgusu"
+  "integrations.jobs.kinds.toll_fetch": "HGS/OGS geçiş sorgusu",
+  "integrations.fields.username": "Kullanıcı kodu",
+  "integrations.fields.scenario": "Test senaryosu",
+  "integrations.providers.kabis": "KABİS (resmi bağlantı)",
+  "integrations.providers.kabis_fake": "KABİS test adaptörü (yalnız geliştirme)",
+  "integrations.provider_hints.kabis": "Resmi KABİS bağlantı yöntemi henüz doğrulanmadı (TEC-682). Bilgileri şimdiden saklayabilirsiniz; bildirimler yöntem doğrulanana kadar \"bağımlılık bekliyor\" durumunda kalır ve gönderilmez.",
+  "integrations.provider_hints.kabis_fake": "Yalnız geliştirme ve test ortamında görünür; emniyete hiçbir şey göndermez. Test senaryosu: boş / ok, outage (kesinti), timeout (belirsiz sonuç), reject (red).",
+  "integrations.jobs.statuses.blocked": "Eksik veri — gönderilmedi",
+  "integrations.jobs.statuses.waiting_dependency": "Bağımlılık bekliyor",
+  "integrations.jobs.statuses.reported_manually": "Manuel bildirildi",
+  "integrations.jobs.statuses.reconciled": "Uzlaştırıldı",
+  "integrations.jobs.kinds.kabis_rental_start": "KABİS kiralama başlangıcı",
+  "integrations.jobs.kinds.kabis_rental_end": "KABİS kiralama bitişi",
+  "integrations.jobs.kinds.kabis_correction": "KABİS düzeltme"
 }

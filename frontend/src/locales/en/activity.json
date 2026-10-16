@@ -316,5 +316,10 @@
   "actions.field_tasks.started": "Field task started",
   "actions.field_tasks.issue_reported": "Field task issue reported",
   "actions.field_tasks.completed": "Field task completed",
-  "actions.field_tasks.cancelled": "Field task cancelled"
+  "actions.field_tasks.cancelled": "Field task cancelled",
+  "resources.tenant.kabis_notifications": "KABİS notifications",
+  "actions.kabis.retried": "KABİS notification retried",
+  "actions.kabis.reported_manually": "KABİS notification marked reported manually",
+  "actions.kabis.reconciled": "KABİS notification reconciled",
+  "actions.kabis.attachment_downloaded": "KABİS notification attachment downloaded"
 }

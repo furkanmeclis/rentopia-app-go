@@ -92,12 +92,16 @@ function tenantUrl(
   return url;
 }
 
-/** Multipart upload to an organization-scoped endpoint (imports). */
+/**
+ * Multipart upload to an organization-scoped endpoint (imports, files).
+ * `silent` skips the global error toast (the caller renders the error).
+ */
 export async function tenantFormRequest<T>(
   slug: string,
   method: string,
   path: string,
   formData: FormData,
+  options?: { silent?: boolean },
 ): Promise<T> {
   if (!slug) throw new Error("tenantRequest: organization slug is required");
   const response = await fetch(tenantUrl(path), {
@@ -107,7 +111,7 @@ export async function tenantFormRequest<T>(
     body: formData,
   });
   const payload = await response.json().catch(() => undefined);
-  return unwrap<T>({ data: payload, response });
+  return unwrap<T>({ data: payload, response }, { silent: options?.silent });
 }
 
 /** Binary download from an organization-scoped endpoint (export / sample). */

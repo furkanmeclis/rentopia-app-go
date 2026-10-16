@@ -77,5 +77,6 @@
   "nav_tolls": "Toll passes",
   "nav_tolls_review": "Toll review queue",
   "nav_my_field_tasks": "My tasks",
-  "nav_field_task_board": "Task board"
+  "nav_field_task_board": "Task board",
+  "nav_kabis": "KABİS notifications"
 }

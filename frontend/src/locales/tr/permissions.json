@@ -179,5 +179,9 @@
   "labels.tenant.field_tasks.read": "Görev panosunu görüntüle",
   "labels.tenant.field_tasks.assign": "Saha görevlerini planla ve ata",
   "labels.tenant.field_tasks.execute": "Kendi saha görevlerini yürüt",
-  "groups.tenant_field_tasks": "Saha görevleri"
+  "groups.tenant_field_tasks": "Saha görevleri",
+  "labels.tenant.kabis.read": "KABİS bildirimlerini görüntüle",
+  "labels.tenant.kabis.retry": "KABİS bildirimlerini yeniden dene",
+  "labels.tenant.kabis.reconcile": "KABİS bildirimlerini manuel bildirildi / uzlaştırıldı olarak işaretle",
+  "groups.tenant_kabis": "KABİS bildirimleri"
 }

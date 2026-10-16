@@ -228,7 +228,7 @@ export function IntegrationJobsSection({
   );
 }
 
-function SummaryList({ value }: { value: Record<string, unknown> }) {
+export function SummaryList({ value }: { value: Record<string, unknown> }) {
   const entries = Object.entries(value);
   if (!entries.length) return <span className="text-muted-foreground">—</span>;
   return (
@@ -308,7 +308,18 @@ export function IntegrationJobDrawer({
   );
 }
 
-function JobDetailBody({ job }: { job: IntegrationJobDetail }) {
+/**
+ * Every provider call of a job (submit / status check, trigger, outcome,
+ * short request / response summaries, time and duration). Shared by the
+ * integration job drawer and the KABİS notification detail.
+ */
+export function IntegrationAttemptsTable({
+  attempts,
+  persistKey,
+}: {
+  attempts: IntegrationAttempt[];
+  persistKey: string;
+}) {
   const { t, locale } = useLocale();
   const columns = useMemo(
     () =>
@@ -395,6 +406,27 @@ function JobDetailBody({ job }: { job: IntegrationJobDetail }) {
     [locale, t],
   );
   return (
+    <EntityTable
+      columns={columns}
+      data={attempts}
+      getRowId={(row) => row.uuid}
+      emptyTitle={t("payments.integrations.jobs.attempts.empty")}
+      manual={{ filtering: false, sorting: false, pagination: false }}
+      features={{
+        persistKey,
+        rowSelection: false,
+        columnFilters: false,
+        facetedFilters: false,
+        sorting: false,
+        pagination: false,
+      }}
+    />
+  );
+}
+
+function JobDetailBody({ job }: { job: IntegrationJobDetail }) {
+  const { t, locale } = useLocale();
+  return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Fact
@@ -468,20 +500,9 @@ function JobDetailBody({ job }: { job: IntegrationJobDetail }) {
         label={t("payments.integrations.jobs.fields.payload")}
         value={<SummaryList value={job.payload} />}
       />
-      <EntityTable
-        columns={columns}
-        data={job.attempt_log}
-        getRowId={(row) => row.uuid}
-        emptyTitle={t("payments.integrations.jobs.attempts.empty")}
-        manual={{ filtering: false, sorting: false, pagination: false }}
-        features={{
-          persistKey: "tenant-integration-attempts-v1",
-          rowSelection: false,
-          columnFilters: false,
-          facetedFilters: false,
-          sorting: false,
-          pagination: false,
-        }}
+      <IntegrationAttemptsTable
+        attempts={job.attempt_log}
+        persistKey="tenant-integration-attempts-v1"
       />
     </div>
   );

@@ -130,6 +130,9 @@ export const Permission = {
   TenantTollsExport: "tenant.tolls.export",
   TenantTollsImport: "tenant.tolls.import",
   TenantTollsReview: "tenant.tolls.review",
+  TenantKabisRead: "tenant.kabis.read",
+  TenantKabisRetry: "tenant.kabis.retry",
+  TenantKabisReconcile: "tenant.kabis.reconcile",
 } as const;
 
 export type PermissionSlug = (typeof Permission)[keyof typeof Permission];
@@ -416,6 +419,16 @@ export const permissions = {
       export: Permission.TenantTollsExport,
       import: Permission.TenantTollsImport,
       review: Permission.TenantTollsReview,
+    },
+    /**
+     * KABİS notifications (TEC-726): the screen and the rental chip,
+     * retry (status check first), mark manual / reconcile. The KABİS
+     * account is an integration account (`integrations.manage`).
+     */
+    kabis: {
+      read: Permission.TenantKabisRead,
+      retry: Permission.TenantKabisRetry,
+      reconcile: Permission.TenantKabisReconcile,
     },
     damage: {
       approve: Permission.TenantDamageApprove,
