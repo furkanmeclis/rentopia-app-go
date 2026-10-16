@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
@@ -103,8 +104,7 @@ func (p *Push) sendStaff(ctx context.Context, orgID int64, m channel.Message) (c
 		Priority: notifmodel.PriorityNormal, Title: m.Subject, Body: m.Body, SourceEvent: "notify." + m.Event,
 		Payload: map[string]any{"notification_delivery_uuid": m.DeliveryUUID.String()},
 	}
-	if m.Link != "" {
-		link := m.Link
+	if link := relativeLink(m.Link); link != "" {
 		in.ActionURL = &link
 	}
 	rows, err := p.notifier.Enqueue(ctx, in)
@@ -134,8 +134,8 @@ func (p *Push) sendCustomer(ctx context.Context, orgID int64, m channel.Message)
 		return channel.Result{Outcome: channel.OutcomeSkipped, Error: "no push subscription"}, nil
 	}
 	data := map[string]any{"notification_delivery_uuid": m.DeliveryUUID.String()}
-	if m.Link != "" {
-		data["action_url"] = m.Link
+	if link := relativeLink(m.Link); link != "" {
+		data["action_url"] = link
 	}
 	payload, _ := json.Marshal(map[string]any{"title": m.Subject, "body": m.Body, "data": data})
 	ok, lastErr := 0, ""
@@ -166,6 +166,24 @@ func (p *Push) sendCustomer(ctx context.Context, orgID int64, m channel.Message)
 		return channel.Result{Outcome: channel.OutcomeFailed, Provider: "webpush", RecipientMasked: masked, Error: lastErr}, nil
 	}
 	return channel.Result{Outcome: channel.OutcomeSent, Provider: "webpush", RecipientMasked: masked}, nil
+}
+
+// relativeLink turns the app link of a message into a same-origin path:
+// the service worker and the inbox open relative paths only.
+func relativeLink(link string) string {
+	link = strings.TrimSpace(link)
+	if link == "" {
+		return ""
+	}
+	u, err := url.Parse(link)
+	if err != nil || !strings.HasPrefix(u.Path, "/") {
+		return ""
+	}
+	out := u.EscapedPath()
+	if u.RawQuery != "" {
+		out += "?" + u.RawQuery
+	}
+	return out
 }
 
 // SetSender replaces the web push sender (tests).

@@ -3,12 +3,15 @@ package notifyengine_test
 import (
 	"context"
 	"errors"
+	"io"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	webpush "github.com/SherClockHolmes/webpush-go"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
 	accountsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/accounts/usecase"
 	jobsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/jobs/usecase"
@@ -468,6 +471,53 @@ func TestReservationTransitions(t *testing.T) {
 	}
 	if e.mail.count() != 4 {
 		t.Fatalf("mails: %d", e.mail.count())
+	}
+}
+
+// Customer web push: the customer's own subscriptions; an expired one is
+// dropped and the next channel runs.
+func TestCustomerPush(t *testing.T) {
+	e := newEnv(t, false)
+	push := adapters.NewPush(nil, e.q, adapters.VAPID{PublicKey: "pub", PrivateKey: "priv", Subject: "mailto:x@example.test"})
+	var payloads []string
+	status := http.StatusCreated
+	push.SetSender(func(payload []byte, _ *webpush.Subscription, _ *webpush.Options) (*http.Response, error) {
+		payloads = append(payloads, string(payload))
+		return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(""))}, nil
+	})
+	e.eng.Register(push)
+	if err := e.eng.SubscribeCustomerPush(e.ctx, e.org, e.customer, model.PushSubscriptionInput{
+		Endpoint: "https://push.example.test/sub/1", KeyP256dh: "p256", KeyAuth: "auth",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.eng.SubscribeCustomerPush(e.ctx, e.org, e.customer, model.PushSubscriptionInput{Endpoint: "http://insecure"}); err == nil {
+		t.Fatal("a non-https endpoint was accepted")
+	}
+	if _, err := e.eng.PutRule(e.ctx, e.org, catalog.ReservationConfirmed, model.RuleInput{
+		Enabled: true, Channels: []string{"push", "email"}, Fallback: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	ok := e.emit(t, catalog.ReservationConfirmed, "push-1")
+	if d := e.dispatch(t, ok.Dispatch.Uuid); attempts(d) != "push:sent" {
+		t.Fatalf("push: %s", attempts(d))
+	}
+	if len(payloads) != 1 || !strings.Contains(payloads[0], `"action_url":"/r/`+e.slug+`"`) {
+		t.Fatalf("payload: %v", payloads)
+	}
+	status = http.StatusGone
+	gone := e.emit(t, catalog.ReservationConfirmed, "push-2")
+	if d := e.dispatch(t, gone.Dispatch.Uuid); attempts(d) != "push:failed,email:sent" {
+		t.Fatalf("expired subscription: %s", attempts(d))
+	}
+	var n int
+	if err := e.pool.QueryRow(e.ctx, `SELECT COUNT(*) FROM customer_push_subscriptions WHERE organization_id = $1`, e.org).Scan(&n); err != nil || n != 0 {
+		t.Fatalf("expired subscription kept: %d %v", n, err)
+	}
+	none := e.emit(t, catalog.ReservationConfirmed, "push-3")
+	if d := e.dispatch(t, none.Dispatch.Uuid); attempts(d) != "push:skipped,email:sent" {
+		t.Fatalf("no subscription: %s", attempts(d))
 	}
 }
 

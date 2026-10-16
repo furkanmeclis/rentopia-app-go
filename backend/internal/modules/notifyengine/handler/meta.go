@@ -12,14 +12,14 @@ const ResourceDeliveries = "tenant.notification_deliveries"
 // (read only: no export, no bulk actions).
 func DeliveriesMeta() rm.ResourceMeta {
 	col := func(key string, t rm.ColumnType, sortable, visible bool) rm.Column {
-		return rm.Column{Key: key, LabelKey: "notificationEngine.history.columns." + key, Type: t, Sortable: sortable, DefaultVisible: visible}
+		return rm.Column{Key: key, LabelKey: "notification_engine.history.columns." + key, Type: t, Sortable: sortable, DefaultVisible: visible}
 	}
 	faceted := func(c rm.Column) rm.Column {
 		c.Filterable, c.FilterVariant = true, rm.FilterVariantFaceted
 		return c
 	}
 	filter := func(key, lookup string) rm.Filter {
-		return rm.Filter{Key: key, LabelKey: "notificationEngine.history.columns." + key, Variant: rm.FilterVariantFaceted, EnumLookup: lookup}
+		return rm.Filter{Key: key, LabelKey: "notification_engine.history.columns." + key, Variant: rm.FilterVariantFaceted, EnumLookup: lookup}
 	}
 	s, e, dt := rm.ColumnTypeString, rm.ColumnTypeEnum, rm.ColumnTypeDatetime
 	return rm.ResourceMeta{
@@ -44,10 +44,10 @@ func DeliveriesMeta() rm.ResourceMeta {
 			faceted(col("audience", e, false, false)),
 		},
 		Filters: []rm.Filter{
-			filter("event", "notificationEngine.events"),
-			filter("channel", "notificationEngine.channels"),
-			filter("status", "notificationEngine.deliveryStatuses"),
-			filter("audience", "notificationEngine.audiences"),
+			filter("event", "notification_engine.events"),
+			filter("channel", "notification_engine.channels"),
+			filter("status", "notification_engine.delivery_statuses"),
+			filter("audience", "notification_engine.audiences"),
 		},
 		Includes:    []string{},
 		BulkActions: nil,

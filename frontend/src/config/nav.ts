@@ -5,6 +5,7 @@ import {
   BadgePercent,
   Banknote,
   Bell,
+  BellRing,
   Boxes,
   Building2,
   Calculator,
@@ -738,6 +739,13 @@ export function tenantNav(slug: string): NavCatalog {
             href: routes.tenant.invoices.settings(slug),
             icon: ReceiptText,
             permission: permissions.tenant.invoices.settings,
+          },
+          {
+            id: "settings-notifications",
+            titleKey: "layout.nav_tenant_settings_notifications",
+            href: routes.tenant.settings.notifications(slug),
+            icon: BellRing,
+            permission: permissions.tenant.notificationSettings.read,
           },
           {
             id: "settings-inspection-templates",

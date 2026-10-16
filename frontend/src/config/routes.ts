@@ -242,6 +242,9 @@ export const routes = {
         detail: (slug: string, uuid: string) =>
           `/t/${encodeURIComponent(slug)}/settings/roles/${uuid}`,
       },
+      /** Notification rules, templates and history ("Bildirimler", TEC-733). */
+      notifications: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/settings/notifications`,
       /** Inspection templates ("Teslim / iade formları"). */
       inspectionTemplates: (slug: string) =>
         `/t/${encodeURIComponent(slug)}/settings/inspection-templates`,
