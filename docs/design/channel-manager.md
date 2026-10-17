@@ -1,12 +1,12 @@
-# Channel manager core and the Yolcu360 adapter
+# Channel manager core, the Yolcu360 and Obilet adapters
 
-Status: **implemented** (M5: TEC-736, acceptance RT-A25). Obilet (TEC-737) plugs into the same core. Builds on reservations ([reservations.md](./reservations.md): quotes, the state machine, `collecting_party`, commission and `external_reference` per channel), the availability engine ([availability-engine.md](./availability-engine.md): channel capacity rules) and the per-organization encrypted integration accounts ([payments.md](./payments.md) §2).
+Status: **implemented** (M5: TEC-736, acceptance RT-A25; Obilet TEC-737, acceptance RT-A26, plugs into the same core). Builds on reservations ([reservations.md](./reservations.md): quotes, the state machine, `collecting_party`, commission and `external_reference` per channel), the availability engine ([availability-engine.md](./availability-engine.md): channel capacity rules) and the per-organization encrypted integration accounts ([payments.md](./payments.md) §2).
 
 Code:
 
 | Area | Package |
 |------|---------|
-| Provider interface, Yolcu360 adapter, fake | `backend/internal/platform/channels`, `…/channels/yolcu360`, `…/channels/channelfake` |
+| Provider interface, Yolcu360 and Obilet adapters, fakes | `backend/internal/platform/channels`, `…/channels/yolcu360`, `…/channels/obilet`, `…/channels/channelfake` |
 | Push, pull / processing, mappings, error queue, reconciliation, sweep | `backend/internal/modules/channels/usecase` |
 | Reservations / customers port | `backend/internal/modules/channels/adapters` (`Booker`) |
 | HTTP | `backend/internal/modules/channels/handler`, `…/channels/routes.go` |
@@ -29,7 +29,15 @@ Rentopia needs the supplier (fleet publishing) protocol, not the public Agency A
 
 **To be confirmed in writing with Yolcu360 (TEC-680):** connection direction (supplier or distributor), who generates product codes, model guarantee support, availability format (count / offer / open-closed), where the booking becomes final, retry / timeout / cancellation rules, stop-sale and disconnection behaviour. Until then `yolcu360_fake` (outside production only; `scenario` = ok / outage / reject) is the tested path.
 
-## 2. Tables (migrations 000118 – 000119)
+### Obilet
+
+Same interface, no core change: the module only learned a second provider (`routes.go` `Providers`) and the provider list (migration 000640). Credentials: `partner_code`, `api_token` (sealed), optional `base_url`.
+
+What follows Obilet's documented client API (v2): JSON over HTTPS, `Authorization: Basic <api token>`, a device session from `POST /api/client/getsession` cached per account (and per token / host), every request wrapped as `{device-session, date, language: tr-TR, data}`, every answer as `{status, data, message, user-message}`, kebab-case keys, dates in Türkiye local time without an offset, amounts as JSON numbers. An expired session (`InvalidSession`) is renewed once and the call repeated (all operations are snapshots, reads or idempotent).
+
+**Assumed until Obilet hands over the car rental supplier contract** (all in `obilet.go`, constants and wire types only): the operation paths (`/api/carrental/supplier/ping`, `…/inventory/update`, `…/bookings/getchanges`, `…/bookings/acknowledge`, `…/statement`), their field names, the change feed (change id + PNR + version with the full booking), `payment-type` (`Online` → collected by the channel, `PayAtOffice` → at the counter), the page size (200 items per push) and the default hosts. Error classification is the core's (as Yolcu360). Obilet is not reachable from the build environment, so `obilet_fake` (outside production only, same fake implementation as `yolcu360_fake`, simulated PNRs `OBL-…`) is the tested path.
+
+## 2. Tables (migrations 000118 – 000119; 000640 adds the Obilet providers)
 
 | Table | Notes |
 |-------|-------|
@@ -81,11 +89,12 @@ Writes and sync act for the whole organization (members limited to some branches
 
 ## 7. Tests
 
-`backend/internal/modules/channels/integration_test.go` (Postgres, reservations + customers behind the Booker, the fake): `TestRT_A25_BookingModificationCancellationWithRepeats` (repeats and out-of-order versions → one reservation; capacity, price, commission / net, no payment, acknowledgements), cancellation before booking, error queue retry / dismiss, no capacity, push (quota, stop-sale, offline policy, failure state), shared code resolved by offer, reconciliation, the sweep (event vs schedule), cross-organization. `yolcu360_test.go` covers signing, wire mapping and error classification; `routes_test.go` the permission gates; RT-A01 the routes.
+`backend/internal/modules/channels/integration_test.go` (Postgres, reservations + customers behind the Booker, the fake): `TestRT_A25_BookingModificationCancellationWithRepeats` (repeats and out-of-order versions → one reservation; capacity, price, commission / net, no payment, acknowledgements), cancellation before booking, error queue retry / dismiss, no capacity, push (quota, stop-sale, offline policy, failure state), shared code resolved by offer, reconciliation, the sweep (event vs schedule), cross-organization. `obilet_test.go` (module): `TestRT_A26_ObiletAvailabilityPriceBookingCancellation` (Obilet next to Yolcu360 in one organization: its own push with availability and price under its codes, a booking → reservation on the `obilet` channel with the PNR as external reference and the channel booking record, acknowledgement, reconciliation, cancellation releasing capacity, Yolcu360 untouched) and one active account per channel. `yolcu360_test.go` covers signing, wire mapping and error classification; `obilet/obilet_test.go` the session envelope and renewal, wire mapping (local times, numbers, payment type), acknowledgement, statement and error classification; `routes_test.go` the permission gates; RT-A01 the routes.
 
 ## 8. Open items
 
 - TEC-680: confirm the Yolcu360 supplier contract (§1) and adjust the adapter (paths, fields, availability format, final-booking point); then test in the Yolcu360 sandbox with real credentials.
+- TEC-737: obtain Obilet's car rental supplier contract and adjust `obilet.go` (paths, fields, payment types, hosts); then test against Obilet's test host with real credentials. Until then the issue waits on that dependency.
 - Inbound webhooks (the provider interface has no push entry yet; pull only).
 - A partner ledger account per channel for the net receivable / commission settlement (today the figures live on the channel bookings and the report).
 - Customer de-duplication across channel bookings (each booking creates its customer; modifications reuse it).

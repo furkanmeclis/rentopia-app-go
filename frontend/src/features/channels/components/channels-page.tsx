@@ -30,7 +30,7 @@ const TAB_LABEL_KEYS: Record<ChannelTab, string> = {
 
 /**
  * "Kanal yöneticisi": marketplaces selling the organization's products
- * (Yolcu360, later Obilet). Accounts and sync state, mappings, the message
+ * (Yolcu360, Obilet). Accounts and sync state, mappings, the message
  * / error queue, the sync log and the reconciliation report as tabs (the
  * tab is kept in the URL).
  */

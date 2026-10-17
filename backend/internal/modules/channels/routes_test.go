@@ -12,6 +12,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/channels/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/channels/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/authctx"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/channels"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/crypto"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/jwt"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
@@ -135,15 +136,20 @@ func TestLiveResources(t *testing.T) {
 	}
 }
 
-// Yolcu360 is always registered; the fake outside production only.
+// Yolcu360 and Obilet are always registered; the fakes outside production only.
 func TestProvidersPerEnvironment(t *testing.T) {
 	t.Parallel()
-	prod := Providers("production", nil)
-	if len(prod) != 1 || prod[0].Provider() != "yolcu360" || prod[0].Channel() != "yolcu360" {
-		t.Fatalf("production providers %+v", prod)
+	codes := func(ps []channels.Provider) string {
+		out := []string{}
+		for _, p := range ps {
+			out = append(out, p.Provider()+"/"+p.Channel())
+		}
+		return strings.Join(out, ",")
 	}
-	dev := Providers("development", nil)
-	if len(dev) != 2 || dev[1].Provider() != "yolcu360_fake" || dev[1].Channel() != "yolcu360" {
-		t.Fatalf("development providers %+v", dev)
+	if got := codes(Providers("production", nil)); got != "yolcu360/yolcu360,obilet/obilet" {
+		t.Fatalf("production providers %s", got)
+	}
+	if got := codes(Providers("development", nil)); got != "yolcu360/yolcu360,obilet/obilet,yolcu360_fake/yolcu360,obilet_fake/obilet" {
+		t.Fatalf("development providers %s", got)
 	}
 }

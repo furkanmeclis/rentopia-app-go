@@ -1,6 +1,6 @@
 // Package usecase is the channel manager core (TEC-736, RT-A25,
 // docs/design/channel-manager.md), shared by every channel adapter
-// (Yolcu360 now, Obilet next):
+// (Yolcu360, Obilet):
 //
 //   - outbound: availability, price, stop-sale and quota per mapped product,
 //     location and day, pushed as a full snapshot of the horizon (on events

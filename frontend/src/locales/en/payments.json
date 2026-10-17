@@ -313,5 +313,11 @@
   "integrations.provider_hints.yolcu360_fake": "Development and test only: nothing reaches Yolcu360. Bookings can be simulated from the channel manager. Test scenario: empty / ok, outage, reject.",
   "integrations.fields.supplier_code": "Supplier code",
   "integrations.fields.api_secret": "Signing secret",
-  "integrations.fields.base_url": "Server address (optional)"
+  "integrations.fields.base_url": "Server address (optional)",
+  "integrations.providers.obilet": "obilet (channel)",
+  "integrations.providers.obilet_fake": "obilet test adapter (development only)",
+  "integrations.provider_hints.obilet": "obilet supplier connection: partner code and API token. Until the car rental supplier contract is confirmed (TEC-737) the host can be overridden in ‘Server address’.",
+  "integrations.provider_hints.obilet_fake": "Development and test only: nothing reaches obilet. Bookings can be simulated from the channel manager. Test scenario: empty / ok, outage, reject.",
+  "integrations.fields.partner_code": "Partner code",
+  "integrations.fields.api_token": "API token"
 }

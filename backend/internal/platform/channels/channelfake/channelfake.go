@@ -1,5 +1,8 @@
 // Package channelfake is the development / test channel provider
-// (yolcu360_fake). It is registered outside production only.
+// (yolcu360_fake, obilet_fake). It is registered outside production only.
+// One implementation stands in for every channel: New is the Yolcu360 fake,
+// NewObilet the Obilet fake (TEC-737); only the provider code, the channel
+// and the prefix of simulated booking numbers differ.
 //
 // It keeps, per account, the last inventory push, a queue of booking
 // messages (scripted by tests with Enqueue or queued by the panel's
@@ -23,11 +26,17 @@ import (
 	"github.com/google/uuid"
 )
 
-// ProviderCode is the provider code of the fake.
+// ProviderCode is the provider code of the Yolcu360 fake.
 const ProviderCode = "yolcu360_fake"
 
-// Channel is the sales channel the fake stands in for.
+// Channel is the sales channel the Yolcu360 fake stands in for.
 const Channel = "yolcu360"
+
+// ObiletProviderCode is the provider code of the Obilet fake.
+const ObiletProviderCode = "obilet_fake"
+
+// ObiletChannel is the sales channel the Obilet fake stands in for.
+const ObiletChannel = "obilet"
 
 type state struct {
 	lastPush *channels.InventoryPush
@@ -40,6 +49,9 @@ type state struct {
 
 // Provider is the fake channel.
 type Provider struct {
+	provider  string
+	channel   string
+	refPrefix string
 	mu        sync.Mutex
 	accounts  map[uuid.UUID]*state
 	failPush  []error
@@ -47,9 +59,17 @@ type Provider struct {
 	statement map[uuid.UUID][]channels.StatementLine
 }
 
-// New builds the fake.
-func New() *Provider {
-	return &Provider{accounts: map[uuid.UUID]*state{}, statement: map[uuid.UUID][]channels.StatementLine{}}
+// New builds the Yolcu360 fake (yolcu360_fake).
+func New() *Provider { return newFake(ProviderCode, Channel, "Y360-") }
+
+// NewObilet builds the Obilet fake (obilet_fake).
+func NewObilet() *Provider { return newFake(ObiletProviderCode, ObiletChannel, "OBL-") }
+
+func newFake(provider, channel, refPrefix string) *Provider {
+	return &Provider{
+		provider: provider, channel: channel, refPrefix: refPrefix,
+		accounts: map[uuid.UUID]*state{}, statement: map[uuid.UUID][]channels.StatementLine{},
+	}
 }
 
 func (p *Provider) st(id uuid.UUID) *state {
@@ -65,13 +85,21 @@ func (p *Provider) st(id uuid.UUID) *state {
 func (p *Provider) Kind() string { return channels.Kind }
 
 // Provider implements integrations.Adapter.
-func (p *Provider) Provider() string { return ProviderCode }
+func (p *Provider) Provider() string { return p.provider }
 
 // Channel implements channels.Provider.
-func (p *Provider) Channel() string { return Channel }
+func (p *Provider) Channel() string { return p.channel }
 
 // Fields implements integrations.Adapter.
+// The fields mirror the real adapter's identity and key fields.
 func (p *Provider) Fields() []integrations.Field {
+	if p.channel == ObiletChannel {
+		return []integrations.Field{
+			{Key: "partner_code", LabelKey: "payments.integrations.fields.partner_code", Secret: false, Required: true},
+			{Key: "api_token", LabelKey: "payments.integrations.fields.api_token", Secret: true, Required: true},
+			{Key: "scenario", LabelKey: "payments.integrations.fields.scenario", Secret: false, Required: false},
+		}
+	}
 	return []integrations.Field{
 		{Key: "supplier_code", LabelKey: "payments.integrations.fields.supplier_code", Secret: false, Required: true},
 		{Key: "api_key", LabelKey: "payments.integrations.fields.api_key", Secret: true, Required: true},
@@ -86,14 +114,15 @@ func (p *Provider) Capabilities() channels.Capabilities {
 	}
 }
 
-func scenario(account integrations.Account) error {
+func (p *Provider) scenario(account integrations.Account) error {
 	switch strings.ToLower(strings.TrimSpace(account.Credentials["scenario"])) {
 	case "outage":
-		return fmt.Errorf("%w: yolcu360_fake outage scenario", channels.ErrUnavailable)
+		return fmt.Errorf("%w: %s outage scenario", channels.ErrUnavailable, p.provider)
 	case "reject":
-		return fmt.Errorf("%w: yolcu360_fake reject scenario", channels.ErrRejected)
+		return fmt.Errorf("%w: %s reject scenario", channels.ErrRejected, p.provider)
 	}
-	if strings.EqualFold(strings.TrimSpace(account.Credentials["api_key"]), "invalid") {
+	if strings.EqualFold(strings.TrimSpace(account.Credentials["api_key"]), "invalid") ||
+		strings.EqualFold(strings.TrimSpace(account.Credentials["api_token"]), "invalid") {
 		return fmt.Errorf("%w: invalid api key", channels.ErrRejected)
 	}
 	return nil
@@ -101,7 +130,7 @@ func scenario(account integrations.Account) error {
 
 // Check implements integrations.Adapter.
 func (p *Provider) Check(_ context.Context, account integrations.Account) error {
-	return scenario(account)
+	return p.scenario(account)
 }
 
 // FailNextPush makes the next pushes fail with these errors.
@@ -124,7 +153,7 @@ func (p *Provider) PushInventory(ctx context.Context, account integrations.Accou
 	if err := ctx.Err(); err != nil {
 		return channels.PushReceipt{}, err
 	}
-	if err := scenario(account); err != nil {
+	if err := p.scenario(account); err != nil {
 		return channels.PushReceipt{}, err
 	}
 	p.mu.Lock()
@@ -181,7 +210,7 @@ func (p *Provider) Simulate(account integrations.Account, m channels.Message) ch
 	p.mu.Lock()
 	s := p.st(account.UUID)
 	if m.ExternalRef == "" {
-		m.ExternalRef = "Y360-" + strings.ToUpper(uuid.NewString()[:8])
+		m.ExternalRef = p.refPrefix + strings.ToUpper(uuid.NewString()[:8])
 	}
 	if m.Version == 0 {
 		var latest int64
@@ -219,7 +248,7 @@ func (p *Provider) PullMessages(ctx context.Context, account integrations.Accoun
 	if err := ctx.Err(); err != nil {
 		return channels.MessageBatch{}, err
 	}
-	if err := scenario(account); err != nil {
+	if err := p.scenario(account); err != nil {
 		return channels.MessageBatch{}, err
 	}
 	p.mu.Lock()
@@ -247,7 +276,7 @@ func (p *Provider) PullMessages(ctx context.Context, account integrations.Accoun
 
 // Acknowledge implements channels.Provider.
 func (p *Provider) Acknowledge(_ context.Context, account integrations.Account, acks []channels.Ack) error {
-	if err := scenario(account); err != nil {
+	if err := p.scenario(account); err != nil {
 		return err
 	}
 	p.mu.Lock()
@@ -274,7 +303,7 @@ func (p *Provider) ScriptStatement(account uuid.UUID, lines ...channels.Statemen
 // Statement implements channels.Provider: the scripted lines, else the
 // latest state of every booking the fake has sent, picked up in [from, to).
 func (p *Provider) Statement(_ context.Context, account integrations.Account, from, to time.Time) ([]channels.StatementLine, error) {
-	if err := scenario(account); err != nil {
+	if err := p.scenario(account); err != nil {
 		return nil, err
 	}
 	p.mu.Lock()
