@@ -176,6 +176,12 @@ export const tr = {
   "notfound.home": "Ana sayfaya dön",
   "common.back": "Geri",
   "common.new_search": "Yeni arama",
+
+  "preview.banner":
+    "Önizleme: yayınlanmamış değişiklikleri görüyorsunuz. Ziyaretçiler bu sürümü görmez.",
+  "preview.exit": "Önizlemeden çık",
+  "preview.booking_disabled":
+    "Önizlemede rezervasyon yapılamaz. Fiyatları ve adımları görebilirsiniz.",
 };
 
 export type MessageKey = keyof typeof tr;

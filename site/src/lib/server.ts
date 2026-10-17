@@ -6,6 +6,7 @@ import { cache } from "react";
 
 import { ApiError, apiFetch, type ApiRequest } from "./api";
 import { LOCALE_COOKIE, pickLocale, translator, type Translate } from "./i18n";
+import { PREVIEW_HEADER, previewToken } from "./preview";
 import { clientIpFrom } from "./request";
 import { resolveSite } from "./resolve";
 import {
@@ -22,7 +23,9 @@ import type { Locale, Site, SiteContent } from "./types";
 /** The site of the current request host (404 when none). */
 export const getSite = cache(async (): Promise<Site> => {
   const h = await headers();
-  const site = await resolveSite(h.get("host"), clientIpFrom(h));
+  // Set by the proxy only (client copies are dropped there).
+  const preview = previewToken(h.get(PREVIEW_HEADER));
+  const site = await resolveSite(h.get("host"), clientIpFrom(h), preview);
   if (!site) notFound();
   return site;
 });
@@ -95,6 +98,14 @@ export async function bookingApi<T>(
   const site = await getSite();
   if (!site.booking_enabled || !site.publishable_key) {
     throw new ApiError(403, "BOOKING_DISABLED", "Online booking is off");
+  }
+  // A draft preview browses the catalog and prices but never books or pays.
+  if (
+    site.preview &&
+    req.method === "POST" &&
+    path.startsWith("/v1/public/reservations")
+  ) {
+    throw new ApiError(403, "PREVIEW_READ_ONLY", "Previews cannot book");
   }
   const base = { ...req, origin: site.origin, clientIp: await getClientIp() };
   let token = await currentToken(site);

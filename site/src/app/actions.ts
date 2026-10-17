@@ -197,6 +197,8 @@ export async function book(
     });
   } catch (err) {
     if (!(err instanceof ApiError)) return { error: "book.failed", values };
+    if (err.code === "PREVIEW_READ_ONLY")
+      return { error: "preview.booking_disabled", values };
     if (err.code === "QUOTE_PRICE_CHANGED") {
       const replacement = err.data as { uuid?: string } | null;
       if (replacement?.uuid && UUID.test(replacement.uuid)) {

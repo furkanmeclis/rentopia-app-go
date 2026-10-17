@@ -178,4 +178,10 @@ export const en: Record<MessageKey, string> = {
   "notfound.home": "Back to home",
   "common.back": "Back",
   "common.new_search": "New search",
+
+  "preview.banner":
+    "Preview: you are seeing unpublished changes. Visitors do not see this version.",
+  "preview.exit": "Leave preview",
+  "preview.booking_disabled":
+    "Bookings are disabled in a preview. You can still see prices and steps.",
 };
