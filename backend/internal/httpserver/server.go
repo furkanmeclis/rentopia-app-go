@@ -721,6 +721,12 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	// encryption key: no separate secret to configure.
 	siteSvc.SetPreviewSecret(cfg.Encryption.Key)
 	siteSvc.SetLogger(log)
+	siteDomains, err := sitemodule.ConfigureDomains(deps.Queries, siteSvc, cfg.Site, deps.Queue.EnqueueSiteDomains)
+	if err != nil {
+		return nil, fmt.Errorf("httpserver: site domains: %w", err)
+	}
+	siteHandler := sitehandler.New(siteSvc, activityRec, ratelimit.New(deps.Redis, cfg.App.Env))
+	siteHandler.SetDomains(siteDomains, cfg.Auth.AdapterSecret)
 	// Rental group membership removals re-plan the commitments that relied
 	// on them (or are refused); moved reservations record plan_moved.
 	vehicleSvc.SetMembershipGuard(availabilitySvc)
@@ -1014,6 +1020,9 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	// own sync / delivery health register a healthcheck.Source on
 	// healthRegistry here.
 	healthRegistry := platformhealthmodule.NewRegistry(deps.Queries)
+	if err := healthRegistry.Register(siteDomains); err != nil {
+		return nil, fmt.Errorf("httpserver: domain health: %w", err)
+	}
 	// Channel manager sync health (TEC-736): failed syncs, expired pushes,
 	// the error queue.
 	if err := healthRegistry.Register(channelsmodule.NewHealthSource(deps.Queries)); err != nil {
@@ -1078,7 +1087,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	publicapimodule.RegisterRoutes(mux,
 		publicapihandler.NewPublic(publicAPISvc, ratelimit.New(deps.Redis, cfg.App.Env)),
 		publicapihandler.NewPanel(publicAPISvc, activityRec), tokens, loader, tenantResolver)
-	sitemodule.RegisterRoutes(mux, sitehandler.New(siteSvc, activityRec, ratelimit.New(deps.Redis, cfg.App.Env)),
+	sitemodule.RegisterRoutes(mux, siteHandler,
 		tokens, loader, tenantResolver)
 	notifyH := notifyenginehandler.New(notifyEngine, cfg.VAPID.PublicKey)
 	notifyenginemodule.RegisterRoutes(mux, notifyH, tokens, loader, tenantResolver)

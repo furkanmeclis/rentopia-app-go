@@ -1,7 +1,7 @@
 # Branded site
 
-Status: **implemented** (M5: TEC-729 site, TEC-730 panel editor with draft / publish). Requirements §14.1. One template, one Docker image: every organization gets its own look from data. Ten organizations means one image with ten looks. The site books only through the public booking API ([public-api.md](./public-api.md)). Later work builds on it:
-- **TEC-731**: verified custom domains;
+Status: **implemented** (M5: TEC-729 site, TEC-730 panel editor with draft / publish, TEC-731 custom-domain backend). Requirements §14.1. One template, one Docker image: every organization gets its own look from data. Ten organizations means one image with ten looks. The site books only through the public booking API ([public-api.md](./public-api.md)). Later work builds on it:
+- **TEC-731**: verified custom domains (backend implemented; panel managed separately);
 - **TEC-732**: embeddable widget.
 
 | Area | Path |
@@ -37,11 +37,53 @@ browser ── acme.rentopia.app ──▶ site (Next.js, one image)
 - `SITE_BASE_URL` (backend; prod default = `APP_URL`; dev `http://localhost:3100`) sets the base. A site answers on `{subdomain}.{host}[:port]` with the same scheme. This subdomain address is also the **preview** of every site.
 - `NormalizeHost` lower-cases the host, strips the port and trailing dot, and allows only DNS characters. Only one label directly under the base host resolves (`x.acme.rentopia.app` does not). The bare base host never resolves.
 - Reserved subdomains (`www`, `app`, `api`, `realtime`, `portal`, `widget`, …: `model.ReservedSubdomains`) can never be chosen. Subdomains are globally unique (`uq_site_settings_subdomain`).
-- **Custom domains (TEC-731 hook)**: `usecase.CustomDomains` is the hook, set with `Service.SetCustomDomains`:
-  - `Lookup(host) → organization id` (or `ErrNotFound`). It is called for hosts that are not under the base, and the site is loaded with `ResolveSiteByOrganization`. The resolved origin is `https://{host}`.
-  - `Hosts(org) → []Host`. These are the verified domains: they appear in the settings view and are added to the site key's allowed origins on save.
+- **Custom domains (TEC-731)**: `usecase.Domains` implements `CustomDomains`, wired with `Service.SetCustomDomains` in the API and worker composition roots. `Lookup` returns only verified domains; `Hosts` supplies their HTTPS origins. Every domain belongs to exactly one organization, and an unverified, failed or disabled domain returns `404 SITE_NOT_FOUND` when resolved. The site's enabled, published and organization-access checks still apply.
+- Migration **000126_site_domains** stores UUID, organization, globally unique normalized host, random 256-bit TXT token, verification/TLS state, external provider ID, creator, timestamps, next check, attempts, origin-sync flag and worker lease. A parent-row lock and trigger enforce **three domains per organization**, including disabled records awaiting cleanup, across concurrent requests. The same migration seeds `platform.site_domains.read` and `.manage` for `super_admin`; existing `tenant.site.read` and `.manage` cover tenant actions.
+- Registration refuses IP literals, localhost/local/reserved names, malformed DNS labels, and the base host or any host below it. Fully qualified external names such as `www.customer.com` are allowed. Hosts are lowercase with the trailing dot removed; registration refuses ports, URLs and wildcards. Unicode names must be supplied in ASCII DNS form.
+- **Ownership and routing**: publish TXT `_rentopia-verify.{host}` equal to the returned token, and CNAME `{host}` to `SITE_DOMAIN_TARGET_HOST` (defaults to the host of `SITE_BASE_URL`). Alternatively publish A/AAAA records using `SITE_DOMAIN_TARGET_IPS` or the target host's addresses. Verification requires the exact TXT value and a resolving host, then either a matching canonical CNAME or every returned address belonging to the platform. Keep both records after verification. DNS is resolved by the worker, with an injectable resolver and a 15-second per-domain timeout.
+- The Asynq task `app:site:domains` runs every minute on the maintenance queue. A tenant verify or platform recheck also enqueues it immediately; durable due times preserve pending work across queue outages. Batches claim up to 50 records with `FOR UPDATE SKIP LOCKED` and a ten-minute lease. Pending checks back off from one minute to six hours and fail after **72 hours**, even if DNS first appears at the deadline; register again after expiry. Verified domains are checked daily. Missing TXT, broken DNS or a wrong target changes a verified domain to failed, so host resolution stops immediately. A platform/tenant explicit recheck can recover a previously verified domain when DNS is repaired.
+- Verification, failure and removal synchronize the site's publishable key origins without changing the draft or its version. Rotation predecessors and successors are synchronized too, revoking sessions that still use keys in their grace period. Unrelated origins configured on those keys are retained. A persisted dirty flag and one-minute reconciliation retries recover failed origin/provisioning updates. Removal first disables the domain and revokes its origin, then the worker removes routing and deletes the disabled row after successful cleanup. DNS verification state and TLS provisioning state are independent.
+- `custom_domains` is registered as a platform health source in both processes: failed verification/TLS is critical and verified domains awaiting manual TLS are warnings. The existing health alert sweep notifies platform administrators of new critical issues through the notification engine.
 
-  TEC-731 adds a `site_domains` table (verification state, TLS) and the implementation, and calls the site save (or an equivalent origin sync) when a domain is verified or removed. Nothing in the site app changes.
+### 2.1 Domain API
+
+| Route | Permission / authentication | Response |
+|-------|-----------------------------|----------|
+| `GET /v1/tenant/site/domains` | `tenant.site.read` | All of the organization's domains, DNS records and TLS instructions |
+| `POST /v1/tenant/site/domains` | `tenant.site.manage` | `{host}` → 201 pending domain; 409 `DOMAIN_LIMIT` / `DOMAIN_TAKEN` |
+| `GET /v1/tenant/site/domains/{uuid}` | `tenant.site.read` | Domain; another organization's UUID is 404 |
+| `DELETE /v1/tenant/site/domains/{uuid}` | `tenant.site.manage` | 200 `{removed: true}` after disabling; routing cleanup is asynchronous |
+| `POST /v1/tenant/site/domains/{uuid}/verify` | `tenant.site.manage` | 202 domain; immediate DNS check queued |
+| `GET /v1/platform/site-domains?limit=50&offset=0` | `platform.site_domains.read` | All organizations, newest first; limit 1–200 |
+| `POST /v1/platform/site-domains/{uuid}/recheck` | `platform.site_domains.manage` | 202 domain; immediate check queued |
+| `POST /v1/platform/site-domains/{uuid}/mark-tls-active` | `platform.site_domains.manage` | Manual verified domain → TLS active; otherwise 409 `DOMAIN_TLS_MODE` |
+| `GET /v1/internal/site/domain-allowed?host=` | `X-Auth-Adapter-Key: AUTH_ADAPTER_SECRET` | 200 `{allowed: true}` only for verified hosts; 404 otherwise; 401 for invalid/missing internal credentials |
+
+Tenant routes derive organization scope from authentication and `X-Organization`; bodies never accept an organization ID. Every domain response contains UUID, organization ID, host, status, verification token, last check, first verification time, last error, TLS status, provisioner, timestamps and `dns_records[{type,name,value}]`. Internal domain authorization follows the existing internal auth adapter credential convention, fails closed for empty configuration, and sets `Cache-Control: no-store`. Do not expose the adapter secret to browsers.
+
+### 2.2 Provisioners and deployment
+
+| Key | Default / purpose |
+|-----|-------------------|
+| `SITE_DOMAIN_TARGET_HOST` | Empty → host of `SITE_BASE_URL`; public routing target |
+| `SITE_DOMAIN_TARGET_IPS` | Empty; comma-separated IPv4/IPv6 targets accepted in addition to target-host addresses |
+| `SITE_DOMAIN_PROVISIONER` | `manual`; also `dokploy`, `traefik_file` |
+| `SITE_DOMAIN_TRAEFIK_DIR` | Production `/app/site-domains`; local configuration empty until file mode is selected |
+| `DOKPLOY_URL` | Empty; Dokploy origin |
+| `DOKPLOY_API_KEY` | Empty secret; only required for Dokploy mode |
+| `DOKPLOY_COMPOSE_ID` | Empty; compose application ID |
+| `DOKPLOY_SITE_SERVICE` | `site` |
+| `DOKPLOY_SITE_PORT` | `3000` |
+| `APP_NETWORK_NAME` | Production `{NAME_PREFIX}-app`; Docker DNS suffix used by file mode |
+
+All new keys are in production schema version **6**, the example configuration and the backend/worker shared compose environment. No credential is generated for Dokploy. A domain remembers its provisioner; keep an older provider configured until its domains have been removed before switching modes.
+
+**Manual (default).** After a domain verifies, `tls_status=manual`. Platform administrators add its host to the compose **site** service, port **3000**, HTTPS with **Let's Encrypt** in Dokploy, deploy, confirm the certificate works, then call `mark-tls-active`. The platform list includes these instructions. Remove the Dokploy route manually when a domain is removed or fails verification; verification and origin revocation already prevent it serving tenant content. The backend does not issue certificates in manual mode.
+
+**Dokploy.** Set the URL, API key and compose ID, then choose `dokploy`. The worker uses [Dokploy's domain API](https://docs.dokploy.com/docs/api/domain): `domain.byComposeId` discovers a previously staged route on retries; POST `domain.create` sends the host, compose ID, service, port, HTTPS and `certificateType: letsencrypt`; POST `domain.delete` removes it. Requests carry `x-api-key`, have bounded responses/timeouts and do not follow redirects. POST `compose.deploy` applies staged changes **once per batch**; no-op checks do not redeploy. External IDs and provisioning state survive deployment failures. Active means Dokploy accepted the routing/deployment configuration; certificate issuance is performed by the proxy, so this is not an independent TLS handshake probe.
+
+**Traefik file.** Choose `traefik_file` and set the directory and network name. Production mounts the named volume `{NAME_PREFIX}-prod-site-domains` at `/app/site-domains` in the worker; the image creates that directory for its unprivileged user. Mount the **same volume read-only** in the edge Traefik container, enable its file provider with directory watching, configure entrypoints `web`/`websecure` and the `letsencrypt` certificate resolver, and connect it to the application's network so `site.{APP_NETWORK_NAME}` resolves. For an external directory instead, replace the worker volume mount with a bind mount, grant UID 10001 write permission and point `SITE_DOMAIN_TRAEFIK_DIR` there. Each verified host gets one atomically replaced `site-domain-{host}.yml` with a host rule, HTTPS router, HTTP→HTTPS redirect and backend `http://site.{APP_NETWORK_NAME}:3000`; removal or failed ownership removes the file. Router/service identifiers derive from a host hash to avoid collisions between DNS label boundaries. Active means configuration was written; Traefik handles certificate issuance.
+
 - **Deployment**: in Dokploy, route the wildcard domain `*.{APP_HOST}` (wildcard certificate, DNS challenge) to the `site` service on port 3000. Custom domains are added to the same service later.
 
 ## 3. Settings model (`site_settings`, one row per organization)
@@ -222,3 +264,5 @@ Header actions: status chips, **Önizle** (sheet with the site in an iframe, des
 | `site/src/lib/preview.test.ts` | token shape filter, cookie lifetime and attributes, frame headers (deny by default, panel origin only for previews, unsafe origins refused) |
 
 RT-A01 covers the new routes (allowlist entries for the scope-only writes; `{revisionUuid}` and the catalog `{uuid}` routes get the cross-organization 404 cases).
+
+TEC-731 tests in `backend/internal/modules/site/domains_test.go` cover fake DNS success/failure, token mismatch, wrong/mixed targets, dangling CNAME, IPv6, pending backoff and 72-hour expiry, verified DNS loss and origin removal, host validation, internal authorization, manual state preservation, Dokploy payloads/idempotent retries/batched deployment/failures, and atomic Traefik configuration/removal. Database integration additionally covers the concrete resolver hook, cross-organization reads/deletes/rechecks, global host uniqueness, the database limit, and publishable key origins; it skips without `TEST_DATABASE_URL`. RT-A01 seeds custom domains and covers all five tenant routes.

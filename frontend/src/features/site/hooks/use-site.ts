@@ -22,6 +22,7 @@ export const siteKeys = {
   versions: (slug: string) => [...siteKeys.all(slug), "versions"] as const,
   preview: (slug: string) => [...siteKeys.all(slug), "preview"] as const,
   catalog: (slug: string) => [...siteKeys.all(slug), "catalog"] as const,
+  domains: (slug: string) => [...siteKeys.all(slug), "domains"] as const,
 };
 
 export function useSiteSettings() {
@@ -263,4 +264,48 @@ export function useSetCatalogOnline() {
     },
     onSettled: () => void queryClient.invalidateQueries({ queryKey: key }),
   });
+}
+
+/** Custom domains (TEC-731). Pending ones are polled while the tab is open. */
+export function useSiteDomains() {
+  const { slug } = useTenant();
+  return useQuery({
+    queryKey: siteKeys.domains(slug),
+    queryFn: () => siteService.domains(slug),
+    refetchInterval: (query) =>
+      query.state.data?.some((d) => d.status === "pending") ? 30_000 : false,
+  });
+}
+
+/** Add, re-check and remove a custom domain; every change refreshes the list and the settings (hosts). */
+export function useSiteDomainActions() {
+  const { slug } = useTenant();
+  const { t } = useLocale();
+  const queryClient = useQueryClient();
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: siteKeys.domains(slug) });
+    void queryClient.invalidateQueries({ queryKey: siteKeys.settings(slug) });
+  };
+  const add = useMutation({
+    mutationFn: (host: string) => siteService.addDomain(slug, host),
+    onSuccess: () => {
+      appToast.success(t("site.domains.toast.added"));
+      refresh();
+    },
+  });
+  const verify = useMutation({
+    mutationFn: (uuid: string) => siteService.verifyDomain(slug, uuid),
+    onSuccess: () => {
+      appToast.success(t("site.domains.toast.verify_queued"));
+      refresh();
+    },
+  });
+  const remove = useMutation({
+    mutationFn: (uuid: string) => siteService.removeDomain(slug, uuid),
+    onSuccess: () => {
+      appToast.success(t("site.domains.toast.removed"));
+      refresh();
+    },
+  });
+  return { add, verify, remove };
 }

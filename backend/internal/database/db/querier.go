@@ -80,6 +80,7 @@ type Querier interface {
 	// Moves an import into a working state only from an allowed state, so two
 	// apply requests cannot run at once.
 	ClaimCatalogImport(ctx context.Context, arg ClaimCatalogImportParams) (CatalogImport, error)
+	ClaimDueSiteDomains(ctx context.Context, dollar_1 pgtype.Timestamptz) ([]SiteDomain, error)
 	// Worker sweep over every organization: takes due deliveries for a lease
 	// (a crashed attempt is retried when the lease ends).
 	ClaimDueWebhookDeliveries(ctx context.Context, arg ClaimDueWebhookDeliveriesParams) ([]ClaimDueWebhookDeliveriesRow, error)
@@ -294,6 +295,7 @@ type Querier interface {
 	CreateRentalProductVersion(ctx context.Context, arg CreateRentalProductVersionParams) (RentalProductVersion, error)
 	CreateRole(ctx context.Context, arg CreateRoleParams) (Role, error)
 	CreateServicePoint(ctx context.Context, arg CreateServicePointParams) (ServicePoint, error)
+	CreateSiteDomain(ctx context.Context, arg CreateSiteDomainParams) (SiteDomain, error)
 	CreateTenantRole(ctx context.Context, arg CreateTenantRoleParams) (CreateTenantRoleRow, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	// Tenant resource: fleet vehicles (TEC-692), their status events and rental
@@ -357,6 +359,7 @@ type Querier interface {
 	DeleteCustomerPushSubscriptionByID(ctx context.Context, arg DeleteCustomerPushSubscriptionByIDParams) error
 	DeleteDateRuleDraft(ctx context.Context, arg DeleteDateRuleDraftParams) (int64, error)
 	DeleteDateRuleTargets(ctx context.Context, arg DeleteDateRuleTargetsParams) error
+	DeleteDisabledSiteDomain(ctx context.Context, arg DeleteDisabledSiteDomainParams) error
 	DeleteDriver(ctx context.Context, arg DeleteDriverParams) (int64, error)
 	DeleteExpiredChannelOffers(ctx context.Context, arg DeleteExpiredChannelOffersParams) (int64, error)
 	// ------------------------------------------------------- idempotency
@@ -420,6 +423,7 @@ type Querier interface {
 	DeleteWebAuthnCredentialByCredentialID(ctx context.Context, credentialID string) error
 	DeleteWebAuthnCredentialByUUID(ctx context.Context, arg DeleteWebAuthnCredentialByUUIDParams) error
 	DisablePushDevice(ctx context.Context, arg DisablePushDeviceParams) error
+	DisableSiteDomain(ctx context.Context, arg DisableSiteDomainParams) (int64, error)
 	DriverLicenceTaken(ctx context.Context, arg DriverLicenceTakenParams) (bool, error)
 	EndVehicleAssignments(ctx context.Context, arg EndVehicleAssignmentsParams) error
 	// Generic runner (TEC-751). Every query names the organization scope; the
@@ -812,6 +816,7 @@ type Querier interface {
 	GetPaymentSettlementFacts(ctx context.Context, arg GetPaymentSettlementFactsParams) (GetPaymentSettlementFactsRow, error)
 	GetPermissionBySlug(ctx context.Context, slug string) (Permission, error)
 	GetPlatformHealthAlertCursor(ctx context.Context, source string) (GetPlatformHealthAlertCursorRow, error)
+	GetPlatformSiteDomain(ctx context.Context, argUuid uuid.UUID) (SiteDomain, error)
 	// Channel, contact hash and time of a verified challenge (the session binds
 	// the code to the contact the customer typed).
 	GetPortalOTPBinding(ctx context.Context, arg GetPortalOTPBindingParams) (GetPortalOTPBindingRow, error)
@@ -941,6 +946,7 @@ type Querier interface {
 	// The image keys of a site by its public uuid (asset stream): the draft
 	// and the published snapshot. The caller picks by the preview token.
 	GetSiteAssetKeys(ctx context.Context, argUuid uuid.UUID) (GetSiteAssetKeysRow, error)
+	GetSiteDomain(ctx context.Context, arg GetSiteDomainParams) (SiteDomain, error)
 	// The newest active key rotated from the site's key (Ayarlar → Public API
 	// rotation): the site follows it on the next save.
 	GetSiteKeySuccessor(ctx context.Context, arg GetSiteKeySuccessorParams) (uuid.UUID, error)
@@ -1670,6 +1676,7 @@ type Querier interface {
 	ListPlatformNotificationsForExport(ctx context.Context, arg ListPlatformNotificationsForExportParams) ([]Notification, error)
 	// Platform operations on the organization plus everything recorded inside it.
 	ListPlatformOrganizationActivity(ctx context.Context, arg ListPlatformOrganizationActivityParams) ([]ListPlatformOrganizationActivityRow, error)
+	ListPlatformSiteDomains(ctx context.Context, arg ListPlatformSiteDomainsParams) ([]SiteDomain, error)
 	// Active platform users holding a permission through a platform role
 	// (the alert recipients).
 	ListPlatformUsersWithPermission(ctx context.Context, slug string) ([]ListPlatformUsersWithPermissionRow, error)
@@ -1793,6 +1800,10 @@ type Querier interface {
 	ListSiteCatalogBranches(ctx context.Context, organizationID int64) ([]ListSiteCatalogBranchesRow, error)
 	ListSiteCatalogExtras(ctx context.Context, organizationID int64) ([]ListSiteCatalogExtrasRow, error)
 	ListSiteCatalogProducts(ctx context.Context, organizationID int64) ([]ListSiteCatalogProductsRow, error)
+	ListSiteDomainHealthIssues(ctx context.Context, limit int32) ([]SiteDomain, error)
+	// Include rotation predecessors: their booking sessions must lose removed origins too.
+	ListSiteDomainKeys(ctx context.Context, organizationID int64) ([]uuid.UUID, error)
+	ListSiteDomains(ctx context.Context, organizationID int64) ([]SiteDomain, error)
 	// Publish history, newest first.
 	ListSiteVersions(ctx context.Context, organizationID int64) ([]ListSiteVersionsRow, error)
 	ListStorageActivity(ctx context.Context, arg ListStorageActivityParams) ([]ListStorageActivityRow, error)
@@ -1992,6 +2003,7 @@ type Querier interface {
 	LockSupplierInvoices(ctx context.Context, arg LockSupplierInvoicesParams) ([]LockSupplierInvoicesRow, error)
 	LockTollPassByExternal(ctx context.Context, arg LockTollPassByExternalParams) (LockTollPassByExternalRow, error)
 	LockTollPassByUUID(ctx context.Context, arg LockTollPassByUUIDParams) (LockTollPassByUUIDRow, error)
+	LookupSiteDomain(ctx context.Context, host string) (int64, error)
 	MarkAllNotificationsReadForUser(ctx context.Context, arg MarkAllNotificationsReadForUserParams) (int64, error)
 	// Handover: the confirmed reservation's allocation becomes the rental's
 	// (same row, the plate is promised from now on).
@@ -2032,6 +2044,8 @@ type Querier interface {
 	MarkQuoteUsed(ctx context.Context, arg MarkQuoteUsedParams) (int64, error)
 	// pending → held once the provider confirmed the pre-authorization.
 	MarkSecurityDepositHeld(ctx context.Context, arg MarkSecurityDepositHeldParams) (int64, error)
+	MarkSiteDomainOriginsSynced(ctx context.Context, arg MarkSiteDomainOriginsSyncedParams) error
+	MarkSiteDomainTLSActive(ctx context.Context, arg MarkSiteDomainTLSActiveParams) (int64, error)
 	// OAuth sign-up stores a random hash; the user never chose a password.
 	MarkUserPasswordUnset(ctx context.Context, id int64) error
 	// A delivery receipt; a late one after the read receipt keeps "read".
@@ -2209,6 +2223,7 @@ type Querier interface {
 	// Frees the items of an invoice (cancelled / returned) or the items taken
 	// off a draft (removed): they may be invoiced again.
 	ReleaseInvoiceLinks(ctx context.Context, arg ReleaseInvoiceLinksParams) (int64, error)
+	ReleaseSiteDomainLease(ctx context.Context, arg ReleaseSiteDomainLeaseParams) error
 	// "Engeli kapat": the block ends at released_at.
 	ReleaseVehicleBlock(ctx context.Context, arg ReleaseVehicleBlockParams) (int64, error)
 	RemoveUserRoleBySlug(ctx context.Context, arg RemoveUserRoleBySlugParams) error
@@ -2257,6 +2272,7 @@ type Querier interface {
 	// An event changed sellable capacity: every channel account of the
 	// organization pushes at the next sweep.
 	RequestChannelPush(ctx context.Context, arg RequestChannelPushParams) error
+	RequestSiteDomainCheck(ctx context.Context, arg RequestSiteDomainCheckParams) (int64, error)
 	// Panel retry of a failed delivery.
 	RequeuePublicWebhookDelivery(ctx context.Context, arg RequeuePublicWebhookDeliveryParams) (int64, error)
 	RescheduleFieldTask(ctx context.Context, arg RescheduleFieldTaskParams) error
@@ -2298,6 +2314,7 @@ type Querier interface {
 	// Copies a published snapshot back into the draft (publish again to make it
 	// live); bumps the version.
 	RestoreSiteDraft(ctx context.Context, arg RestoreSiteDraftParams) (int32, error)
+	RetrySiteDomainReconciliation(ctx context.Context, arg RetrySiteDomainReconciliationParams) error
 	RevokeAllRefreshTokensForUser(ctx context.Context, userID int64) error
 	RevokeDocumentApprovalLink(ctx context.Context, arg RevokeDocumentApprovalLinkParams) (int64, error)
 	RevokeInvitation(ctx context.Context, arg RevokeInvitationParams) (OrganizationInvitation, error)
@@ -2437,6 +2454,7 @@ type Querier interface {
 	SetWhatsAppSessionSettings(ctx context.Context, arg SetWhatsAppSessionSettingsParams) (WhatsappSession, error)
 	SetWhatsAppSessionState(ctx context.Context, arg SetWhatsAppSessionStateParams) (WhatsappSession, error)
 	SettleCollection(ctx context.Context, arg SettleCollectionParams) (int64, error)
+	SiteDomainHealthCounts(ctx context.Context) (SiteDomainHealthCountsRow, error)
 	// Whether the draft or any snapshot still names an image object (it is
 	// deleted from storage only when nothing does).
 	SiteObjectKeyInUse(ctx context.Context, arg SiteObjectKeyInUseParams) (bool, error)
@@ -2578,6 +2596,8 @@ type Querier interface {
 	// report); clear_payload drops the sealed number and text once final.
 	UpdateSMSMessageStatus(ctx context.Context, arg UpdateSMSMessageStatusParams) error
 	UpdateServicePoint(ctx context.Context, arg UpdateServicePointParams) (ServicePoint, error)
+	UpdateSiteDomainCheck(ctx context.Context, arg UpdateSiteDomainCheckParams) (SiteDomain, error)
+	UpdateSiteDomainTLS(ctx context.Context, arg UpdateSiteDomainTLSParams) error
 	// Saves the live fields and the draft document when the caller saw the
 	// current version (optimistic concurrency); no row = the version moved.
 	UpdateSiteSettings(ctx context.Context, arg UpdateSiteSettingsParams) (SiteSetting, error)

@@ -236,5 +236,7 @@
   "labels.tenant.channels.read": "View the channel manager",
   "labels.tenant.channels.write": "Manage channel mappings and sync settings",
   "labels.tenant.channels.sync": "Run channel sync and resolve messages",
-  "groups.tenant_channels": "Channel manager"
+  "groups.tenant_channels": "Channel manager",
+  "labels.platform.site_domains.read": "View organization custom domains",
+  "labels.platform.site_domains.manage": "Manage organization custom domains (recheck, confirm HTTPS)"
 }

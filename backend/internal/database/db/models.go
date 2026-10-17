@@ -2676,6 +2676,29 @@ type ServicePoint struct {
 	DeliveryConditions string             `json:"delivery_conditions"`
 }
 
+type SiteDomain struct {
+	ID                int64              `json:"id"`
+	Uuid              uuid.UUID          `json:"uuid"`
+	OrganizationID    int64              `json:"organization_id"`
+	Host              string             `json:"host"`
+	Status            string             `json:"status"`
+	VerificationToken string             `json:"verification_token"`
+	LastCheckedAt     pgtype.Timestamptz `json:"last_checked_at"`
+	VerifiedAt        pgtype.Timestamptz `json:"verified_at"`
+	LastError         string             `json:"last_error"`
+	AttentionSince    pgtype.Timestamptz `json:"attention_since"`
+	TlsStatus         string             `json:"tls_status"`
+	Provisioner       string             `json:"provisioner"`
+	ProvisionerID     string             `json:"provisioner_id"`
+	CreatedBy         pgtype.Int8        `json:"created_by"`
+	Attempts          int32              `json:"attempts"`
+	NextCheckAt       pgtype.Timestamptz `json:"next_check_at"`
+	LeaseUntil        pgtype.Timestamptz `json:"lease_until"`
+	OriginsDirty      bool               `json:"origins_dirty"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
 type SiteSetting struct {
 	ID                int64              `json:"id"`
 	Uuid              uuid.UUID          `json:"uuid"`

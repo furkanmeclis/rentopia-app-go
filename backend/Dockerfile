@@ -43,7 +43,8 @@ COPY --from=builder /out/catalog-import /app/catalog-import
 COPY migrations /app/migrations
 COPY deploy/docker/entrypoint.sh /app/entrypoint.sh
 
-RUN chmod +x /app/entrypoint.sh \
+RUN mkdir -p /app/site-domains \
+    && chmod +x /app/entrypoint.sh \
     && chown -R appuser:appuser /app
 
 USER appuser

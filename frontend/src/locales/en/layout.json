@@ -108,5 +108,6 @@
   "nav_reports_branches": "Branch comparison",
   "nav_tenant_settings_notifications": "Notifications",
   "nav_channels": "Channel manager",
-  "nav_tenant_settings_whatsapp": "WhatsApp"
+  "nav_tenant_settings_whatsapp": "WhatsApp",
+  "nav_site_domains": "Domains"
 }

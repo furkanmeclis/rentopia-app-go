@@ -12558,6 +12558,234 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
 
+  /v1/tenant/site/domains:
+    get:
+      tags: [Tenant]
+      operationId: getTenantSiteDomains
+      summary: List custom site domains
+      description: "tenant.site.read. Includes DNS records and TLS instructions."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Domain operation result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteDomains" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantSiteDomain
+      summary: Register a custom site domain
+      description: "tenant.site.manage. At most three per organization; normalized host is globally unique. DOMAIN_LIMIT or DOMAIN_TAKEN is a conflict. Verification is asynchronous."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [host]
+              properties:
+                host: { type: string, maxLength: 253 }
+      responses:
+        "201":
+          description: Domain operation result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteDomain" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/site/domains/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getTenantSiteDomain
+      summary: Read a custom site domain
+      description: "tenant.site.read. Another organization domain answers 404."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - name: uuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Domain operation result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteDomain" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantSiteDomain
+      summary: Remove a custom site domain
+      description: "tenant.site.manage. Disables resolution immediately and revokes origins; routing cleanup is retried asynchronously before physical deletion."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - name: uuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Domain operation result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteDomainRemoved" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/site/domains/{uuid}/verify:
+    post:
+      tags: [Tenant]
+      operationId: postTenantSiteDomainVerify
+      summary: Check domain DNS now
+      description: "tenant.site.manage. Enqueues an immediate ownership and target DNS check. Another organization domain answers 404."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - name: uuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "202":
+          description: Domain operation result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteDomain" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/platform/site-domains:
+    get:
+      tags: [Platform]
+      operationId: getPlatformSiteDomains
+      summary: List platform custom domains
+      description: "platform.site_domains.read. Domains across organizations, newest first."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0, maximum: 1000000, default: 0 }
+      responses:
+        "200":
+          description: Domain operation result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteDomains" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/platform/site-domains/{uuid}/recheck:
+    post:
+      tags: [Platform]
+      operationId: postPlatformSiteDomainRecheck
+      summary: Recheck custom domain DNS
+      description: "platform.site_domains.manage. Enqueues verification immediately."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "202":
+          description: Domain operation result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteDomain" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/platform/site-domains/{uuid}/mark-tls-active:
+    post:
+      tags: [Platform]
+      operationId: postPlatformSiteDomainTLSActive
+      summary: Mark manual TLS active
+      description: "platform.site_domains.manage. Only verified domains using manual mode; otherwise DOMAIN_TLS_MODE conflict."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Domain operation result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteDomain" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/internal/site/domain-allowed:
+    get:
+      tags: [Branded Site]
+      operationId: getInternalSiteDomainAllowed
+      summary: Authorize a verified custom domain
+      description: "Internal certificate authorization. Requires X-Auth-Adapter-Key equal to AUTH_ADAPTER_SECRET; an empty configured secret denies all calls. Only verified custom hosts return 200. Responses are never cached."
+      security:
+        - siteDomainSecret: []
+      parameters:
+        - name: host
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Verified host
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success: { type: boolean, enum: [true] }
+                  data:
+                    type: object
+                    required: [allowed]
+                    properties:
+                      allowed: { type: boolean, enum: [true] }
+                  meta: { $ref: "#/components/schemas/ResponseMeta" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /v1/tenant/site:
     get:
       tags: [Tenant]
@@ -23110,6 +23338,11 @@ paths:
 
 components:
   securitySchemes:
+    siteDomainSecret:
+      type: apiKey
+      in: header
+      name: X-Auth-Adapter-Key
+      description: Internal domain authorization secret; empty server configuration fails closed.
     customerSession:
       type: apiKey
       in: header
@@ -39938,6 +40171,60 @@ components:
         host: { type: string, examples: ["acme.rentopia.app"] }
         origin: { type: string, examples: ["https://acme.rentopia.app"] }
         kind: { type: string, enum: [subdomain, custom] }
+
+    SiteDomain:
+      type: object
+      required: [uuid, organization_id, host, status, verification_token, last_checked_at, verified_at, last_error, tls_status, provisioner, created_at, updated_at, dns_records]
+      properties:
+        uuid: { type: string, format: uuid }
+        organization_id: { type: integer, format: int64 }
+        host: { type: string }
+        status: { type: string, enum: [pending, verified, failed, disabled] }
+        verification_token: { type: string }
+        last_checked_at: { type: ["string", "null"], format: date-time }
+        verified_at: { type: ["string", "null"], format: date-time }
+        last_error: { type: string }
+        tls_status: { type: string, enum: [pending, provisioning, active, failed, manual] }
+        provisioner: { type: string, enum: [manual, dokploy, traefik_file] }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        tls_instructions: { type: string }
+        dns_records:
+          type: array
+          items:
+            type: object
+            required: [type, name, value]
+            properties:
+              type: { type: string, enum: [TXT, CNAME, A, AAAA] }
+              name: { type: string }
+              value: { type: string }
+    EnvelopeSiteDomain:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/SiteDomain" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+    EnvelopeSiteDomains:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/SiteDomain" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+    EnvelopeSiteDomainRemoved:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [removed]
+          properties:
+            removed: { type: boolean }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
 
     SiteSettings:
       type: object

@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { permissions } from "@/config/permissions";
 import { routes } from "@/config/routes";
 import { SiteCatalogTab } from "@/features/site/components/site-catalog-tab";
+import { SiteDomainsTab } from "@/features/site/components/site-domains-tab";
 import { SiteContentTab } from "@/features/site/components/site-content-tab";
 import { SiteGeneralTab } from "@/features/site/components/site-general-tab";
 import { SiteImagesTab } from "@/features/site/components/site-images-tab";
@@ -50,6 +51,7 @@ type Tab =
   | "images"
   | "publish"
   | "catalog"
+  | "domains"
   | "widget";
 
 const TABS: { id: Tab; labelKey: string; form: boolean }[] = [
@@ -60,6 +62,7 @@ const TABS: { id: Tab; labelKey: string; form: boolean }[] = [
   { id: "images", labelKey: "site.tabs.images", form: false },
   { id: "publish", labelKey: "site.tabs.publish", form: false },
   { id: "catalog", labelKey: "site.tabs.catalog", form: false },
+  { id: "domains", labelKey: "site.tabs.domains", form: false },
   { id: "widget", labelKey: "site.tabs.widget", form: true },
 ];
 
@@ -212,6 +215,9 @@ function SiteTabs({
       </TabsContent>
       <TabsContent value="catalog">
         <SiteCatalogTab canManage={canManage} />
+      </TabsContent>
+      <TabsContent value="domains">
+        <SiteDomainsTab canManage={canManage} />
       </TabsContent>
       <TabsContent
         value="widget"
