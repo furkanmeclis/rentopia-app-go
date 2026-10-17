@@ -57,7 +57,7 @@ Every period gets its day share, rounding never drifts and the amounts add up to
 1. posted periods are fixed; the rest is re-planned from the end of the last posted period to the planned end with `R = total − posted`;
 2. an early return at billing day `k` cuts the plan: periods starting at or after `k` are reversed, the period containing `k` is superseded by a new revision with `round(amount · kept days / days)`;
 3. planned rows are rewritten only when the plan changed;
-4. every posted period plus every planned period that started by today (rental under way) is a desired accrual, key `agreement:<agreement id>:r<rental id>:p<n>`, entry date = period start, due = start + the agreement's payment term. The existing reconciliation reverses and re-accrues an amount change (a superseded period) and reverses what is no longer due (a reversed period).
+4. every posted period plus every planned period that started by today (rental under way) is a desired accrual, key `agreement:<agreement id>:r<rental id>:p<n>`, entry date = period start, due = start + the agreement's payment term. "Today" is the Istanbul day and periods follow the Istanbul calendar of the planned start, so an early handover on the evening before the planned start day (for example 23:00 for a 01:00 start) accrues nothing until the job runs on that day. The existing reconciliation reverses and re-accrues an amount change (a superseded period) and reverses what is no longer due (a reversed period).
 
 Posted rows are history: a trigger refuses changing their figures or deleting them (only `posted → superseded / reversed`); planned rows never touched the ledger and are replaced freely.
 
@@ -90,7 +90,7 @@ Activity `agreements.created / updated / deleted / status_changed / contact_adde
 ## Tests
 
 - `internal/platform/pricing/agreement_test.go`: agreement scope precedence, the period plan (partial first / last), no rounding drift, truncation, km proration.
-- `internal/modules/agreements/integration_test.go` (real Postgres): CRUD and account terms; the agreement tariff beats the public tariff (and the quote's plan matches the engine); coupon eligibility; the open-account credit limit; agreement customer / drivers / suspended agreement; **RT-A24** (no whole-rent accrual at the handover, the job twice, eight concurrent runs, an extension re-planning only the future, every period key once, totals); early termination (reversed and superseded periods, posted rows immutable); vehicle swap keeps the agreement and billing running; handover vs periodic exclusivity in the database; branch scope and cross-organization isolation.
+- `internal/modules/agreements/integration_test.go` (real Postgres): CRUD and account terms; the agreement tariff beats the public tariff (and the quote's plan matches the engine); coupon eligibility; the open-account credit limit; agreement customer / drivers / suspended agreement; **RT-A24** (no whole-rent accrual at the handover, the job twice, eight concurrent runs, an extension re-planning only the future, every period key once, totals); early termination (reversed and superseded periods, posted rows immutable); vehicle swap keeps the agreement and billing running; handover vs periodic exclusivity in the database; the first period around midnight (clock pinned around midnight Istanbul and UTC: due at the handover on the planned start day, otherwise by the job on that day); branch scope and cross-organization isolation.
 - `internal/httpserver/isolation_test.go` (RT-A01): every new route and every body naming an agreement.
 
 ## Open items

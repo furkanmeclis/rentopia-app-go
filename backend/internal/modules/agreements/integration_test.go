@@ -54,6 +54,7 @@ type fx struct {
 	res      *resusecase.Service
 	rentals  *rentalusecase.Service
 	fin      *financeusecase.Service
+	avail    *availusecase.Service
 	org      int64
 	orgUUID  uuid.UUID
 	suffix   string
@@ -66,6 +67,8 @@ type fx struct {
 	employee ref
 	empDrv   ref
 	plate    int
+	// now is the fixture clock (wall clock unless pinned with at).
+	now func() time.Time
 }
 
 type ref struct {
@@ -94,7 +97,7 @@ func newFx(t *testing.T) *fx {
 		t.Fatal(err)
 	}
 	q := db.New(pool)
-	f := &fx{t: t, pool: pool, q: q, suffix: strings.ReplaceAll(uuid.NewString()[:8], "-", "")}
+	f := &fx{t: t, pool: pool, q: q, suffix: strings.ReplaceAll(uuid.NewString()[:8], "-", ""), now: time.Now}
 	org, err := q.CreateOrganization(ctx, db.CreateOrganizationParams{Slug: "agr-" + f.suffix, Name: "Agr " + f.suffix})
 	if err != nil {
 		t.Fatal(err)
@@ -122,6 +125,7 @@ func newFx(t *testing.T) *fx {
 	f.fin = financeusecase.New(pool, q, nil)
 	f.rentals.SetLedger(f.fin)
 	f.svc = usecase.New(pool, q, f.fin, f.pricing)
+	f.avail = avail
 
 	f.branch = f.newBranch("MRK")
 	f.other = f.newBranch("HVL")
@@ -130,6 +134,21 @@ func newFx(t *testing.T) *fx {
 	f.employee, f.empDrv = f.newIndividual("Ayşe", "Yılmaz")
 	f.settings(osmodel.PrepaymentPercent, "20")
 	return f
+}
+
+// pinClock pins the clock of the fixture and of every service it wires to now
+// (the wall clock keeps running from there, so a sale "in two hours" is
+// still in the future when it is handed over).
+func (f *fx) pinClock(now time.Time) {
+	offset := time.Until(now)
+	clock := func() time.Time { return time.Now().Add(offset) }
+	f.now = clock
+	f.pricing.SetClock(clock)
+	f.avail.SetClock(clock)
+	f.res.SetClock(clock)
+	f.rentals.SetClock(clock)
+	f.fin.SetClock(clock)
+	f.svc.SetClock(clock)
 }
 
 // settings writes a settings version (auto approval, prepayment rule).
@@ -223,7 +242,7 @@ func (f *fx) newIndividual(first, last string) (ref, ref) {
 
 func (f *fx) newDriver(c ref, first, last string) ref {
 	var d ref
-	now := time.Now().UTC()
+	now := f.now().UTC()
 	f.must(f.pool.QueryRow(context.Background(), `INSERT INTO drivers (organization_id, customer_id, first_name, last_name, birth_date, licence_enc, licence_bidx, licence_hint, licence_issued_on)
 		VALUES ($1, $2, $3, $4, $5, 'v1:x', $6, '****456', $7) RETURNING id, uuid`,
 		f.org, c.id, first, last, now.AddDate(-30, 0, 0), uuid.NewString(), now.AddDate(-10, 0, 0)).Scan(&d.id, &d.uuid))
@@ -242,7 +261,7 @@ func mp(s string) *money.Money {
 // agreement creates an active agreement with the company.
 func (f *fx) agreement(period string, edit func(*model.Input)) model.Agreement {
 	f.t.Helper()
-	from := rentaltime.LocalDate(time.Now()).AddDays(-30)
+	from := rentaltime.LocalDate(f.now()).AddDays(-30)
 	in := model.Input{
 		CustomerUUID: &f.company.uuid, Name: sp("Filo kiralama"), ValidFrom: &from, InvoicePeriod: sp(period),
 		PaymentTermDays: ip32(30), MonthlyKmAllowance: ip32(3000), MaintenanceIntervalDays: ip32(30), Activate: true,
@@ -292,10 +311,13 @@ func (f *fx) sell(a *model.Agreement, from, to time.Time, edit func(*resmodel.Cr
 }
 
 // longTerm sells a confirmed long-term rental of days days starting in two
-// hours under the agreement and hands it over now (early handover).
+// hours under the agreement and hands it over now (early handover). From
+// 22:00 Istanbul time the start falls on the next Istanbul day: the first
+// period of a periodic rental is then not due at the handover yet (see
+// TestPeriodicFirstPeriodAtHandoverAroundMidnight).
 func (f *fx) longTerm(a *model.Agreement, days int) (rentalmodel.Rental, resmodel.Reservation) {
 	f.t.Helper()
-	start := time.Now().Add(2 * time.Hour).Truncate(time.Minute)
+	start := f.now().Add(2 * time.Hour).Truncate(time.Minute)
 	v := f.vehicle()
 	res, err := f.sell(a, start, start.Add(time.Duration(days)*rentaltime.Day), func(in *resmodel.CreateInput) { in.ConfirmNow = true })
 	f.must(err)
@@ -478,7 +500,7 @@ func TestAgreementTariffBeatsPublic(t *testing.T) {
 	f := newFx(t)
 	a := f.agreement(model.InvoiceMonthly, nil)
 	f.tariff(a, "700")
-	start := time.Now().Add(3 * time.Hour).Truncate(time.Minute)
+	start := f.now().Add(3 * time.Hour).Truncate(time.Minute)
 	end := start.Add(40 * rentaltime.Day)
 	pub, err := f.quote(nil, start, end, "")
 	f.must(err)
@@ -532,7 +554,7 @@ func TestCouponEligibility(t *testing.T) {
 			VALUES ($1, $2, 'coupon', $2, 'percent', 10, $3)`, f.org, c.code, c.corporate)
 		f.must(err)
 	}
-	start := time.Now().Add(3 * time.Hour).Truncate(time.Minute)
+	start := f.now().Add(3 * time.Hour).Truncate(time.Minute)
 	end := start.Add(3 * rentaltime.Day)
 	none := f.agreement(model.InvoicePerRental, nil)
 	var ve *resusecase.ValidationError
@@ -562,7 +584,7 @@ func TestCouponEligibility(t *testing.T) {
 func TestOpenAccountCreditLimit(t *testing.T) {
 	f := newFx(t)
 	a := f.agreement(model.InvoicePerRental, func(in *model.Input) { in.OpenAccount, in.CreditLimit = bp(true), mp("5000") })
-	start := time.Now().Add(3 * time.Hour).Truncate(time.Minute)
+	start := f.now().Add(3 * time.Hour).Truncate(time.Minute)
 	sale := func(i int) (resmodel.Reservation, error) {
 		from := start.Add(time.Duration(i*5) * rentaltime.Day)
 		f.vehicle()
@@ -604,7 +626,7 @@ func TestAgreementSaleChecks(t *testing.T) {
 	a := f.agreement(model.InvoicePerRental, nil)
 	a, _, err := f.svc.AddDriver(f.ctx, f.org, a.UUID, model.DriverInput{DriverUUID: &f.driver.uuid})
 	f.must(err)
-	start := time.Now().Add(3 * time.Hour).Truncate(time.Minute)
+	start := f.now().Add(3 * time.Hour).Truncate(time.Minute)
 	q, err := f.quote(&a, start, start.Add(2*rentaltime.Day), "")
 	f.must(err)
 	_, err = f.res.Create(f.ctx, f.org, resmodel.CreateInput{QuoteUUID: &q.UUID, CustomerUUID: &f.employee.uuid, Drivers: []resmodel.DriverInput{{DriverUUID: f.empDrv.uuid}}})
@@ -880,10 +902,21 @@ func TestHandoverAndPeriodicAccrualExclusive(t *testing.T) {
 	f := newFx(t)
 	monthly := f.agreement(model.InvoiceMonthly, nil)
 	perRental := f.agreement(model.InvoicePerRental, nil)
-	periodic, _ := f.longTerm(&monthly, 40)
+	periodic, pres := f.longTerm(&monthly, 40)
 	handover, hres := f.longTerm(&perRental, 5)
 	ctx := context.Background()
 	pid, hid := f.rentalID(periodic.UUID), f.rentalID(handover.UUID)
+
+	// The first period is due on the Istanbul day of the planned start,
+	// which is the next day for a handover from 22:00 on: reconcile on the
+	// first billing day so the periodic rental has its live period accrual
+	// whatever the wall clock.
+	pstart, _, _ := f.reservationRange(pres.UUID)
+	f.at(pstart, 0)
+	f.must(f.fin.SyncRental(f.ctx, nil, f.org, pid))
+	if _, n, w := f.liveRent(periodic.UUID); n != 1 || w != 0 {
+		t.Fatalf("periodic rental on its first billing day: %d accruals (%d whole)", n, w)
+	}
 
 	// Service side: the per-rental agreement rental accrued its whole rent
 	// once, with no billing plan; the periodic one has no whole-rent accrual.
@@ -923,6 +956,89 @@ func TestHandoverAndPeriodicAccrualExclusive(t *testing.T) {
 	f.must(f.fin.SyncRental(f.ctx, nil, f.org, hid))
 	if _, n2, w2 := f.liveRent(handover.UUID); n2 != 1 || w2 != 1 {
 		t.Fatal("handover rental changed")
+	}
+}
+
+// TestPeriodicFirstPeriodAtHandoverAroundMidnight pins the clock around
+// midnight Istanbul (21:00 UTC), midnight UTC (03:00 Istanbul) and through
+// 22:00-24:00 Istanbul, where a sale starting two hours later begins on the
+// next Istanbul day. Periods follow the Istanbul calendar of the planned
+// start: the first period is accrued at the handover when the planned start
+// falls on the handover's Istanbul day, otherwise by the job on that day.
+// Either way the rental never accrues its whole rent, the period is accrued
+// once, and the billing mode is fixed from then on.
+func TestPeriodicFirstPeriodAtHandoverAroundMidnight(t *testing.T) {
+	ist := rentaltime.Location()
+	for _, at := range []time.Time{
+		time.Date(2026, 10, 17, 15, 20, 0, 0, ist),
+		time.Date(2026, 10, 17, 18, 30, 0, 0, ist),
+		time.Date(2026, 10, 17, 21, 30, 0, 0, ist),
+		time.Date(2026, 10, 17, 21, 59, 0, 0, ist),
+		time.Date(2026, 10, 17, 22, 0, 0, 0, ist),
+		time.Date(2026, 10, 17, 22, 30, 0, 0, ist),
+		time.Date(2026, 10, 17, 23, 30, 0, 0, ist),
+		time.Date(2026, 10, 17, 23, 59, 0, 0, ist),
+		time.Date(2026, 10, 18, 0, 0, 0, 0, ist),
+		time.Date(2026, 10, 18, 0, 30, 0, 0, ist),
+		time.Date(2026, 10, 18, 2, 30, 0, 0, ist),
+		time.Date(2026, 10, 18, 3, 0, 0, 0, ist),
+		time.Date(2026, 10, 18, 3, 30, 0, 0, ist),
+		// The last evening of a month: the next day opens period 2's month.
+		time.Date(2026, 10, 31, 22, 30, 0, 0, ist),
+	} {
+		t.Run(at.Format("2006-01-02T15:04"), func(t *testing.T) {
+			f := newFx(t)
+			f.pinClock(at)
+			a := f.agreement(model.InvoiceMonthly, nil)
+			r, res := f.longTerm(&a, 40)
+			start, end, total := f.reservationRange(res.UUID)
+			id := f.rentalID(r.UUID)
+			want := pricing.PeriodPlan(start, end, total)
+			handedOver := rentaltime.LocalDate(f.now())
+			sameDay := !rentaltime.LocalDate(start).After(handedOver)
+			if sameDay != (at.Hour() < 22) {
+				t.Fatalf("start %s for a handover at %s", start.In(ist), at)
+			}
+
+			live, n, whole := f.liveRent(r.UUID)
+			switch {
+			case whole != 0:
+				t.Fatalf("whole-rent accrual at the handover: %s", live)
+			case sameDay && (n != 1 || !live.Equal(want[0].Amount)):
+				t.Fatalf("first period at the handover: %s in %d, want %s", live, n, want[0].Amount)
+			case !sameDay && n != 0:
+				t.Fatalf("period accrued before its day: %s in %d", live, n)
+			}
+			if !sameDay {
+				// Not due yet, nothing accrued: the mode is still free.
+				tx, err := f.pool.Begin(context.Background())
+				f.must(err)
+				_, err = tx.Exec(context.Background(), `UPDATE rentals SET rent_billing = 'handover' WHERE organization_id = $1 AND id = $2`, f.org, id)
+				_ = tx.Rollback(context.Background())
+				if err != nil {
+					t.Fatalf("mode change without accruals = %v", err)
+				}
+			}
+
+			// The job on the first billing day (the Istanbul day of the
+			// planned start), twice: period 1 once, nothing else.
+			f.at(start, 0)
+			for i := 0; i < 2; i++ {
+				_, err := f.fin.AccruePeriods(f.ctx)
+				f.must(err)
+			}
+			live, n, whole = f.liveRent(r.UUID)
+			if n != 1 || whole != 0 || !live.Equal(want[0].Amount) {
+				t.Fatalf("on the first billing day: %s in %d (%d whole), want %s", live, n, whole, want[0].Amount)
+			}
+			if p := f.periods(r.UUID, "posted"); len(p) != 1 || p[0].no != 1 {
+				t.Fatalf("posted periods = %+v", p)
+			}
+			if _, err := f.pool.Exec(context.Background(), `UPDATE rentals SET rent_billing = 'handover' WHERE organization_id = $1 AND id = $2`,
+				f.org, id); err == nil {
+				t.Fatal("periodic rental switched to handover with live accruals")
+			}
+		})
 	}
 }
 
@@ -966,7 +1082,7 @@ func TestBranchScopeAndIsolation(t *testing.T) {
 			t.Fatalf("foreign agreement call = %v", err)
 		}
 	}
-	start := time.Now().Add(3 * time.Hour).Truncate(time.Minute)
+	start := f.now().Add(3 * time.Hour).Truncate(time.Minute)
 	var ve *resusecase.ValidationError
 	if _, err := f.quote(&other, start, start.Add(rentaltime.Day), ""); !errors.As(err, &ve) || ve.Details[0].Field != "agreement_uuid" {
 		t.Fatalf("quote with a foreign agreement = %v", err)
