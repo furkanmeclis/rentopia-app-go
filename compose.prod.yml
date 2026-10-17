@@ -117,6 +117,11 @@ x-backend-environment: &backend-environment
   NETGSM_LIVE_BASE_URL: ${NETGSM_LIVE_BASE_URL:-https://api.netgsm.com.tr}
   NETGSM_SANDBOX_BASE_URL: ${NETGSM_SANDBOX_BASE_URL:-}
   SMS_LOG_PROVIDER: ${SMS_LOG_PROVIDER:-false}
+  # --- WhatsApp: the private wuzapi gateway (sessions are per organization). ---
+  WUZAPI_BASE_URL: http://wuzapi.${APP_NETWORK_NAME:-${NAME_PREFIX:?NAME_PREFIX is required}-app}:8080
+  WUZAPI_ADMIN_TOKEN: ${WUZAPI_ADMIN_TOKEN:?WUZAPI_ADMIN_TOKEN is required}
+  # The API as wuzapi reaches it (receipt and connection webhooks).
+  WUZAPI_WEBHOOK_BASE_URL: http://backend.${APP_NETWORK_NAME:-${NAME_PREFIX:?NAME_PREFIX is required}-app}:8080
 
 services:
   postgres:
@@ -235,6 +240,27 @@ services:
     networks:
       - app
       - dokploy-network
+
+  # WhatsApp gateway (TEC-735): one wuzapi user / WhatsApp Web session per
+  # organization. Private: never attach it to dokploy-network or publish its
+  # port; only the backend and worker call it, and it calls the backend's
+  # webhook on the app network.
+  wuzapi:
+    image: ${WUZAPI_IMAGE:-asternic/wuzapi:latest}
+    container_name: ${NAME_PREFIX:?NAME_PREFIX is required}-wuzapi
+    restart: unless-stopped
+    environment:
+      WUZAPI_ADMIN_TOKEN: ${WUZAPI_ADMIN_TOKEN:?WUZAPI_ADMIN_TOKEN is required}
+      WUZAPI_GLOBAL_ENCRYPTION_KEY: ${WUZAPI_ENCRYPTION_KEY:?WUZAPI_ENCRYPTION_KEY is required}
+      WEBHOOK_FORMAT: json
+      SESSION_DEVICE_NAME: ${WUZAPI_DEVICE_NAME:-Rentopia}
+      TZ: Europe/Istanbul
+    volumes:
+      - wuzapi_data:/app/dbdata
+    expose:
+      - "8080"
+    networks:
+      - app
 
   migrate:
     <<: *backend-image
@@ -393,6 +419,8 @@ volumes:
     name: ${STORAGE_VOLUME_NAME:-${NAME_PREFIX:?NAME_PREFIX is required}-prod-seaweedfs}
   meili_data:
     name: ${MEILI_VOLUME_NAME:-${NAME_PREFIX:?NAME_PREFIX is required}-prod-meilisearch}
+  wuzapi_data:
+    name: ${WUZAPI_VOLUME_NAME:-${NAME_PREFIX:?NAME_PREFIX is required}-prod-wuzapi}
 
 networks:
   # Created by Compose for this app only.

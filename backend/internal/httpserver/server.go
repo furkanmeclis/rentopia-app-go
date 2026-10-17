@@ -50,6 +50,10 @@ import (
 	cataloghandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/handler"
 	catalogrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/repository"
 	catalogusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/usecase"
+	channelsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/channels"
+	channeladapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/channels/adapters"
+	channelhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/channels/handler"
+	channelusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/channels/usecase"
 	contractsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/contracts"
 	contractshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/contracts/handler"
 	contractsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/contracts/usecase"
@@ -137,6 +141,9 @@ import (
 	paymentsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/payments"
 	paymentshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/payments/handler"
 	paymentsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/payments/usecase"
+	platformhealthmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/platformhealth"
+	platformhealthhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/platformhealth/handler"
+	platformhealthusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/platformhealth/usecase"
 	pricingmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing"
 	pricingadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/adapters"
 	pricinghandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/handler"
@@ -196,6 +203,9 @@ import (
 	vehiclehandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/handler"
 	vehiclerepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/repository"
 	vehicleusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/usecase"
+	whatsappmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/whatsapp"
+	whatsapphandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/whatsapp/handler"
+	whatsappusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/whatsapp/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/activity"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/appleauth"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/bulkengine"
@@ -512,6 +522,14 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	// dependency until TEC-685) and the fake outside production only.
 	invoiceProviders := invoicesmodule.Providers(cfg.App.Env, log)
 	integrationAdapters = append(integrationAdapters, invoicesmodule.Adapters(invoiceProviders)...)
+	// WhatsApp providers (TEC-735): wuzapi (configured by WUZAPI_*) and
+	// the fake outside production only.
+	whatsappProviders, whatsappFake := whatsappmodule.Providers(cfg.WhatsApp, cfg.App.Env, log)
+	integrationAdapters = append(integrationAdapters, whatsappmodule.Adapters(whatsappProviders)...)
+	// Channel managers (TEC-736, TEC-737): Yolcu360 and Obilet, their fakes
+	// outside production only.
+	channelProviders := channelsmodule.Providers(cfg.App.Env, log)
+	integrationAdapters = append(integrationAdapters, channelsmodule.Adapters(channelProviders)...)
 	integrationAccountsSvc := integrationaccountsusecase.New(deps.Queries, integrationVault,
 		integrations.NewRegistry(integrationAdapters...))
 	// Generic integration job runner (TEC-751): steps go to the
@@ -544,6 +562,18 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 			PublicKey: cfg.VAPID.PublicKey, PrivateKey: cfg.VAPID.PrivateKey, Subject: cfg.VAPID.Subject,
 		}))
 	integrationRunner.AddListener(notifySMS)
+	// WhatsApp (TEC-735): one wuzapi session per organization; the engine
+	// channel sends test messages inline (scheduled ones go from the
+	// worker), receipts arrive on the public webhook.
+	whatsappSvc := whatsappusecase.New(deps.Queries, integrationAccountsSvc, integrationVault,
+		whatsappusecase.Config{WebhookBaseURL: cfg.WhatsApp.WebhookBaseURL}, whatsappProviders...)
+	whatsappSvc.SetActivity(activityRec)
+	whatsappSvc.SetNotifier(notifSvc)
+	whatsappSvc.SetLogger(log)
+	if whatsappFake != nil {
+		whatsappFake.SetReceipts(whatsappSvc.ApplyReceipt)
+	}
+	notifyEngine.Register(whatsappusecase.NewChannel(whatsappSvc))
 	paymentsSvc := paymentsusecase.New(deps.DB, deps.Queries, integrationAccountsSvc, reservationSvc,
 		paymentsusecase.Config{PublicBaseURL: cfg.Auth.FrontendURL}, iyzicoAdapter)
 	paymentsSvc.SetResourceEvents(resourceEvents)
@@ -584,6 +614,15 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	fieldTasksSvc.SetResourceEvents(resourceEvents)
 	fieldTasksSvc.SetLogger(log)
 	reservationSvc.SetDeliveryQuoter(fieldTasksSvc)
+	// Channel manager (TEC-736): inventory push, booking import through
+	// reservations / customers, mappings, error queue, reconciliation.
+	channelsSvc, err := channelusecase.New(deps.DB, deps.Queries, fieldCipher, integrationAccountsSvc,
+		channeladapters.NewBooker(reservationSvc, customerSvc), channelProviders...)
+	if err != nil {
+		return nil, fmt.Errorf("httpserver: channels: %w", err)
+	}
+	channelsSvc.SetResourceEvents(resourceEvents)
+	channelsSvc.SetLogger(log)
 	// Toll passes (TEC-725): provider fetch jobs on the integration runner,
 	// file import fallback, matching to rentals (toll charges), review
 	// queue. The finance ledger (TEC-717) plugs in with SetLedger.
@@ -665,7 +704,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	publicAPISvc.SetBaseURL(strings.TrimRight(cfg.Auth.FrontendURL, "/") + "/api")
 	publicAPISvc.AllowPrivateWebhooks(!strings.EqualFold(strings.TrimSpace(cfg.App.Env), "production"))
 	publicAPISvc.SetImmediateDelivery(true)
-	reservationSvc.SetLifecycleListener(reservationusecase.Listeners{rentalsSvc, fieldTasksSvc, publicAPISvc})
+	reservationSvc.SetLifecycleListener(reservationusecase.Listeners{rentalsSvc, fieldTasksSvc, publicAPISvc, channelsSvc})
 	// Branded site (TEC-729): per-organization site settings and the host
 	// resolution of the `site` app; the site books through publicAPISvc.
 	siteBaseURL := cfg.Site.BaseURL
@@ -709,6 +748,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	financemodule.RegisterLiveResources(tenantLive)
 	tollsmodule.RegisterLiveResources(tenantLive)
 	kabismodule.RegisterLiveResources(tenantLive)
+	channelsmodule.RegisterLiveResources(tenantLive)
 	agreementsmodule.RegisterLiveResources(tenantLive)
 	invoicesmodule.RegisterLiveResources(tenantLive)
 	suppliersmodule.RegisterLiveResources(tenantLive)
@@ -949,6 +989,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		Export: exportH.TenantExport(rentalsmodule.Resource, rentalsmodule.ExportQueryKeys...),
 	}, tokens, loader, tenantResolver)
 	kabismodule.RegisterRoutes(mux, kabishandler.New(kabisSvc, activityRec), tokens, loader, tenantResolver)
+	channelsmodule.RegisterRoutes(mux, channelhandler.New(channelsSvc, activityRec), tokens, loader, tenantResolver)
 	agreementsmodule.RegisterRoutes(mux, agreementhandler.New(agreementsSvc, activityRec), agreementsmodule.EngineHandlers{
 		Export: exportH.TenantExport(agreementsmodule.Resource, agreementsmodule.ExportQueryKeys...),
 	}, tokens, loader, tenantResolver)
@@ -966,6 +1007,16 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	profitabilitymodule.RegisterRoutes(mux, profitabilityhandler.New(profitabilitySvc),
 		exportH.TenantExport(profitabilitymodule.Resource, profitabilitymodule.ExportQueryKeys...), tokens, loader, tenantResolver)
 	reportsmodule.RegisterRoutes(mux, reportshandler.New(reportsSvc), exportH.TenantExport, tokens, loader, tenantResolver)
+	// Platform usage and connection health (TEC-739). Modules with their
+	// own sync / delivery health register a healthcheck.Source on
+	// healthRegistry here.
+	healthRegistry := platformhealthmodule.NewRegistry(deps.Queries)
+	// Channel manager sync health (TEC-736): failed syncs, expired pushes,
+	// the error queue.
+	if err := healthRegistry.Register(channelsmodule.NewHealthSource(deps.Queries)); err != nil {
+		return nil, fmt.Errorf("httpserver: channel health: %w", err)
+	}
+	platformhealthmodule.RegisterRoutes(mux, platformhealthhandler.New(platformhealthusecase.New(deps.Queries, healthRegistry)), tokens, loader)
 	contractsH := contractshandler.New(contractsSvc, activityRec)
 	contractsH.SetRateLimiter(contractsmodule.Limiter{L: ratelimit.New(deps.Redis, cfg.App.Env)})
 	contractsmodule.RegisterRoutes(mux, contractsH, tokens, loader, tenantResolver)
@@ -1031,6 +1082,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	if tenantResolver != nil {
 		notifyenginemodule.RegisterCustomerRoutes(mux, notifyH, portalH.RequireSession)
 	}
+	whatsappmodule.RegisterRoutes(mux, whatsapphandler.New(whatsappSvc), tokens, loader, tenantResolver)
 	settingsmodule.RegisterRoutes(mux, settingshandler.New(
 		settingsusecase.New(deps.Queries),
 		deps.Storage,

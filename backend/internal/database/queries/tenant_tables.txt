@@ -122,4 +122,12 @@ notification_message_templates
 notification_dispatches
 notification_deliveries
 customer_push_subscriptions
+whatsapp_sessions
+whatsapp_messages
+channel_accounts
+channel_mappings
+channel_offers
+channel_reservations
+channel_messages
+channel_sync_runs
 site_settings

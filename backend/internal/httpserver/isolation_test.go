@@ -94,6 +94,12 @@ var isolationAllowlist = map[string]string{
 	"PUT /v1/tenant/notification-templates":          "template of the caller's organization, addressed by catalog codes (event, channel, language)",
 	"POST /v1/tenant/notification-templates/reset":   "template of the caller's organization, addressed by catalog codes (event, channel, language)",
 	"POST /v1/tenant/notification-templates/preview": "renders sample values; no records",
+	"PATCH /v1/tenant/whatsapp/session":              "rate limit of the caller's organization's WhatsApp session; no foreign references",
+	"DELETE /v1/tenant/whatsapp/session":             "removes the caller's organization's WhatsApp session; no ids",
+	"POST /v1/tenant/whatsapp/session/connect":       "connects the caller's organization's WhatsApp (provider code, risk notice); no foreign references",
+	"POST /v1/tenant/whatsapp/session/refresh":       "reads the caller's organization's WhatsApp session state; no body",
+	"POST /v1/tenant/whatsapp/session/logout":        "unlinks the caller's organization's WhatsApp session; no body",
+	"POST /v1/tenant/whatsapp/test-messages":         "test text to a typed number through the caller's organization's session; no records",
 	"POST /v1/tenant/public-api/keys":                "body has no foreign references (kind, name, channel, scopes, origins, rate limit)",
 	"POST /v1/tenant/public-api/webhooks":            "body has no foreign references (name, URL, event names)",
 	"PUT /v1/tenant/site":                            "site document of the caller's organization (subdomain, theme, texts); the key it links is created in the scope (site tests)",
@@ -539,6 +545,31 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		// attachment route streams it).
 		must(upload(o, http.MethodPost, "/v1/tenant/kabis-notifications/"+ids["kabisNotification"]+"/mark-manual", "file", "makbuz.png", png,
 			map[string]string{"reason": m + " elle bildirildi", "reference": m + "-KBS"}), http.StatusOK, "kabis mark manual")
+		// Channel manager (TEC-736): the development channel account, a
+		// location / product / extra mapping and a simulated booking (its
+		// message and the pull's sync run are the read targets).
+		ids["channelAccount"] = str(must(call(o, http.MethodPost, "/v1/tenant/integrations", map[string]any{
+			"provider": "yolcu360_fake", "display_name": m + " Yolcu360",
+			"credentials": map[string]string{"supplier_code": m + "-SUP", "api_key": "fake-" + m},
+		}), http.StatusCreated, "channel account"), "uuid")
+		ids["channelMapping"] = str(must(call(o, http.MethodPost, "/v1/tenant/channel-mappings", map[string]any{
+			"account_uuid": ids["channelAccount"], "entity_type": "branch", "branch_uuid": ids["branch"], "external_code": m + "-LOC",
+		}), http.StatusCreated, "channel branch mapping"), "uuid")
+		must(call(o, http.MethodPost, "/v1/tenant/channel-mappings", map[string]any{
+			"account_uuid": ids["channelAccount"], "entity_type": "product", "product_uuid": ids["product"], "external_code": m + "-PRD",
+		}), http.StatusCreated, "channel product mapping")
+		must(call(o, http.MethodPost, "/v1/tenant/channel-mappings", map[string]any{
+			"account_uuid": ids["channelAccount"], "entity_type": "extra", "extra_uuid": ids["extra"], "external_code": m + "-EXT",
+		}), http.StatusCreated, "channel extra mapping")
+		must(call(o, http.MethodPost, "/v1/tenant/channel-accounts/"+ids["channelAccount"]+"/simulate", map[string]any{
+			"external_ref": m + "-Y360", "product_code": m + "-PRD", "pickup_location_code": m + "-LOC",
+			"starts_at": day(30), "ends_at": day(31), "total": "1000", "customer": map[string]any{"first_name": m, "last_name": "Kanal"},
+		}), http.StatusOK, "channel simulate")
+		channelMsgs := pageItems(t, must(call(o, http.MethodGet, "/v1/tenant/channel-messages?limit=5", nil), http.StatusOK, "channel messages").data)
+		if len(channelMsgs) == 0 {
+			t.Fatal("the simulated booking stored no message")
+		}
+		ids["channelMessage"] = channelMsgs[0].(map[string]any)["uuid"].(string)
 		// Inspections (TEC-712 / TEC-714): the handover form of the rental
 		// with a damage and an uploaded photo; its template is the default
 		// one created on first use.
@@ -921,6 +952,11 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		"GET /v1/tenant/toll-passes": {
 			"?vehicle=" + b["vehicle"], "?rental=" + b["rental"], "?q=" + orgB.marker, "?review=1",
 		},
+		"GET /v1/tenant/channel-mappings": {"?account=" + b["channelAccount"], "?q=" + orgB.marker},
+		"GET /v1/tenant/channel-messages": {
+			"?account=" + b["channelAccount"], "?q=" + orgB.marker, "?external_ref=" + orgB.marker + "-Y360",
+		},
+		"GET /v1/tenant/channel-sync-runs": {"?account=" + b["channelAccount"]},
 		"GET /v1/tenant/kabis-notifications": {
 			"?rental=" + b["rental"], "?q=" + orgB.marker, "?needs_action=1", "?status=waiting_dependency",
 		},
@@ -1161,6 +1197,17 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		{"POST /v1/tenant/finance/accounts", map[string]any{"customer_uuid": orgB.ids["customer"]}, reject},
 		// Corporate agreements: B's customer / branch in an agreement body,
 		// B's agreement on a quote, a search, a preview and a tariff.
+		// Channel mappings naming B's account, branch, product or extra.
+		{"POST /v1/tenant/channel-mappings", map[string]any{"account_uuid": orgB.ids["channelAccount"], "entity_type": "branch",
+			"branch_uuid": orgA.ids["home"], "external_code": "X1"}, reject},
+		{"POST /v1/tenant/channel-mappings", map[string]any{"account_uuid": orgA.ids["channelAccount"], "entity_type": "branch",
+			"branch_uuid": orgB.ids["home"], "external_code": "X2"}, reject},
+		{"POST /v1/tenant/channel-mappings", map[string]any{"account_uuid": orgA.ids["channelAccount"], "entity_type": "product",
+			"product_uuid": orgB.ids["product"], "external_code": "X3"}, reject},
+		{"POST /v1/tenant/channel-mappings", map[string]any{"account_uuid": orgA.ids["channelAccount"], "entity_type": "product",
+			"product_uuid": orgA.ids["product"], "branch_uuid": orgB.ids["home"], "external_code": "X4"}, reject},
+		{"POST /v1/tenant/channel-mappings", map[string]any{"account_uuid": orgA.ids["channelAccount"], "entity_type": "extra",
+			"extra_uuid": orgB.ids["extra"], "external_code": "X5"}, reject},
 		{"POST /v1/tenant/agreements", map[string]any{"customer_uuid": orgB.ids["customer"], "name": "x", "valid_from": date(0)}, reject},
 		// Notification engine: a test send to B's customer.
 		{"POST /v1/tenant/notification-tests", map[string]any{"event": "reservation.confirmed", "customer_uuid": orgB.ids["customer"]}, reject},
@@ -1619,6 +1666,12 @@ func paramKey(prev, name string) string {
 		return "tollTag"
 	case "kabis-notifications/uuid":
 		return "kabisNotification"
+	case "channel-accounts/uuid":
+		return "channelAccount"
+	case "channel-mappings/uuid":
+		return "channelMapping"
+	case "channel-messages/uuid":
+		return "channelMessage"
 	case "agreements/uuid":
 		return "agreement"
 	case "contacts/agreementContactUuid":

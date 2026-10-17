@@ -40,8 +40,10 @@ import {
   ListChecks,
   LayoutDashboard,
   LogIn,
+  Network,
   NotebookPen,
   Palette,
+  MessageCircle,
   Plug,
   ReceiptText,
   Route,
@@ -70,6 +72,7 @@ import { customerRequestsNavItem } from "@/features/customer-portal/nav";
 import { TollReviewNavAdornment } from "@/features/tolls/nav";
 import { InvoicesNavAdornment } from "@/features/invoices/nav";
 import { KabisNavAdornment } from "@/features/kabis/nav";
+import { ChannelsNavAdornment } from "@/features/channels/nav";
 import { PayablesNavAdornment } from "@/features/suppliers/nav";
 import { MyFieldTasksNavAdornment } from "@/features/field-tasks/nav";
 import {
@@ -271,6 +274,13 @@ export const platformNav = defineNav({
           icon: Building2,
           permission: permissions.organizations.read,
         },
+        {
+          id: "health",
+          titleKey: "layout.nav_platform_health",
+          href: routes.platform.health,
+          icon: Activity,
+          permission: permissions.platformHealth.read,
+        },
         usersNavItem,
         {
           id: "catalog",
@@ -387,6 +397,14 @@ export function tenantNav(slug: string): NavCatalog {
             Adornment: ResolutionTasksNavAdornment,
           },
           customerRequestsNavItem(slug),
+          {
+            id: "reservations-channels",
+            titleKey: "layout.nav_channels",
+            href: routes.tenant.channels.root(slug),
+            icon: Network,
+            permission: permissions.tenant.channels.read,
+            Adornment: ChannelsNavAdornment,
+          },
         ],
       },
       {
@@ -805,6 +823,13 @@ export function tenantNav(slug: string): NavCatalog {
             href: routes.tenant.settings.notifications(slug),
             icon: BellRing,
             permission: permissions.tenant.notificationSettings.read,
+          },
+          {
+            id: "settings-whatsapp",
+            titleKey: "layout.nav_tenant_settings_whatsapp",
+            href: routes.tenant.settings.whatsapp(slug),
+            icon: MessageCircle,
+            permission: permissions.tenant.integrations.manage,
           },
           {
             id: "settings-inspection-templates",

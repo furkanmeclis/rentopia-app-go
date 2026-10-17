@@ -42,6 +42,7 @@ import enFinance from "@/locales/en/finance.json";
 import enSuppliers from "@/locales/en/suppliers.json";
 import enPublicApi from "@/locales/en/public_api.json";
 import enNotificationEngine from "@/locales/en/notification_engine.json";
+import enWhatsapp from "@/locales/en/whatsapp.json";
 import enUsers from "@/locales/en/users.json";
 import enVehicleRecords from "@/locales/en/vehicle_records.json";
 import enOneWayRules from "@/locales/en/one_way_rules.json";
@@ -58,10 +59,12 @@ import enRentals from "@/locales/en/rentals.json";
 import enTolls from "@/locales/en/tolls.json";
 import enInvoices from "@/locales/en/invoices.json";
 import enKabis from "@/locales/en/kabis.json";
+import enChannels from "@/locales/en/channels.json";
 import enAgreements from "@/locales/en/agreements.json";
 import enDeposits from "@/locales/en/deposits.json";
 import enProfitability from "@/locales/en/profitability.json";
 import enReports from "@/locales/en/reports.json";
+import enPlatformHealth from "@/locales/en/platform_health.json";
 import enContracts from "@/locales/en/contracts.json";
 import enInspections from "@/locales/en/inspections.json";
 import enFieldTasks from "@/locales/en/field_tasks.json";
@@ -108,6 +111,7 @@ import trFinance from "@/locales/tr/finance.json";
 import trSuppliers from "@/locales/tr/suppliers.json";
 import trPublicApi from "@/locales/tr/public_api.json";
 import trNotificationEngine from "@/locales/tr/notification_engine.json";
+import trWhatsapp from "@/locales/tr/whatsapp.json";
 import trUsers from "@/locales/tr/users.json";
 import trVehicleRecords from "@/locales/tr/vehicle_records.json";
 import trOneWayRules from "@/locales/tr/one_way_rules.json";
@@ -124,10 +128,12 @@ import trRentals from "@/locales/tr/rentals.json";
 import trTolls from "@/locales/tr/tolls.json";
 import trInvoices from "@/locales/tr/invoices.json";
 import trKabis from "@/locales/tr/kabis.json";
+import trChannels from "@/locales/tr/channels.json";
 import trAgreements from "@/locales/tr/agreements.json";
 import trDeposits from "@/locales/tr/deposits.json";
 import trProfitability from "@/locales/tr/profitability.json";
 import trReports from "@/locales/tr/reports.json";
+import trPlatformHealth from "@/locales/tr/platform_health.json";
 import trContracts from "@/locales/tr/contracts.json";
 import trInspections from "@/locales/tr/inspections.json";
 import trFieldTasks from "@/locales/tr/field_tasks.json";
@@ -162,10 +168,12 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     tolls: trTolls,
     invoices: trInvoices,
     kabis: trKabis,
+    channels: trChannels,
     agreements: trAgreements,
     deposits: trDeposits,
     profitability: trProfitability,
     reports: trReports,
+    platform_health: trPlatformHealth,
     contracts: trContracts,
     inspections: trInspections,
     field_tasks: trFieldTasks,
@@ -203,6 +211,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     suppliers: trSuppliers,
     public_api: trPublicApi,
     notification_engine: trNotificationEngine,
+    whatsapp: trWhatsapp,
   },
   en: {
     common: enCommon,
@@ -230,10 +239,12 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     tolls: enTolls,
     invoices: enInvoices,
     kabis: enKabis,
+    channels: enChannels,
     agreements: enAgreements,
     deposits: enDeposits,
     profitability: enProfitability,
     reports: enReports,
+    platform_health: enPlatformHealth,
     contracts: enContracts,
     inspections: enInspections,
     field_tasks: enFieldTasks,
@@ -271,6 +282,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     suppliers: enSuppliers,
     public_api: enPublicApi,
     notification_engine: enNotificationEngine,
+    whatsapp: enWhatsapp,
   },
 };
 export function loadMessages(locale: AppLocale) {

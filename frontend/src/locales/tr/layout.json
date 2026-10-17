@@ -50,6 +50,7 @@
   "nav_fleet_transfers": "Transferler",
   "nav_fleet_one_way_rules": "Tek yön kuralları",
   "nav_organizations": "Firmalar",
+  "nav_platform_health": "Kullanım ve sağlık",
   "section_pricing": "Fiyatlandırma",
   "nav_pricing_plans": "Tarifeler",
   "nav_pricing_rules": "Tarih kuralları",
@@ -104,5 +105,7 @@
   "nav_reports_channels": "Kanal performansı",
   "nav_reports_aging": "Cari / vade",
   "nav_reports_branches": "Şube karşılaştırma",
-  "nav_tenant_settings_notifications": "Bildirimler"
+  "nav_tenant_settings_notifications": "Bildirimler",
+  "nav_channels": "Kanal yöneticisi",
+  "nav_tenant_settings_whatsapp": "WhatsApp"
 }

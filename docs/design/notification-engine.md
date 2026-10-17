@@ -71,9 +71,9 @@ failed report runs the next channel (RT-A30).
 - `email`: the SMTP sender.
 - `push`: members through the notification center (inbox, web push, mobile
   push); customers through `customer_push_subscriptions` (VAPID).
-- `whatsapp`: no adapter yet. Rules may list it; it is logged as skipped
-  until TEC-735 registers an adapter with `Engine.Register` (no engine
-  change).
+- `whatsapp`: the organization's linked WhatsApp session (TEC-735,
+  [whatsapp.md](./whatsapp.md)), registered with `Engine.Register`; skipped
+  while not linked, delivery receipts settle the attempt.
 
 ## Privacy
 

@@ -5,7 +5,9 @@ import gib from "@/assets/brand-icons/gib.svg";
 import hgs from "@/assets/brand-icons/hgs.png";
 import iyzico from "@/assets/brand-icons/iyzico.svg";
 import netgsm from "@/assets/brand-icons/netgsm.svg";
+import obilet from "@/assets/brand-icons/obilet.svg";
 import whatsapp from "@/assets/brand-icons/whatsapp.svg";
+import yolcu360 from "@/assets/brand-icons/yolcu360.svg";
 import { cn } from "@/lib/utils";
 
 /**
@@ -22,6 +24,12 @@ const PROVIDER_LOGOS: Record<string, { src: StaticImageData; alt: string }> = {
   einvoice: { src: gib, alt: "Gelir İdaresi Başkanlığı" },
   einvoice_fake: { src: gib, alt: "Gelir İdaresi Başkanlığı" },
   whatsapp: { src: whatsapp, alt: "WhatsApp" },
+  wuzapi: { src: whatsapp, alt: "WhatsApp" },
+  whatsapp_fake: { src: whatsapp, alt: "WhatsApp" },
+  yolcu360: { src: yolcu360, alt: "Yolcu360" },
+  yolcu360_fake: { src: yolcu360, alt: "Yolcu360" },
+  obilet: { src: obilet, alt: "obilet" },
+  obilet_fake: { src: obilet, alt: "obilet" },
 };
 
 export function hasBrandLogo(provider: string | null | undefined): boolean {

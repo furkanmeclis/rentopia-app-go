@@ -10,7 +10,7 @@ Status: **implemented** (M5: TEC-729). Requirements §14.1. One template, one Do
 | App (Next.js App Router, own image) | `site/` (`site/Dockerfile`, service `site` in `compose.prod.yml`, CI job `site`) |
 | Host → site, booking session | `site/src/proxy.ts`, `site/src/lib/{resolve,session,server}.ts` |
 | Settings model, host resolution | `backend/internal/modules/site/{model,usecase,handler}`, `routes.go` |
-| Migrations | `000620_branded_site`, `000621_seed_branded_site_rbac` (temporary numbers, renumbered at integration) |
+| Migrations | `000122_branded_site`, `000123_seed_branded_site_rbac` |
 | Tests | `backend/internal/modules/site/site_test.go`, `site/src/lib/theme.test.ts` |
 
 ## 1. Request flow
@@ -77,7 +77,7 @@ Theme tokens become CSS variables in a `<style>` in the SSR head (`site/src/lib/
 | `GET /v1/public/site/resolve?host=` | public, 600 / min / IP | The resolved site (`model.Resolved`): `site_uuid`, `version`, `origin`, `host_kind`, `organization {uuid, slug, name}`, `publishable_key`, `booking_enabled`, `config`, `assets` (API paths), `portal_url`. Errors: `404 SITE_NOT_FOUND`. |
 | `GET /v1/public/site/assets/{uuid}/{kind}` | public | `logo` \| `favicon` \| `cover` of an enabled site. |
 
-Permissions (000621): `tenant.site.read` and `tenant.site.manage`, granted to owner, admin and merkez_yoneticisi (like the public API keys).
+Permissions (000123): `tenant.site.read` and `tenant.site.manage`, granted to owner, admin and merkez_yoneticisi (like the public API keys).
 
 ### The site key
 

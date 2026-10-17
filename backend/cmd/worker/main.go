@@ -24,6 +24,9 @@ import (
 	campaignsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/campaigns/usecase"
 	catalogrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/repository"
 	catalogusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/usecase"
+	channelsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/channels"
+	channeladapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/channels/adapters"
+	channelusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/channels/usecase"
 	contractsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/contracts/usecase"
 	customeradapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/customers/adapters"
 	customerrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/customers/repository"
@@ -61,6 +64,8 @@ import (
 	orgsettingsrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/repository"
 	orgsettingsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/usecase"
 	paymentsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/payments/usecase"
+	platformhealthmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/platformhealth"
+	platformhealthusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/platformhealth/usecase"
 	pricingadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/adapters"
 	pricingrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/repository"
 	pricingusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/pricing/usecase"
@@ -85,6 +90,8 @@ import (
 	vehicleadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/adapters"
 	vehiclerepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/repository"
 	vehicleusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/usecase"
+	whatsappmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/whatsapp"
+	whatsappusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/whatsapp/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/observability"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/activity"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/bulkengine"
@@ -240,6 +247,11 @@ func main() {
 	// outside production only.
 	invoiceProviders := invoicesmodule.Providers(cfg.App.Env, log)
 	integrationAdapters = append(integrationAdapters, invoicesmodule.Adapters(invoiceProviders)...)
+	whatsappProviders, whatsappFake := whatsappmodule.Providers(cfg.WhatsApp, cfg.App.Env, log)
+	integrationAdapters = append(integrationAdapters, whatsappmodule.Adapters(whatsappProviders)...)
+	// Channel managers (TEC-736): the sync sweep runs here.
+	channelProviders := channelsmodule.Providers(cfg.App.Env, log)
+	integrationAdapters = append(integrationAdapters, channelsmodule.Adapters(channelProviders)...)
 	integrationAccountsSvc := integrationaccountsusecase.New(queries, integrationVault,
 		integrations.NewRegistry(integrationAdapters...))
 	integrationOps := integrations.NewOperationRegistry()
@@ -263,6 +275,17 @@ func main() {
 			PublicKey: cfg.VAPID.PublicKey, PrivateKey: cfg.VAPID.PrivateKey, Subject: cfg.VAPID.Subject,
 		}))
 	integrationRunner.AddListener(notifySMS)
+	// WhatsApp (TEC-735): the engine channel, the health sweep (drop
+	// alert, reconnect, receipt timeout).
+	whatsappSvc := whatsappusecase.New(queries, integrationAccountsSvc, integrationVault,
+		whatsappusecase.Config{WebhookBaseURL: cfg.WhatsApp.WebhookBaseURL}, whatsappProviders...)
+	whatsappSvc.SetActivity(activityRec)
+	whatsappSvc.SetNotifier(notifSvc)
+	whatsappSvc.SetLogger(log)
+	if whatsappFake != nil {
+		whatsappFake.SetReceipts(whatsappSvc.ApplyReceipt)
+	}
+	notifyEngine.Register(whatsappusecase.NewChannel(whatsappSvc))
 	reservationSvc.SetTransitionNotifier(notifyEngine)
 	paymentsSvc := paymentsusecase.New(pool, queries, integrationAccountsSvc, reservationSvc,
 		paymentsusecase.Config{PublicBaseURL: cfg.Auth.FrontendURL}, iyzicoAdapter)
@@ -296,6 +319,15 @@ func main() {
 	fieldTasksSvc.SetNotifier(notifSvc)
 	fieldTasksSvc.SetLogger(log)
 	reservationSvc.SetDeliveryQuoter(fieldTasksSvc)
+	// Channel manager (TEC-736): inventory push / booking pull sweep;
+	// reservation changes made by jobs ask for a push.
+	channelsSvc, err := channelusecase.New(pool, queries, fieldCipher, integrationAccountsSvc,
+		channeladapters.NewBooker(reservationSvc, customerSvc), channelProviders...)
+	if err != nil {
+		log.Error("channels_init_failed", "error", err)
+		exit(1)
+	}
+	channelsSvc.SetLogger(log)
 	// Public booking API (TEC-728): lifecycle events of its reservations
 	// (expiry and cancellations run here too) become webhook deliveries;
 	// the minute sweep sends them. No booking runs in the worker.
@@ -307,7 +339,7 @@ func main() {
 	}
 	publicAPISvc.SetLogger(log)
 	publicAPISvc.AllowPrivateWebhooks(!strings.EqualFold(strings.TrimSpace(cfg.App.Env), "production"))
-	reservationSvc.SetLifecycleListener(reservationusecase.Listeners{rentalsSvc, fieldTasksSvc, publicAPISvc})
+	reservationSvc.SetLifecycleListener(reservationusecase.Listeners{rentalsSvc, fieldTasksSvc, publicAPISvc, channelsSvc})
 	// Toll passes (TEC-725): fetch steps (runner operations), the hourly
 	// fetch schedule and re-match, file imports.
 	tollsSvc := tollsusecase.New(pool, queries, integrationAccountsSvc, integrationRunner, integrationOps, tollProviders...)
@@ -460,6 +492,20 @@ func main() {
 	tollsSvc.SetResourceEvents(resourceEvents)
 	kabisSvc.SetResourceEvents(resourceEvents)
 	invoicesSvc.SetResourceEvents(resourceEvents)
+	channelsSvc.SetResourceEvents(resourceEvents)
+
+	// Platform health alert sweep (TEC-739): modules with their own
+	// sync / delivery health register a healthcheck.Source on
+	// healthRegistry here (and in the API's composition root).
+	healthRegistry := platformhealthmodule.NewRegistry(queries)
+	// Channel manager sync health (TEC-736): failed syncs, expired pushes,
+	// the error queue.
+	if err := healthRegistry.Register(channelsmodule.NewHealthSource(queries)); err != nil {
+		log.Error("channel_health_init_failed", "error", err)
+	}
+	platformHealthSvc := platformhealthusecase.New(queries, healthRegistry)
+	platformHealthSvc.SetNotifier(notifSvc)
+	platformHealthSvc.SetLogger(log)
 
 	worker := queue.NewWorker(cfg, log, notifSvc.Deliver).
 		WithExport(exportSvc.ProcessExport).
@@ -521,13 +567,21 @@ func main() {
 			if err != nil {
 				log.Warn("invoice_release_failed", "error", err)
 			}
+			// Channel managers (TEC-736): due inventory pushes (event or
+			// interval) and booking pulls.
+			synced, err := channelsSvc.SyncDue(ctx)
+			if err != nil {
+				log.Warn("channel_sync_failed", "error", err)
+			}
 			n, err := integrationRunner.RunDue(ctx)
-			return released + invoices + n, err
+			return released + invoices + synced + n, err
 		}).
 		WithTolls(tollsSvc.ScheduleFetches, tollsSvc.RematchDue).
 		WithAgreementPeriods(financeSvc.AccruePeriods).
+		WithPlatformHealthAlerts(platformHealthSvc.RunAlertsCount).
 		WithPublicWebhooks(publicAPISvc.DeliverDue).
 		WithNotifyEngine(notifyEngine.Sweep).
+		WithWhatsApp(whatsappSvc.Watch).
 		WithDocumentPDF(contractsSvc.RenderPDF).
 		WithSearch(
 			searchIndexer.ProcessUpsert,
@@ -568,12 +622,20 @@ func main() {
 		log.Error("agreement_periods_scheduler_failed", "error", err)
 		exit(1)
 	}
+	if err := queue.RegisterPlatformHealthAlertsSchedule(scheduler); err != nil {
+		log.Error("platform_health_alerts_scheduler_failed", "error", err)
+		exit(1)
+	}
 	if err := queue.RegisterPublicWebhooksSchedule(scheduler); err != nil {
 		log.Error("public_webhooks_scheduler_failed", "error", err)
 		exit(1)
 	}
 	if err := queue.RegisterNotifyEngineSchedule(scheduler); err != nil {
 		log.Error("notify_engine_scheduler_failed", "error", err)
+		exit(1)
+	}
+	if err := queue.RegisterWhatsAppSchedule(scheduler); err != nil {
+		log.Error("whatsapp_scheduler_failed", "error", err)
 		exit(1)
 	}
 	go func() {

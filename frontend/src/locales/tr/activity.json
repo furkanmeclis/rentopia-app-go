@@ -415,5 +415,17 @@
   "actions.notification_rules.reset": "Bildirim kuralı varsayılana döndü",
   "actions.notification_templates.updated": "Bildirim şablonu güncellendi",
   "actions.notification_templates.reset": "Bildirim şablonu varsayılana döndü",
-  "actions.notifications.test_sent": "Test bildirimi gönderildi"
+  "actions.notifications.test_sent": "Test bildirimi gönderildi",
+  "resources.tenant.channel_accounts": "Kanal hesapları",
+  "resources.tenant.channel_mappings": "Kanal eşlemeleri",
+  "resources.tenant.channel_messages": "Kanal mesajları",
+  "actions.channels.settings_updated": "Kanal senkron ayarları güncellendi",
+  "actions.channels.mapping_created": "Kanal eşlemesi eklendi",
+  "actions.channels.mapping_updated": "Kanal eşlemesi güncellendi",
+  "actions.channels.mapping_deleted": "Kanal eşlemesi silindi",
+  "actions.channels.pushed": "Kanala müsaitlik gönderildi",
+  "actions.channels.pulled": "Kanaldan rezervasyonlar alındı",
+  "actions.channels.simulated": "Kanal rezervasyonu simüle edildi",
+  "actions.channels.message_retried": "Kanal mesajı yeniden uygulandı",
+  "actions.channels.message_ignored": "Kanal mesajı reddedildi"
 }

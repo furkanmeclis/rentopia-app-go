@@ -53,6 +53,7 @@
   "labels.platform.integrations.apple.write": "Write Apple integration settings",
   "labels.platform.auth.settings.read": "Read auth registration settings",
   "labels.platform.auth.settings.write": "Write auth registration settings",
+  "labels.platform.health.read": "View platform usage and connection health",
   "labels.auth.session": "Auth session",
   "labels.platform.organizations.read": "Read organizations",
   "labels.platform.organizations.write": "Manage organizations",
@@ -231,5 +232,9 @@
   "groups.tenant_site": "Branded site",
   "labels.tenant.notification_settings.read": "View notification settings and delivery history",
   "labels.tenant.notification_settings.write": "Manage notification rules and templates",
-  "groups.tenant_notification_settings": "Notifications"
+  "groups.tenant_notification_settings": "Notifications",
+  "labels.tenant.channels.read": "View the channel manager",
+  "labels.tenant.channels.write": "Manage channel mappings and sync settings",
+  "labels.tenant.channels.sync": "Run channel sync and resolve messages",
+  "groups.tenant_channels": "Channel manager"
 }

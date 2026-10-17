@@ -46,6 +46,7 @@ export const Permission = {
   PlatformIntegrationsAppleWrite: "platform.integrations.apple.write",
   PlatformAuthSettingsRead: "platform.auth.settings.read",
   PlatformAuthSettingsWrite: "platform.auth.settings.write",
+  PlatformHealthRead: "platform.health.read",
 
   AuthSession: "auth.session",
 
@@ -155,6 +156,9 @@ export const Permission = {
   TenantKabisRead: "tenant.kabis.read",
   TenantKabisRetry: "tenant.kabis.retry",
   TenantKabisReconcile: "tenant.kabis.reconcile",
+  TenantChannelsRead: "tenant.channels.read",
+  TenantChannelsWrite: "tenant.channels.write",
+  TenantChannelsSync: "tenant.channels.sync",
   TenantAgreementsRead: "tenant.agreements.read",
   TenantAgreementsWrite: "tenant.agreements.write",
   TenantAgreementsExport: "tenant.agreements.export",
@@ -217,6 +221,10 @@ export const permissions = {
   catalog: {
     read: Permission.PlatformCatalogRead,
     write: Permission.PlatformCatalogWrite,
+  },
+  /** Usage and connection health dashboard + failed-work alerts (TEC-739). */
+  platformHealth: {
+    read: Permission.PlatformHealthRead,
   },
   notifications: {
     read: Permission.NotificationsRead,
@@ -490,6 +498,18 @@ export const permissions = {
       read: Permission.TenantKabisRead,
       retry: Permission.TenantKabisRetry,
       reconcile: Permission.TenantKabisReconcile,
+    },
+    /**
+     * Channel manager (TEC-736): accounts and sync state, mappings, the
+     * message / error queue, sync log and reconciliation (`read`),
+     * mappings and sync settings (`write`), push / pull now, retry /
+     * dismiss a message and simulate a booking (`sync`). The channel
+     * account itself is an integration account (`integrations.manage`).
+     */
+    channels: {
+      read: Permission.TenantChannelsRead,
+      write: Permission.TenantChannelsWrite,
+      sync: Permission.TenantChannelsSync,
     },
     /**
      * E-invoices / e-archive (TEC-722): list, detail, preview, downloads

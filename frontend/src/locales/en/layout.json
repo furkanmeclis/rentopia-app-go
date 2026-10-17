@@ -50,6 +50,7 @@
   "nav_fleet_transfers": "Transfers",
   "nav_fleet_one_way_rules": "One-way rules",
   "nav_organizations": "Organizations",
+  "nav_platform_health": "Usage and health",
   "section_pricing": "Pricing",
   "nav_pricing_plans": "Rate plans",
   "nav_pricing_rules": "Date rules",
@@ -104,5 +105,7 @@
   "nav_reports_channels": "Channel performance",
   "nav_reports_aging": "Receivables / due dates",
   "nav_reports_branches": "Branch comparison",
-  "nav_tenant_settings_notifications": "Notifications"
+  "nav_tenant_settings_notifications": "Notifications",
+  "nav_channels": "Channel manager",
+  "nav_tenant_settings_whatsapp": "WhatsApp"
 }

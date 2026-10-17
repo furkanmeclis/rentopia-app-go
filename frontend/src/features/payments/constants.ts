@@ -116,6 +116,11 @@ export const INTEGRATION_FIELD_LABEL_KEYS: Record<string, string> = {
   customer_no: "payments.integrations.fields.customer_no",
   username: "payments.integrations.fields.username",
   scenario: "payments.integrations.fields.scenario",
+  supplier_code: "payments.integrations.fields.supplier_code",
+  api_secret: "payments.integrations.fields.api_secret",
+  base_url: "payments.integrations.fields.base_url",
+  partner_code: "payments.integrations.fields.partner_code",
+  api_token: "payments.integrations.fields.api_token",
 };
 
 export const INTEGRATION_PROVIDER_LABEL_KEYS: Record<string, string> = {
@@ -127,6 +132,12 @@ export const INTEGRATION_PROVIDER_LABEL_KEYS: Record<string, string> = {
   kabis_fake: "payments.integrations.providers.kabis_fake",
   einvoice: "payments.integrations.providers.einvoice",
   einvoice_fake: "payments.integrations.providers.einvoice_fake",
+  wuzapi: "payments.integrations.providers.wuzapi",
+  whatsapp_fake: "payments.integrations.providers.whatsapp_fake",
+  yolcu360: "payments.integrations.providers.yolcu360",
+  yolcu360_fake: "payments.integrations.providers.yolcu360_fake",
+  obilet: "payments.integrations.providers.obilet",
+  obilet_fake: "payments.integrations.providers.obilet_fake",
 };
 
 /** Connect form hint per provider (where the organization finds its keys). */
@@ -139,6 +150,12 @@ export const INTEGRATION_PROVIDER_HINT_KEYS: Record<string, string> = {
   kabis_fake: "payments.integrations.provider_hints.kabis_fake",
   einvoice: "payments.integrations.provider_hints.einvoice",
   einvoice_fake: "payments.integrations.provider_hints.einvoice_fake",
+  wuzapi: "payments.integrations.provider_hints.wuzapi",
+  whatsapp_fake: "payments.integrations.provider_hints.whatsapp_fake",
+  yolcu360: "payments.integrations.provider_hints.yolcu360",
+  yolcu360_fake: "payments.integrations.provider_hints.yolcu360_fake",
+  obilet: "payments.integrations.provider_hints.obilet",
+  obilet_fake: "payments.integrations.provider_hints.obilet_fake",
 };
 
 /** Live list resource of integration jobs (backend jobs usecase). */

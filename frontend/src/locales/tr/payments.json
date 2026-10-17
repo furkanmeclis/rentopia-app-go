@@ -306,5 +306,22 @@
   "integrations.provider_hints.einvoice": "Özel entegratör bağlantısı bekleniyor (TEC-685); gönderimler o zamana kadar bekler.",
   "integrations.provider_hints.einvoice_fake": "Yalnızca test ortamı: belgeler GİB'e iletilmez.",
   "integrations.jobs.kinds.einvoice_send": "e-Fatura gönderimi",
-  "integrations.jobs.kinds.einvoice_cancel": "e-Fatura iptali"
+  "integrations.jobs.kinds.einvoice_cancel": "e-Fatura iptali",
+  "integrations.providers.yolcu360": "Yolcu360 (kanal)",
+  "integrations.providers.yolcu360_fake": "Yolcu360 test adaptörü (yalnız geliştirme)",
+  "integrations.provider_hints.yolcu360": "Yolcu360 tedarikçi bağlantısı: tedarikçi kodu, API anahtarı ve imza anahtarı. Teknik sözleşme netleşene kadar (TEC-680) test ortamı adresini ‘Sunucu adresi’ alanından değiştirebilirsiniz.",
+  "integrations.provider_hints.yolcu360_fake": "Yalnız geliştirme ve test: Yolcu360'a hiçbir şey gönderilmez. Kanal yöneticisinden rezervasyon simüle edebilirsiniz. Test senaryosu: boş / ok, outage (kesinti), reject (red).",
+  "integrations.fields.supplier_code": "Tedarikçi kodu",
+  "integrations.fields.api_secret": "İmza anahtarı",
+  "integrations.fields.base_url": "Sunucu adresi (isteğe bağlı)",
+  "integrations.providers.obilet": "obilet (kanal)",
+  "integrations.providers.obilet_fake": "obilet test adaptörü (yalnız geliştirme)",
+  "integrations.provider_hints.obilet": "obilet tedarikçi bağlantısı: iş ortağı kodu ve API anahtarı (token). Araç kiralama tedarikçi sözleşmesi netleşene kadar (TEC-737) sunucu adresini ‘Sunucu adresi’ alanından değiştirebilirsiniz.",
+  "integrations.provider_hints.obilet_fake": "Yalnız geliştirme ve test: obilet'e hiçbir şey gönderilmez. Kanal yöneticisinden rezervasyon simüle edebilirsiniz. Test senaryosu: boş / ok, outage (kesinti), reject (red).",
+  "integrations.fields.partner_code": "İş ortağı kodu",
+  "integrations.fields.api_token": "API anahtarı (token)",
+  "integrations.providers.wuzapi": "WhatsApp (wuzapi ağ geçidi)",
+  "integrations.providers.whatsapp_fake": "WhatsApp test sağlayıcısı (geliştirme)",
+  "integrations.provider_hints.wuzapi": "Bilgi girmeniz gerekmez. Bağladıktan sonra Ayarlar → WhatsApp sayfasında QR kodunu telefonunuzla okutun.",
+  "integrations.provider_hints.whatsapp_fake": "Yalnız geliştirme ve test: mesaj gönderilmez. QR kodu gösterildikten 10 saniye sonra bağlanır."
 }

@@ -204,6 +204,10 @@ export const routes = {
       detail: (slug: string, uuid: string) =>
         `/t/${encodeURIComponent(slug)}/agreements/${uuid}`,
     },
+    /** Channel manager (TEC-736, TEC-737): Yolcu360 and Obilet. */
+    channels: {
+      root: (slug: string) => `/t/${encodeURIComponent(slug)}/channels`,
+    },
     kabis: {
       root: (slug: string) => `/t/${encodeURIComponent(slug)}/kabis`,
       detail: (slug: string, uuid: string) =>
@@ -261,6 +265,9 @@ export const routes = {
       /** Notification rules, templates and history ("Bildirimler", TEC-733). */
       notifications: (slug: string) =>
         `/t/${encodeURIComponent(slug)}/settings/notifications`,
+      /** WhatsApp session and message log ("WhatsApp", TEC-735). */
+      whatsapp: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/settings/whatsapp`,
       /** Inspection templates ("Teslim / iade formları"). */
       inspectionTemplates: (slug: string) =>
         `/t/${encodeURIComponent(slug)}/settings/inspection-templates`,
@@ -311,6 +318,8 @@ export const routes = {
       detail: (uuid: string) => `/platform/organizations/${uuid}`,
       edit: (uuid: string) => `/platform/organizations/${uuid}/edit`,
     },
+    /** Usage per organization and connection health (TEC-739). */
+    health: "/platform/health",
     users: {
       root: "/platform/users",
       create: "/platform/users/create",

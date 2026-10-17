@@ -301,6 +301,16 @@ SET assigned_user_id = sqlc.narg(assigned_user_id)
 WHERE organization_id = sqlc.arg(organization_id)
   AND id = sqlc.arg(id);
 
+-- name: SetReservationCommission :execrows
+-- A channel booking's commission changed (channel manager, TEC-736): the
+-- net receivable follows the current total.
+UPDATE reservations
+SET commission_amount = sqlc.arg(commission_amount),
+    net_receivable = total_amount - sqlc.arg(commission_amount)
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND collecting_party = 'channel';
+
 -- name: SetReservationEquipment :exec
 UPDATE reservations
 SET equipment_allocations = sqlc.arg(equipment_allocations)::uuid[]
