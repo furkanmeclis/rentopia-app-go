@@ -2484,6 +2484,8 @@
     background: var(--muted);
   }
   .theme-technowide .tw-campaign-track {
+    /* Contains the cards' visually hidden text, which would else widen the page. */
+    position: relative;
     display: flex;
     gap: 20px;
     overflow-x: auto;
@@ -2666,6 +2668,7 @@
     color: var(--foreground);
   }
   .theme-technowide .tw-prose ol {
+    list-style: decimal;
     display: grid;
     gap: 10px;
     padding-left: 20px;

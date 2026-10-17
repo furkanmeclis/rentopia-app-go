@@ -6,11 +6,11 @@ import { Alert } from "@/components/ui/card";
 import { Checkbox, Field, Input, Textarea } from "@/components/ui/form";
 import {
   FLEET_SIZE_MAX,
-  LEAD_FLASH_COOKIE,
   LEAD_FORM_FIELDS,
   LEAD_LIMITS,
   decodeLeadFlash,
   leadAnchor,
+  leadFlashCookie,
   type LeadErrorCode,
   type LeadField,
   type LeadKind,
@@ -79,7 +79,10 @@ export async function leadValues(
   result: LeadResult | null,
 ): Promise<LeadValues> {
   if (!result || result.status === "sent") return {};
-  return decodeLeadFlash((await cookies()).get(LEAD_FLASH_COOKIE)?.value, kind);
+  return decodeLeadFlash(
+    (await cookies()).get(leadFlashCookie(kind))?.value,
+    kind,
+  );
 }
 
 /** Hidden fields: the form kind and the bot trap (left empty by people). */

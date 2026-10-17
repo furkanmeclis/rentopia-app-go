@@ -279,7 +279,11 @@ export function readLeadResult(
 }
 
 /** Values kept between the POST and the redirected GET (cookie payload). */
-export const LEAD_FLASH_COOKIE = "rtp_lead";
+/**
+ * One cookie per form: the newsletter's lives on "/" and would shadow a
+ * same-named cookie of a sub page (servers keep one value per name).
+ */
+export const leadFlashCookie = (kind: LeadKind) => `rtp_lead_${kind}`;
 /** Encoded size kept below the browsers' 4 KB cookie limit. */
 const FLASH_MAX = 3600;
 

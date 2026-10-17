@@ -5,12 +5,12 @@ import { redirect } from "next/navigation";
 
 import { ApiError } from "@/lib/api";
 import {
-  LEAD_FLASH_COOKIE,
   LEAD_PATHS,
   apiLeadErrors,
   encodeLeadFlash,
   isLeadKind,
   leadFlags,
+  leadFlashCookie,
   leadRedirect,
   leadStatusOf,
   readLeadForm,
@@ -39,7 +39,7 @@ export async function submitLead(form: FormData) {
     if (values && result.status !== "sent") {
       const flash = encodeLeadFlash(kind, values);
       if (flash) {
-        jar.set(LEAD_FLASH_COOKIE, flash, {
+        jar.set(leadFlashCookie(kind), flash, {
           httpOnly: true,
           sameSite: "lax",
           secure: site.origin.startsWith("https:"),
@@ -48,7 +48,7 @@ export async function submitLead(form: FormData) {
         });
       }
     } else {
-      jar.delete({ name: LEAD_FLASH_COOKIE, path: LEAD_PATHS[kind] });
+      jar.delete({ name: leadFlashCookie(kind), path: LEAD_PATHS[kind] });
     }
     redirect(leadRedirect(kind, result));
   };
