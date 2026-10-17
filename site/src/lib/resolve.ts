@@ -27,9 +27,11 @@ export function hostKey(raw: string | null | undefined): string {
 export async function resolveSite(
   rawHost: string | null | undefined,
   clientIp?: string,
+  preview?: string,
 ): Promise<Site | null> {
   const host = hostKey(rawHost);
   if (!host) return null;
+  if (preview) return resolvePreview(host, preview, clientIp);
   const now = Date.now();
   const hit = cache.get(host);
   if (hit && hit.expires > now) return hit.site;
@@ -56,4 +58,27 @@ export async function resolveSite(
     expires: now + (site ? TTL_MS : MISS_TTL_MS),
   });
   return site;
+}
+
+/**
+ * The draft of a host's site for a preview token (never cached: a draft
+ * changes with every save). Throws ApiError 401 PREVIEW_INVALID for an
+ * invalid, expired or foreign token; null for unknown hosts.
+ */
+async function resolvePreview(
+  host: string,
+  token: string,
+  clientIp?: string,
+): Promise<Site | null> {
+  try {
+    return await apiFetch<Site>(
+      `/v1/public/site/resolve?host=${encodeURIComponent(host)}&preview=${encodeURIComponent(token)}`,
+      { clientIp },
+    );
+  } catch (err) {
+    if (err instanceof ApiError && (err.status === 404 || err.status === 400)) {
+      return null;
+    }
+    throw err;
+  }
 }

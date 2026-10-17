@@ -337,7 +337,7 @@ INSERT INTO rental_products (
     $5, $6, $7,
     $8, $9, 1
 )
-RETURNING id, uuid, organization_id, code, title, description, segment_id, representative_model_id, representative_type_id, status, is_active, current_version, created_at, updated_at, deleted_at
+RETURNING id, uuid, organization_id, code, title, description, segment_id, representative_model_id, representative_type_id, status, is_active, current_version, created_at, updated_at, deleted_at, show_online
 `
 
 type CreateRentalProductParams struct {
@@ -382,6 +382,7 @@ func (q *Queries) CreateRentalProduct(ctx context.Context, arg CreateRentalProdu
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.ShowOnline,
 	)
 	return i, err
 }
@@ -906,7 +907,7 @@ func (q *Queries) GetRentalGroupByUUID(ctx context.Context, arg GetRentalGroupBy
 }
 
 const getRentalProductByUUID = `-- name: GetRentalProductByUUID :one
-SELECT id, uuid, organization_id, code, title, description, segment_id, representative_model_id, representative_type_id, status, is_active, current_version, created_at, updated_at, deleted_at FROM rental_products
+SELECT id, uuid, organization_id, code, title, description, segment_id, representative_model_id, representative_type_id, status, is_active, current_version, created_at, updated_at, deleted_at, show_online FROM rental_products
 WHERE organization_id = $1
   AND uuid = $2
   AND deleted_at IS NULL
@@ -936,12 +937,13 @@ func (q *Queries) GetRentalProductByUUID(ctx context.Context, arg GetRentalProdu
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.ShowOnline,
 	)
 	return i, err
 }
 
 const getRentalProductByUUIDForUpdate = `-- name: GetRentalProductByUUIDForUpdate :one
-SELECT id, uuid, organization_id, code, title, description, segment_id, representative_model_id, representative_type_id, status, is_active, current_version, created_at, updated_at, deleted_at FROM rental_products
+SELECT id, uuid, organization_id, code, title, description, segment_id, representative_model_id, representative_type_id, status, is_active, current_version, created_at, updated_at, deleted_at, show_online FROM rental_products
 WHERE organization_id = $1
   AND uuid = $2
   AND deleted_at IS NULL
@@ -972,6 +974,7 @@ func (q *Queries) GetRentalProductByUUIDForUpdate(ctx context.Context, arg GetRe
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.ShowOnline,
 	)
 	return i, err
 }
@@ -1794,7 +1797,7 @@ func (q *Queries) ListRentalProductVersions(ctx context.Context, arg ListRentalP
 }
 
 const listRentalProducts = `-- name: ListRentalProducts :many
-SELECT id, uuid, organization_id, code, title, description, segment_id, representative_model_id, representative_type_id, status, is_active, current_version, created_at, updated_at, deleted_at FROM rental_products p
+SELECT id, uuid, organization_id, code, title, description, segment_id, representative_model_id, representative_type_id, status, is_active, current_version, created_at, updated_at, deleted_at, show_online FROM rental_products p
 WHERE p.organization_id = $1
   AND p.deleted_at IS NULL
   AND ($2::boolean IS NULL OR p.is_active = $2)
@@ -1889,6 +1892,7 @@ func (q *Queries) ListRentalProducts(ctx context.Context, arg ListRentalProducts
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
+			&i.ShowOnline,
 		); err != nil {
 			return nil, err
 		}
@@ -2186,7 +2190,7 @@ SET is_active = $1
 WHERE organization_id = $2
   AND uuid = $3
   AND deleted_at IS NULL
-RETURNING id, uuid, organization_id, code, title, description, segment_id, representative_model_id, representative_type_id, status, is_active, current_version, created_at, updated_at, deleted_at
+RETURNING id, uuid, organization_id, code, title, description, segment_id, representative_model_id, representative_type_id, status, is_active, current_version, created_at, updated_at, deleted_at, show_online
 `
 
 type SetRentalProductActiveParams struct {
@@ -2214,6 +2218,7 @@ func (q *Queries) SetRentalProductActive(ctx context.Context, arg SetRentalProdu
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.ShowOnline,
 	)
 	return i, err
 }
@@ -2418,7 +2423,7 @@ SET code = $1,
 WHERE organization_id = $10
   AND uuid = $11
   AND deleted_at IS NULL
-RETURNING id, uuid, organization_id, code, title, description, segment_id, representative_model_id, representative_type_id, status, is_active, current_version, created_at, updated_at, deleted_at
+RETURNING id, uuid, organization_id, code, title, description, segment_id, representative_model_id, representative_type_id, status, is_active, current_version, created_at, updated_at, deleted_at, show_online
 `
 
 type UpdateRentalProductParams struct {
@@ -2466,6 +2471,7 @@ func (q *Queries) UpdateRentalProduct(ctx context.Context, arg UpdateRentalProdu
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.ShowOnline,
 	)
 	return i, err
 }

@@ -140,6 +140,15 @@ func DepositDeductionObjectKey(orgUUID, depositUUID, deductionUUID, fileUUID, ex
 	return fmt.Sprintf("%sdeposits/%s/deductions/%s/%s.%s", OrganizationPrefix(orgUUID), depositUUID, deductionUUID, fileUUID, trimExt(ext))
 }
 
+// SiteImageObjectKey builds
+// organizations/{orgUUID}/site/{kind}-{fileUUID}.{ext} for the branded
+// site's logo / favicon / cover (streamed by the API's public site asset
+// route). Every upload gets a new fileUUID: published snapshots keep
+// pointing at the object they were published with.
+func SiteImageObjectKey(orgUUID, kind, fileUUID, ext string) string {
+	return fmt.Sprintf("%ssite/%s-%s.%s", OrganizationPrefix(orgUUID), kind, fileUUID, trimExt(ext))
+}
+
 func trimExt(ext string) string {
 	for len(ext) > 0 && ext[0] == '.' {
 		ext = ext[1:]

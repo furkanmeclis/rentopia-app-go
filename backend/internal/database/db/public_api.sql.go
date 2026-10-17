@@ -1314,8 +1314,14 @@ FROM branches b
 WHERE b.organization_id = $1
   AND b.deleted_at IS NULL
   AND b.is_active
+  AND (NOT $2::boolean OR b.show_online)
 ORDER BY b.city, b.name, b.id
 `
+
+type ListPublicBranchesParams struct {
+	OrganizationID int64 `json:"organization_id"`
+	Storefront     bool  `json:"storefront"`
+}
 
 type ListPublicBranchesRow struct {
 	ID                int64          `json:"id"`
@@ -1334,8 +1340,8 @@ type ListPublicBranchesRow struct {
 }
 
 // ------------------------------------------------------------ catalog
-func (q *Queries) ListPublicBranches(ctx context.Context, organizationID int64) ([]ListPublicBranchesRow, error) {
-	rows, err := q.db.Query(ctx, listPublicBranches, organizationID)
+func (q *Queries) ListPublicBranches(ctx context.Context, arg ListPublicBranchesParams) ([]ListPublicBranchesRow, error) {
+	rows, err := q.db.Query(ctx, listPublicBranches, arg.OrganizationID, arg.Storefront)
 	if err != nil {
 		return nil, err
 	}
@@ -1376,12 +1382,14 @@ WHERE e.organization_id = $1
   AND e.status = 'published'
   AND e.extra_type <> 'delivery'
   AND (e.channels IS NULL OR $2::text = ANY(e.channels::text[]))
+  AND (NOT $3::boolean OR e.show_online)
 ORDER BY e.sort_order, e.name, e.id
 `
 
 type ListPublicExtrasParams struct {
 	OrganizationID int64  `json:"organization_id"`
 	Channel        string `json:"channel"`
+	Storefront     bool   `json:"storefront"`
 }
 
 type ListPublicExtrasRow struct {
@@ -1398,7 +1406,7 @@ type ListPublicExtrasRow struct {
 
 // Published extras sold on the channel (channels NULL = every channel).
 func (q *Queries) ListPublicExtras(ctx context.Context, arg ListPublicExtrasParams) ([]ListPublicExtrasRow, error) {
-	rows, err := q.db.Query(ctx, listPublicExtras, arg.OrganizationID, arg.Channel)
+	rows, err := q.db.Query(ctx, listPublicExtras, arg.OrganizationID, arg.Channel, arg.Storefront)
 	if err != nil {
 		return nil, err
 	}
@@ -1427,6 +1435,38 @@ func (q *Queries) ListPublicExtras(ctx context.Context, arg ListPublicExtrasPara
 	return items, nil
 }
 
+const listPublicHiddenCatalog = `-- name: ListPublicHiddenCatalog :one
+SELECT
+    COALESCE((
+        SELECT array_agg(b.uuid) FROM branches b
+        WHERE b.organization_id = $1 AND NOT b.show_online
+    ), '{}')::uuid[] AS branch_uuids,
+    COALESCE((
+        SELECT array_agg(p.uuid) FROM rental_products p
+        WHERE p.organization_id = $1 AND NOT p.show_online
+    ), '{}')::uuid[] AS product_uuids,
+    COALESCE((
+        SELECT array_agg(e.uuid) FROM extras e
+        WHERE e.organization_id = $1 AND NOT e.show_online
+    ), '{}')::uuid[] AS extra_uuids
+`
+
+type ListPublicHiddenCatalogRow struct {
+	BranchUuids  []uuid.UUID `json:"branch_uuids"`
+	ProductUuids []uuid.UUID `json:"product_uuids"`
+	ExtraUuids   []uuid.UUID `json:"extra_uuids"`
+}
+
+// Branches, products and extras the panel hid from the storefront (branded
+// site / widget: show_online = false, TEC-730): availability and quotes of
+// publishable-key callers refuse them; secret keys ignore the flag.
+func (q *Queries) ListPublicHiddenCatalog(ctx context.Context, organizationID int64) (ListPublicHiddenCatalogRow, error) {
+	row := q.db.QueryRow(ctx, listPublicHiddenCatalog, organizationID)
+	var i ListPublicHiddenCatalogRow
+	err := row.Scan(&i.BranchUuids, &i.ProductUuids, &i.ExtraUuids)
+	return i, err
+}
+
 const listPublicServicePoints = `-- name: ListPublicServicePoints :many
 SELECT sp.uuid, sp.branch_id, sp.type, sp.name, sp.description, sp.extra_fee, sp.working_hours, sp.delivery_enabled,
     sp.latitude, sp.longitude, sp.min_notice_minutes, sp.delivery_conditions
@@ -1437,9 +1477,15 @@ WHERE sp.organization_id = $1
   AND sp.is_active
   AND sp.online_selectable
   AND b.is_active
+  AND (NOT $2::boolean OR b.show_online)
   AND b.deleted_at IS NULL
 ORDER BY sp.branch_id, sp.name, sp.id
 `
+
+type ListPublicServicePointsParams struct {
+	OrganizationID int64 `json:"organization_id"`
+	Storefront     bool  `json:"storefront"`
+}
 
 type ListPublicServicePointsRow struct {
 	Uuid               uuid.UUID      `json:"uuid"`
@@ -1456,8 +1502,8 @@ type ListPublicServicePointsRow struct {
 	DeliveryConditions string         `json:"delivery_conditions"`
 }
 
-func (q *Queries) ListPublicServicePoints(ctx context.Context, organizationID int64) ([]ListPublicServicePointsRow, error) {
-	rows, err := q.db.Query(ctx, listPublicServicePoints, organizationID)
+func (q *Queries) ListPublicServicePoints(ctx context.Context, arg ListPublicServicePointsParams) ([]ListPublicServicePointsRow, error) {
+	rows, err := q.db.Query(ctx, listPublicServicePoints, arg.OrganizationID, arg.Storefront)
 	if err != nil {
 		return nil, err
 	}
@@ -1544,9 +1590,15 @@ WHERE p.organization_id = $1
   AND v.organization_id = $1
   AND p.status = 'published'
   AND p.is_active
+  AND (NOT $2::boolean OR p.show_online)
   AND p.deleted_at IS NULL
 ORDER BY s.sort_order, s.name, p.title, p.id
 `
+
+type ListPublicSubgroupsParams struct {
+	OrganizationID int64 `json:"organization_id"`
+	Storefront     bool  `json:"storefront"`
+}
 
 type ListPublicSubgroupsRow struct {
 	ID                  int64          `json:"id"`
@@ -1569,8 +1621,8 @@ type ListPublicSubgroupsRow struct {
 }
 
 // Products on sale (published, active) with their current conditions.
-func (q *Queries) ListPublicSubgroups(ctx context.Context, organizationID int64) ([]ListPublicSubgroupsRow, error) {
-	rows, err := q.db.Query(ctx, listPublicSubgroups, organizationID)
+func (q *Queries) ListPublicSubgroups(ctx context.Context, arg ListPublicSubgroupsParams) ([]ListPublicSubgroupsRow, error) {
+	rows, err := q.db.Query(ctx, listPublicSubgroups, arg.OrganizationID, arg.Storefront)
 	if err != nil {
 		return nil, err
 	}

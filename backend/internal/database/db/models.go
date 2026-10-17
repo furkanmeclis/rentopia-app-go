@@ -124,6 +124,7 @@ type Branch struct {
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
+	ShowOnline        bool               `json:"show_online"`
 }
 
 type BulkChange struct {
@@ -1068,6 +1069,7 @@ type Extra struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt      pgtype.Timestamptz `json:"deleted_at"`
+	ShowOnline     bool               `json:"show_online"`
 }
 
 type ExtraBranchStock struct {
@@ -2409,6 +2411,7 @@ type RentalProduct struct {
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt             pgtype.Timestamptz `json:"deleted_at"`
+	ShowOnline            bool               `json:"show_online"`
 }
 
 type RentalProductImage struct {
@@ -2674,21 +2677,38 @@ type ServicePoint struct {
 }
 
 type SiteSetting struct {
+	ID                int64              `json:"id"`
+	Uuid              uuid.UUID          `json:"uuid"`
+	OrganizationID    int64              `json:"organization_id"`
+	Enabled           bool               `json:"enabled"`
+	Subdomain         string             `json:"subdomain"`
+	DefaultLocale     string             `json:"default_locale"`
+	Config            []byte             `json:"config"`
+	ApiKeyID          pgtype.Int8        `json:"api_key_id"`
+	LogoObjectKey     pgtype.Text        `json:"logo_object_key"`
+	FaviconObjectKey  pgtype.Text        `json:"favicon_object_key"`
+	CoverObjectKey    pgtype.Text        `json:"cover_object_key"`
+	Version           int32              `json:"version"`
+	UpdatedBy         pgtype.Int8        `json:"updated_by"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	PublishedRevision pgtype.Int4        `json:"published_revision"`
+}
+
+type SiteSettingVersion struct {
 	ID               int64              `json:"id"`
 	Uuid             uuid.UUID          `json:"uuid"`
 	OrganizationID   int64              `json:"organization_id"`
-	Enabled          bool               `json:"enabled"`
-	Subdomain        string             `json:"subdomain"`
-	DefaultLocale    string             `json:"default_locale"`
+	SiteID           int64              `json:"site_id"`
+	Revision         int32              `json:"revision"`
 	Config           []byte             `json:"config"`
-	ApiKeyID         pgtype.Int8        `json:"api_key_id"`
 	LogoObjectKey    pgtype.Text        `json:"logo_object_key"`
 	FaviconObjectKey pgtype.Text        `json:"favicon_object_key"`
 	CoverObjectKey   pgtype.Text        `json:"cover_object_key"`
-	Version          int32              `json:"version"`
-	UpdatedBy        pgtype.Int8        `json:"updated_by"`
+	DraftVersion     int32              `json:"draft_version"`
+	PublishedBy      pgtype.Int8        `json:"published_by"`
+	PublishedAt      pgtype.Timestamptz `json:"published_at"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
 type SmsMessage struct {

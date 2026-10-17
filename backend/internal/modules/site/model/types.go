@@ -1,7 +1,8 @@
-// Package model holds the branded site types (TEC-729,
+// Package model holds the branded site types (TEC-729 / TEC-730,
 // docs/design/branded-site.md): the per-organization site settings the
-// panel edits (TEC-730 builds the editor on this document) and the
-// resolved site the `site` app loads for a request host.
+// panel edits (live fields and the draft document), the published
+// snapshots, the online publish state of the catalog and the resolved site
+// the `site` app loads for a request host.
 package model
 
 import (
@@ -110,7 +111,25 @@ type Analytics struct {
 	GA4MeasurementID string `json:"ga4_measurement_id"`
 }
 
-// Config is the editable site document stored in site_settings.config.
+// WidgetFilters are the initial search values of the embeddable widget.
+type WidgetFilters struct {
+	// PickupBranchUUID preselects a branch ("" = none).
+	PickupBranchUUID string `json:"pickup_branch_uuid"`
+	// RentalDays is the default rental length (0 = the site default).
+	RentalDays int `json:"rental_days"`
+}
+
+// Widget holds the embeddable widget settings (stored now; TEC-732 serves
+// the widget and enforces the domains).
+type Widget struct {
+	// AllowedDomains are the origins that may embed the widget
+	// (https://host[:port]).
+	AllowedDomains []string      `json:"allowed_domains"`
+	InitialFilters WidgetFilters `json:"initial_filters"`
+}
+
+// Config is the editable site document: site_settings.config is the draft,
+// site_setting_versions.config the published snapshots.
 type Config struct {
 	Theme     Theme              `json:"theme"`
 	Layout    Layout             `json:"layout"`
@@ -118,6 +137,7 @@ type Config struct {
 	SEO       map[string]SEO     `json:"seo"`
 	Contact   Contact            `json:"contact"`
 	Analytics Analytics          `json:"analytics"`
+	Widget    Widget             `json:"widget"`
 }
 
 // DefaultColors / DefaultDarkColors are the neutral starting theme.
@@ -145,7 +165,8 @@ func DefaultConfig() Config {
 			"tr": {FAQ: []FAQItem{}},
 			"en": {FAQ: []FAQItem{}},
 		},
-		SEO: map[string]SEO{"tr": {}, "en": {}},
+		SEO:    map[string]SEO{"tr": {}, "en": {}},
+		Widget: Widget{AllowedDomains: []string{}},
 	}
 }
 
@@ -162,31 +183,125 @@ type KeyRef struct {
 	Status string    `json:"status"`
 }
 
-// AssetState says which images are uploaded (TEC-730 adds the uploads).
+// AssetState says which images are uploaded.
 type AssetState struct {
 	Logo    bool `json:"logo"`
 	Favicon bool `json:"favicon"`
 	Cover   bool `json:"cover"`
 }
 
-// Settings is GET / PUT /v1/tenant/site.
+// Reasons booking is off (Settings.BookingBlockers).
+const (
+	BlockSiteDisabled = "site_disabled"
+	BlockKeyMissing   = "key_missing"
+	BlockKeyInactive  = "key_inactive"
+	BlockChannelOff   = "channel_off"
+)
+
+// Settings is GET / PUT /v1/tenant/site. Enabled, Subdomain,
+// DefaultLocale and the key are live; Config and the images are the draft.
 type Settings struct {
 	// Exists is false until the first save (the document is the default).
 	Exists        bool   `json:"exists"`
 	Enabled       bool   `json:"enabled"`
 	Subdomain     string `json:"subdomain"`
 	DefaultLocale string `json:"default_locale"`
-	Config        Config `json:"config"`
-	// Version is 0 before the first save; PUT sends the version it edited.
+	// Config is the draft document (what the preview shows).
+	Config Config `json:"config"`
+	// Version is 0 before the first save; every write sends the version it
+	// edited.
 	Version int `json:"version"`
 	// URL is the site's address (its subdomain).
-	URL    string     `json:"url"`
-	Hosts  []Host     `json:"hosts"`
-	APIKey *KeyRef    `json:"api_key"`
+	URL    string  `json:"url"`
+	Hosts  []Host  `json:"hosts"`
+	APIKey *KeyRef `json:"api_key"`
+	// Assets says which draft images exist (PreviewToken.Assets has their
+	// preview paths).
 	Assets AssetState `json:"assets"`
-	// BookingEnabled: the web sales channel is on and the key is usable.
-	BookingEnabled bool       `json:"booking_enabled"`
-	UpdatedAt      *time.Time `json:"updated_at"`
+	// BookingEnabled: the site is on, the key is usable and the web sales
+	// channel is on. BookingBlockers names what is missing.
+	BookingEnabled  bool     `json:"booking_enabled"`
+	BookingBlockers []string `json:"booking_blockers"`
+	// PublishedRevision is the live snapshot (nil = never published: the
+	// site does not resolve yet).
+	PublishedRevision *int       `json:"published_revision"`
+	PublishedAt       *time.Time `json:"published_at"`
+	// HasUnpublishedChanges: the draft differs from the published snapshot.
+	HasUnpublishedChanges bool `json:"has_unpublished_changes"`
+	// Live: visitors see the site (enabled and published).
+	Live      bool       `json:"live"`
+	UpdatedAt *time.Time `json:"updated_at"`
+}
+
+// VersionInput is the body of the writes that only need the version the
+// caller saw (publish, restore, renew key, image uploads).
+type VersionInput struct {
+	Version *int `json:"version"`
+}
+
+// Revision is one published snapshot (GET /v1/tenant/site/versions).
+type Revision struct {
+	UUID         uuid.UUID  `json:"uuid"`
+	Revision     int        `json:"revision"`
+	DraftVersion int        `json:"draft_version"`
+	PublishedAt  time.Time  `json:"published_at"`
+	PublishedBy  string     `json:"published_by"`
+	Current      bool       `json:"current"`
+	Assets       AssetState `json:"assets"`
+}
+
+// PreviewToken is POST /v1/tenant/site/preview-token: a short-lived signed
+// token that shows the draft on the site's own host.
+type PreviewToken struct {
+	Token     string    `json:"token"`
+	URL       string    `json:"url"`
+	ExpiresAt time.Time `json:"expires_at"`
+	// Assets are the draft images (API paths carrying the token) for the
+	// panel's image previews.
+	Assets Assets `json:"assets"`
+}
+
+// CatalogBranch is a branch with its online publish state.
+type CatalogBranch struct {
+	UUID       uuid.UUID `json:"uuid"`
+	Code       string    `json:"code"`
+	Name       string    `json:"name"`
+	City       string    `json:"city"`
+	Active     bool      `json:"active"`
+	ShowOnline bool      `json:"show_online"`
+}
+
+// CatalogSubgroup is a vehicle subgroup (rental product) with its online
+// publish state.
+type CatalogSubgroup struct {
+	UUID       uuid.UUID `json:"uuid"`
+	Code       string    `json:"code"`
+	Title      string    `json:"title"`
+	Segment    string    `json:"segment"`
+	Status     string    `json:"status"`
+	Active     bool      `json:"active"`
+	ShowOnline bool      `json:"show_online"`
+}
+
+// CatalogExtra is an extra with its storefront publish state.
+type CatalogExtra struct {
+	UUID       uuid.UUID `json:"uuid"`
+	Code       string    `json:"code"`
+	Name       string    `json:"name"`
+	Status     string    `json:"status"`
+	ShowOnline bool      `json:"show_online"`
+}
+
+// Catalog is GET /v1/tenant/site/catalog.
+type Catalog struct {
+	Branches  []CatalogBranch   `json:"branches"`
+	Subgroups []CatalogSubgroup `json:"subgroups"`
+	Extras    []CatalogExtra    `json:"extras"`
+}
+
+// VisibilityInput is PATCH /v1/tenant/site/catalog/{kind}/{uuid}.
+type VisibilityInput struct {
+	ShowOnline *bool `json:"show_online"`
 }
 
 // SaveInput is PUT /v1/tenant/site. Omitted fields keep their value;
@@ -217,7 +332,9 @@ type Assets struct {
 // Resolved is GET /v1/public/site/resolve: everything the site needs to
 // render a host, and the credential it books with.
 type Resolved struct {
-	SiteUUID      uuid.UUID    `json:"site_uuid"`
+	SiteUUID uuid.UUID `json:"site_uuid"`
+	// Version is the published revision (the draft version in a preview):
+	// the cache-busting value of the image paths.
 	Version       int          `json:"version"`
 	Host          string       `json:"host"`
 	HostKind      string       `json:"host_kind"`
@@ -234,4 +351,8 @@ type Resolved struct {
 	// PortalURL is the customer portal (reservation lookup, documents).
 	PortalURL string    `json:"portal_url"`
 	UpdatedAt time.Time `json:"updated_at"`
+	// Preview: the answer is the draft for a valid preview token. The site
+	// shows a banner, never books, and lets PanelOrigin frame the page.
+	Preview     bool   `json:"preview"`
+	PanelOrigin string `json:"panel_origin"`
 }

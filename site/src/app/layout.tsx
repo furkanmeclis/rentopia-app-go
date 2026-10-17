@@ -89,6 +89,8 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     icons: favicon ? { icon: favicon } : undefined,
     alternates: { canonical: "/" },
+    // A draft preview is never indexed.
+    robots: site.preview ? { index: false, follow: false } : undefined,
   };
 }
 
@@ -124,12 +126,28 @@ export default async function RootLayout({
         >
           {ctx.t("nav.skip")}
         </a>
+        {ctx.site.preview ? (
+          <div
+            role="status"
+            className="bg-accent text-foreground flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 py-2 text-center text-sm font-medium"
+          >
+            <span>{ctx.t("preview.banner")}</span>
+            <form action="/preview/exit" method="get">
+              <button
+                type="submit"
+                className="cursor-pointer underline underline-offset-2"
+              >
+                {ctx.t("preview.exit")}
+              </button>
+            </form>
+          </div>
+        ) : null}
         <SiteHeader ctx={ctx} />
         <main id="main" className="flex-1">
           {children}
         </main>
         <SiteFooter ctx={ctx} />
-        {ga ? (
+        {ga && !ctx.site.preview ? (
           <>
             <Script
               src={`https://www.googletagmanager.com/gtag/js?id=${ga}`}

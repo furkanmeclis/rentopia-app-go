@@ -602,6 +602,68 @@ func TestCatalogAndSameAnswerEverywhere(t *testing.T) {
 	e.expect(e.do(call{method: "GET", path: availabilityPath(e.b, from, to), bearer: api.Secret}), 400, "B's branch")
 }
 
+// TestStorefrontPublishState: show_online = false (TEC-730) hides a branch,
+// subgroup or extra from the storefront (publishable key / booking
+// session: branded site, widget) only. Integrations with a secret key keep
+// seeing and quoting them.
+func TestStorefrontPublishState(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	origin := "https://www.rentacar.test"
+	site := e.key(e.a, model.KindPublishable, "web", origin)
+	api := e.key(e.a, model.KindSecret, "web")
+	tok := e.session(site.Secret, origin)
+	var extra uuid.UUID
+	e.must(e.pool.QueryRow(ctx, `INSERT INTO extras (organization_id, code, name, extra_type, charge_type, status, show_online)
+		VALUES ($1, 'BBK', 'Bebek koltuğu', 'child_seat', 'per_day', 'published', FALSE) RETURNING uuid`, e.a.id).Scan(&extra))
+	_, err := e.pool.Exec(ctx, `UPDATE branches SET show_online = FALSE WHERE organization_id = $1 AND id = $2`, e.a.id, e.a.branch.id)
+	e.must(err)
+	_, err = e.pool.Exec(ctx, `UPDATE rental_products SET show_online = FALSE WHERE organization_id = $1 AND id = $2`, e.a.id, e.a.product.id)
+	e.must(err)
+	from, to := e.window(5)
+	has := func(r resp, id uuid.UUID) bool { return strings.Contains(string(r.raw), id.String()) }
+
+	// Storefront: hidden everywhere.
+	sf := func(method, path string, body any) resp {
+		return e.do(call{method: method, path: path, bearer: tok, origin: origin, idem: idem(), body: body})
+	}
+	for path, id := range map[string]uuid.UUID{
+		"/v1/public/locations": e.a.branch.uuid, "/v1/public/vehicle-subgroups": e.a.product.uuid, "/v1/public/extras": extra,
+	} {
+		if r := sf("GET", path, nil); r.code != 200 || has(r, id) {
+			t.Errorf("storefront %s lists a hidden item: %d %s", path, r.code, r.raw)
+		}
+	}
+	if r := sf("GET", availabilityPath(e.a, from, to), nil); r.code != 400 || !strings.Contains(string(r.raw), "pickup_branch_uuid") {
+		t.Errorf("storefront availability at a hidden branch = %d %s", r.code, r.raw)
+	}
+	if r := sf("POST", "/v1/public/quotes", quoteBody(e.a, from, to)); r.code != 400 ||
+		!strings.Contains(string(r.raw), "subgroup_uuid") || !strings.Contains(string(r.raw), "pickup_branch_uuid") {
+		t.Errorf("storefront quote of hidden items = %d %s", r.code, r.raw)
+	}
+	withExtra := quoteBody(e.a, from, to)
+	withExtra["extras"] = []any{map[string]any{"extra_uuid": extra, "quantity": 1}}
+	if r := sf("POST", "/v1/public/quotes", withExtra); r.code != 400 || !strings.Contains(string(r.raw), "extras.0.extra_uuid") {
+		t.Errorf("storefront quote with a hidden extra = %d %s", r.code, r.raw)
+	}
+
+	// Secret key (integration): the flag does not apply.
+	sk := func(method, path string, body any) resp {
+		return e.do(call{method: method, path: path, bearer: api.Secret, idem: idem(), body: body})
+	}
+	for path, id := range map[string]uuid.UUID{
+		"/v1/public/locations": e.a.branch.uuid, "/v1/public/vehicle-subgroups": e.a.product.uuid, "/v1/public/extras": extra,
+	} {
+		if r := sk("GET", path, nil); r.code != 200 || !has(r, id) {
+			t.Errorf("secret key %s misses a storefront-hidden item: %d %s", path, r.code, r.raw)
+		}
+	}
+	if r := sk("GET", availabilityPath(e.a, from, to), nil); r.code != 200 || !has(r, e.a.product.uuid) {
+		t.Errorf("secret key availability = %d %s", r.code, r.raw)
+	}
+	e.expect(sk("POST", "/v1/public/quotes", quoteBody(e.a, from, to)), 201, "secret key quote of storefront-hidden items")
+}
+
 func TestQuoteIdempotency(t *testing.T) {
 	e := newEnv(t)
 	api := e.key(e.a, model.KindSecret, "api")

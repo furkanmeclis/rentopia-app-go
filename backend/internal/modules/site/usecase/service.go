@@ -1,7 +1,14 @@
-// Package usecase implements the branded site (TEC-729,
+// Package usecase implements the branded site (TEC-729 / TEC-730,
 // docs/design/branded-site.md): the per-organization site settings
-// (theme, layout, content, SEO, analytics, address) and the host
-// resolution the `site` app calls on every request.
+// (theme, layout, content, SEO, analytics, address), draft / publish with
+// a revision history, preview tokens, image uploads, the online publish
+// state of the catalog and the host resolution the `site` app calls on
+// every request.
+//
+// Live vs draft: enabled, subdomain, default_locale and the linked key take
+// effect on save. The document (config) and the images are a draft until
+// published; visitors only ever get the published snapshot, and the draft
+// only reaches a browser with a valid preview token for that site.
 //
 // The organization always comes from the host (a subdomain of the site
 // base URL now, a verified custom domain with TEC-731) or, in the panel,
@@ -27,7 +34,6 @@ import (
 	osmodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/model"
 	pamodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/publicapi/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/site/model"
-	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/storage"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -48,6 +54,17 @@ var (
 	ErrVersionConflict = errors.New("the site settings were changed by someone else; reload and try again")
 	// ErrSubdomainTaken: another organization uses the subdomain (409).
 	ErrSubdomainTaken = errors.New("this subdomain is already in use")
+	// ErrNothingToPublish: the draft equals the published snapshot (409).
+	ErrNothingToPublish = errors.New("there are no unpublished changes")
+	// ErrRevisionNotFound: no such published revision (404).
+	ErrRevisionNotFound = errors.New("revision not found")
+	// ErrCatalogItemNotFound: no such branch, subgroup or extra (404).
+	ErrCatalogItemNotFound = errors.New("record not found")
+	// ErrPreviewInvalid: the preview token is malformed, expired or names
+	// another site (401).
+	ErrPreviewInvalid = errors.New("the preview link is invalid or has expired")
+	// ErrStorageUnavailable: uploads need object storage (503).
+	ErrStorageUnavailable = errors.New("storage is not configured")
 )
 
 // Keys is the public API key port (publicapi usecase): the site books with
@@ -56,6 +73,7 @@ type Keys interface {
 	CreateKey(ctx context.Context, orgID int64, in pamodel.KeyInput) (pamodel.IssuedKey, error)
 	GetKey(ctx context.Context, orgID int64, id uuid.UUID) (pamodel.Key, error)
 	PatchKey(ctx context.Context, orgID int64, id uuid.UUID, in pamodel.KeyInput) (pamodel.Key, error)
+	RotateKey(ctx context.Context, orgID int64, id uuid.UUID, in pamodel.RotateInput) (pamodel.IssuedKey, error)
 }
 
 // SettingsReader is the organization settings port (sales channels).
@@ -147,15 +165,16 @@ func NormalizeHost(raw string) (string, bool) {
 
 // Service is the branded site.
 type Service struct {
-	q        *db.Queries
-	keys     Keys
-	settings SettingsReader
-	storage  Downloader
-	domains  CustomDomains
-	base     BaseURL
-	portal   string
-	log      *slog.Logger
-	now      func() time.Time
+	q          *db.Queries
+	keys       Keys
+	settings   SettingsReader
+	storage    Store
+	domains    CustomDomains
+	base       BaseURL
+	portal     string
+	previewKey []byte
+	log        *slog.Logger
+	now        func() time.Time
 }
 
 // New builds the service. portalBase is the app's public URL (the customer
@@ -167,12 +186,14 @@ func New(q *db.Queries, keys Keys, settings SettingsReader, base BaseURL, portal
 	}
 }
 
-// SetStorage enables the image stream.
-func (s *Service) SetStorage(d Downloader) { s.storage = d }
+// SetStorage enables image uploads and the image stream.
+func (s *Service) SetStorage(d Store) { s.storage = d }
 
-// Downloader reads stored objects (storage.Driver).
-type Downloader interface {
+// Store reads and writes stored objects (storage.Driver).
+type Store interface {
+	Upload(ctx context.Context, file storage.File, path string) error
 	Download(ctx context.Context, path string) (io.ReadCloser, int64, error)
+	Delete(ctx context.Context, path string) error
 }
 
 // SetCustomDomains plugs in verified custom domains (TEC-731).
@@ -258,8 +279,15 @@ func (s *Service) Get(ctx context.Context, orgID int64, orgSlug string) (model.S
 			return model.Settings{}, err
 		}
 		cfg, _ := NormalizeConfig(model.DefaultConfig())
+		blockers := []string{model.BlockSiteDisabled, model.BlockKeyMissing}
+		if active, err := s.channelActive(ctx, orgID); err != nil {
+			return model.Settings{}, err
+		} else if !active {
+			blockers = append(blockers, model.BlockChannelOff)
+		}
 		return model.Settings{
 			Subdomain: sub, DefaultLocale: model.Locales[0], Config: cfg, URL: hosts[0].Origin, Hosts: hosts,
+			BookingBlockers: blockers, HasUnpublishedChanges: true,
 		}, nil
 	}
 	if err != nil {
@@ -269,30 +297,64 @@ func (s *Service) Get(ctx context.Context, orgID int64, orgSlug string) (model.S
 	if err != nil {
 		return model.Settings{}, err
 	}
+	draft := decodeConfig(row.Config)
 	out := model.Settings{
 		Exists: true, Enabled: row.Enabled, Subdomain: row.Subdomain, DefaultLocale: row.DefaultLocale,
-		Config: decodeConfig(row.Config), Version: int(row.Version), URL: hosts[0].Origin, Hosts: hosts,
-		Assets: model.AssetState{Logo: row.LogoObjectKey.Valid, Favicon: row.FaviconObjectKey.Valid, Cover: row.CoverObjectKey.Valid},
+		Config: draft, Version: int(row.Version), URL: hosts[0].Origin, Hosts: hosts,
+		Assets:          model.AssetState{Logo: row.LogoObjectKey.Valid, Favicon: row.FaviconObjectKey.Valid, Cover: row.CoverObjectKey.Valid},
+		BookingBlockers: []string{},
 	}
 	if row.UpdatedAt.Valid {
 		t := row.UpdatedAt.Time.UTC()
 		out.UpdatedAt = &t
 	}
+	if row.PublishedRevision.Valid {
+		rev := int(row.PublishedRevision.Int32)
+		out.PublishedRevision = &rev
+		if row.PublishedAt.Valid {
+			t := row.PublishedAt.Time.UTC()
+			out.PublishedAt = &t
+		}
+		out.HasUnpublishedChanges = !sameDocument(draft, decodeConfig(row.PublishedConfig)) ||
+			row.LogoObjectKey != row.PublishedLogoObjectKey || row.FaviconObjectKey != row.PublishedFaviconObjectKey ||
+			row.CoverObjectKey != row.PublishedCoverObjectKey
+	} else {
+		out.HasUnpublishedChanges = true
+	}
+	out.Live = row.Enabled && row.PublishedRevision.Valid
+	if !row.Enabled {
+		out.BookingBlockers = append(out.BookingBlockers, model.BlockSiteDisabled)
+	}
+	usable := false
 	if row.ApiKeyUuid.Valid {
 		k, err := s.keys.GetKey(ctx, orgID, uuid.UUID(row.ApiKeyUuid.Bytes))
 		if err == nil {
 			out.APIKey = &model.KeyRef{UUID: k.UUID, Status: k.Status}
-			usable := k.Status == pamodel.KeyActive && (k.ExpiresAt == nil || k.ExpiresAt.After(s.now()))
-			if usable {
-				active, err := s.channelActive(ctx, orgID)
-				if err != nil {
-					return model.Settings{}, err
-				}
-				out.BookingEnabled = row.Enabled && active
+			usable = k.Status == pamodel.KeyActive && (k.ExpiresAt == nil || k.ExpiresAt.After(s.now()))
+			if !usable {
+				out.BookingBlockers = append(out.BookingBlockers, model.BlockKeyInactive)
 			}
 		}
 	}
+	if out.APIKey == nil {
+		out.BookingBlockers = append(out.BookingBlockers, model.BlockKeyMissing)
+	}
+	active, err := s.channelActive(ctx, orgID)
+	if err != nil {
+		return model.Settings{}, err
+	}
+	if !active {
+		out.BookingBlockers = append(out.BookingBlockers, model.BlockChannelOff)
+	}
+	out.BookingEnabled = row.Enabled && usable && active
 	return out, nil
+}
+
+// sameDocument compares two normalized documents.
+func sameDocument(a, b model.Config) bool {
+	ja, errA := json.Marshal(a)
+	jb, errB := json.Marshal(b)
+	return errA == nil && errB == nil && string(ja) == string(jb)
 }
 
 // ensureKey returns the id of a usable publishable web key for the site,
@@ -300,6 +362,16 @@ func (s *Service) Get(ctx context.Context, orgID int64, orgSlug string) (model.S
 // allowed origins (previous site origins are replaced).
 func (s *Service) ensureKey(ctx context.Context, orgID int64, current pgtype.UUID, previous, next []string,
 	create bool) (pgtype.Int8, error) {
+	if current.Valid {
+		// A key rotated in Ayarlar → Public API: follow the new key.
+		next, err := s.q.GetSiteKeySuccessor(ctx, db.GetSiteKeySuccessorParams{OrganizationID: orgID, Uuid: uuid.UUID(current.Bytes)})
+		switch {
+		case err == nil:
+			current = pgtype.UUID{Bytes: next, Valid: true}
+		case !errors.Is(err, pgx.ErrNoRows):
+			return pgtype.Int8{}, err
+		}
+	}
 	if current.Valid {
 		k, err := s.keys.GetKey(ctx, orgID, uuid.UUID(current.Bytes))
 		if err == nil && k.Status == pamodel.KeyActive && (k.ExpiresAt == nil || k.ExpiresAt.After(s.now())) {
@@ -465,126 +537,4 @@ func (s *Service) Save(ctx context.Context, orgID int64, orgSlug string, userID 
 func isUnique(err error, constraint string) bool {
 	var pe *pgconn.PgError
 	return errors.As(err, &pe) && pe.Code == "23505" && pe.ConstraintName == constraint
-}
-
-// ---------------------------------------------------------------- public
-
-// resolvedRow is the shared shape of the two resolve lookups.
-type resolvedRow = db.ResolveSiteBySubdomainRow
-
-// lookup finds the enabled site of a host.
-func (s *Service) lookup(ctx context.Context, host string) (resolvedRow, model.Host, error) {
-	if sub, ok := s.base.Subdomain(host); ok {
-		row, err := s.q.ResolveSiteBySubdomain(ctx, sub)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return resolvedRow{}, model.Host{}, ErrNotFound
-		}
-		if err != nil {
-			return resolvedRow{}, model.Host{}, err
-		}
-		return row, model.Host{Host: s.base.Host(sub), Origin: s.base.Origin(sub), Kind: model.HostSubdomain}, nil
-	}
-	if s.domains == nil || host == s.base.host {
-		return resolvedRow{}, model.Host{}, ErrNotFound
-	}
-	orgID, err := s.domains.Lookup(ctx, host)
-	if err != nil {
-		return resolvedRow{}, model.Host{}, err
-	}
-	row, err := s.q.ResolveSiteByOrganization(ctx, orgID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return resolvedRow{}, model.Host{}, ErrNotFound
-	}
-	if err != nil {
-		return resolvedRow{}, model.Host{}, err
-	}
-	return resolvedRow(row), model.Host{Host: host, Origin: "https://" + host, Kind: model.HostCustom}, nil
-}
-
-func (s *Service) assetPath(site uuid.UUID, kind string, version int32) *string {
-	p := fmt.Sprintf("/v1/public/site/assets/%s/%s?v=%d", site, kind, version)
-	return &p
-}
-
-// Resolve returns the site a request host names. Unknown hosts, disabled
-// sites and unavailable organizations are all ErrNotFound.
-func (s *Service) Resolve(ctx context.Context, rawHost string) (model.Resolved, error) {
-	host, ok := NormalizeHost(rawHost)
-	if !ok {
-		return model.Resolved{}, ErrNotFound
-	}
-	row, h, err := s.lookup(ctx, host)
-	if err != nil {
-		return model.Resolved{}, err
-	}
-	now := s.now()
-	if row.OrganizationStatus != orgctx.StatusActive || (row.AccessStartsAt.Valid && now.Before(row.AccessStartsAt.Time)) ||
-		(row.AccessEndsAt.Valid && !now.Before(row.AccessEndsAt.Time)) {
-		return model.Resolved{}, ErrNotFound
-	}
-	out := model.Resolved{
-		SiteUUID: row.Uuid, Version: int(row.Version), Host: h.Host, HostKind: h.Kind, Origin: h.Origin,
-		DefaultLocale: row.DefaultLocale, Locales: slices.Clone(model.Locales),
-		Organization: model.Organization{UUID: row.OrganizationUuid, Slug: row.OrganizationSlug, Name: row.OrganizationName},
-		Config:       decodeConfig(row.Config),
-		UpdatedAt:    row.UpdatedAt.Time.UTC(),
-	}
-	if s.portal != "" {
-		out.PortalURL = s.portal + "/r/" + url.PathEscape(row.OrganizationSlug)
-	}
-	if row.LogoObjectKey.Valid || row.OrganizationLogoObjectKey.Valid {
-		out.Assets.Logo = s.assetPath(row.Uuid, "logo", row.Version)
-	}
-	if row.FaviconObjectKey.Valid {
-		out.Assets.Favicon = s.assetPath(row.Uuid, "favicon", row.Version)
-	}
-	if row.CoverObjectKey.Valid {
-		out.Assets.Cover = s.assetPath(row.Uuid, "cover", row.Version)
-	}
-	if s.keyUsable(row.ApiKeyStatus, row.ApiKeyExpiresAt) && row.ApiKeyKind.String == pamodel.KindPublishable && row.PublishableKey.Valid {
-		active, err := s.channelActive(ctx, row.OrganizationID)
-		if err != nil {
-			return model.Resolved{}, err
-		}
-		if active {
-			out.PublishableKey, out.BookingEnabled = row.PublishableKey.String, true
-		}
-	}
-	return out, nil
-}
-
-// Asset opens an image of an enabled site (the logo falls back to the
-// organization's logo).
-func (s *Service) Asset(ctx context.Context, site uuid.UUID, kind string) (io.ReadCloser, string, error) {
-	if s.storage == nil || !slices.Contains(model.AssetKinds, kind) {
-		return nil, "", ErrNotFound
-	}
-	row, err := s.q.GetSiteAssetKeys(ctx, site)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, "", ErrNotFound
-	}
-	if err != nil {
-		return nil, "", err
-	}
-	var key pgtype.Text
-	switch kind {
-	case "logo":
-		key = row.LogoObjectKey
-		if !key.Valid {
-			key = row.OrganizationLogoObjectKey
-		}
-	case "favicon":
-		key = row.FaviconObjectKey
-	case "cover":
-		key = row.CoverObjectKey
-	}
-	if !key.Valid || key.String == "" {
-		return nil, "", ErrNotFound
-	}
-	rc, _, err := s.storage.Download(ctx, key.String)
-	if err != nil {
-		s.log.Warn("site_asset_download_failed", "kind", kind, "error", err)
-		return nil, "", ErrNotFound
-	}
-	return rc, storage.MIMEFromLogoKey(key.String), nil
 }

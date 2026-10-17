@@ -63,11 +63,11 @@ Over the limit the answer is `429 RATE_LIMITED` with `Retry-After`.
 | Route | Scope | Notes |
 |-------|-------|-------|
 | `POST /v1/public/sessions` | – | publishable key + allowed origin → session |
-| `GET /v1/public/locations` | catalog.read | active branches with online-selectable service points, hours, holidays |
-| `GET /v1/public/vehicle-subgroups` | catalog.read | published products, current conditions, API image paths |
-| `GET /v1/public/extras` | catalog.read | published extras of the channel (priced in quotes) |
-| `GET /v1/public/availability` | catalog.read | `reservations.Search` on the key's channel; `units_left` capped at 10 |
-| `POST /v1/public/quotes`, `GET …/quotes/{uuid}` | quotes.write | `reservations.CreateQuote`; recorded in `public_quotes` |
+| `GET /v1/public/locations` | catalog.read | active branches (storefront callers — publishable key / session — skip those hidden with `show_online`, TEC-730; secret keys see all) with online-selectable service points, hours, holidays |
+| `GET /v1/public/vehicle-subgroups` | catalog.read | published products (storefront callers skip `show_online = false`; secret keys see all), current conditions, API image paths |
+| `GET /v1/public/extras` | catalog.read | published extras of the channel (priced in quotes); storefront callers skip `show_online = false` |
+| `GET /v1/public/availability` | catalog.read | `reservations.Search` on the key's channel; `units_left` capped at 10; for storefront callers hidden branches answer `400 pickup_branch_uuid / return_branch_uuid not_found` and hidden subgroups are left out |
+| `POST /v1/public/quotes`, `GET …/quotes/{uuid}` | quotes.write | `reservations.CreateQuote`; recorded in `public_quotes`; for storefront callers a hidden subgroup, branch or extra answers `400 … not_found` |
 | `POST /v1/public/reservations` | reservations.write | see §4 |
 | `GET /v1/public/reservations/{reference}` | reservations.read | status view |
 | `POST …/change-requests`, `…/cancellation-requests` | reservations.write | portal `CreateRequest` (customer_requests; staff resolve them in the panel) |

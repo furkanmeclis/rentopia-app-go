@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"net/mail"
+	"net/url"
 	"regexp"
 	"slices"
 	"strconv"
@@ -9,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/site/model"
+	"github.com/google/uuid"
 )
 
 // Text limits of the site document.
@@ -22,6 +24,8 @@ const (
 	maxSEOTitle     = 70
 	maxSEODesc      = 300
 	maxContactField = 300
+	maxWidgetHosts  = 20
+	maxRentalDays   = 90
 )
 
 var (
@@ -217,9 +221,68 @@ func NormalizeConfig(c model.Config) (model.Config, error) {
 	checkLen(ve, "config.contact.email", ct.Email, maxContactField)
 	checkLen(ve, "config.contact.address", ct.Address, maxContactField)
 
+	normalizeWidget(ve, &c.Widget)
+
 	c.Analytics.GA4MeasurementID = strings.ToUpper(strings.TrimSpace(c.Analytics.GA4MeasurementID))
 	if id := c.Analytics.GA4MeasurementID; id != "" && !ga4Re.MatchString(id) {
 		ve.add("config.analytics.ga4_measurement_id", "invalid", "a GA4 measurement ID looks like G-XXXXXXX")
 	}
 	return c, ve.orNil()
+}
+
+// widgetOrigin normalizes an embedding origin: https://host[:port], or
+// http for localhost development hosts. "" = invalid.
+func widgetOrigin(raw string) string {
+	v := strings.TrimSpace(raw)
+	if !strings.Contains(v, "://") {
+		v = "https://" + v
+	}
+	u, err := url.Parse(v)
+	if err != nil || u.Host == "" || u.User != nil || (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != "" {
+		return ""
+	}
+	host, ok := NormalizeHost(u.Host)
+	if !ok || (!strings.Contains(host, ".") && host != "localhost") {
+		return ""
+	}
+	local := host == "localhost" || strings.HasSuffix(host, ".localhost")
+	switch {
+	case u.Scheme == "https":
+	case u.Scheme == "http" && local:
+	default:
+		return ""
+	}
+	out := u.Scheme + "://" + host
+	if p := u.Port(); p != "" && (u.Scheme != "https" || p != "443") && (u.Scheme != "http" || p != "80") {
+		out += ":" + p
+	}
+	return out
+}
+
+func normalizeWidget(ve *ValidationError, w *model.Widget) {
+	if len(w.AllowedDomains) > maxWidgetHosts {
+		ve.add("config.widget.allowed_domains", "too_many", "at most "+strconv.Itoa(maxWidgetHosts)+" domains")
+	}
+	hosts := make([]string, 0, len(w.AllowedDomains))
+	for i, d := range w.AllowedDomains {
+		o := widgetOrigin(d)
+		if o == "" {
+			ve.add("config.widget.allowed_domains."+strconv.Itoa(i), "invalid", "an address is https://example.com (http only for localhost)")
+			continue
+		}
+		if !slices.Contains(hosts, o) {
+			hosts = append(hosts, o)
+		}
+	}
+	w.AllowedDomains = hosts
+	f := &w.InitialFilters
+	f.PickupBranchUUID = strings.ToLower(strings.TrimSpace(f.PickupBranchUUID))
+	if f.PickupBranchUUID != "" {
+		if _, err := uuid.Parse(f.PickupBranchUUID); err != nil {
+			ve.add("config.widget.initial_filters.pickup_branch_uuid", "invalid", "not a branch id")
+		}
+	}
+	if f.RentalDays < 0 || f.RentalDays > maxRentalDays {
+		ve.add("config.widget.initial_filters.rental_days", "out_of_range", "0 to "+strconv.Itoa(maxRentalDays)+" days")
+	}
 }

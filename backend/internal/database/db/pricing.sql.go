@@ -634,7 +634,7 @@ func (q *Queries) GetDateRuleVersionByStatus(ctx context.Context, arg GetDateRul
 const getPricingProductByCode = `-- name: GetPricingProductByCode :one
 
 
-SELECT id, uuid, organization_id, code, title, description, segment_id, representative_model_id, representative_type_id, status, is_active, current_version, created_at, updated_at, deleted_at FROM rental_products
+SELECT id, uuid, organization_id, code, title, description, segment_id, representative_model_id, representative_type_id, status, is_active, current_version, created_at, updated_at, deleted_at, show_online FROM rental_products
 WHERE organization_id = $1
   AND upper(code) = upper($2)
   AND deleted_at IS NULL
@@ -676,6 +676,7 @@ func (q *Queries) GetPricingProductByCode(ctx context.Context, arg GetPricingPro
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.ShowOnline,
 	)
 	return i, err
 }

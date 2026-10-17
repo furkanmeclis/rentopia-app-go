@@ -31,6 +31,7 @@ import {
   Receipt,
   Wallet,
   Webhook,
+  Globe,
   FilePen,
   FileText,
   Gauge,
@@ -809,6 +810,13 @@ export function tenantNav(slug: string): NavCatalog {
             href: routes.tenant.settings.publicApi(slug),
             icon: Webhook,
             permission: permissions.tenant.publicApi.read,
+          },
+          {
+            id: "settings-site",
+            titleKey: "layout.nav_tenant_settings_site",
+            href: routes.tenant.settings.site(slug),
+            icon: Globe,
+            permission: permissions.tenant.site.read,
           },
           {
             id: "settings-invoices",

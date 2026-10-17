@@ -87,7 +87,7 @@ INSERT INTO branches (
     $9, $10, $11, $12,
     $13, $14
 )
-RETURNING id, uuid, organization_id, code, name, address, city, district, latitude, longitude, phone, email, working_hours, holiday_exceptions, prep_minutes, is_active, created_at, updated_at, deleted_at
+RETURNING id, uuid, organization_id, code, name, address, city, district, latitude, longitude, phone, email, working_hours, holiday_exceptions, prep_minutes, is_active, created_at, updated_at, deleted_at, show_online
 `
 
 type CreateBranchParams struct {
@@ -147,6 +147,7 @@ func (q *Queries) CreateBranch(ctx context.Context, arg CreateBranchParams) (Bra
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.ShowOnline,
 	)
 	return i, err
 }
@@ -255,7 +256,7 @@ func (q *Queries) DeleteServicePoint(ctx context.Context, arg DeleteServicePoint
 }
 
 const getBranchByCode = `-- name: GetBranchByCode :one
-SELECT id, uuid, organization_id, code, name, address, city, district, latitude, longitude, phone, email, working_hours, holiday_exceptions, prep_minutes, is_active, created_at, updated_at, deleted_at FROM branches
+SELECT id, uuid, organization_id, code, name, address, city, district, latitude, longitude, phone, email, working_hours, holiday_exceptions, prep_minutes, is_active, created_at, updated_at, deleted_at, show_online FROM branches
 WHERE organization_id = $1
   AND code = $2
   AND deleted_at IS NULL
@@ -289,12 +290,13 @@ func (q *Queries) GetBranchByCode(ctx context.Context, arg GetBranchByCodeParams
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.ShowOnline,
 	)
 	return i, err
 }
 
 const getBranchByUUID = `-- name: GetBranchByUUID :one
-SELECT id, uuid, organization_id, code, name, address, city, district, latitude, longitude, phone, email, working_hours, holiday_exceptions, prep_minutes, is_active, created_at, updated_at, deleted_at FROM branches
+SELECT id, uuid, organization_id, code, name, address, city, district, latitude, longitude, phone, email, working_hours, holiday_exceptions, prep_minutes, is_active, created_at, updated_at, deleted_at, show_online FROM branches
 WHERE organization_id = $1
   AND uuid = $2
   AND deleted_at IS NULL
@@ -328,6 +330,7 @@ func (q *Queries) GetBranchByUUID(ctx context.Context, arg GetBranchByUUIDParams
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.ShowOnline,
 	)
 	return i, err
 }
@@ -622,7 +625,7 @@ func (q *Queries) ListBranchUUIDs(ctx context.Context, arg ListBranchUUIDsParams
 
 const listBranches = `-- name: ListBranches :many
 SELECT
-    b.id, b.uuid, b.organization_id, b.code, b.name, b.address, b.city, b.district, b.latitude, b.longitude, b.phone, b.email, b.working_hours, b.holiday_exceptions, b.prep_minutes, b.is_active, b.created_at, b.updated_at, b.deleted_at,
+    b.id, b.uuid, b.organization_id, b.code, b.name, b.address, b.city, b.district, b.latitude, b.longitude, b.phone, b.email, b.working_hours, b.holiday_exceptions, b.prep_minutes, b.is_active, b.created_at, b.updated_at, b.deleted_at, b.show_online,
     (
         SELECT COUNT(*) FROM service_points sp
         WHERE sp.organization_id = b.organization_id AND sp.branch_id = b.id
@@ -694,6 +697,7 @@ type ListBranchesRow struct {
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt          pgtype.Timestamptz `json:"deleted_at"`
+	ShowOnline         bool               `json:"show_online"`
 	ServicePointsCount int64              `json:"service_points_count"`
 }
 
@@ -736,6 +740,7 @@ func (q *Queries) ListBranches(ctx context.Context, arg ListBranchesParams) ([]L
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
+			&i.ShowOnline,
 			&i.ServicePointsCount,
 		); err != nil {
 			return nil, err
@@ -749,7 +754,7 @@ func (q *Queries) ListBranches(ctx context.Context, arg ListBranchesParams) ([]L
 }
 
 const listBranchesForExport = `-- name: ListBranchesForExport :many
-SELECT id, uuid, organization_id, code, name, address, city, district, latitude, longitude, phone, email, working_hours, holiday_exceptions, prep_minutes, is_active, created_at, updated_at, deleted_at
+SELECT id, uuid, organization_id, code, name, address, city, district, latitude, longitude, phone, email, working_hours, holiday_exceptions, prep_minutes, is_active, created_at, updated_at, deleted_at, show_online
 FROM branches b
 WHERE b.organization_id = $1
   AND b.deleted_at IS NULL
@@ -812,6 +817,7 @@ func (q *Queries) ListBranchesForExport(ctx context.Context, arg ListBranchesFor
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
+			&i.ShowOnline,
 		); err != nil {
 			return nil, err
 		}
@@ -883,7 +889,7 @@ SET is_active = $1
 WHERE organization_id = $2
   AND uuid = $3
   AND deleted_at IS NULL
-RETURNING id, uuid, organization_id, code, name, address, city, district, latitude, longitude, phone, email, working_hours, holiday_exceptions, prep_minutes, is_active, created_at, updated_at, deleted_at
+RETURNING id, uuid, organization_id, code, name, address, city, district, latitude, longitude, phone, email, working_hours, holiday_exceptions, prep_minutes, is_active, created_at, updated_at, deleted_at, show_online
 `
 
 type SetBranchActiveParams struct {
@@ -915,6 +921,7 @@ func (q *Queries) SetBranchActive(ctx context.Context, arg SetBranchActiveParams
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.ShowOnline,
 	)
 	return i, err
 }
@@ -958,7 +965,7 @@ SET code = $1,
 WHERE organization_id = $14
   AND uuid = $15
   AND deleted_at IS NULL
-RETURNING id, uuid, organization_id, code, name, address, city, district, latitude, longitude, phone, email, working_hours, holiday_exceptions, prep_minutes, is_active, created_at, updated_at, deleted_at
+RETURNING id, uuid, organization_id, code, name, address, city, district, latitude, longitude, phone, email, working_hours, holiday_exceptions, prep_minutes, is_active, created_at, updated_at, deleted_at, show_online
 `
 
 type UpdateBranchParams struct {
@@ -1018,6 +1025,7 @@ func (q *Queries) UpdateBranch(ctx context.Context, arg UpdateBranchParams) (Bra
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.ShowOnline,
 	)
 	return i, err
 }

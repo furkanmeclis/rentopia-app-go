@@ -19,6 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 const LABELS: MessageKey[] = [
+  "preview.booking_disabled",
   "book.renter",
   "book.type",
   "book.type.individual",
@@ -83,6 +84,7 @@ export default async function DetailsPage({
             </div>
           ) : (
             <BookForm
+              preview={Boolean(ctx.site.preview)}
               quoteUuid={quote.uuid}
               idempotencyKey={randomUUID()}
               labels={labels}

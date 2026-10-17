@@ -253,6 +253,7 @@ FROM branches b
 WHERE b.organization_id = sqlc.arg(organization_id)
   AND b.deleted_at IS NULL
   AND b.is_active
+  AND (NOT sqlc.arg(storefront)::boolean OR b.show_online)
 ORDER BY b.city, b.name, b.id;
 
 -- name: ListPublicServicePoints :many
@@ -265,6 +266,7 @@ WHERE sp.organization_id = sqlc.arg(organization_id)
   AND sp.is_active
   AND sp.online_selectable
   AND b.is_active
+  AND (NOT sqlc.arg(storefront)::boolean OR b.show_online)
   AND b.deleted_at IS NULL
 ORDER BY sp.branch_id, sp.name, sp.id;
 
@@ -285,8 +287,27 @@ WHERE p.organization_id = sqlc.arg(organization_id)
   AND v.organization_id = sqlc.arg(organization_id)
   AND p.status = 'published'
   AND p.is_active
+  AND (NOT sqlc.arg(storefront)::boolean OR p.show_online)
   AND p.deleted_at IS NULL
 ORDER BY s.sort_order, s.name, p.title, p.id;
+
+-- name: ListPublicHiddenCatalog :one
+-- Branches, products and extras the panel hid from the storefront (branded
+-- site / widget: show_online = false, TEC-730): availability and quotes of
+-- publishable-key callers refuse them; secret keys ignore the flag.
+SELECT
+    COALESCE((
+        SELECT array_agg(b.uuid) FROM branches b
+        WHERE b.organization_id = sqlc.arg(organization_id) AND NOT b.show_online
+    ), '{}')::uuid[] AS branch_uuids,
+    COALESCE((
+        SELECT array_agg(p.uuid) FROM rental_products p
+        WHERE p.organization_id = sqlc.arg(organization_id) AND NOT p.show_online
+    ), '{}')::uuid[] AS product_uuids,
+    COALESCE((
+        SELECT array_agg(e.uuid) FROM extras e
+        WHERE e.organization_id = sqlc.arg(organization_id) AND NOT e.show_online
+    ), '{}')::uuid[] AS extra_uuids;
 
 -- name: ListPublicSubgroupImages :many
 SELECT i.uuid, i.product_id, i.content_type
@@ -304,6 +325,7 @@ WHERE e.organization_id = sqlc.arg(organization_id)
   AND e.status = 'published'
   AND e.extra_type <> 'delivery'
   AND (e.channels IS NULL OR sqlc.arg(channel)::text = ANY(e.channels::text[]))
+  AND (NOT sqlc.arg(storefront)::boolean OR e.show_online)
 ORDER BY e.sort_order, e.name, e.id;
 
 -- ------------------------------------------------------------ webhooks

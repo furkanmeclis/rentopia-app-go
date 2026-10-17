@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"errors"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -120,6 +121,16 @@ func (s *Service) CreateQuote(ctx context.Context, c model.Credential, in model.
 	if len(in.Extras) > 20 {
 		ve.add("extras", "too_many", "at most 20 extras")
 	}
+	hidden, err := s.offlineCatalog(ctx, c)
+	if err != nil {
+		return model.Quote{}, err
+	}
+	hidden.checkWhere(ve, in.PickupBranchUUID, in.ReturnBranchUUID, in.SubgroupUUID)
+	for i, e := range in.Extras {
+		if hidden.extra(e.ExtraUUID) {
+			ve.add("extras."+strconv.Itoa(i)+".extra_uuid", "not_found", "this extra is not offered here")
+		}
+	}
 	if err := ve.orNil(); err != nil {
 		return model.Quote{}, err
 	}
@@ -138,6 +149,12 @@ func (s *Service) CreateQuote(ctx context.Context, c model.Credential, in model.
 	})
 	if err != nil {
 		return model.Quote{}, publicFieldErr(err)
+	}
+	// A service point names its branch: refuse a hidden one here too (the
+	// unpublished quote is never bookable through the public API).
+	hidden.checkWhere(ve, &q.PickupBranch.UUID, &q.ReturnBranch.UUID, nil)
+	if err := ve.orNil(); err != nil {
+		return model.Quote{}, err
 	}
 	if err := s.q.InsertPublicQuote(ctx, db.InsertPublicQuoteParams{
 		OrganizationID: c.OrganizationID, QuoteUuid: q.UUID, KeyID: keyIDArg(c), Channel: c.Channel,

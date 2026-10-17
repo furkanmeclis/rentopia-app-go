@@ -110,6 +110,13 @@ type Credential struct {
 	Origin string
 }
 
+// Storefront reports whether the caller is a storefront: the branded site
+// or the embeddable widget, which call with a publishable key and browser
+// booking sessions. Secret server keys (integrations) are not; the
+// storefront publish state of the catalog (show_online, TEC-730) only
+// applies to storefronts.
+func (c Credential) Storefront() bool { return c.Kind == KindPublishable }
+
 // Has reports whether the credential has a scope.
 func (c Credential) Has(scope string) bool {
 	for _, s := range c.Scopes {

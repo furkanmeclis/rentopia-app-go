@@ -111,6 +111,7 @@ func newEnv(t *testing.T) *env {
 	e.svc = usecase.New(q, e.keys, e.settings, base, "https://app.test/")
 	e.store = storage.NewMemory()
 	e.svc.SetStorage(e.store)
+	e.svc.SetPreviewSecret(strings.Repeat("p", 32))
 
 	mux := http.NewServeMux()
 	publicapi.RegisterRoutes(mux, pahandler.NewPublic(e.keys, nil), pahandler.NewPanel(e.keys, nil), nil, nil, stubResolver{})
@@ -155,6 +156,14 @@ func (e *env) setWeb(orgID int64, on bool) {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+// publish publishes the draft at version and returns the settings.
+func (e *env) publish(o org, version int) model.Settings {
+	e.t.Helper()
+	out, _, err := e.svc.Publish(context.Background(), o.id, o.slug, 0, model.VersionInput{Version: ptr(version)})
+	e.must(err)
+	return out
+}
 
 type answer struct {
 	code int
@@ -232,6 +241,7 @@ func themed(primary, title string) *model.Config {
 	c.Content["tr"] = tr
 	c.Contact.Email = "info@example.com"
 	c.Analytics.GA4MeasurementID = "g-abc1234"
+	c.Widget.AllowedDomains = []string{"www.partner.com", "https://www.partner.com:443", "http://shop.localhost:3000"}
 	return &c
 }
 
@@ -266,6 +276,8 @@ func TestSettingsAndKey(t *testing.T) {
 	bad.Content["de"] = model.Content{}
 	bad.Analytics.GA4MeasurementID = "UA-1234"
 	bad.Contact.Email = "not-an-email"
+	bad.Widget.AllowedDomains = []string{"javascript:alert(1)", "http://example.com", "https://ok.example.com/path"}
+	bad.Widget.InitialFilters.RentalDays = 400
 	tr := bad.Content["tr"]
 	tr.FAQ = []model.FAQItem{{Question: "?"}}
 	bad.Content["tr"] = tr
@@ -274,6 +286,8 @@ func TestSettingsAndKey(t *testing.T) {
 		{"config.theme.colors.primary", "invalid"}, {"config.theme.font", "invalid"}, {"config.layout.cards", "invalid"},
 		{"config.content.de", "invalid"}, {"config.analytics.ga4_measurement_id", "invalid"},
 		{"config.contact.email", "invalid"}, {"config.content.tr.faq.0", "required"}, {"subdomain", "reserved"},
+		{"config.widget.allowed_domains.0", "invalid"}, {"config.widget.allowed_domains.1", "invalid"},
+		{"config.widget.allowed_domains.2", "invalid"}, {"config.widget.initial_filters.rental_days", "out_of_range"},
 	} {
 		if !hasField(err, f[0], f[1]) {
 			t.Errorf("validation misses %s %s: %v", f[0], f[1], err)
@@ -293,7 +307,8 @@ func TestSettingsAndKey(t *testing.T) {
 	if !got.Exists || got.Version != 1 || !got.Enabled || got.Subdomain != subA || got.APIKey == nil || !got.BookingEnabled {
 		t.Fatalf("saved = %+v", got)
 	}
-	if got.Config.Theme.Colors.Primary != "#ff0000" || got.Config.Analytics.GA4MeasurementID != "G-ABC1234" {
+	if got.Config.Theme.Colors.Primary != "#ff0000" || got.Config.Analytics.GA4MeasurementID != "G-ABC1234" ||
+		!slices.Equal(got.Config.Widget.AllowedDomains, []string{"https://www.partner.com", "http://shop.localhost:3000"}) {
 		t.Fatalf("normalized config = %+v", got.Config.Theme.Colors)
 	}
 	key, err := e.keys.GetKey(ctx, e.a.id, got.APIKey.UUID)
@@ -373,6 +388,12 @@ func TestResolveIsolation(t *testing.T) {
 	e.must(err)
 	b, err := e.svc.Save(ctx, e.b.id, e.b.slug, 0, model.SaveInput{Version: ptr(0), Enabled: ptr(true), Subdomain: ptr(subB), Config: themed("#00ff00", "Beta")})
 	e.must(err)
+	// Saved but never published: nothing resolves yet.
+	if _, r := e.resolve(subA + ".sites.test"); r.code != http.StatusNotFound {
+		t.Fatalf("unpublished site = %d %s", r.code, r.raw)
+	}
+	e.publish(e.a, 1)
+	e.publish(e.b, 1)
 	keyA, err := e.keys.GetKey(ctx, e.a.id, a.APIKey.UUID)
 	e.must(err)
 	keyB, err := e.keys.GetKey(ctx, e.b.id, b.APIKey.UUID)
@@ -478,6 +499,7 @@ func TestCustomDomainHookAndAssets(t *testing.T) {
 
 	b, err := e.svc.Save(ctx, e.b.id, e.b.slug, 0, model.SaveInput{Version: ptr(0), Enabled: ptr(true), Config: themed("#123456", "Marka")})
 	e.must(err)
+	e.publish(e.b, 1)
 	if len(b.Hosts) != 2 || b.Hosts[1].Origin != "https://www.brand-b.test" {
 		t.Fatalf("hosts = %+v", b.Hosts)
 	}

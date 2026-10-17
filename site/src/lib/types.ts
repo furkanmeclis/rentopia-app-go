@@ -42,6 +42,10 @@ export type SiteConfig = {
   seo: Partial<Record<Locale, { title: string; description: string }>>;
   contact: { phone: string; email: string; address: string; whatsapp: string };
   analytics: { ga4_measurement_id: string };
+  widget?: {
+    allowed_domains: string[];
+    initial_filters: { pickup_branch_uuid: string; rental_days: number };
+  };
 };
 
 export type Site = {
@@ -59,6 +63,10 @@ export type Site = {
   assets: { logo: string | null; favicon: string | null; cover: string | null };
   portal_url: string;
   updated_at: string;
+  /** The draft for a preview token (TEC-730): banner, no booking. */
+  preview?: boolean;
+  /** Origin allowed to frame a preview page (the panel). */
+  panel_origin?: string;
 };
 
 export type Place = { uuid: string; name: string };

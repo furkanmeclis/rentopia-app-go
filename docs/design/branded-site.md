@@ -1,7 +1,6 @@
 # Branded site
 
-Status: **implemented** (M5: TEC-729). Requirements §14.1. One template, one Docker image: every organization gets its own look from data. Ten organizations means one image with ten looks. The site books only through the public booking API ([public-api.md](./public-api.md)). Later work builds on it:
-- **TEC-730**: theme management in the panel;
+Status: **implemented** (M5: TEC-729 site, TEC-730 panel editor with draft / publish). Requirements §14.1. One template, one Docker image: every organization gets its own look from data. Ten organizations means one image with ten looks. The site books only through the public booking API ([public-api.md](./public-api.md)). Later work builds on it:
 - **TEC-731**: verified custom domains;
 - **TEC-732**: embeddable widget.
 
@@ -9,15 +8,18 @@ Status: **implemented** (M5: TEC-729). Requirements §14.1. One template, one Do
 |------|------|
 | App (Next.js App Router, own image) | `site/` (`site/Dockerfile`, service `site` in `compose.prod.yml`, CI job `site`) |
 | Host → site, booking session | `site/src/proxy.ts`, `site/src/lib/{resolve,session,server}.ts` |
-| Settings model, host resolution | `backend/internal/modules/site/{model,usecase,handler}`, `routes.go` |
-| Migrations | `000122_branded_site`, `000123_seed_branded_site_rbac` |
-| Tests | `backend/internal/modules/site/site_test.go`, `site/src/lib/theme.test.ts` |
+| Settings model, publish, preview, images, catalog state, host resolution | `backend/internal/modules/site/{model,usecase,handler}`, `routes.go` |
+| Panel editor (Ayarlar → Markalı site) | `frontend/src/features/site`, route `/t/{slug}/settings/site` |
+| Preview in the site | `site/src/lib/preview.ts`, `site/src/proxy.ts`, `site/src/app/preview/exit` |
+| Migrations | `000122_branded_site`, `000123_seed_branded_site_rbac`, `000124_site_publish`, `000125_catalog_show_online` |
+| Tests | `backend/internal/modules/site/{site,site_publish}_test.go`, `site/src/lib/{theme,preview}.test.ts` |
 
 ## 1. Request flow
 
 ```
 browser ── acme.rentopia.app ──▶ site (Next.js, one image)
-                                   │ proxy.ts: Host → GET /v1/public/site/resolve?host=  (cached 30 s per host)
+                                   │ proxy.ts: Host → GET /v1/public/site/resolve?host=  (cached 30 s per host;
+                                   │           with a preview token: &preview=…, never cached, §8)
                                    │   unknown host / disabled site / suspended org → neutral 404, no branding
                                    │   booking on → POST /v1/public/sessions {publishable_key}
                                    │                with X-Forwarded-Origin = resolved origin → httpOnly cookie rtp_bs
@@ -44,15 +46,20 @@ browser ── acme.rentopia.app ──▶ site (Next.js, one image)
 
 ## 3. Settings model (`site_settings`, one row per organization)
 
+Two kinds of fields (TEC-730):
+- **live**: `enabled`, `subdomain`, `default_locale` and the linked key take effect on save. Switching a site off or moving its address must not wait for a publish, and the key is a credential, not content.
+- **draft**: `config` and the three images. The panel edits and previews them; visitors only get the **published revision** (§3.1).
+
 | Column | Notes |
-|--------|-------|
-| `enabled` | The host resolves only while the site is on. |
-| `subdomain` | Defaults to the organization slug (`SubdomainFromSlug`). |
-| `default_locale` | `tr` \| `en`. Visitors switch with `/lang?l=…` (cookie `site_locale`). |
-| `config` JSONB | The typed document `model.Config` (below). Validated on save (`NormalizeConfig`); a stored document that no longer validates falls back to the defaults instead of breaking the site. |
-| `api_key_id` | The publishable `web` key the site books with (composite FK to `public_api_keys`). |
-| `logo/favicon/cover_object_key` | Images; TEC-730 adds the uploads. The logo falls back to the organization logo. Served by `GET /v1/public/site/assets/{site_uuid}/{kind}?v={version}`. |
-| `version` | +1 on every save: optimistic concurrency (`409 VERSION_CONFLICT`) and the cache-busting value of asset URLs. |
+|-------|-------|
+| `enabled` | Live. The host resolves only while the site is on **and** a revision is published. |
+| `subdomain` | Live. Defaults to the organization slug (`SubdomainFromSlug`). |
+| `default_locale` | Live. `tr` \| `en`. Visitors switch with `/lang?l=…` (cookie `site_locale`). |
+| `config` JSONB | Draft. The typed document `model.Config` (below). Validated on save (`NormalizeConfig`); a stored document that no longer validates falls back to the defaults instead of breaking the site. |
+| `api_key_id` | Live. The publishable `web` key the site books with (composite FK to `public_api_keys`). |
+| `logo/favicon/cover_object_key` | Draft images (§3.2). The logo falls back to the organization logo. |
+| `published_revision` | The live snapshot in `site_setting_versions` (NULL = never published: the host does not resolve). |
+| `version` | +1 on every write (save, image, restore, renew key): optimistic concurrency (`409 VERSION_CONFLICT`). Publish does not change it. |
 
 `config`:
 - `theme`:
@@ -64,20 +71,56 @@ browser ── acme.rentopia.app ──▶ site (Next.js, one image)
 - `content.{tr,en}`: `hero_title`, `hero_subtitle`, `about`, `faq[{question, answer}]` (≤ 40), `terms`, `privacy` (KVKK). Plain text only: blank lines separate paragraphs, and no HTML is ever rendered.
 - `seo.{tr,en}`: `title` (≤ 70), `description` (≤ 300).
 - `contact`: `phone`, `email`, `address`, `whatsapp`.
-- `analytics`: `ga4_measurement_id` (`G-XXXX`). The site loads gtag only for a valid ID, with `anonymize_ip`. A cookie-consent banner is still open (§7).
+- `analytics`: `ga4_measurement_id` (`G-XXXX`). The site loads gtag only for a valid ID, with `anonymize_ip` (never in a preview). A cookie-consent banner is still open (§7).
+- `widget` (stored for TEC-732, not enforced yet): `allowed_domains` (≤ 20 origins, `https://host[:port]`, `http` only for localhost; normalized and de-duplicated) and `initial_filters {pickup_branch_uuid, rental_days (0-90)}`.
 
 Theme tokens become CSS variables in a `<style>` in the SSR head (`site/src/lib/theme.ts`). The site validates them again, so only hex colors and known enum values reach CSS. The Tailwind theme maps these variables, and the shadcn-style components in `site/src/components/ui` read them.
+
+### 3.1 Draft, publish and history (`site_setting_versions`, 000124)
+
+- **Publish** (`POST /v1/tenant/site/publish {version}`) snapshots the draft (`config` + image keys) as the next per-organization `revision` (1, 2, 3 …) and points `published_revision` at it, in one SQL statement (`PublishSiteDraft`: `FOR UPDATE` on the draft row at the expected version, insert, update). A stale version is `409 VERSION_CONFLICT`; an unchanged draft `409 NOTHING_TO_PUBLISH`. A never-saved site publishes its defaults (the row is stored first, switched off).
+- **Resolve** serves the published snapshot only: `config`, image paths and `version` (= the revision, the `?v=` of image URLs) come from `site_setting_versions`. A site that is on but never published answers `404`.
+- **History** (`GET /v1/tenant/site/versions`): revisions newest first with publisher and images; `current` marks the live one.
+- **Restore / roll back** (`POST /v1/tenant/site/versions/{revisionUuid}/restore {version}`): copies a revision back into the draft; publishing it makes a new revision with that content (history is append-only). Another organization's revision is `404`.
+- `has_unpublished_changes` compares the normalized draft with the published document and image keys.
+- **Migration of live rows**: sites saved before TEC-730 were live on save. 000124 backfills each existing row as revision 1 with its current document and images and sets `published_revision = 1`, so e.g. a production site at version 1 keeps serving exactly what it served (the backfill is idempotent and covered by `TestLegacyRowStaysPublished`).
+
+### 3.2 Images
+
+- `PUT /v1/tenant/site/assets/{logo|favicon|cover}` (multipart `file`, `version`) and `DELETE …?version=`: literal routes per kind (the isolation test enumerates route literals).
+- The type is sniffed from the bytes (`storage.DetectLogoMIME`): PNG, JPEG or WebP. **SVG is refused** (script carrier; no sanitizer exists), as is HTML declared as an image. Limits: logo 2 MB, favicon 1 MB, cover 5 MB (the body is read with the limit + 1).
+- Keys are API-owned: `organizations/{org_uuid}/site/{kind}-{file_uuid}.{ext}` (`storage.SiteImageObjectKey`), a new object per upload. Snapshots keep pointing at the object they were published with; an object is deleted only when neither the draft nor any revision names it (`SiteObjectKeyInUse`).
+- An upload is a draft change (visible in the preview, live after publish). `GET /v1/public/site/assets/{site_uuid}/{kind}?v=` streams the published image of an enabled, published site; with `&preview=<token>` the draft image (`Cache-Control: private, no-store`). Responses carry `nosniff` and `Content-Security-Policy: default-src 'none'; sandbox`.
+
+### 3.3 Storefront publish state of the catalog (000125)
+
+Which branches, vehicle subgroups and extras the **storefront** offers: the branded site and the embeddable widget (TEC-732). The discriminator is the credential: a public API caller with a **publishable key** (always through a browser booking session; `Credential.Storefront()` = `Kind == publishable`) is a storefront. Integrations calling with a **secret server key** (agencies, third-party software) ignore the flags and keep seeing and quoting everything their channel sells. These switches are **live** (no publish):
+
+| Kind | Flag | Effect |
+|------|------|--------|
+| Branch | `branches.show_online` (default on) | left out of `/v1/public/locations` (and its service points); availability / quotes naming it, directly or through a point, answer `400 … not_found` |
+| Subgroup | `rental_products.show_online` (default on) | left out of `/v1/public/vehicle-subgroups` and availability items; quotes answer `400 subgroup_uuid not_found` |
+| Extra | `extras.show_online` (default on) | left out of `/v1/public/extras`; quotes naming it answer `400 extras.N.extra_uuid not_found`. The sales-channel rule (`extras.channels`) still applies to every caller and is not touched by the switch |
+
+All three rules apply to storefront credentials only (listings via a `storefront` query argument, availability / quote refusals via `offlineCatalog`, which is empty for secret keys). Service points keep their own `online_selectable`. API: `GET /v1/tenant/site/catalog`, `PATCH /v1/tenant/site/catalog/{branches|products|extras}/{uuid} {show_online}` (record looked up first: another organization's record is `404`).
 
 ### API
 
 | Route | Who | Notes |
 |-------|-----|-------|
-| `GET /v1/tenant/site` | `tenant.site.read` | The settings, or the defaults with `exists: false, version: 0`. Also returns `url`, `hosts`, `api_key {uuid, status}`, `assets` (which images exist) and `booking_enabled`. |
-| `PUT /v1/tenant/site` | `tenant.site.manage` | `{version, enabled?, subdomain?, default_locale?, config?}`: omitted fields are kept, and `config` replaces the whole document. Errors: `400` field details, `409 SUBDOMAIN_TAKEN`, `409 VERSION_CONFLICT`. Activity: `site.updated`. |
-| `GET /v1/public/site/resolve?host=` | public, 600 / min / IP | The resolved site (`model.Resolved`): `site_uuid`, `version`, `origin`, `host_kind`, `organization {uuid, slug, name}`, `publishable_key`, `booking_enabled`, `config`, `assets` (API paths), `portal_url`. Errors: `404 SITE_NOT_FOUND`. |
-| `GET /v1/public/site/assets/{uuid}/{kind}` | public | `logo` \| `favicon` \| `cover` of an enabled site. |
+| `GET /v1/tenant/site` | `tenant.site.read` | The settings (draft document), or the defaults with `exists: false, version: 0`. Also returns `url`, `hosts`, `api_key {uuid, status}`, `assets` (which draft images exist), `booking_enabled` + `booking_blockers` (`site_disabled`, `key_missing`, `key_inactive`, `channel_off`), `published_revision`, `published_at`, `has_unpublished_changes`, `live`. |
+| `PUT /v1/tenant/site` | `tenant.site.manage` | `{version, enabled?, subdomain?, default_locale?, config?}`: omitted fields are kept, and `config` replaces the whole draft document. Errors: `400` field details, `409 SUBDOMAIN_TAKEN`, `409 VERSION_CONFLICT`. Activity: `site.updated`. |
+| `POST /v1/tenant/site/publish` | `tenant.site.manage` | §3.1. Activity: `site.published`. |
+| `GET /v1/tenant/site/versions` | `tenant.site.read` | §3.1. |
+| `POST /v1/tenant/site/versions/{revisionUuid}/restore` | `tenant.site.manage` | §3.1. Activity: `site.restored`. |
+| `POST /v1/tenant/site/preview-token` | `tenant.site.read` | §8: `{token, url, expires_at, assets}`. |
+| `POST /v1/tenant/site/renew-key` | `tenant.site.manage` | Below. Activity: `site.key_renewed`. |
+| `PUT` / `DELETE /v1/tenant/site/assets/{logo,favicon,cover}` | `tenant.site.manage` | §3.2. Activity: `site.image_updated` / `site.image_removed`. |
+| `GET /v1/tenant/site/catalog`, `PATCH …/catalog/{branches,products,extras}/{uuid}` | read / manage | §3.3. Activity: `site.catalog_updated`. |
+| `GET /v1/public/site/resolve?host=[&preview=]` | public, 600 / min / IP | The resolved site (`model.Resolved`): `site_uuid`, `version`, `origin`, `host_kind`, `organization {uuid, slug, name}`, `publishable_key`, `booking_enabled`, `config`, `assets` (API paths), `portal_url`, `preview`, `panel_origin`. Errors: `404 SITE_NOT_FOUND`, `401 PREVIEW_INVALID`. |
+| `GET /v1/public/site/assets/{uuid}/{kind}` | public | `logo` \| `favicon` \| `cover` of an enabled, published site (or the draft with `preview`). |
 
-Permissions (000123): `tenant.site.read` and `tenant.site.manage`, granted to owner, admin and merkez_yoneticisi (like the public API keys).
+Permissions (000123): `tenant.site.read` and `tenant.site.manage`, granted to owner, admin and merkez_yoneticisi (like the public API keys). TEC-730 adds no slug: reading (including preview links) is `read`, every write is `manage`.
 
 ### The site key
 
@@ -90,7 +133,8 @@ Permissions (000123): `tenant.site.read` and `tenant.site.manage`, granted to ow
   - the organization's **web** sales channel is on (the public API's `checkChannel` gate; packages arrive with TEC-674).
 
   When it is false, the site still renders its content pages and shows "online booking is closed".
-- **Rotating the key** in Ayarlar → Public API leaves the site on the old key until its grace period ends. Saving the site after the old key expires links a new one. TEC-730 should offer "renew key" or follow `rotated_from_id`.
+- **Rotating the key** in Ayarlar → Public API: the next save follows `rotated_from_id` to the newest active successor (`GetSiteKeySuccessor`) and links it.
+- **Renew key** (`POST /v1/tenant/site/renew-key {version}`): a usable key is rotated through the public API module (`RotateKey`, new key with `rotated_from_id`, same scopes and origins; the old key keeps working for **1 hour** so open booking sessions finish); a missing, revoked or expired key is replaced by a new "Markalı site" key. Live at once.
 
 ## 4. Pages (`site/src/app`)
 
@@ -108,7 +152,7 @@ Common to all pages:
 - **Locales**: tr and en. `site/src/messages/en.ts` is typed `Record<MessageKey, string>`, so a missing English key fails typecheck.
 - **Accessibility**: labelled fields with `aria-invalid` / `aria-describedby`, a skip link, a no-JS mobile menu (`<details>`), and clear empty and error states.
 - **Errors**: an unreachable API shows a neutral 503 page.
-- **Headers**: frames denied, and `form-action` limited to self and https (so the pay redirect works).
+- **Headers**: frames denied (`frame-ancestors 'none'` + `X-Frame-Options: DENY`; set by the proxy for pages and by `next.config.ts` for `_next/`, `media/`, `health`), except a preview page (§8), and `form-action` limited to self and https (so the pay redirect works).
 
 **UI note**: `frontend/`'s shadcn-only rule is about the panel. The site is a separate public app. It uses shadcn-styled primitives (`components/ui`) but **native** `<select>` and date inputs, so that every form works without JavaScript and phones show their own pickers. The embeddable widget (TEC-732) can reuse `lib/`, `components/ui` and the booking pages.
 
@@ -136,8 +180,45 @@ RT-A01 covers `GET/PUT /v1/tenant/site` (the PUT is on the allowlist: it acts on
 
 ## 7. Open items
 
-- **TEC-730**: the panel editor on `GET/PUT /v1/tenant/site`, image uploads (`*_object_key`), draft / publish (today a save is live; `version` is ready for a published / draft split), and "renew site key".
 - **TEC-731**: the `CustomDomains` implementation (`site_domains`, DNS verification, TLS on the site service).
-- **TEC-732**: a widget entry point that reuses the site's booking pages and `lib/`.
+- **TEC-732**: a widget entry point that reuses the site's booking pages and `lib/`; enforce `config.widget.allowed_domains` (e.g. as the widget key's allowed origins) and apply `initial_filters`.
 - A cookie-consent banner before analytics; a sitemap; branch detail pages.
 - **Time zone**: organizations sell in Turkey, so the site uses Europe/Istanbul (+03:00) for search times.
+
+## 8. Panel editor and preview (TEC-730)
+
+**Panel** (`/t/{slug}/settings/site`, nav: Ayarlar → Markalı site, `tenant.site.read`; writes `tenant.site.manage`). One form over the draft with tabs, a sticky save bar, field errors from `400` details inline (tab dots), and a reload prompt on `409 VERSION_CONFLICT`:
+- **Genel**: on / off, subdomain with the site URL (copy / open), default language (live); publish and booking state with `booking_blockers`; the site key status, a link to Ayarlar → Public API and "Anahtarı yenile".
+- **Tema**: light / dark color tokens (swatch popover + hex), font, radius, mode; hero / cards / footer variants as visual choice cards.
+- **İçerik**: tr / en tabs: hero title / subtitle, about, terms, privacy (shadcn Textarea, plain text), FAQ add / remove / reorder (≤ 40).
+- **SEO ve iletişim**: SEO title / description per language with length counters, contact, GA4.
+- **Görseller**: logo, favicon, cover upload / replace / remove with previews (draft paths from the preview token).
+- **Yayın**: publish state and the revision history (DataTable) with "Taslağa geri yükle".
+- **Katalog**: branches, subgroups and extras (DataTables) with a "Çevrimiçi" switch column (§3.3).
+- **Widget**: allowed domains and initial filters (stored, "yakında" notice); keys stay on Ayarlar → Public API.
+
+Header actions: status chips, **Önizle** (sheet with the site in an iframe, desktop / mobile width, new tab) and **Yayınla** (confirmation; disabled while the form has unsaved edits or nothing changed). Uploads and key renewal keep unsaved form edits (only the version moves); save and restore reload the form.
+
+**Preview token** (`POST /v1/tenant/site/preview-token`): `sp1.{site_uuid}.{expiry}.{HMAC-SHA256}` with a key derived from `APP_ENCRYPTION_KEY` (`HMAC(key, "rentopia/site-preview/v1")`; no new configuration). Valid 30 minutes, bound to one site (so one organization): a token for another site, a tampered or expired one, or one signed by another deployment is `401 PREVIEW_INVALID` and never falls back to another site's draft. `url` = the site's own address with `?preview=<token>`.
+
+**Site side**: the proxy accepts the token from `?preview=` (then stored in the `rtp_preview` cookie: httpOnly, Secure, `SameSite=None`, `Partitioned` so it works inside the panel's frame, max 30 min) or from that cookie, checks only its shape, and resolves `…/resolve?host=&preview=` uncached. A preview page:
+- renders the draft with a banner ("Önizleme …", "Önizlemeden çık" → `/preview/exit` drops the cookie);
+- may be framed only by the panel: `frame-ancestors {panel_origin}` (the API's `PUBLIC_FRONTEND_URL` origin, returned as `panel_origin`), no `X-Frame-Options`; every other response keeps `frame-ancestors 'none'`;
+- is `noindex`, `Cache-Control: private, no-store`, loads no analytics;
+- browses catalog and prices but never books or pays: `bookingApi` refuses `POST /v1/public/reservations*` (`PREVIEW_READ_ONLY`) and the booking form is disabled with a notice;
+- streams draft images through `/media/…?draft=1`, which forwards the visitor's token.
+
+### Tests (TEC-730)
+
+| Test | What it checks |
+|------|----------------|
+| `TestDraftPublishAndHistory` | first publish of a never-saved site; nothing-to-publish; live fields apply on save while the document stays a draft; resolve never shows the draft; stale publish refused; history order and `current`; restore is draft-only until published (roll back); another organization's revision → not found; switching off is live |
+| `TestPreviewToken` | the draft for the site's own token (also for an off, unpublished site) with `panel_origin`; without a token the published revision; another organization's token (both ways), a forged site id, tampered and garbage tokens, an expired token and another secret → `401 PREVIEW_INVALID` |
+| `TestImages` | SVG, HTML declared as PNG, empty and oversized files refused; stale version; uploads are drafts; keys under the organization prefix; published objects kept on replace / remove, unreferenced drafts deleted; draft image only with the token |
+| `TestLegacyRowStaysPublished` | the 000124 backfill keeps an old live row published unchanged; idempotent |
+| `TestCatalogOnlineState` | listing and switches; foreign record → not found; the extra switch leaves sales channels alone; storefront listings, availability and quotes (hidden branch, subgroup, extra) respect the flags; a secret key still lists them |
+| `publicapi TestStorefrontPublishState` | with hidden branch, subgroup and extra: a booking session gets none of them and its availability / quotes are refused; a secret key lists them, gets availability and creates a quote (201) |
+| `TestRenewKey` | rotation with a 1 h grace and the same origins; the site books with the new key at once; a rotation in Public API is followed on save; a revoked key is replaced |
+| `site/src/lib/preview.test.ts` | token shape filter, cookie lifetime and attributes, frame headers (deny by default, panel origin only for previews, unsafe origins refused) |
+
+RT-A01 covers the new routes (allowlist entries for the scope-only writes; `{revisionUuid}` and the catalog `{uuid}` routes get the cross-organization 404 cases).

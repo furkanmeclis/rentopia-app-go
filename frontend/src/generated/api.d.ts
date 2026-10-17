@@ -7332,7 +7332,7 @@ export interface paths {
         };
         /**
          * Branches and service points
-         * @description Scope `catalog.read`. Active branches with their online-selectable service points (offices, airports, hotels, address zones), working hours and holiday exceptions.
+         * @description Scope `catalog.read`. Active branches with their online-selectable service points (offices, airports, hotels, address zones), working hours and holiday exceptions. Publishable-key callers (site, widget) do not get branches hidden from the storefront (`show_online`, TEC-730); secret keys do.
          */
         get: operations["getPublicLocations"];
         put?: never;
@@ -7352,7 +7352,7 @@ export interface paths {
         };
         /**
          * Sellable vehicle subgroups
-         * @description Scope `catalog.read`. Published rental products ("alt grup") with their current rental conditions and API image paths (`/v1/public/media/…`, relative to the API base).
+         * @description Scope `catalog.read`. Published rental products ("alt grup") with their current rental conditions and API image paths (`/v1/public/media/…`, relative to the API base). Publishable-key callers do not get subgroups hidden from the storefront (`show_online`); secret keys do.
          */
         get: operations["getPublicVehicleSubgroups"];
         put?: never;
@@ -7372,7 +7372,7 @@ export interface paths {
         };
         /**
          * Extra services of the channel
-         * @description Scope `catalog.read`. Published extras sold on the key's channel. Prices depend on the subgroup and dates: send them in a quote.
+         * @description Scope `catalog.read`. Published extras sold on the key's channel. Prices depend on the subgroup and dates: send them in a quote. Publishable-key callers do not get extras hidden from the storefront (`show_online`); secret keys do.
          */
         get: operations["getPublicExtras"];
         put?: never;
@@ -7836,7 +7836,8 @@ export interface paths {
          *     the theme / layout / content document, the image paths, the customer portal URL and the credential the site
          *     books with: the **publishable key** and the **origin** to open booking sessions for
          *     (`POST /v1/public/sessions` with that origin). Unknown hosts, disabled sites and unavailable organizations all
-         *     answer `404 SITE_NOT_FOUND`; another organization's site is never returned. `booking_enabled` is false (and the
+         *     answer `404 SITE_NOT_FOUND`, and so does a site that was never published (TEC-730: visitors only get the
+         *     published revision); another organization's site is never returned. `booking_enabled` is false (and the
          *     key empty) while the web sales channel is off or the site key is revoked. Rate-limited per IP (600 / min).
          */
         get: operations["getPublicSiteResolve"];
@@ -7857,7 +7858,7 @@ export interface paths {
         };
         /**
          * Image of a branded site
-         * @description Logo (falls back to the organization logo), favicon or cover image of an enabled site. Paths come from the resolve answer (`assets`), with `?v=` set to the site version.
+         * @description Logo (falls back to the organization logo), favicon or cover image of an enabled, published site. Paths come from the resolve answer (`assets`), with `?v=` set to the published revision. With a valid `preview` token the draft image is streamed (`Cache-Control: private, no-store`).
          */
         get: operations["getPublicSiteAsset"];
         put?: never;
@@ -7877,14 +7878,15 @@ export interface paths {
         };
         /**
          * Branded site settings
-         * @description `tenant.site.read`. The organization's site: on / off, subdomain, default locale, the theme / layout / content / SEO / analytics document, its addresses, the linked publishable key and whether booking works. Before the first save the defaults are returned with `exists: false` and `version: 0`.
+         * @description `tenant.site.read`. The organization's site: the live settings (on / off, subdomain, default locale, the linked publishable key and whether booking works, with `booking_blockers`), the **draft** document (theme / layout / content / SEO / contact / analytics / widget) and images, and the publish state (`published_revision`, `has_unpublished_changes`, `live`). Before the first save the defaults are returned with `exists: false` and `version: 0`.
          */
         get: operations["getTenantSite"];
         /**
          * Save the branded site settings
          * @description `tenant.site.manage`. Send the `version` you edited (0 for the first save); a newer save answers
          *     `409 VERSION_CONFLICT`. Omitted fields keep their value; `config` replaces the whole document (empty values take
-         *     the defaults). Colors are `#rrggbb`, fonts / radius / mode / layout variants are enums, texts are plain text.
+         *     the defaults). `enabled`, `subdomain` and `default_locale` are live at once; `config` is saved as the **draft**
+         *     (visitors see it after `POST /v1/tenant/site/publish`). Colors are `#rrggbb`, fonts / radius / mode / layout variants are enums, texts are plain text.
          *     Switching the site on links a publishable `web` key (created when there is none, named "Markalı site"); the
          *     key's allowed origins always contain the site's current addresses. A subdomain used by another organization
          *     answers `409 SUBDOMAIN_TAKEN`; reserved names (`www`, `app`, `api`, …) answer `400`.
@@ -7895,6 +7897,272 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/site/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish the site draft
+         * @description `tenant.site.manage`. Publishes the draft (`config` and images) you saw (`version`) as the next revision; the
+         *     resolver serves it from now on. A site that was never saved publishes its defaults (stored first, switched
+         *     off). An unchanged draft answers `409 NOTHING_TO_PUBLISH`, a newer draft `409 VERSION_CONFLICT`. Activity:
+         *     `site.published`.
+         */
+        post: operations["postTenantSitePublish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/site/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Publish history of the site
+         * @description `tenant.site.read`. Published revisions, newest first (at most 200); `current` marks the live one.
+         */
+        get: operations["getTenantSiteVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/site/versions/{revisionUuid}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore a revision into the draft
+         * @description `tenant.site.manage`. Copies a published revision (document and images) into the draft; publish to make it live
+         *     again (roll back). Unknown revisions (also another organization's) answer `404`; a newer draft `409
+         *     VERSION_CONFLICT`. Activity: `site.restored`.
+         */
+        post: operations["postTenantSiteVersionRestore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/site/preview-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview link of the site draft
+         * @description `tenant.site.read`. A signed token (30 minutes) bound to this organization's site. `url` opens the site's own
+         *     address with `?preview=`; the site then renders the draft (also while the site is off or unpublished), shows a
+         *     preview banner, never books, and may be framed by the panel only. `assets` are the draft images for the
+         *     panel. A site that was never saved is stored first with its defaults (switched off).
+         */
+        post: operations["postTenantSitePreviewToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/site/renew-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Renew the site's publishable key
+         * @description `tenant.site.manage`. Links a fresh publishable `web` key. A usable key is rotated (`rotated_from_id`; the old
+         *     key keeps working for one hour for open booking sessions); a missing, revoked or expired key is replaced by a
+         *     new "Markalı site" key. The key is a live setting (no publish needed). Activity: `site.key_renewed`.
+         */
+        post: operations["postTenantSiteRenewKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/site/assets/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload the site logo (draft)
+         * @description `tenant.site.manage`. Multipart `file` (PNG, JPEG or WebP sniffed from the bytes; SVG is refused; at most 2 MB) and `version`. Draft until published. Activity: `site.image_updated`.
+         */
+        put: operations["putTenantSiteLogo"];
+        post?: never;
+        /**
+         * Remove the site logo (draft)
+         * @description `tenant.site.manage`. The site then shows the organization logo. Draft until published.
+         */
+        delete: operations["deleteTenantSiteLogo"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/site/assets/favicon": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload the site favicon (draft)
+         * @description `tenant.site.manage`. Multipart `file` (PNG, JPEG or WebP; at most 1 MB) and `version`. Draft until published.
+         */
+        put: operations["putTenantSiteFavicon"];
+        post?: never;
+        /**
+         * Remove the site favicon (draft)
+         * @description `tenant.site.manage`. Draft until published.
+         */
+        delete: operations["deleteTenantSiteFavicon"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/site/assets/cover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload the site cover image (draft)
+         * @description `tenant.site.manage`. Multipart `file` (PNG, JPEG or WebP; at most 5 MB) and `version`. Draft until published.
+         */
+        put: operations["putTenantSiteCover"];
+        post?: never;
+        /**
+         * Remove the site cover image (draft)
+         * @description `tenant.site.manage`. Draft until published.
+         */
+        delete: operations["deleteTenantSiteCover"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/site/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Storefront publish state of the catalog
+         * @description `tenant.site.read`. Branches, vehicle subgroups and extras with `show_online`: whether the branded site and the
+         *     embeddable widget (public API callers with a publishable key / booking session) offer them. Integrations
+         *     calling the public API with a secret key ignore the flag. Extras also keep their sales-channel rule.
+         */
+        get: operations["getTenantSiteCatalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/site/catalog/branches/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Show / hide a branch on the site and widget
+         * @description `tenant.site.manage`. Live (no publish). For publishable-key callers (site, widget) a hidden branch is left out of `/v1/public/locations` and refused by availability and quotes; secret-key integrations are not affected. Activity: `site.catalog_updated`.
+         */
+        patch: operations["patchTenantSiteCatalogBranch"];
+        trace?: never;
+    };
+    "/v1/tenant/site/catalog/products/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Show / hide a vehicle subgroup on the site and widget
+         * @description `tenant.site.manage`. Live (no publish). For publishable-key callers (site, widget) a hidden subgroup is left out of `/v1/public/vehicle-subgroups` and availability, and quotes refuse it; secret-key integrations are not affected. Activity: `site.catalog_updated`.
+         */
+        patch: operations["patchTenantSiteCatalogSubgroup"];
+        trace?: never;
+    };
+    "/v1/tenant/site/catalog/extras/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Show / hide an extra on the site and widget
+         * @description `tenant.site.manage`. Live (no publish). For publishable-key callers (site, widget) a hidden extra is left out of
+         *     `/v1/public/extras` and quotes naming it answer `400 extras.N.extra_uuid not_found`; its sales channels are not
+         *     changed and secret-key integrations are not affected. Activity: `site.catalog_updated`.
+         */
+        patch: operations["patchTenantSiteCatalogExtra"];
         trace?: never;
     };
     "/v1/public/pay/{token}": {
@@ -29364,7 +29632,7 @@ export interface components {
             title?: string;
             description?: string;
         };
-        /** @description The editable site document (TEC-730 builds the panel editor on it). */
+        /** @description The editable site document. `site_settings.config` is the draft; published revisions keep their own copy. */
         SiteConfig: {
             theme?: components["schemas"]["SiteTheme"];
             layout?: components["schemas"]["SiteLayout"];
@@ -29386,6 +29654,7 @@ export interface components {
                 /** @example G-ABC1234 */
                 ga4_measurement_id?: string;
             };
+            widget?: components["schemas"]["SiteWidget"];
         };
         SiteHost: {
             /** @example acme.rentopia.app */
@@ -29417,6 +29686,16 @@ export interface components {
                 cover: boolean;
             };
             booking_enabled: boolean;
+            /** @description Why booking is off (empty when it is on). */
+            booking_blockers: ("site_disabled" | "key_missing" | "key_inactive" | "channel_off")[];
+            /** @description The live revision (null = never published; the site does not resolve). */
+            published_revision: number | null;
+            /** Format: date-time */
+            published_at: string | null;
+            /** @description The draft differs from the published revision. */
+            has_unpublished_changes: boolean;
+            /** @description Visitors see the site (enabled and published). */
+            live: boolean;
             /** Format: date-time */
             updated_at: string | null;
         };
@@ -29439,6 +29718,7 @@ export interface components {
         SiteResolved: {
             /** Format: uuid */
             site_uuid: string;
+            /** @description The published revision (the draft version in a preview); the `?v=` of image paths. */
             version: number;
             host: string;
             /** @enum {string} */
@@ -29471,11 +29751,137 @@ export interface components {
             portal_url: string;
             /** Format: date-time */
             updated_at: string;
+            /** @description The draft for a preview token: show a banner, never book. */
+            preview: boolean;
+            /** @description Origin allowed to frame a preview page (empty outside previews). */
+            panel_origin: string;
         };
         EnvelopeSiteResolved: {
             /** @enum {boolean} */
             success: true;
             data: components["schemas"]["SiteResolved"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        /** @description Embeddable widget settings (stored with the document; TEC-732 serves the widget and enforces the domains). */
+        SiteWidget: {
+            /** @description Origins that may embed the widget (`https://host[:port]`; `http` only for localhost). */
+            allowed_domains?: string[];
+            initial_filters?: {
+                /** @description Preselected branch (empty = none). */
+                pickup_branch_uuid?: string;
+                /** @description Default rental length (0 = site default). */
+                rental_days?: number;
+            };
+        };
+        SiteVersionInput: {
+            /** @description The settings version you saw (0 before the first save). */
+            version: number;
+        };
+        SiteRevision: {
+            /** Format: uuid */
+            uuid: string;
+            /** @description 1, 2, 3 … per organization. */
+            revision: number;
+            /** @description The settings version that was published. */
+            draft_version: number;
+            /** Format: date-time */
+            published_at: string;
+            /** @description Name of the user (empty for system / migrated revisions). */
+            published_by: string;
+            /** @description The live revision. */
+            current: boolean;
+            assets: {
+                logo: boolean;
+                favicon: boolean;
+                cover: boolean;
+            };
+        };
+        EnvelopeSiteRevisionList: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["SiteRevision"][];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        /** @description API paths of the images (`/v1/public/site/assets/…`); null = none. */
+        SiteAssetPaths: {
+            logo: string | null;
+            favicon: string | null;
+            cover: string | null;
+        };
+        SitePreviewToken: {
+            token: string;
+            /** @description The site's address with `?preview=`; open it in a frame or a new tab. */
+            url: string;
+            /** Format: date-time */
+            expires_at: string;
+            assets: components["schemas"]["SiteAssetPaths"];
+        };
+        EnvelopeSitePreviewToken: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["SitePreviewToken"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        SiteVisibilityInput: {
+            show_online: boolean;
+        };
+        SiteCatalogBranch: {
+            /** Format: uuid */
+            uuid: string;
+            code: string;
+            name: string;
+            city: string;
+            active: boolean;
+            show_online: boolean;
+        };
+        SiteCatalogSubgroup: {
+            /** Format: uuid */
+            uuid: string;
+            code: string;
+            title: string;
+            segment: string;
+            /** @enum {string} */
+            status: "draft" | "published" | "archived";
+            active: boolean;
+            show_online: boolean;
+        };
+        SiteCatalogExtra: {
+            /** Format: uuid */
+            uuid: string;
+            code: string;
+            name: string;
+            /** @enum {string} */
+            status: "draft" | "published" | "archived";
+            /** @description Shown on the branded site and widget (publishable-key callers). */
+            show_online: boolean;
+        };
+        SiteCatalog: {
+            branches: components["schemas"]["SiteCatalogBranch"][];
+            subgroups: components["schemas"]["SiteCatalogSubgroup"][];
+            extras: components["schemas"]["SiteCatalogExtra"][];
+        };
+        EnvelopeSiteCatalog: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["SiteCatalog"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeSiteCatalogBranch: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["SiteCatalogBranch"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeSiteCatalogSubgroup: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["SiteCatalogSubgroup"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeSiteCatalogExtra: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["SiteCatalogExtra"];
             meta: components["schemas"]["ResponseMeta"];
         };
         PublicAPIOverview: {
@@ -29833,6 +30239,15 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
+        /** @description Site settings */
+        SiteSettingsOK: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["EnvelopeSiteSettings"];
+            };
+        };
         /** @description Resolution task */
         ResolutionTaskOK: {
             headers: {
@@ -29959,6 +30374,8 @@ export interface components {
         };
     };
     parameters: {
+        /** @description The settings version you saw. */
+        SiteVersionQuery: number;
         /** @description Organization slug of the customer portal */
         PortalOrgSlug: string;
         InvitationUUID: string;
@@ -30020,7 +30437,18 @@ export interface components {
         /** @description Model year */
         CatalogYear: number;
     };
-    requestBodies: never;
+    requestBodies: {
+        SiteImageUpload: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    /** @description The settings version you saw. */
+                    version: number;
+                };
+            };
+        };
+    };
     headers: never;
     pathItems: never;
 }
@@ -44326,6 +44754,13 @@ export interface operations {
             query: {
                 /** @description The request `Host` (port and case are ignored). */
                 host: string;
+                /**
+                 * @description A preview token (`POST /v1/tenant/site/preview-token`). Valid for this host's site: the answer is the
+                 *     **draft** (`preview: true`, `panel_origin` set, draft image paths), also for a site that is off or never
+                 *     published. Invalid, expired or another site's token: `401 PREVIEW_INVALID`. Without it only the published
+                 *     revision of an enabled site is served.
+                 */
+                preview?: string;
             };
             header?: never;
             path?: never;
@@ -44343,13 +44778,20 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
             429: components["responses"]["TooManyRequests"];
         };
     };
     getPublicSiteAsset: {
         parameters: {
-            query?: never;
+            query?: {
+                v?: string;
+                /** @description Set on draft paths; the site forwards its preview token. */
+                draft?: string;
+                /** @description Preview token (draft image). */
+                preview?: string;
+            };
             header?: never;
             path: {
                 /** @description Resource UUID */
@@ -44433,6 +44875,424 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["TenantForbidden"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantSitePublish: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteVersionInput"];
+            };
+        };
+        responses: {
+            200: components["responses"]["SiteSettingsOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantSiteVersions: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revisions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteRevisionList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantSiteVersionRestore: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                revisionUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteVersionInput"];
+            };
+        };
+        responses: {
+            200: components["responses"]["SiteSettingsOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantSitePreviewToken: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Preview link */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSitePreviewToken"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantSiteRenewKey: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteVersionInput"];
+            };
+        };
+        responses: {
+            200: components["responses"]["SiteSettingsOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    putTenantSiteLogo: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["SiteImageUpload"];
+        responses: {
+            200: components["responses"]["SiteSettingsOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteTenantSiteLogo: {
+        parameters: {
+            query: {
+                /** @description The settings version you saw. */
+                version: components["parameters"]["SiteVersionQuery"];
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["SiteSettingsOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    putTenantSiteFavicon: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["SiteImageUpload"];
+        responses: {
+            200: components["responses"]["SiteSettingsOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteTenantSiteFavicon: {
+        parameters: {
+            query: {
+                /** @description The settings version you saw. */
+                version: components["parameters"]["SiteVersionQuery"];
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["SiteSettingsOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    putTenantSiteCover: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["SiteImageUpload"];
+        responses: {
+            200: components["responses"]["SiteSettingsOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteTenantSiteCover: {
+        parameters: {
+            query: {
+                /** @description The settings version you saw. */
+                version: components["parameters"]["SiteVersionQuery"];
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["SiteSettingsOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantSiteCatalog: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Catalog state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteCatalog"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    patchTenantSiteCatalogBranch: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteVisibilityInput"];
+            };
+        };
+        responses: {
+            /** @description Branch */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteCatalogBranch"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchTenantSiteCatalogSubgroup: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteVisibilityInput"];
+            };
+        };
+        responses: {
+            /** @description Subgroup */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteCatalogSubgroup"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchTenantSiteCatalogExtra: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteVisibilityInput"];
+            };
+        };
+        responses: {
+            /** @description Extra */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteCatalogExtra"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     getPublicPayLink: {

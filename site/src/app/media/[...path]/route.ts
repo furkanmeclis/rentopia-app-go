@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 
 import { apiOrigin } from "@/lib/api";
+import { PREVIEW_COOKIE, previewToken } from "@/lib/preview";
 import { clientIpFrom } from "@/lib/request";
 import { resolveSite } from "@/lib/resolve";
 
@@ -15,9 +16,16 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> },
 ) {
+  // Draft image of a preview (TEC-730): resolve with this visitor's
+  // preview token and forward it; the API checks it belongs to this site.
+  const preview =
+    request.nextUrl.searchParams.get("draft") === "1"
+      ? previewToken(request.cookies.get(PREVIEW_COOKIE)?.value)
+      : "";
   const site = await resolveSite(
     request.headers.get("host"),
     clientIpFrom(request.headers),
+    preview,
   ).catch(() => null);
   if (!site) return new Response(null, { status: 404 });
   const { path } = await params;
@@ -32,7 +40,10 @@ export async function GET(
     return new Response(null, { status: 404 });
 
   const v = request.nextUrl.searchParams.get("v");
-  const query = v && /^\d{1,10}$/.test(v) ? `?v=${v}` : "";
+  const qs = new URLSearchParams();
+  if (v && /^\d{1,10}$/.test(v)) qs.set("v", v);
+  if (preview && rel.startsWith("site/assets/")) qs.set("preview", preview);
+  const query = qs.size ? `?${qs.toString()}` : "";
   let upstream: Response;
   try {
     upstream = await fetch(`${apiOrigin()}/v1/public/${rel}${query}`, {
@@ -49,8 +60,9 @@ export async function GET(
   return new Response(upstream.body, {
     headers: {
       "Content-Type": type,
-      "Cache-Control":
-        upstream.headers.get("cache-control") ?? "public, max-age=3600",
+      "Cache-Control": preview
+        ? "private, no-store"
+        : (upstream.headers.get("cache-control") ?? "public, max-age=3600"),
       "X-Content-Type-Options": "nosniff",
     },
   });

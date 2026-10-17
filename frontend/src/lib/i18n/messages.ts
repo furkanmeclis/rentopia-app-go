@@ -41,6 +41,7 @@ import enPayments from "@/locales/en/payments.json";
 import enFinance from "@/locales/en/finance.json";
 import enSuppliers from "@/locales/en/suppliers.json";
 import enPublicApi from "@/locales/en/public_api.json";
+import enSite from "@/locales/en/site.json";
 import enNotificationEngine from "@/locales/en/notification_engine.json";
 import enWhatsapp from "@/locales/en/whatsapp.json";
 import enUsers from "@/locales/en/users.json";
@@ -110,6 +111,7 @@ import trPayments from "@/locales/tr/payments.json";
 import trFinance from "@/locales/tr/finance.json";
 import trSuppliers from "@/locales/tr/suppliers.json";
 import trPublicApi from "@/locales/tr/public_api.json";
+import trSite from "@/locales/tr/site.json";
 import trNotificationEngine from "@/locales/tr/notification_engine.json";
 import trWhatsapp from "@/locales/tr/whatsapp.json";
 import trUsers from "@/locales/tr/users.json";
@@ -210,6 +212,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     finance: trFinance,
     suppliers: trSuppliers,
     public_api: trPublicApi,
+    site: trSite,
     notification_engine: trNotificationEngine,
     whatsapp: trWhatsapp,
   },
@@ -281,6 +284,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     finance: enFinance,
     suppliers: enSuppliers,
     public_api: enPublicApi,
+    site: enSite,
     notification_engine: enNotificationEngine,
     whatsapp: enWhatsapp,
   },

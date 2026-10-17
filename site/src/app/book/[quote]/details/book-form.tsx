@@ -18,14 +18,14 @@ import {
 
 export type BookLabels = Record<string, string>;
 
-function Submit({ labels }: { labels: BookLabels }) {
+function Submit({ labels, preview }: { labels: BookLabels; preview: boolean }) {
   const { pending } = useFormStatus();
   return (
     <Button
       type="submit"
       size="lg"
-      disabled={pending}
-      aria-disabled={pending}
+      disabled={pending || preview}
+      aria-disabled={pending || preview}
       className="w-full sm:w-auto"
     >
       {pending ? labels["book.submitting"] : labels["book.submit"]}
@@ -41,10 +41,13 @@ export function BookForm({
   quoteUuid,
   idempotencyKey,
   labels,
+  preview = false,
 }: {
   quoteUuid: string;
   idempotencyKey: string;
   labels: BookLabels;
+  /** Draft preview (TEC-730): the form shows, the booking is disabled. */
+  preview?: boolean;
 }) {
   const [state, action] = useActionState<BookState, FormData>(book, {});
   const v = state.values ?? {};
@@ -56,6 +59,7 @@ export function BookForm({
     <form action={action} className="space-y-6" noValidate>
       <input type="hidden" name="quote_uuid" value={quoteUuid} />
       <input type="hidden" name="idempotency_key" value={idempotencyKey} />
+      {preview ? <Alert>{L("preview.booking_disabled")}</Alert> : null}
       {state.error ? <Alert tone="error">{L(state.error)}</Alert> : null}
 
       <fieldset className="space-y-4">
@@ -236,7 +240,7 @@ export function BookForm({
         ) : null}
       </fieldset>
 
-      <Submit labels={labels} />
+      <Submit labels={labels} preview={preview} />
     </form>
   );
 }
