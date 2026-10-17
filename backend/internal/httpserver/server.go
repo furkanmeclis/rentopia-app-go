@@ -200,6 +200,9 @@ import (
 	vehiclehandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/handler"
 	vehiclerepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/repository"
 	vehicleusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/usecase"
+	whatsappmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/whatsapp"
+	whatsapphandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/whatsapp/handler"
+	whatsappusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/whatsapp/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/activity"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/appleauth"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/bulkengine"
@@ -516,6 +519,10 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	// dependency until TEC-685) and the fake outside production only.
 	invoiceProviders := invoicesmodule.Providers(cfg.App.Env, log)
 	integrationAdapters = append(integrationAdapters, invoicesmodule.Adapters(invoiceProviders)...)
+	// WhatsApp providers (TEC-735): wuzapi (configured by WUZAPI_*) and
+	// the fake outside production only.
+	whatsappProviders, whatsappFake := whatsappmodule.Providers(cfg.WhatsApp, cfg.App.Env, log)
+	integrationAdapters = append(integrationAdapters, whatsappmodule.Adapters(whatsappProviders)...)
 	// Channel managers (TEC-736): Yolcu360 (documented supplier contract)
 	// and its fake outside production only.
 	channelProviders := channelsmodule.Providers(cfg.App.Env, log)
@@ -552,6 +559,18 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 			PublicKey: cfg.VAPID.PublicKey, PrivateKey: cfg.VAPID.PrivateKey, Subject: cfg.VAPID.Subject,
 		}))
 	integrationRunner.AddListener(notifySMS)
+	// WhatsApp (TEC-735): one wuzapi session per organization; the engine
+	// channel sends test messages inline (scheduled ones go from the
+	// worker), receipts arrive on the public webhook.
+	whatsappSvc := whatsappusecase.New(deps.Queries, integrationAccountsSvc, integrationVault,
+		whatsappusecase.Config{WebhookBaseURL: cfg.WhatsApp.WebhookBaseURL}, whatsappProviders...)
+	whatsappSvc.SetActivity(activityRec)
+	whatsappSvc.SetNotifier(notifSvc)
+	whatsappSvc.SetLogger(log)
+	if whatsappFake != nil {
+		whatsappFake.SetReceipts(whatsappSvc.ApplyReceipt)
+	}
+	notifyEngine.Register(whatsappusecase.NewChannel(whatsappSvc))
 	paymentsSvc := paymentsusecase.New(deps.DB, deps.Queries, integrationAccountsSvc, reservationSvc,
 		paymentsusecase.Config{PublicBaseURL: cfg.Auth.FrontendURL}, iyzicoAdapter)
 	paymentsSvc.SetResourceEvents(resourceEvents)
@@ -1045,6 +1064,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	if tenantResolver != nil {
 		notifyenginemodule.RegisterCustomerRoutes(mux, notifyH, portalH.RequireSession)
 	}
+	whatsappmodule.RegisterRoutes(mux, whatsapphandler.New(whatsappSvc), tokens, loader, tenantResolver)
 	settingsmodule.RegisterRoutes(mux, settingshandler.New(
 		settingsusecase.New(deps.Queries),
 		deps.Storage,

@@ -90,6 +90,8 @@ import (
 	vehicleadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/adapters"
 	vehiclerepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/repository"
 	vehicleusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/vehicles/usecase"
+	whatsappmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/whatsapp"
+	whatsappusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/whatsapp/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/observability"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/activity"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/bulkengine"
@@ -245,6 +247,8 @@ func main() {
 	// outside production only.
 	invoiceProviders := invoicesmodule.Providers(cfg.App.Env, log)
 	integrationAdapters = append(integrationAdapters, invoicesmodule.Adapters(invoiceProviders)...)
+	whatsappProviders, whatsappFake := whatsappmodule.Providers(cfg.WhatsApp, cfg.App.Env, log)
+	integrationAdapters = append(integrationAdapters, whatsappmodule.Adapters(whatsappProviders)...)
 	// Channel managers (TEC-736): the sync sweep runs here.
 	channelProviders := channelsmodule.Providers(cfg.App.Env, log)
 	integrationAdapters = append(integrationAdapters, channelsmodule.Adapters(channelProviders)...)
@@ -271,6 +275,17 @@ func main() {
 			PublicKey: cfg.VAPID.PublicKey, PrivateKey: cfg.VAPID.PrivateKey, Subject: cfg.VAPID.Subject,
 		}))
 	integrationRunner.AddListener(notifySMS)
+	// WhatsApp (TEC-735): the engine channel, the health sweep (drop
+	// alert, reconnect, receipt timeout).
+	whatsappSvc := whatsappusecase.New(queries, integrationAccountsSvc, integrationVault,
+		whatsappusecase.Config{WebhookBaseURL: cfg.WhatsApp.WebhookBaseURL}, whatsappProviders...)
+	whatsappSvc.SetActivity(activityRec)
+	whatsappSvc.SetNotifier(notifSvc)
+	whatsappSvc.SetLogger(log)
+	if whatsappFake != nil {
+		whatsappFake.SetReceipts(whatsappSvc.ApplyReceipt)
+	}
+	notifyEngine.Register(whatsappusecase.NewChannel(whatsappSvc))
 	reservationSvc.SetTransitionNotifier(notifyEngine)
 	paymentsSvc := paymentsusecase.New(pool, queries, integrationAccountsSvc, reservationSvc,
 		paymentsusecase.Config{PublicBaseURL: cfg.Auth.FrontendURL}, iyzicoAdapter)
@@ -566,6 +581,7 @@ func main() {
 		WithPlatformHealthAlerts(platformHealthSvc.RunAlertsCount).
 		WithPublicWebhooks(publicAPISvc.DeliverDue).
 		WithNotifyEngine(notifyEngine.Sweep).
+		WithWhatsApp(whatsappSvc.Watch).
 		WithDocumentPDF(contractsSvc.RenderPDF).
 		WithSearch(
 			searchIndexer.ProcessUpsert,
@@ -616,6 +632,10 @@ func main() {
 	}
 	if err := queue.RegisterNotifyEngineSchedule(scheduler); err != nil {
 		log.Error("notify_engine_scheduler_failed", "error", err)
+		exit(1)
+	}
+	if err := queue.RegisterWhatsAppSchedule(scheduler); err != nil {
+		log.Error("whatsapp_scheduler_failed", "error", err)
 		exit(1)
 	}
 	go func() {

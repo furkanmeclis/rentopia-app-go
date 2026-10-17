@@ -23,6 +23,8 @@ const PROVIDER_LOGOS: Record<string, { src: StaticImageData; alt: string }> = {
   einvoice: { src: gib, alt: "Gelir İdaresi Başkanlığı" },
   einvoice_fake: { src: gib, alt: "Gelir İdaresi Başkanlığı" },
   whatsapp: { src: whatsapp, alt: "WhatsApp" },
+  wuzapi: { src: whatsapp, alt: "WhatsApp" },
+  whatsapp_fake: { src: whatsapp, alt: "WhatsApp" },
   yolcu360: { src: yolcu360, alt: "Yolcu360" },
   yolcu360_fake: { src: yolcu360, alt: "Yolcu360" },
 };

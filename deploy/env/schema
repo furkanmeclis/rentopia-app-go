@@ -16,7 +16,7 @@
 #   rename with  @rename OLD NEW <version>,  retire with  @remove KEY <version>.
 #   Never change the rule of an existing secret: running installs keep theirs anyway.
 
-@version 3
+@version 4
 
 # --- Identity / Docker ---
 NAME_PREFIX | const:rentopia
@@ -87,3 +87,10 @@ IYZICO_LIVE_BASE_URL | const:https://api.iyzipay.com
 NETGSM_LIVE_BASE_URL | const:https://api.netgsm.com.tr
 NETGSM_SANDBOX_BASE_URL | empty
 SMS_LOG_PROVIDER | const:false
+
+# --- WhatsApp (TEC-735; wuzapi on the private app network, one session per organization) ---
+# Organizations link their own number in the panel (QR). Pin WUZAPI_IMAGE to a
+# tested tag; the admin token creates the per-organization wuzapi users.
+WUZAPI_IMAGE | const:asternic/wuzapi:latest
+WUZAPI_ADMIN_TOKEN | secret:hex:32
+WUZAPI_ENCRYPTION_KEY | secret:alnum:32

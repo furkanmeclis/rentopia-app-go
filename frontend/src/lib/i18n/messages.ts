@@ -42,6 +42,7 @@ import enFinance from "@/locales/en/finance.json";
 import enSuppliers from "@/locales/en/suppliers.json";
 import enPublicApi from "@/locales/en/public_api.json";
 import enNotificationEngine from "@/locales/en/notification_engine.json";
+import enWhatsapp from "@/locales/en/whatsapp.json";
 import enUsers from "@/locales/en/users.json";
 import enVehicleRecords from "@/locales/en/vehicle_records.json";
 import enOneWayRules from "@/locales/en/one_way_rules.json";
@@ -110,6 +111,7 @@ import trFinance from "@/locales/tr/finance.json";
 import trSuppliers from "@/locales/tr/suppliers.json";
 import trPublicApi from "@/locales/tr/public_api.json";
 import trNotificationEngine from "@/locales/tr/notification_engine.json";
+import trWhatsapp from "@/locales/tr/whatsapp.json";
 import trUsers from "@/locales/tr/users.json";
 import trVehicleRecords from "@/locales/tr/vehicle_records.json";
 import trOneWayRules from "@/locales/tr/one_way_rules.json";
@@ -209,6 +211,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     suppliers: trSuppliers,
     public_api: trPublicApi,
     notification_engine: trNotificationEngine,
+    whatsapp: trWhatsapp,
   },
   en: {
     common: enCommon,
@@ -279,6 +282,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     suppliers: enSuppliers,
     public_api: enPublicApi,
     notification_engine: enNotificationEngine,
+    whatsapp: enWhatsapp,
   },
 };
 export function loadMessages(locale: AppLocale) {

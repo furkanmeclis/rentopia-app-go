@@ -12,6 +12,7 @@ import (
 )
 
 type Querier interface {
+	AcknowledgeWhatsAppRisk(ctx context.Context, arg AcknowledgeWhatsAppRiskParams) error
 	ActivateContractTemplate(ctx context.Context, arg ActivateContractTemplateParams) (int64, error)
 	ActivateDateRuleVersion(ctx context.Context, arg ActivateDateRuleVersionParams) (int64, error)
 	ActivateRatePlanVersion(ctx context.Context, arg ActivateRatePlanVersionParams) (int64, error)
@@ -215,6 +216,10 @@ type Querier interface {
 	CountVehicleSegments(ctx context.Context, arg CountVehicleSegmentsParams) (int64, error)
 	CountVehicleTransfers(ctx context.Context, arg CountVehicleTransfersParams) (int64, error)
 	CountVehicles(ctx context.Context, arg CountVehiclesParams) (int64, error)
+	CountWhatsAppRecipientSince(ctx context.Context, arg CountWhatsAppRecipientSinceParams) (int64, error)
+	// Messages --------------------------------------------------------------
+	// Sends of the session since a time (rate limit).
+	CountWhatsAppSessionSince(ctx context.Context, arg CountWhatsAppSessionSinceParams) (int64, error)
 	// Tenant resource: branches and service points.
 	// Every query filters by organization_id (see docs/design/tenant-core.md §8).
 	CreateBranch(ctx context.Context, arg CreateBranchParams) (Branch, error)
@@ -1001,6 +1006,12 @@ type Querier interface {
 	GetVehicleTransfer(ctx context.Context, arg GetVehicleTransferParams) (GetVehicleTransferRow, error)
 	GetWebAuthnCredentialByCredentialID(ctx context.Context, credentialID string) (WebauthnCredential, error)
 	GetWebAuthnCredentialByUUID(ctx context.Context, arg GetWebAuthnCredentialByUUIDParams) (WebauthnCredential, error)
+	GetWhatsAppMessageByProviderID(ctx context.Context, arg GetWhatsAppMessageByProviderIDParams) (WhatsappMessage, error)
+	// Sessions --------------------------------------------------------------
+	GetWhatsAppSessionByAccount(ctx context.Context, arg GetWhatsAppSessionByAccountParams) (WhatsappSession, error)
+	// Webhook deliveries name their session by the secret URL segment; the
+	// row carries its organization_id for every later query.
+	GetWhatsAppSessionByWebhook(ctx context.Context, webhookTokenHash string) (WhatsappSession, error)
 	GrantCustomerConsent(ctx context.Context, arg GrantCustomerConsentParams) (CustomerMarketingConsent, error)
 	HasActivePushDevices(ctx context.Context, userID int64) (bool, error)
 	IgnoreChannelMessage(ctx context.Context, arg IgnoreChannelMessageParams) (int64, error)
@@ -1193,6 +1204,8 @@ type Querier interface {
 	InsertVehicleAssignment(ctx context.Context, arg InsertVehicleAssignmentParams) error
 	InsertVehicleEvent(ctx context.Context, arg InsertVehicleEventParams) (VehicleEvent, error)
 	InsertVehicleTollTag(ctx context.Context, arg InsertVehicleTollTagParams) (uuid.UUID, error)
+	InsertWhatsAppMessage(ctx context.Context, arg InsertWhatsAppMessageParams) (WhatsappMessage, error)
+	InsertWhatsAppSession(ctx context.Context, arg InsertWhatsAppSessionParams) (WhatsappSession, error)
 	// Connected provider accounts of live organizations by check state.
 	IntegrationAccountHealthCounts(ctx context.Context) (IntegrationAccountHealthCountsRow, error)
 	// Integration jobs of live organizations (and platform jobs, organization
@@ -1879,6 +1892,15 @@ type Querier interface {
 	ListWebAuthnCredentialsByUserID(ctx context.Context, userID int64) ([]WebauthnCredential, error)
 	ListWebAuthnCredentialsForUserIDs(ctx context.Context, userIds []int64) ([]WebauthnCredential, error)
 	ListWebhookEndpointsForEvent(ctx context.Context, arg ListWebhookEndpointsForEventParams) ([]int64, error)
+	// Members who manage integrations (they can reconnect the session).
+	ListWhatsAppAlertRecipients(ctx context.Context, arg ListWhatsAppAlertRecipientsParams) ([]ListWhatsAppAlertRecipientsRow, error)
+	ListWhatsAppMessages(ctx context.Context, arg ListWhatsAppMessagesParams) ([]ListWhatsAppMessagesRow, error)
+	// Sent messages without a delivery receipt since before a time.
+	ListWhatsAppMessagesAwaitingReceipt(ctx context.Context, arg ListWhatsAppMessagesAwaitingReceiptParams) ([]WhatsappMessage, error)
+	ListWhatsAppOrganizationsAwaitingReceipt(ctx context.Context, before pgtype.Timestamptz) ([]int64, error)
+	// Sessions of active WhatsApp accounts that were linked once: the health
+	// sweep reads their state at the provider.
+	ListWhatsAppSessionsToWatch(ctx context.Context) ([]ListWhatsAppSessionsToWatchRow, error)
 	LockAccount(ctx context.Context, arg LockAccountParams) (int64, error)
 	LockAgreement(ctx context.Context, arg LockAgreementParams) (int64, error)
 	// Corporate agreements (TEC-723, docs/design/corporate-agreements.md).
@@ -1982,6 +2004,11 @@ type Querier interface {
 	MarkSecurityDepositHeld(ctx context.Context, arg MarkSecurityDepositHeldParams) (int64, error)
 	// OAuth sign-up stores a random hash; the user never chose a password.
 	MarkUserPasswordUnset(ctx context.Context, id int64) error
+	// A delivery receipt; a late one after the read receipt keeps "read".
+	MarkWhatsAppMessageDelivered(ctx context.Context, arg MarkWhatsAppMessageDeliveredParams) (int64, error)
+	MarkWhatsAppMessageFailed(ctx context.Context, arg MarkWhatsAppMessageFailedParams) (int64, error)
+	MarkWhatsAppMessageRead(ctx context.Context, arg MarkWhatsAppMessageReadParams) (int64, error)
+	MarkWhatsAppMessageSent(ctx context.Context, arg MarkWhatsAppMessageSentParams) error
 	// A reassignment step; matches only when the row is still where the plan
 	// found it (optimistic check: 0 rows = the plan is stale, retry).
 	MoveAllocation(ctx context.Context, arg MoveAllocationParams) (int64, error)
@@ -2201,6 +2228,8 @@ type Querier interface {
 	RescheduleFieldTask(ctx context.Context, arg RescheduleFieldTaskParams) error
 	// The planned pick-up / return moved: live tasks of the type follow.
 	RescheduleRentalTasks(ctx context.Context, arg RescheduleRentalTasksParams) error
+	// A new provider session for the account (after a removal on the server).
+	ResetWhatsAppSession(ctx context.Context, arg ResetWhatsAppSessionParams) (WhatsappSession, error)
 	ResolveCustomerRequest(ctx context.Context, arg ResolveCustomerRequestParams) (int64, error)
 	// Remote approval links of documents (TEC-711, docs/design/contracts.md §7).
 	// Public approval page: the token hash names the link and its organization.
@@ -2348,6 +2377,13 @@ type Querier interface {
 	SetVehicleStatus(ctx context.Context, arg SetVehicleStatusParams) (Vehicle, error)
 	// Cost and note stay editable after departure (fuel, tolls, driver).
 	SetVehicleTransferCost(ctx context.Context, arg SetVehicleTransferCostParams) (int64, error)
+	// WhatsApp channel (TEC-735, docs/design/whatsapp.md).
+	// Account ---------------------------------------------------------------
+	// The generated session token sealed into the WhatsApp integration
+	// account (the account form has no fields: nothing is typed in).
+	SetWhatsAppAccountCredentials(ctx context.Context, arg SetWhatsAppAccountCredentialsParams) (int64, error)
+	SetWhatsAppSessionSettings(ctx context.Context, arg SetWhatsAppSessionSettingsParams) (WhatsappSession, error)
+	SetWhatsAppSessionState(ctx context.Context, arg SetWhatsAppSessionStateParams) (WhatsappSession, error)
 	SettleCollection(ctx context.Context, arg SettleCollectionParams) (int64, error)
 	SlugExists(ctx context.Context, slug string) (bool, error)
 	SoftDeleteAgreement(ctx context.Context, arg SoftDeleteAgreementParams) (int64, error)

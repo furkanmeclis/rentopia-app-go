@@ -94,6 +94,12 @@ var isolationAllowlist = map[string]string{
 	"PUT /v1/tenant/notification-templates":          "template of the caller's organization, addressed by catalog codes (event, channel, language)",
 	"POST /v1/tenant/notification-templates/reset":   "template of the caller's organization, addressed by catalog codes (event, channel, language)",
 	"POST /v1/tenant/notification-templates/preview": "renders sample values; no records",
+	"PATCH /v1/tenant/whatsapp/session":              "rate limit of the caller's organization's WhatsApp session; no foreign references",
+	"DELETE /v1/tenant/whatsapp/session":             "removes the caller's organization's WhatsApp session; no ids",
+	"POST /v1/tenant/whatsapp/session/connect":       "connects the caller's organization's WhatsApp (provider code, risk notice); no foreign references",
+	"POST /v1/tenant/whatsapp/session/refresh":       "reads the caller's organization's WhatsApp session state; no body",
+	"POST /v1/tenant/whatsapp/session/logout":        "unlinks the caller's organization's WhatsApp session; no body",
+	"POST /v1/tenant/whatsapp/test-messages":         "test text to a typed number through the caller's organization's session; no records",
 	"POST /v1/tenant/public-api/keys":                "body has no foreign references (kind, name, channel, scopes, origins, rate limit)",
 	"POST /v1/tenant/public-api/webhooks":            "body has no foreign references (name, URL, event names)",
 }

@@ -34,6 +34,18 @@ type Config struct {
 	Tenancy    TenancyConfig
 	Payments   PaymentsConfig
 	SMS        SMSConfig
+	WhatsApp   WhatsAppConfig
+}
+
+// WhatsAppConfig locates the wuzapi WhatsApp gateway (TEC-735). It runs on
+// the private app network; WuzapiAdminToken creates one wuzapi user per
+// organization. WebhookBaseURL is the API origin as wuzapi reaches it
+// (receipts and connection events). Empty base URL / token: the wuzapi
+// provider is unavailable (the development fake works without it).
+type WhatsAppConfig struct {
+	WuzapiBaseURL    string
+	WuzapiAdminToken string
+	WebhookBaseURL   string
 }
 
 // SMSConfig holds the SMS provider endpoints (TEC-734). Credentials are per
@@ -365,6 +377,11 @@ func Load() (Config, error) {
 			NetgsmLiveBaseURL:    getEnv("NETGSM_LIVE_BASE_URL", "https://api.netgsm.com.tr"),
 			NetgsmSandboxBaseURL: getEnv("NETGSM_SANDBOX_BASE_URL", ""),
 			LogProvider:          getBool("SMS_LOG_PROVIDER", false),
+		},
+		WhatsApp: WhatsAppConfig{
+			WuzapiBaseURL:    getEnv("WUZAPI_BASE_URL", ""),
+			WuzapiAdminToken: getEnv("WUZAPI_ADMIN_TOKEN", ""),
+			WebhookBaseURL:   getEnv("WUZAPI_WEBHOOK_BASE_URL", ""),
 		},
 	}
 

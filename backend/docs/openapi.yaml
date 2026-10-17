@@ -22408,6 +22408,253 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/CustomerSessionRequired" }
 
+  /v1/tenant/whatsapp/session:
+    get:
+      tags: [Tenant]
+      operationId: getTenantWhatsAppSession
+      summary: WhatsApp session state
+      description: |
+        `tenant.integrations.manage`. The organization's WhatsApp Web session (one wuzapi user per organization):
+        `not_connected` (no WhatsApp account / session), `created`, `pairing` (waiting for the QR scan),
+        `connected`, `disconnected` (dropped; reconnect attempts run, staff were alerted) or `logged_out`. Lists the
+        selectable providers (`wuzapi`; `whatsapp_fake` outside production).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200": { $ref: "#/components/responses/WhatsAppSessionOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantWhatsAppSession
+      summary: WhatsApp session settings
+      description: "`tenant.integrations.manage`. Messages per minute through the session (1 to 60)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WhatsAppSettingsInput" }
+      responses:
+        "200": { $ref: "#/components/responses/WhatsAppSessionOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantWhatsAppSession
+      summary: Remove the WhatsApp session
+      description: |
+        `tenant.integrations.manage`. Unlinks the phone, deletes the wuzapi user and disables the WhatsApp
+        integration account. Connecting again starts with a new account and session.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200": { $ref: "#/components/responses/WhatsAppSessionOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/whatsapp/session/connect:
+    post:
+      tags: [Tenant]
+      operationId: postTenantWhatsAppConnect
+      summary: Connect WhatsApp
+      description: |
+        `tenant.integrations.manage`. `acknowledge_risk` must be true (the number risk notice: an unofficial
+        WhatsApp Web session; heavy or unsolicited sending can get the number banned). Creates the WhatsApp
+        integration account and the provider session when missing (the session token is generated and sealed in
+        the account), opens the socket; then poll `GET /session/qr` and show the code until `connected`.
+        `WHATSAPP_PROVIDER_UNAVAILABLE` (503) when the gateway is not configured, `WHATSAPP_PROVIDER_ERROR` (502)
+        when it refuses.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WhatsAppConnectInput" }
+      responses:
+        "200": { $ref: "#/components/responses/WhatsAppSessionOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "502": { $ref: "#/components/responses/WhatsAppProviderError" }
+        "503": { $ref: "#/components/responses/WhatsAppUnavailable" }
+
+  /v1/tenant/whatsapp/session/qr:
+    get:
+      tags: [Tenant]
+      operationId: getTenantWhatsAppQR
+      summary: WhatsApp pairing QR code
+      description: |
+        `tenant.integrations.manage`. The current pairing code (PNG data URL) while the session waits for a phone;
+        the code changes about every 20 seconds, so poll. Once linked the answer is `connected` without a code.
+        `WHATSAPP_NOT_CONNECTED` (409) before `connect`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: QR state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeWhatsAppQR" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "502": { $ref: "#/components/responses/WhatsAppProviderError" }
+        "503": { $ref: "#/components/responses/WhatsAppUnavailable" }
+
+  /v1/tenant/whatsapp/session/refresh:
+    post:
+      tags: [Tenant]
+      operationId: postTenantWhatsAppRefresh
+      summary: Read the WhatsApp session state
+      description: "`tenant.integrations.manage`. Reads the state at the provider and records it."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200": { $ref: "#/components/responses/WhatsAppSessionOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/whatsapp/session/logout:
+    post:
+      tags: [Tenant]
+      operationId: postTenantWhatsAppLogout
+      summary: Unlink the phone
+      description: "`tenant.integrations.manage`. The session stays; `connect` and a new QR scan link a phone again."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200": { $ref: "#/components/responses/WhatsAppSessionOK" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "502": { $ref: "#/components/responses/WhatsAppProviderError" }
+
+  /v1/tenant/whatsapp/test-messages:
+    post:
+      tags: [Tenant]
+      operationId: postTenantWhatsAppTestMessage
+      summary: Send a WhatsApp test message
+      description: |
+        `tenant.integrations.manage`. A fixed text to the number through the linked session (rate limits and the
+        number check apply; logged as a test). `WHATSAPP_NOT_CONNECTED` (409), `WHATSAPP_RATE_LIMITED` (429),
+        `WHATSAPP_NOT_ON_WHATSAPP` (422).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WhatsAppTestInput" }
+      responses:
+        "201":
+          description: Logged message
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeWhatsAppMessage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "502": { $ref: "#/components/responses/WhatsAppProviderError" }
+
+  /v1/tenant/whatsapp/messages:
+    get:
+      tags: [Tenant]
+      operationId: getTenantWhatsAppMessages
+      summary: WhatsApp message log
+      description: |
+        `tenant.integrations.manage`. One row per message: purpose (`notify.<event>` or `test`), masked
+        recipient, WhatsApp message id and receipts (`sent` → `delivered` → `read`; `failed` with the reason, also
+        when no delivery receipt came within 60 minutes). Message texts are kept in the notification delivery log
+        only.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - name: sort
+          in: query
+          description: "`created_at`, `status` or `purpose`; prefix `-` for descending."
+          schema: { type: string }
+        - { name: status, in: query, schema: { type: string }, description: "queued, sent, delivered, read, failed (comma separated)" }
+        - { name: kind, in: query, schema: { type: string }, description: "text, document (comma separated)" }
+        - { name: created_from, in: query, schema: { type: string, format: date-time } }
+        - { name: created_to, in: query, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: Message page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeWhatsAppMessagePage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/public/whatsapp/webhook/{token}:
+    post:
+      tags: [Notifications]
+      operationId: postPublicWhatsAppWebhook
+      summary: WhatsApp gateway webhook
+      description: |
+        No auth: called by the wuzapi server on the private network. The secret `token` (generated per session)
+        names the session and so the organization; an unknown token answers 404. Body: wuzapi event JSON
+        (`type` ReadReceipt / Connected / PairSuccess / LoggedOut / Disconnected, `state`, `event`) or a form with
+        `jsonData`. Receipts update the message log and settle the notification attempt; connection events
+        refresh the session state.
+      security: []
+      parameters:
+        - { name: token, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type: { type: string }
+                state: { type: string }
+                event: { type: object }
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                jsonData: { type: string }
+      responses:
+        "200":
+          description: Received
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeWhatsAppWebhook" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
 components:
   securitySchemes:
     customerSession:
@@ -22627,6 +22874,24 @@ components:
       schema: { type: integer, minimum: 1950, maximum: 2100 }
 
   responses:
+    WhatsAppSessionOK:
+      description: WhatsApp session
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/EnvelopeWhatsAppSession"
+    WhatsAppProviderError:
+      description: "`WHATSAPP_PROVIDER_ERROR`: the WhatsApp gateway refused or failed"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    WhatsAppUnavailable:
+      description: "`WHATSAPP_PROVIDER_UNAVAILABLE`: the WhatsApp gateway is not configured on this server"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
     AgreementOK:
       description: Corporate agreement
       content:
@@ -39129,4 +39394,124 @@ components:
       properties:
         success: { type: boolean, enum: [true] }
         data: { $ref: "#/components/schemas/PublicAPIOverview" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    WhatsAppProvider:
+      type: object
+      required: [code, configured]
+      properties:
+        code: { type: string, enum: [wuzapi, whatsapp_fake] }
+        configured: { type: boolean }
+
+    WhatsAppSession:
+      type: object
+      required: [status, provider, account_uuid, phone_masked, connected_at, disconnected_at, last_status_at, last_error,
+        rate_limit_per_minute, risk_acknowledged_at, providers]
+      properties:
+        status: { type: string, enum: [not_connected, created, pairing, connected, disconnected, logged_out] }
+        provider: { type: string }
+        account_uuid: { type: [string, "null"], format: uuid }
+        phone_masked: { type: string }
+        connected_at: { type: [string, "null"], format: date-time }
+        disconnected_at: { type: [string, "null"], format: date-time }
+        last_status_at: { type: [string, "null"], format: date-time }
+        last_error: { type: string }
+        rate_limit_per_minute: { type: integer, format: int32 }
+        risk_acknowledged_at: { type: [string, "null"], format: date-time }
+        providers: { type: array, items: { $ref: "#/components/schemas/WhatsAppProvider" } }
+
+    WhatsAppConnectInput:
+      type: object
+      required: [acknowledge_risk]
+      properties:
+        provider: { type: string, description: "Provider of a new WhatsApp account (empty: the first configured one)" }
+        acknowledge_risk: { type: boolean }
+
+    WhatsAppSettingsInput:
+      type: object
+      properties:
+        rate_limit_per_minute: { type: integer, format: int32, minimum: 1, maximum: 60 }
+
+    WhatsAppTestInput:
+      type: object
+      required: [phone]
+      properties:
+        phone: { type: string }
+
+    WhatsAppMessage:
+      type: object
+      required: [uuid, kind, purpose, delivery_uuid, customer_uuid, customer_name, recipient_masked, provider_message_id,
+        status, error, test, sent_at, delivered_at, read_at, failed_at, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        kind: { type: string, enum: [text, document] }
+        purpose: { type: string }
+        delivery_uuid: { type: [string, "null"], format: uuid }
+        customer_uuid: { type: [string, "null"], format: uuid }
+        customer_name: { type: string }
+        recipient_masked: { type: string }
+        provider_message_id: { type: string }
+        status: { type: string, enum: [queued, sent, delivered, read, failed] }
+        error: { type: string }
+        test: { type: boolean }
+        sent_at: { type: [string, "null"], format: date-time }
+        delivered_at: { type: [string, "null"], format: date-time }
+        read_at: { type: [string, "null"], format: date-time }
+        failed_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+
+    EnvelopeWhatsAppSession:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/WhatsAppSession" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeWhatsAppQR:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [status, qr_code]
+          properties:
+            status: { type: string, enum: [created, pairing, connected, disconnected, logged_out] }
+            qr_code: { type: string, description: "PNG data URL; empty once linked" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeWhatsAppMessage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/WhatsAppMessage" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeWhatsAppMessagePage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/WhatsAppMessage" } }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeWhatsAppWebhook:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [received]
+          properties:
+            received: { type: boolean }
         meta: { $ref: "#/components/schemas/ResponseMeta" }

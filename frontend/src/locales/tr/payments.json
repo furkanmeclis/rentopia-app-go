@@ -313,5 +313,9 @@
   "integrations.provider_hints.yolcu360_fake": "Yalnız geliştirme ve test: Yolcu360'a hiçbir şey gönderilmez. Kanal yöneticisinden rezervasyon simüle edebilirsiniz. Test senaryosu: boş / ok, outage (kesinti), reject (red).",
   "integrations.fields.supplier_code": "Tedarikçi kodu",
   "integrations.fields.api_secret": "İmza anahtarı",
-  "integrations.fields.base_url": "Sunucu adresi (isteğe bağlı)"
+  "integrations.fields.base_url": "Sunucu adresi (isteğe bağlı)",
+  "integrations.providers.wuzapi": "WhatsApp (wuzapi ağ geçidi)",
+  "integrations.providers.whatsapp_fake": "WhatsApp test sağlayıcısı (geliştirme)",
+  "integrations.provider_hints.wuzapi": "Bilgi girmeniz gerekmez. Bağladıktan sonra Ayarlar → WhatsApp sayfasında QR kodunu telefonunuzla okutun.",
+  "integrations.provider_hints.whatsapp_fake": "Yalnız geliştirme ve test: mesaj gönderilmez. QR kodu gösterildikten 10 saniye sonra bağlanır."
 }
