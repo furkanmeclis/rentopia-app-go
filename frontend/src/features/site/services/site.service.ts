@@ -6,11 +6,15 @@ import type {
   SiteCatalogSubgroup,
   SiteDomain,
   SiteImageKind,
+  SiteMedia,
+  SiteMediaList,
   SitePreviewToken,
+  SiteResolved,
   SiteRevision,
   SiteSaveInput,
   SiteSettings,
 } from "@/features/site/types";
+import { platformRequest } from "@/lib/api/platform-request";
 import { tenantFormRequest, tenantRequest } from "@/lib/api/tenant-request";
 
 const BASE = "/v1/tenant/site";
@@ -94,6 +98,46 @@ export const siteService = {
       SiteCatalogBranch | SiteCatalogSubgroup | SiteCatalogExtra
     >(slug, "PATCH", `${BASE}/catalog/${kind}/${encodeURIComponent(uuid)}`, {
       body: { show_online: showOnline },
+    });
+  },
+  /** Site media library (TEC-781); at most 200 files, so one page lists all. */
+  media(slug: string) {
+    return tenantRequest<SiteMediaList>(slug, "GET", `${BASE}/media`, {
+      query: { limit: 200, offset: 0 },
+    });
+  },
+  uploadMedia(slug: string, file: File, alt?: { tr: string; en: string }) {
+    const form = new FormData();
+    form.append("file", file);
+    if (alt && (alt.tr || alt.en)) form.append("alt", JSON.stringify(alt));
+    return tenantFormRequest<SiteMedia>(slug, "POST", `${BASE}/media`, form, {
+      silent: true,
+    });
+  },
+  patchMedia(slug: string, uuid: string, alt: { tr: string; en: string }) {
+    return tenantRequest<SiteMedia>(
+      slug,
+      "PATCH",
+      `${BASE}/media/${encodeURIComponent(uuid)}`,
+      { body: { alt }, silent: true },
+    );
+  },
+  deleteMedia(slug: string, uuid: string) {
+    return tenantRequest<{ deleted: boolean }>(
+      slug,
+      "DELETE",
+      `${BASE}/media/${encodeURIComponent(uuid)}`,
+      { silent: true },
+    );
+  },
+  /**
+   * The draft as the site sees it through a preview token: its `media` map
+   * holds the API-owned stream URLs of the library images the draft uses.
+   */
+  resolvePreview(host: string, token: string) {
+    return platformRequest<SiteResolved>("GET", "/v1/public/site/resolve", {
+      query: { host, preview: token },
+      silent: true,
     });
   },
   domains(slug: string) {
