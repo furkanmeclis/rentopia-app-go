@@ -12786,6 +12786,142 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/tenant/site/media:
+    get:
+      operationId: listSiteMedia
+      tags: [Branded Site]
+      summary: List organization site media
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - in: query
+          name: offset
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        "200":
+          description: Paginated library
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteMediaList" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: uploadSiteMedia
+      tags: [Branded Site]
+      summary: Upload an immutable library image (tenant.site.manage)
+      description: PNG/JPEG/WebP sniffed from bytes; max 10 MB, 200 files and 500 MB per organization. SVG/HTML refused. Quota is transactional.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+                alt: { type: string, description: 'Localized JSON object, e.g. {"tr":"Araç","en":"Car"}.' }
+      responses:
+        "201":
+          description: Uploaded media
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteMedia" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/site/media/{uuid}:
+    parameters:
+      - $ref: "#/components/parameters/XOrganization"
+      - $ref: "#/components/parameters/ResourceUUID"
+    patch:
+      operationId: patchSiteMedia
+      tags: [Branded Site]
+      summary: Replace localized alt text (tenant.site.manage)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                alt: { $ref: "#/components/schemas/SiteLocalizedText" }
+      responses:
+        "200":
+          description: Updated media metadata
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteMedia" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      operationId: deleteSiteMedia
+      tags: [Branded Site]
+      summary: Delete unreferenced media (tenant.site.manage)
+      description: Draft or any historical published reference returns 409 MEDIA_IN_USE.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      deleted: { type: boolean }
+                  meta: { $ref: "#/components/schemas/ResponseMeta" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/public/site/media/{siteUuid}/{mediaUuid}:
+    get:
+      operationId: publicSiteMedia
+      tags: [Branded Site]
+      summary: Stream a referenced site library image
+      description: Only the active published document, or draft with valid site preview token, authorizes access. Public immutable cache; previews private no-store.
+      security: []
+      parameters:
+        - in: path
+          name: siteUuid
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: mediaUuid
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: preview
+          schema: { type: string }
+      responses:
+        "200":
+          description: Image bytes
+          content:
+            image/png:
+              schema: { type: string, format: binary }
+            image/jpeg:
+              schema: { type: string, format: binary }
+            image/webp:
+              schema: { type: string, format: binary }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
   /v1/tenant/site:
     get:
       tags: [Tenant]
@@ -40094,8 +40230,9 @@ components:
       properties:
         colors: { $ref: "#/components/schemas/SiteColors" }
         dark_colors: { $ref: "#/components/schemas/SiteColors" }
-        font: { type: string, enum: [inter, roboto, open_sans, montserrat, poppins, lato, nunito, system] }
-        radius: { type: string, enum: [none, sm, md, lg, full] }
+        font: { type: string, enum: [inter, roboto, open_sans, montserrat, poppins, lato, nunito, system, manrope, dm_sans, plus_jakarta_sans, sora, lora, wix_madefor] }
+        heading_font: { type: string, enum: [theme, georgia, inter, roboto, open_sans, montserrat, poppins, lato, nunito, system, manrope, dm_sans, plus_jakarta_sans, sora, lora, wix_madefor] }
+        radius: { type: string, enum: [soft, sharp, xs, sm, md, lg, xl, pill, none, full], description: "Legacy none/full normalize to sharp/pill." }
         mode: { type: string, enum: [light, dark, system] }
 
     SiteLayout:
@@ -40111,6 +40248,15 @@ components:
       additionalProperties: false
       description: Plain text of one locale (blank lines separate paragraphs; no HTML).
       properties:
+        hero_slides:
+          type: array
+          minItems: 1
+          maxItems: 8
+          items: { $ref: "#/components/schemas/SiteHeroSlide" }
+        advantages:
+          type: array
+          maxItems: 12
+          items: { $ref: "#/components/schemas/SiteAdvantage" }
         hero_title: { type: string, maxLength: 120 }
         hero_subtitle: { type: string, maxLength: 300 }
         about: { type: string, maxLength: 20000 }
@@ -40134,11 +40280,174 @@ components:
         title: { type: string, maxLength: 70 }
         description: { type: string, maxLength: 300 }
 
+    SiteLocalizedText:
+      type: object
+      additionalProperties: false
+      properties:
+        tr: { type: string, maxLength: 300 }
+        en: { type: string, maxLength: 300 }
+
+    SiteHeroSlide:
+      type: object
+      additionalProperties: false
+      properties:
+        title: { type: string, maxLength: 200 }
+        subtitle: { type: string, maxLength: 1000 }
+        cta_label: { type: string, maxLength: 120 }
+        cta_href: { type: string, maxLength: 2048, description: Relative path or HTTPS URL only. }
+        media: { type: string, description: Canonical library UUID or empty. }
+        enabled: { type: boolean }
+
+    SiteAdvantage:
+      type: object
+      additionalProperties: false
+      properties:
+        icon:
+          type: string
+          enum: [shield-check, clock, car, credit-card, headphones, map-pin, check, check-circle, star, heart, award, wallet, zap, users, phone, thumbs-up, badge-check, circle-check, key-round, fuel, plane, route, wrench, calendar, globe]
+        title: { type: string, maxLength: 120 }
+        text: { type: string, maxLength: 1000 }
+
+    SiteSection:
+      type: object
+      additionalProperties: false
+      required: [id, enabled]
+      properties:
+        id: { type: string, enum: [hero, search, fleet, campaigns, advantages, about, faq, guide, newsletter, app_promo, branches] }
+        enabled: { type: boolean }
+
+    SiteTemplateConfig:
+      type: object
+      additionalProperties: false
+      properties:
+        sections:
+          type: array
+          maxItems: 11
+          items: { $ref: "#/components/schemas/SiteSection" }
+        settings:
+          type: object
+          additionalProperties: { type: string }
+          description: "Typed per registry: heroLayout=image|split, heroAlign=left|center, fleetColumns=2|3. Unknown keys rejected."
+
+    SiteThemeDefinition:
+      type: object
+      required: [id, available, sections, required_first, settings]
+      properties:
+        id: { type: string }
+        available: { type: boolean }
+        sections:
+          type: array
+          items: { type: string }
+        required_first: { type: string }
+        settings:
+          type: array
+          items:
+            type: object
+            required: [key, type, values, default]
+            properties:
+              key: { type: string }
+              type: { type: string, enum: [enum] }
+              values:
+                type: array
+                items: { type: string }
+              default: { type: string }
+
+    SiteMenuItem:
+      type: object
+      additionalProperties: false
+      properties:
+        label: { $ref: "#/components/schemas/SiteLocalizedText" }
+        href: { type: string, maxLength: 2048, description: Nonempty relative path or HTTPS URL. }
+        kind: { type: string, enum: [link, page] }
+
+    SiteMedia:
+      type: object
+      required: [uuid, kind, mime, size, width, height, alt, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        kind: { type: string, enum: [image] }
+        mime: { type: string, enum: [image/png, image/jpeg, image/webp] }
+        size: { type: integer, format: int64, maximum: 10485760 }
+        width: { type: integer }
+        height: { type: integer }
+        alt: { $ref: "#/components/schemas/SiteLocalizedText" }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    EnvelopeSiteMedia:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/SiteMedia" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeSiteMediaList:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/SiteMedia" }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
     SiteConfig:
       type: object
       additionalProperties: false
       description: The editable site document. `site_settings.config` is the draft; published revisions keep their own copy.
       properties:
+        config_version: { type: integer, enum: [2] }
+        template: { type: string, enum: [technowide-design, horizon-design, classic, aurum], default: technowide-design, description: Only technowide-design is currently selectable. }
+        templates:
+          type: object
+          additionalProperties: { $ref: "#/components/schemas/SiteTemplateConfig" }
+        brand:
+          type: object
+          additionalProperties: false
+          properties:
+            tagline: { $ref: "#/components/schemas/SiteLocalizedText" }
+            socials:
+              type: object
+              additionalProperties: false
+              properties:
+                instagram: { type: string, maxLength: 2048 }
+                facebook: { type: string, maxLength: 2048 }
+                x: { type: string, maxLength: 2048 }
+                youtube: { type: string, maxLength: 2048 }
+                linkedin: { type: string, maxLength: 2048 }
+                tiktok: { type: string, maxLength: 2048 }
+                whatsapp: { type: string, maxLength: 2048 }
+        menus:
+          type: object
+          additionalProperties: false
+          properties:
+            header:
+              type: array
+              maxItems: 12
+              items: { $ref: "#/components/schemas/SiteMenuItem" }
+            footer:
+              type: array
+              maxItems: 12
+              items: { $ref: "#/components/schemas/SiteMenuItem" }
+        about:
+          type: object
+          additionalProperties: false
+          properties:
+            image: { type: string, description: Canonical media UUID or empty. }
+            highlights:
+              type: object
+              additionalProperties:
+                type: array
+                maxItems: 6
+                items: { type: string, maxLength: 300 }
         theme: { $ref: "#/components/schemas/SiteTheme" }
         layout: { $ref: "#/components/schemas/SiteLayout" }
         content:
@@ -40230,6 +40539,18 @@ components:
       type: object
       required: [exists, enabled, subdomain, default_locale, config, version, url, hosts, api_key, assets, booking_enabled, booking_blockers, published_revision, published_at, has_unpublished_changes, live, updated_at]
       properties:
+        theme_registry:
+          type: array
+          items: { $ref: "#/components/schemas/SiteThemeDefinition" }
+        section_statuses:
+          type: array
+          items:
+            type: object
+            required: [id, status, can_enable]
+            properties:
+              id: { type: string }
+              status: { type: string, enum: [available, needs_service, unsupported_by_theme] }
+              can_enable: { type: boolean }
         exists: { type: boolean }
         enabled: { type: boolean }
         subdomain: { type: string }
@@ -40290,6 +40611,17 @@ components:
       type: object
       required: [site_uuid, version, host, host_kind, origin, default_locale, locales, organization, publishable_key, booking_enabled, config, assets, portal_url, updated_at, preview, panel_origin]
       properties:
+        template: { type: string }
+        sections:
+          type: array
+          items: { $ref: "#/components/schemas/SiteSection" }
+        settings:
+          type: object
+          additionalProperties: { type: string }
+        media:
+          type: object
+          additionalProperties: { type: string }
+          description: Library UUID to API-owned URL; previews carry their signed token.
         site_uuid: { type: string, format: uuid }
         version: { type: integer, description: The published revision (the draft version in a preview); the `?v=` of image paths. }
         host: { type: string }

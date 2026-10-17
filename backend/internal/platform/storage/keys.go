@@ -155,3 +155,8 @@ func trimExt(ext string) string {
 	}
 	return ext
 }
+
+// SiteMediaObjectKey names one immutable library image owned by an organization.
+func SiteMediaObjectKey(orgUUID, mediaUUID, ext string) string {
+	return fmt.Sprintf("%ssite/media/%s.%s", OrganizationPrefix(orgUUID), mediaUUID, trimExt(ext))
+}

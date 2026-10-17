@@ -401,6 +401,10 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 		response.ErrorWithDetails(w, r, http.StatusConflict, CodeVersionConflict, err.Error(), []response.Detail{{
 			Field: "version", Code: "stale", Message: err.Error(),
 		}})
+	case errors.Is(err, usecase.ErrMediaInUse):
+		response.Error(w, r, http.StatusConflict, "MEDIA_IN_USE", err.Error())
+	case errors.Is(err, usecase.ErrMediaQuota):
+		response.Error(w, r, http.StatusConflict, "MEDIA_QUOTA_EXCEEDED", err.Error())
 	case errors.Is(err, usecase.ErrNothingToPublish):
 		response.Error(w, r, http.StatusConflict, CodeNothingToPublish, err.Error())
 	case errors.Is(err, usecase.ErrStorageUnavailable):

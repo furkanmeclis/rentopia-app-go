@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-import type { SiteSaveInput, SiteSettings } from "@/features/site/types";
+import type {
+  SiteConfig,
+  SiteSaveInput,
+  SiteSettings,
+} from "@/features/site/types";
 
 /** Limits of the site document (backend/internal/modules/site/usecase). */
 export const SITE_LIMITS = {
@@ -119,8 +123,16 @@ export function createSiteSchema(t: T) {
       theme: z.object({
         colors,
         dark_colors: colors,
-        font: z.enum(FONTS),
-        radius: z.enum(RADII),
+        font: z.enum([
+          ...FONTS,
+          "manrope",
+          "dm_sans",
+          "plus_jakarta_sans",
+          "sora",
+          "lora",
+          "wix_madefor",
+        ]),
+        radius: z.enum([...RADII, "soft", "sharp", "xs", "xl", "pill"]),
         mode: z.enum(MODES),
       }),
       layout: z.object({
@@ -212,7 +224,12 @@ export function settingsToForm(s: SiteSettings): SiteFormValues {
         colors: colors(c.theme?.colors),
         dark_colors: colors(c.theme?.dark_colors),
         font: c.theme?.font ?? "inter",
-        radius: c.theme?.radius ?? "md",
+        radius:
+          c.theme?.radius === "sharp"
+            ? "none"
+            : c.theme?.radius === "pill"
+              ? "full"
+              : (c.theme?.radius ?? "md"),
         mode: c.theme?.mode ?? "light",
       },
       layout: {
@@ -249,6 +266,7 @@ export function settingsToForm(s: SiteSettings): SiteFormValues {
 export function formToSaveInput(
   v: SiteFormValues,
   version: number,
+  currentConfig?: SiteConfig,
 ): SiteSaveInput {
   return {
     version,
@@ -256,7 +274,14 @@ export function formToSaveInput(
     subdomain: v.subdomain,
     default_locale: v.default_locale,
     config: {
+      ...currentConfig,
       ...v.config,
+      template: currentConfig?.template ?? "technowide-design",
+      theme: { ...currentConfig?.theme, ...v.config.theme },
+      content: {
+        tr: { ...currentConfig?.content?.tr, ...v.config.content.tr },
+        en: { ...currentConfig?.content?.en, ...v.config.content.en },
+      },
       widget: {
         allowed_domains: v.config.widget.allowed_domains
           .map((d) => d.value.trim())

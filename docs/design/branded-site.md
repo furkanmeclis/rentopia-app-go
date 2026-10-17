@@ -11,7 +11,7 @@ Status: **implemented** (M5: TEC-729 site, TEC-730 panel editor with draft / pub
 | Settings model, publish, preview, images, catalog state, host resolution | `backend/internal/modules/site/{model,usecase,handler}`, `routes.go` |
 | Panel editor (Ayarlar → Markalı site) | `frontend/src/features/site`, route `/t/{slug}/settings/site` |
 | Preview in the site | `site/src/lib/preview.ts`, `site/src/proxy.ts`, `site/src/app/preview/exit` |
-| Migrations | `000122_branded_site`, `000123_seed_branded_site_rbac`, `000124_site_publish`, `000125_catalog_show_online` |
+| Migrations | `000122_branded_site`, `000123_seed_branded_site_rbac`, `000124_site_publish`, `000125_catalog_show_online`, `000127_site_config_v2`, `000128_site_media` |
 | Tests | `backend/internal/modules/site/{site,site_publish}_test.go`, `site/src/lib/{theme,preview}.test.ts` |
 
 ## 1. Request flow
@@ -103,11 +103,12 @@ Two kinds of fields (TEC-730):
 | `published_revision` | The live snapshot in `site_setting_versions` (NULL = never published: the host does not resolve). |
 | `version` | +1 on every write (save, image, restore, renew key): optimistic concurrency (`409 VERSION_CONFLICT`). Publish does not change it. |
 
-`config`:
+`config` (v2 registry, content and media additions are detailed in §10):
 - `theme`:
   - `colors` / `dark_colors` (`primary`, `primary_foreground`, `accent`, `background`, `foreground`, `muted`, `muted_foreground`, `border`; `#rrggbb`, empty = default);
-  - `font` (`inter|roboto|open_sans|montserrat|poppins|lato|nunito|system`; self-hosted with `next/font`, so no visitor request goes to Google);
-  - `radius` (`none|sm|md|lg|full`);
+  - `font` (legacy fonts plus the v2 union in §10); the current site self-hosts its original font set with `next/font`. Additional theme rendering is owned by the template integration;
+  - `heading_font` (body font IDs plus `theme|georgia`);
+  - `radius` (`soft|sharp|xs|sm|md|lg|xl|pill`; legacy `none|full` normalize to `sharp|pill`);
   - `mode` (`light|dark|system`).
 - `layout`: `hero` (`centered|split|image|minimal`), `cards` (`grid|list|compact`), `footer` (`simple|columns|minimal`).
 - `content.{tr,en}`: `hero_title`, `hero_subtitle`, `about`, `faq[{question, answer}]` (≤ 40), `terms`, `privacy` (KVKK). Plain text only: blank lines separate paragraphs, and no HTML is ever rendered.
@@ -353,3 +354,100 @@ The existing provider callback returns to `/pay/{token}?returned=1`. This top-le
 ### 9.4 Verification
 
 Backend tests cover normalization, deduplication, the 20-entry limit, empty lists, wildcard/path/credential/query/fragment/port rejection and published resolve output. Site node tests cover CSP, parent-origin matching, encrypted references (tamper, expiry, secret and origin binding), navigation propagation, and payment handoff signature/expiry/token/live-origin/organization checks. `site/` has no Playwright dependency or configuration, so TEC-732 uses the existing node test runner; mobile browser width/height and real provider 3DS were **not** exercised. The loader coordinator should test 320/375/768px viewports and resizing through all steps once the loader is available.
+
+## 10. Theme foundation and library (TEC-780 / TEC-781)
+
+Config v2 is additive: all earlier theme, layout, content, SEO, contact,
+analytics, widget and image fields remain valid. `config_version` normalizes
+to 2. Migration **000127** upgrades both drafts and every historical snapshot
+idempotently. `none` becomes `sharp`, `full` becomes `pill`; the eight current
+corner styles are `soft|sharp|xs|sm|md|lg|xl|pill`. Body fonts add `manrope`,
+`dm_sans`, `plus_jakarta_sans`, `sora`, `lora`, `wix_madefor`; `heading_font`
+accepts all body fonts plus `theme` (follow body) and `georgia`. Existing dark
+colors and light/dark/system mode are retained. The JSON body limit remains
+**1 MiB**: the combined document remains bounded independently of each
+field's character limit, and uploads use their own multipart limit.
+
+`config.template` defaults to `technowide-design`. `horizon-design`, `classic`
+and `aurum` are registered but unavailable for selection. The Go registry in
+`backend/internal/modules/site/themes` defines each theme's supported section
+order, required first section and typed enum settings. The persisted
+`templates.{id} = {sections:[{id,enabled}], settings:{...}}` keeps each theme's
+configuration independently. Saving one theme retains omitted other themes.
+Only registered IDs and settings are accepted, duplicates are rejected, and
+hero must be first and enabled. Omitted supported sections are appended disabled
+in default order; a new template receives its defaults. Settings are
+`heroLayout=image|split` (Technowide), `heroAlign=left|center` (Horizon), and
+`fleetColumns=2|3` (Classic/Aurum; values are strings).
+
+The API uses `guide` for the studio's `journal`, `app_promo` for `app`, and
+`aurum` for `aurum-design`. `search` is an explicit supported section in every
+theme. Classic additionally supports branches. Technowide's supported order is
+hero, search, campaigns, fleet, advantages, newsletter, guide, about, faq,
+app_promo. The panel answer includes `theme_registry` and `section_statuses`
+for every union section: `available`, `needs_service`, or
+`unsupported_by_theme`, plus `can_enable`. Campaigns (TEC-784), guide (TEC-785)
+and newsletter (TEC-786) require their future backend services and cannot yet
+be enabled. App promotion is available in Technowide's schema but
+`can_enable=false` until store links exist. Enabling any of these returns a
+validation detail with code **SECTION_UNAVAILABLE**. Unsupported theme sections
+are independently rejected. These checks apply server-side regardless of UI.
+
+New editorial content:
+
+- `content.{tr,en}.hero_slides`: 1–8 slides with title (200), subtitle (1000),
+  cta_label (120), cta_href (2048), media UUID or empty, enabled. Legacy hero
+  text seeds a single enabled slide when slides are omitted.
+- `content.{tr,en}.advantages`: up to 12 items with allowlisted Lucide kebab-case
+  icon name, title (120), text (1000). The exact allowlist is in OpenAPI.
+- `about.image`: media UUID or empty; `about.highlights.{tr,en}`: up to six
+  strings of 300 characters. This sits at config root because legacy
+  `content.{locale}.about` remains the plain-text story.
+- `brand.tagline.{tr,en}` (300) and `brand.socials` keyed by instagram, facebook,
+  x, youtube, linkedin, tiktok, whatsapp. URLs must use HTTPS on that network's
+  host or a subdomain, without credentials or a nonstandard port. Host suffix
+  lookalikes are rejected.
+- `menus.header/footer`: up to 12 `{label:{tr,en},href,kind:link|page}` items;
+  labels max 120. Links and slide CTAs accept relative `/` paths or HTTPS only;
+  script schemes, protocol-relative paths, backslashes and control characters
+  are rejected. All editorial strings remain escaped plain text.
+
+Resolve returns the selected `template`, its ordered enabled `sections`, typed
+`settings`, the full config, and a `media` map of UUID to API-owned stream URL.
+A valid preview token selects draft content and is included in its media URLs.
+The existing panel preserves new config fields when saving its legacy controls.
+
+### Library API
+
+Migration **000128** adds organization-owned `site_media`: immutable object
+UUID/key, kind=image, byte-sniffed MIME, byte size, width/height, localized alt,
+creator and timestamps. PNG/JPEG/WebP only; SVG/HTML are refused. Maximum file
+size is **10 MiB**, dimensions **100 megapixels / 32768 pixels per side**.
+The upload reads bounded bytes and parses image dimensions without allocating
+pixel buffers. WebP dimensions are read from RIFF VP8/VP8L/VP8X headers.
+
+| Route | Permission / behavior |
+|-------|-----------------------|
+| `GET /v1/tenant/site/media?limit=50&offset=0` | `tenant.site.read`; `{items,total,limit,offset}`, max limit 200 |
+| `POST /v1/tenant/site/media` | `tenant.site.manage`; multipart file plus optional `alt` JSON string; 201 metadata |
+| `PATCH /v1/tenant/site/media/{uuid}` | `tenant.site.manage`; `{alt:{tr,en}}` replaces alt, max 300 characters each |
+| `DELETE /v1/tenant/site/media/{uuid}` | `tenant.site.manage`; 409 `MEDIA_IN_USE` for draft or **any historical snapshot** reference |
+| `GET /v1/public/site/media/{siteUuid}/{mediaUuid}` | Only media referenced by the active publication of an enabled, accessible site, or draft with a valid `preview` token |
+
+Keys come from `storage.SiteMediaObjectKey`, under the organization's site/media
+prefix; API responses never expose storage keys. Public media carries
+`public,max-age=31536000,immutable`, nosniff and a sandbox CSP; previews use
+`private,no-store`. UUID bytes are immutable, so alt changes do not change URLs.
+Previously cached public bytes can remain cached after unpublishing; new
+requests must pass current publication and organization-access checks.
+
+Database triggers serialize media inserts/deletes and config changes on the
+organization row. They enforce **200 files / 500 MiB** transactionally
+(`409 MEDIA_QUOTA_EXCEEDED`), reject unknown/deleted/cross-organization UUIDs
+on draft and snapshot writes, and protect referenced objects from deletion.
+Only `about.image` and `content.*.hero_slides[*].media` count as references;
+UUID-like plain text is not a reference. Storage upload failures create no row;
+failed quota/database inserts remove the staged object. A failed object deletion
+after metadata removal is logged (an unreachable orphan), without reviving the
+record. Migration down removes metadata and keeps stored bytes; its data loss
+is documented in the migration.

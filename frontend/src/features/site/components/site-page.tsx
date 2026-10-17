@@ -291,7 +291,9 @@ function SiteForm({
       onSubmit={async (values) => {
         setConflict(false);
         try {
-          await save.mutateAsync(formToSaveInput(values, settings.version));
+          await save.mutateAsync(
+            formToSaveInput(values, settings.version, settings.config),
+          );
           onSaved();
         } catch (error) {
           if (isApiError(error) && error.code === "VERSION_CONFLICT") {

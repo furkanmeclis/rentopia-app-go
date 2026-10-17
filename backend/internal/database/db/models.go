@@ -2699,6 +2699,22 @@ type SiteDomain struct {
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
+type SiteMedium struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	Kind           string             `json:"kind"`
+	Mime           string             `json:"mime"`
+	Size           int64              `json:"size"`
+	Width          int32              `json:"width"`
+	Height         int32              `json:"height"`
+	Alt            []byte             `json:"alt"`
+	ObjectKey      string             `json:"object_key"`
+	CreatedBy      pgtype.Int8        `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
 type SiteSetting struct {
 	ID                int64              `json:"id"`
 	Uuid              uuid.UUID          `json:"uuid"`

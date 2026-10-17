@@ -11,6 +11,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
 	pamodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/publicapi/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/site/model"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/site/themes"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/storage"
 	"github.com/google/uuid"
@@ -116,6 +117,19 @@ func (s *Service) Resolve(ctx context.Context, rawHost, previewToken string) (mo
 		}
 	}
 	out.Version = int(version)
+	out.Template = out.Config.Template
+	active := out.Config.Templates[out.Template]
+	out.TemplateSettings = active.Settings
+	out.Sections = []themes.Section{}
+	for _, section := range active.Sections {
+		if section.Enabled {
+			out.Sections = append(out.Sections, section)
+		}
+	}
+	out.Media = map[string]string{}
+	for _, id := range configMedia(out.Config) {
+		out.Media[id] = mediaPath(row.Uuid, id, previewToken)
+	}
 	if s.portal != "" {
 		out.PortalURL = s.portal + "/r/" + url.PathEscape(row.OrganizationSlug)
 	}

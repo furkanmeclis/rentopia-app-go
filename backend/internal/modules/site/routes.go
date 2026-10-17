@@ -31,6 +31,7 @@ func RegisterRoutes(mux *http.ServeMux, h *handler.Handler, tokens *jwt.Manager,
 		return
 	}
 	mux.HandleFunc("GET /v1/public/site/resolve", h.Resolve)
+	mux.HandleFunc("GET /v1/public/site/media/{siteUuid}/{mediaUuid}", h.PublicMedia)
 	mux.HandleFunc("GET /v1/public/site/assets/{uuid}/{kind}", h.Asset)
 
 	mux.HandleFunc("GET /v1/internal/site/domain-allowed", h.DomainAllowed)
@@ -49,6 +50,10 @@ func RegisterRoutes(mux *http.ServeMux, h *handler.Handler, tokens *jwt.Manager,
 	route("GET /v1/tenant/site/domains/{uuid}", h.GetDomain, read)
 	route("DELETE /v1/tenant/site/domains/{uuid}", h.DeleteDomain, manage)
 	route("POST /v1/tenant/site/domains/{uuid}/verify", h.VerifyDomain, manage)
+	route("GET /v1/tenant/site/media", h.ListMedia, read)
+	route("POST /v1/tenant/site/media", h.UploadMedia, manage)
+	route("PATCH /v1/tenant/site/media/{uuid}", h.PatchMedia, manage)
+	route("DELETE /v1/tenant/site/media/{uuid}", h.DeleteMedia, manage)
 	route("GET /v1/tenant/site", h.Get, read)
 	route("PUT /v1/tenant/site", h.Put, read, manage)
 	route("POST /v1/tenant/site/publish", h.Publish, read, manage)

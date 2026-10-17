@@ -151,6 +151,12 @@ func NormalizeConfig(c model.Config) (model.Config, error) {
 	checkColors(ve, "config.theme.colors", &c.Theme.Colors, def.Theme.Colors)
 	checkColors(ve, "config.theme.dark_colors", &c.Theme.DarkColors, def.Theme.DarkColors)
 	oneOf(ve, "config.theme.font", &c.Theme.Font, model.Fonts, def.Theme.Font)
+	switch c.Theme.Radius {
+	case "none":
+		c.Theme.Radius = "sharp"
+	case "full":
+		c.Theme.Radius = "pill"
+	}
 	oneOf(ve, "config.theme.radius", &c.Theme.Radius, model.Radii, def.Theme.Radius)
 	oneOf(ve, "config.theme.mode", &c.Theme.Mode, model.Modes, def.Theme.Mode)
 	oneOf(ve, "config.layout.hero", &c.Layout.Hero, model.Heroes, def.Layout.Hero)
@@ -227,6 +233,7 @@ func NormalizeConfig(c model.Config) (model.Config, error) {
 	if id := c.Analytics.GA4MeasurementID; id != "" && !ga4Re.MatchString(id) {
 		ve.add("config.analytics.ga4_measurement_id", "invalid", "a GA4 measurement ID looks like G-XXXXXXX")
 	}
+	normalizeV2(&c, ve)
 	return c, ve.orNil()
 }
 
