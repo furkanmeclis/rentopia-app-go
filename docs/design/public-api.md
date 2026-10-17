@@ -63,11 +63,11 @@ Over the limit the answer is `429 RATE_LIMITED` with `Retry-After`.
 | Route | Scope | Notes |
 |-------|-------|-------|
 | `POST /v1/public/sessions` | – | publishable key + allowed origin → session |
-| `GET /v1/public/locations` | catalog.read | active branches with online-selectable service points, hours, holidays |
-| `GET /v1/public/vehicle-subgroups` | catalog.read | published products, current conditions, API image paths |
+| `GET /v1/public/locations` | catalog.read | active branches shown online (`show_online`, TEC-730) with online-selectable service points, hours, holidays |
+| `GET /v1/public/vehicle-subgroups` | catalog.read | published products shown online (`show_online`, TEC-730), current conditions, API image paths |
 | `GET /v1/public/extras` | catalog.read | published extras of the channel (priced in quotes) |
-| `GET /v1/public/availability` | catalog.read | `reservations.Search` on the key's channel; `units_left` capped at 10 |
-| `POST /v1/public/quotes`, `GET …/quotes/{uuid}` | quotes.write | `reservations.CreateQuote`; recorded in `public_quotes` |
+| `GET /v1/public/availability` | catalog.read | `reservations.Search` on the key's channel; `units_left` capped at 10; hidden branches answer `400 pickup_branch_uuid / return_branch_uuid not_found`, hidden subgroups are left out |
+| `POST /v1/public/quotes`, `GET …/quotes/{uuid}` | quotes.write | `reservations.CreateQuote`; recorded in `public_quotes`; a hidden subgroup or branch answers `400 … not_found` |
 | `POST /v1/public/reservations` | reservations.write | see §4 |
 | `GET /v1/public/reservations/{reference}` | reservations.read | status view |
 | `POST …/change-requests`, `…/cancellation-requests` | reservations.write | portal `CreateRequest` (customer_requests; staff resolve them in the panel) |

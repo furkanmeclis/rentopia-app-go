@@ -607,5 +607,14 @@ export const permissions = {
       read: Permission.TenantPublicAPIRead,
       manage: Permission.TenantPublicAPIManage,
     },
+    /**
+     * Branded site (TEC-729 / TEC-730): `read` = settings, history,
+     * catalog state and preview links; `manage` = save, publish, restore,
+     * images, renew the key and switch catalog items.
+     */
+    site: {
+      read: Permission.TenantSiteRead,
+      manage: Permission.TenantSiteManage,
+    },
   },
 } as const;

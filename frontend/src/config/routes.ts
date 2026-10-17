@@ -255,6 +255,8 @@ export const routes = {
       /** Public booking API keys and webhooks (TEC-728). */
       publicApi: (slug: string) =>
         `/t/${encodeURIComponent(slug)}/settings/public-api`,
+      /** Branded site: theme, content, publish history (TEC-730). */
+      site: (slug: string) => `/t/${encodeURIComponent(slug)}/settings/site`,
       roles: {
         root: (slug: string) => `/t/${encodeURIComponent(slug)}/settings/roles`,
         create: (slug: string) =>
