@@ -11324,7 +11324,7 @@ export interface paths {
         /**
          * List channel accounts
          * @description `tenant.channels.read`. The organization's channel accounts (integration accounts of kind `channel`:
-         *     Yolcu360, its development adapter, later Obilet) with their sync settings and sync state. `health`:
+         *     Yolcu360, Obilet and their development adapters) with their sync settings and sync state. `health`:
          *     `ok`, `pending` (nothing pushed yet), `failing` (the last push or pull failed), `expired` (the
          *     validity of the last push ran out: the channel applies the offline policy) or `disabled`.
          */
@@ -11421,7 +11421,7 @@ export interface paths {
         put?: never;
         /**
          * Simulate a booking message (development adapter)
-         * @description `tenant.channels.sync`. Development adapters only (`yolcu360_fake`, never registered in production;
+         * @description `tenant.channels.sync`. Development adapters only (`yolcu360_fake`, `obilet_fake`, never registered in production;
          *     `409 CHANNEL_NOT_SIMULATOR` otherwise): queues a booking / modification / cancellation as the channel
          *     would send it and pulls at once. Answers the pull's sync run.
          */
@@ -23756,7 +23756,7 @@ export interface components {
             /** @enum {string} */
             kind: "payment" | "sms" | "toll" | "kabis" | "einvoice" | "channel";
             /** @enum {string} */
-            provider: "iyzico" | "netgsm" | "log" | "hgs_fake" | "kabis" | "kabis_fake" | "einvoice" | "einvoice_fake" | "yolcu360" | "yolcu360_fake";
+            provider: "iyzico" | "netgsm" | "log" | "hgs_fake" | "kabis" | "kabis_fake" | "einvoice" | "einvoice_fake" | "yolcu360" | "yolcu360_fake" | "obilet" | "obilet_fake";
             fields: components["schemas"]["IntegrationField"][];
             modes: ("sandbox" | "live")[];
         };
@@ -23775,7 +23775,7 @@ export interface components {
             /** @enum {string} */
             kind: "payment" | "sms" | "toll" | "kabis" | "einvoice" | "channel";
             /** @enum {string} */
-            provider: "iyzico" | "netgsm" | "log" | "hgs_fake" | "kabis" | "kabis_fake" | "einvoice" | "einvoice_fake" | "yolcu360" | "yolcu360_fake";
+            provider: "iyzico" | "netgsm" | "log" | "hgs_fake" | "kabis" | "kabis_fake" | "einvoice" | "einvoice_fake" | "yolcu360" | "yolcu360_fake" | "obilet" | "obilet_fake";
             display_name: string;
             /** @enum {string} */
             mode: "sandbox" | "live";
@@ -25190,7 +25190,7 @@ export interface components {
         ChannelAccount: {
             /** Format: uuid */
             uuid: string;
-            /** @description yolcu360, yolcu360_fake (development) */
+            /** @description yolcu360, obilet, yolcu360_fake and obilet_fake (development) */
             provider: string;
             display_name: string;
             /** @enum {string} */
@@ -42673,11 +42673,11 @@ export interface operations {
                      */
                     kind?: "payment" | "sms" | "toll" | "kabis" | "einvoice" | "channel";
                     /** @enum {string} */
-                    provider: "iyzico" | "netgsm" | "log" | "hgs_fake" | "kabis" | "kabis_fake" | "einvoice" | "einvoice_fake" | "yolcu360" | "yolcu360_fake";
+                    provider: "iyzico" | "netgsm" | "log" | "hgs_fake" | "kabis" | "kabis_fake" | "einvoice" | "einvoice_fake" | "yolcu360" | "yolcu360_fake" | "obilet" | "obilet_fake";
                     display_name: string;
                     /** @enum {string} */
                     mode?: "sandbox" | "live";
-                    /** @description iyzico: `api_key`, `secret_key`; netgsm: `usercode`, `password`, `msgheader`; log (development only): `msgheader`; hgs_fake (toll passes, development only): `api_key`, `customer_no`; kabis (official KABİS slot, waiting on dependency until the method is verified, TEC-682): `username`, `password`; kabis_fake (development only): `username`, `password`, `scenario` (ok, outage, timeout, reject); yolcu360 (channel manager, supplier contract per TEC-680): `supplier_code`, `api_key`, `api_secret`, `base_url` (optional host override); yolcu360_fake (development only): `supplier_code`, `api_key`, `scenario` (ok, outage, reject) */
+                    /** @description iyzico: `api_key`, `secret_key`; netgsm: `usercode`, `password`, `msgheader`; log (development only): `msgheader`; hgs_fake (toll passes, development only): `api_key`, `customer_no`; kabis (official KABİS slot, waiting on dependency until the method is verified, TEC-682): `username`, `password`; kabis_fake (development only): `username`, `password`, `scenario` (ok, outage, timeout, reject); yolcu360 (channel manager, supplier contract per TEC-680): `supplier_code`, `api_key`, `api_secret`, `base_url` (optional host override); yolcu360_fake (development only): `supplier_code`, `api_key`, `scenario` (ok, outage, reject); obilet (channel manager, supplier operations assumed until confirmed, TEC-737): `partner_code`, `api_token`, `base_url` (optional host override); obilet_fake (development only): `partner_code`, `api_token`, `scenario` (ok, outage, reject) */
                     credentials: {
                         [key: string]: string;
                     };

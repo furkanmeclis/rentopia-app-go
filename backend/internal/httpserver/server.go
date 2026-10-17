@@ -523,8 +523,8 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	// the fake outside production only.
 	whatsappProviders, whatsappFake := whatsappmodule.Providers(cfg.WhatsApp, cfg.App.Env, log)
 	integrationAdapters = append(integrationAdapters, whatsappmodule.Adapters(whatsappProviders)...)
-	// Channel managers (TEC-736): Yolcu360 (documented supplier contract)
-	// and its fake outside production only.
+	// Channel managers (TEC-736, TEC-737): Yolcu360 and Obilet, their fakes
+	// outside production only.
 	channelProviders := channelsmodule.Providers(cfg.App.Env, log)
 	integrationAdapters = append(integrationAdapters, channelsmodule.Adapters(channelProviders)...)
 	integrationAccountsSvc := integrationaccountsusecase.New(deps.Queries, integrationVault,

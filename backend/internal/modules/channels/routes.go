@@ -21,6 +21,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/channels/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/channels"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/channels/channelfake"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/channels/obilet"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/channels/yolcu360"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/integrations"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/jwt"
@@ -30,13 +31,14 @@ import (
 )
 
 // Providers builds the channel adapters of the environment: Yolcu360
-// always (built from the documented supplier contract, TEC-680), the fake
-// (yolcu360_fake) outside production only, so it is never selectable
-// there. The Obilet adapter (TEC-737) is added here.
+// (documented supplier contract, TEC-680) and Obilet (documented client API
+// conventions, supplier operations assumed until confirmed, TEC-737) always,
+// their fakes (yolcu360_fake, obilet_fake) outside production only, so they
+// are never selectable there.
 func Providers(appEnv string, _ *slog.Logger) []channels.Provider {
-	out := []channels.Provider{yolcu360.New(nil)}
+	out := []channels.Provider{yolcu360.New(nil), obilet.New(nil)}
 	if !strings.EqualFold(strings.TrimSpace(appEnv), "production") {
-		out = append(out, channelfake.New())
+		out = append(out, channelfake.New(), channelfake.NewObilet())
 	}
 	return out
 }

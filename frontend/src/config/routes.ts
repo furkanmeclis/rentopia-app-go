@@ -204,7 +204,7 @@ export const routes = {
       detail: (slug: string, uuid: string) =>
         `/t/${encodeURIComponent(slug)}/agreements/${uuid}`,
     },
-    /** Channel manager (TEC-736): Yolcu360, later Obilet. */
+    /** Channel manager (TEC-736, TEC-737): Yolcu360 and Obilet. */
     channels: {
       root: (slug: string) => `/t/${encodeURIComponent(slug)}/channels`,
     },

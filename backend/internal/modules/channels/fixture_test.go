@@ -49,6 +49,7 @@ type fx struct {
 	res      *resusecase.Service
 	svc      *usecase.Service
 	fake     *channelfake.Provider
+	obilet   *channelfake.Provider
 	accounts *accountsusecase.Service
 	org      int64
 	suffix   string
@@ -111,8 +112,9 @@ func newFx(t *testing.T) *fx {
 	vault, err := integrations.NewVault(cipher)
 	f.must(err)
 	f.fake = channelfake.New()
-	f.accounts = accountsusecase.New(q, vault, integrations.NewRegistry(f.fake))
-	f.svc, err = usecase.New(pool, q, cipher, f.accounts, adapters.NewBooker(f.res, customers), f.fake)
+	f.obilet = channelfake.NewObilet()
+	f.accounts = accountsusecase.New(q, vault, integrations.NewRegistry(f.fake, f.obilet))
+	f.svc, err = usecase.New(pool, q, cipher, f.accounts, adapters.NewBooker(f.res, customers), f.fake, f.obilet)
 	f.must(err)
 	f.res.SetLifecycleListener(f.svc)
 
@@ -198,12 +200,12 @@ func (f *fx) newProduct(code string, daily int) ref {
 	return p
 }
 
-// configure stores settings with the yolcu360 channel active.
+// configure stores settings with the yolcu360 and obilet channels active.
 func (f *fx) configure() {
 	s := osmodel.Defaults()
 	s.Reservation.ApprovalMode = osmodel.ApprovalAuto
 	for i := range s.SalesChannels {
-		if s.SalesChannels[i].Code == "yolcu360" {
+		if s.SalesChannels[i].Code == "yolcu360" || s.SalesChannels[i].Code == "obilet" {
 			s.SalesChannels[i].IsActive = true
 		}
 	}

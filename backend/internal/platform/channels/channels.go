@@ -1,6 +1,6 @@
 // Package channels is the provider layer of the channel manager (TEC-736,
 // docs/design/channel-manager.md): marketplaces that sell the
-// organization's rental products (Yolcu360 first, Obilet next).
+// organization's rental products (Yolcu360 and Obilet).
 //
 // A channel Provider is an integrations.Adapter (the organization connects
 // it with its own credentials, sealed by the integrations Vault) that can:
@@ -19,8 +19,9 @@
 //
 // Operations a provider does not support answer integrations.ErrUnsupported.
 // The module depends only on this interface: the Yolcu360 adapter
-// (package yolcu360) is built from the documented contract, and
-// yolcu360_fake (package channelfake) serves tests and development.
+// (package yolcu360) and the Obilet adapter (package obilet) are built from
+// the documented contracts, and yolcu360_fake / obilet_fake (package
+// channelfake) serve tests and development.
 package channels
 
 import (
