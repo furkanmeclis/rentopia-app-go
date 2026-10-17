@@ -265,6 +265,106 @@ export const tr = {
   "preview.exit": "Önizlemeden çık",
   "preview.booking_disabled":
     "Önizlemede rezervasyon yapılamaz. Fiyatları ve adımları görebilirsiniz.",
+
+  "nav.campaigns": "Kampanyalar",
+  "nav.corporate": "Kurumsal kiralama",
+  "nav.franchise": "Bayilik başvurusu",
+  "page.campaigns": "Kampanyalar",
+  "page.corporate": "Kurumsal kiralama",
+  "page.franchise": "Bayilik başvurusu",
+
+  "tw.campaigns.eyebrow": "Kaçırılmayacak fırsatlar",
+  "tw.campaigns.title": "Yolculuğa değer fırsatlar.",
+  "tw.campaigns.lead":
+    "Güncel kampanyalarımızı incele, sana uygun fırsatla yola çık.",
+  "tw.campaigns.all": "Tüm kampanyalar",
+  "tw.campaigns.default_title": "Kampanya",
+  "tw.campaigns.cta": "Kampanyayı incele",
+  "tw.campaigns.carousel": "Kaydırılabilir kampanyalar",
+  "tw.campaigns.list": "Kampanyalar",
+  "tw.campaigns.position": "Kampanya {n} / {total}",
+  "tw.campaigns.code": "Kupon kodu",
+  "tw.campaigns.code_hint":
+    "Rezervasyonun ödeme adımında bu kodu kullanabilirsin.",
+  "tw.campaigns.until": "{date} tarihine kadar geçerli",
+  "tw.campaigns.from": "{date} tarihinden itibaren geçerli",
+  "tw.campaigns.between": "{start} – {end} arasında geçerli",
+  "tw.campaigns.open": "Güncel kampanya",
+  "tw.campaigns.validity": "Geçerlilik",
+  "tw.campaigns.empty": "Şu anda aktif bir kampanya yok.",
+  "tw.campaigns.empty_text":
+    "Yeni fırsatlar eklendiğinde burada yer alacak. Araçlarımıza göz atabilirsin.",
+  "tw.campaigns.how": "Fırsatı nasıl değerlendirirsin?",
+  "tw.campaigns.step1": "Alış noktanı ve tarihlerini seç.",
+  "tw.campaigns.step2": "Planına uygun araç grubunu incele.",
+  "tw.campaigns.step3":
+    "Onaylamadan önce güncel kampanya koşullarını ve fiyatı kontrol et.",
+  "tw.campaigns.terms":
+    "Kampanya koşulları, geçerlilik ve uygunluk rezervasyon sırasında kontrol edilir; nihai fiyat rezervasyon özetinde gösterilir.",
+  "tw.campaigns.aside_title": "Yola çıkmaya hazır mısın?",
+  "tw.campaigns.aside_text": "Sana uygun yol arkadaşını seç.",
+  "tw.campaigns.aside_contact": "Sorun mu var? Bize ulaş.",
+
+  "tw.newsletter.eyebrow": "E-bülten",
+  "tw.newsletter.title": "Fırsatlardan ilk sen haberdar ol.",
+  "tw.newsletter.text":
+    "Kampanyalarımızı ve yeniliklerimizi e-posta ile gönderelim. İstediğin zaman abonelikten çıkabilirsin.",
+  "tw.newsletter.placeholder": "E-posta adresin",
+
+  "tw.inquiry.contact_form": "Bize yazın.",
+  "tw.inquiry.form_title": "Sizi tanıyalım.",
+  "tw.corporate.lead":
+    "İş seyahatlerinden uzun dönem filo ihtiyaçlarına, ekibin için doğru kiralama çözümünü birlikte planlayalım.",
+  "tw.corporate.title": "İşin yolunda gitsin.",
+  "tw.corporate.text":
+    "Şirketine özel fiyatlandırma, faturalı ödeme ve ihtiyaca göre filo planlaması için formu doldur; ekibimiz seninle iletişime geçsin.",
+  "tw.franchise.lead":
+    "Yerel deneyimini ortak bir vizyonla buluştur. İş ortaklığı için seni tanımak isteriz.",
+  "tw.franchise.title": "Birlikte daha ileri.",
+  "tw.franchise.text":
+    "Bölgende bayimiz olmak istiyorsan bilgilerini bırak; başvurunu değerlendirip sana dönüş yapalım.",
+
+  "lead.field.name": "Ad soyad",
+  "lead.field.email": "E-posta",
+  "lead.field.phone": "Telefon",
+  "lead.field.company": "Firma adı",
+  "lead.field.city": "Şehir",
+  "lead.field.fleet_size": "Araç ihtiyacı (adet)",
+  "lead.field.message": "Mesajınız",
+  "lead.optional": "isteğe bağlı",
+  "lead.required_note": "* ile işaretli alanlar zorunludur.",
+  "lead.consent_kvkk":
+    "Kişisel verilerimin talebimin yanıtlanması amacıyla işlenmesine ilişkin aydınlatma metnini okudum.",
+  "lead.consent_marketing":
+    "Kampanya ve duyurular hakkında ticari elektronik ileti almayı kabul ediyorum.",
+  "lead.privacy_link": "KVKK aydınlatma metni",
+  "lead.new_tab": "(yeni sekmede açılır)",
+  "lead.submit.newsletter": "Abone ol",
+  "lead.submit.contact": "Mesajı gönder",
+  "lead.submit.corporate": "Teklif iste",
+  "lead.submit.franchise": "Başvuruyu gönder",
+  "lead.sent.newsletter": "Teşekkürler! Bülten aboneliğin alındı.",
+  "lead.sent.contact":
+    "Mesajınız bize ulaştı. En kısa sürede size dönüş yapacağız.",
+  "lead.sent.corporate":
+    "Talebiniz alındı. Kurumsal ekibimiz en kısa sürede sizinle iletişime geçecek.",
+  "lead.sent.franchise":
+    "Başvurunuz alındı. Değerlendirdikten sonra sizinle iletişime geçeceğiz.",
+  "lead.status.invalid": "Lütfen işaretli alanları kontrol edin.",
+  "lead.status.limited":
+    "Kısa sürede çok fazla gönderim yapıldı. Lütfen bir süre sonra yeniden deneyin.",
+  "lead.status.closed": "Bu form şu anda kullanılamıyor.",
+  "lead.status.preview":
+    "Önizlemede form gönderilemez. Yayındaki sitede deneyebilirsiniz.",
+  "lead.status.failed":
+    "Gönderilemedi. Lütfen daha sonra yeniden deneyin veya bize telefonla ulaşın.",
+  "lead.error.required": "Bu alan zorunludur.",
+  "lead.error.consent": "Devam etmek için bu onayı vermeniz gerekir.",
+  "lead.error.invalid": "Lütfen geçerli bir değer girin.",
+  "lead.error.email": "Lütfen geçerli bir e-posta adresi girin.",
+  "lead.error.phone": "Lütfen geçerli bir telefon numarası girin.",
+  "lead.error.fleet_size": "0 ile 100000 arasında bir tam sayı girin.",
+  "lead.error.too_long": "Bu alan izin verilenden uzun.",
 };
 
 export type MessageKey = keyof typeof tr;

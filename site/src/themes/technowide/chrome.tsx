@@ -11,7 +11,9 @@ import {
 import { headers } from "next/headers";
 import Link from "next/link";
 
+import { campaignCards } from "@/lib/campaigns";
 import { loadLocations } from "@/lib/catalog";
+import { leadFlags } from "@/lib/leads";
 import {
   localized,
   mailHref,
@@ -23,7 +25,12 @@ import {
 import { PATH_HEADER } from "@/lib/request";
 import { mediaUrl, type Ctx } from "@/lib/server";
 
-/** Pages that exist for this organization (no dead links). */
+/**
+ * Pages that exist for this organization (no dead links): campaigns only
+ * while one is live, the contact page with contact details or its form.
+ * Corporate and franchise applications are linked from the footer while
+ * their forms are on.
+ */
 function defaultHeaderLinks(ctx: Ctx): NavLink[] {
   const { t, content, site } = ctx;
   const c = site.config.contact;
@@ -31,11 +38,13 @@ function defaultHeaderLinks(ctx: Ctx): NavLink[] {
   const add = (href: string, label: string) =>
     links.push({ href, label, external: false });
   if (site.booking_enabled) add("/vehicles", t("nav.vehicles"));
+  if (campaignCards(site, ctx.locale).length)
+    add("/campaigns", t("nav.campaigns"));
   add("/branches", t("nav.branches"));
   add("/lookup", t("nav.reservations"));
   if (content.faq.length) add("/faq", t("nav.faq"));
   if (content.about) add("/about", t("nav.about"));
-  if (c.phone || c.email || c.address || c.whatsapp)
+  if (c.phone || c.email || c.address || c.whatsapp || leadFlags(site).contact)
     add("/contact", t("nav.contact"));
   return links;
 }
@@ -237,7 +246,10 @@ export async function Footer({ ctx }: { ctx: Ctx }) {
     label,
     external: false,
   });
-  const hasContact = Boolean(c.phone || c.email || c.address || c.whatsapp);
+  const forms = leadFlags(site);
+  const hasContact = Boolean(
+    c.phone || c.email || c.address || c.whatsapp || forms.contact,
+  );
   const support = [
     ...(content.faq.length ? [link("/faq", t("nav.faq"))] : []),
     ...(hasContact ? [link("/contact", t("nav.contact"))] : []),
@@ -246,7 +258,12 @@ export async function Footer({ ctx }: { ctx: Ctx }) {
   const company = [
     ...(content.about ? [link("/about", t("nav.about"))] : []),
     ...(site.booking_enabled ? [link("/vehicles", t("nav.vehicles"))] : []),
+    ...(campaignCards(site, ctx.locale).length
+      ? [link("/campaigns", t("nav.campaigns"))]
+      : []),
     link("/branches", t("nav.branches")),
+    ...(forms.corporate ? [link("/corporate", t("nav.corporate"))] : []),
+    ...(forms.franchise ? [link("/franchise", t("nav.franchise"))] : []),
   ];
   const configured = menuLinks(site.config.menus?.footer, ctx.locale, []);
   const policies = [

@@ -265,4 +265,103 @@ export const en: Record<MessageKey, string> = {
   "preview.exit": "Leave preview",
   "preview.booking_disabled":
     "Bookings are disabled in a preview. You can still see prices and steps.",
+
+  "nav.campaigns": "Offers",
+  "nav.corporate": "Corporate rental",
+  "nav.franchise": "Franchise application",
+  "page.campaigns": "Offers",
+  "page.corporate": "Corporate rental",
+  "page.franchise": "Franchise application",
+
+  "tw.campaigns.eyebrow": "Offers worth taking",
+  "tw.campaigns.title": "Make more of your journey.",
+  "tw.campaigns.lead":
+    "Browse our current offers and set off with the one that suits you.",
+  "tw.campaigns.all": "All offers",
+  "tw.campaigns.default_title": "Offer",
+  "tw.campaigns.cta": "View offer",
+  "tw.campaigns.carousel": "Scrollable offers",
+  "tw.campaigns.list": "Offers",
+  "tw.campaigns.position": "Offer {n} of {total}",
+  "tw.campaigns.code": "Coupon code",
+  "tw.campaigns.code_hint":
+    "Use this code at the payment step of your booking.",
+  "tw.campaigns.until": "Valid until {date}",
+  "tw.campaigns.from": "Valid from {date}",
+  "tw.campaigns.between": "Valid {start} – {end}",
+  "tw.campaigns.open": "Current offer",
+  "tw.campaigns.validity": "Validity",
+  "tw.campaigns.empty": "There are no active offers right now.",
+  "tw.campaigns.empty_text":
+    "New offers will appear here. In the meantime, have a look at our fleet.",
+  "tw.campaigns.how": "How to use the offer",
+  "tw.campaigns.step1": "Choose your pickup location and dates.",
+  "tw.campaigns.step2": "Explore the vehicle groups that fit your plans.",
+  "tw.campaigns.step3":
+    "Review the current offer conditions and price before confirming.",
+  "tw.campaigns.terms":
+    "Offer conditions, validity and eligibility are checked during booking; the final price is shown in the booking summary.",
+  "tw.campaigns.aside_title": "Ready to set off?",
+  "tw.campaigns.aside_text": "Choose your travel companion.",
+  "tw.campaigns.aside_contact": "Questions? Get in touch.",
+
+  "tw.newsletter.eyebrow": "Newsletter",
+  "tw.newsletter.title": "Be the first to hear about offers.",
+  "tw.newsletter.text":
+    "We will e-mail you our offers and news. You can unsubscribe at any time.",
+  "tw.newsletter.placeholder": "Your e-mail address",
+
+  "tw.inquiry.contact_form": "Write to us.",
+  "tw.inquiry.form_title": "Let’s get acquainted.",
+  "tw.corporate.lead":
+    "From business trips to longer-term fleet needs, let’s plan the right rental solution for your team.",
+  "tw.corporate.title": "Keep your business moving.",
+  "tw.corporate.text":
+    "Fill in the form for company pricing, invoiced payment and fleet planning; our team will get in touch.",
+  "tw.franchise.lead":
+    "Bring your local expertise to a shared vision. Tell us about your partnership plans.",
+  "tw.franchise.title": "Further, together.",
+  "tw.franchise.text":
+    "Want to become our partner in your region? Leave your details and we will get back to you after reviewing your application.",
+
+  "lead.field.name": "Full name",
+  "lead.field.email": "E-mail",
+  "lead.field.phone": "Phone",
+  "lead.field.company": "Company",
+  "lead.field.city": "City",
+  "lead.field.fleet_size": "Vehicles needed",
+  "lead.field.message": "Your message",
+  "lead.optional": "optional",
+  "lead.required_note": "Fields marked * are required.",
+  "lead.consent_kvkk":
+    "I have read the privacy notice on processing my personal data to answer my request.",
+  "lead.consent_marketing":
+    "I agree to receive commercial e-mails about offers and news.",
+  "lead.privacy_link": "Privacy notice (KVKK)",
+  "lead.new_tab": "(opens in a new tab)",
+  "lead.submit.newsletter": "Subscribe",
+  "lead.submit.contact": "Send message",
+  "lead.submit.corporate": "Request an offer",
+  "lead.submit.franchise": "Send application",
+  "lead.sent.newsletter": "Thank you! Your subscription has been received.",
+  "lead.sent.contact":
+    "Your message has reached us. We will get back to you soon.",
+  "lead.sent.corporate":
+    "Your request has been received. Our corporate team will contact you soon.",
+  "lead.sent.franchise":
+    "Your application has been received. We will contact you after reviewing it.",
+  "lead.status.invalid": "Please check the highlighted fields.",
+  "lead.status.limited":
+    "Too many submissions in a short time. Please try again later.",
+  "lead.status.closed": "This form is not available right now.",
+  "lead.status.preview":
+    "Forms cannot be sent from a preview. Try it on the live site.",
+  "lead.status.failed": "Could not send. Please try again later or call us.",
+  "lead.error.required": "This field is required.",
+  "lead.error.consent": "Please give this consent to continue.",
+  "lead.error.invalid": "Please enter a valid value.",
+  "lead.error.email": "Please enter a valid e-mail address.",
+  "lead.error.phone": "Please enter a valid phone number.",
+  "lead.error.fleet_size": "Enter a whole number between 0 and 100000.",
+  "lead.error.too_long": "This field is longer than allowed.",
 };

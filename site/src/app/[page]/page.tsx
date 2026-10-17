@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { getCtx } from "@/lib/server";
-import { themeFor, type ContentPage } from "@/themes";
+import { themeFor, type ContentPage, type Query } from "@/themes";
 import type { MessageKey } from "@/messages/tr";
 
 /** Content pages of the site settings (about, FAQ, contact, terms, KVKK). */
@@ -24,12 +24,14 @@ export async function generateMetadata({
 
 export default async function ContentPageRoute({
   params,
+  searchParams,
 }: {
   params: Promise<{ page: string }>;
+  searchParams: Promise<Query>;
 }) {
   const { page } = await params;
   if (!isPage(page)) notFound();
   const ctx = await getCtx();
   const theme = themeFor(ctx.site);
-  return <theme.Content ctx={ctx} page={page} />;
+  return <theme.Content ctx={ctx} page={page} query={await searchParams} />;
 }
