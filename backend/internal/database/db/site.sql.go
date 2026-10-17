@@ -13,36 +13,116 @@ import (
 )
 
 const getSiteAssetKeys = `-- name: GetSiteAssetKeys :one
-SELECT s.organization_id, s.logo_object_key, s.favicon_object_key, s.cover_object_key,
-    o.logo_object_key AS organization_logo_object_key
+SELECT s.organization_id, s.enabled, s.published_revision,
+    s.logo_object_key, s.favicon_object_key, s.cover_object_key,
+    v.logo_object_key AS published_logo_object_key, v.favicon_object_key AS published_favicon_object_key,
+    v.cover_object_key AS published_cover_object_key,
+    o.uuid AS organization_uuid, o.logo_object_key AS organization_logo_object_key
 FROM site_settings s
 JOIN organizations o ON o.id = s.organization_id
+LEFT JOIN site_setting_versions v ON v.organization_id = s.organization_id AND v.revision = s.published_revision
 WHERE s.uuid = $1
   AND s.organization_id = o.id
-  AND s.enabled
   AND o.deleted_at IS NULL
 `
 
 type GetSiteAssetKeysRow struct {
 	OrganizationID            int64       `json:"organization_id"`
+	Enabled                   bool        `json:"enabled"`
+	PublishedRevision         pgtype.Int4 `json:"published_revision"`
 	LogoObjectKey             pgtype.Text `json:"logo_object_key"`
 	FaviconObjectKey          pgtype.Text `json:"favicon_object_key"`
 	CoverObjectKey            pgtype.Text `json:"cover_object_key"`
+	PublishedLogoObjectKey    pgtype.Text `json:"published_logo_object_key"`
+	PublishedFaviconObjectKey pgtype.Text `json:"published_favicon_object_key"`
+	PublishedCoverObjectKey   pgtype.Text `json:"published_cover_object_key"`
+	OrganizationUuid          uuid.UUID   `json:"organization_uuid"`
 	OrganizationLogoObjectKey pgtype.Text `json:"organization_logo_object_key"`
 }
 
-// The image keys of an enabled site by its public uuid (asset stream).
+// The image keys of a site by its public uuid (asset stream): the draft
+// and the published snapshot. The caller picks by the preview token.
 func (q *Queries) GetSiteAssetKeys(ctx context.Context, argUuid uuid.UUID) (GetSiteAssetKeysRow, error) {
 	row := q.db.QueryRow(ctx, getSiteAssetKeys, argUuid)
 	var i GetSiteAssetKeysRow
 	err := row.Scan(
 		&i.OrganizationID,
+		&i.Enabled,
+		&i.PublishedRevision,
 		&i.LogoObjectKey,
 		&i.FaviconObjectKey,
 		&i.CoverObjectKey,
+		&i.PublishedLogoObjectKey,
+		&i.PublishedFaviconObjectKey,
+		&i.PublishedCoverObjectKey,
+		&i.OrganizationUuid,
 		&i.OrganizationLogoObjectKey,
 	)
 	return i, err
+}
+
+const getSiteCatalogExtra = `-- name: GetSiteCatalogExtra :one
+SELECT e.uuid, e.code, e.name, e.status, e.extra_type, e.channels::varchar[] AS channels
+FROM extras e
+WHERE e.organization_id = $1
+  AND e.uuid = $2
+  AND e.deleted_at IS NULL
+  AND e.extra_type <> 'delivery'
+`
+
+type GetSiteCatalogExtraParams struct {
+	OrganizationID int64     `json:"organization_id"`
+	Uuid           uuid.UUID `json:"uuid"`
+}
+
+type GetSiteCatalogExtraRow struct {
+	Uuid      uuid.UUID `json:"uuid"`
+	Code      string    `json:"code"`
+	Name      string    `json:"name"`
+	Status    string    `json:"status"`
+	ExtraType string    `json:"extra_type"`
+	Channels  []string  `json:"channels"`
+}
+
+func (q *Queries) GetSiteCatalogExtra(ctx context.Context, arg GetSiteCatalogExtraParams) (GetSiteCatalogExtraRow, error) {
+	row := q.db.QueryRow(ctx, getSiteCatalogExtra, arg.OrganizationID, arg.Uuid)
+	var i GetSiteCatalogExtraRow
+	err := row.Scan(
+		&i.Uuid,
+		&i.Code,
+		&i.Name,
+		&i.Status,
+		&i.ExtraType,
+		&i.Channels,
+	)
+	return i, err
+}
+
+const getSiteKeySuccessor = `-- name: GetSiteKeySuccessor :one
+SELECT k.uuid
+FROM public_api_keys k
+JOIN public_api_keys old ON old.organization_id = k.organization_id AND old.id = k.rotated_from_id
+WHERE k.organization_id = $1
+  AND old.organization_id = $1
+  AND old.uuid = $2
+  AND k.status = 'active'
+  AND (k.expires_at IS NULL OR k.expires_at > NOW())
+ORDER BY k.id DESC
+LIMIT 1
+`
+
+type GetSiteKeySuccessorParams struct {
+	OrganizationID int64     `json:"organization_id"`
+	Uuid           uuid.UUID `json:"uuid"`
+}
+
+// The newest active key rotated from the site's key (Ayarlar → Public API
+// rotation): the site follows it on the next save.
+func (q *Queries) GetSiteKeySuccessor(ctx context.Context, arg GetSiteKeySuccessorParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, getSiteKeySuccessor, arg.OrganizationID, arg.Uuid)
+	var uuid uuid.UUID
+	err := row.Scan(&uuid)
+	return uuid, err
 }
 
 const getSitePublicAPIKeyID = `-- name: GetSitePublicAPIKeyID :one
@@ -66,34 +146,49 @@ func (q *Queries) GetSitePublicAPIKeyID(ctx context.Context, arg GetSitePublicAP
 
 const getSiteSettings = `-- name: GetSiteSettings :one
 
-SELECT s.id, s.uuid, s.organization_id, s.enabled, s.subdomain, s.default_locale, s.config, s.api_key_id, s.logo_object_key, s.favicon_object_key, s.cover_object_key, s.version, s.updated_by, s.created_at, s.updated_at, k.uuid AS api_key_uuid
+SELECT s.id, s.uuid, s.organization_id, s.enabled, s.subdomain, s.default_locale, s.config, s.api_key_id, s.logo_object_key, s.favicon_object_key, s.cover_object_key, s.version, s.updated_by, s.created_at, s.updated_at, s.published_revision, k.uuid AS api_key_uuid,
+    v.uuid AS published_uuid, v.config AS published_config,
+    v.logo_object_key AS published_logo_object_key, v.favicon_object_key AS published_favicon_object_key,
+    v.cover_object_key AS published_cover_object_key, v.published_at
 FROM site_settings s
 LEFT JOIN public_api_keys k ON k.organization_id = s.organization_id AND k.id = s.api_key_id
+LEFT JOIN site_setting_versions v ON v.organization_id = s.organization_id AND v.revision = s.published_revision
 WHERE s.organization_id = $1
 `
 
 type GetSiteSettingsRow struct {
-	ID               int64              `json:"id"`
-	Uuid             uuid.UUID          `json:"uuid"`
-	OrganizationID   int64              `json:"organization_id"`
-	Enabled          bool               `json:"enabled"`
-	Subdomain        string             `json:"subdomain"`
-	DefaultLocale    string             `json:"default_locale"`
-	Config           []byte             `json:"config"`
-	ApiKeyID         pgtype.Int8        `json:"api_key_id"`
-	LogoObjectKey    pgtype.Text        `json:"logo_object_key"`
-	FaviconObjectKey pgtype.Text        `json:"favicon_object_key"`
-	CoverObjectKey   pgtype.Text        `json:"cover_object_key"`
-	Version          int32              `json:"version"`
-	UpdatedBy        pgtype.Int8        `json:"updated_by"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-	ApiKeyUuid       pgtype.UUID        `json:"api_key_uuid"`
+	ID                        int64              `json:"id"`
+	Uuid                      uuid.UUID          `json:"uuid"`
+	OrganizationID            int64              `json:"organization_id"`
+	Enabled                   bool               `json:"enabled"`
+	Subdomain                 string             `json:"subdomain"`
+	DefaultLocale             string             `json:"default_locale"`
+	Config                    []byte             `json:"config"`
+	ApiKeyID                  pgtype.Int8        `json:"api_key_id"`
+	LogoObjectKey             pgtype.Text        `json:"logo_object_key"`
+	FaviconObjectKey          pgtype.Text        `json:"favicon_object_key"`
+	CoverObjectKey            pgtype.Text        `json:"cover_object_key"`
+	Version                   int32              `json:"version"`
+	UpdatedBy                 pgtype.Int8        `json:"updated_by"`
+	CreatedAt                 pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                 pgtype.Timestamptz `json:"updated_at"`
+	PublishedRevision         pgtype.Int4        `json:"published_revision"`
+	ApiKeyUuid                pgtype.UUID        `json:"api_key_uuid"`
+	PublishedUuid             pgtype.UUID        `json:"published_uuid"`
+	PublishedConfig           []byte             `json:"published_config"`
+	PublishedLogoObjectKey    pgtype.Text        `json:"published_logo_object_key"`
+	PublishedFaviconObjectKey pgtype.Text        `json:"published_favicon_object_key"`
+	PublishedCoverObjectKey   pgtype.Text        `json:"published_cover_object_key"`
+	PublishedAt               pgtype.Timestamptz `json:"published_at"`
 }
 
-// Branded site (TEC-729, docs/design/branded-site.md). Every query names
-// organization_id; the host lookups are global by design (the host
+// Branded site (TEC-729 / TEC-730, docs/design/branded-site.md). Every query
+// names organization_id; the host lookups are global by design (the host
 // resolves the organization), like the public API key lookup by hash.
+//
+// site_settings holds the live fields (enabled, subdomain, default_locale,
+// api_key_id) and the draft (config, *_object_key). site_setting_versions
+// holds the published snapshots; published_revision names the live one.
 func (q *Queries) GetSiteSettings(ctx context.Context, organizationID int64) (GetSiteSettingsRow, error) {
 	row := q.db.QueryRow(ctx, getSiteSettings, organizationID)
 	var i GetSiteSettingsRow
@@ -113,7 +208,47 @@ func (q *Queries) GetSiteSettings(ctx context.Context, organizationID int64) (Ge
 		&i.UpdatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PublishedRevision,
 		&i.ApiKeyUuid,
+		&i.PublishedUuid,
+		&i.PublishedConfig,
+		&i.PublishedLogoObjectKey,
+		&i.PublishedFaviconObjectKey,
+		&i.PublishedCoverObjectKey,
+		&i.PublishedAt,
+	)
+	return i, err
+}
+
+const getSiteVersion = `-- name: GetSiteVersion :one
+SELECT v.id, v.uuid, v.organization_id, v.site_id, v.revision, v.config, v.logo_object_key, v.favicon_object_key, v.cover_object_key, v.draft_version, v.published_by, v.published_at, v.created_at
+FROM site_setting_versions v
+WHERE v.organization_id = $1
+  AND v.uuid = $2
+`
+
+type GetSiteVersionParams struct {
+	OrganizationID int64     `json:"organization_id"`
+	Uuid           uuid.UUID `json:"uuid"`
+}
+
+func (q *Queries) GetSiteVersion(ctx context.Context, arg GetSiteVersionParams) (SiteSettingVersion, error) {
+	row := q.db.QueryRow(ctx, getSiteVersion, arg.OrganizationID, arg.Uuid)
+	var i SiteSettingVersion
+	err := row.Scan(
+		&i.ID,
+		&i.Uuid,
+		&i.OrganizationID,
+		&i.SiteID,
+		&i.Revision,
+		&i.Config,
+		&i.LogoObjectKey,
+		&i.FaviconObjectKey,
+		&i.CoverObjectKey,
+		&i.DraftVersion,
+		&i.PublishedBy,
+		&i.PublishedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -126,7 +261,7 @@ INSERT INTO site_settings (
     $5, $6, $7
 )
 ON CONFLICT (organization_id) DO NOTHING
-RETURNING id, uuid, organization_id, enabled, subdomain, default_locale, config, api_key_id, logo_object_key, favicon_object_key, cover_object_key, version, updated_by, created_at, updated_at
+RETURNING id, uuid, organization_id, enabled, subdomain, default_locale, config, api_key_id, logo_object_key, favicon_object_key, cover_object_key, version, updated_by, created_at, updated_at, published_revision
 `
 
 type InsertSiteSettingsParams struct {
@@ -168,13 +303,263 @@ func (q *Queries) InsertSiteSettings(ctx context.Context, arg InsertSiteSettings
 		&i.UpdatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PublishedRevision,
 	)
+	return i, err
+}
+
+const listSiteCatalogBranches = `-- name: ListSiteCatalogBranches :many
+
+SELECT b.uuid, b.code, b.name, b.city, b.is_active, b.show_online
+FROM branches b
+WHERE b.organization_id = $1
+  AND b.deleted_at IS NULL
+ORDER BY b.city, b.name, b.id
+`
+
+type ListSiteCatalogBranchesRow struct {
+	Uuid       uuid.UUID `json:"uuid"`
+	Code       string    `json:"code"`
+	Name       string    `json:"name"`
+	City       string    `json:"city"`
+	IsActive   bool      `json:"is_active"`
+	ShowOnline bool      `json:"show_online"`
+}
+
+// ----------------------------------------------- catalog publish state
+func (q *Queries) ListSiteCatalogBranches(ctx context.Context, organizationID int64) ([]ListSiteCatalogBranchesRow, error) {
+	rows, err := q.db.Query(ctx, listSiteCatalogBranches, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSiteCatalogBranchesRow{}
+	for rows.Next() {
+		var i ListSiteCatalogBranchesRow
+		if err := rows.Scan(
+			&i.Uuid,
+			&i.Code,
+			&i.Name,
+			&i.City,
+			&i.IsActive,
+			&i.ShowOnline,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSiteCatalogExtras = `-- name: ListSiteCatalogExtras :many
+SELECT e.uuid, e.code, e.name, e.status, e.extra_type, e.channels::varchar[] AS channels
+FROM extras e
+WHERE e.organization_id = $1
+  AND e.deleted_at IS NULL
+  AND e.extra_type <> 'delivery'
+ORDER BY e.sort_order, e.name, e.id
+`
+
+type ListSiteCatalogExtrasRow struct {
+	Uuid      uuid.UUID `json:"uuid"`
+	Code      string    `json:"code"`
+	Name      string    `json:"name"`
+	Status    string    `json:"status"`
+	ExtraType string    `json:"extra_type"`
+	Channels  []string  `json:"channels"`
+}
+
+func (q *Queries) ListSiteCatalogExtras(ctx context.Context, organizationID int64) ([]ListSiteCatalogExtrasRow, error) {
+	rows, err := q.db.Query(ctx, listSiteCatalogExtras, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSiteCatalogExtrasRow{}
+	for rows.Next() {
+		var i ListSiteCatalogExtrasRow
+		if err := rows.Scan(
+			&i.Uuid,
+			&i.Code,
+			&i.Name,
+			&i.Status,
+			&i.ExtraType,
+			&i.Channels,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSiteCatalogProducts = `-- name: ListSiteCatalogProducts :many
+SELECT p.uuid, p.code, p.title, p.status, p.is_active, p.show_online,
+    s.name AS segment_name
+FROM rental_products p
+JOIN vehicle_segments s ON s.organization_id = p.organization_id AND s.id = p.segment_id
+WHERE p.organization_id = $1
+  AND s.organization_id = $1
+  AND p.deleted_at IS NULL
+ORDER BY s.sort_order, s.name, p.title, p.id
+`
+
+type ListSiteCatalogProductsRow struct {
+	Uuid        uuid.UUID `json:"uuid"`
+	Code        string    `json:"code"`
+	Title       string    `json:"title"`
+	Status      string    `json:"status"`
+	IsActive    bool      `json:"is_active"`
+	ShowOnline  bool      `json:"show_online"`
+	SegmentName string    `json:"segment_name"`
+}
+
+func (q *Queries) ListSiteCatalogProducts(ctx context.Context, organizationID int64) ([]ListSiteCatalogProductsRow, error) {
+	rows, err := q.db.Query(ctx, listSiteCatalogProducts, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSiteCatalogProductsRow{}
+	for rows.Next() {
+		var i ListSiteCatalogProductsRow
+		if err := rows.Scan(
+			&i.Uuid,
+			&i.Code,
+			&i.Title,
+			&i.Status,
+			&i.IsActive,
+			&i.ShowOnline,
+			&i.SegmentName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSiteVersions = `-- name: ListSiteVersions :many
+SELECT v.uuid, v.revision, v.draft_version, v.published_at,
+    (v.logo_object_key IS NOT NULL)::boolean AS has_logo,
+    (v.favicon_object_key IS NOT NULL)::boolean AS has_favicon,
+    (v.cover_object_key IS NOT NULL)::boolean AS has_cover,
+    COALESCE(btrim(u.name || ' ' || u.surname), '')::text AS published_by_name
+FROM site_setting_versions v
+LEFT JOIN users u ON u.id = v.published_by
+WHERE v.organization_id = $1
+ORDER BY v.revision DESC
+LIMIT 200
+`
+
+type ListSiteVersionsRow struct {
+	Uuid            uuid.UUID          `json:"uuid"`
+	Revision        int32              `json:"revision"`
+	DraftVersion    int32              `json:"draft_version"`
+	PublishedAt     pgtype.Timestamptz `json:"published_at"`
+	HasLogo         bool               `json:"has_logo"`
+	HasFavicon      bool               `json:"has_favicon"`
+	HasCover        bool               `json:"has_cover"`
+	PublishedByName string             `json:"published_by_name"`
+}
+
+// Publish history, newest first.
+func (q *Queries) ListSiteVersions(ctx context.Context, organizationID int64) ([]ListSiteVersionsRow, error) {
+	rows, err := q.db.Query(ctx, listSiteVersions, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSiteVersionsRow{}
+	for rows.Next() {
+		var i ListSiteVersionsRow
+		if err := rows.Scan(
+			&i.Uuid,
+			&i.Revision,
+			&i.DraftVersion,
+			&i.PublishedAt,
+			&i.HasLogo,
+			&i.HasFavicon,
+			&i.HasCover,
+			&i.PublishedByName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const publishSiteDraft = `-- name: PublishSiteDraft :one
+WITH cur AS (
+    SELECT s.id, s.organization_id, s.config, s.logo_object_key, s.favicon_object_key, s.cover_object_key, s.version
+    FROM site_settings s
+    WHERE s.organization_id = $1
+      AND s.version = $2
+    FOR UPDATE
+), ins AS (
+    INSERT INTO site_setting_versions (
+        organization_id, site_id, revision, config, logo_object_key, favicon_object_key, cover_object_key,
+        draft_version, published_by
+    )
+    SELECT cur.organization_id, cur.id,
+        COALESCE((
+            SELECT MAX(x.revision) FROM site_setting_versions x WHERE x.organization_id = $1
+        ), 0) + 1,
+        cur.config, cur.logo_object_key, cur.favicon_object_key, cur.cover_object_key, cur.version,
+        $3
+    FROM cur
+    RETURNING site_setting_versions.id, site_setting_versions.site_id, site_setting_versions.revision,
+        site_setting_versions.uuid
+)
+UPDATE site_settings
+SET published_revision = ins.revision
+FROM ins
+WHERE site_settings.organization_id = $1
+  AND site_settings.id = ins.site_id
+RETURNING ins.revision, ins.uuid
+`
+
+type PublishSiteDraftParams struct {
+	OrganizationID  int64       `json:"organization_id"`
+	ExpectedVersion int32       `json:"expected_version"`
+	PublishedBy     pgtype.Int8 `json:"published_by"`
+}
+
+type PublishSiteDraftRow struct {
+	Revision int32     `json:"revision"`
+	Uuid     uuid.UUID `json:"uuid"`
+}
+
+// Publishes the draft the caller saw: snapshots config and images as the
+// next revision and makes it the published one, in one statement. No row =
+// the version moved; a unique violation = a concurrent publish.
+func (q *Queries) PublishSiteDraft(ctx context.Context, arg PublishSiteDraftParams) (PublishSiteDraftRow, error) {
+	row := q.db.QueryRow(ctx, publishSiteDraft, arg.OrganizationID, arg.ExpectedVersion, arg.PublishedBy)
+	var i PublishSiteDraftRow
+	err := row.Scan(&i.Revision, &i.Uuid)
 	return i, err
 }
 
 const resolveSiteByOrganization = `-- name: ResolveSiteByOrganization :one
 SELECT s.id, s.uuid, s.organization_id, s.enabled, s.subdomain, s.default_locale, s.config,
     s.logo_object_key, s.favicon_object_key, s.cover_object_key, s.version, s.updated_at,
+    s.published_revision,
+    v.config AS published_config, v.logo_object_key AS published_logo_object_key,
+    v.favicon_object_key AS published_favicon_object_key, v.cover_object_key AS published_cover_object_key,
+    v.published_at,
     o.uuid AS organization_uuid, o.slug AS organization_slug, o.name AS organization_name,
     o.status AS organization_status, o.access_starts_at, o.access_ends_at,
     o.logo_object_key AS organization_logo_object_key,
@@ -183,9 +568,9 @@ SELECT s.id, s.uuid, s.organization_id, s.enabled, s.subdomain, s.default_locale
 FROM site_settings s
 JOIN organizations o ON o.id = s.organization_id
 LEFT JOIN public_api_keys k ON k.organization_id = s.organization_id AND k.id = s.api_key_id
+LEFT JOIN site_setting_versions v ON v.organization_id = s.organization_id AND v.revision = s.published_revision
 WHERE s.organization_id = $1
   AND o.id = s.organization_id
-  AND s.enabled
   AND o.deleted_at IS NULL
 `
 
@@ -202,6 +587,12 @@ type ResolveSiteByOrganizationRow struct {
 	CoverObjectKey            pgtype.Text        `json:"cover_object_key"`
 	Version                   int32              `json:"version"`
 	UpdatedAt                 pgtype.Timestamptz `json:"updated_at"`
+	PublishedRevision         pgtype.Int4        `json:"published_revision"`
+	PublishedConfig           []byte             `json:"published_config"`
+	PublishedLogoObjectKey    pgtype.Text        `json:"published_logo_object_key"`
+	PublishedFaviconObjectKey pgtype.Text        `json:"published_favicon_object_key"`
+	PublishedCoverObjectKey   pgtype.Text        `json:"published_cover_object_key"`
+	PublishedAt               pgtype.Timestamptz `json:"published_at"`
 	OrganizationUuid          uuid.UUID          `json:"organization_uuid"`
 	OrganizationSlug          string             `json:"organization_slug"`
 	OrganizationName          string             `json:"organization_name"`
@@ -217,8 +608,8 @@ type ResolveSiteByOrganizationRow struct {
 	ApiKeyExpiresAt           pgtype.Timestamptz `json:"api_key_expires_at"`
 }
 
-// The enabled site of an organization (a verified custom domain names the
-// organization; TEC-731).
+// The site of an organization (a verified custom domain names the
+// organization; TEC-731). Same shape as ResolveSiteBySubdomain.
 func (q *Queries) ResolveSiteByOrganization(ctx context.Context, organizationID int64) (ResolveSiteByOrganizationRow, error) {
 	row := q.db.QueryRow(ctx, resolveSiteByOrganization, organizationID)
 	var i ResolveSiteByOrganizationRow
@@ -235,6 +626,12 @@ func (q *Queries) ResolveSiteByOrganization(ctx context.Context, organizationID 
 		&i.CoverObjectKey,
 		&i.Version,
 		&i.UpdatedAt,
+		&i.PublishedRevision,
+		&i.PublishedConfig,
+		&i.PublishedLogoObjectKey,
+		&i.PublishedFaviconObjectKey,
+		&i.PublishedCoverObjectKey,
+		&i.PublishedAt,
 		&i.OrganizationUuid,
 		&i.OrganizationSlug,
 		&i.OrganizationName,
@@ -255,6 +652,10 @@ func (q *Queries) ResolveSiteByOrganization(ctx context.Context, organizationID 
 const resolveSiteBySubdomain = `-- name: ResolveSiteBySubdomain :one
 SELECT s.id, s.uuid, s.organization_id, s.enabled, s.subdomain, s.default_locale, s.config,
     s.logo_object_key, s.favicon_object_key, s.cover_object_key, s.version, s.updated_at,
+    s.published_revision,
+    v.config AS published_config, v.logo_object_key AS published_logo_object_key,
+    v.favicon_object_key AS published_favicon_object_key, v.cover_object_key AS published_cover_object_key,
+    v.published_at,
     o.uuid AS organization_uuid, o.slug AS organization_slug, o.name AS organization_name,
     o.status AS organization_status, o.access_starts_at, o.access_ends_at,
     o.logo_object_key AS organization_logo_object_key,
@@ -263,9 +664,9 @@ SELECT s.id, s.uuid, s.organization_id, s.enabled, s.subdomain, s.default_locale
 FROM site_settings s
 JOIN organizations o ON o.id = s.organization_id
 LEFT JOIN public_api_keys k ON k.organization_id = s.organization_id AND k.id = s.api_key_id
+LEFT JOIN site_setting_versions v ON v.organization_id = s.organization_id AND v.revision = s.published_revision
 WHERE s.subdomain = $1
   AND s.organization_id = o.id
-  AND s.enabled
   AND o.deleted_at IS NULL
 `
 
@@ -282,6 +683,12 @@ type ResolveSiteBySubdomainRow struct {
 	CoverObjectKey            pgtype.Text        `json:"cover_object_key"`
 	Version                   int32              `json:"version"`
 	UpdatedAt                 pgtype.Timestamptz `json:"updated_at"`
+	PublishedRevision         pgtype.Int4        `json:"published_revision"`
+	PublishedConfig           []byte             `json:"published_config"`
+	PublishedLogoObjectKey    pgtype.Text        `json:"published_logo_object_key"`
+	PublishedFaviconObjectKey pgtype.Text        `json:"published_favicon_object_key"`
+	PublishedCoverObjectKey   pgtype.Text        `json:"published_cover_object_key"`
+	PublishedAt               pgtype.Timestamptz `json:"published_at"`
 	OrganizationUuid          uuid.UUID          `json:"organization_uuid"`
 	OrganizationSlug          string             `json:"organization_slug"`
 	OrganizationName          string             `json:"organization_name"`
@@ -297,8 +704,10 @@ type ResolveSiteBySubdomainRow struct {
 	ApiKeyExpiresAt           pgtype.Timestamptz `json:"api_key_expires_at"`
 }
 
-// The enabled site of a subdomain with its organization and linked key
-// (global lookup by the host; the organization comes from the row).
+// The site of a subdomain with its organization, linked key, draft and
+// published snapshot (global lookup by the host; the organization comes
+// from the row). The caller serves the published snapshot of an enabled
+// site, or the draft to a valid preview token.
 func (q *Queries) ResolveSiteBySubdomain(ctx context.Context, subdomain string) (ResolveSiteBySubdomainRow, error) {
 	row := q.db.QueryRow(ctx, resolveSiteBySubdomain, subdomain)
 	var i ResolveSiteBySubdomainRow
@@ -315,6 +724,12 @@ func (q *Queries) ResolveSiteBySubdomain(ctx context.Context, subdomain string) 
 		&i.CoverObjectKey,
 		&i.Version,
 		&i.UpdatedAt,
+		&i.PublishedRevision,
+		&i.PublishedConfig,
+		&i.PublishedLogoObjectKey,
+		&i.PublishedFaviconObjectKey,
+		&i.PublishedCoverObjectKey,
+		&i.PublishedAt,
 		&i.OrganizationUuid,
 		&i.OrganizationSlug,
 		&i.OrganizationName,
@@ -330,6 +745,288 @@ func (q *Queries) ResolveSiteBySubdomain(ctx context.Context, subdomain string) 
 		&i.ApiKeyExpiresAt,
 	)
 	return i, err
+}
+
+const restoreSiteDraft = `-- name: RestoreSiteDraft :one
+UPDATE site_settings s
+SET config = v.config,
+    logo_object_key = v.logo_object_key,
+    favicon_object_key = v.favicon_object_key,
+    cover_object_key = v.cover_object_key,
+    updated_by = $1,
+    version = s.version + 1
+FROM site_setting_versions v
+WHERE s.organization_id = $2
+  AND s.version = $3
+  AND v.organization_id = $2
+  AND v.uuid = $4
+RETURNING s.version
+`
+
+type RestoreSiteDraftParams struct {
+	UpdatedBy       pgtype.Int8 `json:"updated_by"`
+	OrganizationID  int64       `json:"organization_id"`
+	ExpectedVersion int32       `json:"expected_version"`
+	Uuid            uuid.UUID   `json:"uuid"`
+}
+
+// Copies a published snapshot back into the draft (publish again to make it
+// live); bumps the version.
+func (q *Queries) RestoreSiteDraft(ctx context.Context, arg RestoreSiteDraftParams) (int32, error) {
+	row := q.db.QueryRow(ctx, restoreSiteDraft,
+		arg.UpdatedBy,
+		arg.OrganizationID,
+		arg.ExpectedVersion,
+		arg.Uuid,
+	)
+	var version int32
+	err := row.Scan(&version)
+	return version, err
+}
+
+const setBranchShowOnline = `-- name: SetBranchShowOnline :one
+UPDATE branches
+SET show_online = COALESCE($1::boolean, show_online)
+WHERE organization_id = $2
+  AND uuid = $3
+  AND deleted_at IS NULL
+RETURNING uuid, code, name, city, is_active, show_online
+`
+
+type SetBranchShowOnlineParams struct {
+	ShowOnline     pgtype.Bool `json:"show_online"`
+	OrganizationID int64       `json:"organization_id"`
+	Uuid           uuid.UUID   `json:"uuid"`
+}
+
+type SetBranchShowOnlineRow struct {
+	Uuid       uuid.UUID `json:"uuid"`
+	Code       string    `json:"code"`
+	Name       string    `json:"name"`
+	City       string    `json:"city"`
+	IsActive   bool      `json:"is_active"`
+	ShowOnline bool      `json:"show_online"`
+}
+
+func (q *Queries) SetBranchShowOnline(ctx context.Context, arg SetBranchShowOnlineParams) (SetBranchShowOnlineRow, error) {
+	row := q.db.QueryRow(ctx, setBranchShowOnline, arg.ShowOnline, arg.OrganizationID, arg.Uuid)
+	var i SetBranchShowOnlineRow
+	err := row.Scan(
+		&i.Uuid,
+		&i.Code,
+		&i.Name,
+		&i.City,
+		&i.IsActive,
+		&i.ShowOnline,
+	)
+	return i, err
+}
+
+const setExtraChannels = `-- name: SetExtraChannels :one
+UPDATE extras
+SET channels = $1::varchar[]
+WHERE organization_id = $2
+  AND uuid = $3
+  AND deleted_at IS NULL
+RETURNING uuid, code, name, status, extra_type, channels::varchar[] AS channels
+`
+
+type SetExtraChannelsParams struct {
+	Channels       []string  `json:"channels"`
+	OrganizationID int64     `json:"organization_id"`
+	Uuid           uuid.UUID `json:"uuid"`
+}
+
+type SetExtraChannelsRow struct {
+	Uuid      uuid.UUID `json:"uuid"`
+	Code      string    `json:"code"`
+	Name      string    `json:"name"`
+	Status    string    `json:"status"`
+	ExtraType string    `json:"extra_type"`
+	Channels  []string  `json:"channels"`
+}
+
+// channels NULL = every channel.
+func (q *Queries) SetExtraChannels(ctx context.Context, arg SetExtraChannelsParams) (SetExtraChannelsRow, error) {
+	row := q.db.QueryRow(ctx, setExtraChannels, arg.Channels, arg.OrganizationID, arg.Uuid)
+	var i SetExtraChannelsRow
+	err := row.Scan(
+		&i.Uuid,
+		&i.Code,
+		&i.Name,
+		&i.Status,
+		&i.ExtraType,
+		&i.Channels,
+	)
+	return i, err
+}
+
+const setProductShowOnline = `-- name: SetProductShowOnline :one
+UPDATE rental_products
+SET show_online = COALESCE($1::boolean, show_online)
+WHERE organization_id = $2
+  AND uuid = $3
+  AND deleted_at IS NULL
+RETURNING uuid, code, title, status, is_active, show_online
+`
+
+type SetProductShowOnlineParams struct {
+	ShowOnline     pgtype.Bool `json:"show_online"`
+	OrganizationID int64       `json:"organization_id"`
+	Uuid           uuid.UUID   `json:"uuid"`
+}
+
+type SetProductShowOnlineRow struct {
+	Uuid       uuid.UUID `json:"uuid"`
+	Code       string    `json:"code"`
+	Title      string    `json:"title"`
+	Status     string    `json:"status"`
+	IsActive   bool      `json:"is_active"`
+	ShowOnline bool      `json:"show_online"`
+}
+
+func (q *Queries) SetProductShowOnline(ctx context.Context, arg SetProductShowOnlineParams) (SetProductShowOnlineRow, error) {
+	row := q.db.QueryRow(ctx, setProductShowOnline, arg.ShowOnline, arg.OrganizationID, arg.Uuid)
+	var i SetProductShowOnlineRow
+	err := row.Scan(
+		&i.Uuid,
+		&i.Code,
+		&i.Title,
+		&i.Status,
+		&i.IsActive,
+		&i.ShowOnline,
+	)
+	return i, err
+}
+
+const setSiteDraftImage = `-- name: SetSiteDraftImage :one
+UPDATE site_settings
+SET logo_object_key = CASE WHEN $1::text = 'logo' THEN $2::text ELSE logo_object_key END,
+    favicon_object_key = CASE WHEN $1::text = 'favicon' THEN $2::text ELSE favicon_object_key END,
+    cover_object_key = CASE WHEN $1::text = 'cover' THEN $2::text ELSE cover_object_key END,
+    updated_by = $3,
+    version = version + 1
+WHERE organization_id = $4
+  AND version = $5
+RETURNING id, uuid, organization_id, enabled, subdomain, default_locale, config, api_key_id, logo_object_key, favicon_object_key, cover_object_key, version, updated_by, created_at, updated_at, published_revision
+`
+
+type SetSiteDraftImageParams struct {
+	Kind            string      `json:"kind"`
+	ObjectKey       pgtype.Text `json:"object_key"`
+	UpdatedBy       pgtype.Int8 `json:"updated_by"`
+	OrganizationID  int64       `json:"organization_id"`
+	ExpectedVersion int32       `json:"expected_version"`
+}
+
+// Replaces (or clears) one draft image; bumps the version.
+func (q *Queries) SetSiteDraftImage(ctx context.Context, arg SetSiteDraftImageParams) (SiteSetting, error) {
+	row := q.db.QueryRow(ctx, setSiteDraftImage,
+		arg.Kind,
+		arg.ObjectKey,
+		arg.UpdatedBy,
+		arg.OrganizationID,
+		arg.ExpectedVersion,
+	)
+	var i SiteSetting
+	err := row.Scan(
+		&i.ID,
+		&i.Uuid,
+		&i.OrganizationID,
+		&i.Enabled,
+		&i.Subdomain,
+		&i.DefaultLocale,
+		&i.Config,
+		&i.ApiKeyID,
+		&i.LogoObjectKey,
+		&i.FaviconObjectKey,
+		&i.CoverObjectKey,
+		&i.Version,
+		&i.UpdatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PublishedRevision,
+	)
+	return i, err
+}
+
+const setSiteKey = `-- name: SetSiteKey :one
+UPDATE site_settings
+SET api_key_id = $1,
+    updated_by = $2,
+    version = version + 1
+WHERE organization_id = $3
+  AND version = $4
+RETURNING id, uuid, organization_id, enabled, subdomain, default_locale, config, api_key_id, logo_object_key, favicon_object_key, cover_object_key, version, updated_by, created_at, updated_at, published_revision
+`
+
+type SetSiteKeyParams struct {
+	ApiKeyID        pgtype.Int8 `json:"api_key_id"`
+	UpdatedBy       pgtype.Int8 `json:"updated_by"`
+	OrganizationID  int64       `json:"organization_id"`
+	ExpectedVersion int32       `json:"expected_version"`
+}
+
+// Links another publishable key (renew key); bumps the version.
+func (q *Queries) SetSiteKey(ctx context.Context, arg SetSiteKeyParams) (SiteSetting, error) {
+	row := q.db.QueryRow(ctx, setSiteKey,
+		arg.ApiKeyID,
+		arg.UpdatedBy,
+		arg.OrganizationID,
+		arg.ExpectedVersion,
+	)
+	var i SiteSetting
+	err := row.Scan(
+		&i.ID,
+		&i.Uuid,
+		&i.OrganizationID,
+		&i.Enabled,
+		&i.Subdomain,
+		&i.DefaultLocale,
+		&i.Config,
+		&i.ApiKeyID,
+		&i.LogoObjectKey,
+		&i.FaviconObjectKey,
+		&i.CoverObjectKey,
+		&i.Version,
+		&i.UpdatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PublishedRevision,
+	)
+	return i, err
+}
+
+const siteObjectKeyInUse = `-- name: SiteObjectKeyInUse :one
+SELECT (
+    EXISTS (
+        SELECT 1 FROM site_settings s
+        WHERE s.organization_id = $1
+          AND $2::text IN (
+              COALESCE(s.logo_object_key, ''), COALESCE(s.favicon_object_key, ''), COALESCE(s.cover_object_key, '')
+          )
+    ) OR EXISTS (
+        SELECT 1 FROM site_setting_versions v
+        WHERE v.organization_id = $1
+          AND $2::text IN (
+              COALESCE(v.logo_object_key, ''), COALESCE(v.favicon_object_key, ''), COALESCE(v.cover_object_key, '')
+          )
+    )
+)::boolean AS in_use
+`
+
+type SiteObjectKeyInUseParams struct {
+	OrganizationID int64  `json:"organization_id"`
+	ObjectKey      string `json:"object_key"`
+}
+
+// Whether the draft or any snapshot still names an image object (it is
+// deleted from storage only when nothing does).
+func (q *Queries) SiteObjectKeyInUse(ctx context.Context, arg SiteObjectKeyInUseParams) (bool, error) {
+	row := q.db.QueryRow(ctx, siteObjectKeyInUse, arg.OrganizationID, arg.ObjectKey)
+	var in_use bool
+	err := row.Scan(&in_use)
+	return in_use, err
 }
 
 const siteSubdomainTaken = `-- name: SiteSubdomainTaken :one
@@ -364,7 +1061,7 @@ SET enabled = $1,
     version = version + 1
 WHERE organization_id = $7
   AND version = $8
-RETURNING id, uuid, organization_id, enabled, subdomain, default_locale, config, api_key_id, logo_object_key, favicon_object_key, cover_object_key, version, updated_by, created_at, updated_at
+RETURNING id, uuid, organization_id, enabled, subdomain, default_locale, config, api_key_id, logo_object_key, favicon_object_key, cover_object_key, version, updated_by, created_at, updated_at, published_revision
 `
 
 type UpdateSiteSettingsParams struct {
@@ -378,8 +1075,8 @@ type UpdateSiteSettingsParams struct {
 	ExpectedVersion int32       `json:"expected_version"`
 }
 
-// Saves the site when the caller saw the current version (optimistic
-// concurrency); no row = the version moved.
+// Saves the live fields and the draft document when the caller saw the
+// current version (optimistic concurrency); no row = the version moved.
 func (q *Queries) UpdateSiteSettings(ctx context.Context, arg UpdateSiteSettingsParams) (SiteSetting, error) {
 	row := q.db.QueryRow(ctx, updateSiteSettings,
 		arg.Enabled,
@@ -408,6 +1105,7 @@ func (q *Queries) UpdateSiteSettings(ctx context.Context, arg UpdateSiteSettings
 		&i.UpdatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PublishedRevision,
 	)
 	return i, err
 }

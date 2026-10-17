@@ -938,14 +938,24 @@ type Querier interface {
 	GetSMSMessageForSend(ctx context.Context, arg GetSMSMessageForSendParams) (GetSMSMessageForSendRow, error)
 	GetSecurityDepositRow(ctx context.Context, arg GetSecurityDepositRowParams) (GetSecurityDepositRowRow, error)
 	GetServicePoint(ctx context.Context, arg GetServicePointParams) (ServicePoint, error)
-	// The image keys of an enabled site by its public uuid (asset stream).
+	// The image keys of a site by its public uuid (asset stream): the draft
+	// and the published snapshot. The caller picks by the preview token.
 	GetSiteAssetKeys(ctx context.Context, argUuid uuid.UUID) (GetSiteAssetKeysRow, error)
+	GetSiteCatalogExtra(ctx context.Context, arg GetSiteCatalogExtraParams) (GetSiteCatalogExtraRow, error)
+	// The newest active key rotated from the site's key (Ayarlar → Public API
+	// rotation): the site follows it on the next save.
+	GetSiteKeySuccessor(ctx context.Context, arg GetSiteKeySuccessorParams) (uuid.UUID, error)
 	// The internal id of a key the site settings link to.
 	GetSitePublicAPIKeyID(ctx context.Context, arg GetSitePublicAPIKeyIDParams) (int64, error)
-	// Branded site (TEC-729, docs/design/branded-site.md). Every query names
-	// organization_id; the host lookups are global by design (the host
+	// Branded site (TEC-729 / TEC-730, docs/design/branded-site.md). Every query
+	// names organization_id; the host lookups are global by design (the host
 	// resolves the organization), like the public API key lookup by hash.
+	//
+	// site_settings holds the live fields (enabled, subdomain, default_locale,
+	// api_key_id) and the draft (config, *_object_key). site_setting_versions
+	// holds the published snapshots; published_revision names the live one.
 	GetSiteSettings(ctx context.Context, organizationID int64) (GetSiteSettingsRow, error)
+	GetSiteVersion(ctx context.Context, arg GetSiteVersionParams) (SiteSettingVersion, error)
 	GetStepupSettings(ctx context.Context) (StepupSetting, error)
 	GetStorageLinkBySlug(ctx context.Context, slug pgtype.Text) (StorageLink, error)
 	GetStorageLinkByTokenHash(ctx context.Context, tokenHash pgtype.Text) (StorageLink, error)
@@ -1691,6 +1701,9 @@ type Querier interface {
 	ListPublicBranches(ctx context.Context, organizationID int64) ([]ListPublicBranchesRow, error)
 	// Published extras sold on the channel (channels NULL = every channel).
 	ListPublicExtras(ctx context.Context, arg ListPublicExtrasParams) ([]ListPublicExtrasRow, error)
+	// Branches and products the panel took off the online channels
+	// (show_online = false, TEC-730): availability and quotes refuse them.
+	ListPublicHiddenCatalog(ctx context.Context, organizationID int64) (ListPublicHiddenCatalogRow, error)
 	ListPublicServicePoints(ctx context.Context, organizationID int64) ([]ListPublicServicePointsRow, error)
 	ListPublicSubgroupImages(ctx context.Context, arg ListPublicSubgroupImagesParams) ([]ListPublicSubgroupImagesRow, error)
 	// Products on sale (published, active) with their current conditions.
@@ -1776,6 +1789,12 @@ type Querier interface {
 	ListSecurityDeposits(ctx context.Context, arg ListSecurityDepositsParams) ([]ListSecurityDepositsRow, error)
 	ListServicePointsByBranch(ctx context.Context, arg ListServicePointsByBranchParams) ([]ServicePoint, error)
 	ListSharedKeys(ctx context.Context, keys []string) ([]string, error)
+	// ----------------------------------------------- catalog publish state
+	ListSiteCatalogBranches(ctx context.Context, organizationID int64) ([]ListSiteCatalogBranchesRow, error)
+	ListSiteCatalogExtras(ctx context.Context, organizationID int64) ([]ListSiteCatalogExtrasRow, error)
+	ListSiteCatalogProducts(ctx context.Context, organizationID int64) ([]ListSiteCatalogProductsRow, error)
+	// Publish history, newest first.
+	ListSiteVersions(ctx context.Context, organizationID int64) ([]ListSiteVersionsRow, error)
 	ListStorageActivity(ctx context.Context, arg ListStorageActivityParams) ([]ListStorageActivityRow, error)
 	ListStorageLinksByKey(ctx context.Context, objectKey string) ([]StorageLink, error)
 	ListStorageSharesByKey(ctx context.Context, objectKey string) ([]ListStorageSharesByKeyRow, error)
@@ -2163,6 +2182,10 @@ type Querier interface {
 	// The key and every key it was rotated from (a successor keeps access to
 	// its predecessors' reservations).
 	PublicAPIKeyLineage(ctx context.Context, arg PublicAPIKeyLineageParams) ([]int64, error)
+	// Publishes the draft the caller saw: snapshots config and images as the
+	// next revision and makes it the published one, in one statement. No row =
+	// the version moved; a unique violation = a concurrent publish.
+	PublishSiteDraft(ctx context.Context, arg PublishSiteDraftParams) (PublishSiteDraftRow, error)
 	PurgeCustomerDocuments(ctx context.Context, arg PurgeCustomerDocumentsParams) error
 	// Worker sweep over every organization's expired records.
 	PurgeExpiredPublicIdempotency(ctx context.Context, now pgtype.Timestamptz) (int64, error)
@@ -2264,12 +2287,17 @@ type Querier interface {
 	ResolveResolutionTask(ctx context.Context, arg ResolveResolutionTaskParams) (int64, error)
 	// held → a closed state with the captured / returned totals.
 	ResolveSecurityDeposit(ctx context.Context, arg ResolveSecurityDepositParams) (int64, error)
-	// The enabled site of an organization (a verified custom domain names the
-	// organization; TEC-731).
+	// The site of an organization (a verified custom domain names the
+	// organization; TEC-731). Same shape as ResolveSiteBySubdomain.
 	ResolveSiteByOrganization(ctx context.Context, organizationID int64) (ResolveSiteByOrganizationRow, error)
-	// The enabled site of a subdomain with its organization and linked key
-	// (global lookup by the host; the organization comes from the row).
+	// The site of a subdomain with its organization, linked key, draft and
+	// published snapshot (global lookup by the host; the organization comes
+	// from the row). The caller serves the published snapshot of an enabled
+	// site, or the draft to a valid preview token.
 	ResolveSiteBySubdomain(ctx context.Context, subdomain string) (ResolveSiteBySubdomainRow, error)
+	// Copies a published snapshot back into the draft (publish again to make it
+	// live); bumps the version.
+	RestoreSiteDraft(ctx context.Context, arg RestoreSiteDraftParams) (int32, error)
 	RevokeAllRefreshTokensForUser(ctx context.Context, userID int64) error
 	RevokeDocumentApprovalLink(ctx context.Context, arg RevokeDocumentApprovalLinkParams) (int64, error)
 	RevokeInvitation(ctx context.Context, arg RevokeInvitationParams) (OrganizationInvitation, error)
@@ -2309,6 +2337,7 @@ type Querier interface {
 	SetAgreementStatus(ctx context.Context, arg SetAgreementStatusParams) (int64, error)
 	SetAppSettingsLogo(ctx context.Context, logoObjectKey pgtype.Text) (AppSetting, error)
 	SetBranchActive(ctx context.Context, arg SetBranchActiveParams) (Branch, error)
+	SetBranchShowOnline(ctx context.Context, arg SetBranchShowOnlineParams) (SetBranchShowOnlineRow, error)
 	SetCampaignActive(ctx context.Context, arg SetCampaignActiveParams) (int64, error)
 	SetCashAccountProvider(ctx context.Context, arg SetCashAccountProviderParams) (int64, error)
 	SetCashAccountStatus(ctx context.Context, arg SetCashAccountStatusParams) (string, error)
@@ -2331,6 +2360,8 @@ type Querier interface {
 	SetDocumentVersionPDFPending(ctx context.Context, arg SetDocumentVersionPDFPendingParams) (int64, error)
 	SetExpenseAttachment(ctx context.Context, arg SetExpenseAttachmentParams) (int64, error)
 	SetExpenseCategory(ctx context.Context, arg SetExpenseCategoryParams) (int64, error)
+	// channels NULL = every channel.
+	SetExtraChannels(ctx context.Context, arg SetExtraChannelsParams) (SetExtraChannelsRow, error)
 	SetExtraStatus(ctx context.Context, arg SetExtraStatusParams) (int64, error)
 	SetFieldTaskTransfer(ctx context.Context, arg SetFieldTaskTransferParams) error
 	// Moves the expiry of an active hold (reservation review -> payment
@@ -2356,6 +2387,7 @@ type Querier interface {
 	SetOrganizationLogo(ctx context.Context, arg SetOrganizationLogoParams) (Organization, error)
 	SetOrganizationStatus(ctx context.Context, arg SetOrganizationStatusParams) (Organization, error)
 	SetPaymentCheckout(ctx context.Context, arg SetPaymentCheckoutParams) (int64, error)
+	SetProductShowOnline(ctx context.Context, arg SetProductShowOnlineParams) (SetProductShowOnlineRow, error)
 	SetRatePlanState(ctx context.Context, arg SetRatePlanStateParams) (int64, error)
 	SetRentalChecked(ctx context.Context, arg SetRentalCheckedParams) (int64, error)
 	SetRentalGroupActive(ctx context.Context, arg SetRentalGroupActiveParams) (RentalGroup, error)
@@ -2379,6 +2411,10 @@ type Querier interface {
 	SetSMSMessageJob(ctx context.Context, arg SetSMSMessageJobParams) error
 	SetSecurityDepositAccount(ctx context.Context, arg SetSecurityDepositAccountParams) error
 	SetSecurityDepositCheckout(ctx context.Context, arg SetSecurityDepositCheckoutParams) error
+	// Replaces (or clears) one draft image; bumps the version.
+	SetSiteDraftImage(ctx context.Context, arg SetSiteDraftImageParams) (SiteSetting, error)
+	// Links another publishable key (renew key); bumps the version.
+	SetSiteKey(ctx context.Context, arg SetSiteKeyParams) (SiteSetting, error)
 	SetSupplierInvoiceAttachment(ctx context.Context, arg SetSupplierInvoiceAttachmentParams) (int64, error)
 	// paid_amount is the sum of the invoice's live allocations; the status
 	// follows it.
@@ -2402,6 +2438,9 @@ type Querier interface {
 	SetWhatsAppSessionSettings(ctx context.Context, arg SetWhatsAppSessionSettingsParams) (WhatsappSession, error)
 	SetWhatsAppSessionState(ctx context.Context, arg SetWhatsAppSessionStateParams) (WhatsappSession, error)
 	SettleCollection(ctx context.Context, arg SettleCollectionParams) (int64, error)
+	// Whether the draft or any snapshot still names an image object (it is
+	// deleted from storage only when nothing does).
+	SiteObjectKeyInUse(ctx context.Context, arg SiteObjectKeyInUseParams) (bool, error)
 	// Whether another organization's site already uses the subdomain.
 	SiteSubdomainTaken(ctx context.Context, arg SiteSubdomainTakenParams) (bool, error)
 	SlugExists(ctx context.Context, slug string) (bool, error)
@@ -2540,8 +2579,8 @@ type Querier interface {
 	// report); clear_payload drops the sealed number and text once final.
 	UpdateSMSMessageStatus(ctx context.Context, arg UpdateSMSMessageStatusParams) error
 	UpdateServicePoint(ctx context.Context, arg UpdateServicePointParams) (ServicePoint, error)
-	// Saves the site when the caller saw the current version (optimistic
-	// concurrency); no row = the version moved.
+	// Saves the live fields and the draft document when the caller saw the
+	// current version (optimistic concurrency); no row = the version moved.
 	UpdateSiteSettings(ctx context.Context, arg UpdateSiteSettingsParams) (SiteSetting, error)
 	UpdateStepupSettings(ctx context.Context, arg UpdateStepupSettingsParams) (StepupSetting, error)
 	UpdateSupplier(ctx context.Context, arg UpdateSupplierParams) (Supplier, error)

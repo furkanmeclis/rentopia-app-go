@@ -1314,6 +1314,7 @@ FROM branches b
 WHERE b.organization_id = $1
   AND b.deleted_at IS NULL
   AND b.is_active
+  AND b.show_online
 ORDER BY b.city, b.name, b.id
 `
 
@@ -1427,6 +1428,32 @@ func (q *Queries) ListPublicExtras(ctx context.Context, arg ListPublicExtrasPara
 	return items, nil
 }
 
+const listPublicHiddenCatalog = `-- name: ListPublicHiddenCatalog :one
+SELECT
+    COALESCE((
+        SELECT array_agg(b.uuid) FROM branches b
+        WHERE b.organization_id = $1 AND NOT b.show_online
+    ), '{}')::uuid[] AS branch_uuids,
+    COALESCE((
+        SELECT array_agg(p.uuid) FROM rental_products p
+        WHERE p.organization_id = $1 AND NOT p.show_online
+    ), '{}')::uuid[] AS product_uuids
+`
+
+type ListPublicHiddenCatalogRow struct {
+	BranchUuids  []uuid.UUID `json:"branch_uuids"`
+	ProductUuids []uuid.UUID `json:"product_uuids"`
+}
+
+// Branches and products the panel took off the online channels
+// (show_online = false, TEC-730): availability and quotes refuse them.
+func (q *Queries) ListPublicHiddenCatalog(ctx context.Context, organizationID int64) (ListPublicHiddenCatalogRow, error) {
+	row := q.db.QueryRow(ctx, listPublicHiddenCatalog, organizationID)
+	var i ListPublicHiddenCatalogRow
+	err := row.Scan(&i.BranchUuids, &i.ProductUuids)
+	return i, err
+}
+
 const listPublicServicePoints = `-- name: ListPublicServicePoints :many
 SELECT sp.uuid, sp.branch_id, sp.type, sp.name, sp.description, sp.extra_fee, sp.working_hours, sp.delivery_enabled,
     sp.latitude, sp.longitude, sp.min_notice_minutes, sp.delivery_conditions
@@ -1437,6 +1464,7 @@ WHERE sp.organization_id = $1
   AND sp.is_active
   AND sp.online_selectable
   AND b.is_active
+  AND b.show_online
   AND b.deleted_at IS NULL
 ORDER BY sp.branch_id, sp.name, sp.id
 `
@@ -1544,6 +1572,7 @@ WHERE p.organization_id = $1
   AND v.organization_id = $1
   AND p.status = 'published'
   AND p.is_active
+  AND p.show_online
   AND p.deleted_at IS NULL
 ORDER BY s.sort_order, s.name, p.title, p.id
 `

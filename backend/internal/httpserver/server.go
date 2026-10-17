@@ -717,6 +717,9 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	}
 	siteSvc := siteusecase.New(deps.Queries, publicAPISvc, orgSettingsSvc, siteBase, cfg.Auth.FrontendURL)
 	siteSvc.SetStorage(deps.Storage)
+	// Preview links (TEC-730) are signed with a key derived from the field
+	// encryption key: no separate secret to configure.
+	siteSvc.SetPreviewSecret(cfg.Encryption.Key)
 	siteSvc.SetLogger(log)
 	// Rental group membership removals re-plan the commitments that relied
 	// on them (or are refused); moved reservations record plan_moved.

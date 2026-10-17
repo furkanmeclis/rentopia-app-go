@@ -103,6 +103,15 @@ var isolationAllowlist = map[string]string{
 	"POST /v1/tenant/public-api/keys":                "body has no foreign references (kind, name, channel, scopes, origins, rate limit)",
 	"POST /v1/tenant/public-api/webhooks":            "body has no foreign references (name, URL, event names)",
 	"PUT /v1/tenant/site":                            "site document of the caller's organization (subdomain, theme, texts); the key it links is created in the scope (site tests)",
+	"POST /v1/tenant/site/publish":                   "publishes the caller's organization's draft; body is a version number only (site tests)",
+	"POST /v1/tenant/site/preview-token":             "signs a preview link for the caller's organization's site; no body (site preview tests)",
+	"POST /v1/tenant/site/renew-key":                 "rotates the key linked to the caller's organization's site; body is a version number only (site tests)",
+	"PUT /v1/tenant/site/assets/logo":                "image of the caller's organization's site; the key is built from the scope (site image tests)",
+	"DELETE /v1/tenant/site/assets/logo":             "clears the caller's organization's site image; no ids",
+	"PUT /v1/tenant/site/assets/favicon":             "image of the caller's organization's site; the key is built from the scope (site image tests)",
+	"DELETE /v1/tenant/site/assets/favicon":          "clears the caller's organization's site image; no ids",
+	"PUT /v1/tenant/site/assets/cover":               "image of the caller's organization's site; the key is built from the scope (site image tests)",
+	"DELETE /v1/tenant/site/assets/cover":            "clears the caller's organization's site image; no ids",
 }
 
 type isoOrg struct {
@@ -663,6 +672,11 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		}), http.StatusCreated, "create webhook"), "endpoint", "uuid")
 		ids["webhookDelivery"] = str(must(call(o, http.MethodPost, "/v1/tenant/public-api/webhooks/"+ids["webhook"]+"/test", nil),
 			http.StatusOK, "test webhook"), "uuid")
+		// Branded site (TEC-730): a saved and published site (revision 1).
+		must(call(o, http.MethodPut, "/v1/tenant/site", map[string]any{"version": 0}), http.StatusOK, "save site")
+		must(call(o, http.MethodPost, "/v1/tenant/site/publish", map[string]any{"version": 1}), http.StatusOK, "publish site")
+		siteRevs := must(call(o, http.MethodGet, "/v1/tenant/site/versions", nil), http.StatusOK, "site versions")
+		ids["siteRevision"] = siteRevs.data.([]any)[0].(map[string]any)["uuid"].(string)
 		// Security deposits (TEC-719): a POS pre-auth resolved with one
 		// deduction (and its document), then a second one still held.
 		ids["deposit"] = str(must(call(o, http.MethodPost, "/v1/tenant/finance/deposits", map[string]any{
@@ -1682,6 +1696,8 @@ func paramKey(prev, name string) string {
 		return "invoice"
 	case "keys/uuid":
 		return "publicKey"
+	case "versions/revisionUuid":
+		return "siteRevision"
 	case "webhooks/uuid":
 		return "webhook"
 	case "webhook-deliveries/uuid":

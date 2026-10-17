@@ -438,7 +438,7 @@ func (q *Queries) FindVehicleCatalogTypesByNames(ctx context.Context, arg FindVe
 }
 
 const findVehicleImportBranch = `-- name: FindVehicleImportBranch :one
-SELECT id, uuid, organization_id, code, name, address, city, district, latitude, longitude, phone, email, working_hours, holiday_exceptions, prep_minutes, is_active, created_at, updated_at, deleted_at FROM branches
+SELECT id, uuid, organization_id, code, name, address, city, district, latitude, longitude, phone, email, working_hours, holiday_exceptions, prep_minutes, is_active, created_at, updated_at, deleted_at, show_online FROM branches
 WHERE organization_id = $1
   AND deleted_at IS NULL
   AND (upper(code) = upper($2::text) OR lower(name) = lower($2::text))
@@ -475,6 +475,7 @@ func (q *Queries) FindVehicleImportBranch(ctx context.Context, arg FindVehicleIm
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.ShowOnline,
 	)
 	return i, err
 }

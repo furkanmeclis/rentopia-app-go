@@ -12503,7 +12503,8 @@ paths:
         the theme / layout / content document, the image paths, the customer portal URL and the credential the site
         books with: the **publishable key** and the **origin** to open booking sessions for
         (`POST /v1/public/sessions` with that origin). Unknown hosts, disabled sites and unavailable organizations all
-        answer `404 SITE_NOT_FOUND`; another organization's site is never returned. `booking_enabled` is false (and the
+        answer `404 SITE_NOT_FOUND`, and so does a site that was never published (TEC-730: visitors only get the
+        published revision); another organization's site is never returned. `booking_enabled` is false (and the
         key empty) while the web sales channel is off or the site key is revoked. Rate-limited per IP (600 / min).
       security: []
       parameters:
@@ -12512,6 +12513,15 @@ paths:
           required: true
           description: The request `Host` (port and case are ignored).
           schema: { type: string, examples: ["acme.rentopia.app"] }
+        - name: preview
+          in: query
+          required: false
+          description: |
+            A preview token (`POST /v1/tenant/site/preview-token`). Valid for this host's site: the answer is the
+            **draft** (`preview: true`, `panel_origin` set, draft image paths), also for a site that is off or never
+            published. Invalid, expired or another site's token: `401 PREVIEW_INVALID`. Without it only the published
+            revision of an enabled site is served.
+          schema: { type: string }
       responses:
         "200":
           description: Resolved site
@@ -12519,6 +12529,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/EnvelopeSiteResolved" }
         "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
         "404": { $ref: "#/components/responses/NotFound" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
 
@@ -12527,7 +12538,7 @@ paths:
       tags: [Branded Site]
       operationId: getPublicSiteAsset
       summary: Image of a branded site
-      description: "Logo (falls back to the organization logo), favicon or cover image of an enabled site. Paths come from the resolve answer (`assets`), with `?v=` set to the site version."
+      description: "Logo (falls back to the organization logo), favicon or cover image of an enabled, published site. Paths come from the resolve answer (`assets`), with `?v=` set to the published revision. With a valid `preview` token the draft image is streamed (`Cache-Control: private, no-store`)."
       security: []
       parameters:
         - $ref: "#/components/parameters/ResourceUUID"
@@ -12535,6 +12546,9 @@ paths:
           in: path
           required: true
           schema: { type: string, enum: [logo, favicon, cover] }
+        - { name: v, in: query, required: false, schema: { type: string } }
+        - { name: draft, in: query, required: false, description: "Set on draft paths; the site forwards its preview token.", schema: { type: string } }
+        - { name: preview, in: query, required: false, description: Preview token (draft image)., schema: { type: string } }
       responses:
         "200":
           description: Image
@@ -12549,7 +12563,7 @@ paths:
       tags: [Tenant]
       operationId: getTenantSite
       summary: Branded site settings
-      description: "`tenant.site.read`. The organization's site: on / off, subdomain, default locale, the theme / layout / content / SEO / analytics document, its addresses, the linked publishable key and whether booking works. Before the first save the defaults are returned with `exists: false` and `version: 0`."
+      description: "`tenant.site.read`. The organization's site: the live settings (on / off, subdomain, default locale, the linked publishable key and whether booking works, with `booking_blockers`), the **draft** document (theme / layout / content / SEO / contact / analytics / widget) and images, and the publish state (`published_revision`, `has_unpublished_changes`, `live`). Before the first save the defaults are returned with `exists: false` and `version: 0`."
       security:
         - bearerAuth: []
       parameters:
@@ -12569,7 +12583,8 @@ paths:
       description: |
         `tenant.site.manage`. Send the `version` you edited (0 for the first save); a newer save answers
         `409 VERSION_CONFLICT`. Omitted fields keep their value; `config` replaces the whole document (empty values take
-        the defaults). Colors are `#rrggbb`, fonts / radius / mode / layout variants are enums, texts are plain text.
+        the defaults). `enabled`, `subdomain` and `default_locale` are live at once; `config` is saved as the **draft**
+        (visitors see it after `POST /v1/tenant/site/publish`). Colors are `#rrggbb`, fonts / radius / mode / layout variants are enums, texts are plain text.
         Switching the site on links a publishable `web` key (created when there is none, named "Markalı site"); the
         key's allowed origins always contain the site's current addresses. A subdomain used by another organization
         answers `409 SUBDOMAIN_TAKEN`; reserved names (`www`, `app`, `api`, …) answer `400`.
@@ -12592,6 +12607,337 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/TenantForbidden" }
         "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/site/publish:
+    post:
+      tags: [Tenant]
+      operationId: postTenantSitePublish
+      summary: Publish the site draft
+      description: |
+        `tenant.site.manage`. Publishes the draft (`config` and images) you saw (`version`) as the next revision; the
+        resolver serves it from now on. A site that was never saved publishes its defaults (stored first, switched
+        off). An unchanged draft answers `409 NOTHING_TO_PUBLISH`, a newer draft `409 VERSION_CONFLICT`. Activity:
+        `site.published`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SiteVersionInput" }
+      responses:
+        "200": { $ref: "#/components/responses/SiteSettingsOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/site/versions:
+    get:
+      tags: [Tenant]
+      operationId: getTenantSiteVersions
+      summary: Publish history of the site
+      description: "`tenant.site.read`. Published revisions, newest first (at most 200); `current` marks the live one."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Revisions
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteRevisionList" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/site/versions/{revisionUuid}/restore:
+    post:
+      tags: [Tenant]
+      operationId: postTenantSiteVersionRestore
+      summary: Restore a revision into the draft
+      description: |
+        `tenant.site.manage`. Copies a published revision (document and images) into the draft; publish to make it live
+        again (roll back). Unknown revisions (also another organization's) answer `404`; a newer draft `409
+        VERSION_CONFLICT`. Activity: `site.restored`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - name: revisionUuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SiteVersionInput" }
+      responses:
+        "200": { $ref: "#/components/responses/SiteSettingsOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/site/preview-token:
+    post:
+      tags: [Tenant]
+      operationId: postTenantSitePreviewToken
+      summary: Preview link of the site draft
+      description: |
+        `tenant.site.read`. A signed token (30 minutes) bound to this organization's site. `url` opens the site's own
+        address with `?preview=`; the site then renders the draft (also while the site is off or unpublished), shows a
+        preview banner, never books, and may be framed by the panel only. `assets` are the draft images for the
+        panel. A site that was never saved is stored first with its defaults (switched off).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Preview link
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSitePreviewToken" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/site/renew-key:
+    post:
+      tags: [Tenant]
+      operationId: postTenantSiteRenewKey
+      summary: Renew the site's publishable key
+      description: |
+        `tenant.site.manage`. Links a fresh publishable `web` key. A usable key is rotated (`rotated_from_id`; the old
+        key keeps working for one hour for open booking sessions); a missing, revoked or expired key is replaced by a
+        new "Markalı site" key. The key is a live setting (no publish needed). Activity: `site.key_renewed`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SiteVersionInput" }
+      responses:
+        "200": { $ref: "#/components/responses/SiteSettingsOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/site/assets/logo:
+    put:
+      tags: [Tenant]
+      operationId: putTenantSiteLogo
+      summary: Upload the site logo (draft)
+      description: "`tenant.site.manage`. Multipart `file` (PNG, JPEG or WebP sniffed from the bytes; SVG is refused; at most 2 MB) and `version`. Draft until published. Activity: `site.image_updated`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody: { $ref: "#/components/requestBodies/SiteImageUpload" }
+      responses:
+        "200": { $ref: "#/components/responses/SiteSettingsOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantSiteLogo
+      summary: Remove the site logo (draft)
+      description: "`tenant.site.manage`. The site then shows the organization logo. Draft until published."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/SiteVersionQuery"
+      responses:
+        "200": { $ref: "#/components/responses/SiteSettingsOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/site/assets/favicon:
+    put:
+      tags: [Tenant]
+      operationId: putTenantSiteFavicon
+      summary: Upload the site favicon (draft)
+      description: "`tenant.site.manage`. Multipart `file` (PNG, JPEG or WebP; at most 1 MB) and `version`. Draft until published."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody: { $ref: "#/components/requestBodies/SiteImageUpload" }
+      responses:
+        "200": { $ref: "#/components/responses/SiteSettingsOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantSiteFavicon
+      summary: Remove the site favicon (draft)
+      description: "`tenant.site.manage`. Draft until published."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/SiteVersionQuery"
+      responses:
+        "200": { $ref: "#/components/responses/SiteSettingsOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/site/assets/cover:
+    put:
+      tags: [Tenant]
+      operationId: putTenantSiteCover
+      summary: Upload the site cover image (draft)
+      description: "`tenant.site.manage`. Multipart `file` (PNG, JPEG or WebP; at most 5 MB) and `version`. Draft until published."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody: { $ref: "#/components/requestBodies/SiteImageUpload" }
+      responses:
+        "200": { $ref: "#/components/responses/SiteSettingsOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      tags: [Tenant]
+      operationId: deleteTenantSiteCover
+      summary: Remove the site cover image (draft)
+      description: "`tenant.site.manage`. Draft until published."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/SiteVersionQuery"
+      responses:
+        "200": { $ref: "#/components/responses/SiteSettingsOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/site/catalog:
+    get:
+      tags: [Tenant]
+      operationId: getTenantSiteCatalog
+      summary: Online publish state of the catalog
+      description: |
+        `tenant.site.read`. Branches, vehicle subgroups and extras with `show_online`: whether the online channels (the
+        public booking API: branded site, widget, API keys) offer them. Branches and subgroups use their own flag; an
+        extra is online when its sales channels include `web`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Catalog state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteCatalog" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/site/catalog/branches/{uuid}:
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantSiteCatalogBranch
+      summary: Show / hide a branch online
+      description: "`tenant.site.manage`. Live (no publish). A hidden branch is left out of `/v1/public/locations` and refused by availability and quotes. Activity: `site.catalog_updated`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SiteVisibilityInput" }
+      responses:
+        "200":
+          description: Branch
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteCatalogBranch" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/site/catalog/products/{uuid}:
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantSiteCatalogSubgroup
+      summary: Show / hide a vehicle subgroup online
+      description: "`tenant.site.manage`. Live (no publish). A hidden subgroup is left out of `/v1/public/vehicle-subgroups` and availability, and quotes refuse it. Activity: `site.catalog_updated`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SiteVisibilityInput" }
+      responses:
+        "200":
+          description: Subgroup
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteCatalogSubgroup" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/site/catalog/extras/{uuid}:
+    patch:
+      tags: [Tenant]
+      operationId: patchTenantSiteCatalogExtra
+      summary: Show / hide an extra online
+      description: |
+        `tenant.site.manage`. Live (no publish). Adds or removes the `web` sales channel of the extra; an extra sold on
+        every channel that is hidden keeps all other channels. Activity: `site.catalog_updated`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SiteVisibilityInput" }
+      responses:
+        "200":
+          description: Extra
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteCatalogExtra" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /v1/public/pay/{token}:
     get:
@@ -22777,7 +23123,24 @@ components:
       scheme: bearer
       description: "Public booking API: a secret key (rtp_sk_…, servers) or a booking session token (rtp_ps_…, browsers)"
 
+  requestBodies:
+    SiteImageUpload:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required: [file, version]
+            properties:
+              file: { type: string, format: binary }
+              version: { type: integer, description: The settings version you saw. }
   parameters:
+    SiteVersionQuery:
+      name: version
+      in: query
+      required: true
+      description: The settings version you saw.
+      schema: { type: integer, minimum: 0 }
     PortalOrgSlug:
       name: orgSlug
       in: path
@@ -23130,6 +23493,11 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
+    SiteSettingsOK:
+      description: Site settings
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/EnvelopeSiteSettings" }
     ResolutionTaskOK:
       description: Resolution task
       content:
@@ -39535,7 +39903,7 @@ components:
     SiteConfig:
       type: object
       additionalProperties: false
-      description: The editable site document (TEC-730 builds the panel editor on it).
+      description: The editable site document. `site_settings.config` is the draft; published revisions keep their own copy.
       properties:
         theme: { $ref: "#/components/schemas/SiteTheme" }
         layout: { $ref: "#/components/schemas/SiteLayout" }
@@ -39560,6 +39928,7 @@ components:
           additionalProperties: false
           properties:
             ga4_measurement_id: { type: string, examples: ["G-ABC1234"] }
+        widget: { $ref: "#/components/schemas/SiteWidget" }
 
     SiteHost:
       type: object
@@ -39571,7 +39940,7 @@ components:
 
     SiteSettings:
       type: object
-      required: [exists, enabled, subdomain, default_locale, config, version, url, hosts, api_key, assets, booking_enabled, updated_at]
+      required: [exists, enabled, subdomain, default_locale, config, version, url, hosts, api_key, assets, booking_enabled, booking_blockers, published_revision, published_at, has_unpublished_changes, live, updated_at]
       properties:
         exists: { type: boolean }
         enabled: { type: boolean }
@@ -39599,6 +39968,14 @@ components:
             favicon: { type: boolean }
             cover: { type: boolean }
         booking_enabled: { type: boolean }
+        booking_blockers:
+          type: array
+          description: Why booking is off (empty when it is on).
+          items: { type: string, enum: [site_disabled, key_missing, key_inactive, channel_off] }
+        published_revision: { type: ["integer", "null"], description: The live revision (null = never published; the site does not resolve). }
+        published_at: { type: ["string", "null"], format: date-time }
+        has_unpublished_changes: { type: boolean, description: The draft differs from the published revision. }
+        live: { type: boolean, description: Visitors see the site (enabled and published). }
         updated_at: { type: ["string", "null"], format: date-time }
 
     EnvelopeSiteSettings:
@@ -39622,10 +39999,10 @@ components:
 
     SiteResolved:
       type: object
-      required: [site_uuid, version, host, host_kind, origin, default_locale, locales, organization, publishable_key, booking_enabled, config, assets, portal_url, updated_at]
+      required: [site_uuid, version, host, host_kind, origin, default_locale, locales, organization, publishable_key, booking_enabled, config, assets, portal_url, updated_at, preview, panel_origin]
       properties:
         site_uuid: { type: string, format: uuid }
-        version: { type: integer }
+        version: { type: integer, description: The published revision (the draft version in a preview); the `?v=` of image paths. }
         host: { type: string }
         host_kind: { type: string, enum: [subdomain, custom] }
         origin: { type: string, description: Origin to open booking sessions for. }
@@ -39652,6 +40029,8 @@ components:
             cover: { type: ["string", "null"] }
         portal_url: { type: string, description: Customer portal (reservation lookup). }
         updated_at: { type: string, format: date-time }
+        preview: { type: boolean, description: "The draft for a preview token: show a banner, never book." }
+        panel_origin: { type: string, description: "Origin allowed to frame a preview page (empty outside previews)." }
 
     EnvelopeSiteResolved:
       type: object
@@ -39659,6 +40038,170 @@ components:
       properties:
         success: { type: boolean, enum: [true] }
         data: { $ref: "#/components/schemas/SiteResolved" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    SiteWidget:
+      type: object
+      additionalProperties: false
+      description: Embeddable widget settings (stored with the document; TEC-732 serves the widget and enforces the domains).
+      properties:
+        allowed_domains:
+          type: array
+          maxItems: 20
+          description: Origins that may embed the widget (`https://host[:port]`; `http` only for localhost).
+          items: { type: string, examples: ["https://www.acme.com"] }
+        initial_filters:
+          type: object
+          additionalProperties: false
+          properties:
+            pickup_branch_uuid: { type: string, description: "Preselected branch (empty = none)." }
+            rental_days: { type: integer, minimum: 0, maximum: 90, description: "Default rental length (0 = site default)." }
+
+    SiteVersionInput:
+      type: object
+      additionalProperties: false
+      required: [version]
+      properties:
+        version: { type: integer, minimum: 0, description: The settings version you saw (0 before the first save). }
+
+    SiteRevision:
+      type: object
+      required: [uuid, revision, draft_version, published_at, published_by, current, assets]
+      properties:
+        uuid: { type: string, format: uuid }
+        revision: { type: integer, description: "1, 2, 3 … per organization." }
+        draft_version: { type: integer, description: The settings version that was published. }
+        published_at: { type: string, format: date-time }
+        published_by: { type: string, description: Name of the user (empty for system / migrated revisions). }
+        current: { type: boolean, description: The live revision. }
+        assets:
+          type: object
+          required: [logo, favicon, cover]
+          properties:
+            logo: { type: boolean }
+            favicon: { type: boolean }
+            cover: { type: boolean }
+
+    EnvelopeSiteRevisionList:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/SiteRevision" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    SiteAssetPaths:
+      type: object
+      required: [logo, favicon, cover]
+      description: API paths of the images (`/v1/public/site/assets/…`); null = none.
+      properties:
+        logo: { type: ["string", "null"] }
+        favicon: { type: ["string", "null"] }
+        cover: { type: ["string", "null"] }
+
+    SitePreviewToken:
+      type: object
+      required: [token, url, expires_at, assets]
+      properties:
+        token: { type: string }
+        url: { type: string, description: "The site's address with `?preview=`; open it in a frame or a new tab." }
+        expires_at: { type: string, format: date-time }
+        assets: { $ref: "#/components/schemas/SiteAssetPaths" }
+
+    EnvelopeSitePreviewToken:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/SitePreviewToken" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    SiteVisibilityInput:
+      type: object
+      additionalProperties: false
+      required: [show_online]
+      properties:
+        show_online: { type: boolean }
+
+    SiteCatalogBranch:
+      type: object
+      required: [uuid, code, name, city, active, show_online]
+      properties:
+        uuid: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        city: { type: string }
+        active: { type: boolean }
+        show_online: { type: boolean }
+
+    SiteCatalogSubgroup:
+      type: object
+      required: [uuid, code, title, segment, status, active, show_online]
+      properties:
+        uuid: { type: string, format: uuid }
+        code: { type: string }
+        title: { type: string }
+        segment: { type: string }
+        status: { type: string, enum: [draft, published, archived] }
+        active: { type: boolean }
+        show_online: { type: boolean }
+
+    SiteCatalogExtra:
+      type: object
+      required: [uuid, code, name, status, show_online]
+      properties:
+        uuid: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        status: { type: string, enum: [draft, published, archived] }
+        show_online: { type: boolean, description: The web sales channel sells it. }
+
+    SiteCatalog:
+      type: object
+      required: [branches, subgroups, extras]
+      properties:
+        branches:
+          type: array
+          items: { $ref: "#/components/schemas/SiteCatalogBranch" }
+        subgroups:
+          type: array
+          items: { $ref: "#/components/schemas/SiteCatalogSubgroup" }
+        extras:
+          type: array
+          items: { $ref: "#/components/schemas/SiteCatalogExtra" }
+
+    EnvelopeSiteCatalog:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/SiteCatalog" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeSiteCatalogBranch:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/SiteCatalogBranch" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeSiteCatalogSubgroup:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/SiteCatalogSubgroup" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeSiteCatalogExtra:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/SiteCatalogExtra" }
         meta: { $ref: "#/components/schemas/ResponseMeta" }
 
     PublicAPIOverview:
