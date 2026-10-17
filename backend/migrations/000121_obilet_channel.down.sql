@@ -3,7 +3,7 @@
 -- offers, booking links, inbound messages and sync log rows go with them
 -- (ON DELETE CASCADE). Reservations created from Obilet bookings stay
 -- (channel, external reference, collecting party and commission are
--- reservation columns). The provider list of 000118 is restored.
+-- reservation columns). The provider list of 000120 is restored.
 
 DELETE FROM integration_jobs
 WHERE integration_account_id IN (
@@ -15,5 +15,5 @@ ALTER TABLE integration_accounts DROP CONSTRAINT integration_accounts_provider_c
 ALTER TABLE integration_accounts ADD CONSTRAINT integration_accounts_provider_check
     CHECK (provider IN (
         'iyzico', 'netgsm', 'log', 'hgs_fake', 'kabis', 'kabis_fake', 'einvoice', 'einvoice_fake',
-        'yolcu360', 'yolcu360_fake'
+        'yolcu360', 'yolcu360_fake', 'wuzapi', 'whatsapp_fake'
     ));

@@ -3242,3 +3242,47 @@ type WebauthnCredential struct {
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
+
+type WhatsappMessage struct {
+	ID                int64              `json:"id"`
+	Uuid              uuid.UUID          `json:"uuid"`
+	OrganizationID    int64              `json:"organization_id"`
+	SessionID         int64              `json:"session_id"`
+	Kind              string             `json:"kind"`
+	Purpose           string             `json:"purpose"`
+	DeliveryUuid      pgtype.UUID        `json:"delivery_uuid"`
+	CustomerID        pgtype.Int8        `json:"customer_id"`
+	RecipientMasked   string             `json:"recipient_masked"`
+	RecipientHash     string             `json:"recipient_hash"`
+	ProviderMessageID string             `json:"provider_message_id"`
+	Status            string             `json:"status"`
+	Error             string             `json:"error"`
+	Test              bool               `json:"test"`
+	SentAt            pgtype.Timestamptz `json:"sent_at"`
+	DeliveredAt       pgtype.Timestamptz `json:"delivered_at"`
+	ReadAt            pgtype.Timestamptz `json:"read_at"`
+	FailedAt          pgtype.Timestamptz `json:"failed_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type WhatsappSession struct {
+	ID                   int64              `json:"id"`
+	Uuid                 uuid.UUID          `json:"uuid"`
+	OrganizationID       int64              `json:"organization_id"`
+	IntegrationAccountID int64              `json:"integration_account_id"`
+	Provider             string             `json:"provider"`
+	Status               string             `json:"status"`
+	WebhookTokenHash     string             `json:"webhook_token_hash"`
+	PhoneMasked          string             `json:"phone_masked"`
+	RateLimitPerMinute   int32              `json:"rate_limit_per_minute"`
+	RiskAcknowledgedAt   pgtype.Timestamptz `json:"risk_acknowledged_at"`
+	RiskAcknowledgedBy   pgtype.Int8        `json:"risk_acknowledged_by"`
+	ConnectedAt          pgtype.Timestamptz `json:"connected_at"`
+	DisconnectedAt       pgtype.Timestamptz `json:"disconnected_at"`
+	LastStatusAt         pgtype.Timestamptz `json:"last_status_at"`
+	LastError            string             `json:"last_error"`
+	AlertedAt            pgtype.Timestamptz `json:"alerted_at"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}

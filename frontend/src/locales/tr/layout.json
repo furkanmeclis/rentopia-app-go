@@ -106,5 +106,6 @@
   "nav_reports_aging": "Cari / vade",
   "nav_reports_branches": "Şube karşılaştırma",
   "nav_tenant_settings_notifications": "Bildirimler",
-  "nav_channels": "Kanal yöneticisi"
+  "nav_channels": "Kanal yöneticisi",
+  "nav_tenant_settings_whatsapp": "WhatsApp"
 }

@@ -43,6 +43,7 @@ import {
   Network,
   NotebookPen,
   Palette,
+  MessageCircle,
   Plug,
   ReceiptText,
   Route,
@@ -822,6 +823,13 @@ export function tenantNav(slug: string): NavCatalog {
             href: routes.tenant.settings.notifications(slug),
             icon: BellRing,
             permission: permissions.tenant.notificationSettings.read,
+          },
+          {
+            id: "settings-whatsapp",
+            titleKey: "layout.nav_tenant_settings_whatsapp",
+            href: routes.tenant.settings.whatsapp(slug),
+            icon: MessageCircle,
+            permission: permissions.tenant.integrations.manage,
           },
           {
             id: "settings-inspection-templates",

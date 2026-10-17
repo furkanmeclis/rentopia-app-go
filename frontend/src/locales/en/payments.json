@@ -319,5 +319,9 @@
   "integrations.provider_hints.obilet": "obilet supplier connection: partner code and API token. Until the car rental supplier contract is confirmed (TEC-737) the host can be overridden in ‘Server address’.",
   "integrations.provider_hints.obilet_fake": "Development and test only: nothing reaches obilet. Bookings can be simulated from the channel manager. Test scenario: empty / ok, outage, reject.",
   "integrations.fields.partner_code": "Partner code",
-  "integrations.fields.api_token": "API token"
+  "integrations.fields.api_token": "API token",
+  "integrations.providers.wuzapi": "WhatsApp (wuzapi)",
+  "integrations.providers.whatsapp_fake": "WhatsApp test provider (development)",
+  "integrations.provider_hints.wuzapi": "Nothing to type in. After connecting, scan the QR code with your phone on Settings → WhatsApp.",
+  "integrations.provider_hints.whatsapp_fake": "Development and test only: nothing is sent. Links 10 seconds after the QR code is shown."
 }

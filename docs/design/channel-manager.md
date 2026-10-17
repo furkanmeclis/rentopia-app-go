@@ -31,13 +31,13 @@ Rentopia needs the supplier (fleet publishing) protocol, not the public Agency A
 
 ### Obilet
 
-Same interface, no core change: the module only learned a second provider (`routes.go` `Providers`) and the provider list (migration 000640). Credentials: `partner_code`, `api_token` (sealed), optional `base_url`.
+Same interface, no core change: the module only learned a second provider (`routes.go` `Providers`) and the provider list (migration 000121). Credentials: `partner_code`, `api_token` (sealed), optional `base_url`.
 
 What follows Obilet's documented client API (v2): JSON over HTTPS, `Authorization: Basic <api token>`, a device session from `POST /api/client/getsession` cached per account (and per token / host), every request wrapped as `{device-session, date, language: tr-TR, data}`, every answer as `{status, data, message, user-message}`, kebab-case keys, dates in Türkiye local time without an offset, amounts as JSON numbers. An expired session (`InvalidSession`) is renewed once and the call repeated (all operations are snapshots, reads or idempotent).
 
 **Assumed until Obilet hands over the car rental supplier contract** (all in `obilet.go`, constants and wire types only): the operation paths (`/api/carrental/supplier/ping`, `…/inventory/update`, `…/bookings/getchanges`, `…/bookings/acknowledge`, `…/statement`), their field names, the change feed (change id + PNR + version with the full booking), `payment-type` (`Online` → collected by the channel, `PayAtOffice` → at the counter), the page size (200 items per push) and the default hosts. Error classification is the core's (as Yolcu360). Obilet is not reachable from the build environment, so `obilet_fake` (outside production only, same fake implementation as `yolcu360_fake`, simulated PNRs `OBL-…`) is the tested path.
 
-## 2. Tables (migrations 000118 – 000119; 000640 adds the Obilet providers)
+## 2. Tables (migrations 000118 – 000119; 000121 adds the Obilet providers)
 
 | Table | Notes |
 |-------|-------|
