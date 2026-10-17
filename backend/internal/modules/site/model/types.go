@@ -8,6 +8,7 @@ package model
 import (
 	"time"
 
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/site/themes"
 	"github.com/google/uuid"
 )
 
@@ -20,8 +21,8 @@ var Locales = []string{"tr", "en"}
 // Theme choices. The site maps each to CSS; free-form values are refused so
 // that nothing typed in the panel reaches a stylesheet unchecked.
 var (
-	Fonts  = []string{"inter", "roboto", "open_sans", "montserrat", "poppins", "lato", "nunito", "system"}
-	Radii  = []string{"none", "sm", "md", "lg", "full"}
+	Fonts  = []string{"inter", "roboto", "open_sans", "montserrat", "poppins", "lato", "nunito", "system", "manrope", "dm_sans", "plus_jakarta_sans", "sora", "lora", "wix_madefor"}
+	Radii  = []string{"soft", "sharp", "xs", "sm", "md", "lg", "xl", "pill"}
 	Modes  = []string{"light", "dark", "system"}
 	Heroes = []string{"centered", "split", "image", "minimal"}
 	Cards  = []string{"grid", "list", "compact"}
@@ -59,10 +60,11 @@ type Colors struct {
 
 // Theme is the look of the site: tokens become CSS variables at render.
 type Theme struct {
-	Colors     Colors `json:"colors"`
-	DarkColors Colors `json:"dark_colors"`
-	Font       string `json:"font"`
-	Radius     string `json:"radius"`
+	Colors      Colors `json:"colors"`
+	DarkColors  Colors `json:"dark_colors"`
+	Font        string `json:"font"`
+	HeadingFont string `json:"heading_font"`
+	Radius      string `json:"radius"`
 	// Mode is light, dark or system (follows the visitor).
 	Mode string `json:"mode"`
 }
@@ -83,11 +85,13 @@ type FAQItem struct {
 // Content is the text of one locale. Plain text: blank lines separate
 // paragraphs; no HTML is rendered.
 type Content struct {
-	HeroTitle    string    `json:"hero_title"`
-	HeroSubtitle string    `json:"hero_subtitle"`
-	About        string    `json:"about"`
-	FAQ          []FAQItem `json:"faq"`
-	Terms        string    `json:"terms"`
+	HeroSlides   []HeroSlide `json:"hero_slides"`
+	Advantages   []Advantage `json:"advantages"`
+	HeroTitle    string      `json:"hero_title"`
+	HeroSubtitle string      `json:"hero_subtitle"`
+	About        string      `json:"about"`
+	FAQ          []FAQItem   `json:"faq"`
+	Terms        string      `json:"terms"`
 	// Privacy is the KVKK / privacy notice.
 	Privacy string `json:"privacy"`
 }
@@ -130,13 +134,19 @@ type Widget struct {
 // Config is the editable site document: site_settings.config is the draft,
 // site_setting_versions.config the published snapshots.
 type Config struct {
-	Theme     Theme              `json:"theme"`
-	Layout    Layout             `json:"layout"`
-	Content   map[string]Content `json:"content"`
-	SEO       map[string]SEO     `json:"seo"`
-	Contact   Contact            `json:"contact"`
-	Analytics Analytics          `json:"analytics"`
-	Widget    Widget             `json:"widget"`
+	ConfigVersion int                      `json:"config_version"`
+	Template      string                   `json:"template"`
+	Templates     map[string]themes.Config `json:"templates"`
+	Brand         Brand                    `json:"brand"`
+	Menus         Menus                    `json:"menus"`
+	About         About                    `json:"about"`
+	Theme         Theme                    `json:"theme"`
+	Layout        Layout                   `json:"layout"`
+	Content       map[string]Content       `json:"content"`
+	SEO           map[string]SEO           `json:"seo"`
+	Contact       Contact                  `json:"contact"`
+	Analytics     Analytics                `json:"analytics"`
+	Widget        Widget                   `json:"widget"`
 }
 
 // DefaultColors / DefaultDarkColors are the neutral starting theme.
@@ -201,6 +211,9 @@ const (
 // Settings is GET / PUT /v1/tenant/site. Enabled, Subdomain,
 // DefaultLocale and the key are live; Config and the images are the draft.
 type Settings struct {
+	// ThemeRegistry and SectionStatuses describe the editor contract.
+	ThemeRegistry   []themes.Definition    `json:"theme_registry"`
+	SectionStatuses []themes.SectionStatus `json:"section_statuses"`
 	// Exists is false until the first save (the document is the default).
 	Exists        bool   `json:"exists"`
 	Enabled       bool   `json:"enabled"`
@@ -332,7 +345,11 @@ type Assets struct {
 // Resolved is GET /v1/public/site/resolve: everything the site needs to
 // render a host, and the credential it books with.
 type Resolved struct {
-	SiteUUID uuid.UUID `json:"site_uuid"`
+	Template         string            `json:"template"`
+	Sections         []themes.Section  `json:"sections"`
+	TemplateSettings map[string]string `json:"settings"`
+	Media            map[string]string `json:"media"`
+	SiteUUID         uuid.UUID         `json:"site_uuid"`
 	// Version is the published revision (the draft version in a preview):
 	// the cache-busting value of the image paths.
 	Version       int          `json:"version"`

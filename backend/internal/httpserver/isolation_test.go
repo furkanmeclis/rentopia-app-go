@@ -3,6 +3,7 @@ package httpserver
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"go/ast"
@@ -102,6 +103,7 @@ var isolationAllowlist = map[string]string{
 	"POST /v1/tenant/whatsapp/test-messages":         "test text to a typed number through the caller's organization's session; no records",
 	"POST /v1/tenant/public-api/keys":                "body has no foreign references (kind, name, channel, scopes, origins, rate limit)",
 	"POST /v1/tenant/public-api/webhooks":            "body has no foreign references (name, URL, event names)",
+	"POST /v1/tenant/site/media":                     "file and alt only; organization derived from scope (media quota and isolation tests)",
 	"POST /v1/tenant/site/domains":                   "host only; organization comes from authenticated scope (domain isolation tests)",
 	"PUT /v1/tenant/site":                            "site document of the caller's organization (subdomain, theme, texts); the key it links is created in the scope (site tests)",
 	"POST /v1/tenant/site/publish":                   "publishes the caller's organization's draft; body is a version number only (site tests)",
@@ -283,7 +285,7 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		}
 		return r
 	}
-	png := append([]byte("\x89PNG\r\n\x1a\n"), bytes.Repeat([]byte{0}, 64)...)
+	png, _ := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jXZkAAAAASUVORK5CYII=")
 	day := func(days int) string { return time.Now().UTC().AddDate(0, 0, days).Format(time.RFC3339) }
 	date := func(days int) string { return time.Now().UTC().AddDate(0, 0, days).Format("2006-01-02") }
 
@@ -675,6 +677,7 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			http.StatusOK, "test webhook"), "uuid")
 		domain := must(call(o, http.MethodPost, "/v1/tenant/site/domains", map[string]any{"host": "rent-" + strings.ToLower(m) + ".com"}), http.StatusCreated, "site domain")
 		ids["siteDomain"] = domain.data.(map[string]any)["uuid"].(string)
+		ids["siteMedia"] = str(must(upload(o, http.MethodPost, "/v1/tenant/site/media", "file", "media.png", png, nil), http.StatusCreated, "site media"), "uuid")
 		// Branded site (TEC-730): a saved and published site (revision 1).
 		must(call(o, http.MethodPut, "/v1/tenant/site", map[string]any{"version": 0}), http.StatusOK, "save site")
 		must(call(o, http.MethodPost, "/v1/tenant/site/publish", map[string]any{"version": 1}), http.StatusOK, "publish site")
@@ -1699,6 +1702,8 @@ func paramKey(prev, name string) string {
 		return "invoice"
 	case "keys/uuid":
 		return "publicKey"
+	case "media/uuid":
+		return "siteMedia"
 	case "domains/uuid":
 		return "siteDomain"
 	case "versions/revisionUuid":

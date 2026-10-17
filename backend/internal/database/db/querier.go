@@ -199,6 +199,7 @@ type Querier interface {
 	CountRoles(ctx context.Context, q_ pgtype.Text) (int64, error)
 	// Sends of the organization (optionally to one number) since a time.
 	CountSMSMessagesSince(ctx context.Context, arg CountSMSMessagesSinceParams) (int64, error)
+	CountSiteMedia(ctx context.Context, organizationID int64) (int64, error)
 	CountStaffPushTargets(ctx context.Context, userID int64) (int64, error)
 	CountStorageActivity(ctx context.Context, objectKey string) (int64, error)
 	CountStorageTrash(ctx context.Context) (int64, error)
@@ -405,6 +406,7 @@ type Querier interface {
 	DeleteReservationDrivers(ctx context.Context, arg DeleteReservationDriversParams) error
 	DeleteRole(ctx context.Context, argUuid uuid.UUID) error
 	DeleteServicePoint(ctx context.Context, arg DeleteServicePointParams) (int64, error)
+	DeleteSiteMedia(ctx context.Context, arg DeleteSiteMediaParams) (string, error)
 	DeleteStorageShare(ctx context.Context, argUuid uuid.UUID) error
 	DeleteStorageStar(ctx context.Context, arg DeleteStorageStarParams) error
 	DeleteStorageTrashByUUID(ctx context.Context, argUuid uuid.UUID) error
@@ -861,6 +863,9 @@ type Querier interface {
 	// A reservation the public API made, by its reference.
 	GetPublicReservationByReference(ctx context.Context, arg GetPublicReservationByReferenceParams) (GetPublicReservationByReferenceRow, error)
 	GetPublicReservationByUUID(ctx context.Context, arg GetPublicReservationByUUIDParams) (GetPublicReservationByUUIDRow, error)
+	// Global public UUID lookup: the site, organization and published/draft
+	// reference jointly authorize the bytes. The service validates the token.
+	GetPublicSiteMedia(ctx context.Context, arg GetPublicSiteMediaParams) (GetPublicSiteMediaRow, error)
 	GetPublicWebhookDelivery(ctx context.Context, arg GetPublicWebhookDeliveryParams) (GetPublicWebhookDeliveryRow, error)
 	GetPublicWebhookEndpoint(ctx context.Context, arg GetPublicWebhookEndpointParams) (PublicWebhookEndpoint, error)
 	GetPublicWebhookEndpointByID(ctx context.Context, arg GetPublicWebhookEndpointByIDParams) (PublicWebhookEndpoint, error)
@@ -950,6 +955,7 @@ type Querier interface {
 	// The newest active key rotated from the site's key (Ayarlar → Public API
 	// rotation): the site follows it on the next save.
 	GetSiteKeySuccessor(ctx context.Context, arg GetSiteKeySuccessorParams) (uuid.UUID, error)
+	GetSiteMedia(ctx context.Context, arg GetSiteMediaParams) (SiteMedium, error)
 	// The internal id of a key the site settings link to.
 	GetSitePublicAPIKeyID(ctx context.Context, arg GetSitePublicAPIKeyIDParams) (int64, error)
 	// Branded site (TEC-729 / TEC-730, docs/design/branded-site.md). Every query
@@ -1200,6 +1206,7 @@ type Querier interface {
 	// organization-owned: every query filters by organization_id.
 	InsertSMSMessage(ctx context.Context, arg InsertSMSMessageParams) (InsertSMSMessageRow, error)
 	InsertSecurityDeposit(ctx context.Context, arg InsertSecurityDepositParams) (InsertSecurityDepositRow, error)
+	InsertSiteMedia(ctx context.Context, arg InsertSiteMediaParams) (SiteMedium, error)
 	// First save of an organization's site. ON CONFLICT DO NOTHING: a
 	// concurrent first save returns no row and the caller answers a conflict.
 	InsertSiteSettings(ctx context.Context, arg InsertSiteSettingsParams) (SiteSetting, error)
@@ -1804,6 +1811,7 @@ type Querier interface {
 	// Include rotation predecessors: their booking sessions must lose removed origins too.
 	ListSiteDomainKeys(ctx context.Context, organizationID int64) ([]uuid.UUID, error)
 	ListSiteDomains(ctx context.Context, organizationID int64) ([]SiteDomain, error)
+	ListSiteMedia(ctx context.Context, arg ListSiteMediaParams) ([]SiteMedium, error)
 	// Publish history, newest first.
 	ListSiteVersions(ctx context.Context, organizationID int64) ([]ListSiteVersionsRow, error)
 	ListStorageActivity(ctx context.Context, arg ListStorageActivityParams) ([]ListStorageActivityRow, error)
@@ -2138,6 +2146,7 @@ type Querier interface {
 	// deadline first. Reservation rule: pick-up or return branch in the
 	// filter. overdue = deadline passed.
 	OverviewWaitingReservations(ctx context.Context, arg OverviewWaitingReservationsParams) ([]OverviewWaitingReservationsRow, error)
+	PatchSiteMedia(ctx context.Context, arg PatchSiteMediaParams) (SiteMedium, error)
 	// Open supplier invoices by due state (caller's branch scope).
 	PayablesSummary(ctx context.Context, arg PayablesSummaryParams) (PayablesSummaryRow, error)
 	PingDB(ctx context.Context) (int32, error)

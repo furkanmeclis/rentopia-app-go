@@ -34,6 +34,7 @@ import (
 	osmodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/model"
 	pamodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/publicapi/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/site/model"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/site/themes"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/storage"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -286,6 +287,7 @@ func (s *Service) Get(ctx context.Context, orgID int64, orgSlug string) (model.S
 			blockers = append(blockers, model.BlockChannelOff)
 		}
 		return model.Settings{
+			ThemeRegistry: themes.Registry(), SectionStatuses: themes.Statuses(cfg.Template),
 			Subdomain: sub, DefaultLocale: model.Locales[0], Config: cfg, URL: hosts[0].Origin, Hosts: hosts,
 			BookingBlockers: blockers, HasUnpublishedChanges: true,
 		}, nil
@@ -299,6 +301,7 @@ func (s *Service) Get(ctx context.Context, orgID int64, orgSlug string) (model.S
 	}
 	draft := decodeConfig(row.Config)
 	out := model.Settings{
+		ThemeRegistry: themes.Registry(), SectionStatuses: themes.Statuses(draft.Template),
 		Exists: true, Enabled: row.Enabled, Subdomain: row.Subdomain, DefaultLocale: row.DefaultLocale,
 		Config: draft, Version: int(row.Version), URL: hosts[0].Origin, Hosts: hosts,
 		Assets:          model.AssetState{Logo: row.LogoObjectKey.Valid, Favicon: row.FaviconObjectKey.Valid, Cover: row.CoverObjectKey.Valid},
@@ -477,7 +480,17 @@ func (s *Service) Save(ctx context.Context, orgID int64, orgSlug string, userID 
 		ve.add("default_locale", "invalid", "one of: "+strings.Join(model.Locales, ", "))
 	}
 	if in.Config != nil {
+		previousTemplates := cfg.Templates
 		cfg = *in.Config
+		// An update to one template retains the settings of all other templates.
+		merged := map[string]themes.Config{}
+		for id, tc := range previousTemplates {
+			merged[id] = tc
+		}
+		for id, tc := range cfg.Templates {
+			merged[id] = tc
+		}
+		cfg.Templates = merged
 	}
 	cfg, err = NormalizeConfig(cfg)
 	if err != nil {
@@ -522,7 +535,8 @@ func (s *Service) Save(ctx context.Context, orgID int64, orgSlug string, userID 
 		})
 	} else {
 		_, err = s.q.InsertSiteSettings(ctx, db.InsertSiteSettingsParams{
-			OrganizationID: orgID, Enabled: enabled, Subdomain: sub, DefaultLocale: locale, Config: data,
+			OrganizationID: orgID, Enabled: enabled,
+			Subdomain: sub, DefaultLocale: locale, Config: data,
 			ApiKeyID: keyID, UpdatedBy: by,
 		})
 	}
@@ -532,7 +546,7 @@ func (s *Service) Save(ctx context.Context, orgID int64, orgSlug string, userID 
 	case isUnique(err, "uq_site_settings_subdomain"):
 		return model.Settings{}, ErrSubdomainTaken
 	case err != nil:
-		return model.Settings{}, err
+		return model.Settings{}, mediaDBError(err)
 	}
 	return s.Get(ctx, orgID, orgSlug)
 }

@@ -8017,6 +8017,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenant/site/media": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List organization site media */
+        get: operations["listSiteMedia"];
+        put?: never;
+        /**
+         * Upload an immutable library image (tenant.site.manage)
+         * @description PNG/JPEG/WebP sniffed from bytes; max 10 MB, 200 files and 500 MB per organization. SVG/HTML refused. Quota is transactional.
+         */
+        post: operations["uploadSiteMedia"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/site/media/{uuid}": {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete unreferenced media (tenant.site.manage)
+         * @description Draft or any historical published reference returns 409 MEDIA_IN_USE.
+         */
+        delete: operations["deleteSiteMedia"];
+        options?: never;
+        head?: never;
+        /** Replace localized alt text (tenant.site.manage) */
+        patch: operations["patchSiteMedia"];
+        trace?: never;
+    };
+    "/v1/public/site/media/{siteUuid}/{mediaUuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream a referenced site library image
+         * @description Only the active published document, or draft with valid site preview token, authorizes access. Public immutable cache; previews private no-store.
+         */
+        get: operations["publicSiteMedia"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenant/site": {
         parameters: {
             query?: never;
@@ -29749,9 +29820,14 @@ export interface components {
             colors?: components["schemas"]["SiteColors"];
             dark_colors?: components["schemas"]["SiteColors"];
             /** @enum {string} */
-            font?: "inter" | "roboto" | "open_sans" | "montserrat" | "poppins" | "lato" | "nunito" | "system";
+            font?: "inter" | "roboto" | "open_sans" | "montserrat" | "poppins" | "lato" | "nunito" | "system" | "manrope" | "dm_sans" | "plus_jakarta_sans" | "sora" | "lora" | "wix_madefor";
             /** @enum {string} */
-            radius?: "none" | "sm" | "md" | "lg" | "full";
+            heading_font?: "theme" | "georgia" | "inter" | "roboto" | "open_sans" | "montserrat" | "poppins" | "lato" | "nunito" | "system" | "manrope" | "dm_sans" | "plus_jakarta_sans" | "sora" | "lora" | "wix_madefor";
+            /**
+             * @description Legacy none/full normalize to sharp/pill.
+             * @enum {string}
+             */
+            radius?: "soft" | "sharp" | "xs" | "sm" | "md" | "lg" | "xl" | "pill" | "none" | "full";
             /** @enum {string} */
             mode?: "light" | "dark" | "system";
         };
@@ -29765,6 +29841,8 @@ export interface components {
         };
         /** @description Plain text of one locale (blank lines separate paragraphs; no HTML). */
         SiteContent: {
+            hero_slides?: components["schemas"]["SiteHeroSlide"][];
+            advantages?: components["schemas"]["SiteAdvantage"][];
             hero_title?: string;
             hero_subtitle?: string;
             about?: string;
@@ -29780,8 +29858,129 @@ export interface components {
             title?: string;
             description?: string;
         };
+        SiteLocalizedText: {
+            tr?: string;
+            en?: string;
+        };
+        SiteHeroSlide: {
+            title?: string;
+            subtitle?: string;
+            cta_label?: string;
+            /** @description Relative path or HTTPS URL only. */
+            cta_href?: string;
+            /** @description Canonical library UUID or empty. */
+            media?: string;
+            enabled?: boolean;
+        };
+        SiteAdvantage: {
+            /** @enum {string} */
+            icon?: "shield-check" | "clock" | "car" | "credit-card" | "headphones" | "map-pin" | "check" | "check-circle" | "star" | "heart" | "award" | "wallet" | "zap" | "users" | "phone" | "thumbs-up" | "badge-check" | "circle-check" | "key-round" | "fuel" | "plane" | "route" | "wrench" | "calendar" | "globe";
+            title?: string;
+            text?: string;
+        };
+        SiteSection: {
+            /** @enum {string} */
+            id: "hero" | "search" | "fleet" | "campaigns" | "advantages" | "about" | "faq" | "guide" | "newsletter" | "app_promo" | "branches";
+            enabled: boolean;
+        };
+        SiteTemplateConfig: {
+            sections?: components["schemas"]["SiteSection"][];
+            /** @description Typed per registry: heroLayout=image|split, heroAlign=left|center, fleetColumns=2|3. Unknown keys rejected. */
+            settings?: {
+                [key: string]: string;
+            };
+        };
+        SiteThemeDefinition: {
+            id: string;
+            available: boolean;
+            sections: string[];
+            required_first: string;
+            settings: {
+                key: string;
+                /** @enum {string} */
+                type: "enum";
+                values: string[];
+                default: string;
+            }[];
+        };
+        SiteMenuItem: {
+            label?: components["schemas"]["SiteLocalizedText"];
+            /** @description Nonempty relative path or HTTPS URL. */
+            href?: string;
+            /** @enum {string} */
+            kind?: "link" | "page";
+        };
+        SiteMedia: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            kind: "image";
+            /** @enum {string} */
+            mime: "image/png" | "image/jpeg" | "image/webp";
+            /** Format: int64 */
+            size: number;
+            width: number;
+            height: number;
+            alt: components["schemas"]["SiteLocalizedText"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        EnvelopeSiteMedia: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["SiteMedia"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeSiteMediaList: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["SiteMedia"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
         /** @description The editable site document. `site_settings.config` is the draft; published revisions keep their own copy. */
         SiteConfig: {
+            /** @enum {integer} */
+            config_version?: 2;
+            /**
+             * @description Only technowide-design is currently selectable.
+             * @default technowide-design
+             * @enum {string}
+             */
+            template: "technowide-design" | "horizon-design" | "classic" | "aurum";
+            templates?: {
+                [key: string]: components["schemas"]["SiteTemplateConfig"];
+            };
+            brand?: {
+                tagline?: components["schemas"]["SiteLocalizedText"];
+                socials?: {
+                    instagram?: string;
+                    facebook?: string;
+                    x?: string;
+                    youtube?: string;
+                    linkedin?: string;
+                    tiktok?: string;
+                    whatsapp?: string;
+                };
+            };
+            menus?: {
+                header?: components["schemas"]["SiteMenuItem"][];
+                footer?: components["schemas"]["SiteMenuItem"][];
+            };
+            about?: {
+                /** @description Canonical media UUID or empty. */
+                image?: string;
+                highlights?: {
+                    [key: string]: string[];
+                };
+            };
             theme?: components["schemas"]["SiteTheme"];
             layout?: components["schemas"]["SiteLayout"];
             /** @description Keyed by locale (`tr`, `en`). */
@@ -29863,6 +30062,13 @@ export interface components {
             meta: components["schemas"]["ResponseMeta"];
         };
         SiteSettings: {
+            theme_registry?: components["schemas"]["SiteThemeDefinition"][];
+            section_statuses?: {
+                id: string;
+                /** @enum {string} */
+                status: "available" | "needs_service" | "unsupported_by_theme";
+                can_enable: boolean;
+            }[];
             exists: boolean;
             enabled: boolean;
             subdomain: string;
@@ -29916,6 +30122,15 @@ export interface components {
             config?: components["schemas"]["SiteConfig"];
         };
         SiteResolved: {
+            template?: string;
+            sections?: components["schemas"]["SiteSection"][];
+            settings?: {
+                [key: string]: string;
+            };
+            /** @description Library UUID to API-owned URL; previews carry their signed token. */
+            media?: {
+                [key: string]: string;
+            };
             /** Format: uuid */
             site_uuid: string;
             /** @description The published revision (the draft version in a preview); the `?v=` of image paths. */
@@ -45285,6 +45500,183 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listSiteMedia: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated library */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteMediaList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    uploadSiteMedia: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    /** @description Localized JSON object, e.g. {"tr":"Araç","en":"Car"}. */
+                    alt?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Uploaded media */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteMedia"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteSiteMedia: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        data?: {
+                            deleted?: boolean;
+                        };
+                        meta?: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    patchSiteMedia: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    alt?: components["schemas"]["SiteLocalizedText"];
+                };
+            };
+        };
+        responses: {
+            /** @description Updated media metadata */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteMedia"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    publicSiteMedia: {
+        parameters: {
+            query?: {
+                preview?: string;
+            };
+            header?: never;
+            path: {
+                siteUuid: string;
+                mediaUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Image bytes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": string;
+                    "image/jpeg": string;
+                    "image/webp": string;
+                };
+            };
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getTenantSite: {
