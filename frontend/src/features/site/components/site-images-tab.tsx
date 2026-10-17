@@ -13,6 +13,7 @@ import {
   useSitePreview,
   useUploadSiteImage,
 } from "@/features/site/hooks/use-site";
+import { SiteMediaLibrary } from "@/features/site/components/site-media";
 import type { SiteImageKind, SiteSettings } from "@/features/site/types";
 import { resolveLogoSrc } from "@/lib/branding/logo-url";
 import { assertServiceMediaURL } from "@/lib/media/urls";
@@ -159,7 +160,8 @@ function ImageCard({
 
 /**
  * Görseller: logo, favicon and cover of the draft (shown through the
- * preview token; published with the next publish). SVG is refused.
+ * preview token; published with the next publish; SVG is refused) and the
+ * site media library used by slides and the about image (TEC-781).
  */
 export function SiteImagesTab({
   settings,
@@ -172,22 +174,25 @@ export function SiteImagesTab({
   const preview = useSitePreview(true);
   const paths = preview.data?.assets;
   return (
-    <FormSection
-      title={t("site.images.title")}
-      description={t("site.images.description")}
-    >
-      <div className="grid gap-4 md:grid-cols-3">
-        {KINDS.map((kind) => (
-          <ImageCard
-            key={kind}
-            kind={kind}
-            settings={settings}
-            src={resolveLogoSrc(assertServiceMediaURL(paths?.[kind]))}
-            loading={preview.isLoading}
-            canManage={canManage}
-          />
-        ))}
-      </div>
-    </FormSection>
+    <div className="space-y-4">
+      <FormSection
+        title={t("site.images.title")}
+        description={t("site.images.description")}
+      >
+        <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+          {KINDS.map((kind) => (
+            <ImageCard
+              key={kind}
+              kind={kind}
+              settings={settings}
+              src={resolveLogoSrc(assertServiceMediaURL(paths?.[kind]))}
+              loading={preview.isLoading}
+              canManage={canManage}
+            />
+          ))}
+        </div>
+      </FormSection>
+      <SiteMediaLibrary canManage={canManage} />
+    </div>
   );
 }

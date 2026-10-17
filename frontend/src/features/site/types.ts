@@ -12,6 +12,9 @@ export type SiteCatalogBranch = Schemas["SiteCatalogBranch"];
 export type SiteCatalogSubgroup = Schemas["SiteCatalogSubgroup"];
 export type SiteCatalogExtra = Schemas["SiteCatalogExtra"];
 export type SiteDomain = Schemas["SiteDomain"];
+export type SiteMedia = Schemas["SiteMedia"];
+export type SiteMediaList = Schemas["EnvelopeSiteMediaList"]["data"];
+export type SiteResolved = Schemas["SiteResolved"];
 
 export type SiteImageKind = "logo" | "favicon" | "cover";
 export type SiteCatalogKind = "branches" | "products" | "extras";

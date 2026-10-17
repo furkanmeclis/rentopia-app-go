@@ -1,8 +1,12 @@
 "use client";
 
-import { Eye, Upload } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { useFormState, type FieldErrors } from "react-hook-form";
+import { Eye, Redo2, Undo2, Upload } from "lucide-react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  useFormState,
+  type FieldErrors,
+  type UseFormReturn,
+} from "react-hook-form";
 
 import { ErrorState } from "@/components/common/error-state";
 import { Loading } from "@/components/common/loading";
@@ -13,6 +17,12 @@ import { AppForm, FormActions } from "@/components/forms";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { SiteBrandTab } from "@/features/site/components/site-brand-tab";
 import { permissions } from "@/config/permissions";
 import { routes } from "@/config/routes";
 import { SiteCatalogTab } from "@/features/site/components/site-catalog-tab";
@@ -20,8 +30,12 @@ import { SiteDomainsTab } from "@/features/site/components/site-domains-tab";
 import { SiteContentTab } from "@/features/site/components/site-content-tab";
 import { SiteGeneralTab } from "@/features/site/components/site-general-tab";
 import { SiteImagesTab } from "@/features/site/components/site-images-tab";
-import { SitePreviewSheet } from "@/features/site/components/site-preview-sheet";
+import {
+  SiteLivePreview,
+  SitePreviewSheet,
+} from "@/features/site/components/site-preview-sheet";
 import { SitePublishTab } from "@/features/site/components/site-publish-tab";
+import { SiteSectionsTab } from "@/features/site/components/site-sections-tab";
 import { SiteSeoTab } from "@/features/site/components/site-seo-tab";
 import { SiteThemeTab } from "@/features/site/components/site-theme-tab";
 import { SiteWidgetTab } from "@/features/site/components/site-widget-tab";
@@ -31,6 +45,10 @@ import {
   useSiteSettings,
 } from "@/features/site/hooks/use-site";
 import {
+  useFormHistory,
+  useUndoShortcuts,
+} from "@/features/site/hooks/use-form-history";
+import {
   createSiteSchema,
   formToSaveInput,
   settingsToForm,
@@ -39,6 +57,7 @@ import {
 import type { SiteSettings } from "@/features/site/types";
 import { useTenant } from "@/features/tenant/components/tenant-provider";
 import { isApiError } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { useLocale } from "@/providers/locale-provider";
 import { usePermission } from "@/providers/permission-provider";
 import { appToast } from "@/providers/toast-provider";
@@ -46,7 +65,9 @@ import { appToast } from "@/providers/toast-provider";
 type Tab =
   | "general"
   | "theme"
+  | "sections"
   | "content"
+  | "brand"
   | "seo"
   | "images"
   | "publish"
@@ -57,7 +78,9 @@ type Tab =
 const TABS: { id: Tab; labelKey: string; form: boolean }[] = [
   { id: "general", labelKey: "site.tabs.general", form: true },
   { id: "theme", labelKey: "site.tabs.theme", form: true },
+  { id: "sections", labelKey: "site.tabs.sections", form: true },
   { id: "content", labelKey: "site.tabs.content", form: true },
+  { id: "brand", labelKey: "site.tabs.brand", form: true },
   { id: "seo", labelKey: "site.tabs.seo", form: true },
   { id: "images", labelKey: "site.tabs.images", form: false },
   { id: "publish", labelKey: "site.tabs.publish", form: false },
@@ -68,9 +91,17 @@ const TABS: { id: Tab; labelKey: string; form: boolean }[] = [
 
 /** The tab of a form field path (server and client errors). */
 function tabOfPath(path: string): Tab {
-  if (path.startsWith("config.theme") || path.startsWith("config.layout"))
+  if (/^config\.templates\.[^.]+\.sections/.test(path)) return "sections";
+  if (
+    path.startsWith("config.theme") ||
+    path.startsWith("config.layout") ||
+    path.startsWith("config.template")
+  )
     return "theme";
-  if (path.startsWith("config.content")) return "content";
+  if (path.startsWith("config.content") || path.startsWith("config.about"))
+    return "content";
+  if (path.startsWith("config.menus") || path.startsWith("config.brand"))
+    return "brand";
   if (
     path.startsWith("config.seo") ||
     path.startsWith("config.contact") ||
@@ -103,6 +134,7 @@ function DirtyReporter({ onChange }: { onChange: (dirty: boolean) => void }) {
 }
 
 function SiteTabs({
+  form,
   settings,
   canManage,
   tab,
@@ -114,6 +146,7 @@ function SiteTabs({
   publishing,
   onDraftReplaced,
 }: {
+  form: UseFormReturn<SiteFormValues>;
   settings: SiteSettings;
   canManage: boolean;
   tab: Tab;
@@ -132,6 +165,9 @@ function SiteTabs({
   const firstErrorTab = paths.length ? tabOfPath(paths[0]) : null;
   const disabled = !canManage;
   const formTab = TABS.find((x) => x.id === tab)?.form ?? false;
+  const history = useFormHistory(form);
+  useUndoShortcuts(canManage, history.undo, history.redo);
+  const registry = settings.theme_registry ?? [];
 
   useEffect(() => {
     if (submitCount > 0 && firstErrorTab) setTab(firstErrorTab);
@@ -140,19 +176,59 @@ function SiteTabs({
 
   return (
     <>
-      <TabsList className="h-auto w-full flex-wrap justify-start sm:w-fit">
-        {TABS.map((item) => (
-          <TabsTrigger key={item.id} value={item.id} className="flex-none">
-            {t(item.labelKey)}
-            {tabsWithErrors.has(item.id) ? (
-              <span
-                className="bg-destructive size-1.5 rounded-full"
-                aria-label={t("site.tab_has_errors")}
-              />
-            ) : null}
-          </TabsTrigger>
-        ))}
-      </TabsList>
+      <div className="flex flex-wrap items-start gap-2">
+        <TabsList className="h-auto min-w-0 flex-1 flex-wrap justify-start">
+          {TABS.map((item) => (
+            <TabsTrigger key={item.id} value={item.id} className="flex-none">
+              {t(item.labelKey)}
+              {tabsWithErrors.has(item.id) ? (
+                <span
+                  className="bg-destructive size-1.5 rounded-full"
+                  aria-label={t("site.tab_has_errors")}
+                />
+              ) : null}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        {canManage ? (
+          <div
+            className="flex gap-1"
+            role="group"
+            aria-label={t("site.history.label")}
+          >
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  disabled={!history.canUndo}
+                  aria-label={t("site.history.undo")}
+                  onClick={history.undo}
+                >
+                  <Undo2 className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t("site.history.undo_hint")}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  disabled={!history.canRedo}
+                  aria-label={t("site.history.redo")}
+                  onClick={history.redo}
+                >
+                  <Redo2 className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t("site.history.redo_hint")}</TooltipContent>
+            </Tooltip>
+          </div>
+        ) : null}
+      </div>
 
       {conflict ? (
         <Alert variant="destructive">
@@ -184,7 +260,19 @@ function SiteTabs({
         forceMount
         className="data-[state=inactive]:hidden"
       >
-        <SiteThemeTab disabled={disabled} />
+        <SiteThemeTab registry={registry} disabled={disabled} />
+      </TabsContent>
+      <TabsContent
+        value="sections"
+        forceMount
+        className="data-[state=inactive]:hidden"
+      >
+        <SiteSectionsTab
+          registry={registry}
+          statuses={settings.section_statuses}
+          savedTemplate={settings.config.template}
+          disabled={disabled}
+        />
       </TabsContent>
       <TabsContent
         value="content"
@@ -192,6 +280,13 @@ function SiteTabs({
         className="data-[state=inactive]:hidden"
       >
         <SiteContentTab disabled={disabled} />
+      </TabsContent>
+      <TabsContent
+        value="brand"
+        forceMount
+        className="data-[state=inactive]:hidden"
+      >
+        <SiteBrandTab disabled={disabled} />
       </TabsContent>
       <TabsContent
         value="seo"
@@ -309,29 +404,50 @@ function SiteForm({
         }
       }}
     >
-      <DirtyReporter onChange={setDirty} />
-      <SiteTabs
-        settings={settings}
-        canManage={canManage}
-        tab={tab}
-        setTab={setTab}
-        conflict={conflict}
-        onReload={() => {
-          setConflict(false);
-          onReload();
-        }}
-        dirty={dirty}
-        onPublish={onPublish}
-        publishing={publishing}
-        onDraftReplaced={onSaved}
-      />
+      {(form) => (
+        <>
+          <DirtyReporter onChange={setDirty} />
+          <SiteTabs
+            form={form}
+            settings={settings}
+            canManage={canManage}
+            tab={tab}
+            setTab={setTab}
+            conflict={conflict}
+            onReload={() => {
+              setConflict(false);
+              onReload();
+            }}
+            dirty={dirty}
+            onPublish={onPublish}
+            publishing={publishing}
+            onDraftReplaced={onSaved}
+          />
+        </>
+      )}
     </AppForm>
   );
 }
 
+const WIDE_QUERY = "(min-width: 1440px)";
+
+/** Wide enough for the studio split (editor + docked live preview). */
+function useIsWide() {
+  return useSyncExternalStore(
+    (callback) => {
+      const mql = window.matchMedia(WIDE_QUERY);
+      mql.addEventListener("change", callback);
+      return () => mql.removeEventListener("change", callback);
+    },
+    () => window.matchMedia(WIDE_QUERY).matches,
+    () => false,
+  );
+}
+
 /**
- * Ayarlar → Markalı site (TEC-730): brand and content on top of the ready
- * theme. Live settings (on / off, address, language, key) apply on save;
+ * Ayarlar → Markalı site (TEC-730, studio layout TEC-783): theme,
+ * sections and content on top of the ready templates, with a live preview
+ * docked on wide screens. Live settings (on / off, address, language, key) apply on save;
  * the document and images are a draft until published, with a live
  * preview and a history to roll back to.
  */
@@ -348,6 +464,7 @@ export function SitePage() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [confirmPublish, setConfirmPublish] = useState(false);
   const settings = query.data;
+  const wide = useIsWide();
 
   const reloadForm = () => {
     setDirty(false);
@@ -383,14 +500,16 @@ export function SitePage() {
             {settings.has_unpublished_changes ? (
               <StatusChip label={t("site.status.unpublished")} tone="warning" />
             ) : null}
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setPreviewOpen(true)}
-            >
-              <Eye className="size-4" />
-              {t("site.preview.open")}
-            </Button>
+            {!wide ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPreviewOpen(true)}
+              >
+                <Eye className="size-4" />
+                {t("site.preview.open")}
+              </Button>
+            ) : null}
             {canManage ? (
               <Button
                 type="button"
@@ -420,32 +539,42 @@ export function SitePage() {
           retryLabel={t("common.retry")}
         />
       ) : (
-        <Tabs
-          value={tab}
-          onValueChange={(value) => setTab(value as Tab)}
-          className="space-y-4"
+        <div
+          className={cn(
+            wide &&
+              "grid grid-cols-[minmax(34rem,5fr)_minmax(0,6fr)] items-start gap-6",
+          )}
         >
-          <SiteForm
-            key={formKey}
-            settings={settings}
-            canManage={canManage}
-            tab={tab}
-            setTab={setTab}
-            onSaved={reloadForm}
-            dirty={dirty}
-            setDirty={setDirty}
-            onPublish={() => setConfirmPublish(true)}
-            publishing={publish.isPending}
-            onReload={() => {
-              void query.refetch().then(reloadForm);
-            }}
-          />
-        </Tabs>
+          <Tabs
+            value={tab}
+            onValueChange={(value) => setTab(value as Tab)}
+            className="min-w-0 space-y-4"
+          >
+            <SiteForm
+              key={formKey}
+              settings={settings}
+              canManage={canManage}
+              tab={tab}
+              setTab={setTab}
+              onSaved={reloadForm}
+              dirty={dirty}
+              setDirty={setDirty}
+              onPublish={() => setConfirmPublish(true)}
+              publishing={publish.isPending}
+              onReload={() => {
+                void query.refetch().then(reloadForm);
+              }}
+            />
+          </Tabs>
+          {wide ? (
+            <SiteLivePreview version={settings.version} dirty={dirty} />
+          ) : null}
+        </div>
       )}
       {settings ? (
         <>
           <SitePreviewSheet
-            open={previewOpen}
+            open={previewOpen && !wide}
             onOpenChange={setPreviewOpen}
             version={settings.version}
             dirty={dirty}
