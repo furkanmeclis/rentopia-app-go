@@ -7,6 +7,7 @@ import { QuoteSummary, Steps } from "@/components/site/booking";
 import { Container, PageTitle } from "@/components/site/text";
 import { buttonVariants } from "@/components/ui/button";
 import { Alert, Card } from "@/components/ui/card";
+import { embedPath } from "@/lib/embed";
 import { loadQuote } from "@/lib/quote";
 import { getCtx } from "@/lib/server";
 import type { MessageKey } from "@/messages/tr";
@@ -78,7 +79,10 @@ export default async function DetailsPage({
           {quote.expired || quote.status !== "open" ? (
             <div className="space-y-4">
               <Alert tone="error">{t("book.quote_expired")}</Alert>
-              <Link href="/" className={buttonVariants()}>
+              <Link
+                href={embedPath("/", ctx.embed)}
+                className={buttonVariants()}
+              >
                 {t("common.new_search")}
               </Link>
             </div>
@@ -94,7 +98,7 @@ export default async function DetailsPage({
         <div className="space-y-4">
           <QuoteSummary ctx={ctx} quote={quote} />
           <Link
-            href={`/book/${quote.uuid}`}
+            href={embedPath(`/book/${quote.uuid}`, ctx.embed)}
             className={buttonVariants({ variant: "link" })}
           >
             ← {t("book.extras_title")}

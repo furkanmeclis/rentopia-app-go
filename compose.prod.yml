@@ -351,6 +351,7 @@ services:
     <<: *frontend-image
     container_name: ${NAME_PREFIX:?NAME_PREFIX is required}-frontend
     environment:
+      SITE_EMBED_SECRET: ${SITE_EMBED_SECRET:?SITE_EMBED_SECRET is required}
       API_URL: http://backend.${APP_NETWORK_NAME:-${NAME_PREFIX:?NAME_PREFIX is required}-app}:8080/v1
       AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET is required}
       AUTH_URL: ${AUTH_URL:?AUTH_URL is required}
@@ -399,6 +400,7 @@ services:
     <<: *site-image
     container_name: ${NAME_PREFIX:?NAME_PREFIX is required}-site
     environment:
+      SITE_EMBED_SECRET: ${SITE_EMBED_SECRET:?SITE_EMBED_SECRET is required}
       API_URL: http://backend.${APP_NETWORK_NAME:-${NAME_PREFIX:?NAME_PREFIX is required}-app}:8080/v1
     depends_on:
       backend:

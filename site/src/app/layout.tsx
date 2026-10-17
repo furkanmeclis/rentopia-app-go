@@ -119,7 +119,13 @@ export default async function RootLayout({
           dangerouslySetInnerHTML={{ __html: themeCss(ctx.site.config.theme) }}
         />
       </head>
-      <body className="flex min-h-svh flex-col">
+      <body
+        className={
+          ctx.embed
+            ? "flex min-h-0 min-w-0 flex-col"
+            : "flex min-h-svh flex-col"
+        }
+      >
         <a
           href="#main"
           className="focus:bg-primary focus:text-primary-foreground sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded focus:px-3 focus:py-2"
@@ -142,12 +148,12 @@ export default async function RootLayout({
             </form>
           </div>
         ) : null}
-        <SiteHeader ctx={ctx} />
+        {!ctx.embed ? <SiteHeader ctx={ctx} /> : null}
         <main id="main" className="flex-1">
           {children}
         </main>
-        <SiteFooter ctx={ctx} />
-        {ga && !ctx.site.preview ? (
+        {!ctx.embed ? <SiteFooter ctx={ctx} /> : null}
+        {ga && !ctx.site.preview && !ctx.embed ? (
           <>
             <Script
               src={`https://www.googletagmanager.com/gtag/js?id=${ga}`}

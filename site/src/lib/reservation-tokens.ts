@@ -1,7 +1,10 @@
 import "server-only";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 
+import { embedContext } from "./embed-server";
+import { openEmbed, sealEmbed } from "./embed";
+import { PATH_HEADER } from "./request";
 import type { Site } from "./types";
 
 /**
@@ -37,6 +40,14 @@ export async function reservationToken(
   site: Site,
   reference: string,
 ): Promise<string | null> {
+  const path = (await headers()).get(PATH_HEADER) || "/";
+  const state = openEmbed(
+    new URL(path, site.origin).searchParams.get("s"),
+    site.origin,
+  );
+  if (state?.reservation?.reference === reference)
+    return state.reservation.token;
+  if (await embedContext()) return null;
   return (await read(site))[reference] ?? null;
 }
 
@@ -50,6 +61,12 @@ export async function rememberReservation(
   reference: string,
   token: string,
 ) {
+  const embed = await embedContext();
+  if (embed) {
+    const state = openEmbed(embed.fields.s, site.origin);
+    if (!state) throw new Error("Embed session expired");
+    return sealEmbed({ ...state, reservation: { reference, token } });
+  }
   const all = await read(site);
   delete all[reference];
   all[reference] = token;

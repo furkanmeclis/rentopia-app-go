@@ -16,7 +16,7 @@
 #   rename with  @rename OLD NEW <version>,  retire with  @remove KEY <version>.
 #   Never change the rule of an existing secret: running installs keep theirs anyway.
 
-@version 6
+@version 7
 
 # --- Identity / Docker ---
 NAME_PREFIX | const:rentopia
@@ -55,6 +55,7 @@ JWT_REFRESH_SECRET | secret:hex:32
 AUTH_SECRET | secret:hex:32
 AUTH_ADAPTER_SECRET | secret:hex:32
 APP_ENCRYPTION_KEY | secret:b64:32
+SITE_EMBED_SECRET | secret:hex:32
 CENTRIFUGO_API_KEY | secret:hex:24
 CENTRIFUGO_TOKEN_HMAC_SECRET | secret:hex:32
 

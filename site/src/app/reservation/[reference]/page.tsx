@@ -89,6 +89,12 @@ export default async function ReservationPage({
     <Container className="space-y-6 py-8">
       <Steps ctx={ctx} current={2} />
       <PageTitle>{t("res.title")}</PageTitle>
+      {ctx.embed ? (
+        <span
+          data-widget-reference={r.reference}
+          data-widget-status={r.status}
+        />
+      ) : null}
       {sp.new ? (
         <Alert tone="success">
           {t("res.thanks", { reference: r.reference })}

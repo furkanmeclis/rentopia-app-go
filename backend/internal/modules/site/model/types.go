@@ -119,11 +119,10 @@ type WidgetFilters struct {
 	RentalDays int `json:"rental_days"`
 }
 
-// Widget holds the embeddable widget settings (stored now; TEC-732 serves
-// the widget and enforces the domains).
+// Widget holds the published embed framing policy and initial search defaults.
 type Widget struct {
 	// AllowedDomains are the origins that may embed the widget
-	// (https://host[:port]).
+	// (exact https://host[:port] origins; no wildcards).
 	AllowedDomains []string      `json:"allowed_domains"`
 	InitialFilters WidgetFilters `json:"initial_filters"`
 }
@@ -179,8 +178,9 @@ type Host struct {
 
 // KeyRef names the publishable key the site books with.
 type KeyRef struct {
-	UUID   uuid.UUID `json:"uuid"`
-	Status string    `json:"status"`
+	UUID           uuid.UUID `json:"uuid"`
+	Status         string    `json:"status"`
+	PublishableKey string    `json:"publishable_key"`
 }
 
 // AssetState says which images are uploaded.

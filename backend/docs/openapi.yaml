@@ -12500,7 +12500,7 @@ paths:
       description: |
         Called by the `site` app (server side, cached per host) for every request host. The host is a subdomain of
         the site base URL (`{subdomain}.rentopia.app`) or, with TEC-731, a verified custom domain. The answer carries
-        the theme / layout / content document, the image paths, the customer portal URL and the credential the site
+        the theme / layout / content document (including published config.widget for embed framing and initial filters), the image paths, the customer portal URL and the credential the site
         books with: the **publishable key** and the **origin** to open booking sessions for
         (`POST /v1/public/sessions` with that origin). Unknown hosts, disabled sites and unavailable organizations all
         answer `404 SITE_NOT_FOUND`, and so does a site that was never published (TEC-730: visitors only get the
@@ -40244,10 +40244,11 @@ components:
           oneOf:
             - type: "null"
             - type: object
-              required: [uuid, status]
+              required: [uuid, status, publishable_key]
               properties:
                 uuid: { type: string, format: uuid }
                 status: { type: string, enum: [active, revoked] }
+                publishable_key: { type: string, description: "Public site key for the widget snippet data-key; never a secret API key." }
         assets:
           type: object
           required: [logo, favicon, cover]
@@ -40331,12 +40332,12 @@ components:
     SiteWidget:
       type: object
       additionalProperties: false
-      description: Embeddable widget settings (stored with the document; TEC-732 serves the widget and enforces the domains).
+      description: Published widget settings enforced by the site embed routes. Resolve includes config.widget; tenant site settings expose url, hosts and the linked publishable key. No dedicated widget endpoint is required.
       properties:
         allowed_domains:
           type: array
           maxItems: 20
-          description: Origins that may embed the widget (`https://host[:port]`; `http` only for localhost).
+          description: "Exact embedding origins, normalized and deduplicated on save. Hostnames become HTTPS origins; https://host[:port] accepted (ports 1–65535). HTTP only for localhost development. No wildcards, credentials, paths, queries or fragments. Empty means deny all framing. Published config applies to /embed/* CSP and postMessage parent checks."
           items: { type: string, examples: ["https://www.acme.com"] }
         initial_filters:
           type: object

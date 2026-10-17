@@ -10,8 +10,14 @@ import {
   rememberReservation,
   reservationToken,
 } from "@/lib/reservation-tokens";
+import { bookingPath, embedContext } from "@/lib/embed-server";
+import { openEmbed, sealEmbed } from "@/lib/embed";
 import { bookingApi, getSite } from "@/lib/server";
 import type { Booked, PaymentLink, Quote } from "@/lib/types";
+
+async function go(path: string): Promise<never> {
+  redirect(await bookingPath(path));
+}
 
 const str = (f: FormData, k: string) => {
   const v = f.get(k);
@@ -28,7 +34,7 @@ export async function selectVehicle(form: FormData) {
   const back = str(form, "back").startsWith("/search")
     ? str(form, "back")
     : "/";
-  if (!UUID.test(subgroup) || !pickup || !ret) redirect(back);
+  if (!UUID.test(subgroup) || !pickup || !ret) return go(back);
   let quote: Quote;
   try {
     quote = await bookingApi<Quote>("/v1/public/quotes", {
@@ -46,17 +52,17 @@ export async function selectVehicle(form: FormData) {
     });
   } catch (err) {
     const code = err instanceof ApiError ? err.code : "FAILED";
-    redirect(
+    return go(
       `${back}${back.includes("?") ? "&" : "?"}error=${encodeURIComponent(code)}`,
     );
   }
-  redirect(`/book/${quote.uuid}`);
+  return go(`/book/${quote.uuid}`);
 }
 
 /** Extras step: re-quote with the chosen extras (prices come from the API). */
 export async function applyExtras(form: FormData) {
   const quoteId = str(form, "quote_uuid");
-  if (!UUID.test(quoteId)) redirect("/");
+  if (!UUID.test(quoteId)) return go("/");
   const base = await bookingApi<Quote>(`/v1/public/quotes/${quoteId}`);
   const extras = form
     .getAll("extra")
@@ -65,7 +71,7 @@ export async function applyExtras(form: FormData) {
       extra_uuid: id,
       quantity: Math.max(1, Math.min(10, Number(str(form, `qty_${id}`)) || 1)),
     }));
-  if (extras.length === 0) redirect(`/book/${quoteId}/details`);
+  if (extras.length === 0) return go(`/book/${quoteId}/details`);
   let quote: Quote;
   try {
     quote = await bookingApi<Quote>("/v1/public/quotes", {
@@ -84,9 +90,9 @@ export async function applyExtras(form: FormData) {
     });
   } catch (err) {
     const code = err instanceof ApiError ? err.code : "FAILED";
-    redirect(`/book/${quoteId}?error=${encodeURIComponent(code)}`);
+    return go(`/book/${quoteId}?error=${encodeURIComponent(code)}`);
   }
-  redirect(`/book/${quote.uuid}/details`);
+  return go(`/book/${quote.uuid}/details`);
 }
 
 export type BookState = {
@@ -202,7 +208,7 @@ export async function book(
     if (err.code === "QUOTE_PRICE_CHANGED") {
       const replacement = err.data as { uuid?: string } | null;
       if (replacement?.uuid && UUID.test(replacement.uuid)) {
-        redirect(`/book/${replacement.uuid}/details?changed=1`);
+        return go(`/book/${replacement.uuid}/details?changed=1`);
       }
     }
     if (err.code === "QUOTE_EXPIRED" || err.code === "QUOTE_USED")
@@ -222,17 +228,23 @@ export async function book(
     return { error: "book.failed", values };
   }
   const site = await getSite();
-  await rememberReservation(site, booked.reference, booked.access_token);
-  redirect(`/reservation/${encodeURIComponent(booked.reference)}?new=1`);
+  const session = await rememberReservation(
+    site,
+    booked.reference,
+    booked.access_token,
+  );
+  return go(
+    `/reservation/${encodeURIComponent(booked.reference)}?new=1${session ? `&s=${encodeURIComponent(session)}` : ""}`,
+  );
 }
 
 /** Reservation page: the hosted pay page of the amount due now. */
 export async function pay(form: FormData) {
   const reference = str(form, "reference");
-  if (!/^[A-Za-z0-9-]{1,40}$/.test(reference)) redirect("/");
+  if (!/^[A-Za-z0-9-]{1,40}$/.test(reference)) return go("/");
   const site = await getSite();
   const token = await reservationToken(site, reference);
-  if (!token) redirect(`/reservation/${encodeURIComponent(reference)}`);
+  if (!token) return go(`/reservation/${encodeURIComponent(reference)}`);
   let link: PaymentLink;
   try {
     link = await bookingApi<PaymentLink>(
@@ -240,7 +252,14 @@ export async function pay(form: FormData) {
       { method: "POST", idempotencyKey: randomUUID(), reservationToken: token },
     );
   } catch {
-    redirect(`/reservation/${encodeURIComponent(reference)}?pay_error=1`);
+    return go(`/reservation/${encodeURIComponent(reference)}?pay_error=1`);
+  }
+  const embed = await embedContext();
+  if (embed) {
+    const state = openEmbed(embed.fields.s, site.origin);
+    if (!state) return go("/");
+    const session = sealEmbed({ ...state, payment: link.url });
+    return go(`/pay?s=${encodeURIComponent(session)}`);
   }
   redirect(link.url);
 }

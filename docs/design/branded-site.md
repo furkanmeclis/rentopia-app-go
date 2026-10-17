@@ -114,7 +114,7 @@ Two kinds of fields (TEC-730):
 - `seo.{tr,en}`: `title` (≤ 70), `description` (≤ 300).
 - `contact`: `phone`, `email`, `address`, `whatsapp`.
 - `analytics`: `ga4_measurement_id` (`G-XXXX`). The site loads gtag only for a valid ID, with `anonymize_ip` (never in a preview). A cookie-consent banner is still open (§7).
-- `widget` (stored for TEC-732, not enforced yet): `allowed_domains` (≤ 20 origins, `https://host[:port]`, `http` only for localhost; normalized and de-duplicated) and `initial_filters {pickup_branch_uuid, rental_days (0-90)}`.
+- `widget` (TEC-732, enforced after publish): `allowed_domains` (≤ 20 origins, `https://host[:port]`, `http` only for localhost; normalized and de-duplicated) and `initial_filters {pickup_branch_uuid, rental_days (0-90)}`.
 
 Theme tokens become CSS variables in a `<style>` in the SSR head (`site/src/lib/theme.ts`). The site validates them again, so only hex colors and known enum values reach CSS. The Tailwind theme maps these variables, and the shadcn-style components in `site/src/components/ui` read them.
 
@@ -223,7 +223,7 @@ RT-A01 covers `GET/PUT /v1/tenant/site` (the PUT is on the allowlist: it acts on
 ## 7. Open items
 
 - **TEC-731**: the `CustomDomains` implementation (`site_domains`, DNS verification, TLS on the site service).
-- **TEC-732**: a widget entry point that reuses the site's booking pages and `lib/`; enforce `config.widget.allowed_domains` (e.g. as the widget key's allowed origins) and apply `initial_filters`.
+- Widget loader and panel embed-code generation are delivered separately; the implemented server contract is in §9.
 - A cookie-consent banner before analytics; a sitemap; branch detail pages.
 - **Time zone**: organizations sell in Turkey, so the site uses Europe/Istanbul (+03:00) for search times.
 
@@ -237,7 +237,7 @@ RT-A01 covers `GET/PUT /v1/tenant/site` (the PUT is on the allowlist: it acts on
 - **Görseller**: logo, favicon, cover upload / replace / remove with previews (draft paths from the preview token).
 - **Yayın**: publish state and the revision history (DataTable) with "Taslağa geri yükle".
 - **Katalog**: branches, subgroups and extras (DataTables) with a "Çevrimiçi" switch column (§3.3).
-- **Widget**: allowed domains and initial filters (stored, "yakında" notice); keys stay on Ayarlar → Public API.
+- **Widget**: allowed domains and initial filters; embed-code generation follows §9. Keys stay on Ayarlar → Public API.
 
 Header actions: status chips, **Önizle** (sheet with the site in an iframe, desktop / mobile width, new tab) and **Yayınla** (confirmation; disabled while the form has unsaved edits or nothing changed). Uploads and key renewal keep unsaved form edits (only the version moves); save and restore reload the form.
 
@@ -266,3 +266,90 @@ Header actions: status chips, **Önizle** (sheet with the site in an iframe, des
 RT-A01 covers the new routes (allowlist entries for the scope-only writes; `{revisionUuid}` and the catalog `{uuid}` routes get the cross-organization 404 cases).
 
 TEC-731 tests in `backend/internal/modules/site/domains_test.go` cover fake DNS success/failure, token mismatch, wrong/mixed targets, dangling CNAME, IPv6, pending backoff and 72-hour expiry, verified DNS loss and origin removal, host validation, internal authorization, manual state preservation, Dokploy payloads/idempotent retries/batched deployment/failures, and atomic Traefik configuration/removal. Database integration additionally covers the concrete resolver hook, cross-organization reads/deletes/rechecks, global host uniqueness, the database limit, and publishable key origins; it skips without `TEST_DATABASE_URL`. RT-A01 seeds custom domains and covers all five tenant routes.
+
+
+## 9. Embeddable booking widget (TEC-732)
+
+The same site image serves `/embed`, `/embed/search`, `/embed/book/{quote}`, `/embed/book/{quote}/details`, `/embed/reservation/{reference}` and `/embed/pay`. Search, results, extras, customer details and confirmation reuse the normal site's components, pages, actions and public API client. The compact layout omits the site header/footer and analytics and includes a small Rentopia credit. Turkish and English remain available. The iframe **must use the organization's site origin**, either its subdomain or a verified custom domain; there is no central widget host and no key-to-host discovery endpoint.
+
+### 9.1 Exact loader / panel contract
+
+The coordinator owns `site/public/widget.js` and the panel Widget tab. The server contract they use is:
+
+```html
+<script src="https://acme.rentopia.app/widget.js"
+        data-key="rtp_pk_..."
+        data-branch="PICKUP_BRANCH_UUID"
+        data-subgroup="SUBGROUP_UUID"></script>
+```
+
+The loader derives `SITE_ORIGIN` from its own script URL, generates a unique `widgetId` per instance and builds this iframe URL with `URL` / `URLSearchParams` (omit unset optional parameters):
+
+```text
+{SITE_ORIGIN}/embed?key={rtp_pk_...}&branch={uuid}&subgroup={uuid}&pickup={branch[:point]}&return={branch[:point]}&pickup_date={YYYY-MM-DD}&pickup_time={HH:mm}&return_date={YYYY-MM-DD}&return_time={HH:mm}&locale={tr|en}&parent={HOST_PAGE_ORIGIN}&widgetId={INSTANCE_ID}
+```
+
+| Parameter | Meaning / default |
+|---|---|
+| `key` | Optional. `data-key` maps here. Must equal this resolved site's current `publishable_key`, otherwise 403. Actual keys start with `rtp_pk_`, not `pk_`. The request host always selects the organization; a key never selects another site. Omitting it relies on the resolved host. Removed on the first session redirect. |
+| `branch` | `data-branch`; initial pickup branch UUID, overridden by `pickup`. Otherwise published `widget.initial_filters.pickup_branch_uuid`, then no selection. |
+| `subgroup` | `data-subgroup`; optional results filter, retained across searches. Only this subgroup's availability cards are shown. |
+| `pickup`, `return` | Optional location values (`branch_uuid` or `branch_uuid:point_uuid`). Empty return means same as pickup. |
+| `pickup_date`, `pickup_time` | Optional initial local Turkey date/time; default tomorrow at 10:00. |
+| `return_date`, `return_time` | Optional initial date/time; default tomorrow + published `initial_filters.rental_days` (0 = 3 days), at 10:00. |
+| `locale` | Optional `tr` / `en`; otherwise the site's default locale in embed mode (no locale cookie dependency). |
+| `parent` | `window.location.origin` of the page containing the iframe. Must be an exact published allowed origin for messaging to work. Never derive it from a referrer or accept it from a received message. |
+| `widgetId` | Unique instance ID, at most 100 characters; echoed in every message. |
+| `s` | Server-owned opaque encrypted session reference, added by the site's first redirect. Loader/panel must never generate, inspect, replace or copy it across instances. All subsequent embed links, GET forms and action redirects preserve it. |
+
+Only `data-key`, `data-branch` and `data-subgroup` are required loader attribute mappings; additional attributes may map one-to-one to the optional query parameters above. Setting pickup/return defaults does not automatically submit search.
+
+Use an iframe with an accessible title, `width:100%`, `display:block`, `border:0`, an initial height of 640px and `referrerpolicy="no-referrer"`. Do not impose a fixed minimum height or set `scrolling="no"`; keep scroll fallback until the first resize. The widget observes its content wrapper (not viewport height), so it can both grow and shrink on mobile and desktop. If using a sandbox, include `allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation-by-user-activation`; otherwise top-window payment and its fallback links cannot work. No sandbox is required by the server.
+
+Site → parent messages:
+
+```typescript
+{
+  source: "rentopia-widget",
+  v: 1,
+  type: "ready" | "resize" | "navigate" | "completed" | "error",
+  widgetId: string,
+  payload: object
+}
+```
+
+| Type | Payload / loader behavior |
+|---|---|
+| `ready` | `{}`; emitted after the bridge mounts on each step. |
+| `resize` | `{height: number}`; content height in CSS pixels, rounded up. Loader accepts finite positive values only, clamps to 100–100000px, and sets iframe height. |
+| `navigate` | `{url: string, target: "_top", reason: "payment"}`; absolute hosted payment handoff URL. Loader navigates its top window to this URL. If it cannot navigate, the iframe already renders a `_top` link and a new-tab fallback. |
+| `completed` | `{reference: string, status: string}`; emitted when a reservation confirmation renders, including request bookings. This reports the reservation status, not proof of payment. Loader may dispatch `CustomEvent("rentopia:completed", {detail: {widgetId, reference, status}})` on its script element. |
+| `error` | `{code: "RENDER_FAILED"}` for a booking-page render error. HTTP 403/410/503 before bridge mount show a bilingual error page; the loader should retain a normal iframe/load-timeout fallback. |
+
+The loader **must** check `event.origin === SITE_ORIGIN`, `event.source === iframe.contentWindow`, `source`, `v` and `widgetId` before accepting a message. The site sends only with an explicit `targetOrigin` equal to `parent`, after checking it against the published allowlist; it never posts to `*`.
+
+Optional parent → site messages use `{source:"rentopia-host", v:1, type:"init"|"filters", widgetId, payload}`. The site checks the exact allowed `event.origin`, `event.source === window.parent`, protocol version and instance ID. On `/embed` only, string payload keys `pickup`, `return`, `pickup_date`, `pickup_time`, `return_date`, `return_time`, `subgroup` update the initial search form. They do not auto-submit, change the organization, inject navigation URLs, or replace session references. All other messages are ignored.
+
+**Panel data:** existing `GET /v1/tenant/site` returns `url` (canonical subdomain base), `hosts[{origin,kind,...}]` (including verified custom origins), `api_key.publishable_key`, `config.widget`, `live` and `booking_enabled`. Use `url` or a verified `hosts[].origin` as both the script origin and iframe base. Save through existing `PUT /v1/tenant/site`, then publish using the existing publish action: widget configuration is draft content until published. No new public or tenant endpoint, permission or migration is needed. `GET /v1/public/site/resolve?host=...` already includes the **published** `config.widget` and the key. The loader needs no API call.
+
+### 9.2 Framing and URL sessions
+
+Saving widget domains accepts at most 20 exact hostnames or HTTPS origins (ports 1–65535), normalizes hostnames to HTTPS and deduplicates them. `http` is allowed only for localhost development names. Credentials, paths other than `/`, query strings, fragments, malformed DNS labels and **all wildcards** (including `*.`) are refused. Subdomains must be listed individually. Empty means deny all framing.
+
+Every `/embed/*` response gets `Content-Security-Policy: frame-ancestors <published origins>; base-uri 'self'; form-action 'self' https:` (empty list → `frame-ancestors 'none'`) with no `X-Frame-Options`. Embed pages cannot enter draft-preview mode. Normal site pages retain `frame-ancestors 'none'` and `X-Frame-Options: DENY`, with the existing panel-preview exception. Resolve caching means publication may take up to 30 seconds to change the policy.
+
+The proxy mints the ordinary origin-bound public booking session server-side and redirects the initial GET to add `s=e1.<opaque authenticated ciphertext>`. AES-256-GCM encrypts and authenticates the booking secret, origin, expiry, and later the reservation reference/access token and payment URL. No raw API bearer token reaches HTML or a URL. The reference expires in at most 30 minutes, no later than the original booking session. It is checked against the resolved origin on every embed request, so moving from subdomain to custom origin starts a new instance. Invalid or expired references and actions receive 410 rather than silently changing booking sessions. Embed mode neither reads nor writes `rtp_bs` / `rtp_rt`; GET forms, links and server-action requests keep the URL reference. Confirmation displays the reservation reference and emits `completed`. URLs remain short-lived bearer capabilities: do not log or share them. Embed and return pages use `no-store` and `no-referrer`.
+
+`SITE_EMBED_SECRET` is a shared random secret (at least 32 characters) for **site and frontend** servers and all their replicas. Production schema **7** generates 32 random bytes as hex, and compose passes it to both apps. Configure it locally without exposing it to client variables. Missing configuration fails closed for embed sessions and payment handoffs; normal site bookings continue working. Rotating it invalidates outstanding embed references and payment returns. No new backend credential or third-party cookie is needed.
+
+### 9.3 Payment outside the frame
+
+Submitting pay obtains the existing hosted payment link through the public reservation API and moves to `/embed/pay`. That page emits `navigate` and renders both a `_top` link and an `noopener` new-tab link. The destination is the payment app's `/pay/{token}/widget?handoff=h1...` route, not an embedded iyzico checkout. Thus the ordinary hosted page and 3DS run in the top window (or a user-opened tab).
+
+The site signs the payment token, organization UUID, full-site `/reservation/{reference}?s=...` URL and expiry with an HMAC-SHA256 purpose specific to payment handoff. The server-only frontend handoff route verifies the signature, token and expiry, then calls the backend host resolver and requires **both exact resolved origin and organization UUID** before storing the signed handoff in an HttpOnly, SameSite=Lax, 30-minute cookie scoped to this payment token. No caller-supplied unverified redirect is used.
+
+The existing provider callback returns to `/pay/{token}?returned=1`. This top-level GET can read the first-party handoff cookie even after a provider POST; its server page revalidates the signature and live site resolution, asks the public payment endpoint to verify the provider result, and redirects to the organization's full-site reservation page. The encrypted `s` reference grants reservation access there without depending on iframe cookies. Returned browser data is never proof of payment; the reservation API remains authoritative. An invalid/expired handoff or removed/unverified domain leaves the existing payment page in place. Ordinary payment links without a handoff are unchanged.
+
+### 9.4 Verification
+
+Backend tests cover normalization, deduplication, the 20-entry limit, empty lists, wildcard/path/credential/query/fragment/port rejection and published resolve output. Site node tests cover CSP, parent-origin matching, encrypted references (tamper, expiry, secret and origin binding), navigation propagation, and payment handoff signature/expiry/token/live-origin/organization checks. `site/` has no Playwright dependency or configuration, so TEC-732 uses the existing node test runner; mobile browser width/height and real provider 3DS were **not** exercised. The loader coordinator should test 320/375/768px viewports and resizing through all steps once the loader is available.

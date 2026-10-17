@@ -2,6 +2,7 @@ import { Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/form";
+import { embedPath } from "@/lib/embed";
 import { TIME_SLOTS, istanbulDate } from "@/lib/format";
 import type { Ctx } from "@/lib/server";
 import type { Location } from "@/lib/types";
@@ -57,7 +58,7 @@ export function SearchForm({
   const today = istanbulDate(0);
   return (
     <form
-      action="/search"
+      action={embedPath("/search", ctx.embed).split("?")[0]}
       method="get"
       aria-label={t("search.title")}
       className={
@@ -66,6 +67,11 @@ export function SearchForm({
           : "grid gap-4 sm:grid-cols-2 lg:grid-cols-6 lg:items-end"
       }
     >
+      {ctx.embed
+        ? Object.entries(ctx.embed.fields).map(([name, value]) => (
+            <input key={name} type="hidden" name={name} value={value} />
+          ))
+        : null}
       <Field
         id="pickup"
         label={t("search.pickup")}

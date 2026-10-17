@@ -7833,7 +7833,7 @@ export interface paths {
          * Resolve a host to its branded site
          * @description Called by the `site` app (server side, cached per host) for every request host. The host is a subdomain of
          *     the site base URL (`{subdomain}.rentopia.app`) or, with TEC-731, a verified custom domain. The answer carries
-         *     the theme / layout / content document, the image paths, the customer portal URL and the credential the site
+         *     the theme / layout / content document (including published config.widget for embed framing and initial filters), the image paths, the customer portal URL and the credential the site
          *     books with: the **publishable key** and the **origin** to open booking sessions for
          *     (`POST /v1/public/sessions` with that origin). Unknown hosts, disabled sites and unavailable organizations all
          *     answer `404 SITE_NOT_FOUND`, and so does a site that was never published (TEC-730: visitors only get the
@@ -29877,6 +29877,8 @@ export interface components {
                 uuid: string;
                 /** @enum {string} */
                 status: "active" | "revoked";
+                /** @description Public site key for the widget snippet data-key; never a secret API key. */
+                publishable_key: string;
             };
             assets: {
                 logo: boolean;
@@ -29960,9 +29962,9 @@ export interface components {
             data: components["schemas"]["SiteResolved"];
             meta: components["schemas"]["ResponseMeta"];
         };
-        /** @description Embeddable widget settings (stored with the document; TEC-732 serves the widget and enforces the domains). */
+        /** @description Published widget settings enforced by the site embed routes. Resolve includes config.widget; tenant site settings expose url, hosts and the linked publishable key. No dedicated widget endpoint is required. */
         SiteWidget: {
-            /** @description Origins that may embed the widget (`https://host[:port]`; `http` only for localhost). */
+            /** @description Exact embedding origins, normalized and deduplicated on save. Hostnames become HTTPS origins; https://host[:port] accepted (ports 1–65535). HTTP only for localhost development. No wildcards, credentials, paths, queries or fragments. Empty means deny all framing. Published config applies to /embed/* CSP and postMessage parent checks. */
             allowed_domains?: string[];
             initial_filters?: {
                 /** @description Preselected branch (empty = none). */
