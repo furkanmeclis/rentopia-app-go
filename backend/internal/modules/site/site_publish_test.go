@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -363,6 +364,9 @@ func TestCatalogOnlineState(t *testing.T) {
 	var segment int64
 	e.must(e.pool.QueryRow(ctx, `INSERT INTO vehicle_segments (organization_id, code, name) VALUES ($1, 'ECO', 'Ekonomi') RETURNING id`, e.a.id).Scan(&segment))
 	e.must(e.pool.QueryRow(ctx, `INSERT INTO rental_products (organization_id, code, title, segment_id, status) VALUES ($1, 'P1', 'Ekonomik', $2, 'published') RETURNING uuid`, e.a.id, segment).Scan(&product))
+	_, err = e.pool.Exec(ctx, `INSERT INTO rental_product_versions (organization_id, product_id, version, guarantee_type)
+		SELECT organization_id, id, 1, 'EXACT_VEHICLE' FROM rental_products WHERE uuid = $1`, product)
+	e.must(err)
 	e.must(e.pool.QueryRow(ctx, `INSERT INTO extras (organization_id, code, name, extra_type, charge_type, status) VALUES ($1, 'E1', 'Bebek koltuğu', 'child_seat', 'per_day', 'published') RETURNING uuid`, e.a.id).Scan(&extraAll))
 	e.must(e.pool.QueryRow(ctx, `INSERT INTO extras (organization_id, code, name, extra_type, charge_type, status, channels) VALUES ($1, 'E2', 'Ek sürücü', 'additional_driver', 'per_rental', 'published', '{web,branch}') RETURNING uuid`, e.a.id).Scan(&extraWeb))
 
@@ -387,19 +391,16 @@ func TestCatalogOnlineState(t *testing.T) {
 	if _, err := e.svc.SetSubgroupOnline(ctx, e.a.id, product, model.VisibilityInput{ShowOnline: ptr(false)}); err != nil {
 		t.Fatal(err)
 	}
-	// Extras: off on "every channel" keeps the other channels; on adds web.
+	// Extras: the storefront flag; their sales channels stay as they are.
 	x, err := e.svc.SetExtraOnline(ctx, e.a.id, extraAll, model.VisibilityInput{ShowOnline: ptr(false)})
 	e.must(err)
 	var channels []string
-	e.must(e.pool.QueryRow(ctx, `SELECT channels::text[] FROM extras WHERE uuid = $1`, extraAll).Scan(&channels))
-	if x.ShowOnline || len(channels) == 0 || strings.Contains(strings.Join(channels, ","), "web") || !strings.Contains(strings.Join(channels, ","), "branch") {
-		t.Fatalf("extra off = %+v %v", x, channels)
+	e.must(e.pool.QueryRow(ctx, `SELECT COALESCE(channels::text[], '{}') FROM extras WHERE uuid = $1`, extraAll).Scan(&channels))
+	if x.ShowOnline || len(channels) != 0 {
+		t.Fatalf("extra off = %+v channels %v", x, channels)
 	}
-	_, err = e.svc.SetExtraOnline(ctx, e.a.id, extraWeb, model.VisibilityInput{ShowOnline: ptr(false)})
-	e.must(err)
-	e.must(e.pool.QueryRow(ctx, `SELECT channels::text[] FROM extras WHERE uuid = $1`, extraWeb).Scan(&channels))
-	if strings.Join(channels, ",") != "branch" {
-		t.Fatalf("extra web removed = %v", channels)
+	if _, err := e.svc.SetExtraOnline(ctx, e.b.id, extraAll, model.VisibilityInput{ShowOnline: ptr(true)}); !errors.Is(err, usecase.ErrCatalogItemNotFound) {
+		t.Fatalf("foreign extra: %v", err)
 	}
 	x, err = e.svc.SetExtraOnline(ctx, e.a.id, extraWeb, model.VisibilityInput{ShowOnline: ptr(true)})
 	e.must(err)
@@ -443,6 +444,37 @@ func TestCatalogOnlineState(t *testing.T) {
 	if quote.code != http.StatusBadRequest || !strings.Contains(string(quote.raw), "subgroup_uuid") {
 		t.Fatalf("quote for a hidden subgroup = %d %s", quote.code, quote.raw)
 	}
+	quote = e.call(http.MethodPost, "/v1/public/quotes", map[string]any{
+		"subgroup_uuid": product, "pickup_branch_uuid": shown, "starts_at": start, "ends_at": start.Add(48 * time.Hour),
+		"extras": []map[string]any{{"extra_uuid": extraAll, "quantity": 1}},
+	}, map[string]string{"Authorization": auth["Authorization"], "X-Forwarded-Origin": r.Origin, "Idempotency-Key": uuid.NewString()})
+	if quote.code != http.StatusBadRequest || !strings.Contains(string(quote.raw), "extras.0.extra_uuid") {
+		t.Fatalf("quote with a hidden extra = %d %s", quote.code, quote.raw)
+	}
+
+	// Integrations with a secret server key ignore the storefront flag: the
+	// hidden branch, subgroup and extra are listed and not refused.
+	kind, channel, name := pamodel.KindSecret, "web", "ERP"
+	scopes := slices.Clone(pamodel.AllScopes)
+	issued, err := e.keys.CreateKey(ctx, e.a.id, pamodel.KeyInput{Kind: &kind, Name: &name, Channel: &channel, Scopes: &scopes})
+	e.must(err)
+	server := map[string]string{"Authorization": "Bearer " + issued.Secret}
+	loc = e.call(http.MethodGet, "/v1/public/locations", nil, server)
+	if loc.code != http.StatusOK || !strings.Contains(string(loc.raw), hidden.String()) {
+		t.Fatalf("secret key locations = %d %s", loc.code, loc.raw)
+	}
+	if sg := e.call(http.MethodGet, "/v1/public/vehicle-subgroups", nil, server); sg.code != http.StatusOK ||
+		!strings.Contains(string(sg.raw), product.String()) {
+		t.Fatalf("secret key subgroups = %d %s", sg.code, sg.raw)
+	}
+	if sg := e.call(http.MethodGet, "/v1/public/vehicle-subgroups", nil, auth); strings.Contains(string(sg.raw), product.String()) {
+		t.Fatalf("storefront subgroups list a hidden one: %s", sg.raw)
+	}
+	if ex := e.call(http.MethodGet, "/v1/public/extras", nil, server); !strings.Contains(string(ex.raw), extraAll.String()) {
+		t.Fatalf("secret key extras = %s", ex.raw)
+	}
+	// Availability and quotes with a secret key: publicapi
+	// TestStorefrontPublishState (it has the reservations engine).
 }
 
 func TestRenewKey(t *testing.T) {

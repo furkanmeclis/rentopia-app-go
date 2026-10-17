@@ -42,11 +42,11 @@ func rawJSON(b []byte) json.RawMessage {
 // Locations lists the active branches with their online-selectable
 // service points.
 func (s *Service) Locations(ctx context.Context, c model.Credential) ([]model.Location, error) {
-	branches, err := s.q.ListPublicBranches(ctx, c.OrganizationID)
+	branches, err := s.q.ListPublicBranches(ctx, db.ListPublicBranchesParams{OrganizationID: c.OrganizationID, Storefront: c.Storefront()})
 	if err != nil {
 		return nil, err
 	}
-	points, err := s.q.ListPublicServicePoints(ctx, c.OrganizationID)
+	points, err := s.q.ListPublicServicePoints(ctx, db.ListPublicServicePointsParams{OrganizationID: c.OrganizationID, Storefront: c.Storefront()})
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func (s *Service) Locations(ctx context.Context, c model.Credential) ([]model.Lo
 // Subgroups lists the products on sale with their current conditions and
 // API-owned image paths.
 func (s *Service) Subgroups(ctx context.Context, c model.Credential) ([]model.Subgroup, error) {
-	rows, err := s.q.ListPublicSubgroups(ctx, c.OrganizationID)
+	rows, err := s.q.ListPublicSubgroups(ctx, db.ListPublicSubgroupsParams{OrganizationID: c.OrganizationID, Storefront: c.Storefront()})
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +122,7 @@ func (s *Service) Subgroups(ctx context.Context, c model.Credential) ([]model.Su
 // Extras lists the extras sold on the credential's channel. Prices depend
 // on the subgroup and the dates: a quote prices them.
 func (s *Service) Extras(ctx context.Context, c model.Credential) ([]model.Extra, error) {
-	rows, err := s.q.ListPublicExtras(ctx, db.ListPublicExtrasParams{OrganizationID: c.OrganizationID, Channel: c.Channel})
+	rows, err := s.q.ListPublicExtras(ctx, db.ListPublicExtrasParams{OrganizationID: c.OrganizationID, Channel: c.Channel, Storefront: c.Storefront()})
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +167,7 @@ func (s *Service) Availability(ctx context.Context, c model.Credential, in Avail
 	if len(in.SubgroupUUIDs) > resmodel.MaxQuoteSearchProducts {
 		ve.add("subgroup_uuids", "too_many", "at most 100 subgroups")
 	}
-	hidden, err := s.offlineCatalog(ctx, c.OrganizationID)
+	hidden, err := s.offlineCatalog(ctx, c)
 	if err != nil {
 		return model.Availability{}, err
 	}

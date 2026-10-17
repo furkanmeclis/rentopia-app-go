@@ -1069,6 +1069,7 @@ type Extra struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt      pgtype.Timestamptz `json:"deleted_at"`
+	ShowOnline     bool               `json:"show_online"`
 }
 
 type ExtraBranchStock struct {

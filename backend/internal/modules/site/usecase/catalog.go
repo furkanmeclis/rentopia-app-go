@@ -3,32 +3,20 @@ package usecase
 import (
 	"context"
 	"errors"
-	"slices"
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
-	osmodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/site/model"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// Catalog publish state (TEC-730): which branches, subgroups and extras the
-// online channels offer. These switches are live (not part of the draft):
-// they change what the public API sells, not how the site looks.
-//
-//   - branches / subgroups: show_online (public API listings, availability
-//     and quotes skip a hidden one);
-//   - extras: the web sales channel in extras.channels (the existing channel
-//     rule of the public API; NULL = every channel).
-
-func extraOnline(channels []string) bool {
-	return channels == nil || slices.Contains(channels, SiteChannel)
-}
-
-func catalogExtra(uuid uuid.UUID, code, name, status string, channels []string) model.CatalogExtra {
-	return model.CatalogExtra{UUID: uuid, Code: code, Name: name, Status: status, ShowOnline: extraOnline(channels)}
-}
+// Storefront publish state of the catalog (TEC-730): which branches,
+// subgroups and extras the branded site and the widget offer
+// (show_online). These switches are live (not part of the draft). They
+// apply to publishable-key callers only (public API storefront listings,
+// availability and quotes skip a hidden item); integrations with secret
+// keys keep seeing everything their channel sells.
 
 // Catalog lists the organization's branches, subgroups and extras with
 // their online state.
@@ -58,7 +46,9 @@ func (s *Service) Catalog(ctx context.Context, orgID int64) (model.Catalog, erro
 		return out, err
 	}
 	for _, e := range extras {
-		out.Extras = append(out.Extras, catalogExtra(e.Uuid, e.Code, e.Name, e.Status, e.Channels))
+		out.Extras = append(out.Extras, model.CatalogExtra{
+			UUID: e.Uuid, Code: e.Code, Name: e.Name, Status: e.Status, ShowOnline: e.ShowOnline,
+		})
 	}
 	return out, nil
 }
@@ -112,10 +102,14 @@ func (s *Service) SetSubgroupOnline(ctx context.Context, orgID int64, id uuid.UU
 	}, nil
 }
 
-// SetExtraOnline adds or removes the web channel of an extra. An extra sold
-// on every channel (NULL) that is switched off keeps every other channel.
+// SetExtraOnline shows or hides an extra on the storefront. Its sales
+// channels are not touched: integrations keep selling it.
 func (s *Service) SetExtraOnline(ctx context.Context, orgID int64, id uuid.UUID, in model.VisibilityInput) (model.CatalogExtra, error) {
-	e, err := s.q.GetSiteCatalogExtra(ctx, db.GetSiteCatalogExtraParams{OrganizationID: orgID, Uuid: id})
+	arg := db.SetExtraShowOnlineParams{OrganizationID: orgID, Uuid: id}
+	if in.ShowOnline != nil {
+		arg.ShowOnline = pgtype.Bool{Bool: *in.ShowOnline, Valid: true}
+	}
+	e, err := s.q.SetExtraShowOnline(ctx, arg)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return model.CatalogExtra{}, ErrCatalogItemNotFound
 	}
@@ -125,35 +119,5 @@ func (s *Service) SetExtraOnline(ctx context.Context, orgID int64, id uuid.UUID,
 	if in.ShowOnline == nil {
 		return model.CatalogExtra{}, visibilityRequired()
 	}
-	if *in.ShowOnline == extraOnline(e.Channels) {
-		return catalogExtra(e.Uuid, e.Code, e.Name, e.Status, e.Channels), nil
-	}
-	var channels []string
-	switch {
-	case *in.ShowOnline:
-		channels = append(slices.Clone(e.Channels), SiteChannel)
-	case e.Channels == nil:
-		for _, c := range osmodel.SalesChannels {
-			if c != SiteChannel {
-				channels = append(channels, c)
-			}
-		}
-	default:
-		for _, c := range e.Channels {
-			if c != SiteChannel {
-				channels = append(channels, c)
-			}
-		}
-		if channels == nil {
-			channels = []string{}
-		}
-	}
-	u, err := s.q.SetExtraChannels(ctx, db.SetExtraChannelsParams{OrganizationID: orgID, Uuid: id, Channels: channels})
-	if errors.Is(err, pgx.ErrNoRows) {
-		return model.CatalogExtra{}, ErrCatalogItemNotFound
-	}
-	if err != nil {
-		return model.CatalogExtra{}, err
-	}
-	return catalogExtra(u.Uuid, u.Code, u.Name, u.Status, u.Channels), nil
+	return model.CatalogExtra{UUID: e.Uuid, Code: e.Code, Name: e.Name, Status: e.Status, ShowOnline: e.ShowOnline}, nil
 }

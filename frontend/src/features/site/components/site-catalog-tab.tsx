@@ -67,10 +67,11 @@ function activeChip(t: (k: string) => string, active: boolean) {
 }
 
 /**
- * Katalog: which branches, vehicle subgroups and extras the online channels
- * offer (live, no publish). Hidden branches / subgroups disappear from the
- * public API listings and are refused by availability and quotes; an
- * extra is shown when its sales channels include the web channel.
+ * Katalog: which branches, vehicle subgroups and extras the branded site
+ * and the widget offer (live, no publish). Hidden items disappear from the
+ * public API for publishable-key callers (listings, availability, quotes);
+ * integrations with secret keys are not affected, and extras keep their
+ * sales channels.
  */
 export function SiteCatalogTab({ canManage }: { canManage: boolean }) {
   const { t } = useLocale();
@@ -221,9 +222,14 @@ export function SiteCatalogTab({ canManage }: { canManage: boolean }) {
 
   return (
     <div className="space-y-4">
-      <p className="text-muted-foreground text-sm">
-        {t("site.catalog.description")}
-      </p>
+      <div className="space-y-1">
+        <p className="text-muted-foreground text-sm">
+          {t("site.catalog.description")}
+        </p>
+        <p className="text-muted-foreground text-xs">
+          {t("site.catalog.show_online_hint")}
+        </p>
+      </div>
       <EntitySectionCard
         title={t("site.catalog.branches")}
         badge={catalog.data?.branches.length}

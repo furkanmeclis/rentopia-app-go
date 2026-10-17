@@ -92,17 +92,17 @@ Theme tokens become CSS variables in a `<style>` in the SSR head (`site/src/lib/
 - Keys are API-owned: `organizations/{org_uuid}/site/{kind}-{file_uuid}.{ext}` (`storage.SiteImageObjectKey`), a new object per upload. Snapshots keep pointing at the object they were published with; an object is deleted only when neither the draft nor any revision names it (`SiteObjectKeyInUse`).
 - An upload is a draft change (visible in the preview, live after publish). `GET /v1/public/site/assets/{site_uuid}/{kind}?v=` streams the published image of an enabled, published site; with `&preview=<token>` the draft image (`Cache-Control: private, no-store`). Responses carry `nosniff` and `Content-Security-Policy: default-src 'none'; sandbox`.
 
-### 3.3 Catalog publish state (000125)
+### 3.3 Storefront publish state of the catalog (000125)
 
-Which branches, vehicle subgroups and extras the online channels (public API: site, widget, API keys) offer. These switches are **live** (they change what is sold, not how the site looks):
+Which branches, vehicle subgroups and extras the **storefront** offers: the branded site and the embeddable widget (TEC-732). The discriminator is the credential: a public API caller with a **publishable key** (always through a browser booking session; `Credential.Storefront()` = `Kind == publishable`) is a storefront. Integrations calling with a **secret server key** (agencies, third-party software) ignore the flags and keep seeing and quoting everything their channel sells. These switches are **live** (no publish):
 
 | Kind | Flag | Effect |
 |------|------|--------|
 | Branch | `branches.show_online` (default on) | left out of `/v1/public/locations` (and its service points); availability / quotes naming it, directly or through a point, answer `400 … not_found` |
 | Subgroup | `rental_products.show_online` (default on) | left out of `/v1/public/vehicle-subgroups` and availability items; quotes answer `400 subgroup_uuid not_found` |
-| Extra | the existing `extras.channels` (no new column) | shown = `channels` is NULL or contains `web`. Hiding an "every channel" extra stores every other sales channel; showing adds `web` |
+| Extra | `extras.show_online` (default on) | left out of `/v1/public/extras`; quotes naming it answer `400 extras.N.extra_uuid not_found`. The sales-channel rule (`extras.channels`) still applies to every caller and is not touched by the switch |
 
-Service points keep their own `online_selectable`. API: `GET /v1/tenant/site/catalog`, `PATCH /v1/tenant/site/catalog/{branches|products|extras}/{uuid} {show_online}` (record looked up first: another organization's record is `404`).
+All three rules apply to storefront credentials only (listings via a `storefront` query argument, availability / quote refusals via `offlineCatalog`, which is empty for secret keys). Service points keep their own `online_selectable`. API: `GET /v1/tenant/site/catalog`, `PATCH /v1/tenant/site/catalog/{branches|products|extras}/{uuid} {show_online}` (record looked up first: another organization's record is `404`).
 
 ### API
 
@@ -216,7 +216,8 @@ Header actions: status chips, **Önizle** (sheet with the site in an iframe, des
 | `TestPreviewToken` | the draft for the site's own token (also for an off, unpublished site) with `panel_origin`; without a token the published revision; another organization's token (both ways), a forged site id, tampered and garbage tokens, an expired token and another secret → `401 PREVIEW_INVALID` |
 | `TestImages` | SVG, HTML declared as PNG, empty and oversized files refused; stale version; uploads are drafts; keys under the organization prefix; published objects kept on replace / remove, unreferenced drafts deleted; draft image only with the token |
 | `TestLegacyRowStaysPublished` | the 000124 backfill keeps an old live row published unchanged; idempotent |
-| `TestCatalogOnlineState` | listing and switches; foreign record → not found; extras channel rules; locations / extras listings, availability and quotes respect the flags |
+| `TestCatalogOnlineState` | listing and switches; foreign record → not found; the extra switch leaves sales channels alone; storefront listings, availability and quotes (hidden branch, subgroup, extra) respect the flags; a secret key still lists them |
+| `publicapi TestStorefrontPublishState` | with hidden branch, subgroup and extra: a booking session gets none of them and its availability / quotes are refused; a secret key lists them, gets availability and creates a quote (201) |
 | `TestRenewKey` | rotation with a 1 h grace and the same origins; the site books with the new key at once; a rotation in Public API is followed on save; a revoked key is replaced |
 | `site/src/lib/preview.test.ts` | token shape filter, cookie lifetime and attributes, frame headers (deny by default, panel origin only for previews, unsafe origins refused) |
 

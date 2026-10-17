@@ -61,43 +61,6 @@ func (q *Queries) GetSiteAssetKeys(ctx context.Context, argUuid uuid.UUID) (GetS
 	return i, err
 }
 
-const getSiteCatalogExtra = `-- name: GetSiteCatalogExtra :one
-SELECT e.uuid, e.code, e.name, e.status, e.extra_type, e.channels::varchar[] AS channels
-FROM extras e
-WHERE e.organization_id = $1
-  AND e.uuid = $2
-  AND e.deleted_at IS NULL
-  AND e.extra_type <> 'delivery'
-`
-
-type GetSiteCatalogExtraParams struct {
-	OrganizationID int64     `json:"organization_id"`
-	Uuid           uuid.UUID `json:"uuid"`
-}
-
-type GetSiteCatalogExtraRow struct {
-	Uuid      uuid.UUID `json:"uuid"`
-	Code      string    `json:"code"`
-	Name      string    `json:"name"`
-	Status    string    `json:"status"`
-	ExtraType string    `json:"extra_type"`
-	Channels  []string  `json:"channels"`
-}
-
-func (q *Queries) GetSiteCatalogExtra(ctx context.Context, arg GetSiteCatalogExtraParams) (GetSiteCatalogExtraRow, error) {
-	row := q.db.QueryRow(ctx, getSiteCatalogExtra, arg.OrganizationID, arg.Uuid)
-	var i GetSiteCatalogExtraRow
-	err := row.Scan(
-		&i.Uuid,
-		&i.Code,
-		&i.Name,
-		&i.Status,
-		&i.ExtraType,
-		&i.Channels,
-	)
-	return i, err
-}
-
 const getSiteKeySuccessor = `-- name: GetSiteKeySuccessor :one
 SELECT k.uuid
 FROM public_api_keys k
@@ -355,7 +318,7 @@ func (q *Queries) ListSiteCatalogBranches(ctx context.Context, organizationID in
 }
 
 const listSiteCatalogExtras = `-- name: ListSiteCatalogExtras :many
-SELECT e.uuid, e.code, e.name, e.status, e.extra_type, e.channels::varchar[] AS channels
+SELECT e.uuid, e.code, e.name, e.status, e.extra_type, e.show_online
 FROM extras e
 WHERE e.organization_id = $1
   AND e.deleted_at IS NULL
@@ -364,12 +327,12 @@ ORDER BY e.sort_order, e.name, e.id
 `
 
 type ListSiteCatalogExtrasRow struct {
-	Uuid      uuid.UUID `json:"uuid"`
-	Code      string    `json:"code"`
-	Name      string    `json:"name"`
-	Status    string    `json:"status"`
-	ExtraType string    `json:"extra_type"`
-	Channels  []string  `json:"channels"`
+	Uuid       uuid.UUID `json:"uuid"`
+	Code       string    `json:"code"`
+	Name       string    `json:"name"`
+	Status     string    `json:"status"`
+	ExtraType  string    `json:"extra_type"`
+	ShowOnline bool      `json:"show_online"`
 }
 
 func (q *Queries) ListSiteCatalogExtras(ctx context.Context, organizationID int64) ([]ListSiteCatalogExtrasRow, error) {
@@ -387,7 +350,7 @@ func (q *Queries) ListSiteCatalogExtras(ctx context.Context, organizationID int6
 			&i.Name,
 			&i.Status,
 			&i.ExtraType,
-			&i.Channels,
+			&i.ShowOnline,
 		); err != nil {
 			return nil, err
 		}
@@ -822,41 +785,39 @@ func (q *Queries) SetBranchShowOnline(ctx context.Context, arg SetBranchShowOnli
 	return i, err
 }
 
-const setExtraChannels = `-- name: SetExtraChannels :one
+const setExtraShowOnline = `-- name: SetExtraShowOnline :one
 UPDATE extras
-SET channels = $1::varchar[]
+SET show_online = COALESCE($1::boolean, show_online)
 WHERE organization_id = $2
   AND uuid = $3
   AND deleted_at IS NULL
-RETURNING uuid, code, name, status, extra_type, channels::varchar[] AS channels
+  AND extra_type <> 'delivery'
+RETURNING uuid, code, name, status, show_online
 `
 
-type SetExtraChannelsParams struct {
-	Channels       []string  `json:"channels"`
-	OrganizationID int64     `json:"organization_id"`
-	Uuid           uuid.UUID `json:"uuid"`
+type SetExtraShowOnlineParams struct {
+	ShowOnline     pgtype.Bool `json:"show_online"`
+	OrganizationID int64       `json:"organization_id"`
+	Uuid           uuid.UUID   `json:"uuid"`
 }
 
-type SetExtraChannelsRow struct {
-	Uuid      uuid.UUID `json:"uuid"`
-	Code      string    `json:"code"`
-	Name      string    `json:"name"`
-	Status    string    `json:"status"`
-	ExtraType string    `json:"extra_type"`
-	Channels  []string  `json:"channels"`
+type SetExtraShowOnlineRow struct {
+	Uuid       uuid.UUID `json:"uuid"`
+	Code       string    `json:"code"`
+	Name       string    `json:"name"`
+	Status     string    `json:"status"`
+	ShowOnline bool      `json:"show_online"`
 }
 
-// channels NULL = every channel.
-func (q *Queries) SetExtraChannels(ctx context.Context, arg SetExtraChannelsParams) (SetExtraChannelsRow, error) {
-	row := q.db.QueryRow(ctx, setExtraChannels, arg.Channels, arg.OrganizationID, arg.Uuid)
-	var i SetExtraChannelsRow
+func (q *Queries) SetExtraShowOnline(ctx context.Context, arg SetExtraShowOnlineParams) (SetExtraShowOnlineRow, error) {
+	row := q.db.QueryRow(ctx, setExtraShowOnline, arg.ShowOnline, arg.OrganizationID, arg.Uuid)
+	var i SetExtraShowOnlineRow
 	err := row.Scan(
 		&i.Uuid,
 		&i.Code,
 		&i.Name,
 		&i.Status,
-		&i.ExtraType,
-		&i.Channels,
+		&i.ShowOnline,
 	)
 	return i, err
 }

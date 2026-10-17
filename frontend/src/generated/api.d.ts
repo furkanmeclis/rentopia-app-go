@@ -7332,7 +7332,7 @@ export interface paths {
         };
         /**
          * Branches and service points
-         * @description Scope `catalog.read`. Active branches with their online-selectable service points (offices, airports, hotels, address zones), working hours and holiday exceptions.
+         * @description Scope `catalog.read`. Active branches with their online-selectable service points (offices, airports, hotels, address zones), working hours and holiday exceptions. Publishable-key callers (site, widget) do not get branches hidden from the storefront (`show_online`, TEC-730); secret keys do.
          */
         get: operations["getPublicLocations"];
         put?: never;
@@ -7352,7 +7352,7 @@ export interface paths {
         };
         /**
          * Sellable vehicle subgroups
-         * @description Scope `catalog.read`. Published rental products ("alt grup") with their current rental conditions and API image paths (`/v1/public/media/…`, relative to the API base).
+         * @description Scope `catalog.read`. Published rental products ("alt grup") with their current rental conditions and API image paths (`/v1/public/media/…`, relative to the API base). Publishable-key callers do not get subgroups hidden from the storefront (`show_online`); secret keys do.
          */
         get: operations["getPublicVehicleSubgroups"];
         put?: never;
@@ -7372,7 +7372,7 @@ export interface paths {
         };
         /**
          * Extra services of the channel
-         * @description Scope `catalog.read`. Published extras sold on the key's channel. Prices depend on the subgroup and dates: send them in a quote.
+         * @description Scope `catalog.read`. Published extras sold on the key's channel. Prices depend on the subgroup and dates: send them in a quote. Publishable-key callers do not get extras hidden from the storefront (`show_online`); secret keys do.
          */
         get: operations["getPublicExtras"];
         put?: never;
@@ -8089,10 +8089,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Online publish state of the catalog
-         * @description `tenant.site.read`. Branches, vehicle subgroups and extras with `show_online`: whether the online channels (the
-         *     public booking API: branded site, widget, API keys) offer them. Branches and subgroups use their own flag; an
-         *     extra is online when its sales channels include `web`.
+         * Storefront publish state of the catalog
+         * @description `tenant.site.read`. Branches, vehicle subgroups and extras with `show_online`: whether the branded site and the
+         *     embeddable widget (public API callers with a publishable key / booking session) offer them. Integrations
+         *     calling the public API with a secret key ignore the flag. Extras also keep their sales-channel rule.
          */
         get: operations["getTenantSiteCatalog"];
         put?: never;
@@ -8117,8 +8117,8 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Show / hide a branch online
-         * @description `tenant.site.manage`. Live (no publish). A hidden branch is left out of `/v1/public/locations` and refused by availability and quotes. Activity: `site.catalog_updated`.
+         * Show / hide a branch on the site and widget
+         * @description `tenant.site.manage`. Live (no publish). For publishable-key callers (site, widget) a hidden branch is left out of `/v1/public/locations` and refused by availability and quotes; secret-key integrations are not affected. Activity: `site.catalog_updated`.
          */
         patch: operations["patchTenantSiteCatalogBranch"];
         trace?: never;
@@ -8137,8 +8137,8 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Show / hide a vehicle subgroup online
-         * @description `tenant.site.manage`. Live (no publish). A hidden subgroup is left out of `/v1/public/vehicle-subgroups` and availability, and quotes refuse it. Activity: `site.catalog_updated`.
+         * Show / hide a vehicle subgroup on the site and widget
+         * @description `tenant.site.manage`. Live (no publish). For publishable-key callers (site, widget) a hidden subgroup is left out of `/v1/public/vehicle-subgroups` and availability, and quotes refuse it; secret-key integrations are not affected. Activity: `site.catalog_updated`.
          */
         patch: operations["patchTenantSiteCatalogSubgroup"];
         trace?: never;
@@ -8157,9 +8157,10 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Show / hide an extra online
-         * @description `tenant.site.manage`. Live (no publish). Adds or removes the `web` sales channel of the extra; an extra sold on
-         *     every channel that is hidden keeps all other channels. Activity: `site.catalog_updated`.
+         * Show / hide an extra on the site and widget
+         * @description `tenant.site.manage`. Live (no publish). For publishable-key callers (site, widget) a hidden extra is left out of
+         *     `/v1/public/extras` and quotes naming it answer `400 extras.N.extra_uuid not_found`; its sales channels are not
+         *     changed and secret-key integrations are not affected. Activity: `site.catalog_updated`.
          */
         patch: operations["patchTenantSiteCatalogExtra"];
         trace?: never;
@@ -29851,7 +29852,7 @@ export interface components {
             name: string;
             /** @enum {string} */
             status: "draft" | "published" | "archived";
-            /** @description The web sales channel sells it. */
+            /** @description Shown on the branded site and widget (publishable-key callers). */
             show_online: boolean;
         };
         SiteCatalog: {

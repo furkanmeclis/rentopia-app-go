@@ -283,7 +283,7 @@ type CatalogSubgroup struct {
 	ShowOnline bool      `json:"show_online"`
 }
 
-// CatalogExtra is an extra; ShowOnline = the web channel sells it.
+// CatalogExtra is an extra with its storefront publish state.
 type CatalogExtra struct {
 	UUID       uuid.UUID `json:"uuid"`
 	Code       string    `json:"code"`

@@ -261,7 +261,7 @@ WHERE p.organization_id = sqlc.arg(organization_id)
 ORDER BY s.sort_order, s.name, p.title, p.id;
 
 -- name: ListSiteCatalogExtras :many
-SELECT e.uuid, e.code, e.name, e.status, e.extra_type, e.channels::varchar[] AS channels
+SELECT e.uuid, e.code, e.name, e.status, e.extra_type, e.show_online
 FROM extras e
 WHERE e.organization_id = sqlc.arg(organization_id)
   AND e.deleted_at IS NULL
@@ -284,19 +284,11 @@ WHERE organization_id = sqlc.arg(organization_id)
   AND deleted_at IS NULL
 RETURNING uuid, code, title, status, is_active, show_online;
 
--- name: GetSiteCatalogExtra :one
-SELECT e.uuid, e.code, e.name, e.status, e.extra_type, e.channels::varchar[] AS channels
-FROM extras e
-WHERE e.organization_id = sqlc.arg(organization_id)
-  AND e.uuid = sqlc.arg(uuid)
-  AND e.deleted_at IS NULL
-  AND e.extra_type <> 'delivery';
-
--- name: SetExtraChannels :one
--- channels NULL = every channel.
+-- name: SetExtraShowOnline :one
 UPDATE extras
-SET channels = sqlc.narg(channels)::varchar[]
+SET show_online = COALESCE(sqlc.narg(show_online)::boolean, show_online)
 WHERE organization_id = sqlc.arg(organization_id)
   AND uuid = sqlc.arg(uuid)
   AND deleted_at IS NULL
-RETURNING uuid, code, name, status, extra_type, channels::varchar[] AS channels;
+  AND extra_type <> 'delivery'
+RETURNING uuid, code, name, status, show_online;

@@ -941,7 +941,6 @@ type Querier interface {
 	// The image keys of a site by its public uuid (asset stream): the draft
 	// and the published snapshot. The caller picks by the preview token.
 	GetSiteAssetKeys(ctx context.Context, argUuid uuid.UUID) (GetSiteAssetKeysRow, error)
-	GetSiteCatalogExtra(ctx context.Context, arg GetSiteCatalogExtraParams) (GetSiteCatalogExtraRow, error)
 	// The newest active key rotated from the site's key (Ayarlar → Public API
 	// rotation): the site follows it on the next save.
 	GetSiteKeySuccessor(ctx context.Context, arg GetSiteKeySuccessorParams) (uuid.UUID, error)
@@ -1698,16 +1697,17 @@ type Querier interface {
 	ListProductCommitments(ctx context.Context, arg ListProductCommitmentsParams) ([]ListProductCommitmentsRow, error)
 	ListPublicAPIKeys(ctx context.Context, arg ListPublicAPIKeysParams) ([]ListPublicAPIKeysRow, error)
 	// ------------------------------------------------------------ catalog
-	ListPublicBranches(ctx context.Context, organizationID int64) ([]ListPublicBranchesRow, error)
+	ListPublicBranches(ctx context.Context, arg ListPublicBranchesParams) ([]ListPublicBranchesRow, error)
 	// Published extras sold on the channel (channels NULL = every channel).
 	ListPublicExtras(ctx context.Context, arg ListPublicExtrasParams) ([]ListPublicExtrasRow, error)
-	// Branches and products the panel took off the online channels
-	// (show_online = false, TEC-730): availability and quotes refuse them.
+	// Branches, products and extras the panel hid from the storefront (branded
+	// site / widget: show_online = false, TEC-730): availability and quotes of
+	// publishable-key callers refuse them; secret keys ignore the flag.
 	ListPublicHiddenCatalog(ctx context.Context, organizationID int64) (ListPublicHiddenCatalogRow, error)
-	ListPublicServicePoints(ctx context.Context, organizationID int64) ([]ListPublicServicePointsRow, error)
+	ListPublicServicePoints(ctx context.Context, arg ListPublicServicePointsParams) ([]ListPublicServicePointsRow, error)
 	ListPublicSubgroupImages(ctx context.Context, arg ListPublicSubgroupImagesParams) ([]ListPublicSubgroupImagesRow, error)
 	// Products on sale (published, active) with their current conditions.
-	ListPublicSubgroups(ctx context.Context, organizationID int64) ([]ListPublicSubgroupsRow, error)
+	ListPublicSubgroups(ctx context.Context, arg ListPublicSubgroupsParams) ([]ListPublicSubgroupsRow, error)
 	ListPublicWebhookDeliveries(ctx context.Context, arg ListPublicWebhookDeliveriesParams) ([]ListPublicWebhookDeliveriesRow, error)
 	ListPublicWebhookEndpoints(ctx context.Context, arg ListPublicWebhookEndpointsParams) ([]PublicWebhookEndpoint, error)
 	ListPushSubscriptionsByUser(ctx context.Context, userID int64) ([]PushSubscription, error)
@@ -2360,8 +2360,7 @@ type Querier interface {
 	SetDocumentVersionPDFPending(ctx context.Context, arg SetDocumentVersionPDFPendingParams) (int64, error)
 	SetExpenseAttachment(ctx context.Context, arg SetExpenseAttachmentParams) (int64, error)
 	SetExpenseCategory(ctx context.Context, arg SetExpenseCategoryParams) (int64, error)
-	// channels NULL = every channel.
-	SetExtraChannels(ctx context.Context, arg SetExtraChannelsParams) (SetExtraChannelsRow, error)
+	SetExtraShowOnline(ctx context.Context, arg SetExtraShowOnlineParams) (SetExtraShowOnlineRow, error)
 	SetExtraStatus(ctx context.Context, arg SetExtraStatusParams) (int64, error)
 	SetFieldTaskTransfer(ctx context.Context, arg SetFieldTaskTransferParams) error
 	// Moves the expiry of an active hold (reservation review -> payment
