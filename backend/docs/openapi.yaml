@@ -23472,6 +23472,217 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/tenant/campaigns/{uuid}/storefront:
+    get:
+      tags: [Tenant]
+      operationId: getCampaignStorefront
+      summary: Campaign storefront fields
+      description: "Requires tenant.campaigns.read."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Campaign storefront fields
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeCampaignStorefront" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Tenant]
+      operationId: patchCampaignStorefront
+      summary: Edit campaign storefront fields
+      description: "Requires tenant.campaigns.read and tenant.campaigns.write. Missing fields stay unchanged; null media clears it."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CampaignStorefrontPatch" }
+      responses:
+        "200":
+          description: Edit campaign storefront fields
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeCampaignStorefront" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/public/campaigns:
+    get:
+      tags: [Public Booking]
+      operationId: listPublicCampaigns
+      summary: Active storefront campaigns
+      description: "Web storefront session with catalog.read. Active, visible, valid and unexhausted campaigns ordered by site_sort. Private coupon codes are omitted."
+      security:
+        - publicBearer: []
+      responses:
+        "200":
+          description: Active storefront campaigns
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopePublicCampaigns" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/PublicForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/public/campaigns/{uuid}:
+    get:
+      tags: [Public Booking]
+      operationId: getPublicCampaign
+      summary: Get active storefront campaign
+      description: "Same filters and authentication as the public list; hidden or foreign UUID returns 404."
+      security:
+        - publicBearer: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Get active storefront campaign
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopePublicCampaign" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/PublicForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/public/site/leads:
+    post:
+      tags: [Public Booking]
+      operationId: submitSiteLead
+      summary: Submit site form
+      description: "Web storefront session with catalog.read belonging to the live site key. Published leads flags apply. KVKK consent required. Honeypot silently drops. Newsletter duplicates are accepted. No Idempotency-Key required. Limits are 10 per IP per organization per hour and 5 per session per hour; standard public API limits also apply."
+      security:
+        - publicBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SiteLeadInput" }
+      responses:
+        "202":
+          description: Submit site form
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteLeadAccepted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/PublicForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/tenant/site/leads/meta:
+    get:
+      tags: [Tenant]
+      operationId: getSiteLeadsMeta
+      summary: Site lead DataTable metadata
+      description: "Requires tenant.site_leads.read. Export/import/bulk are unavailable."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Site lead DataTable metadata
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeResourceMeta" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/site/leads:
+    get:
+      tags: [Tenant]
+      operationId: listSiteLeads
+      summary: List site leads
+      description: "Requires tenant.site_leads.read. Date range is inclusive from, exclusive to (RFC3339). Newest first."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: q, in: query, schema: { type: string, maxLength: 500 } }
+        - { name: sort, in: query, schema: { type: string, enum: ["-created_at", created_at] } }
+        - { name: kind, in: query, schema: { type: string, enum: [newsletter, contact, corporate, franchise] } }
+        - { name: status, in: query, schema: { type: string, enum: [new, in_progress, done, spam] } }
+        - { name: date_from, in: query, schema: { type: string, format: date-time } }
+        - { name: date_to, in: query, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: List site leads
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteLeads" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tenant/site/leads/{uuid}:
+    get:
+      tags: [Tenant]
+      operationId: getSiteLead
+      summary: Get site lead
+      description: "Requires tenant.site_leads.read. Foreign UUID returns 404."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Get site lead
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteLead" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Tenant]
+      operationId: patchSiteLead
+      summary: Handle site lead
+      description: "Requires tenant.site_leads.read and tenant.site_leads.manage. Updates handling actor and time."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SiteLeadPatch" }
+      responses:
+        "200":
+          description: Handle site lead
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteLead" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
 components:
   securitySchemes:
     siteDomainSecret:
@@ -23955,6 +24166,145 @@ components:
             $ref: "#/components/schemas/Error"
 
   schemas:
+
+    CampaignStorefront:
+      type: object
+      required: [show_on_site, site_sort, site_title, site_summary, site_cta_label, site_media_uuid]
+      properties: &campaignStorefrontProperties
+        show_on_site: { type: boolean, default: false }
+        site_sort: { type: integer, format: int32, default: 0 }
+        site_title:
+          type: object
+          additionalProperties: false
+          properties:
+            tr: { type: string, maxLength: 160 }
+            en: { type: string, maxLength: 160 }
+        site_summary:
+          type: object
+          additionalProperties: false
+          properties:
+            tr: { type: string, maxLength: 1000 }
+            en: { type: string, maxLength: 1000 }
+        site_cta_label:
+          type: object
+          additionalProperties: false
+          properties:
+            tr: { type: string, maxLength: 80 }
+            en: { type: string, maxLength: 80 }
+        site_media_uuid: { type: [string, "null"], format: uuid }
+    CampaignStorefrontPatch:
+      type: object
+      additionalProperties: false
+      properties: *campaignStorefrontProperties
+    PublicCampaign:
+      type: object
+      required: [uuid, title, summary, cta_label, media_url, start_date, end_date]
+      properties:
+        uuid: { type: string, format: uuid }
+        title: { type: object, additionalProperties: { type: string } }
+        summary: { type: object, additionalProperties: { type: string } }
+        cta_label: { type: object, additionalProperties: { type: string } }
+        media_url: { type: [string, "null"], description: API-owned media URL. }
+        code: { type: string, description: Present only for public coupons with no customer restriction (the rental-count threshold applies only to repeat-customer campaigns). }
+        start_date: { type: [string, "null"], format: date }
+        end_date: { type: [string, "null"], format: date }
+    SiteLeadInput:
+      type: object
+      additionalProperties: false
+      required: [kind, email, consent_kvkk]
+      description: 'newsletter needs email; contact needs name, email, message; corporate needs company, name, email, phone; franchise needs name, email, phone, city. Text is plain text.'
+      properties: &siteLeadInputProperties
+        kind: { type: string, enum: [newsletter, contact, corporate, franchise] }
+        name: { type: string, maxLength: 160 }
+        email: { type: string, format: email, maxLength: 254 }
+        phone: { type: string, maxLength: 40 }
+        company: { type: string, maxLength: 200 }
+        city: { type: string, maxLength: 100 }
+        message: { type: string, maxLength: 5000 }
+        fleet_size: { type: [integer, "null"], minimum: 0, maximum: 100000, description: Corporate only. }
+        locale: { type: string, enum: [tr, en], default: tr }
+        consent_kvkk: { type: boolean, const: true }
+        consent_marketing: { type: boolean, default: false }
+        honeypot: { type: string, description: Hidden empty field; nonempty submissions are silently discarded. }
+    SiteLeadPatch:
+      type: object
+      additionalProperties: false
+      properties:
+        status: { type: string, enum: [new, in_progress, done, spam] }
+        note: { type: string, maxLength: 5000 }
+    SiteLead:
+      type: object
+      required: [uuid, kind, name, email, phone, company, city, message, fleet_size, locale, consent_kvkk, consent_marketing, source_host, status, created_at, updated_at, handled_by, handled_at, note]
+      properties:
+        uuid: { type: string, format: uuid }
+        kind: { type: string, enum: [newsletter, contact, corporate, franchise] }
+        name: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string }
+        company: { type: string }
+        city: { type: string }
+        message: { type: string }
+        fleet_size: { type: [integer, "null"] }
+        locale: { type: string, enum: [tr, en] }
+        consent_kvkk: { type: boolean }
+        consent_marketing: { type: boolean }
+        source_host: { type: string }
+        status: { type: string, enum: [new, in_progress, done, spam] }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        handled_by: { type: [integer, "null"], format: int64 }
+        handled_at: { type: [string, "null"], format: date-time }
+        note: { type: string }
+    SiteLeadFlags:
+      type: object
+      required: [contact, corporate, franchise, newsletter]
+      properties:
+        contact: { type: boolean, default: true }
+        corporate: { type: boolean, default: true }
+        franchise: { type: boolean, default: true }
+        newsletter: { type: boolean, default: true }
+    EnvelopeCampaignStorefront:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean }
+        data: { $ref: "#/components/schemas/CampaignStorefront" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+    EnvelopePublicCampaign:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean }
+        data: { $ref: "#/components/schemas/PublicCampaign" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+    EnvelopePublicCampaigns:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean }
+        data: { type: array, items: { $ref: "#/components/schemas/PublicCampaign" } }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+    EnvelopeSiteLead:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean }
+        data: { $ref: "#/components/schemas/SiteLead" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+    EnvelopeSiteLeadAccepted:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean }
+        data: { type: object, required: [accepted], properties: { accepted: { type: boolean, const: true } } }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+    EnvelopeSiteLeads:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean }
+        data: { type: object, required: [items, total, limit, offset], properties: { items: { type: array, items: { $ref: "#/components/schemas/SiteLead" } }, total: { type: integer }, limit: { type: integer }, offset: { type: integer } } }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
     PlatformOrganizationUsage:
       type: object
       required: [uuid, slug, name, status, active_vehicles, total_vehicles, reservations_month, member_count, storage_bytes, last_login_at, created_at]
@@ -40404,6 +40754,7 @@ components:
       additionalProperties: false
       description: The editable site document. `site_settings.config` is the draft; published revisions keep their own copy.
       properties:
+        leads: { $ref: "#/components/schemas/SiteLeadFlags" }
         config_version: { type: integer, enum: [2] }
         template: { type: string, enum: [technowide-design, horizon-design, classic, aurum], default: technowide-design, description: Only technowide-design is currently selectable. }
         templates:
@@ -40611,6 +40962,7 @@ components:
       type: object
       required: [site_uuid, version, host, host_kind, origin, default_locale, locales, organization, publishable_key, booking_enabled, config, assets, portal_url, updated_at, preview, panel_origin]
       properties:
+        campaigns: { type: array, items: { $ref: "#/components/schemas/PublicCampaign" } }
         template: { type: string }
         sections:
           type: array

@@ -15703,10 +15703,333 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenant/campaigns/{uuid}/storefront": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Campaign storefront fields
+         * @description Requires tenant.campaigns.read.
+         */
+        get: operations["getCampaignStorefront"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit campaign storefront fields
+         * @description Requires tenant.campaigns.read and tenant.campaigns.write. Missing fields stay unchanged; null media clears it.
+         */
+        patch: operations["patchCampaignStorefront"];
+        trace?: never;
+    };
+    "/v1/public/campaigns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Active storefront campaigns
+         * @description Web storefront session with catalog.read. Active, visible, valid and unexhausted campaigns ordered by site_sort. Private coupon codes are omitted.
+         */
+        get: operations["listPublicCampaigns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/campaigns/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get active storefront campaign
+         * @description Same filters and authentication as the public list; hidden or foreign UUID returns 404.
+         */
+        get: operations["getPublicCampaign"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/site/leads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit site form
+         * @description Web storefront session with catalog.read belonging to the live site key. Published leads flags apply. KVKK consent required. Honeypot silently drops. Newsletter duplicates are accepted. No Idempotency-Key required. Limits are 10 per IP per organization per hour and 5 per session per hour; standard public API limits also apply.
+         */
+        post: operations["submitSiteLead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/site/leads/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Site lead DataTable metadata
+         * @description Requires tenant.site_leads.read. Export/import/bulk are unavailable.
+         */
+        get: operations["getSiteLeadsMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/site/leads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List site leads
+         * @description Requires tenant.site_leads.read. Date range is inclusive from, exclusive to (RFC3339). Newest first.
+         */
+        get: operations["listSiteLeads"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/site/leads/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get site lead
+         * @description Requires tenant.site_leads.read. Foreign UUID returns 404.
+         */
+        get: operations["getSiteLead"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Handle site lead
+         * @description Requires tenant.site_leads.read and tenant.site_leads.manage. Updates handling actor and time.
+         */
+        patch: operations["patchSiteLead"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        CampaignStorefront: {
+            /** @default false */
+            show_on_site: boolean;
+            /**
+             * Format: int32
+             * @default 0
+             */
+            site_sort: number;
+            site_title: {
+                tr?: string;
+                en?: string;
+            };
+            site_summary: {
+                tr?: string;
+                en?: string;
+            };
+            site_cta_label: {
+                tr?: string;
+                en?: string;
+            };
+            /** Format: uuid */
+            site_media_uuid: string | null;
+        };
+        CampaignStorefrontPatch: {
+            /** @default false */
+            show_on_site: boolean;
+            /**
+             * Format: int32
+             * @default 0
+             */
+            site_sort: number;
+            site_title?: {
+                tr?: string;
+                en?: string;
+            };
+            site_summary?: {
+                tr?: string;
+                en?: string;
+            };
+            site_cta_label?: {
+                tr?: string;
+                en?: string;
+            };
+            /** Format: uuid */
+            site_media_uuid?: string | null;
+        };
+        PublicCampaign: {
+            /** Format: uuid */
+            uuid: string;
+            title: {
+                [key: string]: string;
+            };
+            summary: {
+                [key: string]: string;
+            };
+            cta_label: {
+                [key: string]: string;
+            };
+            /** @description API-owned media URL. */
+            media_url: string | null;
+            /** @description Present only for public coupons with no customer restriction (the rental-count threshold applies only to repeat-customer campaigns). */
+            code?: string;
+            /** Format: date */
+            start_date: string | null;
+            /** Format: date */
+            end_date: string | null;
+        };
+        /** @description newsletter needs email; contact needs name, email, message; corporate needs company, name, email, phone; franchise needs name, email, phone, city. Text is plain text. */
+        SiteLeadInput: {
+            /** @enum {string} */
+            kind: "newsletter" | "contact" | "corporate" | "franchise";
+            name?: string;
+            /** Format: email */
+            email: string;
+            phone?: string;
+            company?: string;
+            city?: string;
+            message?: string;
+            /** @description Corporate only. */
+            fleet_size?: number | null;
+            /**
+             * @default tr
+             * @enum {string}
+             */
+            locale: "tr" | "en";
+            /** @constant */
+            consent_kvkk: true;
+            /** @default false */
+            consent_marketing: boolean;
+            /** @description Hidden empty field; nonempty submissions are silently discarded. */
+            honeypot?: string;
+        };
+        SiteLeadPatch: {
+            /** @enum {string} */
+            status?: "new" | "in_progress" | "done" | "spam";
+            note?: string;
+        };
+        SiteLead: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            kind: "newsletter" | "contact" | "corporate" | "franchise";
+            name: string;
+            /** Format: email */
+            email: string;
+            phone: string;
+            company: string;
+            city: string;
+            message: string;
+            fleet_size: number | null;
+            /** @enum {string} */
+            locale: "tr" | "en";
+            consent_kvkk: boolean;
+            consent_marketing: boolean;
+            source_host: string;
+            /** @enum {string} */
+            status: "new" | "in_progress" | "done" | "spam";
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: int64 */
+            handled_by: number | null;
+            /** Format: date-time */
+            handled_at: string | null;
+            note: string;
+        };
+        SiteLeadFlags: {
+            /** @default true */
+            contact: boolean;
+            /** @default true */
+            corporate: boolean;
+            /** @default true */
+            franchise: boolean;
+            /** @default true */
+            newsletter: boolean;
+        };
+        EnvelopeCampaignStorefront: {
+            success: boolean;
+            data: components["schemas"]["CampaignStorefront"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopePublicCampaign: {
+            success: boolean;
+            data: components["schemas"]["PublicCampaign"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopePublicCampaigns: {
+            success: boolean;
+            data: components["schemas"]["PublicCampaign"][];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeSiteLead: {
+            success: boolean;
+            data: components["schemas"]["SiteLead"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeSiteLeadAccepted: {
+            success: boolean;
+            data: {
+                /** @constant */
+                accepted: true;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeSiteLeads: {
+            success: boolean;
+            data: {
+                items: components["schemas"]["SiteLead"][];
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
         PlatformOrganizationUsage: {
             /** Format: uuid */
             uuid: string;
@@ -29947,6 +30270,7 @@ export interface components {
         };
         /** @description The editable site document. `site_settings.config` is the draft; published revisions keep their own copy. */
         SiteConfig: {
+            leads?: components["schemas"]["SiteLeadFlags"];
             /** @enum {integer} */
             config_version?: 2;
             /**
@@ -30122,6 +30446,7 @@ export interface components {
             config?: components["schemas"]["SiteConfig"];
         };
         SiteResolved: {
+            campaigns?: components["schemas"]["PublicCampaign"][];
             template?: string;
             sections?: components["schemas"]["SiteSection"][];
             settings?: {
@@ -59821,6 +60146,297 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getCampaignStorefront: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Campaign storefront fields */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCampaignStorefront"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchCampaignStorefront: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CampaignStorefrontPatch"];
+            };
+        };
+        responses: {
+            /** @description Edit campaign storefront fields */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCampaignStorefront"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listPublicCampaigns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active storefront campaigns */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicCampaigns"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PublicForbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getPublicCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Get active storefront campaign */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicCampaign"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PublicForbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    submitSiteLead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteLeadInput"];
+            };
+        };
+        responses: {
+            /** @description Submit site form */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteLeadAccepted"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PublicForbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getSiteLeadsMeta: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Site lead DataTable metadata */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listSiteLeads: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                q?: string;
+                sort?: "-created_at" | "created_at";
+                kind?: "newsletter" | "contact" | "corporate" | "franchise";
+                status?: "new" | "in_progress" | "done" | "spam";
+                date_from?: string;
+                date_to?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List site leads */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteLeads"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getSiteLead: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Get site lead */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteLead"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchSiteLead: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteLeadPatch"];
+            };
+        };
+        responses: {
+            /** @description Handle site lead */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteLead"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
             404: components["responses"]["NotFound"];
         };
     };

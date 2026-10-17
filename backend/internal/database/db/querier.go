@@ -199,6 +199,7 @@ type Querier interface {
 	CountRoles(ctx context.Context, q_ pgtype.Text) (int64, error)
 	// Sends of the organization (optionally to one number) since a time.
 	CountSMSMessagesSince(ctx context.Context, arg CountSMSMessagesSinceParams) (int64, error)
+	CountSiteLeads(ctx context.Context, arg CountSiteLeadsParams) (int64, error)
 	CountSiteMedia(ctx context.Context, organizationID int64) (int64, error)
 	CountStaffPushTargets(ctx context.Context, userID int64) (int64, error)
 	CountStorageActivity(ctx context.Context, objectKey string) (int64, error)
@@ -571,6 +572,7 @@ type Querier interface {
 	GetCampaignProductByUUID(ctx context.Context, arg GetCampaignProductByUUIDParams) (GetCampaignProductByUUIDRow, error)
 	GetCampaignRedemption(ctx context.Context, arg GetCampaignRedemptionParams) (GetCampaignRedemptionRow, error)
 	GetCampaignSegmentByUUID(ctx context.Context, arg GetCampaignSegmentByUUIDParams) (GetCampaignSegmentByUUIDRow, error)
+	GetCampaignStorefront(ctx context.Context, arg GetCampaignStorefrontParams) (GetCampaignStorefrontRow, error)
 	GetCapacityRule(ctx context.Context, arg GetCapacityRuleParams) (GetCapacityRuleRow, error)
 	GetCashAccountByCode(ctx context.Context, arg GetCashAccountByCodeParams) (GetCashAccountByCodeRow, error)
 	GetCashAccountProvider(ctx context.Context, arg GetCashAccountProviderParams) (pgtype.Text, error)
@@ -955,6 +957,7 @@ type Querier interface {
 	// The newest active key rotated from the site's key (Ayarlar → Public API
 	// rotation): the site follows it on the next save.
 	GetSiteKeySuccessor(ctx context.Context, arg GetSiteKeySuccessorParams) (uuid.UUID, error)
+	GetSiteLead(ctx context.Context, arg GetSiteLeadParams) (SiteLead, error)
 	GetSiteMedia(ctx context.Context, arg GetSiteMediaParams) (SiteMedium, error)
 	// The internal id of a key the site settings link to.
 	GetSitePublicAPIKeyID(ctx context.Context, arg GetSitePublicAPIKeyIDParams) (int64, error)
@@ -1206,6 +1209,7 @@ type Querier interface {
 	// organization-owned: every query filters by organization_id.
 	InsertSMSMessage(ctx context.Context, arg InsertSMSMessageParams) (InsertSMSMessageRow, error)
 	InsertSecurityDeposit(ctx context.Context, arg InsertSecurityDepositParams) (InsertSecurityDepositRow, error)
+	InsertSiteLead(ctx context.Context, arg InsertSiteLeadParams) (SiteLead, error)
 	InsertSiteMedia(ctx context.Context, arg InsertSiteMediaParams) (SiteMedium, error)
 	// First save of an organization's site. ON CONFLICT DO NOTHING: a
 	// concurrent first save returns no row and the caller answers a conflict.
@@ -1712,6 +1716,7 @@ type Querier interface {
 	ListPublicAPIKeys(ctx context.Context, arg ListPublicAPIKeysParams) ([]ListPublicAPIKeysRow, error)
 	// ------------------------------------------------------------ catalog
 	ListPublicBranches(ctx context.Context, arg ListPublicBranchesParams) ([]ListPublicBranchesRow, error)
+	ListPublicCampaigns(ctx context.Context, arg ListPublicCampaignsParams) ([]ListPublicCampaignsRow, error)
 	// Published extras sold on the channel (channels NULL = every channel).
 	ListPublicExtras(ctx context.Context, arg ListPublicExtrasParams) ([]ListPublicExtrasRow, error)
 	// Branches, products and extras the panel hid from the storefront (branded
@@ -1811,6 +1816,7 @@ type Querier interface {
 	// Include rotation predecessors: their booking sessions must lose removed origins too.
 	ListSiteDomainKeys(ctx context.Context, organizationID int64) ([]uuid.UUID, error)
 	ListSiteDomains(ctx context.Context, organizationID int64) ([]SiteDomain, error)
+	ListSiteLeads(ctx context.Context, arg ListSiteLeadsParams) ([]SiteLead, error)
 	ListSiteMedia(ctx context.Context, arg ListSiteMediaParams) ([]SiteMedium, error)
 	// Publish history, newest first.
 	ListSiteVersions(ctx context.Context, organizationID int64) ([]ListSiteVersionsRow, error)
@@ -2146,6 +2152,8 @@ type Querier interface {
 	// deadline first. Reservation rule: pick-up or return branch in the
 	// filter. overdue = deadline passed.
 	OverviewWaitingReservations(ctx context.Context, arg OverviewWaitingReservationsParams) ([]OverviewWaitingReservationsRow, error)
+	PatchCampaignStorefront(ctx context.Context, arg PatchCampaignStorefrontParams) (PatchCampaignStorefrontRow, error)
+	PatchSiteLead(ctx context.Context, arg PatchSiteLeadParams) (SiteLead, error)
 	PatchSiteMedia(ctx context.Context, arg PatchSiteMediaParams) (SiteMedium, error)
 	// Open supplier invoices by due state (caller's branch scope).
 	PayablesSummary(ctx context.Context, arg PayablesSummaryParams) (PayablesSummaryRow, error)
@@ -2464,6 +2472,8 @@ type Querier interface {
 	SetWhatsAppSessionState(ctx context.Context, arg SetWhatsAppSessionStateParams) (WhatsappSession, error)
 	SettleCollection(ctx context.Context, arg SettleCollectionParams) (int64, error)
 	SiteDomainHealthCounts(ctx context.Context) (SiteDomainHealthCountsRow, error)
+	SiteLeadRecipients(ctx context.Context, organizationID int64) ([]int64, error)
+	SiteMediaHasPublicCampaign(ctx context.Context, arg SiteMediaHasPublicCampaignParams) (bool, error)
 	// Whether the draft or any snapshot still names an image object (it is
 	// deleted from storage only when nothing does).
 	SiteObjectKeyInUse(ctx context.Context, arg SiteObjectKeyInUseParams) (bool, error)

@@ -433,5 +433,6 @@
   "actions.channels.pulled": "Bookings pulled from the channel",
   "actions.channels.simulated": "Channel booking simulated",
   "actions.channels.message_retried": "Channel message applied again",
-  "actions.channels.message_ignored": "Channel message dismissed"
+  "actions.channels.message_ignored": "Channel message dismissed",
+  "actions.site_leads.updated": "Site lead updated"
 }

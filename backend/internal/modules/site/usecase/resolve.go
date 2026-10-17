@@ -9,6 +9,7 @@ import (
 	"slices"
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
+	campaignusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/campaigns/usecase"
 	pamodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/publicapi/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/site/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/site/themes"
@@ -116,13 +117,17 @@ func (s *Service) Resolve(ctx context.Context, rawHost, previewToken string) (mo
 			out.UpdatedAt = row.PublishedAt.Time.UTC()
 		}
 	}
+	out.Campaigns, err = campaignusecase.PublicCampaigns(ctx, s.q, row.OrganizationID, "web", nil)
+	if err != nil {
+		return model.Resolved{}, err
+	}
 	out.Version = int(version)
 	out.Template = out.Config.Template
 	active := out.Config.Templates[out.Template]
 	out.TemplateSettings = active.Settings
 	out.Sections = []themes.Section{}
 	for _, section := range active.Sections {
-		if section.Enabled {
+		if section.Enabled && (section.ID != "newsletter" || out.Config.Leads.Enabled("newsletter")) {
 			out.Sections = append(out.Sections, section)
 		}
 	}

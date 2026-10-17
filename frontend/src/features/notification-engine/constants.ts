@@ -91,6 +91,7 @@ export const EVENT_LABEL_KEYS: Record<string, string> = {
   "account.payment_due": "notification_engine.events.account_payment_due",
   "field_task.assigned": "notification_engine.events.field_task_assigned",
   "field_task.overdue": "notification_engine.events.field_task_overdue",
+  "site_lead.created": "notification_engine.events.site_lead_created",
 };
 
 export const GROUP_LABEL_KEYS: Record<string, string> = {

@@ -198,7 +198,7 @@ func TestConfigV2SavePreservesInactiveTemplate(t *testing.T) {
 		t.Fatal("inactive template configuration lost")
 	}
 	for _, status := range saved.SectionStatuses {
-		if status.ID == "newsletter" && status.Status != "needs_service" {
+		if status.ID == "newsletter" && status.Status != "available" {
 			t.Fatal(status)
 		}
 		if status.ID == "branches" && status.Status != "unsupported_by_theme" {

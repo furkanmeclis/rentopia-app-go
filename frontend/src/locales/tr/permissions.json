@@ -238,5 +238,8 @@
   "labels.tenant.channels.sync": "Kanal senkronunu çalıştır ve mesajları çöz",
   "groups.tenant_channels": "Kanal yöneticisi",
   "labels.platform.site_domains.read": "Firma özel alan adlarını görüntüle",
-  "labels.platform.site_domains.manage": "Firma özel alan adlarını yönet (yeniden kontrol, HTTPS onayı)"
+  "labels.platform.site_domains.manage": "Firma özel alan adlarını yönet (yeniden kontrol, HTTPS onayı)",
+  "labels.tenant.site_leads.read": "Site başvurularını görüntüleme",
+  "labels.tenant.site_leads.manage": "Site başvurularını yönetme",
+  "groups.tenant_site_leads": "Site başvuruları"
 }

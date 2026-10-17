@@ -178,6 +178,9 @@ import (
 	sitemodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/site"
 	sitehandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/site/handler"
 	siteusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/site/usecase"
+	siteleadsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/siteleads"
+	siteleadshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/siteleads/handler"
+	siteleadsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/siteleads/usecase"
 	smsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/sms"
 	smshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/sms/handler"
 	smsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/sms/usecase"
@@ -1084,8 +1087,13 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	portalH := customerportalhandler.New(portalSvc, activityRec)
 	portalH.SetRateLimiter(customerportalmodule.Limiter{L: ratelimit.New(deps.Redis, cfg.App.Env)})
 	customerportalmodule.RegisterRoutes(mux, portalH, tokens, loader, tenantResolver)
+	siteLeadsSvc := siteleadsusecase.New(deps.Queries, cfg.Encryption.Key)
+	siteLeadsSvc.SetNotifier(notifyEngine)
+	siteleadsmodule.RegisterRoutes(mux, siteleadshandler.New(siteLeadsSvc, activityRec), tokens, loader, tenantResolver)
+	publicHandler := publicapihandler.NewPublic(publicAPISvc, ratelimit.New(deps.Redis, cfg.App.Env))
+	publicHandler.SetStorefront(deps.Queries, siteLeadsSvc)
 	publicapimodule.RegisterRoutes(mux,
-		publicapihandler.NewPublic(publicAPISvc, ratelimit.New(deps.Redis, cfg.App.Env)),
+		publicHandler,
 		publicapihandler.NewPanel(publicAPISvc, activityRec), tokens, loader, tenantResolver)
 	sitemodule.RegisterRoutes(mux, siteHandler,
 		tokens, loader, tenantResolver)

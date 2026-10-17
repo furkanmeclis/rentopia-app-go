@@ -33,6 +33,8 @@ import (
 	orgmodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/model"
 	orgrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/repository"
 	orgusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/usecase"
+	siteleadsmodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/siteleads/model"
+	siteleadsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/siteleads/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/jwt"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/rbac"
@@ -386,6 +388,12 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			"extra_uuid": ids["extra"], "branch_uuid": ids["branch"], "starts_at": day(4), "ends_at": day(5), "hold_minutes": 600, "note": m,
 		}), http.StatusCreated, "equipment hold"), "uuid")
 		// Campaigns (TEC-703): a coupon scoped to the product.
+		leadsSvc := siteleadsusecase.New(q, "isolation-test-private-salt")
+		if err := leadsSvc.Submit(ctx, o.org.ID, siteleadsmodel.Input{Kind: "contact", Name: m, Email: strings.ToLower(m) + "@leads.test", Message: m, ConsentKVKK: true}, "https://site.test", "192.0.2.1", "test"); err != nil {
+			t.Fatal(err)
+		}
+		leads := must(call(o, http.MethodGet, "/v1/tenant/site/leads", nil), http.StatusOK, "lead list")
+		ids["siteLead"] = leads.data.(map[string]any)["items"].([]any)[0].(map[string]any)["uuid"].(string)
 		ids["campaign"] = str(must(call(o, http.MethodPost, "/v1/tenant/campaigns", map[string]any{
 			"name": m + " Kampanya", "campaign_type": "coupon", "code": "ISO10", "discount_kind": "percent", "discount_value": "10",
 			"product_scope": "products", "rental_product_uuids": []string{ids["product"]}, "usage_limit": 5,
@@ -1396,6 +1404,7 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			"items": []map[string]any{{"rental_product_uuid": orgB.ids["product"], "price": "1"}}}, reject},
 		{"PUT /v1/tenant/extras/" + orgA.ids["extra"] + "/stock", map[string]any{
 			"items": []map[string]any{{"branch_uuid": orgB.ids["branch"], "quantity": 1}}}, reject},
+		{"PATCH /v1/tenant/campaigns/" + orgA.ids["campaign"] + "/storefront", map[string]any{"site_media_uuid": orgB.ids["siteMedia"]}, reject},
 		{"PATCH /v1/tenant/campaigns/" + orgA.ids["campaign"], map[string]any{"product_scope": "segments", "segment_uuids": []string{orgB.ids["segment"]}}, reject},
 		{"PATCH /v1/tenant/campaigns/" + orgA.ids["campaign"], map[string]any{"rental_product_uuids": []string{orgB.ids["product"]}}, reject},
 	}
@@ -1612,6 +1621,8 @@ func paramKey(prev, name string) string {
 		return "extra"
 	case "equipment-allocations/uuid":
 		return "equipmentAllocation"
+	case "leads/uuid":
+		return "siteLead"
 	case "campaigns/uuid":
 		return "campaign"
 	case "reservations/uuid":

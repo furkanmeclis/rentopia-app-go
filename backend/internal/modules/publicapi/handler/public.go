@@ -14,9 +14,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
 	portalmodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/customerportal/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/publicapi/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/publicapi/usecase"
+	leadsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/siteleads/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/httpkit"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/pkg/response"
 	"github.com/google/uuid"
@@ -43,8 +45,10 @@ type RateLimiter interface {
 
 // Public serves /v1/public/*.
 type Public struct {
-	svc     *usecase.Service
-	limiter RateLimiter
+	storefrontQ *db.Queries
+	leads       *leadsusecase.Service
+	svc         *usecase.Service
+	limiter     RateLimiter
 }
 
 // NewPublic builds the public handler. limiter may be nil.
@@ -466,6 +470,7 @@ func (h *Public) Mount(mux *http.ServeMux) {
 		return route{scope: scope, write: true, limit: limit, window: window, action: action}
 	}
 	paths := []string{
+		"/v1/public/campaigns", "/v1/public/campaigns/{uuid}", "/v1/public/site/leads",
 		"/v1/public/sessions", "/v1/public/locations", "/v1/public/vehicle-subgroups", "/v1/public/extras",
 		"/v1/public/availability", "/v1/public/quotes", "/v1/public/quotes/{uuid}", "/v1/public/reservations",
 		"/v1/public/reservations/{reference}", "/v1/public/reservations/{reference}/change-requests",
@@ -475,6 +480,9 @@ func (h *Public) Mount(mux *http.ServeMux) {
 		mux.HandleFunc("OPTIONS "+p, h.Preflight)
 	}
 	mux.HandleFunc("POST /v1/public/sessions", h.Session)
+	mux.HandleFunc("GET /v1/public/campaigns", h.guard(read(model.ScopeCatalogRead), h.Campaigns))
+	mux.HandleFunc("GET /v1/public/campaigns/{uuid}", h.guard(read(model.ScopeCatalogRead), h.Campaign))
+	mux.HandleFunc("POST /v1/public/site/leads", h.guard(route{scope: model.ScopeCatalogRead}, h.SubmitLead))
 	mux.HandleFunc("GET /v1/public/locations", h.guard(read(model.ScopeCatalogRead), h.Locations))
 	mux.HandleFunc("GET /v1/public/vehicle-subgroups", h.guard(read(model.ScopeCatalogRead), h.Subgroups))
 	mux.HandleFunc("GET /v1/public/extras", h.guard(read(model.ScopeCatalogRead), h.Extras))

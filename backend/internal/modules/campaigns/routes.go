@@ -66,6 +66,8 @@ func RegisterRoutes(
 	if engines.Bulk != nil {
 		route("POST /v1/tenant/campaigns/bulk", engines.Bulk, read)
 	}
+	route("GET /v1/tenant/campaigns/{uuid}/storefront", h.GetStorefront, read)
+	route("PATCH /v1/tenant/campaigns/{uuid}/storefront", h.PatchStorefront, read, write)
 	route("GET /v1/tenant/campaigns/{uuid}", h.Get, read)
 	route("PATCH /v1/tenant/campaigns/{uuid}", h.Patch, read, write)
 	route("DELETE /v1/tenant/campaigns/{uuid}", h.Delete, read, write)
