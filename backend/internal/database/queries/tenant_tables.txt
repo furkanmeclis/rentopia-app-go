@@ -122,3 +122,4 @@ notification_message_templates
 notification_dispatches
 notification_deliveries
 customer_push_subscriptions
+site_settings

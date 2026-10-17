@@ -34,6 +34,14 @@ type Config struct {
 	Tenancy    TenancyConfig
 	Payments   PaymentsConfig
 	SMS        SMSConfig
+	Site       SiteConfig
+}
+
+// SiteConfig is the branded site (TEC-729): every organization's site
+// answers on {subdomain}.{host of BaseURL}, with its scheme and port
+// ("https://rentopia.app" → https://acme.rentopia.app).
+type SiteConfig struct {
+	BaseURL string
 }
 
 // SMSConfig holds the SMS provider endpoints (TEC-734). Credentials are per
@@ -365,6 +373,9 @@ func Load() (Config, error) {
 			NetgsmLiveBaseURL:    getEnv("NETGSM_LIVE_BASE_URL", "https://api.netgsm.com.tr"),
 			NetgsmSandboxBaseURL: getEnv("NETGSM_SANDBOX_BASE_URL", ""),
 			LogProvider:          getBool("SMS_LOG_PROVIDER", false),
+		},
+		Site: SiteConfig{
+			BaseURL: getEnv("SITE_BASE_URL", "http://localhost:3100"),
 		},
 	}
 

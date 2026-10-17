@@ -226,6 +226,9 @@
   "labels.tenant.public_api.read": "View public API keys and webhooks",
   "labels.tenant.public_api.manage": "Manage public API keys and webhooks",
   "groups.tenant_public_api": "Public API",
+  "labels.tenant.site.read": "View branded site settings",
+  "labels.tenant.site.manage": "Manage the branded site (publishing, address, theme, content)",
+  "groups.tenant_site": "Branded site",
   "labels.tenant.notification_settings.read": "View notification settings and delivery history",
   "labels.tenant.notification_settings.write": "Manage notification rules and templates",
   "groups.tenant_notification_settings": "Notifications"

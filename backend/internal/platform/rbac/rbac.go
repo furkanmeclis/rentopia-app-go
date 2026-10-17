@@ -229,6 +229,13 @@ const (
 	PermTenantPublicAPIManage = "tenant.public_api.manage"
 )
 
+// Branded site (TEC-729): the site settings (theme, content, subdomain)
+// the `site` app renders per host.
+const (
+	PermTenantSiteRead   = "tenant.site.read"
+	PermTenantSiteManage = "tenant.site.manage"
+)
+
 // Notification engine (TEC-733): rules, templates, delivery history and
 // test sends.
 const (

@@ -172,6 +172,8 @@ export const Permission = {
   TenantSuppliersBulkArchive: "tenant.suppliers.bulk.archive",
   TenantPublicAPIRead: "tenant.public_api.read",
   TenantPublicAPIManage: "tenant.public_api.manage",
+  TenantSiteRead: "tenant.site.read",
+  TenantSiteManage: "tenant.site.manage",
   TenantNotificationSettingsRead: "tenant.notification_settings.read",
   TenantNotificationSettingsWrite: "tenant.notification_settings.write",
 } as const;

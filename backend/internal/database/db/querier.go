@@ -900,6 +900,14 @@ type Querier interface {
 	GetSMSMessageForSend(ctx context.Context, arg GetSMSMessageForSendParams) (GetSMSMessageForSendRow, error)
 	GetSecurityDepositRow(ctx context.Context, arg GetSecurityDepositRowParams) (GetSecurityDepositRowRow, error)
 	GetServicePoint(ctx context.Context, arg GetServicePointParams) (ServicePoint, error)
+	// The image keys of an enabled site by its public uuid (asset stream).
+	GetSiteAssetKeys(ctx context.Context, argUuid uuid.UUID) (GetSiteAssetKeysRow, error)
+	// The internal id of a key the site settings link to.
+	GetSitePublicAPIKeyID(ctx context.Context, arg GetSitePublicAPIKeyIDParams) (int64, error)
+	// Branded site (TEC-729, docs/design/branded-site.md). Every query names
+	// organization_id; the host lookups are global by design (the host
+	// resolves the organization), like the public API key lookup by hash.
+	GetSiteSettings(ctx context.Context, organizationID int64) (GetSiteSettingsRow, error)
 	GetStepupSettings(ctx context.Context) (StepupSetting, error)
 	GetStorageLinkBySlug(ctx context.Context, slug pgtype.Text) (StorageLink, error)
 	GetStorageLinkByTokenHash(ctx context.Context, tokenHash pgtype.Text) (StorageLink, error)
@@ -1124,6 +1132,9 @@ type Querier interface {
 	// organization-owned: every query filters by organization_id.
 	InsertSMSMessage(ctx context.Context, arg InsertSMSMessageParams) (InsertSMSMessageRow, error)
 	InsertSecurityDeposit(ctx context.Context, arg InsertSecurityDepositParams) (InsertSecurityDepositRow, error)
+	// First save of an organization's site. ON CONFLICT DO NOTHING: a
+	// concurrent first save returns no row and the caller answers a conflict.
+	InsertSiteSettings(ctx context.Context, arg InsertSiteSettingsParams) (SiteSetting, error)
 	InsertStorageActivity(ctx context.Context, arg InsertStorageActivityParams) (StorageActivity, error)
 	InsertStorageLink(ctx context.Context, arg InsertStorageLinkParams) (StorageLink, error)
 	InsertStorageShare(ctx context.Context, arg InsertStorageShareParams) (StorageShare, error)
@@ -2124,6 +2135,12 @@ type Querier interface {
 	ResolveResolutionTask(ctx context.Context, arg ResolveResolutionTaskParams) (int64, error)
 	// held → a closed state with the captured / returned totals.
 	ResolveSecurityDeposit(ctx context.Context, arg ResolveSecurityDepositParams) (int64, error)
+	// The enabled site of an organization (a verified custom domain names the
+	// organization; TEC-731).
+	ResolveSiteByOrganization(ctx context.Context, organizationID int64) (ResolveSiteByOrganizationRow, error)
+	// The enabled site of a subdomain with its organization and linked key
+	// (global lookup by the host; the organization comes from the row).
+	ResolveSiteBySubdomain(ctx context.Context, subdomain string) (ResolveSiteBySubdomainRow, error)
 	RevokeAllRefreshTokensForUser(ctx context.Context, userID int64) error
 	RevokeDocumentApprovalLink(ctx context.Context, arg RevokeDocumentApprovalLinkParams) (int64, error)
 	RevokeInvitation(ctx context.Context, arg RevokeInvitationParams) (OrganizationInvitation, error)
@@ -2240,6 +2257,8 @@ type Querier interface {
 	// Cost and note stay editable after departure (fuel, tolls, driver).
 	SetVehicleTransferCost(ctx context.Context, arg SetVehicleTransferCostParams) (int64, error)
 	SettleCollection(ctx context.Context, arg SettleCollectionParams) (int64, error)
+	// Whether another organization's site already uses the subdomain.
+	SiteSubdomainTaken(ctx context.Context, arg SiteSubdomainTakenParams) (bool, error)
 	SlugExists(ctx context.Context, slug string) (bool, error)
 	SoftDeleteAgreement(ctx context.Context, arg SoftDeleteAgreementParams) (int64, error)
 	SoftDeleteBranch(ctx context.Context, arg SoftDeleteBranchParams) (int64, error)
@@ -2371,6 +2390,9 @@ type Querier interface {
 	// report); clear_payload drops the sealed number and text once final.
 	UpdateSMSMessageStatus(ctx context.Context, arg UpdateSMSMessageStatusParams) error
 	UpdateServicePoint(ctx context.Context, arg UpdateServicePointParams) (ServicePoint, error)
+	// Saves the site when the caller saw the current version (optimistic
+	// concurrency); no row = the version moved.
+	UpdateSiteSettings(ctx context.Context, arg UpdateSiteSettingsParams) (SiteSetting, error)
 	UpdateStepupSettings(ctx context.Context, arg UpdateStepupSettingsParams) (StepupSetting, error)
 	UpdateSupplier(ctx context.Context, arg UpdateSupplierParams) (Supplier, error)
 	UpdateSupplierInvoiceDetails(ctx context.Context, arg UpdateSupplierInvoiceDetailsParams) (int64, error)

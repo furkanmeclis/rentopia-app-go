@@ -90,6 +90,36 @@ jobs:
         working-directory: .
         run: node scripts/check-i18n.mjs
 
+  # Branded site app (TEC-729): its own image (site/Dockerfile), built by
+  # Dokploy from compose.prod.yml like backend and frontend.
+  site:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.22.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: site/.nvmrc
+          cache: pnpm
+          cache-dependency-path: site/pnpm-lock.yaml
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Lint
+        run: pnpm lint
+      - name: Format
+        run: pnpm format:check
+      - name: Unit tests
+        run: pnpm test
+      - name: Build
+        run: pnpm build
+
   # Feature branch pushed and both test jobs green → open (or reuse) a PR into
   # main and turn on auto-merge. GitHub merges once main's required checks pass.
   # Opt out per push by putting [no-automerge] in the head commit message.
@@ -98,7 +128,7 @@ jobs:
   # main. Otherwise GITHUB_TOKEN, which needs Settings → Actions → General →
   # "Allow GitHub Actions to create and approve pull requests".
   auto-pr:
-    needs: [commit-policy, prod-env, backend, frontend]
+    needs: [commit-policy, prod-env, backend, frontend, site]
     if: >-
       github.event_name == 'push' &&
       github.ref_name != 'main' &&

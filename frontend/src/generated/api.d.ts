@@ -7690,6 +7690,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/public/site/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Resolve a host to its branded site
+         * @description Called by the `site` app (server side, cached per host) for every request host. The host is a subdomain of
+         *     the site base URL (`{subdomain}.rentopia.app`) or, with TEC-731, a verified custom domain. The answer carries
+         *     the theme / layout / content document, the image paths, the customer portal URL and the credential the site
+         *     books with: the **publishable key** and the **origin** to open booking sessions for
+         *     (`POST /v1/public/sessions` with that origin). Unknown hosts, disabled sites and unavailable organizations all
+         *     answer `404 SITE_NOT_FOUND`; another organization's site is never returned. `booking_enabled` is false (and the
+         *     key empty) while the web sales channel is off or the site key is revoked. Rate-limited per IP (600 / min).
+         */
+        get: operations["getPublicSiteResolve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/site/assets/{uuid}/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Image of a branded site
+         * @description Logo (falls back to the organization logo), favicon or cover image of an enabled site. Paths come from the resolve answer (`assets`), with `?v=` set to the site version.
+         */
+        get: operations["getPublicSiteAsset"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/site": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Branded site settings
+         * @description `tenant.site.read`. The organization's site: on / off, subdomain, default locale, the theme / layout / content / SEO / analytics document, its addresses, the linked publishable key and whether booking works. Before the first save the defaults are returned with `exists: false` and `version: 0`.
+         */
+        get: operations["getTenantSite"];
+        /**
+         * Save the branded site settings
+         * @description `tenant.site.manage`. Send the `version` you edited (0 for the first save); a newer save answers
+         *     `409 VERSION_CONFLICT`. Omitted fields keep their value; `config` replaces the whole document (empty values take
+         *     the defaults). Colors are `#rrggbb`, fonts / radius / mode / layout variants are enums, texts are plain text.
+         *     Switching the site on links a publishable `web` key (created when there is none, named "Markalı site"); the
+         *     key's allowed origins always contain the site's current addresses. A subdomain used by another organization
+         *     answers `409 SUBDOMAIN_TAKEN`; reserved names (`www`, `app`, `api`, …) answer `400`.
+         */
+        put: operations["putTenantSite"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/public/pay/{token}": {
         parameters: {
             query?: never;
@@ -28011,6 +28086,167 @@ export interface components {
             };
             meta: components["schemas"]["ResponseMeta"];
         };
+        /** @description Theme tokens of one color scheme (`#rrggbb`; empty = default). */
+        SiteColors: {
+            /** @example #1d4ed8 */
+            primary?: string;
+            primary_foreground?: string;
+            accent?: string;
+            background?: string;
+            foreground?: string;
+            muted?: string;
+            muted_foreground?: string;
+            border?: string;
+        };
+        SiteTheme: {
+            colors?: components["schemas"]["SiteColors"];
+            dark_colors?: components["schemas"]["SiteColors"];
+            /** @enum {string} */
+            font?: "inter" | "roboto" | "open_sans" | "montserrat" | "poppins" | "lato" | "nunito" | "system";
+            /** @enum {string} */
+            radius?: "none" | "sm" | "md" | "lg" | "full";
+            /** @enum {string} */
+            mode?: "light" | "dark" | "system";
+        };
+        SiteLayout: {
+            /** @enum {string} */
+            hero?: "centered" | "split" | "image" | "minimal";
+            /** @enum {string} */
+            cards?: "grid" | "list" | "compact";
+            /** @enum {string} */
+            footer?: "simple" | "columns" | "minimal";
+        };
+        /** @description Plain text of one locale (blank lines separate paragraphs; no HTML). */
+        SiteContent: {
+            hero_title?: string;
+            hero_subtitle?: string;
+            about?: string;
+            faq?: {
+                question: string;
+                answer: string;
+            }[];
+            terms?: string;
+            /** @description KVKK / privacy notice */
+            privacy?: string;
+        };
+        SiteSEO: {
+            title?: string;
+            description?: string;
+        };
+        /** @description The editable site document (TEC-730 builds the panel editor on it). */
+        SiteConfig: {
+            theme?: components["schemas"]["SiteTheme"];
+            layout?: components["schemas"]["SiteLayout"];
+            /** @description Keyed by locale (`tr`, `en`). */
+            content?: {
+                [key: string]: components["schemas"]["SiteContent"];
+            };
+            /** @description Keyed by locale (`tr`, `en`). */
+            seo?: {
+                [key: string]: components["schemas"]["SiteSEO"];
+            };
+            contact?: {
+                phone?: string;
+                email?: string;
+                address?: string;
+                whatsapp?: string;
+            };
+            analytics?: {
+                /** @example G-ABC1234 */
+                ga4_measurement_id?: string;
+            };
+        };
+        SiteHost: {
+            /** @example acme.rentopia.app */
+            host: string;
+            /** @example https://acme.rentopia.app */
+            origin: string;
+            /** @enum {string} */
+            kind: "subdomain" | "custom";
+        };
+        SiteSettings: {
+            exists: boolean;
+            enabled: boolean;
+            subdomain: string;
+            /** @enum {string} */
+            default_locale: "tr" | "en";
+            config: components["schemas"]["SiteConfig"];
+            version: number;
+            url: string;
+            hosts: components["schemas"]["SiteHost"][];
+            api_key: null | {
+                /** Format: uuid */
+                uuid: string;
+                /** @enum {string} */
+                status: "active" | "revoked";
+            };
+            assets: {
+                logo: boolean;
+                favicon: boolean;
+                cover: boolean;
+            };
+            booking_enabled: boolean;
+            /** Format: date-time */
+            updated_at: string | null;
+        };
+        EnvelopeSiteSettings: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["SiteSettings"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        SiteSaveInput: {
+            /** @description The version you edited (0 for the first save). */
+            version: number;
+            enabled?: boolean;
+            /** @example acme */
+            subdomain?: string;
+            /** @enum {string} */
+            default_locale?: "tr" | "en";
+            config?: components["schemas"]["SiteConfig"];
+        };
+        SiteResolved: {
+            /** Format: uuid */
+            site_uuid: string;
+            version: number;
+            host: string;
+            /** @enum {string} */
+            host_kind: "subdomain" | "custom";
+            /** @description Origin to open booking sessions for. */
+            origin: string;
+            /** @enum {string} */
+            default_locale: "tr" | "en";
+            locales: string[];
+            organization: {
+                /**
+                 * Format: uuid
+                 * @description Prefix of the public product image paths.
+                 */
+                uuid: string;
+                slug: string;
+                name: string;
+            };
+            /** @description `rtp_pk_…`; empty while booking is off. */
+            publishable_key: string;
+            booking_enabled: boolean;
+            config: components["schemas"]["SiteConfig"];
+            assets: {
+                /** @description API path of the image */
+                logo: string | null;
+                favicon: string | null;
+                cover: string | null;
+            };
+            /** @description Customer portal (reservation lookup). */
+            portal_url: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        EnvelopeSiteResolved: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["SiteResolved"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
         PublicAPIOverview: {
             channels: {
                 /** @enum {string} */
@@ -42553,6 +42789,120 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["TenantForbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getPublicSiteResolve: {
+        parameters: {
+            query: {
+                /** @description The request `Host` (port and case are ignored). */
+                host: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resolved site */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteResolved"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getPublicSiteAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                kind: "logo" | "favicon" | "cover";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Image */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/*": string;
+                };
+            };
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getTenantSite: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Site settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteSettings"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    putTenantSite: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteSaveInput"];
+            };
+        };
+        responses: {
+            /** @description Saved site settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteSettings"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            409: components["responses"]["Conflict"];
         };
     };
     getPublicPayLink: {

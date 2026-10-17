@@ -168,6 +168,9 @@ import (
 	settingsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/settings"
 	settingshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/settings/handler"
 	settingsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/settings/usecase"
+	sitemodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/site"
+	sitehandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/site/handler"
+	siteusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/site/usecase"
 	smsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/sms"
 	smshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/sms/handler"
 	smsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/sms/usecase"
@@ -663,6 +666,19 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	publicAPISvc.AllowPrivateWebhooks(!strings.EqualFold(strings.TrimSpace(cfg.App.Env), "production"))
 	publicAPISvc.SetImmediateDelivery(true)
 	reservationSvc.SetLifecycleListener(reservationusecase.Listeners{rentalsSvc, fieldTasksSvc, publicAPISvc})
+	// Branded site (TEC-729): per-organization site settings and the host
+	// resolution of the `site` app; the site books through publicAPISvc.
+	siteBaseURL := cfg.Site.BaseURL
+	if strings.TrimSpace(siteBaseURL) == "" {
+		siteBaseURL = siteusecase.DefaultBaseURL
+	}
+	siteBase, err := siteusecase.ParseBaseURL(siteBaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("httpserver: %w", err)
+	}
+	siteSvc := siteusecase.New(deps.Queries, publicAPISvc, orgSettingsSvc, siteBase, cfg.Auth.FrontendURL)
+	siteSvc.SetStorage(deps.Storage)
+	siteSvc.SetLogger(log)
 	// Rental group membership removals re-plan the commitments that relied
 	// on them (or are refused); moved reservations record plan_moved.
 	vehicleSvc.SetMembershipGuard(availabilitySvc)
@@ -1008,6 +1024,8 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	publicapimodule.RegisterRoutes(mux,
 		publicapihandler.NewPublic(publicAPISvc, ratelimit.New(deps.Redis, cfg.App.Env)),
 		publicapihandler.NewPanel(publicAPISvc, activityRec), tokens, loader, tenantResolver)
+	sitemodule.RegisterRoutes(mux, sitehandler.New(siteSvc, activityRec, ratelimit.New(deps.Redis, cfg.App.Env)),
+		tokens, loader, tenantResolver)
 	notifyH := notifyenginehandler.New(notifyEngine, cfg.VAPID.PublicKey)
 	notifyenginemodule.RegisterRoutes(mux, notifyH, tokens, loader, tenantResolver)
 	if tenantResolver != nil {

@@ -33,7 +33,7 @@ The organization always comes from the credential, never from the URL or the bod
 - **Secret key** (`rtp_sk_` + 256 random bits) is for server-to-server calls, with `Authorization: Bearer`. A request that carries a browser origin (`Origin`, or `X-Forwarded-Origin` from the BFF) is refused with `SECRET_KEY_IN_BROWSER`, so a leaked secret is not usable from a page.
 - **Publishable key** (`rtp_pk_`) is for the site and the widget. `POST /v1/public/sessions {publishable_key}` from one of the key's `allowed_origins` returns a **booking session token** (`rtp_ps_…`, 30 min). The token is stateless: a payload of organization, key, session id, origin and expiry, MACed with the field cipher's keyed hash (purpose `public_api.session`). A session only answers its own origin. Removing the origin from the key, or revoking the key, ends its sessions.
 - The publishable key is never a bearer, and the long-lived secret never reaches a browser.
-- Host-based resolution (a custom domain of the branded site) can be added in front of `MintSession` without changing the data endpoints (TEC-729).
+- The branded site ([branded-site.md](./branded-site.md)) resolves its organization from the request host and then uses this same session model: the host names a site, the site names its publishable key and origin, and the site server mints sessions for that origin.
 
 **Checks on every call**:
 1. the organization is active and inside its access window (`ORGANIZATION_UNAVAILABLE`);
@@ -152,6 +152,6 @@ RT-A01 seeds a key, a webhook and a delivery per organization and covers every `
 ## 8. Open items
 
 - **Packages.** The `public_api` / `widget` / `site` entitlements arrive with TEC-674. Until then the sales channel switch is the gate (`checkChannel`).
-- **Host-based resolution** for the branded site's custom domains (TEC-729).
+- **Host-based resolution**: done by the branded site (TEC-729, [branded-site.md](./branded-site.md)); verified custom domains are TEC-731.
 - **Customer matching.** Public bookings create a new customer card each time; merging duplicates is a staff task.
 - **Webhook scope.** Webhooks cover reservations made through the public API only. Panel and marketplace reservations could be added as an endpoint option.

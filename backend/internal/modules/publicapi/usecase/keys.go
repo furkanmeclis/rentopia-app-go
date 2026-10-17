@@ -230,7 +230,7 @@ func validateKey(in model.KeyInput, current *keyFields) (keyFields, error) {
 
 // NormalizeOrigin returns the canonical form of a browser origin
 // ("https://www.example.com", "http://localhost:3000"): https anywhere,
-// http only for localhost / 127.0.0.1, no path, query or credentials.
+// http only for localhost / *.localhost / 127.0.0.1, no path, query or credentials.
 func NormalizeOrigin(raw string) (string, bool) {
 	raw = strings.TrimSpace(raw)
 	u, err := url.Parse(raw)
@@ -242,7 +242,9 @@ func NormalizeOrigin(raw string) (string, bool) {
 	switch scheme {
 	case "https":
 	case "http":
-		if host != "localhost" && host != "127.0.0.1" {
+		// *.localhost resolves to loopback (RFC 6761): the branded site's
+		// development subdomains (acme.localhost:3100).
+		if host != "localhost" && host != "127.0.0.1" && !strings.HasSuffix(host, ".localhost") {
 			return "", false
 		}
 	default:
