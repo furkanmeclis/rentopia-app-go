@@ -16,7 +16,7 @@
 #   rename with  @rename OLD NEW <version>,  retire with  @remove KEY <version>.
 #   Never change the rule of an existing secret: running installs keep theirs anyway.
 
-@version 5
+@version 6
 
 # --- Identity / Docker ---
 NAME_PREFIX | const:rentopia
@@ -97,3 +97,15 @@ SMS_LOG_PROVIDER | const:false
 WUZAPI_IMAGE | const:asternic/wuzapi:latest
 WUZAPI_ADMIN_TOKEN | secret:hex:32
 WUZAPI_ENCRYPTION_KEY | secret:alnum:32
+
+# --- Verified custom site domains (TEC-731) ---
+SITE_DOMAIN_TARGET_HOST | empty
+SITE_DOMAIN_TARGET_IPS | empty
+SITE_DOMAIN_PROVISIONER | const:manual
+SITE_DOMAIN_TRAEFIK_DIR | const:/app/site-domains
+DOKPLOY_URL | empty
+DOKPLOY_API_KEY | empty
+DOKPLOY_COMPOSE_ID | empty
+DOKPLOY_SITE_SERVICE | const:site
+DOKPLOY_SITE_PORT | const:3000
+APP_NETWORK_NAME | empty

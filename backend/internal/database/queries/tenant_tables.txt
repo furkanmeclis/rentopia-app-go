@@ -132,3 +132,5 @@ channel_messages
 channel_sync_runs
 site_settings
 site_setting_versions
+
+site_domains

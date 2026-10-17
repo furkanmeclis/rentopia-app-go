@@ -68,6 +68,16 @@ x-backend-environment: &backend-environment
   # Branded site (TEC-729): organizations' sites answer on
   # {subdomain}.{host of SITE_BASE_URL}. Defaults to AUTH_URL.
   SITE_BASE_URL: ${SITE_BASE_URL:-${AUTH_URL:?AUTH_URL is required}}
+  SITE_DOMAIN_TARGET_HOST: ${SITE_DOMAIN_TARGET_HOST:-}
+  SITE_DOMAIN_TARGET_IPS: ${SITE_DOMAIN_TARGET_IPS:-}
+  SITE_DOMAIN_PROVISIONER: ${SITE_DOMAIN_PROVISIONER:-manual}
+  SITE_DOMAIN_TRAEFIK_DIR: ${SITE_DOMAIN_TRAEFIK_DIR:-/app/site-domains}
+  DOKPLOY_URL: ${DOKPLOY_URL:-}
+  DOKPLOY_API_KEY: ${DOKPLOY_API_KEY:-}
+  DOKPLOY_COMPOSE_ID: ${DOKPLOY_COMPOSE_ID:-}
+  DOKPLOY_SITE_SERVICE: ${DOKPLOY_SITE_SERVICE:-site}
+  DOKPLOY_SITE_PORT: ${DOKPLOY_SITE_PORT:-3000}
+  APP_NETWORK_NAME: ${APP_NETWORK_NAME:-${NAME_PREFIX:?NAME_PREFIX is required}-app}
   MAIL_FROM: ${MAIL_FROM:-noreply@localhost}
   MAIL_FROM_NAME: ${MAIL_FROM_NAME:-App}
   MAIL_DRIVER: ${MAIL_DRIVER:-smtp}
@@ -319,6 +329,8 @@ services:
       <<: *backend-environment
       APP_ROLE: worker
       AUTO_MIGRATE: "false"
+    volumes:
+      - site_domains:/app/site-domains
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -411,6 +423,8 @@ services:
       - dokploy-network
 
 volumes:
+  site_domains:
+    name: ${NAME_PREFIX:?NAME_PREFIX is required}-prod-site-domains
   postgres_data:
     name: ${POSTGRES_VOLUME_NAME:-${NAME_PREFIX:?NAME_PREFIX is required}-prod-postgres}
   redis_data:

@@ -7869,6 +7869,154 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenant/site/domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List custom site domains
+         * @description tenant.site.read. Includes DNS records and TLS instructions.
+         */
+        get: operations["getTenantSiteDomains"];
+        put?: never;
+        /**
+         * Register a custom site domain
+         * @description tenant.site.manage. At most three per organization; normalized host is globally unique. DOMAIN_LIMIT or DOMAIN_TAKEN is a conflict. Verification is asynchronous.
+         */
+        post: operations["postTenantSiteDomain"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/site/domains/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a custom site domain
+         * @description tenant.site.read. Another organization domain answers 404.
+         */
+        get: operations["getTenantSiteDomain"];
+        put?: never;
+        post?: never;
+        /**
+         * Remove a custom site domain
+         * @description tenant.site.manage. Disables resolution immediately and revokes origins; routing cleanup is retried asynchronously before physical deletion.
+         */
+        delete: operations["deleteTenantSiteDomain"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/site/domains/{uuid}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check domain DNS now
+         * @description tenant.site.manage. Enqueues an immediate ownership and target DNS check. Another organization domain answers 404.
+         */
+        post: operations["postTenantSiteDomainVerify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/site-domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List platform custom domains
+         * @description platform.site_domains.read. Domains across organizations, newest first.
+         */
+        get: operations["getPlatformSiteDomains"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/site-domains/{uuid}/recheck": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recheck custom domain DNS
+         * @description platform.site_domains.manage. Enqueues verification immediately.
+         */
+        post: operations["postPlatformSiteDomainRecheck"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/site-domains/{uuid}/mark-tls-active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark manual TLS active
+         * @description platform.site_domains.manage. Only verified domains using manual mode; otherwise DOMAIN_TLS_MODE conflict.
+         */
+        post: operations["postPlatformSiteDomainTLSActive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/internal/site/domain-allowed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Authorize a verified custom domain
+         * @description Internal certificate authorization. Requires X-Auth-Adapter-Key equal to AUTH_ADAPTER_SECRET; an empty configured secret denies all calls. Only verified custom hosts return 200. Responses are never cached.
+         */
+        get: operations["getInternalSiteDomainAllowed"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenant/site": {
         parameters: {
             query?: never;
@@ -29664,6 +29812,56 @@ export interface components {
             /** @enum {string} */
             kind: "subdomain" | "custom";
         };
+        SiteDomain: {
+            /** Format: uuid */
+            uuid: string;
+            /** Format: int64 */
+            organization_id: number;
+            host: string;
+            /** @enum {string} */
+            status: "pending" | "verified" | "failed" | "disabled";
+            verification_token: string;
+            /** Format: date-time */
+            last_checked_at: string | null;
+            /** Format: date-time */
+            verified_at: string | null;
+            last_error: string;
+            /** @enum {string} */
+            tls_status: "pending" | "provisioning" | "active" | "failed" | "manual";
+            /** @enum {string} */
+            provisioner: "manual" | "dokploy" | "traefik_file";
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            tls_instructions?: string;
+            dns_records: {
+                /** @enum {string} */
+                type: "TXT" | "CNAME" | "A" | "AAAA";
+                name: string;
+                value: string;
+            }[];
+        };
+        EnvelopeSiteDomain: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["SiteDomain"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeSiteDomains: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["SiteDomain"][];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeSiteDomainRemoved: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                removed: boolean;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
         SiteSettings: {
             exists: boolean;
             enabled: boolean;
@@ -44813,6 +45011,278 @@ export interface operations {
             };
             404: components["responses"]["NotFound"];
             429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getTenantSiteDomains: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Domain operation result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteDomains"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    postTenantSiteDomain: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    host: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Domain operation result */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteDomain"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantSiteDomain: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Domain operation result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteDomain"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteTenantSiteDomain: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Domain operation result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteDomainRemoved"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantSiteDomainVerify: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Domain operation result */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteDomain"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getPlatformSiteDomains: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Domain operation result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteDomains"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    postPlatformSiteDomainRecheck: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Domain operation result */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteDomain"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postPlatformSiteDomainTLSActive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Domain operation result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteDomain"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getInternalSiteDomainAllowed: {
+        parameters: {
+            query: {
+                host: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Verified host */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: {
+                            /** @enum {boolean} */
+                            allowed: true;
+                        };
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
         };
     };
     getTenantSite: {

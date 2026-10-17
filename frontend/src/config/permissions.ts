@@ -47,6 +47,8 @@ export const Permission = {
   PlatformAuthSettingsRead: "platform.auth.settings.read",
   PlatformAuthSettingsWrite: "platform.auth.settings.write",
   PlatformHealthRead: "platform.health.read",
+  PlatformSiteDomainsRead: "platform.site_domains.read",
+  PlatformSiteDomainsManage: "platform.site_domains.manage",
 
   AuthSession: "auth.session",
 
@@ -225,6 +227,10 @@ export const permissions = {
   /** Usage and connection health dashboard + failed-work alerts (TEC-739). */
   platformHealth: {
     read: Permission.PlatformHealthRead,
+  },
+  siteDomains: {
+    read: Permission.PlatformSiteDomainsRead,
+    manage: Permission.PlatformSiteDomainsManage,
   },
   notifications: {
     read: Permission.NotificationsRead,

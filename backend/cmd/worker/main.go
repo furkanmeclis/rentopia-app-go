@@ -76,6 +76,8 @@ import (
 	rentalusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/rentals/usecase"
 	reservationadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/adapters"
 	reservationusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/usecase"
+	sitemodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/site"
+	siteusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/site/usecase"
 	smsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/sms"
 	smsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/sms/usecase"
 	supplieradapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/suppliers/adapters"
@@ -469,6 +471,21 @@ func main() {
 	// Deliveries run inline here; mobile pushes go through the queue (retries).
 	queueClient := queue.NewClient(cfg.Redis)
 	defer func() { _ = queueClient.Close() }()
+	siteBaseURL := cfg.Site.BaseURL
+	if siteBaseURL == "" {
+		siteBaseURL = siteusecase.DefaultBaseURL
+	}
+	siteBase, err := siteusecase.ParseBaseURL(siteBaseURL)
+	if err != nil {
+		log.Error("site_base_invalid", "error", err)
+		exit(1)
+	}
+	siteSvc := siteusecase.New(queries, publicAPISvc, nil, siteBase, cfg.Auth.FrontendURL)
+	siteDomains, err := sitemodule.ConfigureDomains(queries, siteSvc, cfg.Site, queueClient.EnqueueSiteDomains)
+	if err != nil {
+		log.Error("site_domains_init_failed", "error", err)
+		exit(1)
+	}
 	notifSvc.WithPushQueue(queueClient)
 	integrationRunner.SetDispatcher(queue.IntegrationDispatcher{Client: queueClient})
 	persist := logging.Attach(log, logsSvc)
@@ -498,6 +515,10 @@ func main() {
 	// sync / delivery health register a healthcheck.Source on
 	// healthRegistry here (and in the API's composition root).
 	healthRegistry := platformhealthmodule.NewRegistry(queries)
+	if err := healthRegistry.Register(siteDomains); err != nil {
+		log.Error("domain_health_init_failed", "error", err)
+		exit(1)
+	}
 	// Channel manager sync health (TEC-736): failed syncs, expired pushes,
 	// the error queue.
 	if err := healthRegistry.Register(channelsmodule.NewHealthSource(queries)); err != nil {
@@ -580,6 +601,7 @@ func main() {
 		WithAgreementPeriods(financeSvc.AccruePeriods).
 		WithPlatformHealthAlerts(platformHealthSvc.RunAlertsCount).
 		WithPublicWebhooks(publicAPISvc.DeliverDue).
+		WithSiteDomains(siteDomains.Sweep).
 		WithNotifyEngine(notifyEngine.Sweep).
 		WithWhatsApp(whatsappSvc.Watch).
 		WithDocumentPDF(contractsSvc.RenderPDF).
@@ -624,6 +646,10 @@ func main() {
 	}
 	if err := queue.RegisterPlatformHealthAlertsSchedule(scheduler); err != nil {
 		log.Error("platform_health_alerts_scheduler_failed", "error", err)
+		exit(1)
+	}
+	if err := queue.RegisterSiteDomainsSchedule(scheduler); err != nil {
+		log.Error("site_domains_scheduler_failed", "error", err)
 		exit(1)
 	}
 	if err := queue.RegisterPublicWebhooksSchedule(scheduler); err != nil {

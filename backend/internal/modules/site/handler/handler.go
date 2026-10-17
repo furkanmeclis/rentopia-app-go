@@ -43,9 +43,11 @@ type RateLimiter interface {
 
 // Handler serves the site routes.
 type Handler struct {
-	svc      *usecase.Service
-	activity *activity.Recorder
-	limiter  RateLimiter
+	domains      *usecase.Domains
+	domainSecret string
+	svc          *usecase.Service
+	activity     *activity.Recorder
+	limiter      RateLimiter
 }
 
 // New builds the handler. rec and limiter may be nil.

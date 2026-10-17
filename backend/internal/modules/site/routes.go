@@ -33,13 +33,22 @@ func RegisterRoutes(mux *http.ServeMux, h *handler.Handler, tokens *jwt.Manager,
 	mux.HandleFunc("GET /v1/public/site/resolve", h.Resolve)
 	mux.HandleFunc("GET /v1/public/site/assets/{uuid}/{kind}", h.Asset)
 
+	mux.HandleFunc("GET /v1/internal/site/domain-allowed", h.DomainAllowed)
 	authn := middleware.Authenticate(tokens, loader)
+	mux.Handle("GET /v1/platform/site-domains", middleware.Chain(http.HandlerFunc(h.PlatformDomains), authn, middleware.RequirePermission(rbac.PermPlatformSiteDomainsRead)))
+	mux.Handle("POST /v1/platform/site-domains/{uuid}/recheck", middleware.Chain(http.HandlerFunc(h.RecheckDomain), authn, middleware.RequirePermission(rbac.PermPlatformSiteDomainsManage)))
+	mux.Handle("POST /v1/platform/site-domains/{uuid}/mark-tls-active", middleware.Chain(http.HandlerFunc(h.MarkDomainTLSActive), authn, middleware.RequirePermission(rbac.PermPlatformSiteDomainsManage)))
 	org := middleware.RequireOrganization(resolver)
 	read := middleware.RequireTenantPermission(rbac.PermTenantSiteRead)
 	manage := middleware.RequireTenantPermission(rbac.PermTenantSiteManage)
 	route := func(pattern string, fn http.HandlerFunc, guards ...func(http.Handler) http.Handler) {
 		mux.Handle(pattern, middleware.Chain(fn, append([]func(http.Handler) http.Handler{authn, org}, guards...)...))
 	}
+	route("GET /v1/tenant/site/domains", h.ListDomains, read)
+	route("POST /v1/tenant/site/domains", h.CreateDomain, manage)
+	route("GET /v1/tenant/site/domains/{uuid}", h.GetDomain, read)
+	route("DELETE /v1/tenant/site/domains/{uuid}", h.DeleteDomain, manage)
+	route("POST /v1/tenant/site/domains/{uuid}/verify", h.VerifyDomain, manage)
 	route("GET /v1/tenant/site", h.Get, read)
 	route("PUT /v1/tenant/site", h.Put, read, manage)
 	route("POST /v1/tenant/site/publish", h.Publish, read, manage)

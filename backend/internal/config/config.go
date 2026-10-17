@@ -42,7 +42,17 @@ type Config struct {
 // answers on {subdomain}.{host of BaseURL}, with its scheme and port
 // ("https://rentopia.app" → https://acme.rentopia.app).
 type SiteConfig struct {
-	BaseURL string
+	BaseURL            string
+	DomainTargetHost   string
+	DomainTargetIPs    string
+	DomainProvisioner  string
+	DomainTraefikDir   string
+	DokployURL         string
+	DokployAPIKey      string
+	DokployComposeID   string
+	DokploySiteService string
+	DokploySitePort    int
+	AppNetworkName     string
 }
 
 // WhatsAppConfig locates the wuzapi WhatsApp gateway (TEC-735). It runs on
@@ -392,7 +402,17 @@ func Load() (Config, error) {
 			WebhookBaseURL:   getEnv("WUZAPI_WEBHOOK_BASE_URL", ""),
 		},
 		Site: SiteConfig{
-			BaseURL: getEnv("SITE_BASE_URL", "http://localhost:3100"),
+			BaseURL:            getEnv("SITE_BASE_URL", "http://localhost:3100"),
+			DomainTargetHost:   getEnv("SITE_DOMAIN_TARGET_HOST", ""),
+			DomainTargetIPs:    getEnv("SITE_DOMAIN_TARGET_IPS", ""),
+			DomainProvisioner:  getEnv("SITE_DOMAIN_PROVISIONER", "manual"),
+			DomainTraefikDir:   getEnv("SITE_DOMAIN_TRAEFIK_DIR", ""),
+			DokployURL:         getEnv("DOKPLOY_URL", ""),
+			DokployAPIKey:      getEnv("DOKPLOY_API_KEY", ""),
+			DokployComposeID:   getEnv("DOKPLOY_COMPOSE_ID", ""),
+			DokploySiteService: getEnv("DOKPLOY_SITE_SERVICE", "site"),
+			DokploySitePort:    getInt("DOKPLOY_SITE_PORT", 3000),
+			AppNetworkName:     getEnv("APP_NETWORK_NAME", ""),
 		},
 	}
 
