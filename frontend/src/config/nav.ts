@@ -18,6 +18,7 @@ import {
   CarFront,
   ClipboardCheck,
   ClipboardList,
+  Inbox,
   ScanSearch,
   Smartphone,
   ChartColumn,
@@ -76,6 +77,7 @@ import { KabisNavAdornment } from "@/features/kabis/nav";
 import { ChannelsNavAdornment } from "@/features/channels/nav";
 import { PayablesNavAdornment } from "@/features/suppliers/nav";
 import { MyFieldTasksNavAdornment } from "@/features/field-tasks/nav";
+import { SiteLeadsNavAdornment } from "@/features/site-leads/nav";
 import {
   ApprovalsNavAdornment,
   ResolutionTasksNavAdornment,
@@ -824,6 +826,14 @@ export function tenantNav(slug: string): NavCatalog {
             href: routes.tenant.settings.site(slug),
             icon: Globe,
             permission: permissions.tenant.site.read,
+          },
+          {
+            id: "settings-site-leads",
+            titleKey: "layout.nav_tenant_settings_site_leads",
+            href: routes.tenant.settings.siteLeads(slug),
+            icon: Inbox,
+            permission: permissions.tenant.siteLeads.read,
+            Adornment: SiteLeadsNavAdornment,
           },
           {
             id: "settings-invoices",

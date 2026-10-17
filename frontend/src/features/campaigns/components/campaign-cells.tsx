@@ -2,6 +2,7 @@
 
 import { StatusChip } from "@/components/common/status-chip";
 import { STATE_LABEL_KEYS, STATE_TONES } from "@/features/campaigns/constants";
+import { useCampaignStorefront } from "@/features/campaigns/hooks/use-campaigns";
 import type { Campaign, CampaignState } from "@/features/campaigns/types";
 import { moneyText, ruleValueText } from "@/features/pricing/lib/format";
 import { useLocale } from "@/providers/locale-provider";
@@ -44,4 +45,17 @@ export function UsageText({ campaign }: { campaign: Campaign }) {
       {campaign.usage_limit != null ? ` / ${campaign.usage_limit}` : ""}
     </span>
   );
+}
+
+/**
+ * "Sitede" badge of a list row. The list answer has no storefront fields,
+ * so each visible row reads its card (cached; shared with the detail page).
+ */
+export function CampaignSiteCell({ uuid }: { uuid: string }) {
+  const { t } = useLocale();
+  const query = useCampaignStorefront(uuid);
+  if (query.isLoading) return <span className="text-muted-foreground">…</span>;
+  if (!query.data?.show_on_site)
+    return <span className="text-muted-foreground">—</span>;
+  return <StatusChip label={t("campaigns.storefront.badge")} tone="success" />;
 }

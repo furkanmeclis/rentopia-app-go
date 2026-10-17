@@ -547,11 +547,14 @@ export function MediaField({
   label,
   description,
   disabled,
+  canUpload = true,
 }: {
   name: string;
   label: string;
   description?: string;
   disabled?: boolean;
+  /** Offer uploading in the picker (needs `tenant.site.manage`). */
+  canUpload?: boolean;
 }) {
   const { t, locale } = useLocale();
   const {
@@ -629,6 +632,7 @@ export function MediaField({
                 onOpenChange={setOpen}
                 selected={uuid}
                 onSelect={(id) => field.onChange(id)}
+                canUpload={canUpload}
               />
             </div>
           );

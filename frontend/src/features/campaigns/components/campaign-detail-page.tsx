@@ -30,6 +30,7 @@ import {
   UsageText,
 } from "@/features/campaigns/components/campaign-cells";
 import { CampaignDrawer } from "@/features/campaigns/components/campaign-drawer";
+import { CampaignStorefrontCard } from "@/features/campaigns/components/campaign-storefront-card";
 import {
   REDEMPTION_STATUSES,
   REDEMPTION_STATUS_LABEL_KEYS,
@@ -214,7 +215,7 @@ function CampaignActivity({ uuid }: { uuid: string }) {
   return <ActivityFeedCard query={query} onLoadMore={more} />;
 }
 
-/** Campaign show page: summary, redemptions, activity. */
+/** Campaign show page: summary, website card, redemptions, activity. */
 export function CampaignDetailPage({ uuid }: { uuid: string }) {
   const { t, locale } = useLocale();
   const { slug } = useTenant();
@@ -411,6 +412,7 @@ export function CampaignDetailPage({ uuid }: { uuid: string }) {
               </p>
             ) : null}
           </EntitySectionCard>
+          <CampaignStorefrontCard campaign={campaign} />
           <Tabs defaultValue="redemptions" className="space-y-4">
             <TabsList className="flex h-auto flex-wrap">
               <TabsTrigger value="redemptions">
