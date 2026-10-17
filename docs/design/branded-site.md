@@ -12,7 +12,8 @@ Status: **implemented** (M5: TEC-729 site, TEC-730 panel editor with draft / pub
 | Panel editor (Ayarlar → Markalı site) | `frontend/src/features/site`, route `/t/{slug}/settings/site` |
 | Preview in the site | `site/src/lib/preview.ts`, `site/src/proxy.ts`, `site/src/app/preview/exit` |
 | Migrations | `000122_branded_site`, `000123_seed_branded_site_rbac`, `000124_site_publish`, `000125_catalog_show_online`, `000127_site_config_v2`, `000128_site_media` |
-| Tests | `backend/internal/modules/site/{site,site_publish}_test.go`, `site/src/lib/{theme,preview}.test.ts` |
+| Template renderers (Technowide, TEC-782) | `site/src/themes/{index.tsx,registry.ts}`, `site/src/themes/technowide/*` (§11) |
+| Tests | `backend/internal/modules/site/{site,site_publish}_test.go`, `site/src/lib/{theme,preview,sections,links}.test.ts` |
 
 ## 1. Request flow
 
@@ -106,7 +107,7 @@ Two kinds of fields (TEC-730):
 `config` (v2 registry, content and media additions are detailed in §10):
 - `theme`:
   - `colors` / `dark_colors` (`primary`, `primary_foreground`, `accent`, `background`, `foreground`, `muted`, `muted_foreground`, `border`; `#rrggbb`, empty = default);
-  - `font` (legacy fonts plus the v2 union in §10); the current site self-hosts its original font set with `next/font`. Additional theme rendering is owned by the template integration;
+  - `font` (legacy fonts plus the v2 union in §10); the site self-hosts every font with `next/font` (§11.4);
   - `heading_font` (body font IDs plus `theme|georgia`);
   - `radius` (`soft|sharp|xs|sm|md|lg|xl|pill`; legacy `none|full` normalize to `sharp|pill`);
   - `mode` (`light|dark|system`).
@@ -117,7 +118,7 @@ Two kinds of fields (TEC-730):
 - `analytics`: `ga4_measurement_id` (`G-XXXX`). The site loads gtag only for a valid ID, with `anonymize_ip` (never in a preview). A cookie-consent banner is still open (§7).
 - `widget` (TEC-732, enforced after publish): `allowed_domains` (≤ 20 origins, `https://host[:port]`, `http` only for localhost; normalized and de-duplicated) and `initial_filters {pickup_branch_uuid, rental_days (0-90)}`.
 
-Theme tokens become CSS variables in a `<style>` in the SSR head (`site/src/lib/theme.ts`). The site validates them again, so only hex colors and known enum values reach CSS. The Tailwind theme maps these variables, and the shadcn-style components in `site/src/components/ui` read them.
+Theme tokens become CSS variables in a `<style>` in the SSR head (`site/src/lib/theme.ts`). The site validates them again, so only hex colors and known enum values reach CSS. The active template's stylesheet (§11) reads only these variables; the UI primitives in `site/src/components/ui` emit the semantic `rt-*` classes each theme draws.
 
 ### 3.1 Draft, publish and history (`site_setting_versions`, 000124)
 
@@ -183,13 +184,15 @@ Permissions (000123): `tenant.site.read` and `tenant.site.manage`, granted to ow
 
 | Path | What |
 |------|------|
-| `/` | Hero variant + search form. A GET form with native date and time controls (works without JavaScript, platform pickers on phones). Pick-up / return location: branch or online-selectable non-delivery point. |
+| `/` | The active template's enabled sections in order (§11.2). The search is a GET form with native date and time controls (works without JavaScript, platform pickers on phones). Pick-up / return location: branch or online-selectable non-delivery point. |
 | `/search` | `GET /v1/public/availability` + `vehicle-subgroups`. Cards follow the `cards` variant: "X veya benzeri", conditions, total, daily average, prepayment, "son N araç". Selecting a car runs `POST /v1/public/quotes` and goes to the extras step. |
 | `/book/{quote}` | Extras (`GET /v1/public/extras`). Prices always come from a new quote that includes the chosen extras. |
 | `/book/{quote}/details` | Quote summary; renter (individual / corporate), driver (licence data), note, terms and KVKK consent. Then `POST /v1/public/reservations` with an `Idempotency-Key` per form render. `QUOTE_PRICE_CHANGED` → the replacement quote with a notice; `DRIVER_NOT_ELIGIBLE`, `CAPACITY_UNAVAILABLE` and field errors are shown inline. |
 | `/reservation/{reference}` | Status, price summary and cancellation terms. The access token from booking is kept in an httpOnly cookie (`rtp_rt`, per origin, 5 references, 90 days). **Pay**: `POST …/payment-links` → redirect to the hosted pay page (iyzico 3DS), then the request / confirmation status. |
 | `/lookup` | The customer portal (`portal_url` = `{PUBLIC_FRONTEND_URL}/r/{slug}`, M3) and this device's bookings. |
-| `/branches`, `/about`, `/faq`, `/contact`, `/terms`, `/privacy` | From `GET /v1/public/locations` and the settings document. |
+| `/vehicles` | The live fleet (`GET /v1/public/vehicle-subgroups`), filtered by segment through links (`?segment=`). |
+| `/branches`, `/branches/{uuid}` | Offices from `GET /v1/public/locations` (`?city=` filter links); the detail is 404 for unknown or hidden offices. |
+| `/about`, `/faq`, `/contact`, `/terms`, `/privacy` | From the settings document. Contact shows phone, WhatsApp, e-mail and address; the contact form arrives with TEC-786. |
 
 Common to all pages:
 - **Locales**: tr and en. `site/src/messages/en.ts` is typed `Record<MessageKey, string>`, so a missing English key fails typecheck.
@@ -197,7 +200,7 @@ Common to all pages:
 - **Errors**: an unreachable API shows a neutral 503 page.
 - **Headers**: frames denied (`frame-ancestors 'none'` + `X-Frame-Options: DENY`; set by the proxy for pages and by `next.config.ts` for `_next/`, `media/`, `health`), except a preview page (§8), and `form-action` limited to self and https (so the pay redirect works).
 
-**UI note**: `frontend/`'s shadcn-only rule is about the panel. The site is a separate public app. It uses shadcn-styled primitives (`components/ui`) but **native** `<select>` and date inputs, so that every form works without JavaScript and phones show their own pickers. The embeddable widget (TEC-732) can reuse `lib/`, `components/ui` and the booking pages.
+**UI note**: `frontend/`'s shadcn-only rule is about the panel. The site is a separate public app. Its primitives (`components/ui`) use **native** `<select>` and date inputs, so that every form works without JavaScript and phones show their own pickers; their look comes from the active template's stylesheet (§11). The embeddable widget (TEC-732) reuses `lib/`, `components/ui` and the booking pages.
 
 ## 5. Configuration and running
 
@@ -217,7 +220,9 @@ Local: `make site-dev` serves the site on `http://{subdomain}.localhost:3100`; b
 | `TestResolveIsolation` | two organizations on one base domain get their own theme, content, key and origin, and neither answer names the other; unknown / nested / bare / suffix / malformed hosts → 404 `SITE_NOT_FOUND`; the resolved key mints a session only for its origin; that session works for its own host's data and not from the other host; web channel off → booking off; disabled site and suspended organization → 404 |
 | `TestCustomDomainHookAndAssets` | a custom domain resolves through the hook and is added to the key's origins; an unverified domain → 404; logo falls back to the organization logo and streams; unknown kind / site → 404 |
 | `TestHostHelpers` | dev origins (`http://acme.localhost:3100`) are valid public API origins; host normalization; slug → subdomain |
-| `site/src/lib/theme.test.ts` | the theme CSS drops anything that is not a hex color or a known value; GA ID; same-site redirects only; session cookies bound to their origin |
+| `site/src/lib/theme.test.ts` | the theme CSS drops anything that is not a hex color or a known value; corner styles → card / control / image radii (`soft` keeps the theme's own); heading font (follow body, chosen font, Georgia); dark tokens; GA ID; same-site redirects only; session cookies bound to their origin |
+| `site/src/lib/sections.test.ts` | template registry fallback to Technowide; home sections keep the API order, hero first, search inside the hero only right after it; `needs_service`, `app_promo`, disabled, unknown, unsupported and duplicate sections never render; legacy answers get defaults |
+| `site/src/lib/links.test.ts` | menu / CTA hrefs (same-site paths or https only), localized menu labels and fallback, social links on their network's host only, tel / WhatsApp / mailto links, library media URLs bound to the site |
 
 RT-A01 covers `GET/PUT /v1/tenant/site` (the PUT is on the allowlist: it acts on the caller's own document).
 
@@ -225,7 +230,7 @@ RT-A01 covers `GET/PUT /v1/tenant/site` (the PUT is on the allowlist: it acts on
 
 - **TEC-731**: the `CustomDomains` implementation (`site_domains`, DNS verification, TLS on the site service).
 - Widget loader and panel embed-code generation are delivered separately; the implemented server contract is in §9.
-- A cookie-consent banner before analytics; a sitemap; branch detail pages.
+- A cookie-consent banner before analytics; a sitemap.
 - **Time zone**: organizations sell in Turkey, so the site uses Europe/Istanbul (+03:00) for search times.
 
 ## 8. Panel editor and preview (TEC-730)
@@ -451,3 +456,117 @@ failed quota/database inserts remove the staged object. A failed object deletion
 after metadata removal is logged (an unreachable orphan), without reviving the
 record. Migration down removes metadata and keeps stored bytes; its data loss
 is documented in the migration.
+
+## 11. Technowide renderer (TEC-782)
+
+Technowide Design is the default look of every branded site. It is a
+server-rendered port of the template studio's Technowide (studio 0.7.0,
+`template-studio/src/templates/technowide`): same layout, typography,
+spacing, cards, header / footer and hero variants, without Radix or
+client-side state.
+
+### 11.1 Structure
+
+| Path | What |
+|------|------|
+| `site/src/themes/registry.ts` | Pure: renderer ids, `resolveThemeId` (unknown, missing or not-yet-ported templates → `technowide-design`), supported home sections per renderer |
+| `site/src/themes/index.tsx` | `themeFor(site)` → `ThemeRenderer` {`className`, `Header`, `Footer`, `Home`, `Vehicles`, `Branches`, `Branch`, `Content`}. Horizon / classic / Aurum are added as further entries |
+| `site/src/themes/technowide/chrome.tsx` | Header (primary top bar: brand, language, portal sign-in, reservation lookup; desktop nav; `<details>` mobile menu) and footer |
+| `site/src/themes/technowide/home.tsx`, `sections/*` | Home sections: hero, search, fleet, advantages, about, faq, branches |
+| `site/src/themes/technowide/pages.tsx` | Vehicles, offices + office detail, FAQ, about, contact, terms, privacy |
+| `site/src/themes/technowide/technowide.css` | The theme stylesheet, scoped to `.theme-technowide` (the `<body>` class) in the `components` cascade layer |
+| `site/src/components/site/*` | Shared, theme-neutral markup: search form, vehicle card, page heading, booking steps and summary |
+
+Two class families: `rt-*` is the shared contract of the UI primitives and
+booking pages (every theme stylesheet draws it), `tw-*` is Technowide's own.
+The booking flow (`/search`, `/book/{quote}`, `/book/{quote}/details`,
+`/reservation/{reference}`, `/lookup`) only changed markup and classes:
+validation, server actions, idempotency keys, price-change handling and
+payment are untouched. A bare `/search` (vehicle / office "search here"
+links) opens the form without the "invalid search" error.
+
+### 11.2 Home sections
+
+`lib/sections.ts` turns the resolved `sections` (enabled, in the
+organization's order) into blocks. It re-applies the API's status rules:
+`campaigns` (TEC-784), `guide` (TEC-785) and `newsletter` (TEC-786) are
+`needs_service` and render nothing; `app_promo` never renders; disabled,
+unknown, unsupported and duplicate ids are dropped; the hero is first. A
+`search` directly after the hero is drawn as the hero's booking card (the
+studio's composition); elsewhere it is its own band. Answers without
+`sections` (pre-v2) get hero, search, fleet, advantages, about, faq.
+
+| Section | Data | Empty |
+|---------|------|-------|
+| hero | `content.{locale}.hero_slides` (enabled, ≤ 8; legacy hero text, then default copy); slide media → library URL, else the cover image, else a token gradient. Several slides form a CSS scroll-snap track with anchor dots: every slide is in the HTML, no JavaScript. `settings.heroLayout`: `image` (full-bleed photo) or `split` (rounded photo card next to the search) | always renders |
+| search | live locations | booking off / no location notice |
+| fleet | live `vehicle-subgroups` (first six; segment chips link to `/vehicles?segment=`); cards show the group's first product image or a neutral placeholder and the published conditions (age, licence, km, deposit) | hidden |
+| advantages | `content.{locale}.advantages` (allowlisted Lucide icons) | hidden |
+| about | `content.{locale}.about` (first two paragraphs), `about.image`, `about.highlights.{locale}` | hidden |
+| faq | `content.{locale}.faq` (first six, native `<details>`) | hidden |
+| branches | live locations (rendered when a template lists it; Technowide's API order does not) | hidden |
+
+No demo vehicles, prices, campaigns, articles, reviews or studio images are
+shipped. The legacy `layout.hero/cards/footer` variants do not apply to
+Technowide.
+
+### 11.3 Chrome, menus and links
+
+- Header and footer menus come from `config.menus.header/footer` when they
+  contain at least one item with a label (visitor locale, then tr, then en)
+  and a safe href (`/path` or `https://`, re-checked by `lib/links.ts`).
+  Otherwise the derived defaults list only pages that exist (vehicles while
+  booking is on, offices, reservations, FAQ / about / contact when they
+  have content). External links carry `rel="noopener noreferrer"`.
+- Corporate and franchise pages are not linked until TEC-786. Sign-in /
+  membership links to the customer portal (`portal_url`); "Rezervasyon
+  sorgula" is `/lookup`.
+- `brand.tagline` shows under the name (header, footer); `brand.socials`
+  render only for https URLs on the network's own host, opening a new tab
+  with `noopener noreferrer`.
+- No cookie banner (studio) is rendered: consent is still an open item (§7).
+
+### 11.4 Tokens and fonts
+
+`lib/theme.ts` writes `--primary … --border` (light / dark / system),
+`--font-brand`, `--font-heading` (`theme` follows the body font; Horizon's
+`theme` will be Georgia; `georgia` is the device's Georgia) and, for the
+seven uniform corner styles, `--radius-card`, `--radius-control`,
+`--radius-image` (`sharp` 0, `xs` 4, `sm` 8, `md` 12, `lg` 16, `xl` 24,
+`pill` 32 px with fully rounded controls). `soft` writes no corner
+variable, so every element keeps Technowide's own radius (the CSS
+fallbacks), exactly like the studio. The Technowide stylesheet uses only
+these variables; the only literal colors are neutral (white text on photos,
+the dark footer, error / success states).
+
+All fourteen font choices are self-hosted with `next/font/google`: files
+are downloaded at build time and served by the site, so visitors never
+contact Google, and nothing is preloaded (a browser fetches only the face
+its theme uses). Added for config v2: Manrope, DM Sans, Plus Jakarta Sans,
+Sora, Lora and Wix Madefor Text. All families are licensed under the SIL
+Open Font License 1.1. The studio's font and image files were not copied.
+
+### 11.5 Constraints kept
+
+Every page still renders dynamically (`force-dynamic`) with the 30 s resolve
+cache; works without JavaScript (GET / POST forms, `<details>` menus and
+FAQ, scroll-snap slides); native `<select>` / date / time controls; plain
+text only (no HTML from settings); CSP and framing unchanged. The embed
+(`/embed/*`) uses the same stylesheet in its compact variant (no header /
+footer, title-only heading, single-column booking). Library media
+(`/media/site/media/{site}/{media}`) passes through the media route only
+for this site; previews add `draft=1` and the route forwards the preview
+cookie, so tokens never appear in HTML.
+
+### 11.6 Follow-ups
+
+- **TEC-784** campaigns, **TEC-785** guide (studio "journal"), **TEC-786**
+  newsletter, contact form, corporate and franchise pages: add the data
+  service, then the Technowide section (the studio markup and CSS classes
+  are the reference) and drop the id from `NEEDS_SERVICE`.
+- **TEC-783 and later**: the remaining templates (Horizon, classic, Aurum)
+  as further `ThemeRenderer` entries, plus any panel controls still missing
+  for the v2 content this renderer reads (slides, advantages, about, menus,
+  brand).
+- Mobile Safari / real-device checks and an automated visual test (the site
+  has no browser test runner).

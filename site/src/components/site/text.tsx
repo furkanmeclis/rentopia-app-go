@@ -7,33 +7,38 @@ import { cn } from "@/lib/cn";
 export function Paragraphs({
   text,
   className,
+  limit,
 }: {
   text: string;
   className?: string;
+  /** Only the first N paragraphs (teasers). */
+  limit?: number;
 }) {
   const parts = text
     .split(/\n\s*\n/)
     .map((p) => p.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .slice(0, limit ?? undefined);
   return (
-    <div className={cn("space-y-4 leading-relaxed", className)}>
+    <div className={cn("rt-paragraphs", className)}>
       {parts.map((p, i) => (
-        <p key={i} className="whitespace-pre-line">
-          {p}
-        </p>
+        <p key={i}>{p}</p>
       ))}
     </div>
   );
 }
 
-export function PageTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-      {children}
-    </h1>
-  );
+export function PageTitle({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return <h1 className={cn("rt-page-title", className)}>{children}</h1>;
 }
 
+/** The theme's content width (`rt-container`). */
 export function Container({
   children,
   className,
@@ -41,9 +46,5 @@ export function Container({
   children: React.ReactNode;
   className?: string;
 }) {
-  return (
-    <div className={cn("mx-auto w-full max-w-6xl px-4 sm:px-6", className)}>
-      {children}
-    </div>
-  );
+  return <div className={cn("rt-container", className)}>{children}</div>;
 }

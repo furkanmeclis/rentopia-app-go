@@ -1,5 +1,5 @@
 import { SearchForm, type SearchValues } from "@/components/site/search-form";
-import { Container, PageTitle } from "@/components/site/text";
+import { PageHeading, PageSection } from "@/components/site/page-heading";
 import { Alert } from "@/components/ui/card";
 import { loadLocations } from "@/lib/catalog";
 import { istanbulDate } from "@/lib/format";
@@ -27,13 +27,15 @@ export default async function EmbedPage({
     return_time: value("return_time") || "10:00",
   };
   return (
-    <Container className="space-y-4 py-4">
-      <PageTitle>{ctx.t("search.title")}</PageTitle>
-      {locations?.length ? (
-        <SearchForm ctx={ctx} locations={locations} values={values} compact />
-      ) : (
-        <Alert>{ctx.t("search.no_locations")}</Alert>
-      )}
-    </Container>
+    <>
+      <PageHeading ctx={ctx} title={ctx.t("search.title")} />
+      <PageSection>
+        {locations?.length ? (
+          <SearchForm ctx={ctx} locations={locations} values={values} compact />
+        ) : (
+          <Alert>{ctx.t("search.no_locations")}</Alert>
+        )}
+      </PageSection>
+    </>
   );
 }

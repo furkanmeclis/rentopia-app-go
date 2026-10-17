@@ -10,14 +10,12 @@ export default async function EmbedLayout({
 }) {
   const { site } = await getCtx();
   return (
-    <div data-widget-root className="min-w-0">
+    <div data-widget-root className="rt-embed">
       <Suspense>
         <WidgetBridge domains={site.config.widget?.allowed_domains ?? []} />
       </Suspense>
       {children}
-      <footer className="text-muted-foreground px-4 py-3 text-center text-xs">
-        Rentopia
-      </footer>
+      <footer className="rt-embed-credit">Rentopia</footer>
     </div>
   );
 }

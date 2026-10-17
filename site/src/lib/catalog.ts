@@ -1,16 +1,33 @@
 import "server-only";
 
-import { bookingApi } from "./server";
-import type { Location } from "./types";
+import { cache } from "react";
 
-/** Online-selectable branches and points, or null when booking is unavailable. */
-export async function loadLocations(): Promise<Location[] | null> {
+import { bookingApi } from "./server";
+import type { Location, Subgroup } from "./types";
+
+/**
+ * Online-selectable branches and points, or null when booking is
+ * unavailable. One API call per request (header, footer and page share it).
+ */
+export const loadLocations = cache(async (): Promise<Location[] | null> => {
   try {
     return await bookingApi<Location[]>("/v1/public/locations");
   } catch {
     return null;
   }
-}
+});
+
+/**
+ * The storefront's live vehicle subgroups (the fleet), or null when the
+ * catalog cannot be read (booking off, API error). Never demo vehicles.
+ */
+export const loadSubgroups = cache(async (): Promise<Subgroup[] | null> => {
+  try {
+    return await bookingApi<Subgroup[]>("/v1/public/vehicle-subgroups");
+  } catch {
+    return null;
+  }
+});
 
 /** "branch" / "branch:point" → the API's uuid pair. */
 export function splitPlace(

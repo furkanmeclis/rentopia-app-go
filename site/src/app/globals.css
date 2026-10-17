@@ -2,7 +2,9 @@
 
 /*
  * Theme tokens come from the organization's site settings at render time
- * (lib/theme.ts writes :root). These defaults only apply before that.
+ * (lib/theme.ts writes :root). These defaults only apply before that. The
+ * corner variables (--radius-card / -control / -image) are deliberately not
+ * defaulted: without them each theme keeps its own radii (`soft`).
  */
 :root {
   --primary: #1d4ed8;
@@ -15,6 +17,7 @@
   --border: #e2e8f0;
   --radius: 0.5rem;
   --font-brand: system-ui, sans-serif;
+  --font-heading: var(--font-brand);
 }
 
 @theme inline {
@@ -46,5 +49,52 @@
 
   button:not(:disabled) {
     cursor: pointer;
+  }
+}
+
+/* Theme-independent page frame (every theme root shares it). */
+@layer components {
+  .rt-body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100svh;
+    overflow-x: clip;
+  }
+  .rt-body--embed {
+    min-height: 0;
+    min-width: 0;
+  }
+  .rt-main {
+    flex: 1;
+    min-width: 0;
+    outline: none;
+  }
+  .rt-body--embed .rt-main {
+    flex: none;
+  }
+  .rt-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .rt-skip {
+    position: fixed;
+    left: 16px;
+    top: -80px;
+    z-index: 130;
+    padding: 12px 18px;
+    border-radius: 8px;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    font-weight: 700;
+  }
+  .rt-skip:focus {
+    top: 16px;
   }
 }

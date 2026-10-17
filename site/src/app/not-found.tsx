@@ -1,18 +1,25 @@
+import { ArrowRight, Search } from "lucide-react";
 import Link from "next/link";
 
-import { Container, PageTitle } from "@/components/site/text";
+import { EmptyState, PageSection } from "@/components/site/page-heading";
 import { buttonVariants } from "@/components/ui/button";
 import { getCtx } from "@/lib/server";
 
 export default async function NotFound() {
   const { t } = await getCtx();
   return (
-    <Container className="max-w-xl space-y-4 py-20 text-center">
-      <PageTitle>{t("notfound.title")}</PageTitle>
-      <p className="text-muted-foreground">{t("notfound.body")}</p>
-      <Link href="/" className={buttonVariants()}>
-        {t("notfound.home")}
-      </Link>
-    </Container>
+    <PageSection narrow>
+      <EmptyState
+        icon={<Search aria-hidden size={32} />}
+        title={t("notfound.title")}
+        text={t("notfound.body")}
+        action={
+          <Link href="/" className={buttonVariants()}>
+            {t("notfound.home")}
+            <ArrowRight aria-hidden size={17} />
+          </Link>
+        }
+      />
+    </PageSection>
   );
 }
