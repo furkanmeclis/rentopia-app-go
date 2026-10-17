@@ -102,6 +102,7 @@ var isolationAllowlist = map[string]string{
 	"POST /v1/tenant/whatsapp/test-messages":         "test text to a typed number through the caller's organization's session; no records",
 	"POST /v1/tenant/public-api/keys":                "body has no foreign references (kind, name, channel, scopes, origins, rate limit)",
 	"POST /v1/tenant/public-api/webhooks":            "body has no foreign references (name, URL, event names)",
+	"PUT /v1/tenant/site":                            "site document of the caller's organization (subdomain, theme, texts); the key it links is created in the scope (site tests)",
 }
 
 type isoOrg struct {

@@ -43,6 +43,7 @@ Helpers:
 | `make infra` / `make infra-down` | Compose infra only |
 | `make backend-dev` | air on `:8080` |
 | `make frontend-dev` | `pnpm dev` on `:3000` |
+| `make site-dev` | Branded site (`site/`) on `:3100`: open `http://{subdomain}.localhost:3100` ([branded-site.md](./design/branded-site.md)) |
 | `make migrate-up` | Apply SQL migrations |
 | `make create-super-admin` | Upsert platform admin + `super_admin` role |
 | `make search-reindex` | Rebuild Meilisearch indexes (users, roles, …) |

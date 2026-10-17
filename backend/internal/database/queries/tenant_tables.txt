@@ -130,3 +130,4 @@ channel_offers
 channel_reservations
 channel_messages
 channel_sync_runs
+site_settings

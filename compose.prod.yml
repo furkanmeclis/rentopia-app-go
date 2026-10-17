@@ -5,7 +5,7 @@
 #                   ${APP_NETWORK_NAME:-<NAME_PREFIX>-app}. All services join it.
 #   dokploy-network Shared reverse-proxy network (external; Dokploy creates it,
 #                   on a plain Docker host run once: docker network create dokploy-network).
-#                   Only the public services join it: frontend and centrifugo.
+#                   Only the public services join it: frontend, site and centrifugo.
 #
 # NAME_PREFIX is required: it makes container, volume and network names unique
 # per app, so several boilerplate apps run side by side on one server.
@@ -23,6 +23,12 @@ x-frontend-image: &frontend-image
   image: ${FRONTEND_IMAGE:?FRONTEND_IMAGE is required}
   build:
     context: ./frontend
+    dockerfile: Dockerfile
+
+x-site-image: &site-image
+  image: ${SITE_IMAGE:?SITE_IMAGE is required}
+  build:
+    context: ./site
     dockerfile: Dockerfile
 
 x-backend-environment: &backend-environment
@@ -59,6 +65,9 @@ x-backend-environment: &backend-environment
   PUBLIC_FRONTEND_URL: ${PUBLIC_FRONTEND_URL:-${AUTH_URL:?AUTH_URL is required}}
   # Passkey relying-party ID; empty → hostname of PUBLIC_FRONTEND_URL.
   AUTH_WEBAUTHN_RP_ID: ${AUTH_WEBAUTHN_RP_ID:-}
+  # Branded site (TEC-729): organizations' sites answer on
+  # {subdomain}.{host of SITE_BASE_URL}. Defaults to AUTH_URL.
+  SITE_BASE_URL: ${SITE_BASE_URL:-${AUTH_URL:?AUTH_URL is required}}
   MAIL_FROM: ${MAIL_FROM:-noreply@localhost}
   MAIL_FROM_NAME: ${MAIL_FROM_NAME:-App}
   MAIL_DRIVER: ${MAIL_DRIVER:-smtp}
@@ -354,6 +363,37 @@ services:
     healthcheck:
       # Real route is /health (not /api/v1/health). Unhealthy containers are
       # dropped by Traefik → domain returns "404 page not found".
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - app
+      - dokploy-network
+
+  # Branded site (TEC-729): one image for every organization. The request host
+  # names the site (GET /v1/public/site/resolve); booking goes through the
+  # public API with the site's publishable key. Route the wildcard domain
+  # *.{host of SITE_BASE_URL} (and later verified custom domains) here.
+  site:
+    <<: *site-image
+    container_name: ${NAME_PREFIX:?NAME_PREFIX is required}-site
+    environment:
+      API_URL: http://backend.${APP_NETWORK_NAME:-${NAME_PREFIX:?NAME_PREFIX is required}-app}:8080/v1
+    depends_on:
+      backend:
+        condition: service_healthy
+    expose:
+      - "3000"
+    healthcheck:
       test:
         [
           "CMD",

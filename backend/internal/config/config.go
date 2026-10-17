@@ -35,6 +35,14 @@ type Config struct {
 	Payments   PaymentsConfig
 	SMS        SMSConfig
 	WhatsApp   WhatsAppConfig
+	Site       SiteConfig
+}
+
+// SiteConfig is the branded site (TEC-729): every organization's site
+// answers on {subdomain}.{host of BaseURL}, with its scheme and port
+// ("https://rentopia.app" → https://acme.rentopia.app).
+type SiteConfig struct {
+	BaseURL string
 }
 
 // WhatsAppConfig locates the wuzapi WhatsApp gateway (TEC-735). It runs on
@@ -382,6 +390,9 @@ func Load() (Config, error) {
 			WuzapiBaseURL:    getEnv("WUZAPI_BASE_URL", ""),
 			WuzapiAdminToken: getEnv("WUZAPI_ADMIN_TOKEN", ""),
 			WebhookBaseURL:   getEnv("WUZAPI_WEBHOOK_BASE_URL", ""),
+		},
+		Site: SiteConfig{
+			BaseURL: getEnv("SITE_BASE_URL", "http://localhost:3100"),
 		},
 	}
 

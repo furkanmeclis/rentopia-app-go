@@ -62,6 +62,11 @@ tags:
 
       Test data: issue keys in the panel (Ayarlar → Public API) of a test organization; the sandbox payment account
       and the reservation flow behave as in production.
+  - name: Branded Site
+    description: |
+      Host resolution and images for the `site` app (TEC-729): one image serves every organization; the request
+      host names the site, whose settings the panel edits (`/v1/tenant/site`). The site books through the Public
+      Booking API with the publishable key and origin returned here.
   - name: Customer
     description: "Customer portal (`/r/{orgSlug}`): reservation reference + contact + one-time code, customer session (TEC-715)"
   - name: Documents
@@ -12486,6 +12491,107 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/TenantForbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/public/site/resolve:
+    get:
+      tags: [Branded Site]
+      operationId: getPublicSiteResolve
+      summary: Resolve a host to its branded site
+      description: |
+        Called by the `site` app (server side, cached per host) for every request host. The host is a subdomain of
+        the site base URL (`{subdomain}.rentopia.app`) or, with TEC-731, a verified custom domain. The answer carries
+        the theme / layout / content document, the image paths, the customer portal URL and the credential the site
+        books with: the **publishable key** and the **origin** to open booking sessions for
+        (`POST /v1/public/sessions` with that origin). Unknown hosts, disabled sites and unavailable organizations all
+        answer `404 SITE_NOT_FOUND`; another organization's site is never returned. `booking_enabled` is false (and the
+        key empty) while the web sales channel is off or the site key is revoked. Rate-limited per IP (600 / min).
+      security: []
+      parameters:
+        - name: host
+          in: query
+          required: true
+          description: The request `Host` (port and case are ignored).
+          schema: { type: string, examples: ["acme.rentopia.app"] }
+      responses:
+        "200":
+          description: Resolved site
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteResolved" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/public/site/assets/{uuid}/{kind}:
+    get:
+      tags: [Branded Site]
+      operationId: getPublicSiteAsset
+      summary: Image of a branded site
+      description: "Logo (falls back to the organization logo), favicon or cover image of an enabled site. Paths come from the resolve answer (`assets`), with `?v=` set to the site version."
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceUUID"
+        - name: kind
+          in: path
+          required: true
+          schema: { type: string, enum: [logo, favicon, cover] }
+      responses:
+        "200":
+          description: Image
+          content:
+            image/*:
+              schema: { type: string, format: binary }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/tenant/site:
+    get:
+      tags: [Tenant]
+      operationId: getTenantSite
+      summary: Branded site settings
+      description: "`tenant.site.read`. The organization's site: on / off, subdomain, default locale, the theme / layout / content / SEO / analytics document, its addresses, the linked publishable key and whether booking works. Before the first save the defaults are returned with `exists: false` and `version: 0`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Site settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteSettings" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    put:
+      tags: [Tenant]
+      operationId: putTenantSite
+      summary: Save the branded site settings
+      description: |
+        `tenant.site.manage`. Send the `version` you edited (0 for the first save); a newer save answers
+        `409 VERSION_CONFLICT`. Omitted fields keep their value; `config` replaces the whole document (empty values take
+        the defaults). Colors are `#rrggbb`, fonts / radius / mode / layout variants are enums, texts are plain text.
+        Switching the site on links a publishable `web` key (created when there is none, named "Markalı site"); the
+        key's allowed origins always contain the site's current addresses. A subdomain used by another organization
+        answers `409 SUBDOMAIN_TAKEN`; reserved names (`www`, `app`, `api`, …) answer `400`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SiteSaveInput" }
+      responses:
+        "200":
+          description: Saved site settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteSettings" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
 
   /v1/public/pay/{token}:
     get:
@@ -39364,6 +39470,195 @@ components:
             total: { type: integer }
             limit: { type: integer }
             offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    SiteColors:
+      type: object
+      additionalProperties: false
+      description: Theme tokens of one color scheme (`#rrggbb`; empty = default).
+      properties:
+        primary: { type: string, examples: ["#1d4ed8"] }
+        primary_foreground: { type: string }
+        accent: { type: string }
+        background: { type: string }
+        foreground: { type: string }
+        muted: { type: string }
+        muted_foreground: { type: string }
+        border: { type: string }
+
+    SiteTheme:
+      type: object
+      additionalProperties: false
+      properties:
+        colors: { $ref: "#/components/schemas/SiteColors" }
+        dark_colors: { $ref: "#/components/schemas/SiteColors" }
+        font: { type: string, enum: [inter, roboto, open_sans, montserrat, poppins, lato, nunito, system] }
+        radius: { type: string, enum: [none, sm, md, lg, full] }
+        mode: { type: string, enum: [light, dark, system] }
+
+    SiteLayout:
+      type: object
+      additionalProperties: false
+      properties:
+        hero: { type: string, enum: [centered, split, image, minimal] }
+        cards: { type: string, enum: [grid, list, compact] }
+        footer: { type: string, enum: [simple, columns, minimal] }
+
+    SiteContent:
+      type: object
+      additionalProperties: false
+      description: Plain text of one locale (blank lines separate paragraphs; no HTML).
+      properties:
+        hero_title: { type: string, maxLength: 120 }
+        hero_subtitle: { type: string, maxLength: 300 }
+        about: { type: string, maxLength: 20000 }
+        faq:
+          type: array
+          maxItems: 40
+          items:
+            type: object
+            additionalProperties: false
+            required: [question, answer]
+            properties:
+              question: { type: string, maxLength: 300 }
+              answer: { type: string, maxLength: 3000 }
+        terms: { type: string, maxLength: 20000 }
+        privacy: { type: string, maxLength: 20000, description: KVKK / privacy notice }
+
+    SiteSEO:
+      type: object
+      additionalProperties: false
+      properties:
+        title: { type: string, maxLength: 70 }
+        description: { type: string, maxLength: 300 }
+
+    SiteConfig:
+      type: object
+      additionalProperties: false
+      description: The editable site document (TEC-730 builds the panel editor on it).
+      properties:
+        theme: { $ref: "#/components/schemas/SiteTheme" }
+        layout: { $ref: "#/components/schemas/SiteLayout" }
+        content:
+          type: object
+          description: Keyed by locale (`tr`, `en`).
+          additionalProperties: { $ref: "#/components/schemas/SiteContent" }
+        seo:
+          type: object
+          description: Keyed by locale (`tr`, `en`).
+          additionalProperties: { $ref: "#/components/schemas/SiteSEO" }
+        contact:
+          type: object
+          additionalProperties: false
+          properties:
+            phone: { type: string }
+            email: { type: string }
+            address: { type: string }
+            whatsapp: { type: string }
+        analytics:
+          type: object
+          additionalProperties: false
+          properties:
+            ga4_measurement_id: { type: string, examples: ["G-ABC1234"] }
+
+    SiteHost:
+      type: object
+      required: [host, origin, kind]
+      properties:
+        host: { type: string, examples: ["acme.rentopia.app"] }
+        origin: { type: string, examples: ["https://acme.rentopia.app"] }
+        kind: { type: string, enum: [subdomain, custom] }
+
+    SiteSettings:
+      type: object
+      required: [exists, enabled, subdomain, default_locale, config, version, url, hosts, api_key, assets, booking_enabled, updated_at]
+      properties:
+        exists: { type: boolean }
+        enabled: { type: boolean }
+        subdomain: { type: string }
+        default_locale: { type: string, enum: [tr, en] }
+        config: { $ref: "#/components/schemas/SiteConfig" }
+        version: { type: integer }
+        url: { type: string }
+        hosts:
+          type: array
+          items: { $ref: "#/components/schemas/SiteHost" }
+        api_key:
+          oneOf:
+            - type: "null"
+            - type: object
+              required: [uuid, status]
+              properties:
+                uuid: { type: string, format: uuid }
+                status: { type: string, enum: [active, revoked] }
+        assets:
+          type: object
+          required: [logo, favicon, cover]
+          properties:
+            logo: { type: boolean }
+            favicon: { type: boolean }
+            cover: { type: boolean }
+        booking_enabled: { type: boolean }
+        updated_at: { type: ["string", "null"], format: date-time }
+
+    EnvelopeSiteSettings:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/SiteSettings" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    SiteSaveInput:
+      type: object
+      additionalProperties: false
+      required: [version]
+      properties:
+        version: { type: integer, minimum: 0, description: The version you edited (0 for the first save). }
+        enabled: { type: boolean }
+        subdomain: { type: string, examples: ["acme"] }
+        default_locale: { type: string, enum: [tr, en] }
+        config: { $ref: "#/components/schemas/SiteConfig" }
+
+    SiteResolved:
+      type: object
+      required: [site_uuid, version, host, host_kind, origin, default_locale, locales, organization, publishable_key, booking_enabled, config, assets, portal_url, updated_at]
+      properties:
+        site_uuid: { type: string, format: uuid }
+        version: { type: integer }
+        host: { type: string }
+        host_kind: { type: string, enum: [subdomain, custom] }
+        origin: { type: string, description: Origin to open booking sessions for. }
+        default_locale: { type: string, enum: [tr, en] }
+        locales:
+          type: array
+          items: { type: string }
+        organization:
+          type: object
+          required: [uuid, slug, name]
+          properties:
+            uuid: { type: string, format: uuid, description: Prefix of the public product image paths. }
+            slug: { type: string }
+            name: { type: string }
+        publishable_key: { type: string, description: "`rtp_pk_…`; empty while booking is off." }
+        booking_enabled: { type: boolean }
+        config: { $ref: "#/components/schemas/SiteConfig" }
+        assets:
+          type: object
+          required: [logo, favicon, cover]
+          properties:
+            logo: { type: ["string", "null"], description: API path of the image }
+            favicon: { type: ["string", "null"] }
+            cover: { type: ["string", "null"] }
+        portal_url: { type: string, description: Customer portal (reservation lookup). }
+        updated_at: { type: string, format: date-time }
+
+    EnvelopeSiteResolved:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/SiteResolved" }
         meta: { $ref: "#/components/schemas/ResponseMeta" }
 
     PublicAPIOverview:

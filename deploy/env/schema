@@ -16,12 +16,13 @@
 #   rename with  @rename OLD NEW <version>,  retire with  @remove KEY <version>.
 #   Never change the rule of an existing secret: running installs keep theirs anyway.
 
-@version 4
+@version 5
 
 # --- Identity / Docker ---
 NAME_PREFIX | const:rentopia
 BACKEND_IMAGE | derive:{NAME_PREFIX}-backend:latest
 FRONTEND_IMAGE | derive:{NAME_PREFIX}-frontend:latest
+SITE_IMAGE | derive:{NAME_PREFIX}-site:latest
 
 # --- Public URLs (from APP_URL) ---
 APP_URL | ask:APP_URL
@@ -33,6 +34,8 @@ CENTRIFUGO_ALLOWED_ORIGINS | derive:{APP_URL}
 CENTRIFUGO_WS_URL | derive:wss://{REALTIME_HOST}/connection/websocket
 NEXT_PUBLIC_CENTRIFUGO_URL | derive:wss://{REALTIME_HOST}/connection/websocket
 AUTH_WEBAUTHN_RP_ID | derive:{APP_HOST}
+# Branded site (TEC-729): {subdomain}.{APP_HOST}; route *.{APP_HOST} to the site service.
+SITE_BASE_URL | derive:{APP_URL}
 
 # --- Database / cache / search ---
 DB_USER | const:rentopia

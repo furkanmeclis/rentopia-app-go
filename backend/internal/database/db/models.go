@@ -2673,6 +2673,24 @@ type ServicePoint struct {
 	DeliveryConditions string             `json:"delivery_conditions"`
 }
 
+type SiteSetting struct {
+	ID               int64              `json:"id"`
+	Uuid             uuid.UUID          `json:"uuid"`
+	OrganizationID   int64              `json:"organization_id"`
+	Enabled          bool               `json:"enabled"`
+	Subdomain        string             `json:"subdomain"`
+	DefaultLocale    string             `json:"default_locale"`
+	Config           []byte             `json:"config"`
+	ApiKeyID         pgtype.Int8        `json:"api_key_id"`
+	LogoObjectKey    pgtype.Text        `json:"logo_object_key"`
+	FaviconObjectKey pgtype.Text        `json:"favicon_object_key"`
+	CoverObjectKey   pgtype.Text        `json:"cover_object_key"`
+	Version          int32              `json:"version"`
+	UpdatedBy        pgtype.Int8        `json:"updated_by"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
 type SmsMessage struct {
 	ID                   int64              `json:"id"`
 	Uuid                 uuid.UUID          `json:"uuid"`
