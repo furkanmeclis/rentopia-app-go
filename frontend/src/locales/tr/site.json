@@ -224,8 +224,6 @@
   "catalog.columns.status": "Durum",
   "catalog.columns.extra": "Ekstra",
   "catalog.columns.show_online": "Sitede göster",
-  "widget.soon_title": "Widget yakında",
-  "widget.soon_description": "Gömülebilir rezervasyon widget'ı sonraki sürümle gelecek. Buradaki ayarlar taslakla birlikte saklanır ve widget açıldığında kullanılır. API anahtarları Public API ayarlarında yönetilir.",
   "widget.keys_link": "API anahtarlarına git",
   "widget.domains_title": "İzin verilen alan adları",
   "widget.domains_description": "Widget'ı gömebilecek siteler (https://alanadi.com); en fazla {{max}}.",
@@ -293,5 +291,12 @@
   "platform_domains.recheck": "Yeniden kontrol et",
   "platform_domains.mark_tls_active": "HTTPS aktif",
   "platform_domains.toast.recheck": "Kontrol başlatıldı.",
-  "platform_domains.toast.mark-tls-active": "HTTPS aktif olarak işaretlendi."
+  "platform_domains.toast.mark-tls-active": "HTTPS aktif olarak işaretlendi.",
+  "widget.embed_title": "Gömme kodu",
+  "widget.embed_description": "Bu kodu kendi web sitenizde rezervasyon kutusunun görüneceği yere yapıştırın.",
+  "widget.embed_hint": "Kodun çalışması için sitenin adresi aşağıdaki izinli alan adları listesinde olmalı ve değişiklikler yayınlanmış olmalı. Ödeme adımı güvenlik nedeniyle tam sayfada açılır.",
+  "widget.copy_snippet": "Kodu kopyala",
+  "widget.copied": "Kopyalandı.",
+  "widget.not_ready_title": "Widget henüz hazır değil",
+  "widget.not_ready_description": "Önce Genel sekmesinden siteyi açıp kaydedin; gömme kodu sitenin adresiyle burada oluşur."
 }

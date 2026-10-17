@@ -224,8 +224,6 @@
   "catalog.columns.status": "Status",
   "catalog.columns.extra": "Extra",
   "catalog.columns.show_online": "Show on site",
-  "widget.soon_title": "Widget coming soon",
-  "widget.soon_description": "The embeddable booking widget comes with a later release. These settings are stored with the draft and used once the widget is available. API keys are managed in the Public API settings.",
   "widget.keys_link": "Go to the API keys",
   "widget.domains_title": "Allowed domains",
   "widget.domains_description": "Sites that may embed the widget (https://domain.com); at most {{max}}.",
@@ -293,5 +291,12 @@
   "platform_domains.recheck": "Recheck",
   "platform_domains.mark_tls_active": "HTTPS active",
   "platform_domains.toast.recheck": "Check started.",
-  "platform_domains.toast.mark-tls-active": "Marked HTTPS active."
+  "platform_domains.toast.mark-tls-active": "Marked HTTPS active.",
+  "widget.embed_title": "Embed code",
+  "widget.embed_description": "Paste this code where the booking box should appear on your own website.",
+  "widget.embed_hint": "Your website's address must be in the allowed domains below and the changes must be published. For security, the payment step opens full page.",
+  "widget.copy_snippet": "Copy code",
+  "widget.copied": "Copied.",
+  "widget.not_ready_title": "The widget is not ready yet",
+  "widget.not_ready_description": "Turn the site on and save it on the General tab first; the embed code appears here with the site's address."
 }
