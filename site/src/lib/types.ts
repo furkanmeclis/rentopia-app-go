@@ -58,6 +58,17 @@ export type SiteContent = {
   privacy: string;
 };
 
+export type SiteCampaign = {
+  uuid: string;
+  title: Partial<Record<Locale, string>>;
+  summary: Partial<Record<Locale, string>>;
+  cta_label: Partial<Record<Locale, string>>;
+  media_url: string | null;
+  code?: string;
+  start_date: string | null;
+  end_date: string | null;
+};
+
 export type SiteConfig = {
   config_version?: number;
   template?: string;
@@ -69,6 +80,12 @@ export type SiteConfig = {
   about?: {
     image?: string;
     highlights?: Partial<Record<Locale, string[]>>;
+  };
+  leads?: {
+    contact: boolean;
+    corporate: boolean;
+    franchise: boolean;
+    newsletter: boolean;
   };
   theme: SiteTheme;
   layout: { hero: string; cards: string; footer: string };
@@ -93,6 +110,7 @@ export type Site = {
   settings?: Record<string, string>;
   /** Library media UUID → API-owned stream path. */
   media?: Record<string, string>;
+  campaigns?: SiteCampaign[];
   site_uuid: string;
   version: number;
   host: string;

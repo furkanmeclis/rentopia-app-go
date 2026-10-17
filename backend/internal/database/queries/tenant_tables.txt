@@ -136,3 +136,5 @@ site_setting_versions
 site_domains
 
 site_media
+
+site_leads

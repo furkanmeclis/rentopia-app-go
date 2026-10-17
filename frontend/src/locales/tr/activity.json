@@ -433,5 +433,6 @@
   "actions.channels.pulled": "Kanaldan rezervasyonlar alındı",
   "actions.channels.simulated": "Kanal rezervasyonu simüle edildi",
   "actions.channels.message_retried": "Kanal mesajı yeniden uygulandı",
-  "actions.channels.message_ignored": "Kanal mesajı reddedildi"
+  "actions.channels.message_ignored": "Kanal mesajı reddedildi",
+  "actions.site_leads.updated": "Site başvurusu güncellendi"
 }

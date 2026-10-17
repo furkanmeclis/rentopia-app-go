@@ -6,8 +6,10 @@
 package model
 
 import (
+	"encoding/json"
 	"time"
 
+	campaignmodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/campaigns/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/site/themes"
 	"github.com/google/uuid"
 )
@@ -131,9 +133,45 @@ type Widget struct {
 	InitialFilters WidgetFilters `json:"initial_filters"`
 }
 
+// LeadConfig controls the published website forms.
+type LeadConfig struct {
+	Contact    bool `json:"contact"`
+	Corporate  bool `json:"corporate"`
+	Franchise  bool `json:"franchise"`
+	Newsletter bool `json:"newsletter"`
+}
+
+func (l *LeadConfig) UnmarshalJSON(raw []byte) error {
+	type flags LeadConfig
+	defaults := flags{Contact: true, Corporate: true, Franchise: true, Newsletter: true}
+	if err := json.Unmarshal(raw, &defaults); err != nil {
+		return err
+	}
+	*l = LeadConfig(defaults)
+	return nil
+}
+
+func (l *LeadConfig) Enabled(kind string) bool {
+	if l == nil {
+		return true
+	}
+	switch kind {
+	case "contact":
+		return l.Contact
+	case "corporate":
+		return l.Corporate
+	case "franchise":
+		return l.Franchise
+	case "newsletter":
+		return l.Newsletter
+	}
+	return false
+}
+
 // Config is the editable site document: site_settings.config is the draft,
 // site_setting_versions.config the published snapshots.
 type Config struct {
+	Leads         *LeadConfig              `json:"leads"`
 	ConfigVersion int                      `json:"config_version"`
 	Template      string                   `json:"template"`
 	Templates     map[string]themes.Config `json:"templates"`
@@ -345,11 +383,12 @@ type Assets struct {
 // Resolved is GET /v1/public/site/resolve: everything the site needs to
 // render a host, and the credential it books with.
 type Resolved struct {
-	Template         string            `json:"template"`
-	Sections         []themes.Section  `json:"sections"`
-	TemplateSettings map[string]string `json:"settings"`
-	Media            map[string]string `json:"media"`
-	SiteUUID         uuid.UUID         `json:"site_uuid"`
+	Campaigns        []campaignmodel.PublicCampaign `json:"campaigns"`
+	Template         string                         `json:"template"`
+	Sections         []themes.Section               `json:"sections"`
+	TemplateSettings map[string]string              `json:"settings"`
+	Media            map[string]string              `json:"media"`
+	SiteUUID         uuid.UUID                      `json:"site_uuid"`
 	// Version is the published revision (the draft version in a preview):
 	// the cache-busting value of the image paths.
 	Version       int          `json:"version"`

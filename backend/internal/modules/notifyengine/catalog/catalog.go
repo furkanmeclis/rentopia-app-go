@@ -15,6 +15,7 @@ import (
 
 // Event codes.
 const (
+	SiteLeadCreated           = "site_lead.created"
 	ReservationConfirmed      = "reservation.confirmed"
 	ReservationRejected       = "reservation.rejected"
 	ReservationCancelled      = "reservation.cancelled"
@@ -69,6 +70,11 @@ var customerChannels = []string{channel.SMS, channel.Email}
 var staffChannels = []string{channel.Push, channel.Email}
 
 var events = []Event{
+	{Code: SiteLeadCreated, Group: GroupOperations, Audience: channel.AudienceStaff, Instant: true,
+		Channels: []string{channel.Push}, Vars: []string{"kind", "link"}, Templates: map[string]Template{
+			"tr": {Subject: "Yeni site başvurusu", Body: "Yeni bir {{kind}} başvurusu alındı."},
+			"en": {Subject: "New site enquiry", Body: "A new {{kind}} enquiry was received."},
+		}},
 	{
 		Code: ReservationConfirmed, Group: GroupReservations, Audience: channel.AudienceCustomer, Instant: true,
 		Channels: customerChannels,

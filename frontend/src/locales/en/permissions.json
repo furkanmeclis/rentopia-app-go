@@ -238,5 +238,8 @@
   "labels.tenant.channels.sync": "Run channel sync and resolve messages",
   "groups.tenant_channels": "Channel manager",
   "labels.platform.site_domains.read": "View organization custom domains",
-  "labels.platform.site_domains.manage": "Manage organization custom domains (recheck, confirm HTTPS)"
+  "labels.platform.site_domains.manage": "Manage organization custom domains (recheck, confirm HTTPS)",
+  "labels.tenant.site_leads.read": "View site leads",
+  "labels.tenant.site_leads.manage": "Manage site leads",
+  "groups.tenant_site_leads": "Site leads"
 }

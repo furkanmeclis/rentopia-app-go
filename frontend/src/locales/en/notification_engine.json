@@ -140,5 +140,6 @@
   "portal.enabled": "Notifications are on for this device",
   "portal.disabled": "Notifications are off for this device",
   "portal.denied": "The browser did not allow notifications",
-  "portal.failed": "Could not change the notification setting"
+  "portal.failed": "Could not change the notification setting",
+  "events.site_lead_created": "New site enquiry"
 }

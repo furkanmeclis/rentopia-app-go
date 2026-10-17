@@ -59,6 +59,9 @@ func mediaID(ve *ValidationError, field, value string) {
 }
 
 func normalizeV2(c *model.Config, ve *ValidationError) {
+	if c.Leads == nil {
+		c.Leads = &model.LeadConfig{Contact: true, Corporate: true, Franchise: true, Newsletter: true}
+	}
 	normalizeTemplates(c, ve)
 	oneOf(ve, "config.theme.heading_font", &c.Theme.HeadingFont,
 		append(append([]string{}, model.Fonts...), "theme", "georgia"), "theme")

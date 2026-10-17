@@ -20,6 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const MaxMediaBytes int64 = 10 << 20
@@ -199,7 +200,13 @@ func (s *Service) PublicMedia(ctx context.Context, site, id uuid.UUID, preview s
 		return nil, "", ErrNotFound
 	}
 	if !slices.Contains(configMedia(decodeConfig(config)), id.String()) {
-		return nil, "", ErrNotFound
+		visible, err := s.q.SiteMediaHasPublicCampaign(ctx, db.SiteMediaHasPublicCampaignParams{OrganizationID: row.OrganizationID, MediaUuid: pgtype.UUID{Bytes: id, Valid: true}})
+		if err != nil {
+			return nil, "", err
+		}
+		if !visible {
+			return nil, "", ErrNotFound
+		}
 	}
 	rc, _, err := s.storage.Download(ctx, row.ObjectKey)
 	if err != nil {

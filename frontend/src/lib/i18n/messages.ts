@@ -43,6 +43,7 @@ import enSuppliers from "@/locales/en/suppliers.json";
 import enPublicApi from "@/locales/en/public_api.json";
 import enSite from "@/locales/en/site.json";
 import enNotificationEngine from "@/locales/en/notification_engine.json";
+import enSiteLeads from "@/locales/en/site_leads.json";
 import enWhatsapp from "@/locales/en/whatsapp.json";
 import enUsers from "@/locales/en/users.json";
 import enVehicleRecords from "@/locales/en/vehicle_records.json";
@@ -113,6 +114,7 @@ import trSuppliers from "@/locales/tr/suppliers.json";
 import trPublicApi from "@/locales/tr/public_api.json";
 import trSite from "@/locales/tr/site.json";
 import trNotificationEngine from "@/locales/tr/notification_engine.json";
+import trSiteLeads from "@/locales/tr/site_leads.json";
 import trWhatsapp from "@/locales/tr/whatsapp.json";
 import trUsers from "@/locales/tr/users.json";
 import trVehicleRecords from "@/locales/tr/vehicle_records.json";
@@ -214,6 +216,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     public_api: trPublicApi,
     site: trSite,
     notification_engine: trNotificationEngine,
+    site_leads: trSiteLeads,
     whatsapp: trWhatsapp,
   },
   en: {
@@ -286,6 +289,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     public_api: enPublicApi,
     site: enSite,
     notification_engine: enNotificationEngine,
+    site_leads: enSiteLeads,
     whatsapp: enWhatsapp,
   },
 };

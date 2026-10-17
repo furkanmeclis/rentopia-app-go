@@ -184,6 +184,12 @@ type Campaign struct {
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt           pgtype.Timestamptz `json:"deleted_at"`
+	ShowOnSite          bool               `json:"show_on_site"`
+	SiteSort            int32              `json:"site_sort"`
+	SiteTitle           []byte             `json:"site_title"`
+	SiteSummary         []byte             `json:"site_summary"`
+	SiteCtaLabel        []byte             `json:"site_cta_label"`
+	SiteMediaUuid       pgtype.UUID        `json:"site_media_uuid"`
 }
 
 type CampaignRedemption struct {
@@ -2697,6 +2703,32 @@ type SiteDomain struct {
 	OriginsDirty      bool               `json:"origins_dirty"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SiteLead struct {
+	ID               int64              `json:"id"`
+	OrganizationID   int64              `json:"organization_id"`
+	Uuid             uuid.UUID          `json:"uuid"`
+	Kind             string             `json:"kind"`
+	Name             string             `json:"name"`
+	Email            string             `json:"email"`
+	Phone            string             `json:"phone"`
+	Company          string             `json:"company"`
+	City             string             `json:"city"`
+	Message          string             `json:"message"`
+	FleetSize        pgtype.Int4        `json:"fleet_size"`
+	Locale           string             `json:"locale"`
+	ConsentKvkk      bool               `json:"consent_kvkk"`
+	ConsentMarketing bool               `json:"consent_marketing"`
+	SourceHost       string             `json:"source_host"`
+	IpHash           string             `json:"ip_hash"`
+	UserAgent        string             `json:"user_agent"`
+	Status           string             `json:"status"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	HandledBy        pgtype.Int8        `json:"handled_by"`
+	HandledAt        pgtype.Timestamptz `json:"handled_at"`
+	Note             string             `json:"note"`
 }
 
 type SiteMedium struct {

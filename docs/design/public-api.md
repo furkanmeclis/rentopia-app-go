@@ -155,3 +155,12 @@ RT-A01 seeds a key, a webhook and a delivery per organization and covers every `
 - **Host-based resolution**: done by the branded site (TEC-729, [branded-site.md](./branded-site.md)); verified custom domains are TEC-731.
 - **Customer matching.** Public bookings create a new customer card each time; merging duplicates is a staff task.
 - **Webhook scope.** Webhooks cover reservations made through the public API only. Panel and marketplace reservations could be added as an endpoint option.
+
+## 9. Site storefront content
+
+`GET /v1/public/campaigns`, `GET /v1/public/campaigns/{uuid}` and
+`POST /v1/public/site/leads` use a web storefront booking session and `catalog.read`.
+Secret keys and widget sessions are refused. Lead forms do not require an
+Idempotency-Key: newsletter uniqueness and a generic 202 acknowledgement provide
+subscription idempotency. See [site-leads.md](./site-leads.md) and
+[branded-site.md](./branded-site.md#11-campaign-cards-and-lead-forms-tec-784--tec-786).

@@ -178,6 +178,8 @@ export const Permission = {
   TenantSuppliersBulkArchive: "tenant.suppliers.bulk.archive",
   TenantPublicAPIRead: "tenant.public_api.read",
   TenantPublicAPIManage: "tenant.public_api.manage",
+  TenantSiteLeadsRead: "tenant.site_leads.read",
+  TenantSiteLeadsManage: "tenant.site_leads.manage",
   TenantSiteRead: "tenant.site.read",
   TenantSiteManage: "tenant.site.manage",
   TenantNotificationSettingsRead: "tenant.notification_settings.read",
@@ -618,6 +620,10 @@ export const permissions = {
      * catalog state and preview links; `manage` = save, publish, restore,
      * images, renew the key and switch catalog items.
      */
+    siteLeads: {
+      read: Permission.TenantSiteLeadsRead,
+      manage: Permission.TenantSiteLeadsManage,
+    },
     site: {
       read: Permission.TenantSiteRead,
       manage: Permission.TenantSiteManage,

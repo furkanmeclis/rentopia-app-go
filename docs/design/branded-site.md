@@ -572,3 +572,30 @@ cookie, so tokens never appear in HTML.
   brand).
 - Mobile Safari / real-device checks and an automated visual test (the site
   has no browser test runner).
+
+## 12. Campaign cards and lead forms (TEC-784 / TEC-786)
+
+Migration `000129_campaign_storefront` connects editorial cards to real campaigns.
+`GET/PATCH /v1/tenant/campaigns/{uuid}/storefront` uses the existing campaign read/write
+permissions. Fields: `show_on_site` (false), `site_sort` (0), `site_title` (160),
+`site_summary` (1000), `site_cta_label` (80), each text map limited to `tr` and `en`,
+and nullable `site_media_uuid`. Text is plain text. Media must belong to the same
+organization; live campaign references protect library deletion. The composite
+foreign key clears only the media UUID on deletion; organization deletion cascades.
+
+Resolve includes `campaigns` using the same projection as `GET /v1/public/campaigns`
+and `GET /v1/public/campaigns/{uuid}`. This keeps rendering server-side without an
+extra visitor request. Only active, visible, unexhausted campaigns within their
+Istanbul validity dates and web channel appear, ordered by `site_sort`, then ID.
+Dates and codes always come from the campaign. A code appears only for a coupon
+with no customer restriction; the rental-count threshold applies only to the repeat-customer type. Repeat-customer
+codes never appear. No internal names or customer identifiers are projected.
+Media URLs are API-owned and served only while their site and campaign are public.
+
+The campaign and newsletter sections are available in the theme registry. The
+existing web sales-channel switch gates authenticated public calls; package
+entitlements remain a future concern as in the booking API. `config.leads` contains
+`contact`, `corporate`, `franchise`, `newsletter` flags (all true when absent).
+These are draft/published configuration like other site content; public submissions
+check the published flags and the site's own active key. Details and limits are in
+[site-leads.md](./site-leads.md). No form or panel UI is added in these backend tasks.

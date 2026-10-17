@@ -84,7 +84,7 @@ func Defaults(d Definition) Config {
 }
 
 func NeedsService(id string) bool {
-	return slices.Contains([]string{"campaigns", "guide", "newsletter"}, id)
+	return slices.Contains([]string{"guide"}, id)
 }
 
 func Statuses(template string) []SectionStatus {

@@ -234,6 +234,8 @@ const (
 const (
 	PermPlatformSiteDomainsRead   = "platform.site_domains.read"
 	PermPlatformSiteDomainsManage = "platform.site_domains.manage"
+	PermTenantSiteLeadsRead       = "tenant.site_leads.read"
+	PermTenantSiteLeadsManage     = "tenant.site_leads.manage"
 	PermTenantSiteRead            = "tenant.site.read"
 	PermTenantSiteManage          = "tenant.site.manage"
 )

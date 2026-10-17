@@ -140,5 +140,6 @@
   "portal.enabled": "Bu cihazda bildirimler açıldı",
   "portal.disabled": "Bu cihazda bildirimler kapatıldı",
   "portal.denied": "Tarayıcı bildirim iznini vermedi",
-  "portal.failed": "Bildirim ayarı değiştirilemedi"
+  "portal.failed": "Bildirim ayarı değiştirilemedi",
+  "events.site_lead_created": "Yeni site başvurusu"
 }
