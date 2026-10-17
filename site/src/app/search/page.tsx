@@ -237,12 +237,18 @@ export default async function SearchPage({
   }
 
   const byUuid = new Map(subgroups.map((s) => [s.uuid, s]));
-  const items = [...(availability?.items ?? [])].sort((a, b) => {
-    if (a.available !== b.available) return a.available ? -1 : 1;
-    return (
-      Number(a.price?.total ?? Infinity) - Number(b.price?.total ?? Infinity)
-    );
-  });
+  const items = [...(availability?.items ?? [])]
+    .filter(
+      (item) =>
+        !ctx.embed?.fields.subgroup ||
+        item.subgroup.uuid === ctx.embed.fields.subgroup,
+    )
+    .sort((a, b) => {
+      if (a.available !== b.available) return a.available ? -1 : 1;
+      return (
+        Number(a.price?.total ?? Infinity) - Number(b.price?.total ?? Infinity)
+      );
+    });
   const back = `/search?${new URLSearchParams(Object.entries(values).filter(([, v]) => v) as [string, string][])}`;
   const hidden = {
     pickup: values.pickup ?? "",

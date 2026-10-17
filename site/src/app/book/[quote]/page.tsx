@@ -7,6 +7,7 @@ import { Container, PageTitle } from "@/components/site/text";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Alert, Card } from "@/components/ui/card";
 import { Checkbox, Label, Select } from "@/components/ui/form";
+import { embedPath } from "@/lib/embed";
 import { loadQuote } from "@/lib/quote";
 import { bookingApi, getCtx } from "@/lib/server";
 import type { Extra } from "@/lib/types";
@@ -107,7 +108,7 @@ export default async function ExtrasPage({
                   {t("book.extras_continue")}
                 </Button>
                 <Link
-                  href={`/book/${quote.uuid}/details`}
+                  href={embedPath(`/book/${quote.uuid}/details`, ctx.embed)}
                   className={buttonVariants({ variant: "outline", size: "lg" })}
                 >
                   {t("book.extras_skip")}
@@ -117,7 +118,7 @@ export default async function ExtrasPage({
           )}
           {extras.length === 0 ? (
             <Link
-              href={`/book/${quote.uuid}/details`}
+              href={embedPath(`/book/${quote.uuid}/details`, ctx.embed)}
               className={buttonVariants({ size: "lg" })}
             >
               {t("book.extras_continue")}

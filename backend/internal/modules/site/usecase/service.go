@@ -330,6 +330,9 @@ func (s *Service) Get(ctx context.Context, orgID int64, orgSlug string) (model.S
 		k, err := s.keys.GetKey(ctx, orgID, uuid.UUID(row.ApiKeyUuid.Bytes))
 		if err == nil {
 			out.APIKey = &model.KeyRef{UUID: k.UUID, Status: k.Status}
+			if k.PublishableKey != nil {
+				out.APIKey.PublishableKey = *k.PublishableKey
+			}
 			usable = k.Status == pamodel.KeyActive && (k.ExpiresAt == nil || k.ExpiresAt.After(s.now()))
 			if !usable {
 				out.BookingBlockers = append(out.BookingBlockers, model.BlockKeyInactive)

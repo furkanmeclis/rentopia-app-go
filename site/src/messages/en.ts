@@ -2,6 +2,8 @@ import type { MessageKey } from "./tr";
 
 /** English: complete (the type requires every Turkish key). */
 export const en: Record<MessageKey, string> = {
+  "widget.payment_outside": "Continue to a full page for secure payment.",
+  "widget.new_tab": "Open in a new tab",
   "nav.home": "Home",
   "nav.branches": "Branches",
   "nav.about": "About us",

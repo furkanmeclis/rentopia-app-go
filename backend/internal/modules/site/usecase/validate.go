@@ -238,12 +238,29 @@ func widgetOrigin(raw string) string {
 		v = "https://" + v
 	}
 	u, err := url.Parse(v)
-	if err != nil || u.Host == "" || u.User != nil || (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != "" {
+	if err != nil {
+		return ""
+	}
+	invalidAuthority := u.Host == "" || u.User != nil
+	hasPath := u.Path != "" && u.Path != "/"
+	hasSuffix := u.RawQuery != "" || u.ForceQuery || strings.Contains(v, "#")
+	if invalidAuthority || hasPath || hasSuffix {
 		return ""
 	}
 	host, ok := NormalizeHost(u.Host)
 	if !ok || (!strings.Contains(host, ".") && host != "localhost") {
 		return ""
+	}
+	for _, label := range strings.Split(host, ".") {
+		if !subdomainRe.MatchString(label) {
+			return ""
+		}
+	}
+	if port := u.Port(); port != "" {
+		n, err := strconv.Atoi(port)
+		if err != nil || n < 1 || n > 65535 {
+			return ""
+		}
 	}
 	local := host == "localhost" || strings.HasSuffix(host, ".localhost")
 	switch {

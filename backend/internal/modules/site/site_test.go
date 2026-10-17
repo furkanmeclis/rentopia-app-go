@@ -313,6 +313,9 @@ func TestSettingsAndKey(t *testing.T) {
 	}
 	key, err := e.keys.GetKey(ctx, e.a.id, got.APIKey.UUID)
 	e.must(err)
+	if key.PublishableKey == nil || got.APIKey.PublishableKey != *key.PublishableKey {
+		t.Fatal("site settings omit the snippet publishable key")
+	}
 	if key.Kind != "publishable" || key.Channel != "web" || !slices.Equal(key.AllowedOrigins, []string{originA}) {
 		t.Fatalf("site key = %+v", key)
 	}
@@ -386,7 +389,10 @@ func TestResolveIsolation(t *testing.T) {
 	subA, subB := "alpha-"+e.a.slug[7:], "beta-"+e.b.slug[7:]
 	a, err := e.svc.Save(ctx, e.a.id, e.a.slug, 0, model.SaveInput{Version: ptr(0), Enabled: ptr(true), Subdomain: ptr(subA), Config: themed("#ff0000", "Alfa")})
 	e.must(err)
-	b, err := e.svc.Save(ctx, e.b.id, e.b.slug, 0, model.SaveInput{Version: ptr(0), Enabled: ptr(true), Subdomain: ptr(subB), Config: themed("#00ff00", "Beta")})
+	configB := themed("#00ff00", "Beta")
+	configB.Widget.AllowedDomains = []string{"https://beta-partner.com"}
+	configB.Widget.InitialFilters.RentalDays = 7
+	b, err := e.svc.Save(ctx, e.b.id, e.b.slug, 0, model.SaveInput{Version: ptr(0), Enabled: ptr(true), Subdomain: ptr(subB), Config: configB})
 	e.must(err)
 	// Saved but never published: nothing resolves yet.
 	if _, r := e.resolve(subA + ".sites.test"); r.code != http.StatusNotFound {
@@ -413,9 +419,15 @@ func TestResolveIsolation(t *testing.T) {
 		ra.PortalURL != "https://app.test/r/"+e.a.slug || ra.HostKind != model.HostSubdomain || ra.Version != 1 {
 		t.Fatalf("A resolved = %+v", ra)
 	}
+	if !slices.Equal(ra.Config.Widget.AllowedDomains, []string{"https://www.partner.com", "http://shop.localhost:3000"}) {
+		t.Fatalf("resolve widget config = %+v", ra.Config.Widget)
+	}
 	if rb.Organization.Slug != e.b.slug || rb.Config.Theme.Colors.Primary != "#00ff00" || rb.PublishableKey != *keyB.PublishableKey ||
 		rb.Origin != "https://"+subB+".sites.test" {
 		t.Fatalf("B resolved = %+v", rb)
+	}
+	if !slices.Equal(rb.Config.Widget.AllowedDomains, []string{"https://beta-partner.com"}) || rb.Config.Widget.InitialFilters.RentalDays != 7 {
+		t.Fatalf("resolve B widget config = %+v", rb.Config.Widget)
 	}
 	if strings.Contains(string(mustJSON(t, ra)), e.b.slug) || strings.Contains(string(mustJSON(t, rb)), e.a.slug) {
 		t.Fatal("a resolved site mentions the other organization")
@@ -572,5 +584,47 @@ func TestHostHelpers(t *testing.T) {
 		if got := usecase.SubdomainFromSlug(slug); got != want {
 			t.Errorf("SubdomainFromSlug(%q) = %q", slug, got)
 		}
+	}
+}
+
+func TestWidgetConfigValidation(t *testing.T) {
+	for _, raw := range []string{
+		"*.partner.com",
+		"https://*.partner.com",
+		"https://-bad.example.com",
+		"https://bad-.example.com",
+		"https://good.example.com:0",
+		"https://good.example.com:65536",
+		"https://good.example.com?",
+		"https://good.example.com#",
+		"https://user:pass@example.com",
+		"http://partner.com",
+		"https://example.com/path",
+		"https://ok.example.com; frame-ancestors *",
+	} {
+		t.Run(raw, func(t *testing.T) {
+			c := model.DefaultConfig()
+			c.Widget.AllowedDomains = []string{raw}
+			if _, err := usecase.NormalizeConfig(c); err == nil {
+				t.Fatal("accepted invalid widget origin")
+			}
+		})
+	}
+	c := model.DefaultConfig()
+	c.Widget.AllowedDomains = []string{"Partner.COM", "https://partner.com:443/"}
+	got, err := usecase.NormalizeConfig(c)
+	if err != nil || !slices.Equal(got.Widget.AllowedDomains, []string{"https://partner.com"}) {
+		t.Fatalf("normalization = %+v, %v", got.Widget, err)
+	}
+	c.Widget.AllowedDomains = make([]string, 21)
+	for i := range c.Widget.AllowedDomains {
+		c.Widget.AllowedDomains[i] = "partner.com"
+	}
+	if _, err := usecase.NormalizeConfig(c); err == nil {
+		t.Fatal("accepted over 20 domains")
+	}
+	c.Widget.AllowedDomains = []string{}
+	if _, err := usecase.NormalizeConfig(c); err != nil {
+		t.Fatalf("empty deny list: %v", err)
 	}
 }

@@ -4,6 +4,8 @@ import { cookies, headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 
+import { embedContext } from "./embed-server";
+import type { EmbedContext } from "./embed";
 import { ApiError, apiFetch, type ApiRequest } from "./api";
 import { LOCALE_COOKIE, pickLocale, translator, type Translate } from "./i18n";
 import { PREVIEW_HEADER, previewToken } from "./preview";
@@ -37,6 +39,7 @@ export type Ctx = {
   locale: Locale;
   t: Translate;
   content: SiteContent;
+  embed: EmbedContext | null;
 };
 
 const EMPTY_CONTENT: SiteContent = {
@@ -52,13 +55,15 @@ const EMPTY_CONTENT: SiteContent = {
 export const getCtx = cache(async (): Promise<Ctx> => {
   const site = await getSite();
   const jar = await cookies();
+  const embed = await embedContext();
   const locale = pickLocale(
-    jar.get(LOCALE_COOKIE)?.value,
+    embed ? embed.fields.locale : jar.get(LOCALE_COOKIE)?.value,
     site.locales,
     site.default_locale,
   );
   return {
     site,
+    embed,
     locale,
     t: translator(locale),
     content: site.config.content?.[locale] ?? EMPTY_CONTENT,
@@ -68,11 +73,14 @@ export const getCtx = cache(async (): Promise<Ctx> => {
 async function currentToken(site: Site): Promise<string | null> {
   const fromProxy = (await headers()).get(SESSION_HEADER);
   if (fromProxy) return fromProxy;
+  if (await embedContext()) return null;
   const stored = decodeSession((await cookies()).get(SESSION_COOKIE)?.value);
   return usableSession(stored, site) ? stored.t : null;
 }
 
 async function refreshToken(site: Site): Promise<string> {
+  if (await embedContext())
+    throw new ApiError(401, "EMBED_EXPIRED", "Session expired");
   const fresh = await mintSession(site, await getClientIp());
   try {
     // Allowed in server actions; a page render keeps the proxy's cookie.

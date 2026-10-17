@@ -1,5 +1,7 @@
 /** Turkish (primary). Every key must exist in en.ts (enforced by its type). */
 export const tr = {
+  "widget.payment_outside": "Güvenli ödeme için tam sayfaya geçin.",
+  "widget.new_tab": "Yeni sekmede aç",
   "nav.home": "Ana sayfa",
   "nav.branches": "Şubeler",
   "nav.about": "Hakkımızda",
