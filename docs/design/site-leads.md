@@ -51,3 +51,7 @@ the notification engine, in-app only, to current members with the read permissio
 Notifications contain kind only, no enquiry text or contact details. Duplicate
 newsletter and honeypot submissions produce no notification. Notification failures
 are logged without failing a saved lead. Export is deferred to the panel task.
+
+The site forms and the panel's "Site başvuruları" page are described in
+[branded-site.md §12.2](./branded-site.md#122-lead-forms-site-and-panel). The panel
+has no export yet.

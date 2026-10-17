@@ -474,8 +474,10 @@ client-side state.
 | `site/src/themes/registry.ts` | Pure: renderer ids, `resolveThemeId` (unknown, missing or not-yet-ported templates → `technowide-design`), supported home sections per renderer |
 | `site/src/themes/index.tsx` | `themeFor(site)` → `ThemeRenderer` {`className`, `Header`, `Footer`, `Home`, `Vehicles`, `Branches`, `Branch`, `Content`}. Horizon / classic / Aurum are added as further entries |
 | `site/src/themes/technowide/chrome.tsx` | Header (primary top bar: brand, language, portal sign-in, reservation lookup; desktop nav; `<details>` mobile menu) and footer |
-| `site/src/themes/technowide/home.tsx`, `sections/*` | Home sections: hero, search, fleet, advantages, about, faq, branches |
-| `site/src/themes/technowide/pages.tsx` | Vehicles, offices + office detail, FAQ, about, contact, terms, privacy |
+| `site/src/themes/technowide/home.tsx`, `sections/*` | Home sections: hero, search, campaigns, fleet, advantages, newsletter, about, faq, branches |
+| `site/src/themes/technowide/pages.tsx` | Vehicles, offices + office detail, campaigns + campaign detail, FAQ, about, contact (+ form), corporate and franchise applications, terms, privacy |
+| `site/src/components/site/lead-form.tsx`, `src/app/lead-actions.ts`, `src/lib/leads.ts` | Lead forms (§12.2): markup, server action, pure parsing / validation / redirect helpers |
+| `site/src/lib/campaigns.ts` | Pure campaign card projection (§12.1) |
 | `site/src/themes/technowide/technowide.css` | The theme stylesheet, scoped to `.theme-technowide` (the `<body>` class) in the `components` cascade layer |
 | `site/src/components/site/*` | Shared, theme-neutral markup: search form, vehicle card, page heading, booking steps and summary |
 
@@ -491,9 +493,11 @@ links) opens the form without the "invalid search" error.
 
 `lib/sections.ts` turns the resolved `sections` (enabled, in the
 organization's order) into blocks. It re-applies the API's status rules:
-`campaigns` (TEC-784), `guide` (TEC-785) and `newsletter` (TEC-786) are
-`needs_service` and render nothing; `app_promo` never renders; disabled,
-unknown, unsupported and duplicate ids are dropped; the hero is first. A
+`guide` (TEC-785) is `needs_service` and renders nothing; `app_promo`
+never renders; disabled, unknown, unsupported and duplicate ids are
+dropped; sections without data for this site are dropped before the
+layout is decided (`campaigns` without a live campaign, `newsletter`
+while its form is off or the site has no usable key); the hero is first. A
 `search` directly after the hero is drawn as the hero's booking card (the
 studio's composition); elsewhere it is its own band. Answers without
 `sections` (pre-v2) get hero, search, fleet, advantages, about, faq.
@@ -507,9 +511,11 @@ studio's composition); elsewhere it is its own band. Answers without
 | about | `content.{locale}.about` (first two paragraphs), `about.image`, `about.highlights.{locale}` | hidden |
 | faq | `content.{locale}.faq` (first six, native `<details>`) | hidden |
 | branches | live locations (rendered when a template lists it; Technowide's API order does not) | hidden |
+| campaigns | resolve `campaigns` (first six; §12.1) as a scroll-snap track with anchor dots, "all campaigns" link | hidden |
+| newsletter | e-mail band posting to the lead action (§12.2) | hidden while `leads.newsletter` is off or there is no usable key |
 
 No demo vehicles, prices, campaigns, articles, reviews or studio images are
-shipped. The legacy `layout.hero/cards/footer` variants do not apply to
+shipped: campaign cards are only the organization's live campaigns. The legacy `layout.hero/cards/footer` variants do not apply to
 Technowide.
 
 ### 11.3 Chrome, menus and links
@@ -518,11 +524,12 @@ Technowide.
   contain at least one item with a label (visitor locale, then tr, then en)
   and a safe href (`/path` or `https://`, re-checked by `lib/links.ts`).
   Otherwise the derived defaults list only pages that exist (vehicles while
-  booking is on, offices, reservations, FAQ / about / contact when they
-  have content). External links carry `rel="noopener noreferrer"`.
-- Corporate and franchise pages are not linked until TEC-786. Sign-in /
-  membership links to the customer portal (`portal_url`); "Rezervasyon
-  sorgula" is `/lookup`.
+  booking is on, campaigns while one is live, offices, reservations, FAQ /
+  about when they have content, contact with contact details or its form).
+  External links carry `rel="noopener noreferrer"`.
+- The footer's company column links `/corporate` and `/franchise` only
+  while their forms are available (§12.2). Sign-in / membership links to
+  the customer portal (`portal_url`); "Rezervasyon sorgula" is `/lookup`.
 - `brand.tagline` shows under the name (header, footer); `brand.socials`
   render only for https URLs on the network's own host, opening a new tab
   with `noopener noreferrer`.
@@ -562,10 +569,10 @@ cookie, so tokens never appear in HTML.
 
 ### 11.6 Follow-ups
 
-- **TEC-784** campaigns, **TEC-785** guide (studio "journal"), **TEC-786**
-  newsletter, contact form, corporate and franchise pages: add the data
-  service, then the Technowide section (the studio markup and CSS classes
-  are the reference) and drop the id from `NEEDS_SERVICE`.
+- **TEC-785** guide (studio "journal"): add the data service, then the
+  Technowide section (the studio markup and CSS classes are the
+  reference) and drop the id from `NEEDS_SERVICE`. Campaigns (TEC-784) and
+  the newsletter / lead forms (TEC-786) are done (§12).
 - **TEC-783 and later**: the remaining templates (Horizon, classic, Aurum)
   as further `ThemeRenderer` entries, plus any panel controls still missing
   for the v2 content this renderer reads (slides, advantages, about, menus,
@@ -598,4 +605,56 @@ entitlements remain a future concern as in the booking API. `config.leads` conta
 `contact`, `corporate`, `franchise`, `newsletter` flags (all true when absent).
 These are draft/published configuration like other site content; public submissions
 check the published flags and the site's own active key. Details and limits are in
-[site-leads.md](./site-leads.md). No form or panel UI is added in these backend tasks.
+[site-leads.md](./site-leads.md).
+
+### 12.1 Campaign cards: site and panel
+
+- **Site.** `lib/campaigns.ts` projects resolve `campaigns` into cards (at most 24,
+  well-formed UUIDs, API order, no duplicates): localized title / summary / button
+  label (visitor locale, then tr, then en; an empty title shows "Kampanya"), validity
+  line from the campaign's dates ("… tarihine kadar geçerli", "… tarihinden itibaren",
+  a range, or "Güncel kampanya"), the coupon code chip only when the API sent one, and
+  the image only when `media_url` is this site's library stream path (served through
+  `/media/site/media/…`); otherwise a token gradient. Home section: first six cards;
+  `/campaigns` lists all (alternating image side); `/campaigns/{uuid}` is rendered
+  from the same resolve data (no extra API call; 404 once the campaign is no longer
+  live) with the summary, code, three generic "how to use" steps, a terms notice and a
+  vehicles / contact call to action.
+- **Panel.** Campaign detail has a "Sitede vitrin" card (`GET/PATCH
+  …/campaigns/{uuid}/storefront`): show on site, order, title / summary / button
+  label tr + en, library image through the site media picker (needs `tenant.site.read`;
+  upload needs `tenant.site.manage`). Showing a campaign requires a title in at least
+  one language. The card explains why a marked campaign would still not appear
+  (not active, no web channel) and whether the code is public. The campaign list has
+  an "On site" column; the list answer has no storefront fields, so each visible row
+  reads its storefront (cached for a minute).
+
+### 12.2 Lead forms: site and panel
+
+- **Site.** Newsletter band (home), contact form on `/contact`, `/corporate` and
+  `/franchise` pages (404 while off). A form is available when its published
+  `config.leads` flag is on (all on without a `leads` object) and the site has a usable
+  publishable key (`booking_enabled`); without a key no session can submit. Forms are
+  plain POSTs to the `submitLead` server action (no JavaScript needed), with native
+  controls, `required` / `type=email` / `maxlength`, a KVKK consent checkbox linking the
+  privacy page, an optional marketing consent (required for the newsletter, which is
+  commercial e-mail), and a hidden off-screen `website` honeypot. The action re-checks
+  the fields (`lib/leads.ts`, same rules and limits as the API), then calls `POST
+  /v1/public/site/leads` through `bookingApi` (the visitor's booking session for the
+  site origin, minted again on 401) and redirects (post / redirect / get) to
+  `{page}?lead={sent|invalid|limited|closed|preview|failed}&lead_kind=…&fe=field.code#form`.
+  The query never carries what the visitor typed: after a failure the values come back
+  through a five-minute httpOnly cookie per form (scoped to the form's path; long
+  messages are shortened to fit), deleted once the API accepted. "Sent" is shown only
+  after the API's 202; 429 shows the rate-limit message, 400 maps the API's field
+  details inline, 404 / no key shows "form unavailable", previews never submit.
+- **Panel.** Ayarlar → "Site başvuruları" (`/t/{slug}/settings/site-leads`,
+  `tenant.site_leads.read`): DataTable with search, type and status quick filters (one
+  value each, as the API takes), Istanbul-day date range (`date_from` inclusive,
+  `date_to` exclusive) and date sorting; a drawer shows every field, consents, source
+  host, language and times; `tenant.site_leads.manage` sets the status (new,
+  in progress, done, spam) and an internal note. The sidebar item shows the number of
+  `new` leads (one `limit=1` list call, refreshed every five minutes). The site editor's
+  Bölümler tab lists campaigns and newsletter as available sections and has a "Formlar"
+  area toggling `config.leads.{contact,corporate,franchise,newsletter}` (draft, applied
+  on publish) with a link to the applications page.
