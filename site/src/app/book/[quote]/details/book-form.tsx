@@ -26,7 +26,7 @@ function Submit({ labels, preview }: { labels: BookLabels; preview: boolean }) {
       size="lg"
       disabled={pending || preview}
       aria-disabled={pending || preview}
-      className="w-full sm:w-auto"
+      className="rt-submit"
     >
       {pending ? labels["book.submitting"] : labels["book.submit"]}
     </Button>
@@ -56,23 +56,21 @@ export function BookForm({
   const L = (k: string) => labels[k] ?? k;
 
   return (
-    <form action={action} className="space-y-6" noValidate>
+    <form action={action} className="rt-form" noValidate>
       <input type="hidden" name="quote_uuid" value={quoteUuid} />
       <input type="hidden" name="idempotency_key" value={idempotencyKey} />
       {preview ? <Alert>{L("preview.booking_disabled")}</Alert> : null}
       {state.error ? <Alert tone="error">{L(state.error)}</Alert> : null}
 
-      <fieldset className="space-y-4">
-        <legend className="mb-2 text-lg font-semibold">
-          {L("book.renter")}
-        </legend>
+      <fieldset className="rt-fieldset">
+        <legend className="rt-legend">{L("book.renter")}</legend>
         <Field id="type" label={L("book.type")}>
           <Select name="type" defaultValue={v.type || "individual"}>
             <option value="individual">{L("book.type.individual")}</option>
             <option value="corporate">{L("book.type.corporate")}</option>
           </Select>
         </Field>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="rt-form-grid">
           <Field
             id="first_name"
             label={L("book.first_name")}
@@ -134,12 +132,10 @@ export function BookForm({
         </div>
       </fieldset>
 
-      <fieldset className="space-y-4">
-        <legend className="mb-2 text-lg font-semibold">
-          {L("book.driver")}
-        </legend>
-        <p className="text-muted-foreground text-sm">{L("book.driver_hint")}</p>
-        <div className="grid gap-4 sm:grid-cols-2">
+      <fieldset className="rt-fieldset">
+        <legend className="rt-legend">{L("book.driver")}</legend>
+        <p className="rt-muted">{L("book.driver_hint")}</p>
+        <div className="rt-form-grid">
           <Field
             id="driver_first_name"
             label={L("book.driver_first_name")}
@@ -199,34 +195,32 @@ export function BookForm({
         </Field>
       </fieldset>
 
-      <fieldset className="space-y-3">
-        <legend className="sr-only">{L("book.accept_terms")}</legend>
-        <div className="flex items-start gap-2">
+      <fieldset className="rt-fieldset">
+        <legend className="rt-sr-only">{L("book.accept_terms")}</legend>
+        <div className="rt-consent">
           <Checkbox
             id="accept_terms"
             name="accept_terms"
             required
             aria-invalid={err("accept_terms") ? true : undefined}
-            className="mt-0.5"
           />
-          <Label htmlFor="accept_terms" className="leading-snug font-normal">
-            <Link href="/terms" target="_blank" className="underline">
+          <Label htmlFor="accept_terms">
+            <Link href="/terms" target="_blank">
               {L("footer.terms")}
             </Link>
             {" — "}
             {L("book.accept_terms")}
           </Label>
         </div>
-        <div className="flex items-start gap-2">
+        <div className="rt-consent">
           <Checkbox
             id="accept_privacy"
             name="accept_privacy"
             required
             aria-invalid={err("accept_privacy") ? true : undefined}
-            className="mt-0.5"
           />
-          <Label htmlFor="accept_privacy" className="leading-snug font-normal">
-            <Link href="/privacy" target="_blank" className="underline">
+          <Label htmlFor="accept_privacy">
+            <Link href="/privacy" target="_blank">
               {L("footer.privacy")}
             </Link>
             {" — "}
@@ -234,7 +228,7 @@ export function BookForm({
           </Label>
         </div>
         {err("accept_terms") || err("accept_privacy") ? (
-          <p className="text-sm text-red-600" role="alert">
+          <p className="rt-field-error" role="alert">
             {L("book.terms_required")}
           </p>
         ) : null}

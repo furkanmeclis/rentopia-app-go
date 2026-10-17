@@ -6,8 +6,8 @@ import { clientIpFrom } from "@/lib/request";
 import { resolveSite } from "@/lib/resolve";
 
 /**
- * Same-origin images for the site: only this host's site images and its
- * organization's product images are passed through from the API. Media
+ * Same-origin images for the site: only this host's site images, its
+ * library media and its organization's product images are passed through from the API. Media
  * URLs stay API-owned; the browser never sees a storage key or the API.
  */
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
@@ -32,6 +32,9 @@ export async function GET(
   const rel = path.join("/");
   const allowed = [
     new RegExp(`^site/assets/${site.site_uuid}/(logo|favicon|cover)$`),
+    // Site library media (TEC-781): the API serves only media the active
+    // publication (or the previewed draft) references.
+    new RegExp(`^site/media/${site.site_uuid}/${UUID}$`),
     new RegExp(
       `^media/rental-products/${site.organization.uuid}/images/${UUID}$`,
     ),
@@ -42,7 +45,7 @@ export async function GET(
   const v = request.nextUrl.searchParams.get("v");
   const qs = new URLSearchParams();
   if (v && /^\d{1,10}$/.test(v)) qs.set("v", v);
-  if (preview && rel.startsWith("site/assets/")) qs.set("preview", preview);
+  if (preview && rel.startsWith("site/")) qs.set("preview", preview);
   const query = qs.size ? `?${qs.toString()}` : "";
   let upstream: Response;
   try {

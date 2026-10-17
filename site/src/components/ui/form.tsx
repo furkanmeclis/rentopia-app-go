@@ -3,13 +3,12 @@ import * as React from "react";
 import { cn } from "@/lib/cn";
 
 /**
- * shadcn/ui-styled form controls. The site's forms post to server actions
- * and work without JavaScript, so selects and date fields are the native
- * controls (accessible, with the platform pickers on phones), styled like
- * the shadcn inputs.
+ * Form controls. The site's forms post to server actions and work without
+ * JavaScript, so selects and date fields are the native controls
+ * (accessible, with the platform pickers on phones). The classes are the
+ * semantic contract (`rt-*`) each theme stylesheet draws.
  */
-const field =
-  "flex h-10 w-full rounded-[var(--radius)] border border-border bg-background px-3 py-2 text-base text-foreground shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-primary/40 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-red-600 md:text-sm";
+const field = "rt-input";
 
 export function Input({
   className,
@@ -22,7 +21,7 @@ export function Select({
   className,
   ...props
 }: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={cn(field, "pr-8", className)} {...props} />;
+  return <select className={cn(field, "rt-select", className)} {...props} />;
 }
 
 export function Textarea({
@@ -30,7 +29,7 @@ export function Textarea({
   ...props
 }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
-    <textarea className={cn(field, "min-h-24 py-2", className)} {...props} />
+    <textarea className={cn(field, "rt-textarea", className)} {...props} />
   );
 }
 
@@ -38,12 +37,7 @@ export function Label({
   className,
   ...props
 }: React.LabelHTMLAttributes<HTMLLabelElement>) {
-  return (
-    <label
-      className={cn("text-sm leading-none font-medium", className)}
-      {...props}
-    />
-  );
+  return <label className={cn("rt-label", className)} {...props} />;
 }
 
 export function Checkbox({
@@ -53,10 +47,7 @@ export function Checkbox({
   return (
     <input
       type="checkbox"
-      className={cn(
-        "border-border size-4 shrink-0 rounded accent-[var(--primary)]",
-        className,
-      )}
+      className={cn("rt-checkbox", className)}
       {...props}
     />
   );
@@ -86,7 +77,7 @@ export function Field({
     .filter(Boolean)
     .join(" ");
   return (
-    <div className={cn("grid gap-1.5", className)}>
+    <div className={cn("rt-field", className)}>
       <Label htmlFor={id}>{label}</Label>
       {React.cloneElement(children, {
         id,
@@ -94,12 +85,12 @@ export function Field({
         "aria-describedby": describedBy || undefined,
       })}
       {hint ? (
-        <p id={`${id}-hint`} className="text-muted-foreground text-xs">
+        <p id={`${id}-hint`} className="rt-field-hint">
           {hint}
         </p>
       ) : null}
       {error ? (
-        <p id={`${id}-error`} className="text-sm text-red-600" role="alert">
+        <p id={`${id}-error`} className="rt-field-error" role="alert">
           {error}
         </p>
       ) : null}

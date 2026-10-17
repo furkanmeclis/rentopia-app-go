@@ -3,8 +3,8 @@ import { randomUUID } from "node:crypto";
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { QuoteSummary, Steps } from "@/components/site/booking";
-import { Container, PageTitle } from "@/components/site/text";
+import { BookingGrid, QuoteSummary, Steps } from "@/components/site/booking";
+import { PageHeading, PageSection } from "@/components/site/page-heading";
 import { buttonVariants } from "@/components/ui/button";
 import { Alert, Card } from "@/components/ui/card";
 import { embedPath } from "@/lib/embed";
@@ -70,41 +70,43 @@ export default async function DetailsPage({
   const labels = Object.fromEntries(LABELS.map((k) => [k, t(k)]));
 
   return (
-    <Container className="space-y-6 py-8">
-      <Steps ctx={ctx} current={1} />
-      <PageTitle>{t("book.steps.details")}</PageTitle>
-      {changed ? <Alert tone="error">{t("book.price_changed")}</Alert> : null}
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <Card>
-          {quote.expired || quote.status !== "open" ? (
-            <div className="space-y-4">
-              <Alert tone="error">{t("book.quote_expired")}</Alert>
-              <Link
-                href={embedPath("/", ctx.embed)}
-                className={buttonVariants()}
-              >
-                {t("common.new_search")}
-              </Link>
-            </div>
-          ) : (
-            <BookForm
-              preview={Boolean(ctx.site.preview)}
-              quoteUuid={quote.uuid}
-              idempotencyKey={randomUUID()}
-              labels={labels}
-            />
-          )}
-        </Card>
-        <div className="space-y-4">
-          <QuoteSummary ctx={ctx} quote={quote} />
-          <Link
-            href={embedPath(`/book/${quote.uuid}`, ctx.embed)}
-            className={buttonVariants({ variant: "link" })}
-          >
-            ← {t("book.extras_title")}
-          </Link>
-        </div>
-      </div>
-    </Container>
+    <>
+      <PageHeading ctx={ctx} title={t("book.steps.details")} />
+      <PageSection>
+        <Steps ctx={ctx} current={1} />
+        {changed ? <Alert tone="error">{t("book.price_changed")}</Alert> : null}
+        <BookingGrid>
+          <Card className="rt-panel">
+            {quote.expired || quote.status !== "open" ? (
+              <div className="rt-stack">
+                <Alert tone="error">{t("book.quote_expired")}</Alert>
+                <Link
+                  href={embedPath("/", ctx.embed)}
+                  className={buttonVariants()}
+                >
+                  {t("common.new_search")}
+                </Link>
+              </div>
+            ) : (
+              <BookForm
+                preview={Boolean(ctx.site.preview)}
+                quoteUuid={quote.uuid}
+                idempotencyKey={randomUUID()}
+                labels={labels}
+              />
+            )}
+          </Card>
+          <div className="rt-stack">
+            <QuoteSummary ctx={ctx} quote={quote} />
+            <Link
+              href={embedPath(`/book/${quote.uuid}`, ctx.embed)}
+              className={buttonVariants({ variant: "link" })}
+            >
+              ← {t("book.extras_title")}
+            </Link>
+          </div>
+        </BookingGrid>
+      </PageSection>
+    </>
   );
 }

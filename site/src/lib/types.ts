@@ -22,11 +22,34 @@ export type SiteTheme = {
   colors: SiteColors;
   dark_colors: SiteColors;
   font: string;
+  /** Config v2: a body font id, "theme" (follow the theme) or "georgia". */
+  heading_font?: string;
   radius: string;
   mode: "light" | "dark" | "system";
 };
 
+/** Config v2 hero slide (plain text; media is a site library UUID). */
+export type HeroSlide = {
+  title: string;
+  subtitle: string;
+  cta_label: string;
+  cta_href: string;
+  media: string;
+  enabled: boolean;
+};
+
+/** Config v2 advantage: an allowlisted Lucide icon name and plain text. */
+export type Advantage = { icon: string; title: string; text: string };
+
+export type MenuItem = {
+  label: Partial<Record<Locale, string>>;
+  href: string;
+  kind: "link" | "page";
+};
+
 export type SiteContent = {
+  hero_slides?: HeroSlide[];
+  advantages?: Advantage[];
   hero_title: string;
   hero_subtitle: string;
   about: string;
@@ -36,6 +59,17 @@ export type SiteContent = {
 };
 
 export type SiteConfig = {
+  config_version?: number;
+  template?: string;
+  brand?: {
+    tagline?: Partial<Record<Locale, string>>;
+    socials?: Record<string, string>;
+  };
+  menus?: { header?: MenuItem[]; footer?: MenuItem[] };
+  about?: {
+    image?: string;
+    highlights?: Partial<Record<Locale, string[]>>;
+  };
   theme: SiteTheme;
   layout: { hero: string; cards: string; footer: string };
   content: Partial<Record<Locale, SiteContent>>;
@@ -48,7 +82,17 @@ export type SiteConfig = {
   };
 };
 
+/** A section of the active template (resolve returns the enabled ones, in order). */
+export type SiteSection = { id: string; enabled: boolean };
+
 export type Site = {
+  /** Config v2 (TEC-780): the selected template id. */
+  template?: string;
+  sections?: SiteSection[];
+  /** Typed template settings (string values, e.g. heroLayout=image|split). */
+  settings?: Record<string, string>;
+  /** Library media UUID → API-owned stream path. */
+  media?: Record<string, string>;
   site_uuid: string;
   version: number;
   host: string;

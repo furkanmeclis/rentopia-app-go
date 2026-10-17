@@ -1,15 +1,17 @@
 import type { Metadata } from "next";
 
 import { selectVehicle } from "@/app/actions";
+import { ArrowRight } from "lucide-react";
+
+import { PageHeading, PageSection } from "@/components/site/page-heading";
 import { SearchForm, type SearchValues } from "@/components/site/search-form";
-import { Container, PageTitle } from "@/components/site/text";
+import { VehicleCard } from "@/components/site/vehicle-card";
 import { Button } from "@/components/ui/button";
-import { Alert, Badge, Card } from "@/components/ui/card";
+import { Alert } from "@/components/ui/card";
 import { ApiError } from "@/lib/api";
 import { loadLocations, splitPlace } from "@/lib/catalog";
-import { cn } from "@/lib/cn";
 import { dateTime, money, toRFC3339 } from "@/lib/format";
-import { bookingApi, getCtx, mediaUrl, type Ctx } from "@/lib/server";
+import { bookingApi, getCtx, type Ctx } from "@/lib/server";
 import type { Availability, AvailabilityItem, Subgroup } from "@/lib/types";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -21,155 +23,73 @@ type Params = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined) =>
   (Array.isArray(v) ? v[0] : v) ?? "";
 
-function VehicleCard({
+/** An availability result: the group card with its total and the select action. */
+function ResultCard({
   ctx,
   item,
   subgroup,
   hidden,
-  variant,
 }: {
   ctx: Ctx;
   item: AvailabilityItem;
   subgroup?: Subgroup;
   hidden: Record<string, string>;
-  variant: string;
 }) {
   const { t, locale } = ctx;
-  const image = mediaUrl(subgroup?.images?.[0]);
   const model = subgroup?.representative_model || item.subgroup.title;
   const price = item.price;
-  const cond = subgroup?.conditions;
-  const list = variant === "list";
   return (
-    <Card
-      className={cn(
-        "w-full overflow-hidden p-0",
-        list && "sm:flex-row",
-        !item.available && "opacity-60",
-      )}
+    <VehicleCard
+      ctx={ctx}
+      subgroup={subgroup}
+      fallback={item.subgroup}
+      heading="h2"
+      muted={!item.available}
     >
-      <div
-        className={cn(
-          "bg-muted relative aspect-[16/10]",
-          list && "sm:aspect-auto sm:w-72 sm:shrink-0",
-        )}
-      >
-        {image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={image}
-            alt={model}
-            loading="lazy"
-            className="absolute inset-0 size-full object-cover"
-          />
-        ) : null}
-      </div>
-      <div
-        className={cn(
-          "flex flex-1 flex-col gap-3 p-5",
-          variant === "compact" && "gap-2 p-4",
-        )}
-      >
-        <div className="space-y-1">
-          <h2 className="text-lg font-semibold">
-            {t("results.or_similar", { model })}
-          </h2>
-          <p className="text-muted-foreground text-sm">
-            {[
-              item.subgroup.title !== model ? item.subgroup.title : "",
-              subgroup?.segment,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
+      {item.available && price ? (
+        <div className="rt-price">
+          <p className="rt-price-total">
+            {money(price.total, price.currency, locale)}
           </p>
-        </div>
-        {cond && variant !== "compact" ? (
-          <ul className="text-muted-foreground flex flex-wrap gap-2 text-xs">
-            {cond.min_driver_age ? (
-              <li>
-                <Badge>
-                  {t("results.min_age", { age: cond.min_driver_age })}
-                </Badge>
-              </li>
-            ) : null}
-            {cond.min_license_years ? (
-              <li>
-                <Badge>
-                  {t("results.licence_years", {
-                    years: cond.min_license_years,
-                  })}
-                </Badge>
-              </li>
-            ) : null}
-            <li>
-              <Badge>
-                {cond.included_km_per_day
-                  ? t("results.km", { km: cond.included_km_per_day })
-                  : t("results.km_unlimited")}
-              </Badge>
-            </li>
-            {Number(cond.deposit_amount) > 0 ? (
-              <li>
-                <Badge>
-                  {t("results.deposit", {
-                    amount: money(cond.deposit_amount, "TRY", locale),
-                  })}
-                </Badge>
-              </li>
-            ) : null}
-          </ul>
-        ) : null}
-        <div className="mt-auto flex flex-wrap items-end justify-between gap-3">
-          {item.available && price ? (
-            <div>
-              <p className="text-2xl font-bold">
-                {money(price.total, price.currency, locale)}
-              </p>
-              <p className="text-muted-foreground text-sm">
-                {t("results.days", { days: price.billing_days })} ·{" "}
-                {t("results.per_day", {
-                  amount: money(price.daily_average, price.currency, locale),
-                })}
-              </p>
-              {Number(price.prepayment) > 0 ? (
-                <p className="text-muted-foreground text-xs">
-                  {t("results.prepayment", {
-                    amount: money(price.prepayment, price.currency, locale),
-                  })}
-                </p>
-              ) : null}
-            </div>
-          ) : (
-            <p className="text-muted-foreground text-sm">
-              {t("results.unavailable")}
+          <p>
+            {t("results.days", { days: price.billing_days })} ·{" "}
+            {t("results.per_day", {
+              amount: money(price.daily_average, price.currency, locale),
+            })}
+          </p>
+          {Number(price.prepayment) > 0 ? (
+            <p>
+              {t("results.prepayment", {
+                amount: money(price.prepayment, price.currency, locale),
+              })}
             </p>
-          )}
-          {item.available && price ? (
-            <form action={selectVehicle}>
-              {Object.entries(hidden).map(([k, v]) => (
-                <input key={k} type="hidden" name={k} value={v} />
-              ))}
-              <input
-                type="hidden"
-                name="subgroup_uuid"
-                value={item.subgroup.uuid}
-              />
-              {item.units_left > 0 && item.units_left <= 3 ? (
-                <p className="mb-1 text-right text-xs font-medium text-red-700">
-                  {t("results.units_left", { count: item.units_left })}
-                </p>
-              ) : null}
-              <Button
-                type="submit"
-                aria-label={`${t("results.select")}: ${model}`}
-              >
-                {t("results.select")}
-              </Button>
-            </form>
           ) : null}
         </div>
-      </div>
-    </Card>
+      ) : (
+        <p className="rt-price rt-price--none">{t("results.unavailable")}</p>
+      )}
+      {item.available && price ? (
+        <form action={selectVehicle} className="rt-select-form">
+          {Object.entries(hidden).map(([k, v]) => (
+            <input key={k} type="hidden" name={k} value={v} />
+          ))}
+          <input
+            type="hidden"
+            name="subgroup_uuid"
+            value={item.subgroup.uuid}
+          />
+          {item.units_left > 0 && item.units_left <= 3 ? (
+            <p className="rt-units-left">
+              {t("results.units_left", { count: item.units_left })}
+            </p>
+          ) : null}
+          <Button type="submit" aria-label={`${t("results.select")}: ${model}`}>
+            {t("results.select")}
+            <ArrowRight aria-hidden size={16} />
+          </Button>
+        </form>
+      ) : null}
+    </VehicleCard>
   );
 }
 
@@ -192,9 +112,12 @@ export default async function SearchPage({
   const locations = site.booking_enabled ? await loadLocations() : null;
   if (!locations) {
     return (
-      <Container className="py-10">
-        <Alert>{t("search.booking_off")}</Alert>
-      </Container>
+      <>
+        <PageHeading ctx={ctx} title={t("search.title")} />
+        <PageSection>
+          <Alert>{t("search.booking_off")}</Alert>
+        </PageSection>
+      </>
     );
   }
 
@@ -257,75 +180,74 @@ export default async function SearchPage({
     ends_at: endsAt ?? "",
     back,
   };
-  const variant = site.config.layout.cards;
   const error = one(sp.error);
+  // A bare /search (e.g. "Hemen kirala") opens the form without an error.
+  const attempted = Boolean(values.pickup_date || values.return_date);
 
   return (
-    <Container className="space-y-8 py-8">
-      <details
-        className="border-border rounded-[var(--radius)] border p-4"
-        open={!valid}
-      >
-        <summary className="cursor-pointer font-medium">
-          {t("search.edit")}
-        </summary>
-        <div className="pt-4">
-          <SearchForm ctx={ctx} locations={locations} values={values} compact />
-        </div>
-      </details>
-
-      {!valid ? <Alert tone="error">{t("search.invalid")}</Alert> : null}
-      {failed ? <Alert tone="error">{t("error.body")}</Alert> : null}
-      {error ? (
-        <Alert tone="error">
-          {error === "CAPACITY_UNAVAILABLE"
-            ? t("book.capacity")
-            : t("book.failed")}
-        </Alert>
-      ) : null}
-
-      {availability ? (
-        <section aria-labelledby="results-title" className="space-y-4">
-          <div className="space-y-1">
-            <PageTitle>
-              <span id="results-title">{t("results.title")}</span>
-            </PageTitle>
-            <p className="text-muted-foreground">
-              {t("results.summary", {
+    <>
+      <PageHeading
+        ctx={ctx}
+        title={availability ? t("results.title") : t("search.title")}
+        lead={
+          availability
+            ? t("results.summary", {
                 pickup: availability.request.pickup_branch.name,
                 return: availability.request.return_branch.name,
                 start: dateTime(availability.request.starts_at, locale),
                 end: dateTime(availability.request.ends_at, locale),
-              })}
-            </p>
+              })
+            : undefined
+        }
+      />
+      <PageSection className="rt-search-page">
+        <details className="rt-disclosure" open={!valid}>
+          <summary>{t("search.edit")}</summary>
+          <div className="rt-disclosure-body">
+            <SearchForm
+              ctx={ctx}
+              locations={locations}
+              values={values}
+              compact
+            />
           </div>
-          {items.length === 0 || !items.some((i) => i.available) ? (
-            <Alert>{t("results.empty")}</Alert>
-          ) : null}
-          <ul
-            className={cn(
-              "grid gap-4",
-              variant === "list" && "grid-cols-1",
-              variant === "compact" && "sm:grid-cols-2 lg:grid-cols-4",
-              variant !== "list" &&
-                variant !== "compact" &&
-                "sm:grid-cols-2 lg:grid-cols-3",
-            )}
-          >
-            {items.map((item) => (
-              <li key={item.subgroup.uuid} className="flex">
-                <VehicleCard
-                  ctx={ctx}
-                  item={item}
-                  subgroup={byUuid.get(item.subgroup.uuid)}
-                  hidden={hidden}
-                  variant={variant}
-                />
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-    </Container>
+        </details>
+
+        {!valid && attempted ? (
+          <Alert tone="error">{t("search.invalid")}</Alert>
+        ) : null}
+        {failed ? <Alert tone="error">{t("error.body")}</Alert> : null}
+        {error ? (
+          <Alert tone="error">
+            {error === "CAPACITY_UNAVAILABLE"
+              ? t("book.capacity")
+              : t("book.failed")}
+          </Alert>
+        ) : null}
+
+        {availability ? (
+          <section aria-labelledby="results-title" className="rt-results">
+            <h2 id="results-title" className="rt-sr-only">
+              {t("results.title")}
+            </h2>
+            {items.length === 0 || !items.some((i) => i.available) ? (
+              <Alert>{t("results.empty")}</Alert>
+            ) : null}
+            <ul className="rt-vehicle-grid">
+              {items.map((item) => (
+                <li key={item.subgroup.uuid}>
+                  <ResultCard
+                    ctx={ctx}
+                    item={item}
+                    subgroup={byUuid.get(item.subgroup.uuid)}
+                    hidden={hidden}
+                  />
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+      </PageSection>
+    </>
   );
 }

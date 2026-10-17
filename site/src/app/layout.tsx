@@ -1,70 +1,12 @@
 import type { Metadata, Viewport } from "next";
-import {
-  Inter,
-  Lato,
-  Montserrat,
-  Nunito,
-  Open_Sans,
-  Poppins,
-  Roboto,
-} from "next/font/google";
 import Script from "next/script";
 
-import { SiteFooter, SiteHeader } from "@/components/site/chrome";
+import { fontVariables } from "@/lib/fonts";
 import { getCtx, mediaUrl } from "@/lib/server";
 import { safeGa4Id, themeCss } from "@/lib/theme";
+import { themeFor } from "@/themes";
 
 import "./globals.css";
-
-// Self-hosted at build time (no visitor request goes to Google). Only the
-// font the theme picks is downloaded by the browser.
-const inter = Inter({
-  subsets: ["latin", "latin-ext"],
-  display: "swap",
-  preload: false,
-  variable: "--font-inter",
-});
-const roboto = Roboto({
-  subsets: ["latin", "latin-ext"],
-  display: "swap",
-  preload: false,
-  variable: "--font-roboto",
-});
-const openSans = Open_Sans({
-  subsets: ["latin", "latin-ext"],
-  display: "swap",
-  preload: false,
-  variable: "--font-open-sans",
-});
-const montserrat = Montserrat({
-  subsets: ["latin", "latin-ext"],
-  display: "swap",
-  preload: false,
-  variable: "--font-montserrat",
-});
-const poppins = Poppins({
-  subsets: ["latin", "latin-ext"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-  preload: false,
-  variable: "--font-poppins",
-});
-const lato = Lato({
-  subsets: ["latin", "latin-ext"],
-  weight: ["400", "700"],
-  display: "swap",
-  preload: false,
-  variable: "--font-lato",
-});
-const nunito = Nunito({
-  subsets: ["latin", "latin-ext"],
-  display: "swap",
-  preload: false,
-  variable: "--font-nunito",
-});
-const fontVars = [inter, roboto, openSans, montserrat, poppins, lato, nunito]
-  .map((f) => f.variable)
-  .join(" ");
 
 // Every request renders for its host: nothing is cached across hosts.
 export const dynamic = "force-dynamic";
@@ -110,49 +52,39 @@ export default async function RootLayout({
 }) {
   const ctx = await getCtx();
   const ga = safeGa4Id(ctx.site.config.analytics?.ga4_measurement_id);
+  // The template renderer (src/themes); unknown templates render Technowide.
+  const theme = themeFor(ctx.site);
   return (
-    <html lang={ctx.locale} className={fontVars}>
+    <html lang={ctx.locale} className={fontVariables}>
       <head>
         {/* Validated tokens only (lib/theme.ts). */}
         <style
           id="site-theme"
-          dangerouslySetInnerHTML={{ __html: themeCss(ctx.site.config.theme) }}
+          dangerouslySetInnerHTML={{
+            __html: themeCss(ctx.site.config.theme, theme.id),
+          }}
         />
       </head>
       <body
-        className={
-          ctx.embed
-            ? "flex min-h-0 min-w-0 flex-col"
-            : "flex min-h-svh flex-col"
-        }
+        className={`${theme.className} ${ctx.embed ? "rt-body rt-body--embed" : "rt-body"}`}
+        data-template={theme.id}
       >
-        <a
-          href="#main"
-          className="focus:bg-primary focus:text-primary-foreground sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded focus:px-3 focus:py-2"
-        >
+        <a href="#main" className="rt-skip">
           {ctx.t("nav.skip")}
         </a>
         {ctx.site.preview ? (
-          <div
-            role="status"
-            className="bg-accent text-foreground flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 py-2 text-center text-sm font-medium"
-          >
+          <div role="status" className="rt-preview-banner">
             <span>{ctx.t("preview.banner")}</span>
             <form action="/preview/exit" method="get">
-              <button
-                type="submit"
-                className="cursor-pointer underline underline-offset-2"
-              >
-                {ctx.t("preview.exit")}
-              </button>
+              <button type="submit">{ctx.t("preview.exit")}</button>
             </form>
           </div>
         ) : null}
-        {!ctx.embed ? <SiteHeader ctx={ctx} /> : null}
-        <main id="main" className="flex-1">
+        {!ctx.embed ? <theme.Header ctx={ctx} /> : null}
+        <main id="main" className="rt-main" tabIndex={-1}>
           {children}
         </main>
-        {!ctx.embed ? <SiteFooter ctx={ctx} /> : null}
+        {!ctx.embed ? <theme.Footer ctx={ctx} /> : null}
         {ga && !ctx.site.preview && !ctx.embed ? (
           <>
             <Script

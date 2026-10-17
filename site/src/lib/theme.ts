@@ -5,6 +5,13 @@ import type { SiteColors, SiteTheme } from "./types";
  * (no build-time organization data: one image, many looks). The API
  * validates the document; this file validates again so that only
  * #rrggbb colors and known enum values ever reach the stylesheet.
+ *
+ * Variables (consumed by the theme stylesheets under src/themes):
+ * - colors: --primary, --primary-foreground, --accent, --background,
+ *   --foreground, --muted, --muted-foreground, --border;
+ * - fonts: --font-brand (body), --font-heading;
+ * - corners: --radius-card, --radius-control, --radius-image (absent for
+ *   `soft`: the theme's own radii apply) and the legacy --radius.
  */
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
@@ -31,6 +38,7 @@ export const DEFAULT_DARK_COLORS: SiteColors = {
   border: "#334155",
 };
 
+/** Legacy single radius of the shared Tailwind classes. */
 const RADIUS: Record<string, string> = {
   none: "0px",
   sharp: "0px",
@@ -44,7 +52,38 @@ const RADIUS: Record<string, string> = {
   full: "1.5rem",
 };
 
-/** Font choice → the CSS variable next/font defines in the root layout. */
+/**
+ * The eight corner styles of config v2 in pixels (cards and images).
+ * `soft` is the template's own character: no variables are written and
+ * every element keeps the radius its theme stylesheet gives it (the
+ * `var(--radius-card, <native>)` fallbacks). Legacy `none` / `full` read
+ * as `sharp` / `pill`. Controls of the `pill` style are fully rounded.
+ */
+export const CORNER_PX: Record<string, number> = {
+  sharp: 0,
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 24,
+  pill: 32,
+};
+
+export type Corners = { card: string; control: string; image: string };
+
+/** The uniform corners of a radius style, or null for the template's own (`soft`). */
+export function corners(radius: string | undefined): Corners | null {
+  const id = radius === "none" ? "sharp" : radius === "full" ? "pill" : radius;
+  if (!id || !(id in CORNER_PX)) return null;
+  const px = CORNER_PX[id];
+  return {
+    card: `${px}px`,
+    image: `${px}px`,
+    control: id === "pill" ? "9999px" : `${px}px`,
+  };
+}
+
+/** Font choice → the CSS variable next/font defines (src/lib/fonts.ts). */
 export const FONT_VARS: Record<string, string> = {
   inter: "var(--font-inter)",
   roboto: "var(--font-roboto)",
@@ -53,8 +92,39 @@ export const FONT_VARS: Record<string, string> = {
   poppins: "var(--font-poppins)",
   lato: "var(--font-lato)",
   nunito: "var(--font-nunito)",
+  manrope: "var(--font-manrope)",
+  dm_sans: "var(--font-dm-sans)",
+  plus_jakarta_sans: "var(--font-plus-jakarta-sans)",
+  sora: "var(--font-sora)",
+  lora: "var(--font-lora)",
+  wix_madefor: "var(--font-wix-madefor)",
   system: "system-ui",
 };
+
+const SERIF = new Set(["lora"]);
+const GEORGIA = 'Georgia, "Times New Roman", serif';
+
+/** The font stack of a body font id (unknown → Inter). */
+export function bodyFont(id: string | undefined): string {
+  const v = id && FONT_VARS[id] ? id : "inter";
+  return `${FONT_VARS[v]}, ${SERIF.has(v) ? "Georgia, serif" : "system-ui, sans-serif"}`;
+}
+
+/**
+ * The heading font stack: `theme` (or empty / unknown) follows the body
+ * font, except Horizon, whose character is a serif; `georgia` is the
+ * device's Georgia; any body font id is that font.
+ */
+export function headingFont(
+  heading: string | undefined,
+  body: string | undefined,
+  template = "",
+): string {
+  if (heading === "georgia") return GEORGIA;
+  if (heading && heading !== "theme" && FONT_VARS[heading])
+    return bodyFont(heading);
+  return template === "horizon-design" ? GEORGIA : bodyFont(body);
+}
 
 const KEYS: (keyof SiteColors)[] = [
   "primary",
@@ -79,13 +149,21 @@ function colorVars(
   }).join("");
 }
 
-/** The :root stylesheet of a theme. */
-export function themeCss(theme: Partial<SiteTheme> | undefined): string {
-  const font = FONT_VARS[theme?.font ?? ""] ?? FONT_VARS.inter;
+/** The :root stylesheet of a theme for a template (validated values only). */
+export function themeCss(
+  theme: Partial<SiteTheme> | undefined,
+  template = "",
+): string {
   const radius = RADIUS[theme?.radius ?? ""] ?? RADIUS.md;
+  const c = corners(theme?.radius);
   const light = colorVars(theme?.colors, DEFAULT_COLORS);
   const dark = colorVars(theme?.dark_colors, DEFAULT_DARK_COLORS);
-  const base = `--radius:${radius};--font-brand:${font}, system-ui, sans-serif;`;
+  const cornerVars = c
+    ? `--radius-card:${c.card};--radius-control:${c.control};--radius-image:${c.image};`
+    : "";
+  const base =
+    `--radius:${radius};${cornerVars}` +
+    `--font-brand:${bodyFont(theme?.font)};--font-heading:${headingFont(theme?.heading_font, theme?.font, template)};`;
   switch (theme?.mode) {
     case "dark":
       return `:root{${base}${dark}color-scheme:dark;}`;
