@@ -322,6 +322,8 @@ export const routes = {
     },
     /** Usage per organization and connection health (TEC-739). */
     health: "/platform/health",
+    /** Organization custom domains (TEC-731). */
+    siteDomains: "/platform/site-domains",
     users: {
       root: "/platform/users",
       create: "/platform/users/create",

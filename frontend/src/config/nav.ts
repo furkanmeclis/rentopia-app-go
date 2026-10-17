@@ -282,6 +282,13 @@ export const platformNav = defineNav({
           icon: Activity,
           permission: permissions.platformHealth.read,
         },
+        {
+          id: "site-domains",
+          titleKey: "layout.nav_site_domains",
+          href: routes.platform.siteDomains,
+          icon: Globe,
+          permission: permissions.siteDomains.read,
+        },
         usersNavItem,
         {
           id: "catalog",

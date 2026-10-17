@@ -4,6 +4,7 @@ import type {
   SiteCatalogExtra,
   SiteCatalogKind,
   SiteCatalogSubgroup,
+  SiteDomain,
   SiteImageKind,
   SitePreviewToken,
   SiteRevision,
@@ -94,5 +95,29 @@ export const siteService = {
     >(slug, "PATCH", `${BASE}/catalog/${kind}/${encodeURIComponent(uuid)}`, {
       body: { show_online: showOnline },
     });
+  },
+  domains(slug: string) {
+    return tenantRequest<SiteDomain[]>(slug, "GET", `${BASE}/domains`);
+  },
+  addDomain(slug: string, host: string) {
+    return tenantRequest<SiteDomain>(slug, "POST", `${BASE}/domains`, {
+      body: { host },
+      silent: true,
+    });
+  },
+  verifyDomain(slug: string, uuid: string) {
+    return tenantRequest<SiteDomain>(
+      slug,
+      "POST",
+      `${BASE}/domains/${encodeURIComponent(uuid)}/verify`,
+      { body: {} },
+    );
+  },
+  removeDomain(slug: string, uuid: string) {
+    return tenantRequest<unknown>(
+      slug,
+      "DELETE",
+      `${BASE}/domains/${encodeURIComponent(uuid)}`,
+    );
   },
 };
