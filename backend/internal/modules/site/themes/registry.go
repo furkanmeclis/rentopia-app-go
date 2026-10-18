@@ -51,7 +51,7 @@ func Registry() []Definition {
 			Settings: []Setting{{Key: "heroAlign", Type: "enum", Values: []string{"left", "center"}, Default: "left"}},
 		},
 		{
-			ID: "classic", RequiredFirst: "hero",
+			ID: "classic", Available: true, RequiredFirst: "hero",
 			Sections: []string{"hero", "search", "fleet", "advantages", "branches", "about", "faq", "campaigns", "guide"},
 			Settings: []Setting{{Key: "fleetColumns", Type: "enum", Values: []string{"2", "3"}, Default: "3"}},
 		},

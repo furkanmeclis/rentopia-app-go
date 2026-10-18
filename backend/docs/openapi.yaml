@@ -41266,7 +41266,7 @@ components:
       properties:
         leads: { $ref: "#/components/schemas/SiteLeadFlags" }
         config_version: { type: integer, enum: [2] }
-        template: { type: string, enum: [technowide-design, horizon-design, classic, aurum], default: technowide-design, description: Only technowide-design is currently selectable. }
+        template: { type: string, enum: [technowide-design, horizon-design, classic, aurum], default: technowide-design, description: "Selectable templates are the theme_registry entries with available=true." }
         templates:
           type: object
           additionalProperties: { $ref: "#/components/schemas/SiteTemplateConfig" }
