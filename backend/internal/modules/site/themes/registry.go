@@ -83,8 +83,8 @@ func Defaults(d Definition) Config {
 	return c
 }
 
-func NeedsService(id string) bool {
-	return slices.Contains([]string{"guide"}, id)
+func NeedsService(_ string) bool {
+	return false
 }
 
 func Statuses(template string) []SectionStatus {

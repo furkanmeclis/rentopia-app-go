@@ -437,8 +437,9 @@ pixel buffers. WebP dimensions are read from RIFF VP8/VP8L/VP8X headers.
 |-------|-----------------------|
 | `GET /v1/tenant/site/media?limit=50&offset=0` | `tenant.site.read`; `{items,total,limit,offset}`, max limit 200 |
 | `POST /v1/tenant/site/media` | `tenant.site.manage`; multipart file plus optional `alt` JSON string; 201 metadata |
+| `GET /v1/tenant/site/media/{uuid}/file` | `tenant.site.read`; own organization only, image stream with `private, no-store`, MIME, nosniff and sandbox CSP |
 | `PATCH /v1/tenant/site/media/{uuid}` | `tenant.site.manage`; `{alt:{tr,en}}` replaces alt, max 300 characters each |
-| `DELETE /v1/tenant/site/media/{uuid}` | `tenant.site.manage`; 409 `MEDIA_IN_USE` for draft or **any historical snapshot** reference |
+| `DELETE /v1/tenant/site/media/{uuid}` | `tenant.site.manage`; 409 `MEDIA_IN_USE` for draft, **any historical snapshot**, live campaign or published article reference |
 | `GET /v1/public/site/media/{siteUuid}/{mediaUuid}` | Only media referenced by the active publication of an enabled, accessible site, or draft with a valid `preview` token |
 
 Keys come from `storage.SiteMediaObjectKey`, under the organization's site/media
@@ -658,3 +659,93 @@ check the published flags and the site's own active key. Details and limits are 
   Bölümler tab lists campaigns and newsletter as available sections and has a "Formlar"
   area toggling `config.leads.{contact,corporate,franchise,newsletter}` (draft, applied
   on publish) with a link to the applications page.
+
+## 13. Articles and sitemap (TEC-785)
+
+Migration `000131_site_articles` adds organization-owned editorial articles. The
+existing `tenant.site.read` and `tenant.site.manage` permissions cover them; no
+new permission or configuration key is required. Articles publish independently
+from site settings. Creating always produces a draft. Updating a published
+article changes its live document immediately; unpublish first to edit privately.
+Deletion is soft. All writes after creation require the current article `version`:
+PUT and publish/unpublish send it in JSON, DELETE sends `?version=`. Concurrent
+writes return `409 VERSION_CONFLICT`; repeated publication at the current version
+is idempotent. Publication sets `published_at`, unpublication clears it, and a
+later publication gets a new timestamp (newest first).
+
+`slug`, `title`, `summary`, `seo_title`, `seo_description`, and `body` have `tr`
+and `en` keys. A draft needs at least one localized slug and title. Publishing
+also requires a body for each localized slug and a slug for each localized title.
+Slugs are 1–160 lowercase ASCII letters/digits with single hyphen separators;
+reserved route names (`api`, `media`, `vehicles`, `branches`, `about`, `guide`,
+`articles`, `book`, `search`, `contact`, and other system paths) are rejected.
+Unique indexes enforce organization + locale uniqueness among live rows; the same
+slug in a different locale or organization is allowed. Deleted slugs are reusable.
+Titles are limited to 160, summaries to 1000, SEO titles to 70, SEO descriptions
+to 300 characters. These fields and tags are plain text without markup. Up to ten
+nonempty tags of 60 characters, integer `sort`, and `featured` are supported.
+
+The authoritative body validator accepts **Plate JSON values only**, never an HTML
+serialization. Each locale is an array, limited to **256 KiB**, **5000 nodes**
+(including text leaves), and **32 levels**. Elements: `p`, `h2`, `h3`, `h4`,
+`blockquote`, `ul`, `ol`, `li`, `lic`, `hr`, `img`, `a`, `code_block`, `code_line`.
+Text leaves allow only `text` and boolean `bold`, `italic`, `underline`,
+`strikethrough`, `code`. Element children must be nonempty (void elements use
+`children: [{text: ""}]`). Images use `media_uuid` plus plain `alt` (300), with
+no stored URL or object key. Links use `href` (2048): relative paths (including root-relative paths), HTTPS,
+or a single `mailto:` address. Protocol-relative, javascript, data, HTTP,
+credentials, backslashes and control-character links are rejected. Unknown node
+keys, types and marks are rejected, with `400` field paths such as
+`body.tr.0.children.0.href`. Renderers must render JSON nodes as components and
+escape text; they must never use an HTML injection API.
+
+Cover media has a composite same-organization FK with `ON DELETE SET NULL`
+for its UUID only. All inline image UUIDs are checked in organization scope and
+again by a database trigger. Article writes serialize with media deletion on the
+organization row. Published article covers and inline images protect library
+media deletion (`409 MEDIA_IN_USE`). Draft covers can clear on deletion; a draft
+with deleted inline media must be repaired before publishing. Removing an article
+or unpublishing it releases its protection unless another live reference remains.
+
+| Route | Behavior |
+|-------|----------|
+| `GET /v1/tenant/site/articles/meta` | DataTable metadata; columns, status/locale filters, search, supported sorts; no unimplemented engines advertised |
+| `GET /v1/tenant/site/articles` | Organization list, `status`, `locale` (nonempty localized slug), `q`, `limit`, `offset`, `sort` (`created_at`, `updated_at`, `sort`, optional `-`) |
+| `POST /v1/tenant/site/articles` | Create draft (201) |
+| `GET/PUT/DELETE /v1/tenant/site/articles/{uuid}` | Read, replace, soft-delete; foreign UUID always 404 |
+| `POST /v1/tenant/site/articles/{uuid}/publish` | Validate complete localized document and publish |
+| `POST /v1/tenant/site/articles/{uuid}/unpublish` | Return to draft |
+| `GET /v1/public/site/articles` | Published cards only, `locale` (site default if absent), `limit`, `offset`, newest publication first |
+| `GET /v1/public/site/articles/by-slug/{locale}/{slug}` | Published localized JSON document, SEO, tags, API-owned cover URL and inline media UUID → URL map |
+| `GET /v1/public/site/sitemap` | Array of `{path, locale?, lastmod}` for sitemap.xml rendering |
+
+Public article and sitemap requests accept `?host=` for server-side storefront
+callers; absent it the request Host is used. They share resolve's enabled,
+published, nondeleted, active-organization and access-window checks, including
+verified custom domains. They expose no draft preview, internal IDs, actors or
+storage keys and are rate-limited. Responses are `no-store`; storefront callers
+may use the existing short per-host resolve cache. Resolve now includes
+`articles: {tr: ArticleCard[], en: ArticleCard[]}` with up to three published
+cards per locale (`title`, `summary`, `slug`, `cover_url`, `published_at`). The
+backend theme registry marks `guide` available. Rendering the guide and its
+editor UI is a separate frontend change.
+
+Sitemap entries include the home page; about, FAQ, terms, privacy and contact
+when their published content exists; online active branch detail paths and their
+index; and the online published fleet's segment-filtered `/vehicles?segment=`
+paths and index while booking is enabled. The current site has no individual
+vehicle page, so it uses the existing segment filter (segment name, URL encoded).
+Published article paths use `/guide/{locale}/{slug}` (the guide renderer contract),
+one per nonempty localized slug. Draft, deleted, hidden and foreign content is
+excluded. `lastmod` is the site publication time for static pages and the record
+update time for catalog/articles. This endpoint supplies data; the site app owns
+XML generation and canonical origin selection.
+
+Library metadata now includes `url`, the same-origin panel API path
+`/api/v1/tenant/site/media/{uuid}/file`, so any library item can have a thumbnail
+without needing a public site reference. The route checks tenant permission,
+organization ownership, and the stored key's organization prefix before streaming.
+Public article media uses the existing API-owned public media route, authorized
+only while a published article references it on an enabled, accessible site.
+Mutation activity uses resource `tenant.site_articles` and localized created,
+updated, deleted, published and unpublished action labels.

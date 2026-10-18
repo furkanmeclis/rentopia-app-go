@@ -124,3 +124,24 @@ func (h *Handler) PublicMedia(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = io.Copy(w, rc)
 }
+
+func (h *Handler) TenantMedia(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "private, no-store")
+	scope := orgctx.Must(r.Context())
+	id, err := uuid.Parse(r.PathValue("uuid"))
+	if err != nil {
+		response.NotFound(w, r, "Media not found")
+		return
+	}
+	rc, mime, err := h.svc.TenantMedia(r.Context(), scope.ID, scope.UUID, id)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	defer func() { _ = rc.Close() }()
+	w.Header().Set("Content-Type", mime)
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; sandbox")
+	w.WriteHeader(http.StatusOK)
+	_, _ = io.Copy(w, rc)
+}

@@ -686,6 +686,10 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		domain := must(call(o, http.MethodPost, "/v1/tenant/site/domains", map[string]any{"host": "rent-" + strings.ToLower(m) + ".com"}), http.StatusCreated, "site domain")
 		ids["siteDomain"] = domain.data.(map[string]any)["uuid"].(string)
 		ids["siteMedia"] = str(must(upload(o, http.MethodPost, "/v1/tenant/site/media", "file", "media.png", png, nil), http.StatusCreated, "site media"), "uuid")
+		ids["siteArticle"] = str(must(call(o, http.MethodPost, "/v1/tenant/site/articles", map[string]any{
+			"slug": map[string]string{"tr": "article-" + strings.ToLower(m)}, "title": map[string]string{"tr": m + " Article"},
+			"body": map[string]any{"tr": []any{map[string]any{"type": "p", "children": []any{map[string]any{"text": m}}}}},
+		}), http.StatusCreated, "create site article"), "uuid")
 		// Branded site (TEC-730): a saved and published site (revision 1).
 		must(call(o, http.MethodPut, "/v1/tenant/site", map[string]any{"version": 0}), http.StatusOK, "save site")
 		must(call(o, http.MethodPost, "/v1/tenant/site/publish", map[string]any{"version": 1}), http.StatusOK, "publish site")
@@ -1315,6 +1319,8 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 			"target": map[string]any{"scope": "ids", "ids": []string{orgB.ids["invoice"]}}}, nil},
 		{"POST /v1/tenant/invoices/bulk", map[string]any{"action": "create_for_rentals",
 			"target": map[string]any{"scope": "ids", "ids": []string{orgB.ids["rental"]}}}, nil},
+		{"POST /v1/tenant/site/articles", map[string]any{"slug": map[string]string{"tr": "foreign-cover"}, "title": map[string]string{"tr": "Article"}, "cover_media_uuid": orgB.ids["siteMedia"]}, reject},
+		{"POST /v1/tenant/site/articles", map[string]any{"slug": map[string]string{"tr": "foreign-body"}, "title": map[string]string{"tr": "Article"}, "body": map[string]any{"tr": []any{map[string]any{"type": "img", "media_uuid": orgB.ids["siteMedia"], "alt": "Image", "children": []any{map[string]any{"text": ""}}}}}}, reject},
 	}
 	for _, c := range cases {
 		method, path, _ := strings.Cut(c.route, " ")
@@ -1713,6 +1719,8 @@ func paramKey(prev, name string) string {
 		return "invoice"
 	case "keys/uuid":
 		return "publicKey"
+	case "articles/uuid":
+		return "siteArticle"
 	case "media/uuid":
 		return "siteMedia"
 	case "domains/uuid":

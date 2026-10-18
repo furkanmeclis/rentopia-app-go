@@ -31,6 +31,9 @@ func RegisterRoutes(mux *http.ServeMux, h *handler.Handler, tokens *jwt.Manager,
 		return
 	}
 	mux.HandleFunc("GET /v1/public/site/resolve", h.Resolve)
+	mux.HandleFunc("GET /v1/public/site/articles", h.PublicArticles)
+	mux.HandleFunc("GET /v1/public/site/articles/by-slug/{locale}/{slug}", h.PublicArticle)
+	mux.HandleFunc("GET /v1/public/site/sitemap", h.Sitemap)
 	mux.HandleFunc("GET /v1/public/site/media/{siteUuid}/{mediaUuid}", h.PublicMedia)
 	mux.HandleFunc("GET /v1/public/site/assets/{uuid}/{kind}", h.Asset)
 
@@ -50,6 +53,15 @@ func RegisterRoutes(mux *http.ServeMux, h *handler.Handler, tokens *jwt.Manager,
 	route("GET /v1/tenant/site/domains/{uuid}", h.GetDomain, read)
 	route("DELETE /v1/tenant/site/domains/{uuid}", h.DeleteDomain, manage)
 	route("POST /v1/tenant/site/domains/{uuid}/verify", h.VerifyDomain, manage)
+	route("GET /v1/tenant/site/articles/meta", h.ArticlesMeta, read)
+	route("GET /v1/tenant/site/articles", h.ListArticles, read)
+	route("POST /v1/tenant/site/articles", h.CreateArticle, manage)
+	route("GET /v1/tenant/site/articles/{uuid}", h.GetArticle, read)
+	route("PUT /v1/tenant/site/articles/{uuid}", h.UpdateArticle, manage)
+	route("DELETE /v1/tenant/site/articles/{uuid}", h.DeleteArticle, manage)
+	route("POST /v1/tenant/site/articles/{uuid}/publish", h.PublishArticle, manage)
+	route("POST /v1/tenant/site/articles/{uuid}/unpublish", h.UnpublishArticle, manage)
+	route("GET /v1/tenant/site/media/{uuid}/file", h.TenantMedia, read)
 	route("GET /v1/tenant/site/media", h.ListMedia, read)
 	route("POST /v1/tenant/site/media", h.UploadMedia, manage)
 	route("PATCH /v1/tenant/site/media/{uuid}", h.PatchMedia, manage)

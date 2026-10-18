@@ -393,6 +393,8 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 		response.NotFound(w, r, err.Error())
 	case errors.Is(err, usecase.ErrPreviewInvalid):
 		response.Error(w, r, http.StatusUnauthorized, CodePreviewInvalid, err.Error())
+	case errors.Is(err, usecase.ErrArticleSlugTaken):
+		response.ErrorWithDetails(w, r, http.StatusConflict, "ARTICLE_SLUG_TAKEN", err.Error(), []response.Detail{{Field: "slug", Code: "taken", Message: err.Error()}})
 	case errors.Is(err, usecase.ErrSubdomainTaken):
 		response.ErrorWithDetails(w, r, http.StatusConflict, CodeSubdomainTaken, err.Error(), []response.Detail{{
 			Field: "subdomain", Code: "taken", Message: err.Error(),

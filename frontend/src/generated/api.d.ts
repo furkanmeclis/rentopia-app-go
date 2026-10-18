@@ -7822,6 +7822,162 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenant/site/articles/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Article DataTable metadata */
+        get: operations["getTenantSiteArticlesMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/site/articles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List organization articles */
+        get: operations["listTenantSiteArticles"];
+        put?: never;
+        /** Create a draft article */
+        post: operations["createTenantSiteArticle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/site/articles/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read an organization article */
+        get: operations["getTenantSiteArticle"];
+        /** Replace the article at its current version */
+        put: operations["updateTenantSiteArticle"];
+        post?: never;
+        /** Soft-delete an article at its current version */
+        delete: operations["deleteTenantSiteArticle"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/site/articles/{uuid}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish an article at its current version */
+        post: operations["publishTenantSiteArticle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/site/articles/{uuid}/unpublish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Unpublish an article at its current version */
+        post: operations["unpublishTenantSiteArticle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/site/media/{uuid}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stream own organization media with private no-store caching */
+        get: operations["getTenantSiteMediaFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/site/articles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Published article cards newest first */
+        get: operations["listPublicSiteArticles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/site/articles/by-slug/{locale}/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Published localized article with validated JSON body and API-owned media URLs */
+        get: operations["getPublicSiteArticleBySlug"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/site/sitemap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Published site paths and modification times */
+        get: operations["getPublicSiteSitemap"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/public/site/resolve": {
         parameters: {
             query?: never;
@@ -30233,9 +30389,213 @@ export interface components {
             /** @enum {string} */
             kind?: "link" | "page";
         };
+        SiteArticleTitle: {
+            tr?: string;
+            en?: string;
+        };
+        SiteArticleSummary: {
+            tr?: string;
+            en?: string;
+        };
+        SiteArticleSEOTitle: {
+            tr?: string;
+            en?: string;
+        };
+        SiteArticleSEODescription: {
+            tr?: string;
+            en?: string;
+        };
+        /** @description Plate JSON only; 256 KB per locale, 5000 total nodes, max depth 32. Unknown keys and marks rejected. Images require same-organization media_uuid and plain alt; links allow relative paths, HTTPS or mailto only. No HTML serialization. */
+        SiteArticleBody: components["schemas"]["SiteArticleNode"][];
+        SiteArticleNode: {
+            text: string;
+            bold?: boolean;
+            italic?: boolean;
+            underline?: boolean;
+            strikethrough?: boolean;
+            code?: boolean;
+        } | {
+            /** @enum {string} */
+            type: "p" | "h2" | "h3" | "h4" | "blockquote" | "ul" | "ol" | "li" | "lic" | "hr" | "code_block" | "code_line";
+            children: components["schemas"]["SiteArticleNode"][];
+        } | {
+            /** @enum {string} */
+            type: "img";
+            /** Format: uuid */
+            media_uuid: string;
+            alt: string;
+            children: components["schemas"]["SiteArticleNode"][];
+        } | {
+            /** @enum {string} */
+            type: "a";
+            href: string;
+            children: components["schemas"]["SiteArticleNode"][];
+        };
+        EnvelopeDeleted: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                deleted: boolean;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        SiteArticleInput: {
+            slug: components["schemas"]["SiteLocalizedText"];
+            title: components["schemas"]["SiteArticleTitle"];
+            summary?: components["schemas"]["SiteArticleSummary"];
+            /** Format: uuid */
+            cover_media_uuid?: string | null;
+            body?: {
+                tr?: components["schemas"]["SiteArticleBody"];
+                en?: components["schemas"]["SiteArticleBody"];
+            };
+            seo_title?: components["schemas"]["SiteArticleSEOTitle"];
+            seo_description?: components["schemas"]["SiteArticleSEODescription"];
+            tags?: string[];
+            /**
+             * Format: int32
+             * @default 0
+             */
+            sort: number;
+            /** @default false */
+            featured: boolean;
+            version?: number;
+        };
+        SiteArticleUpdate: {
+            slug: components["schemas"]["SiteLocalizedText"];
+            title: components["schemas"]["SiteArticleTitle"];
+            summary?: components["schemas"]["SiteArticleSummary"];
+            /** Format: uuid */
+            cover_media_uuid?: string | null;
+            body?: {
+                tr?: components["schemas"]["SiteArticleBody"];
+                en?: components["schemas"]["SiteArticleBody"];
+            };
+            seo_title?: components["schemas"]["SiteArticleSEOTitle"];
+            seo_description?: components["schemas"]["SiteArticleSEODescription"];
+            tags?: string[];
+            /**
+             * Format: int32
+             * @default 0
+             */
+            sort: number;
+            /** @default false */
+            featured: boolean;
+            version: number;
+        };
+        SiteArticle: {
+            slug: components["schemas"]["SiteLocalizedText"];
+            title: components["schemas"]["SiteArticleTitle"];
+            summary: components["schemas"]["SiteArticleSummary"];
+            /** Format: uuid */
+            cover_media_uuid?: string | null;
+            body: {
+                tr?: components["schemas"]["SiteArticleBody"];
+                en?: components["schemas"]["SiteArticleBody"];
+            };
+            seo_title: components["schemas"]["SiteArticleSEOTitle"];
+            seo_description: components["schemas"]["SiteArticleSEODescription"];
+            tags: string[];
+            /**
+             * Format: int32
+             * @default 0
+             */
+            sort: number;
+            /** @default false */
+            featured: boolean;
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            status: "draft" | "published";
+            /** Format: date-time */
+            published_at?: string | null;
+            /** Format: int64 */
+            created_by?: number | null;
+            /** Format: int64 */
+            updated_by?: number | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            version: number;
+        };
+        SiteArticleCard: {
+            title: string;
+            summary: string;
+            slug: string;
+            cover_url: string | null;
+            /** Format: date-time */
+            published_at: string;
+        };
+        PublicSiteArticle: components["schemas"]["SiteArticleCard"] & {
+            /** @enum {string} */
+            locale: "tr" | "en";
+            body: components["schemas"]["SiteArticleBody"];
+            seo_title: string;
+            seo_description: string;
+            tags: string[];
+            featured: boolean;
+            /** Format: date-time */
+            updated_at: string;
+            media: {
+                [key: string]: string;
+            };
+        };
+        SiteSitemapEntry: {
+            /** @description Relative public path. Article routes use /guide/{locale}/{slug}; vehicles use existing segment-filtered fleet paths. */
+            path: string;
+            /** @enum {string} */
+            locale?: "tr" | "en";
+            /** Format: date-time */
+            lastmod: string;
+        };
+        EnvelopeSiteArticle: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["SiteArticle"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeSiteArticleList: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["SiteArticle"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopePublicSiteArticle: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["PublicSiteArticle"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopePublicSiteArticleList: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["SiteArticleCard"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeSiteSitemap: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["SiteSitemapEntry"][];
+            meta: components["schemas"]["ResponseMeta"];
+        };
         SiteMedia: {
             /** Format: uuid */
             uuid: string;
+            /** @description Panel same-origin API path /api/v1/tenant/site/media/{uuid}/file; private authenticated stream. */
+            url: string;
             /** @enum {string} */
             kind: "image";
             /** @enum {string} */
@@ -30446,6 +30806,10 @@ export interface components {
             config?: components["schemas"]["SiteConfig"];
         };
         SiteResolved: {
+            /** @description Latest three published cards per locale (tr and en), newest first. */
+            articles?: {
+                [key: string]: components["schemas"]["SiteArticleCard"][];
+            };
             campaigns?: components["schemas"]["PublicCampaign"][];
             template?: string;
             sections?: components["schemas"]["SiteSection"][];
@@ -45487,6 +45851,414 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["TenantForbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getTenantSiteArticlesMeta: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Article DataTable metadata */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeResourceMeta"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listTenantSiteArticles: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                locale?: "tr" | "en";
+                status?: "draft" | "published";
+                q?: string;
+                sort?: "created_at" | "-created_at" | "updated_at" | "-updated_at" | "sort" | "-sort";
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List organization articles */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteArticleList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    createTenantSiteArticle: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteArticleInput"];
+            };
+        };
+        responses: {
+            /** @description Create a draft article */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteArticle"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantSiteArticle: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Read an organization article */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteArticle"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    updateTenantSiteArticle: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteArticleUpdate"];
+            };
+        };
+        responses: {
+            /** @description Replace the article at its current version */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteArticle"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteTenantSiteArticle: {
+        parameters: {
+            query: {
+                version: number;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Soft-delete an article at its current version */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeDeleted"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    publishTenantSiteArticle: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteVersionInput"];
+            };
+        };
+        responses: {
+            /** @description Publish an article at its current version */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteArticle"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    unpublishTenantSiteArticle: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteVersionInput"];
+            };
+        };
+        responses: {
+            /** @description Unpublish an article at its current version */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteArticle"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTenantSiteMediaFile: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stream own organization media with private no-store caching */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": string;
+                    "image/jpeg": string;
+                    "image/webp": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listPublicSiteArticles: {
+        parameters: {
+            query?: {
+                /** @description Site host; defaults to the request Host. Same published-site checks as resolve. */
+                host?: string;
+                limit?: number;
+                offset?: number;
+                locale?: "tr" | "en";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Published article cards newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicSiteArticleList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getPublicSiteArticleBySlug: {
+        parameters: {
+            query?: {
+                /** @description Site host; defaults to the request Host. Same published-site checks as resolve. */
+                host?: string;
+            };
+            header?: never;
+            path: {
+                locale: "tr" | "en";
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Published localized article with validated JSON body and API-owned media URLs */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePublicSiteArticle"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getPublicSiteSitemap: {
+        parameters: {
+            query?: {
+                /** @description Site host; defaults to the request Host. Same published-site checks as resolve. */
+                host?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Published site paths and modification times */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSiteSitemap"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getPublicSiteResolve: {

@@ -2682,6 +2682,30 @@ type ServicePoint struct {
 	DeliveryConditions string             `json:"delivery_conditions"`
 }
 
+type SiteArticle struct {
+	ID             int64              `json:"id"`
+	OrganizationID int64              `json:"organization_id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	Status         string             `json:"status"`
+	PublishedAt    pgtype.Timestamptz `json:"published_at"`
+	Slug           []byte             `json:"slug"`
+	Title          []byte             `json:"title"`
+	Summary        []byte             `json:"summary"`
+	CoverMediaUuid pgtype.UUID        `json:"cover_media_uuid"`
+	Body           []byte             `json:"body"`
+	SeoTitle       []byte             `json:"seo_title"`
+	SeoDescription []byte             `json:"seo_description"`
+	Tags           []string           `json:"tags"`
+	Sort           int32              `json:"sort"`
+	Featured       bool               `json:"featured"`
+	CreatedBy      pgtype.Int8        `json:"created_by"`
+	UpdatedBy      pgtype.Int8        `json:"updated_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt      pgtype.Timestamptz `json:"deleted_at"`
+	Version        int32              `json:"version"`
+}
+
 type SiteDomain struct {
 	ID                int64              `json:"id"`
 	Uuid              uuid.UUID          `json:"uuid"`

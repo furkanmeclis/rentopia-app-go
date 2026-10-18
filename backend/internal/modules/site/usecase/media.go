@@ -53,7 +53,7 @@ func mediaDBError(err error) error {
 func mediaModel(row db.SiteMedium) model.Media {
 	alt := map[string]string{}
 	_ = json.Unmarshal(row.Alt, &alt)
-	return model.Media{UUID: row.Uuid, Kind: row.Kind, MIME: row.Mime, Size: row.Size, Width: int(row.Width), Height: int(row.Height), Alt: alt, CreatedAt: row.CreatedAt.Time.UTC(), UpdatedAt: row.UpdatedAt.Time.UTC()}
+	return model.Media{URL: fmt.Sprintf("/api/v1/tenant/site/media/%s/file", row.Uuid), UUID: row.Uuid, Kind: row.Kind, MIME: row.Mime, Size: row.Size, Width: int(row.Width), Height: int(row.Height), Alt: alt, CreatedAt: row.CreatedAt.Time.UTC(), UpdatedAt: row.UpdatedAt.Time.UTC()}
 }
 
 func normalizeAlt(alt map[string]string) ([]byte, error) {
@@ -205,6 +205,12 @@ func (s *Service) PublicMedia(ctx context.Context, site, id uuid.UUID, preview s
 			return nil, "", err
 		}
 		if !visible {
+			visible, err = s.q.SiteMediaHasPublicArticle(ctx, db.SiteMediaHasPublicArticleParams{OrganizationID: row.OrganizationID, MediaUuid: id})
+			if err != nil {
+				return nil, "", err
+			}
+		}
+		if !visible {
 			return nil, "", ErrNotFound
 		}
 	}
@@ -259,4 +265,20 @@ func mediaDimensions(data []byte, mime string) (image.Config, error) {
 		pos = start + int(size) + (int(size) & 1)
 	}
 	return image.Config{}, invalid
+}
+
+// TenantMedia checks both the row's organization and its storage prefix.
+func (s *Service) TenantMedia(ctx context.Context, orgID int64, orgUUID, id uuid.UUID) (io.ReadCloser, string, error) {
+	row, err := s.q.GetSiteMedia(ctx, db.GetSiteMediaParams{OrganizationID: orgID, Uuid: id})
+	if err != nil {
+		return nil, "", mediaDBError(err)
+	}
+	if s.storage == nil || !storage.OrganizationOwnsKey(row.ObjectKey, orgUUID.String()) {
+		return nil, "", ErrNotFound
+	}
+	rc, _, err := s.storage.Download(ctx, row.ObjectKey)
+	if err != nil {
+		return nil, "", ErrNotFound
+	}
+	return rc, row.Mime, nil
 }

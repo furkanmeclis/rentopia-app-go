@@ -6,6 +6,7 @@ import (
 )
 
 type Media struct {
+	URL       string            `json:"url"`
 	UUID      uuid.UUID         `json:"uuid"`
 	Kind      string            `json:"kind"`
 	MIME      string            `json:"mime"`

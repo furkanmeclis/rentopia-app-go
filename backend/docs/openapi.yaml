@@ -12492,6 +12492,267 @@ paths:
         "403": { $ref: "#/components/responses/TenantForbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/tenant/site/articles/meta:
+    get:
+      tags: [Branded Site]
+      operationId: getTenantSiteArticlesMeta
+      summary: Article DataTable metadata
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      responses:
+        "200":
+          description: Article DataTable metadata
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeResourceMeta" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/site/articles:
+    get:
+      tags: [Branded Site]
+      operationId: listTenantSiteArticles
+      summary: List organization articles
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: locale, in: query, schema: { type: string, enum: [tr, en] } }
+        - { name: status, in: query, schema: { type: string, enum: [draft, published] } }
+        - { name: q, in: query, schema: { type: string } }
+        - { name: sort, in: query, schema: { type: string, enum: [created_at, "-created_at", updated_at, "-updated_at", sort, "-sort"] } }
+      responses:
+        "200":
+          description: List organization articles
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteArticleList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    post:
+      tags: [Branded Site]
+      operationId: createTenantSiteArticle
+      summary: Create a draft article
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SiteArticleInput" }
+      responses:
+        "201":
+          description: Create a draft article
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteArticle" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/site/articles/{uuid}:
+    get:
+      tags: [Branded Site]
+      operationId: getTenantSiteArticle
+      summary: Read an organization article
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Read an organization article
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteArticle" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    put:
+      tags: [Branded Site]
+      operationId: updateTenantSiteArticle
+      summary: Replace the article at its current version
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SiteArticleUpdate" }
+      responses:
+        "200":
+          description: Replace the article at its current version
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteArticle" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      tags: [Branded Site]
+      operationId: deleteTenantSiteArticle
+      summary: Soft-delete an article at its current version
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+        - { name: version, in: query, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200":
+          description: Soft-delete an article at its current version
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeDeleted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/site/articles/{uuid}/publish:
+    post:
+      tags: [Branded Site]
+      operationId: publishTenantSiteArticle
+      summary: Publish an article at its current version
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SiteVersionInput" }
+      responses:
+        "200":
+          description: Publish an article at its current version
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteArticle" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/site/articles/{uuid}/unpublish:
+    post:
+      tags: [Branded Site]
+      operationId: unpublishTenantSiteArticle
+      summary: Unpublish an article at its current version
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SiteVersionInput" }
+      responses:
+        "200":
+          description: Unpublish an article at its current version
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteArticle" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/site/media/{uuid}/file:
+    get:
+      tags: [Branded Site]
+      operationId: getTenantSiteMediaFile
+      summary: Stream own organization media with private no-store caching
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Stream own organization media with private no-store caching
+          content:
+            image/png:
+              schema: { type: string, format: binary }
+            image/jpeg:
+              schema: { type: string, format: binary }
+            image/webp:
+              schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/public/site/articles:
+    get:
+      tags: [Branded Site]
+      operationId: listPublicSiteArticles
+      summary: Published article cards newest first
+      security: []
+      parameters:
+        - { name: host, in: query, description: "Site host; defaults to the request Host. Same published-site checks as resolve.", schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: locale, in: query, schema: { type: string, enum: [tr, en] } }
+      responses:
+        "200":
+          description: Published article cards newest first
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopePublicSiteArticleList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/public/site/articles/by-slug/{locale}/{slug}:
+    get:
+      tags: [Branded Site]
+      operationId: getPublicSiteArticleBySlug
+      summary: Published localized article with validated JSON body and API-owned media URLs
+      security: []
+      parameters:
+        - { name: host, in: query, description: "Site host; defaults to the request Host. Same published-site checks as resolve.", schema: { type: string } }
+        - { name: locale, in: path, required: true, schema: { type: string, enum: [tr, en] } }
+        - { name: slug, in: path, required: true, schema: { type: string, maxLength: 160 } }
+      responses:
+        "200":
+          description: Published localized article with validated JSON body and API-owned media URLs
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopePublicSiteArticle" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/public/site/sitemap:
+    get:
+      tags: [Branded Site]
+      operationId: getPublicSiteSitemap
+      summary: Published site paths and modification times
+      security: []
+      parameters:
+        - { name: host, in: query, description: "Site host; defaults to the request Host. Same published-site checks as resolve.", schema: { type: string } }
+      responses:
+        "200":
+          description: Published site paths and modification times
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSiteSitemap" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
   /v1/public/site/resolve:
     get:
       tags: [Branded Site]
@@ -40710,11 +40971,260 @@ components:
         href: { type: string, maxLength: 2048, description: Nonempty relative path or HTTPS URL. }
         kind: { type: string, enum: [link, page] }
 
+    SiteArticleTitle:
+      type: object
+      additionalProperties: false
+      properties:
+        tr: { type: string, maxLength: 160 }
+        en: { type: string, maxLength: 160 }
+
+    SiteArticleSummary:
+      type: object
+      additionalProperties: false
+      properties:
+        tr: { type: string, maxLength: 1000 }
+        en: { type: string, maxLength: 1000 }
+
+    SiteArticleSEOTitle:
+      type: object
+      additionalProperties: false
+      properties:
+        tr: { type: string, maxLength: 70 }
+        en: { type: string, maxLength: 70 }
+
+    SiteArticleSEODescription:
+      type: object
+      additionalProperties: false
+      properties:
+        tr: { type: string, maxLength: 300 }
+        en: { type: string, maxLength: 300 }
+
+    SiteArticleBody:
+      type: array
+      maxItems: 5000
+      description: Plate JSON only; 256 KB per locale, 5000 total nodes, max depth 32. Unknown keys and marks rejected. Images require same-organization media_uuid and plain alt; links allow relative paths, HTTPS or mailto only. No HTML serialization.
+      items: { $ref: "#/components/schemas/SiteArticleNode" }
+
+    SiteArticleNode:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [text]
+          properties:
+            text: { type: string }
+            bold: { type: boolean }
+            italic: { type: boolean }
+            underline: { type: boolean }
+            strikethrough: { type: boolean }
+            code: { type: boolean }
+        - type: object
+          additionalProperties: false
+          required: [type, children]
+          properties:
+            type: { type: string, enum: [p, h2, h3, h4, blockquote, ul, ol, li, lic, hr, code_block, code_line] }
+            children:
+              type: array
+              minItems: 1
+              items: { $ref: "#/components/schemas/SiteArticleNode" }
+        - type: object
+          additionalProperties: false
+          required: [type, children, media_uuid, alt]
+          properties:
+            type: { type: string, enum: [img] }
+            media_uuid: { type: string, format: uuid }
+            alt: { type: string, maxLength: 300 }
+            children:
+              type: array
+              minItems: 1
+              items: { $ref: "#/components/schemas/SiteArticleNode" }
+        - type: object
+          additionalProperties: false
+          required: [type, children, href]
+          properties:
+            type: { type: string, enum: [a] }
+            href: { type: string, maxLength: 2048 }
+            children:
+              type: array
+              minItems: 1
+              items: { $ref: "#/components/schemas/SiteArticleNode" }
+
+    EnvelopeDeleted:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [deleted]
+          properties:
+            deleted: { type: boolean }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    SiteArticleInput:
+      type: object
+      additionalProperties: false
+      required: [slug, title]
+      properties:
+        slug: { $ref: "#/components/schemas/SiteLocalizedText" }
+        title: { $ref: "#/components/schemas/SiteArticleTitle" }
+        summary: { $ref: "#/components/schemas/SiteArticleSummary" }
+        cover_media_uuid: { type: [string, "null"], format: uuid }
+        body:
+          type: object
+          additionalProperties: false
+          properties:
+            tr: { $ref: "#/components/schemas/SiteArticleBody" }
+            en: { $ref: "#/components/schemas/SiteArticleBody" }
+        seo_title: { $ref: "#/components/schemas/SiteArticleSEOTitle" }
+        seo_description: { $ref: "#/components/schemas/SiteArticleSEODescription" }
+        tags: { type: array, maxItems: 10, items: { type: string, minLength: 1, maxLength: 60 } }
+        sort: { type: integer, format: int32, default: 0 }
+        featured: { type: boolean, default: false }
+        version: { type: integer, minimum: 1 }
+
+    SiteArticleUpdate:
+      type: object
+      additionalProperties: false
+      required: [version, slug, title]
+      properties:
+        slug: { $ref: "#/components/schemas/SiteLocalizedText" }
+        title: { $ref: "#/components/schemas/SiteArticleTitle" }
+        summary: { $ref: "#/components/schemas/SiteArticleSummary" }
+        cover_media_uuid: { type: [string, "null"], format: uuid }
+        body:
+          type: object
+          additionalProperties: false
+          properties:
+            tr: { $ref: "#/components/schemas/SiteArticleBody" }
+            en: { $ref: "#/components/schemas/SiteArticleBody" }
+        seo_title: { $ref: "#/components/schemas/SiteArticleSEOTitle" }
+        seo_description: { $ref: "#/components/schemas/SiteArticleSEODescription" }
+        tags: { type: array, maxItems: 10, items: { type: string, minLength: 1, maxLength: 60 } }
+        sort: { type: integer, format: int32, default: 0 }
+        featured: { type: boolean, default: false }
+        version: { type: integer, minimum: 1 }
+
+    SiteArticle:
+      type: object
+      required: [uuid, status, slug, title, summary, body, seo_title, seo_description, tags, sort, featured, version, created_at, updated_at]
+      properties:
+        slug: { $ref: "#/components/schemas/SiteLocalizedText" }
+        title: { $ref: "#/components/schemas/SiteArticleTitle" }
+        summary: { $ref: "#/components/schemas/SiteArticleSummary" }
+        cover_media_uuid: { type: [string, "null"], format: uuid }
+        body:
+          type: object
+          additionalProperties: false
+          properties:
+            tr: { $ref: "#/components/schemas/SiteArticleBody" }
+            en: { $ref: "#/components/schemas/SiteArticleBody" }
+        seo_title: { $ref: "#/components/schemas/SiteArticleSEOTitle" }
+        seo_description: { $ref: "#/components/schemas/SiteArticleSEODescription" }
+        tags: { type: array, maxItems: 10, items: { type: string, minLength: 1, maxLength: 60 } }
+        sort: { type: integer, format: int32, default: 0 }
+        featured: { type: boolean, default: false }
+        uuid: { type: string, format: uuid }
+        status: { type: string, enum: [draft, published] }
+        published_at: { type: [string, "null"], format: date-time }
+        created_by: { type: [integer, "null"], format: int64 }
+        updated_by: { type: [integer, "null"], format: int64 }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        version: { type: integer, minimum: 1 }
+
+    SiteArticleCard:
+      type: object
+      required: [title, summary, slug, cover_url, published_at]
+      properties:
+        title: { type: string }
+        summary: { type: string }
+        slug: { type: string }
+        cover_url: { type: [string, "null"] }
+        published_at: { type: string, format: date-time }
+
+    PublicSiteArticle:
+      allOf:
+        - $ref: "#/components/schemas/SiteArticleCard"
+        - type: object
+          required: [locale, body, seo_title, seo_description, tags, featured, updated_at, media]
+          properties:
+            locale: { type: string, enum: [tr, en] }
+            body: { $ref: "#/components/schemas/SiteArticleBody" }
+            seo_title: { type: string }
+            seo_description: { type: string }
+            tags: { type: array, items: { type: string } }
+            featured: { type: boolean }
+            updated_at: { type: string, format: date-time }
+            media: { type: object, additionalProperties: { type: string } }
+
+    SiteSitemapEntry:
+      type: object
+      required: [path, lastmod]
+      properties:
+        path: { type: string, description: "Relative public path. Article routes use /guide/{locale}/{slug}; vehicles use existing segment-filtered fleet paths." }
+        locale: { type: string, enum: [tr, en] }
+        lastmod: { type: string, format: date-time }
+
+    EnvelopeSiteArticle:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/SiteArticle" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeSiteArticleList:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/SiteArticle" } }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopePublicSiteArticle:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/PublicSiteArticle" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopePublicSiteArticleList:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/SiteArticleCard" } }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeSiteSitemap:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { type: array, items: { $ref: "#/components/schemas/SiteSitemapEntry" } }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
     SiteMedia:
       type: object
-      required: [uuid, kind, mime, size, width, height, alt, created_at, updated_at]
+      required: [uuid, url, kind, mime, size, width, height, alt, created_at, updated_at]
       properties:
         uuid: { type: string, format: uuid }
+        url: { type: string, description: "Panel same-origin API path /api/v1/tenant/site/media/{uuid}/file; private authenticated stream." }
         kind: { type: string, enum: [image] }
         mime: { type: string, enum: [image/png, image/jpeg, image/webp] }
         size: { type: integer, format: int64, maximum: 10485760 }
@@ -40962,6 +41472,13 @@ components:
       type: object
       required: [site_uuid, version, host, host_kind, origin, default_locale, locales, organization, publishable_key, booking_enabled, config, assets, portal_url, updated_at, preview, panel_origin]
       properties:
+        articles:
+          type: object
+          additionalProperties:
+            type: array
+            maxItems: 3
+            items: { $ref: "#/components/schemas/SiteArticleCard" }
+          description: Latest three published cards per locale (tr and en), newest first.
         campaigns: { type: array, items: { $ref: "#/components/schemas/PublicCampaign" } }
         template: { type: string }
         sections:

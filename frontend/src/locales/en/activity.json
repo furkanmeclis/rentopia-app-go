@@ -434,5 +434,11 @@
   "actions.channels.simulated": "Channel booking simulated",
   "actions.channels.message_retried": "Channel message applied again",
   "actions.channels.message_ignored": "Channel message dismissed",
-  "actions.site_leads.updated": "Site lead updated"
+  "actions.site_leads.updated": "Site lead updated",
+  "resources.tenant.site_articles": "Site articles",
+  "actions.site_articles.created": "Article created",
+  "actions.site_articles.updated": "Article updated",
+  "actions.site_articles.deleted": "Article deleted",
+  "actions.site_articles.published": "Article published",
+  "actions.site_articles.unpublished": "Article unpublished"
 }
