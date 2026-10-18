@@ -1,70 +1,21 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useSyncExternalStore } from "react";
+import { useMemo } from "react";
 
-import { siteKeys, useSitePreview } from "@/features/site/hooks/use-site";
+import { siteKeys } from "@/features/site/hooks/use-site";
 import { MEDIA_RULES } from "@/features/site/lib/site-options";
 import { siteService } from "@/features/site/services/site.service";
 import type { SiteMedia, SiteMediaList } from "@/features/site/types";
 import { useTenant } from "@/features/tenant/components/tenant-provider";
 import { isApiError } from "@/lib/api";
-import { resolveLogoSrc } from "@/lib/branding/logo-url";
 import { assertServiceMediaURL } from "@/lib/media/urls";
 import { useLocale } from "@/providers/locale-provider";
 import { appToast } from "@/providers/toast-provider";
 
 export const siteMediaKeys = {
   list: (slug: string) => [...siteKeys.all(slug), "media"] as const,
-  urls: (slug: string, token: string | undefined) =>
-    [...siteKeys.all(slug), "media-urls", token ?? ""] as const,
 };
-
-/*
- * Local previews of files uploaded in this browser session (object URLs of
- * the picked File, never a storage URL). The API has no tenant stream for
- * library items, so until an item is used by the draft this is the only
- * thumbnail the panel can show.
- */
-const localPreviews = new Map<string, string>();
-const listeners = new Set<() => void>();
-let localVersion = 0;
-
-function rememberLocalPreview(uuid: string, file: File) {
-  if (typeof URL === "undefined" || !URL.createObjectURL) return;
-  localPreviews.set(uuid, URL.createObjectURL(file));
-  localVersion += 1;
-  listeners.forEach((l) => l());
-}
-
-function forgetLocalPreview(uuid: string) {
-  const url = localPreviews.get(uuid);
-  if (!url) return;
-  URL.revokeObjectURL(url);
-  localPreviews.delete(uuid);
-  localVersion += 1;
-  listeners.forEach((l) => l());
-}
-
-function useLocalPreviewVersion() {
-  return useSyncExternalStore(
-    (cb) => {
-      listeners.add(cb);
-      return () => listeners.delete(cb);
-    },
-    () => localVersion,
-    () => 0,
-  );
-}
-
-function hostOf(url: string | undefined) {
-  if (!url) return undefined;
-  try {
-    return new URL(url).host;
-  } catch {
-    return undefined;
-  }
-}
 
 export function useSiteMedia() {
   const { slug } = useTenant();
@@ -75,38 +26,24 @@ export function useSiteMedia() {
 }
 
 /**
- * uuid → image src for thumbnails: the draft's API-owned media stream URLs
- * (resolve with the preview token), else a local preview of a file
- * uploaded in this session. Missing entries render a placeholder.
+ * uuid → image src for thumbnails: every library item carries `url`, the
+ * API-owned same-origin file route (`/api/v1/tenant/site/media/{uuid}/file`,
+ * TEC-785), so no draft preview or local object URL is needed.
  */
 export function useSiteMediaUrls() {
-  const { slug } = useTenant();
-  const preview = useSitePreview(true);
-  const token = preview.data?.token;
-  const host = hostOf(preview.data?.url);
-  const resolved = useQuery({
-    queryKey: siteMediaKeys.urls(slug, token),
-    queryFn: () => siteService.resolvePreview(host!, token!),
-    enabled: Boolean(host && token),
-    staleTime: 5 * 60 * 1000,
-    retry: false,
-  });
-  const version = useLocalPreviewVersion();
+  const media = useSiteMedia();
   return useMemo(() => {
     const map: Record<string, string> = {};
-    for (const [uuid, url] of localPreviews) map[uuid] = url;
-    for (const [uuid, url] of Object.entries(resolved.data?.media ?? {})) {
+    for (const item of media.data?.items ?? []) {
       try {
-        const src = resolveLogoSrc(assertServiceMediaURL(url));
-        if (src) map[uuid] = src;
+        const src = assertServiceMediaURL(item.url);
+        if (src) map[item.uuid] = src;
       } catch {
         // Not an API-owned URL: never rendered.
       }
     }
     return map;
-    // `version` re-reads the local previews after an upload.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolved.data, version]);
+  }, [media.data]);
 }
 
 /** Client-side precheck; the server stays authoritative (type is sniffed). */
@@ -172,7 +109,6 @@ export function useUploadSiteMedia() {
         }
         try {
           const item = await siteService.uploadMedia(slug, file);
-          rememberLocalPreview(item.uuid, file);
           created.push(item);
           count += 1;
           bytes += item.size;
@@ -241,8 +177,7 @@ export function useDeleteSiteMedia() {
   return useMutation({
     meta: { silent: true },
     mutationFn: (uuid: string) => siteService.deleteMedia(slug, uuid),
-    onSuccess: (_res, uuid) => {
-      forgetLocalPreview(uuid);
+    onSuccess: () => {
       appToast.success(t("site.media.toast.deleted"));
     },
     onError: (error) => appToast.error(mediaErrorMessage(error, t)),

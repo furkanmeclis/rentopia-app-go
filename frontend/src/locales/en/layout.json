@@ -110,5 +110,6 @@
   "nav_channels": "Channel manager",
   "nav_tenant_settings_whatsapp": "WhatsApp",
   "nav_site_domains": "Domains",
-  "nav_tenant_settings_site_leads": "Site applications"
+  "nav_tenant_settings_site_leads": "Site applications",
+  "nav_tenant_settings_site_articles": "Site guide"
 }
