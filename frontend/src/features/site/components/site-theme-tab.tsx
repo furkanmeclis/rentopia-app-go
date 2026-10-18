@@ -197,6 +197,29 @@ const TEMPLATE_PREVIEWS: Record<TemplateId, ReactNode> = {
 /** Option previews of the typed theme settings (`heroLayout`, …). */
 const SETTING_PREVIEWS: Record<string, Record<string, ReactNode>> = {
   heroLayout: { image: HERO_PREVIEWS.image, split: HERO_PREVIEWS.split },
+  // Horizon: the serif headline beside the photo, left-aligned or centered.
+  heroAlign: {
+    left: (
+      <span className="grid w-full grid-cols-2 gap-2">
+        <span className="flex flex-col justify-center gap-1.5">
+          {bar("w-full")}
+          {bar("w-2/3")}
+          {bar("w-1/3", "mt-1")}
+        </span>
+        {box("h-full")}
+      </span>
+    ),
+    center: (
+      <span className="grid w-full grid-cols-2 gap-2">
+        <span className="flex flex-col items-center justify-center gap-1.5">
+          {bar("w-full")}
+          {bar("w-2/3")}
+          {bar("w-1/3", "mt-1")}
+        </span>
+        {box("h-full")}
+      </span>
+    ),
+  },
 };
 
 function TemplateCards({
