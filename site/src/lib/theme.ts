@@ -71,6 +71,15 @@ export const CORNER_PX: Record<string, number> = {
 
 export type Corners = { card: string; control: string; image: string };
 
+/**
+ * A template's own corners for `soft`, when its character differs from the
+ * Technowide fallbacks its pages share: Horizon's editorial cards and
+ * controls are square, photos barely rounded (the studio's look).
+ */
+export const TEMPLATE_CORNERS: Record<string, Corners> = {
+  "horizon-design": { card: "0px", control: "0px", image: "2px" },
+};
+
 /** The uniform corners of a radius style, or null for the template's own (`soft`). */
 export function corners(radius: string | undefined): Corners | null {
   const id = radius === "none" ? "sharp" : radius === "full" ? "pill" : radius;
@@ -155,7 +164,7 @@ export function themeCss(
   template = "",
 ): string {
   const radius = RADIUS[theme?.radius ?? ""] ?? RADIUS.md;
-  const c = corners(theme?.radius);
+  const c = corners(theme?.radius) ?? TEMPLATE_CORNERS[template] ?? null;
   const light = colorVars(theme?.colors, DEFAULT_COLORS);
   const dark = colorVars(theme?.dark_colors, DEFAULT_DARK_COLORS);
   const cornerVars = c

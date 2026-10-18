@@ -31,7 +31,7 @@ import { mediaUrl, type Ctx } from "@/lib/server";
  * Corporate and franchise applications are linked from the footer while
  * their forms are on.
  */
-function defaultHeaderLinks(ctx: Ctx): NavLink[] {
+export function defaultHeaderLinks(ctx: Ctx): NavLink[] {
   const { t, content, site } = ctx;
   const c = site.config.contact;
   const links: NavLink[] = [];
@@ -49,12 +49,12 @@ function defaultHeaderLinks(ctx: Ctx): NavLink[] {
   return links;
 }
 
-async function currentPath(): Promise<string> {
+export async function currentPath(): Promise<string> {
   const raw = (await headers()).get(PATH_HEADER) ?? "/";
   return raw.split("?")[0] || "/";
 }
 
-function isActive(href: string, path: string): boolean {
+export function isActive(href: string, path: string): boolean {
   if (href.startsWith("https://")) return false;
   const target = href.split(/[?#]/)[0] || "/";
   return target === "/"

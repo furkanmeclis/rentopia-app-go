@@ -110,6 +110,18 @@ test("corner styles map to card / control / image radii", () => {
   }
 });
 
+test("Horizon's soft corners are its own square look", () => {
+  const vars = (radius: string, template: string) =>
+    themeCss({ radius } as never, template);
+  assert.match(
+    vars("soft", "horizon-design"),
+    /--radius-card:0px;--radius-control:0px;--radius-image:2px;/,
+  );
+  // A chosen corner style wins over the template's own.
+  assert.match(vars("lg", "horizon-design"), /--radius-card:16px;/);
+  assert.doesNotMatch(vars("soft", "technowide-design"), /--radius-card/);
+});
+
 test("heading font follows the body, a chosen font or Georgia", () => {
   const css = (font: string, heading?: string, template = "") =>
     themeCss({ font, heading_font: heading } as never, template);

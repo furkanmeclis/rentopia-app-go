@@ -1,6 +1,12 @@
 import type { Ctx } from "@/lib/server";
 import type { Site } from "@/lib/types";
 
+import {
+  Footer as HorizonFooter,
+  Header as HorizonHeader,
+} from "./horizon/chrome";
+import { Home as HorizonHome } from "./horizon/home";
+import { Content as HorizonContent } from "./horizon/pages";
 import { resolveThemeId, type ThemeId } from "./registry";
 import { Footer, Header } from "./technowide/chrome";
 import { Home } from "./technowide/home";
@@ -14,7 +20,10 @@ import {
   Vehicles,
 } from "./technowide/pages";
 
+// Order matters: Horizon draws the shared `rt-*` / `tw-*` page markup on
+// top of the Technowide stylesheet (same layer, same specificity).
 import "./technowide/technowide.css";
+import "./horizon/horizon.css";
 
 export type ContentPage = "about" | "faq" | "contact" | "terms" | "privacy";
 /** Application forms with their own page (TEC-786). */
@@ -31,7 +40,7 @@ export type Query = Record<string, string | string[] | undefined>;
  */
 export type ThemeRenderer = {
   id: ThemeId;
-  /** Root class on <body>: scopes the theme stylesheet. */
+  /** Root class(es) on <body>: scope the theme stylesheet(s). */
   className: string;
   Header: (p: { ctx: Ctx }) => Promise<React.ReactNode>;
   Footer: (p: { ctx: Ctx }) => Promise<React.ReactNode>;
@@ -66,6 +75,23 @@ const RENDERERS: Record<ThemeId, ThemeRenderer> = {
     Branches: BranchList,
     Branch: BranchDetail,
     Content,
+    Campaigns: CampaignList,
+    Campaign: CampaignDetail,
+    Inquiry,
+  },
+  // Horizon (TEC-787): its own header, footer, home, about and FAQ; the
+  // fleet, office, campaign, contact, legal and application pages are the
+  // shared Technowide markup restyled under `.theme-horizon`.
+  "horizon-design": {
+    id: "horizon-design",
+    className: "theme-technowide theme-horizon",
+    Header: HorizonHeader,
+    Footer: HorizonFooter,
+    Home: HorizonHome,
+    Vehicles,
+    Branches: BranchList,
+    Branch: BranchDetail,
+    Content: HorizonContent,
     Campaigns: CampaignList,
     Campaign: CampaignDetail,
     Inquiry,
