@@ -18,8 +18,21 @@ func TestConfigV2Validation(t *testing.T) {
 		name   string
 		change func(*model.Config)
 	}{
-		{"unavailable template", func(c *model.Config) { c.Template = "aurum" }},
 		{"unknown template", func(c *model.Config) { c.Template = "classic-design" }},
+		{"studio template id", func(c *model.Config) { c.Template = "aurum-design" }},
+		{"invalid aurum columns", func(c *model.Config) {
+			d, _ := themes.Find("aurum")
+			tc := themes.Defaults(d)
+			tc.Settings["fleetColumns"] = "1"
+			c.Template = d.ID
+			c.Templates[d.ID] = tc
+		}},
+		{"aurum rejects branches", func(c *model.Config) {
+			d, _ := themes.Find("aurum")
+			tc := themes.Defaults(d)
+			tc.Sections = append(tc.Sections, themes.Section{ID: "branches", Enabled: true})
+			c.Templates[d.ID] = tc
+		}},
 		{"invalid classic columns", func(c *model.Config) {
 			d, _ := themes.Find("classic")
 			tc := themes.Defaults(d)
@@ -351,5 +364,45 @@ func TestConfigV2SwitchToClassicPreservesEveryTemplate(t *testing.T) {
 	}
 	if !reflect.DeepEqual(c.Templates[themes.Default], tw) {
 		t.Fatal("technowide configuration lost")
+	}
+}
+
+func TestConfigV2ClassicAndAurumKeepTheirOwnColumns(t *testing.T) {
+	c, err := usecase.NormalizeConfig(model.DefaultConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Template = "classic"
+	if c, err = usecase.NormalizeConfig(c); err != nil {
+		t.Fatal(err)
+	}
+	cl := c.Templates["classic"]
+	cl.Settings["fleetColumns"] = "2"
+	c.Templates["classic"] = cl
+
+	// Aurum gets its own defaults: the same setting key is per template.
+	c.Template = "aurum"
+	if c, err = usecase.NormalizeConfig(c); err != nil {
+		t.Fatal(err)
+	}
+	d, _ := themes.Find("aurum")
+	au := c.Templates["aurum"]
+	if !reflect.DeepEqual(au, themes.Defaults(d)) || au.Settings["fleetColumns"] != "3" {
+		t.Fatalf("aurum defaults: %+v", au)
+	}
+	au.Sections = []themes.Section{{ID: "hero", Enabled: true}, {ID: "fleet", Enabled: true}, {ID: "search", Enabled: true}, {ID: "advantages"}, {ID: "campaigns", Enabled: true}, {ID: "about", Enabled: true}, {ID: "faq", Enabled: true}, {ID: "guide", Enabled: true}}
+	c.Templates["aurum"] = au
+
+	for _, id := range []string{"classic", themes.Default, "horizon-design", "aurum"} {
+		c.Template = id
+		if c, err = usecase.NormalizeConfig(c); err != nil {
+			t.Fatal(id, err)
+		}
+	}
+	if !reflect.DeepEqual(c.Templates["aurum"], au) {
+		t.Fatalf("aurum configuration lost: %+v", c.Templates["aurum"])
+	}
+	if !reflect.DeepEqual(c.Templates["classic"], cl) || c.Templates["classic"].Settings["fleetColumns"] != "2" {
+		t.Fatalf("classic configuration lost: %+v", c.Templates["classic"])
 	}
 }
