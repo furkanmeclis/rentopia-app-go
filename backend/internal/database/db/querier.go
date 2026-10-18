@@ -183,6 +183,7 @@ type Querier interface {
 	CountPlatformNotifications(ctx context.Context, arg CountPlatformNotificationsParams) (int64, error)
 	CountPlatformOrganizationActivity(ctx context.Context, arg CountPlatformOrganizationActivityParams) (int64, error)
 	CountPublicAPIKeys(ctx context.Context, arg CountPublicAPIKeysParams) (int64, error)
+	CountPublicSiteArticles(ctx context.Context, arg CountPublicSiteArticlesParams) (int64, error)
 	CountPublicWebhookDeliveries(ctx context.Context, arg CountPublicWebhookDeliveriesParams) (int64, error)
 	// Panel header: failed deliveries of the last 7 days.
 	CountPublicWebhookDeliveryStats(ctx context.Context, arg CountPublicWebhookDeliveryStatsParams) (CountPublicWebhookDeliveryStatsRow, error)
@@ -199,6 +200,7 @@ type Querier interface {
 	CountRoles(ctx context.Context, q_ pgtype.Text) (int64, error)
 	// Sends of the organization (optionally to one number) since a time.
 	CountSMSMessagesSince(ctx context.Context, arg CountSMSMessagesSinceParams) (int64, error)
+	CountSiteArticles(ctx context.Context, arg CountSiteArticlesParams) (int64, error)
 	CountSiteLeads(ctx context.Context, arg CountSiteLeadsParams) (int64, error)
 	CountSiteMedia(ctx context.Context, organizationID int64) (int64, error)
 	CountStaffPushTargets(ctx context.Context, userID int64) (int64, error)
@@ -407,6 +409,7 @@ type Querier interface {
 	DeleteReservationDrivers(ctx context.Context, arg DeleteReservationDriversParams) error
 	DeleteRole(ctx context.Context, argUuid uuid.UUID) error
 	DeleteServicePoint(ctx context.Context, arg DeleteServicePointParams) (int64, error)
+	DeleteSiteArticle(ctx context.Context, arg DeleteSiteArticleParams) (int64, error)
 	DeleteSiteMedia(ctx context.Context, arg DeleteSiteMediaParams) (string, error)
 	DeleteStorageShare(ctx context.Context, argUuid uuid.UUID) error
 	DeleteStorageStar(ctx context.Context, arg DeleteStorageStarParams) error
@@ -865,6 +868,7 @@ type Querier interface {
 	// A reservation the public API made, by its reference.
 	GetPublicReservationByReference(ctx context.Context, arg GetPublicReservationByReferenceParams) (GetPublicReservationByReferenceRow, error)
 	GetPublicReservationByUUID(ctx context.Context, arg GetPublicReservationByUUIDParams) (GetPublicReservationByUUIDRow, error)
+	GetPublicSiteArticle(ctx context.Context, arg GetPublicSiteArticleParams) (SiteArticle, error)
 	// Global public UUID lookup: the site, organization and published/draft
 	// reference jointly authorize the bytes. The service validates the token.
 	GetPublicSiteMedia(ctx context.Context, arg GetPublicSiteMediaParams) (GetPublicSiteMediaRow, error)
@@ -950,6 +954,7 @@ type Querier interface {
 	GetSMSMessageForSend(ctx context.Context, arg GetSMSMessageForSendParams) (GetSMSMessageForSendRow, error)
 	GetSecurityDepositRow(ctx context.Context, arg GetSecurityDepositRowParams) (GetSecurityDepositRowRow, error)
 	GetServicePoint(ctx context.Context, arg GetServicePointParams) (ServicePoint, error)
+	GetSiteArticle(ctx context.Context, arg GetSiteArticleParams) (SiteArticle, error)
 	// The image keys of a site by its public uuid (asset stream): the draft
 	// and the published snapshot. The caller picks by the preview token.
 	GetSiteAssetKeys(ctx context.Context, argUuid uuid.UUID) (GetSiteAssetKeysRow, error)
@@ -1209,6 +1214,7 @@ type Querier interface {
 	// organization-owned: every query filters by organization_id.
 	InsertSMSMessage(ctx context.Context, arg InsertSMSMessageParams) (InsertSMSMessageRow, error)
 	InsertSecurityDeposit(ctx context.Context, arg InsertSecurityDepositParams) (InsertSecurityDepositRow, error)
+	InsertSiteArticle(ctx context.Context, arg InsertSiteArticleParams) (SiteArticle, error)
 	InsertSiteLead(ctx context.Context, arg InsertSiteLeadParams) (SiteLead, error)
 	InsertSiteMedia(ctx context.Context, arg InsertSiteMediaParams) (SiteMedium, error)
 	// First save of an organization's site. ON CONFLICT DO NOTHING: a
@@ -1724,6 +1730,7 @@ type Querier interface {
 	// publishable-key callers refuse them; secret keys ignore the flag.
 	ListPublicHiddenCatalog(ctx context.Context, organizationID int64) (ListPublicHiddenCatalogRow, error)
 	ListPublicServicePoints(ctx context.Context, arg ListPublicServicePointsParams) ([]ListPublicServicePointsRow, error)
+	ListPublicSiteArticles(ctx context.Context, arg ListPublicSiteArticlesParams) ([]SiteArticle, error)
 	ListPublicSubgroupImages(ctx context.Context, arg ListPublicSubgroupImagesParams) ([]ListPublicSubgroupImagesRow, error)
 	// Products on sale (published, active) with their current conditions.
 	ListPublicSubgroups(ctx context.Context, arg ListPublicSubgroupsParams) ([]ListPublicSubgroupsRow, error)
@@ -1808,6 +1815,7 @@ type Querier interface {
 	ListSecurityDeposits(ctx context.Context, arg ListSecurityDepositsParams) ([]ListSecurityDepositsRow, error)
 	ListServicePointsByBranch(ctx context.Context, arg ListServicePointsByBranchParams) ([]ServicePoint, error)
 	ListSharedKeys(ctx context.Context, keys []string) ([]string, error)
+	ListSiteArticles(ctx context.Context, arg ListSiteArticlesParams) ([]SiteArticle, error)
 	// ----------------------------------------------- catalog publish state
 	ListSiteCatalogBranches(ctx context.Context, organizationID int64) ([]ListSiteCatalogBranchesRow, error)
 	ListSiteCatalogExtras(ctx context.Context, organizationID int64) ([]ListSiteCatalogExtrasRow, error)
@@ -1818,6 +1826,8 @@ type Querier interface {
 	ListSiteDomains(ctx context.Context, organizationID int64) ([]SiteDomain, error)
 	ListSiteLeads(ctx context.Context, arg ListSiteLeadsParams) ([]SiteLead, error)
 	ListSiteMedia(ctx context.Context, arg ListSiteMediaParams) ([]SiteMedium, error)
+	ListSiteSitemapArticles(ctx context.Context, organizationID int64) ([]ListSiteSitemapArticlesRow, error)
+	ListSiteSitemapCatalog(ctx context.Context, organizationID int64) ([]ListSiteSitemapCatalogRow, error)
 	// Publish history, newest first.
 	ListSiteVersions(ctx context.Context, organizationID int64) ([]ListSiteVersionsRow, error)
 	ListStorageActivity(ctx context.Context, arg ListStorageActivityParams) ([]ListStorageActivityRow, error)
@@ -2444,6 +2454,7 @@ type Querier interface {
 	SetSMSMessageJob(ctx context.Context, arg SetSMSMessageJobParams) error
 	SetSecurityDepositAccount(ctx context.Context, arg SetSecurityDepositAccountParams) error
 	SetSecurityDepositCheckout(ctx context.Context, arg SetSecurityDepositCheckoutParams) error
+	SetSiteArticleStatus(ctx context.Context, arg SetSiteArticleStatusParams) (SiteArticle, error)
 	// Replaces (or clears) one draft image; bumps the version.
 	SetSiteDraftImage(ctx context.Context, arg SetSiteDraftImageParams) (SiteSetting, error)
 	// Links another publishable key (renew key); bumps the version.
@@ -2473,6 +2484,7 @@ type Querier interface {
 	SettleCollection(ctx context.Context, arg SettleCollectionParams) (int64, error)
 	SiteDomainHealthCounts(ctx context.Context) (SiteDomainHealthCountsRow, error)
 	SiteLeadRecipients(ctx context.Context, organizationID int64) ([]int64, error)
+	SiteMediaHasPublicArticle(ctx context.Context, arg SiteMediaHasPublicArticleParams) (bool, error)
 	SiteMediaHasPublicCampaign(ctx context.Context, arg SiteMediaHasPublicCampaignParams) (bool, error)
 	// Whether the draft or any snapshot still names an image object (it is
 	// deleted from storage only when nothing does).
@@ -2615,6 +2627,7 @@ type Querier interface {
 	// report); clear_payload drops the sealed number and text once final.
 	UpdateSMSMessageStatus(ctx context.Context, arg UpdateSMSMessageStatusParams) error
 	UpdateServicePoint(ctx context.Context, arg UpdateServicePointParams) (ServicePoint, error)
+	UpdateSiteArticle(ctx context.Context, arg UpdateSiteArticleParams) (SiteArticle, error)
 	UpdateSiteDomainCheck(ctx context.Context, arg UpdateSiteDomainCheckParams) (SiteDomain, error)
 	UpdateSiteDomainTLS(ctx context.Context, arg UpdateSiteDomainTLSParams) error
 	// Saves the live fields and the draft document when the caller saw the

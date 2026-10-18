@@ -121,6 +121,14 @@ func (s *Service) Resolve(ctx context.Context, rawHost, previewToken string) (mo
 	if err != nil {
 		return model.Resolved{}, err
 	}
+	out.Articles = map[string][]model.ArticleCard{}
+	for _, locale := range model.Locales {
+		page, err := s.publicArticleList(ctx, row.OrganizationID, row.Uuid, locale, 3, 0)
+		if err != nil {
+			return model.Resolved{}, err
+		}
+		out.Articles[locale] = page.Items
+	}
 	out.Version = int(version)
 	out.Template = out.Config.Template
 	active := out.Config.Templates[out.Template]

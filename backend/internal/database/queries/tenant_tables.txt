@@ -138,3 +138,5 @@ site_domains
 site_media
 
 site_leads
+
+site_articles

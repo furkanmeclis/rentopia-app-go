@@ -39,15 +39,6 @@ func TestConfigV2Validation(t *testing.T) {
 			}
 			c.Templates[c.Template] = tc
 		}},
-		{"service unavailable", func(c *model.Config) {
-			tc := c.Templates[c.Template]
-			for i := range tc.Sections {
-				if tc.Sections[i].ID == "guide" {
-					tc.Sections[i].Enabled = true
-				}
-			}
-			c.Templates[c.Template] = tc
-		}},
 		{"duplicate", func(c *model.Config) {
 			tc := c.Templates[c.Template]
 			tc.Sections = append(tc.Sections, tc.Sections[0])

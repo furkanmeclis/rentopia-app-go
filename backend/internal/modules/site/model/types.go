@@ -383,6 +383,7 @@ type Assets struct {
 // Resolved is GET /v1/public/site/resolve: everything the site needs to
 // render a host, and the credential it books with.
 type Resolved struct {
+	Articles         map[string][]ArticleCard       `json:"articles"`
 	Campaigns        []campaignmodel.PublicCampaign `json:"campaigns"`
 	Template         string                         `json:"template"`
 	Sections         []themes.Section               `json:"sections"`
