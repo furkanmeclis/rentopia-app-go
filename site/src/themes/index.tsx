@@ -138,6 +138,8 @@ const RENDERERS: Record<ThemeId, ThemeRenderer> = {
     Content: ClassicContent,
     Campaigns: CampaignList,
     Campaign: CampaignDetail,
+    Guide: GuideList,
+    Article: ArticleDetail,
     Inquiry,
   },
   // Aurum (TEC-787): its own header, footer, home and catalog-style
@@ -156,6 +158,8 @@ const RENDERERS: Record<ThemeId, ThemeRenderer> = {
     Content,
     Campaigns: CampaignList,
     Campaign: CampaignDetail,
+    Guide: GuideList,
+    Article: ArticleDetail,
     Inquiry,
   },
 };
