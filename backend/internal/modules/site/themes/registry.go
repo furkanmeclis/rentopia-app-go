@@ -46,7 +46,7 @@ func Registry() []Definition {
 			Settings: []Setting{{Key: "heroLayout", Type: "enum", Values: []string{"image", "split"}, Default: "image"}},
 		},
 		{
-			ID: "horizon-design", RequiredFirst: "hero",
+			ID: "horizon-design", Available: true, RequiredFirst: "hero",
 			Sections: []string{"hero", "search", "campaigns", "fleet", "guide", "about", "faq"},
 			Settings: []Setting{{Key: "heroAlign", Type: "enum", Values: []string{"left", "center"}, Default: "left"}},
 		},

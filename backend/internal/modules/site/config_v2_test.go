@@ -18,7 +18,7 @@ func TestConfigV2Validation(t *testing.T) {
 		name   string
 		change func(*model.Config)
 	}{
-		{"unavailable template", func(c *model.Config) { c.Template = "horizon-design" }},
+		{"unavailable template", func(c *model.Config) { c.Template = "classic" }},
 		{"unknown section", func(c *model.Config) {
 			tc := c.Templates[c.Template]
 			tc.Sections = append(tc.Sections, themes.Section{ID: "unknown"})
@@ -58,6 +58,19 @@ func TestConfigV2Validation(t *testing.T) {
 			tc := c.Templates[c.Template]
 			tc.Settings["oops"] = "value"
 			c.Templates[c.Template] = tc
+		}},
+		{"invalid horizon alignment", func(c *model.Config) {
+			d, _ := themes.Find("horizon-design")
+			tc := themes.Defaults(d)
+			tc.Settings["heroAlign"] = "right"
+			c.Template = d.ID
+			c.Templates[d.ID] = tc
+		}},
+		{"horizon rejects technowide setting", func(c *model.Config) {
+			d, _ := themes.Find("horizon-design")
+			tc := themes.Defaults(d)
+			tc.Settings["heroLayout"] = "split"
+			c.Templates[d.ID] = tc
 		}},
 		{"invalid setting", func(c *model.Config) {
 			tc := c.Templates[c.Template]
@@ -198,5 +211,62 @@ func TestConfigV2SavePreservesInactiveTemplate(t *testing.T) {
 		if status.ID == "app_promo" && status.CanEnable {
 			t.Fatal(status)
 		}
+	}
+}
+
+func TestConfigV2SwitchTechnowideHorizonPreservesBoth(t *testing.T) {
+	c, err := usecase.NormalizeConfig(model.DefaultConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	tw := c.Templates[themes.Default]
+	tw.Settings["heroLayout"] = "split"
+	for i := range tw.Sections {
+		if tw.Sections[i].ID == "faq" {
+			tw.Sections[i].Enabled = false
+		}
+	}
+	c.Templates[themes.Default] = tw
+
+	// Switch to Horizon: it gets its defaults, Technowide keeps its edits.
+	c.Template = "horizon-design"
+	c, err = usecase.NormalizeConfig(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hz := c.Templates["horizon-design"]
+	d, _ := themes.Find("horizon-design")
+	if !reflect.DeepEqual(hz, themes.Defaults(d)) || hz.Settings["heroAlign"] != "left" {
+		t.Fatalf("horizon defaults: %+v", hz)
+	}
+	if !reflect.DeepEqual(c.Templates[themes.Default], tw) {
+		t.Fatal("technowide configuration lost on switch")
+	}
+
+	// Edit Horizon: center the hero, move fleet before campaigns, hide about.
+	hz.Settings["heroAlign"] = "center"
+	hz.Sections = []themes.Section{{ID: "hero", Enabled: true}, {ID: "fleet", Enabled: true}, {ID: "search", Enabled: true}, {ID: "campaigns", Enabled: true}, {ID: "about"}, {ID: "faq", Enabled: true}, {ID: "guide"}}
+	c.Templates["horizon-design"] = hz
+	c, err = usecase.NormalizeConfig(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Back to Technowide and again to Horizon: both keep their own state.
+	c.Template = themes.Default
+	c, err = usecase.NormalizeConfig(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Template = "horizon-design"
+	c, err = usecase.NormalizeConfig(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(c.Templates["horizon-design"], hz) {
+		t.Fatalf("horizon configuration lost: %+v", c.Templates["horizon-design"])
+	}
+	if !reflect.DeepEqual(c.Templates[themes.Default], tw) {
+		t.Fatal("technowide configuration lost")
 	}
 }
