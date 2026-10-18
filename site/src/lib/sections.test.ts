@@ -154,7 +154,7 @@ test("Horizon renders the studio's sections only", () => {
   );
   assert.deepEqual(
     blocks.map((b) => b.id),
-    ["hero", "fleet", "campaigns", "about", "faq"],
+    ["hero", "fleet", "guide", "campaigns", "about", "faq"],
   );
 });
 

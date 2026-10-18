@@ -90,8 +90,8 @@ const RENDERERS: Record<ThemeId, ThemeRenderer> = {
     Inquiry,
   },
   // Horizon (TEC-787): its own header, footer, home, about and FAQ; the
-  // fleet, office, campaign, contact, legal and application pages are the
-  // shared Technowide markup restyled under `.theme-horizon`.
+  // fleet, office, campaign, guide, contact, legal and application pages are
+  // the shared Technowide markup restyled under `.theme-horizon`.
   "horizon-design": {
     id: "horizon-design",
     className: "theme-technowide theme-horizon",
@@ -104,6 +104,8 @@ const RENDERERS: Record<ThemeId, ThemeRenderer> = {
     Content: HorizonContent,
     Campaigns: CampaignList,
     Campaign: CampaignDetail,
+    Guide: GuideList,
+    Article: ArticleDetail,
     Inquiry,
   },
 };
