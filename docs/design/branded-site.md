@@ -375,8 +375,8 @@ colors and light/dark/system mode are retained. The JSON body limit remains
 **1 MiB**: the combined document remains bounded independently of each
 field's character limit, and uploads use their own multipart limit.
 
-`config.template` defaults to `technowide-design`. `horizon-design` is
-selectable since TEC-787 (§13); `classic` and `aurum` are registered but
+`config.template` defaults to `technowide-design`. `horizon-design` (§14)
+and `classic` (§15) are selectable since TEC-787; `aurum` is registered but
 unavailable for selection (`TEMPLATE_UNAVAILABLE`). The Go registry in
 `backend/internal/modules/site/themes` defines each theme's supported section
 order, required first section and typed enum settings. The persisted
@@ -902,3 +902,91 @@ scroll), left and centered hero, two slides, the mobile menu, vehicles,
 search, contact, about and campaigns pages against a local mock API. Not
 checked: real devices / Safari, dark mode with real brand colors.
 
+## 15. classic renderer (TEC-787)
+
+classic is the third selectable template: a server-rendered port of the
+template studio's classic (`template-studio/src/templates/classic`, the
+compact corporate "Stitch" adaptation): a sticky white header with a
+monogram, a light gradient hero with a horizontal booking card and trust
+notes, filter chips and vehicle cards, icon cards, office cards, a split
+about, bordered questions, a primary support band, a four column footer
+and, on phones, a fixed quick navigation. No studio images, IDES demo
+content, prices, ratings or PNR values are shipped.
+
+### 15.1 Registry and availability
+
+- API (`backend/internal/modules/site/themes`): `classic` is
+  `available: true`. Sections (default order, unchanged; the studio's
+  classic plus `search`): hero, search, fleet, advantages, branches, about,
+  faq, campaigns, guide. `newsletter` and `app_promo` are
+  `unsupported_by_theme`. Setting: `fleetColumns=2|3` (strings, default
+  `3`); any other value, Horizon's `heroAlign` or Technowide's `heroLayout`
+  is rejected. `TestClassicIsSelectable`, `TestConfigV2Validation` (columns,
+  foreign settings, newsletter) and
+  `TestConfigV2SwitchToClassicPreservesEveryTemplate` (Technowide → Horizon
+  → classic and back, every template keeps its sections and settings)
+  cover it. OpenAPI only had its stale "only technowide-design is
+  selectable" description updated (the registry answer is the source).
+- Site (`site/src/themes/registry.ts`): `THEME_IDS` contains `classic`;
+  `THEME_SECTIONS.classic` mirrors the API list; `fleetColumns(settings)`
+  returns 2 only for exactly `"2"` (it becomes a class name).
+- Panel: the Tema tab's classic card is selectable (registry driven) and the
+  "Araç listesi sütunları" choice shows two / three column previews.
+
+### 15.2 Structure
+
+| Path | What |
+|------|------|
+| `site/src/themes/classic/chrome.tsx` | Header (monogram + name or logo, menu, language, portal sign-in, accent "Araç bul", `<details>` menu below 1150 px) and footer (support band with the phone or the contact page, brand / branches / corporate & legal / contact columns, copyright, fixed quick navigation below 768 px) |
+| `site/src/themes/classic/home.tsx`, `sections.tsx` | Home sections, the classic vehicle card and grid, segment chips |
+| `site/src/themes/classic/pages.tsx` | `/vehicles` with classic cards in `fleetColumns`; classic about (story, advantages, questions: the studio's /hakkimizda) and FAQ pages; contact and legal pages delegate to the shared markup |
+| `site/src/themes/classic/helpers.ts` | Pure: monogram, home fleet limit |
+| `site/src/themes/classic/classic.css` | Stylesheet scoped to `.theme-classic` |
+| `site/src/themes/facts.tsx`, `guide.ts` | Shared by classic and Aurum: vehicle condition facts; guide cards from resolve `articles` (pure) |
+| `site/src/lib/contrast.ts` | Pure WCAG helpers (text on the accent, readable accent) |
+
+The `<body>` carries `theme-technowide theme-classic`; offices, campaigns +
+detail, contact, corporate / franchise forms, legal pages, the booking flow,
+lookup and `/embed` keep the shared `rt-*` / `tw-*` markup, and
+`classic.css` (imported after `technowide.css` and `horizon.css`, same
+`components` layer) redraws them: white cards on the muted page with small
+shadows, plain white page headings, accent call-to-action buttons (also
+the search submit), primary-tinted icons, chips and current step.
+
+### 15.3 Home sections
+
+| Section | Data | Empty |
+|---------|------|-------|
+| hero | badge = brand tagline, else the name; the first enabled slide's title and text (legacy hero text, then default copy) and its CTA when set. Like the studio's classic: one message, no photo (gradient band); further slides and slide media are not shown | always renders |
+| search | "Rezervasyon motoru" card: heading strip, the shared search form in one row (places, dates, submit), three trust notes that describe existing features | booking off / no location notice |
+| fleet | segment chips (links to `/vehicles?segment=`), "Tüm araçları gör", two rows of live vehicle groups (`fleetColumns` × 2): segment badge, image or placeholder, "veya benzeri · group", the four published conditions, a pricing note, "Tarihe özel teklif", accent "Aracı seç" → `/search` | hidden |
+| advantages | `content.{locale}.advantages` as icon cards (four, two, one per row) | hidden |
+| branches | first six live offices: airport / city icon, district and city, "Şube detayları" | hidden |
+| about | split: badge, "{name} ile güvenle yola çıkın", two paragraphs (`/about`: all), highlights, image card with `about.image` or a gradient, name and tagline | hidden |
+| faq | centered heading, first six questions as bordered `<details>`, links to all questions and contact | hidden |
+| campaigns | first six live campaigns as story cards (image or gradient, validity badge, summary, code, link) | hidden |
+| guide | up to three resolve `articles` cards → `/guide/{locale}/{slug}` | renders only once `lib/sections.ts` stops treating `guide` as `needs_service` (the guide pages are a separate change) |
+
+### 15.4 Tokens and simplifications
+
+Navy = `--primary` (text accents, monogram, chips, support band), orange =
+`--accent` for every call to action with `--cl-accent-fg` (near-black or
+white by the accent's luminance, written by `lib/theme.ts` for light and
+dark tokens), page = `--muted`, cards = `--background`. `soft` corners are
+the studio's 10 px (`TEMPLATE_CORNERS.classic`). The font is the
+organization's body / heading font (the studio forced Arial). Simplified
+for server rendering: the studio's Sheet menu → `<details>`; the in-place
+category filter and the name sort `Select` → segment links (no sort); the
+accordion → `<details>`; the "TR / TRY ₺" toggle → TR / EN links. Not
+ported: fuel / gearbox / seats / luggage (the public catalog does not
+publish them; the cards show the rental conditions instead), the cookie
+policy link, studio demo vehicles, branches and images.
+
+### 15.5 Checks
+
+`site/src/lib/templates.test.ts` (classic resolves, its sections and
+order, `fleetColumns`, monogram, contrast helpers, `--cl-accent-fg` in
+light and dark, soft corners, guide cards) and the Go tests above. Visual
+check against a scratch mock API at 1280 px and 360 px (no horizontal
+scroll; mobile menu, quick navigation): home with two and three columns,
+`/vehicles?segment=`, `/about`, `/contact`.
