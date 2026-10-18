@@ -30634,7 +30634,7 @@ export interface components {
             /** @enum {integer} */
             config_version?: 2;
             /**
-             * @description Only technowide-design is currently selectable.
+             * @description Selectable templates are the theme_registry entries with available=true.
              * @default technowide-design
              * @enum {string}
              */

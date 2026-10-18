@@ -1,3 +1,4 @@
+import { readableAccent, textOn } from "./contrast.ts";
 import type { SiteColors, SiteTheme } from "./types";
 
 /**
@@ -78,6 +79,9 @@ export type Corners = { card: string; control: string; image: string };
  */
 export const TEMPLATE_CORNERS: Record<string, Corners> = {
   "horizon-design": { card: "0px", control: "0px", image: "2px" },
+  // The studio's `soft` radius for classic (10 px) and Aurum (12 px).
+  classic: { card: "10px", control: "10px", image: "10px" },
+  aurum: { card: "12px", control: "12px", image: "12px" },
 };
 
 /** The uniform corners of a radius style, or null for the template's own (`soft`). */
@@ -146,16 +150,44 @@ const KEYS: (keyof SiteColors)[] = [
   "border",
 ];
 
+function safeColors(
+  c: Partial<SiteColors> | undefined,
+  fallback: SiteColors,
+): SiteColors {
+  const out = { ...fallback };
+  for (const k of KEYS) {
+    const v = c?.[k];
+    if (typeof v === "string" && HEX.test(v)) out[k] = v.toLowerCase();
+  }
+  return out;
+}
+
+/**
+ * Colors a template derives from the validated tokens: classic's text on
+ * its accent buttons, Aurum's accent as readable small text (4.5:1 on the
+ * background, else the foreground).
+ */
+export function templateColorVars(template: string, c: SiteColors): string {
+  switch (template) {
+    case "classic":
+      return `--cl-accent-fg:${textOn(c.accent)};`;
+    case "aurum":
+      return `--au-text-accent:${readableAccent(c.accent, c.background, c.foreground)};`;
+    default:
+      return "";
+  }
+}
+
 function colorVars(
   c: Partial<SiteColors> | undefined,
   fallback: SiteColors,
+  template: string,
 ): string {
-  return KEYS.map((k) => {
-    const v = c?.[k];
-    const safe =
-      typeof v === "string" && HEX.test(v) ? v.toLowerCase() : fallback[k];
-    return `--${k.replace("_", "-")}:${safe};`;
-  }).join("");
+  const safe = safeColors(c, fallback);
+  return (
+    KEYS.map((k) => `--${k.replace("_", "-")}:${safe[k]};`).join("") +
+    templateColorVars(template, safe)
+  );
 }
 
 /** The :root stylesheet of a theme for a template (validated values only). */
@@ -165,8 +197,8 @@ export function themeCss(
 ): string {
   const radius = RADIUS[theme?.radius ?? ""] ?? RADIUS.md;
   const c = corners(theme?.radius) ?? TEMPLATE_CORNERS[template] ?? null;
-  const light = colorVars(theme?.colors, DEFAULT_COLORS);
-  const dark = colorVars(theme?.dark_colors, DEFAULT_DARK_COLORS);
+  const light = colorVars(theme?.colors, DEFAULT_COLORS, template);
+  const dark = colorVars(theme?.dark_colors, DEFAULT_DARK_COLORS, template);
   const cornerVars = c
     ? `--radius-card:${c.card};--radius-control:${c.control};--radius-image:${c.image};`
     : "";

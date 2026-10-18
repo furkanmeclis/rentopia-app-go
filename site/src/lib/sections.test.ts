@@ -19,8 +19,8 @@ test("theme registry falls back to Technowide", () => {
   for (const unknown of [
     "Horizon-Design",
     "horizon",
-    "classic",
-    "aurum",
+    "Classic",
+    "aurum-design",
     "",
     null,
     undefined,

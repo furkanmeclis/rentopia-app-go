@@ -220,6 +220,22 @@ const SETTING_PREVIEWS: Record<string, Record<string, ReactNode>> = {
       </span>
     ),
   },
+  // classic / Aurum: desktop columns of the vehicle grid (phones: one).
+  fleetColumns: {
+    "2": (
+      <span className="grid w-full grid-cols-2 gap-1.5">
+        {box("h-full")}
+        {box("h-full")}
+      </span>
+    ),
+    "3": (
+      <span className="grid w-full grid-cols-3 gap-1.5">
+        {box("h-full")}
+        {box("h-full")}
+        {box("h-full")}
+      </span>
+    ),
+  },
 };
 
 function TemplateCards({
@@ -394,8 +410,9 @@ function FontSelect({
 }
 
 /**
- * Tema: the registry templates (Technowide selectable; the others are
- * shown as "Yakında"), the active template's typed settings, appearance
+ * Tema: the registry templates (selectable when the API registry marks them
+ * available, otherwise shown as "Yakında"), the active template's typed
+ * settings with schematic previews, appearance
  * (body / heading font, eight corner styles, mode), light / dark color
  * tokens and the layout variants of the current site. Draft until
  * published.

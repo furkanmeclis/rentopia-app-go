@@ -18,7 +18,47 @@ func TestConfigV2Validation(t *testing.T) {
 		name   string
 		change func(*model.Config)
 	}{
-		{"unavailable template", func(c *model.Config) { c.Template = "classic" }},
+		{"unknown template", func(c *model.Config) { c.Template = "classic-design" }},
+		{"studio template id", func(c *model.Config) { c.Template = "aurum-design" }},
+		{"invalid aurum columns", func(c *model.Config) {
+			d, _ := themes.Find("aurum")
+			tc := themes.Defaults(d)
+			tc.Settings["fleetColumns"] = "1"
+			c.Template = d.ID
+			c.Templates[d.ID] = tc
+		}},
+		{"aurum rejects branches", func(c *model.Config) {
+			d, _ := themes.Find("aurum")
+			tc := themes.Defaults(d)
+			tc.Sections = append(tc.Sections, themes.Section{ID: "branches", Enabled: true})
+			c.Templates[d.ID] = tc
+		}},
+		{"invalid classic columns", func(c *model.Config) {
+			d, _ := themes.Find("classic")
+			tc := themes.Defaults(d)
+			tc.Settings["fleetColumns"] = "4"
+			c.Template = d.ID
+			c.Templates[d.ID] = tc
+		}},
+		{"classic columns are strings of the enum", func(c *model.Config) {
+			d, _ := themes.Find("classic")
+			tc := themes.Defaults(d)
+			tc.Settings["fleetColumns"] = " 2"
+			c.Templates[d.ID] = tc
+		}},
+		{"classic rejects horizon setting", func(c *model.Config) {
+			d, _ := themes.Find("classic")
+			tc := themes.Defaults(d)
+			tc.Settings["heroAlign"] = "center"
+			c.Templates[d.ID] = tc
+		}},
+		{"classic rejects newsletter", func(c *model.Config) {
+			d, _ := themes.Find("classic")
+			tc := themes.Defaults(d)
+			tc.Sections = append(tc.Sections, themes.Section{ID: "newsletter", Enabled: true})
+			c.Template = d.ID
+			c.Templates[d.ID] = tc
+		}},
 		{"unknown section", func(c *model.Config) {
 			tc := c.Templates[c.Template]
 			tc.Sections = append(tc.Sections, themes.Section{ID: "unknown"})
@@ -268,5 +308,101 @@ func TestConfigV2SwitchTechnowideHorizonPreservesBoth(t *testing.T) {
 	}
 	if !reflect.DeepEqual(c.Templates[themes.Default], tw) {
 		t.Fatal("technowide configuration lost")
+	}
+}
+
+func TestConfigV2SwitchToClassicPreservesEveryTemplate(t *testing.T) {
+	c, err := usecase.NormalizeConfig(model.DefaultConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	tw := c.Templates[themes.Default]
+	tw.Settings["heroLayout"] = "split"
+	c.Templates[themes.Default] = tw
+
+	// Horizon with its own edit, then classic: it gets its defaults.
+	c.Template = "horizon-design"
+	c, err = usecase.NormalizeConfig(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hz := c.Templates["horizon-design"]
+	hz.Settings["heroAlign"] = "center"
+	c.Templates["horizon-design"] = hz
+	c.Template = "classic"
+	c, err = usecase.NormalizeConfig(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, _ := themes.Find("classic")
+	cl := c.Templates["classic"]
+	if !reflect.DeepEqual(cl, themes.Defaults(d)) || cl.Settings["fleetColumns"] != "3" {
+		t.Fatalf("classic defaults: %+v", cl)
+	}
+
+	// Edit classic: two columns, branches before the fleet, campaigns off.
+	cl.Settings["fleetColumns"] = "2"
+	cl.Sections = []themes.Section{{ID: "hero", Enabled: true}, {ID: "branches", Enabled: true}, {ID: "search", Enabled: true}, {ID: "fleet", Enabled: true}, {ID: "advantages", Enabled: true}, {ID: "about", Enabled: true}, {ID: "faq", Enabled: true}, {ID: "campaigns"}, {ID: "guide", Enabled: true}}
+	c.Templates["classic"] = cl
+	c, err = usecase.NormalizeConfig(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Round trip through the other templates: everyone keeps their state.
+	for _, id := range []string{themes.Default, "horizon-design", "classic"} {
+		c.Template = id
+		if c, err = usecase.NormalizeConfig(c); err != nil {
+			t.Fatal(id, err)
+		}
+	}
+	if !reflect.DeepEqual(c.Templates["classic"], cl) {
+		t.Fatalf("classic configuration lost: %+v", c.Templates["classic"])
+	}
+	if !reflect.DeepEqual(c.Templates["horizon-design"], hz) {
+		t.Fatal("horizon configuration lost")
+	}
+	if !reflect.DeepEqual(c.Templates[themes.Default], tw) {
+		t.Fatal("technowide configuration lost")
+	}
+}
+
+func TestConfigV2ClassicAndAurumKeepTheirOwnColumns(t *testing.T) {
+	c, err := usecase.NormalizeConfig(model.DefaultConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Template = "classic"
+	if c, err = usecase.NormalizeConfig(c); err != nil {
+		t.Fatal(err)
+	}
+	cl := c.Templates["classic"]
+	cl.Settings["fleetColumns"] = "2"
+	c.Templates["classic"] = cl
+
+	// Aurum gets its own defaults: the same setting key is per template.
+	c.Template = "aurum"
+	if c, err = usecase.NormalizeConfig(c); err != nil {
+		t.Fatal(err)
+	}
+	d, _ := themes.Find("aurum")
+	au := c.Templates["aurum"]
+	if !reflect.DeepEqual(au, themes.Defaults(d)) || au.Settings["fleetColumns"] != "3" {
+		t.Fatalf("aurum defaults: %+v", au)
+	}
+	au.Sections = []themes.Section{{ID: "hero", Enabled: true}, {ID: "fleet", Enabled: true}, {ID: "search", Enabled: true}, {ID: "advantages"}, {ID: "campaigns", Enabled: true}, {ID: "about", Enabled: true}, {ID: "faq", Enabled: true}, {ID: "guide", Enabled: true}}
+	c.Templates["aurum"] = au
+
+	for _, id := range []string{"classic", themes.Default, "horizon-design", "aurum"} {
+		c.Template = id
+		if c, err = usecase.NormalizeConfig(c); err != nil {
+			t.Fatal(id, err)
+		}
+	}
+	if !reflect.DeepEqual(c.Templates["aurum"], au) {
+		t.Fatalf("aurum configuration lost: %+v", c.Templates["aurum"])
+	}
+	if !reflect.DeepEqual(c.Templates["classic"], cl) || c.Templates["classic"].Settings["fleetColumns"] != "2" {
+		t.Fatalf("classic configuration lost: %+v", c.Templates["classic"])
 	}
 }
