@@ -1,6 +1,9 @@
 import type { Ctx } from "@/lib/server";
 import type { ArticlePage, PublicArticle, Site } from "@/lib/types";
 
+import { Footer as AurumFooter, Header as AurumHeader } from "./aurum/chrome";
+import { Home as AurumHome } from "./aurum/home";
+import { Vehicles as AurumVehicles } from "./aurum/pages";
 import {
   Footer as ClassicFooter,
   Header as ClassicHeader,
@@ -30,12 +33,13 @@ import {
 } from "./technowide/pages";
 import { ArticleDetail, GuideList } from "./technowide/sections/guide";
 
-// Order matters: Horizon and classic draw the shared `rt-*` / `tw-*` page
+// Order matters: Horizon, classic and Aurum draw the shared `rt-*` / `tw-*` page
 // markup on top of the Technowide stylesheet (same layer, same
 // specificity); each is scoped to its own root class.
 import "./technowide/technowide.css";
 import "./horizon/horizon.css";
 import "./classic/classic.css";
+import "./aurum/aurum.css";
 
 export type ContentPage = "about" | "faq" | "contact" | "terms" | "privacy";
 /** Application forms with their own page (TEC-786). */
@@ -132,6 +136,24 @@ const RENDERERS: Record<ThemeId, ThemeRenderer> = {
     Branches: BranchList,
     Branch: BranchDetail,
     Content: ClassicContent,
+    Campaigns: CampaignList,
+    Campaign: CampaignDetail,
+    Inquiry,
+  },
+  // Aurum (TEC-787): its own header, footer, home and catalog-style
+  // vehicles page; every other page (about, FAQ, offices, campaigns,
+  // contact, legal, forms, the booking flow) is the shared markup restyled
+  // under `.theme-aurum`, like the studio's TemplatePage.
+  aurum: {
+    id: "aurum",
+    className: "theme-technowide theme-aurum",
+    Header: AurumHeader,
+    Footer: AurumFooter,
+    Home: AurumHome,
+    Vehicles: AurumVehicles,
+    Branches: BranchList,
+    Branch: BranchDetail,
+    Content,
     Campaigns: CampaignList,
     Campaign: CampaignDetail,
     Inquiry,

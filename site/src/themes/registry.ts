@@ -8,7 +8,12 @@
 export const DEFAULT_THEME = "technowide-design";
 
 /** Renderers shipped in this image (src/themes/index.tsx). */
-export const THEME_IDS = [DEFAULT_THEME, "horizon-design", "classic"] as const;
+export const THEME_IDS = [
+  DEFAULT_THEME,
+  "horizon-design",
+  "classic",
+  "aurum",
+] as const;
 
 export type ThemeId = (typeof THEME_IDS)[number];
 
@@ -25,7 +30,8 @@ export function resolveThemeId(template: string | null | undefined): ThemeId {
  * newsletter, guide, about, faq, app_promo; Horizon = hero, search,
  * campaigns, fleet, guide, about, faq, like the studio's Horizon, which
  * has no advantages, newsletter, app or branches section; classic = hero,
- * search, fleet, advantages, branches, about, faq, campaigns, guide).
+ * search, fleet, advantages, branches, about, faq, campaigns, guide;
+ * Aurum = hero, search, advantages, fleet, campaigns, about, faq, guide).
  * Technowide also renders `branches` when a template's answer contains it.
  */
 export const THEME_SECTIONS: Record<ThemeId, readonly string[]> = {
@@ -62,6 +68,16 @@ export const THEME_SECTIONS: Record<ThemeId, readonly string[]> = {
     "campaigns",
     "guide",
   ],
+  aurum: [
+    "hero",
+    "search",
+    "advantages",
+    "fleet",
+    "campaigns",
+    "about",
+    "faq",
+    "guide",
+  ],
 };
 
 /**
@@ -76,7 +92,7 @@ export function heroAlign(
 }
 
 /**
- * classic's `fleetColumns` setting ("2" | "3"): the desktop
+ * classic's and Aurum's `fleetColumns` setting ("2" | "3"): the desktop
  * columns of the vehicle grid (phones always show one). Anything else is
  * the default, three. It becomes a class name, so only these two values
  * pass.

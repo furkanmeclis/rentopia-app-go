@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import {
+  homeFleetLimit as aurumFleetLimit,
+  splitTitle,
+} from "../themes/aurum/helpers.ts";
 import { homeFleetLimit, monogram } from "../themes/classic/helpers.ts";
 import { guideCards } from "../themes/guide.ts";
 import {
@@ -175,4 +179,63 @@ test("guide cards keep well-formed published cards only", () => {
   assert.deepEqual(guideCards(site, "en"), []);
   assert.deepEqual(guideCards({ site_uuid: SITE }, "tr"), []);
   assert.deepEqual(guideCards({ site_uuid: SITE, articles: [] }, "tr"), []);
+});
+
+test("Aurum resolves to its renderer with the studio's sections", () => {
+  assert.equal(resolveThemeId("aurum"), "aurum");
+  assert.equal(resolveThemeId("aurum-design"), "technowide-design");
+  const AU = THEME_SECTIONS.aurum;
+  assert.deepEqual(
+    [...AU],
+    [
+      "hero",
+      "search",
+      "advantages",
+      "fleet",
+      "campaigns",
+      "about",
+      "faq",
+      "guide",
+    ],
+  );
+  const blocks = homeBlocks(
+    on("hero", "branches", "newsletter", "fleet", "search", "advantages"),
+    AU,
+  );
+  assert.deepEqual(blocks[0], { id: "hero", withSearch: false });
+  assert.deepEqual(
+    blocks.map((b) => b.id),
+    ["hero", "fleet", "search", "advantages"],
+  );
+});
+
+test("Aurum hero emphasis and fleet rows", () => {
+  assert.deepEqual(splitTitle("Yolculuğunuz için doğru araç burada"), [
+    "Yolculuğunuz için doğru",
+    "araç burada",
+  ]);
+  assert.deepEqual(splitTitle("  Premium   mobilite "), [
+    "",
+    "Premium mobilite",
+  ]);
+  assert.deepEqual(splitTitle("Aurum"), ["", "Aurum"]);
+  assert.deepEqual(splitTitle(""), ["", ""]);
+  assert.equal(aurumFleetLimit(fleetColumns({ fleetColumns: "2" })), 4);
+  assert.equal(aurumFleetLimit(fleetColumns({})), 3);
+});
+
+test("Aurum keeps a readable accent and its soft corners", () => {
+  // Amber on white is too light for small text: the foreground is used.
+  assert.equal(
+    templateColorVars("aurum", { ...DEFAULT_COLORS, accent: "#f59e0b" }),
+    "--au-text-accent:#0f172a;",
+  );
+  assert.equal(
+    templateColorVars("aurum", { ...DEFAULT_COLORS, accent: "#92400e" }),
+    "--au-text-accent:#92400e;",
+  );
+  const css = themeCss({ radius: "soft" } as never, "aurum");
+  assert.match(css, /--radius-card:12px;--radius-control:12px;/);
+  assert.match(css, /--au-text-accent:/);
+  assert.doesNotMatch(css, /--cl-accent-fg/);
 });
