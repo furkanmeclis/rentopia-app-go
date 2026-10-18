@@ -99,6 +99,37 @@ export type SiteConfig = {
   };
 };
 
+/** A published guide article card (TEC-785). */
+export type SiteArticleCard = {
+  title: string;
+  summary: string;
+  slug: string;
+  /** API-owned stream path of the cover, or null. */
+  cover_url: string | null;
+  published_at: string;
+};
+
+/** GET /v1/public/site/articles/by-slug/{locale}/{slug}. */
+export type PublicArticle = SiteArticleCard & {
+  locale: Locale;
+  /** Plate JSON (lib/rich-text.ts renders it with an allowlist). */
+  body: unknown;
+  seo_title: string;
+  seo_description: string;
+  tags: string[];
+  featured: boolean;
+  updated_at: string;
+  /** Inline image media UUID → API-owned stream path. */
+  media: Record<string, string>;
+};
+
+export type ArticlePage = {
+  items: SiteArticleCard[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
 /** A section of the active template (resolve returns the enabled ones, in order). */
 export type SiteSection = { id: string; enabled: boolean };
 
@@ -111,6 +142,8 @@ export type Site = {
   /** Library media UUID → API-owned stream path. */
   media?: Record<string, string>;
   campaigns?: SiteCampaign[];
+  /** Up to three published guide cards per locale (TEC-785). */
+  articles?: Partial<Record<Locale, SiteArticleCard[]>>;
   site_uuid: string;
   version: number;
   host: string;

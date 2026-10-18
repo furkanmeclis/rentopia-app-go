@@ -33,6 +33,7 @@ import {
   Wallet,
   Webhook,
   Globe,
+  BookOpenText,
   FilePen,
   FileText,
   Gauge,
@@ -825,6 +826,13 @@ export function tenantNav(slug: string): NavCatalog {
             titleKey: "layout.nav_tenant_settings_site",
             href: routes.tenant.settings.site(slug),
             icon: Globe,
+            permission: permissions.tenant.site.read,
+          },
+          {
+            id: "settings-site-articles",
+            titleKey: "layout.nav_tenant_settings_site_articles",
+            href: routes.tenant.settings.siteArticles.root(slug),
+            icon: BookOpenText,
             permission: permissions.tenant.site.read,
           },
           {

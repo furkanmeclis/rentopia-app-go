@@ -9,12 +9,10 @@ import type {
   SiteMedia,
   SiteMediaList,
   SitePreviewToken,
-  SiteResolved,
   SiteRevision,
   SiteSaveInput,
   SiteSettings,
 } from "@/features/site/types";
-import { platformRequest } from "@/lib/api/platform-request";
 import { tenantFormRequest, tenantRequest } from "@/lib/api/tenant-request";
 
 const BASE = "/v1/tenant/site";
@@ -129,16 +127,6 @@ export const siteService = {
       `${BASE}/media/${encodeURIComponent(uuid)}`,
       { silent: true },
     );
-  },
-  /**
-   * The draft as the site sees it through a preview token: its `media` map
-   * holds the API-owned stream URLs of the library images the draft uses.
-   */
-  resolvePreview(host: string, token: string) {
-    return platformRequest<SiteResolved>("GET", "/v1/public/site/resolve", {
-      query: { host, preview: token },
-      silent: true,
-    });
   },
   domains(slug: string) {
     return tenantRequest<SiteDomain[]>(slug, "GET", `${BASE}/domains`);

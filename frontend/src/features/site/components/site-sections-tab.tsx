@@ -111,6 +111,7 @@ function SectionRow({
     transition,
     isDragging,
   } = useSortable({ id, disabled: disabled || pinned });
+  const { slug } = useTenant();
   const k = keySegment(id);
   const switchLocked = lock !== null;
   const newsletterOn = useWatch<SiteFormValues, "config.leads.newsletter">({
@@ -192,6 +193,16 @@ function SectionRow({
         ) : id === "campaigns" ? (
           <p className="text-muted-foreground text-xs">
             {t("site.sections.campaigns_hint")}
+          </p>
+        ) : id === "guide" ? (
+          <p className="text-muted-foreground text-xs">
+            {t("site.sections.guide_hint")}{" "}
+            <Link
+              href={routes.tenant.settings.siteArticles.root(slug)}
+              className="text-primary underline-offset-4 hover:underline"
+            >
+              {t("site.sections.guide_link")}
+            </Link>
           </p>
         ) : null}
       </div>

@@ -392,4 +392,21 @@ export const en: Record<MessageKey, string> = {
   "lead.error.phone": "Please enter a valid phone number.",
   "lead.error.fleet_size": "Enter a whole number between 0 and 100000.",
   "lead.error.too_long": "This field is longer than allowed.",
+
+  // Guide (TEC-785)
+  "nav.guide": "Guide",
+  "page.guide": "Guide",
+  "tw.guide.label": "GUIDE",
+  "tw.guide.eyebrow": "Travel notes",
+  "tw.guide.title": "Useful reading for your journey.",
+  "tw.guide.lead": "Useful details and fresh ideas for your next journey.",
+  "tw.guide.all": "All articles",
+  "tw.guide.pages": "Guide pages",
+  "tw.guide.newer": "Newer articles",
+  "tw.guide.older": "Older articles",
+  "tw.guide.page_of": "Page {page} of {total}",
+  "tw.guide.empty": "No articles published yet.",
+  "tw.guide.empty_text":
+    "New articles will appear here once they are published.",
+  "tw.guide.tags": "Tags",
 };

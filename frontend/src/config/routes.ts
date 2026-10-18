@@ -257,6 +257,15 @@ export const routes = {
         `/t/${encodeURIComponent(slug)}/settings/public-api`,
       /** Branded site: theme, content, publish history (TEC-730). */
       site: (slug: string) => `/t/${encodeURIComponent(slug)}/settings/site`,
+      /** Guide / blog articles of the branded site (TEC-785). */
+      siteArticles: {
+        root: (slug: string) =>
+          `/t/${encodeURIComponent(slug)}/settings/site-articles`,
+        create: (slug: string) =>
+          `/t/${encodeURIComponent(slug)}/settings/site-articles/new`,
+        detail: (slug: string, uuid: string) =>
+          `/t/${encodeURIComponent(slug)}/settings/site-articles/${encodeURIComponent(uuid)}`,
+      },
       /** Website enquiries and newsletter subscriptions (TEC-786). */
       siteLeads: (slug: string) =>
         `/t/${encodeURIComponent(slug)}/settings/site-leads`,

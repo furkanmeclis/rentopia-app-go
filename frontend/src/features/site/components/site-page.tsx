@@ -1,6 +1,7 @@
 "use client";
 
-import { Eye, Redo2, Undo2, Upload } from "lucide-react";
+import { BookOpenText, Eye, Redo2, Undo2, Upload } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   useFormState,
@@ -500,6 +501,12 @@ export function SitePage() {
             {settings.has_unpublished_changes ? (
               <StatusChip label={t("site.status.unpublished")} tone="warning" />
             ) : null}
+            <Button asChild variant="outline">
+              <Link href={routes.tenant.settings.siteArticles.root(slug)}>
+                <BookOpenText className="size-4" />
+                {t("site.articles.title")}
+              </Link>
+            </Button>
             {!wide ? (
               <Button
                 type="button"

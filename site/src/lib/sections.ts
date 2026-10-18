@@ -6,11 +6,12 @@ import type { SiteSection } from "./types";
  * The resolve answer lists the active template's enabled sections in the
  * organization's order. The site applies the API's section status again,
  * so a section never shows without its data service:
- * - `guide` (TEC-785) is `needs_service`: it renders nothing until its
- *   backend exists (`campaigns`, TEC-784, and `newsletter`, TEC-786, have
- *   their services now);
+ * - a section listed in NEEDS_SERVICE renders nothing until its backend
+ *   exists (none today: `campaigns`, TEC-784, `newsletter`, TEC-786, and
+ *   `guide`, TEC-785, have their services);
  * - sections whose data is missing for this site (`ready[id] === false`:
- *   no live campaign, the newsletter form switched off or no usable key)
+ *   no live campaign, the newsletter form switched off or no usable key,
+ *   no published guide article in the visitor's language)
  *   are dropped before the layout is decided;
  * - `app_promo` is always hidden (no store links yet);
  * - unknown ids, ids the renderer does not support, duplicates and disabled
@@ -22,7 +23,7 @@ import type { SiteSection } from "./types";
  * Technowide booking card); anywhere else it is its own section.
  */
 
-export const NEEDS_SERVICE = ["guide"] as const;
+export const NEEDS_SERVICE: readonly string[] = [];
 export const ALWAYS_HIDDEN = ["app_promo"] as const;
 
 export type HomeBlock =
@@ -30,7 +31,7 @@ export type HomeBlock =
 
 export function sectionRenders(id: string): boolean {
   return (
-    !(NEEDS_SERVICE as readonly string[]).includes(id) &&
+    !NEEDS_SERVICE.includes(id) &&
     !(ALWAYS_HIDDEN as readonly string[]).includes(id)
   );
 }

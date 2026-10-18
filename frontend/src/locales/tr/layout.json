@@ -110,5 +110,6 @@
   "nav_channels": "Kanal yöneticisi",
   "nav_tenant_settings_whatsapp": "WhatsApp",
   "nav_site_domains": "Alan adları",
-  "nav_tenant_settings_site_leads": "Site başvuruları"
+  "nav_tenant_settings_site_leads": "Site başvuruları",
+  "nav_tenant_settings_site_articles": "Site rehberi"
 }

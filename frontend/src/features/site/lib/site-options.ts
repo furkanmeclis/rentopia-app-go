@@ -140,12 +140,11 @@ export const SECTION_IDS = [
 /**
  * Sections that wait for a backend service (the API refuses enabling them
  * with SECTION_UNAVAILABLE). Mirrors `themes.NeedsService`; the API's
- * `section_statuses` wins for the saved template. Campaigns (TEC-784) and
- * the newsletter (TEC-786) have their services now.
+ * `section_statuses` wins for the saved template. Campaigns (TEC-784), the
+ * newsletter (TEC-786) and the guide (TEC-785) have their services now, so
+ * nothing waits today.
  */
-export const NEEDS_SERVICE: Partial<Record<SectionId, string>> = {
-  guide: "TEC-785",
-};
+export const NEEDS_SERVICE: Partial<Record<SectionId, string>> = {};
 
 /** Website forms of `config.leads` (TEC-786), in display order. */
 export const LEAD_FORMS = [

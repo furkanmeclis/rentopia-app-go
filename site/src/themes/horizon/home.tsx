@@ -4,6 +4,7 @@ import { homeBlocks } from "@/lib/sections";
 import type { Ctx } from "@/lib/server";
 
 import { THEME_SECTIONS } from "../registry";
+import { Guide } from "../technowide/sections/guide";
 import {
   About,
   Campaigns,
@@ -16,8 +17,8 @@ import {
 
 /**
  * The Horizon home page: the template's enabled sections in the
- * organization's order (lib/sections.ts drops `guide` until its service
- * exists, and campaigns without a live campaign). Sections are numbered
+ * organization's order (lib/sections.ts drops campaigns without a live
+ * campaign; the guide section is the shared Technowide one, restyled). Sections are numbered
  * in reading order (the hero is 01), like the studio's section index.
  */
 export async function Home({ ctx }: { ctx: Ctx }) {
@@ -72,6 +73,8 @@ export async function Home({ ctx }: { ctx: Ctx }) {
                 index={index}
               />
             );
+          case "guide":
+            return <Guide key="guide" ctx={ctx} />;
           case "about":
             return <About key="about" ctx={ctx} />;
           case "faq":
