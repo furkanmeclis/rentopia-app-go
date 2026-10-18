@@ -245,7 +245,7 @@ RT-A01 covers `GET/PUT /v1/tenant/site` (the PUT is on the allowlist: it acts on
 - **Katalog**: branches, subgroups and extras (DataTables) with a "Çevrimiçi" switch column (§3.3).
 - **Widget**: allowed domains and initial filters; embed-code generation follows §9. Keys stay on Ayarlar → Public API.
 
-**Studio layout (TEC-783)**: on screens ≥ 1440 px the editor sits left and the live preview (the same preview-token frame) is docked right; it reloads after every write (save, upload, restore; debounced 800 ms). Narrower screens keep the preview sheet. Tabs: **Genel**, **Tema** (registry template cards: Technowide selectable, the others "Yakında" while `available:false`; the active template's typed settings; body font, heading font, the eight corner styles with swatches, mode; light / dark colors; the current site's layout variants), **Bölümler** (the active template's sections: drag or arrows, visibility switch, hero locked first and on, `needs_service` / `app_promo` locked with the reason, sections the theme lacks listed separately; each template keeps its own list), **İçerik** (shared about image; per language hero slides 1–8 with media picker, the current site's hero text, advantages ≤ 12 with the icon allowlist, about story and highlights ≤ 6, FAQ, legal pages), **Menü ve marka** (tagline tr/en, header / footer menus ≤ 12 with tr/en labels, one HTTPS link per network), SEO ve iletişim, **Görseller** (logo / favicon / cover plus the media library DataTable: multiple upload with a client precheck, alt text tr/en, delete with `MEDIA_IN_USE` handling, quota bar), Yayın, Katalog, Alan adları, Widget. Form edits have undo / redo (buttons, Cmd/Ctrl+Z, Shift+Cmd/Ctrl+Z; 50 steps, reset on save). Library thumbnails come from the draft's `media` map (resolve with the preview token) or a local preview of a file uploaded in the session; there is no tenant stream for unreferenced items yet.
+**Studio layout (TEC-783)**: on screens ≥ 1440 px the editor sits left and the live preview (the same preview-token frame) is docked right; it reloads after every write (save, upload, restore; debounced 800 ms). Narrower screens keep the preview sheet. Tabs: **Genel**, **Tema** (registry template cards: Technowide selectable, the others "Yakında" while `available:false`; the active template's typed settings; body font, heading font, the eight corner styles with swatches, mode; light / dark colors; the current site's layout variants), **Bölümler** (the active template's sections: drag or arrows, visibility switch, hero locked first and on, `needs_service` / `app_promo` locked with the reason, sections the theme lacks listed separately; each template keeps its own list), **İçerik** (shared about image; per language hero slides 1–8 with media picker, the current site's hero text, advantages ≤ 12 with the icon allowlist, about story and highlights ≤ 6, FAQ, legal pages), **Menü ve marka** (tagline tr/en, header / footer menus ≤ 12 with tr/en labels, one HTTPS link per network), SEO ve iletişim, **Görseller** (logo / favicon / cover plus the media library DataTable: multiple upload with a client precheck, alt text tr/en, delete with `MEDIA_IN_USE` handling, quota bar), Yayın, Katalog, Alan adları, Widget. Form edits have undo / redo (buttons, Cmd/Ctrl+Z, Shift+Cmd/Ctrl+Z; 50 steps, reset on save). Library thumbnails use each item's `url`, the tenant file route (TEC-785, §13.1).
 
 Header actions: status chips, **Önizle** (sheet with the site in an iframe, desktop / mobile width, new tab) and **Yayınla** (confirmation; disabled while the form has unsaved edits or nothing changed). Uploads and key renewal keep unsaved form edits (only the version moves); save and restore reload the form.
 
@@ -495,7 +495,8 @@ links) opens the form without the "invalid search" error.
 
 `lib/sections.ts` turns the resolved `sections` (enabled, in the
 organization's order) into blocks. It re-applies the API's status rules:
-`guide` (TEC-785) is `needs_service` and renders nothing; `app_promo`
+nothing is `needs_service` any more (`guide`, TEC-785, renders while the
+visitor locale has a published article, §13.2); `app_promo`
 never renders; disabled, unknown, unsupported and duplicate ids are
 dropped; sections without data for this site are dropped before the
 layout is decided (`campaigns` without a live campaign, `newsletter`
@@ -571,12 +572,10 @@ cookie, so tokens never appear in HTML.
 
 ### 11.6 Follow-ups
 
-- **TEC-785** guide (studio "journal"): add the data service, then the
-  Technowide section (the studio markup and CSS classes are the
-  reference) and drop the id from `NEEDS_SERVICE`. Campaigns (TEC-784) and
-  the newsletter / lead forms (TEC-786) are done (§12).
+- Campaigns (TEC-784), the newsletter / lead forms (TEC-786, §12) and the
+  guide (TEC-785, §13) are done.
 - **TEC-783 and later**: the remaining templates (classic, Aurum; Horizon is
-  done, §13) as further `ThemeRenderer` entries, plus any panel controls still missing
+  done, §14) as further `ThemeRenderer` entries, plus any panel controls still missing
   for the v2 content this renderer reads (slides, advantages, about, menus,
   brand).
 - Mobile Safari / real-device checks and an automated visual test (the site
@@ -728,8 +727,8 @@ storage keys and are rate-limited. Responses are `no-store`; storefront callers
 may use the existing short per-host resolve cache. Resolve now includes
 `articles: {tr: ArticleCard[], en: ArticleCard[]}` with up to three published
 cards per locale (`title`, `summary`, `slug`, `cover_url`, `published_at`). The
-backend theme registry marks `guide` available. Rendering the guide and its
-editor UI is a separate frontend change.
+backend theme registry marks `guide` available; the panel and the site
+render it as described below.
 
 Sitemap entries include the home page; about, FAQ, terms, privacy and contact
 when their published content exists; online active branch detail paths and their
@@ -751,6 +750,80 @@ only while a published article references it on an enabled, accessible site.
 Mutation activity uses resource `tenant.site_articles` and localized created,
 updated, deleted, published and unpublished action labels.
 
+### 13.1 Panel: articles and the Plate editor
+
+**Ayarlar → Site rehberi** (`/t/{slug}/settings/site-articles`, nav item next
+to the site editor, also linked from the site editor header and the guide row
+of Bölümler) is gated by `tenant.site.read`; writes need `tenant.site.manage`.
+
+- **List**: DataTable over `GET /v1/tenant/site/articles` (title with a
+  featured star, status, languages with a slug, slug, published, sort,
+  updated, created), faceted `status` / `locale` filters (one value each),
+  search `q`, server sort on `updated_at` / `created_at` / `sort`.
+- **Editor** (`…/site-articles/new`, `…/site-articles/{uuid}`): tr / en tabs
+  with title, slug (prefixed `/guide/{locale}/`; follows the title through a
+  Turkish-aware slugify until edited by hand, the wand regenerates it; a saved
+  slug stops following), summary, the Plate body and SEO title / description
+  with counters; side cards for the cover (`MediaField`), featured, sort and
+  tags (max 10). Save sends the loaded `version` (`409 VERSION_CONFLICT` shows
+  a reload alert, `ARTICLE_SLUG_TAKEN` marks the slugs); `400` details map to
+  the fields, and `body.{locale}.…` paths become a per-locale summary ("Block
+  3: invalid link"). Publish needs a saved, unchanged form; unpublish and
+  delete (`?version=`) confirm first. A published article shows that saves go
+  live.
+- **Plate editor** (`frontend/src/components/plate`, `platejs` 53 + `@platejs/
+  basic-nodes`, `list-classic`, `link`, `code-block`, all MIT): only the
+  plugins of the API allowlist are loaded (paragraph, h2–h4, blockquote,
+  classic lists, link, hr, code block, a custom void `img` plugin; marks bold,
+  italic, underline, strikethrough, code), node ids are off, and a fixed
+  toolbar built from the shadcn primitives replaces Plate's floating UI.
+  `serializeBody` turns the editor value into the API body: unknown keys and
+  marks are dropped, other plugins' nodes are unwrapped, `a.url` becomes
+  `href`, images keep only `media_uuid` + plain `alt`, trailing empty
+  paragraphs go, and invalid links / images without media block saving with
+  the same summary. Links are checked with the API's rule (relative,
+  `https://` with a host, one `mailto:` address) in the link popover and on
+  paste. Images come from the media picker (alt prefilled from the library,
+  editable later). The footer shows the node count and size against 5000
+  nodes / 256 KB.
+- **Thumbnails**: every library item has `url`
+  (`/api/v1/tenant/site/media/{uuid}/file`), so the media library, picker,
+  media fields and editor images use it directly; the earlier workaround
+  (draft preview resolve + local object URLs) is gone.
+- **Bölümler**: `guide` is no longer locked as needs-service; its row links to
+  the articles screen.
+
+### 13.2 Site: guide routes and sitemap
+
+Only the Technowide renderer has the guide UI (`ThemeRenderer.Guide` /
+`Article`); other themes must add it when they are ported.
+
+| Route | Behavior |
+|-------|----------|
+| home `guide` section | The resolve answer's three newest cards for the visitor locale (cover or token gradient, date, title, summary); dropped by `lib/sections.ts` when there is none |
+| `/guide` | `GET /v1/public/site/articles?host=&locale=` for the visitor locale, 12 per page (`?page=`), canonical per page |
+| `/guide/{locale}/{slug}` | `GET /v1/public/site/articles/by-slug/{locale}/{slug}?host=` (404 otherwise); content in the path's locale (`lang`), title / description from SEO fields or title / summary, canonical, `hreflang` for its own locale, Open Graph article with the cover |
+| `/sitemap.xml` | Route handler: `GET /v1/public/site/sitemap?host=` for the request host's published site, written as XML with absolute URLs on the site origin (`lib/sitemap.ts`: root-relative paths only, escaped, deduplicated, ISO `lastmod`) |
+| `/robots.txt` | Unchanged rules plus `Sitemap: {origin}/sitemap.xml` |
+
+These are site routes with `?host=` and the visitor IP, not booking calls, so
+the guide works while online booking is off. The header and footer link
+`/guide` while the visitor locale has a published article.
+
+`lib/rich-text.ts` renders the Plate JSON with its own allowlist as React
+elements (no HTML injection): unknown or misplaced nodes are dropped with
+their content, blocks never render inside paragraphs or links, links are
+re-validated (an invalid one keeps only its text; `https://` gets
+`rel="noopener noreferrer"`), images resolve through the article's `media`
+map to the existing `/media/site/media/{site}/{media}` route and are dropped
+otherwise, and at most 5000 nodes / 32 levels render. Tests:
+`rich-text.test.ts`, `sitemap.test.ts`, `articles.test.ts`,
+`sections.test.ts`.
+
+Known gap: the public article has no link to its other-language version, so
+`hreflang` lists only the current locale and the article page offers no
+language switch to the translation.
+
 ## 14. Horizon renderer (TEC-787)
 
 Horizon Design is the second selectable template: a server-rendered port of
@@ -768,8 +841,8 @@ missing photos are token gradients.
   guide, about, faq — the studio's Horizon (all sections except advantages,
   newsletter and app) plus the explicit `search`; the Go registry already
   matched the studio, so it was not changed. `branches`, `advantages`,
-  `newsletter` and `app_promo` are `unsupported_by_theme`, `guide` stays
-  `needs_service` (TEC-785). Setting: `heroAlign=left|center` (default
+  `newsletter` and `app_promo` are `unsupported_by_theme`, `guide` is
+  available since TEC-785 (§13). Setting: `heroAlign=left|center` (default
   `left`); Technowide's `heroLayout` is an unknown setting for Horizon and
   is rejected. Switching templates keeps every template's own sections and
   settings (`config.templates.{id}`); `TestConfigV2SwitchTechnowideHorizonPreservesBoth`

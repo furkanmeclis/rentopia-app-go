@@ -1,5 +1,5 @@
 import type { Ctx } from "@/lib/server";
-import type { Site } from "@/lib/types";
+import type { ArticlePage, PublicArticle, Site } from "@/lib/types";
 
 import {
   Footer as HorizonFooter,
@@ -19,6 +19,7 @@ import {
   Inquiry,
   Vehicles,
 } from "./technowide/pages";
+import { ArticleDetail, GuideList } from "./technowide/sections/guide";
 
 // Order matters: Horizon draws the shared `rt-*` / `tw-*` page markup on
 // top of the Technowide stylesheet (same layer, same specificity).
@@ -56,6 +57,13 @@ export type ThemeRenderer = {
   /** /campaigns and /campaigns/{uuid} (TEC-784). */
   Campaigns: (p: { ctx: Ctx }) => React.ReactNode;
   Campaign: (p: { ctx: Ctx; uuid: string }) => React.ReactNode;
+  /** /guide and /guide/{locale}/{slug} (TEC-785); data read by the route. */
+  Guide: (p: {
+    ctx: Ctx;
+    page: number;
+    data: ArticlePage | null;
+  }) => React.ReactNode;
+  Article: (p: { ctx: Ctx; article: PublicArticle }) => React.ReactNode;
   /** /corporate and /franchise (TEC-786). */
   Inquiry: (p: {
     ctx: Ctx;
@@ -77,6 +85,8 @@ const RENDERERS: Record<ThemeId, ThemeRenderer> = {
     Content,
     Campaigns: CampaignList,
     Campaign: CampaignDetail,
+    Guide: GuideList,
+    Article: ArticleDetail,
     Inquiry,
   },
   // Horizon (TEC-787): its own header, footer, home, about and FAQ; the

@@ -11,6 +11,7 @@ import {
 import { headers } from "next/headers";
 import Link from "next/link";
 
+import { homeArticleCards } from "@/lib/articles";
 import { campaignCards } from "@/lib/campaigns";
 import { loadLocations } from "@/lib/catalog";
 import { leadFlags } from "@/lib/leads";
@@ -27,7 +28,8 @@ import { mediaUrl, type Ctx } from "@/lib/server";
 
 /**
  * Pages that exist for this organization (no dead links): campaigns only
- * while one is live, the contact page with contact details or its form.
+ * while one is live, the guide while an article is published in the
+ * visitor's language, the contact page with contact details or its form.
  * Corporate and franchise applications are linked from the footer while
  * their forms are on.
  */
@@ -41,6 +43,7 @@ export function defaultHeaderLinks(ctx: Ctx): NavLink[] {
   if (campaignCards(site, ctx.locale).length)
     add("/campaigns", t("nav.campaigns"));
   add("/branches", t("nav.branches"));
+  if (homeArticleCards(site, ctx.locale).length) add("/guide", t("nav.guide"));
   add("/lookup", t("nav.reservations"));
   if (content.faq.length) add("/faq", t("nav.faq"));
   if (content.about) add("/about", t("nav.about"));
@@ -262,6 +265,9 @@ export async function Footer({ ctx }: { ctx: Ctx }) {
       ? [link("/campaigns", t("nav.campaigns"))]
       : []),
     link("/branches", t("nav.branches")),
+    ...(homeArticleCards(site, ctx.locale).length
+      ? [link("/guide", t("nav.guide"))]
+      : []),
     ...(forms.corporate ? [link("/corporate", t("nav.corporate"))] : []),
     ...(forms.franchise ? [link("/franchise", t("nav.franchise"))] : []),
   ];

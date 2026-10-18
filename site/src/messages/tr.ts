@@ -392,6 +392,23 @@ export const tr = {
   "lead.error.phone": "Lütfen geçerli bir telefon numarası girin.",
   "lead.error.fleet_size": "0 ile 100000 arasında bir tam sayı girin.",
   "lead.error.too_long": "Bu alan izin verilenden uzun.",
+
+  // Guide (TEC-785)
+  "nav.guide": "Rehber",
+  "page.guide": "Rehber",
+  "tw.guide.label": "REHBER",
+  "tw.guide.eyebrow": "Yol notları",
+  "tw.guide.title": "Yolculuğun için işe yarar bilgiler.",
+  "tw.guide.lead":
+    "Bir sonraki yolculuğun için işe yarayan bilgiler ve yeni fikirler.",
+  "tw.guide.all": "Tüm yazılar",
+  "tw.guide.pages": "Rehber sayfaları",
+  "tw.guide.newer": "Daha yeni yazılar",
+  "tw.guide.older": "Daha eski yazılar",
+  "tw.guide.page_of": "Sayfa {page} / {total}",
+  "tw.guide.empty": "Henüz yayımlanmış yazı yok.",
+  "tw.guide.empty_text": "Yeni yazılar eklendiğinde burada görünecek.",
+  "tw.guide.tags": "Etiketler",
 };
 
 export type MessageKey = keyof typeof tr;

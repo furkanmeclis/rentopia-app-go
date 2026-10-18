@@ -1,5 +1,6 @@
 import { SearchForm } from "@/components/site/search-form";
 import { Alert } from "@/components/ui/card";
+import { homeArticleCards } from "@/lib/articles";
 import { campaignCards } from "@/lib/campaigns";
 import { loadLocations, loadSubgroups } from "@/lib/catalog";
 import { leadFlags, readLeadResult } from "@/lib/leads";
@@ -13,6 +14,7 @@ import { Advantages } from "./sections/advantages";
 import { Branches } from "./sections/branches";
 import { Campaigns } from "./sections/campaigns";
 import { Faq } from "./sections/faq";
+import { Guide } from "./sections/guide";
 import { Fleet } from "./sections/fleet";
 import { Hero } from "./sections/hero";
 import { Newsletter } from "./sections/newsletter";
@@ -55,8 +57,8 @@ function SearchSection({
 /**
  * The home page: the active template's enabled sections in the
  * organization's order (lib/sections.ts drops sections whose data service
- * does not exist yet, and campaigns / newsletter without data for this
- * site). Catalog data is live from the public API; campaigns come with the
+ * does not exist yet, and campaigns / newsletter / guide without data for
+ * this site). Catalog data is live from the public API; campaigns come with the
  * resolve answer. `query` carries the newsletter form's outcome.
  */
 export async function Home({ ctx, query }: { ctx: Ctx; query?: Query }) {
@@ -66,6 +68,7 @@ export async function Home({ ctx, query }: { ctx: Ctx; query?: Query }) {
     {
       campaigns: campaignCards(ctx.site, ctx.locale).length > 0,
       newsletter: leadFlags(ctx.site).newsletter,
+      guide: homeArticleCards(ctx.site, ctx.locale).length > 0,
     },
   );
   const ids = new Set(blocks.map((b) => b.id));
@@ -115,6 +118,8 @@ export async function Home({ ctx, query }: { ctx: Ctx; query?: Query }) {
             return <About key="about" ctx={ctx} />;
           case "faq":
             return <Faq key="faq" ctx={ctx} />;
+          case "guide":
+            return <Guide key="guide" ctx={ctx} />;
           case "branches":
             return <Branches key="branches" ctx={ctx} locations={locations} />;
           default:

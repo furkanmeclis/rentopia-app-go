@@ -59,21 +59,28 @@ test("search right after the hero is drawn inside it", () => {
 
 test("sections without a data service or disabled never render", () => {
   const blocks = homeBlocks(
-    [
-      ...on("hero", "guide", "app_promo"),
-      { id: "faq", enabled: false },
-      ...on("about"),
-    ],
+    [...on("hero", "app_promo"), { id: "faq", enabled: false }, ...on("about")],
     TW,
   );
   assert.deepEqual(
     blocks.map((b) => b.id),
     ["hero", "about"],
   );
-  for (const id of ["guide", "app_promo"])
-    assert.equal(sectionRenders(id), false);
-  for (const id of ["fleet", "campaigns", "newsletter"])
+  assert.equal(sectionRenders("app_promo"), false);
+  for (const id of ["fleet", "campaigns", "newsletter", "guide"])
     assert.equal(sectionRenders(id), true);
+});
+
+test("the guide renders while an article is published (TEC-785)", () => {
+  const list = on("hero", "fleet", "guide", "about");
+  assert.deepEqual(
+    homeBlocks(list, TW, { guide: true }).map((b) => b.id),
+    ["hero", "fleet", "guide", "about"],
+  );
+  assert.deepEqual(
+    homeBlocks(list, TW, { guide: false }).map((b) => b.id),
+    ["hero", "fleet", "about"],
+  );
 });
 
 test("campaigns and newsletter render when their data is ready", () => {

@@ -4,7 +4,7 @@ import { getSite } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 
-/** Per host: booking steps are not indexed. */
+/** Per host: booking steps are not indexed; the sitemap is per host too. */
 export default async function robots(): Promise<MetadataRoute.Robots> {
   const site = await getSite();
   return {
@@ -14,5 +14,6 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
       disallow: ["/book/", "/reservation/", "/search"],
     },
     host: site.origin,
+    sitemap: `${site.origin}/sitemap.xml`,
   };
 }
