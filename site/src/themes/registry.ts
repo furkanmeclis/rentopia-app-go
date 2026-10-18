@@ -8,7 +8,7 @@
 export const DEFAULT_THEME = "technowide-design";
 
 /** Renderers shipped in this image (src/themes/index.tsx). */
-export const THEME_IDS = [DEFAULT_THEME, "horizon-design"] as const;
+export const THEME_IDS = [DEFAULT_THEME, "horizon-design", "classic"] as const;
 
 export type ThemeId = (typeof THEME_IDS)[number];
 
@@ -24,8 +24,9 @@ export function resolveThemeId(template: string | null | undefined): ThemeId {
  * theme registry: Technowide = hero, search, campaigns, fleet, advantages,
  * newsletter, guide, about, faq, app_promo; Horizon = hero, search,
  * campaigns, fleet, guide, about, faq, like the studio's Horizon, which
- * has no advantages, newsletter, app or branches section). Technowide also
- * renders `branches` when a template's answer contains it.
+ * has no advantages, newsletter, app or branches section; classic = hero,
+ * search, fleet, advantages, branches, about, faq, campaigns, guide).
+ * Technowide also renders `branches` when a template's answer contains it.
  */
 export const THEME_SECTIONS: Record<ThemeId, readonly string[]> = {
   "technowide-design": [
@@ -50,6 +51,17 @@ export const THEME_SECTIONS: Record<ThemeId, readonly string[]> = {
     "about",
     "faq",
   ],
+  classic: [
+    "hero",
+    "search",
+    "fleet",
+    "advantages",
+    "branches",
+    "about",
+    "faq",
+    "campaigns",
+    "guide",
+  ],
 };
 
 /**
@@ -61,4 +73,16 @@ export function heroAlign(
   settings: Record<string, string> | null | undefined,
 ): "left" | "center" {
   return settings?.heroAlign === "center" ? "center" : "left";
+}
+
+/**
+ * classic's `fleetColumns` setting ("2" | "3"): the desktop
+ * columns of the vehicle grid (phones always show one). Anything else is
+ * the default, three. It becomes a class name, so only these two values
+ * pass.
+ */
+export function fleetColumns(
+  settings: Record<string, string> | null | undefined,
+): 2 | 3 {
+  return settings?.fleetColumns === "2" ? 2 : 3;
 }
