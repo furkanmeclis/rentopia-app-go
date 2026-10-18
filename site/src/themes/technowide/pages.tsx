@@ -1,7 +1,10 @@
 import {
+  ArrowLeft,
   ArrowRight,
   ArrowUpRight,
+  BriefcaseBusiness,
   Check,
+  Handshake,
   Headphones,
   HelpCircle,
   Mail,
@@ -18,18 +21,27 @@ import {
   PageHeading,
   PageSection,
 } from "@/components/site/page-heading";
+import { LeadForm } from "@/components/site/lead-form";
 import { Paragraphs } from "@/components/site/text";
 import { VehicleCard } from "@/components/site/vehicle-card";
 import { Alert } from "@/components/ui/card";
+import { campaignCard, campaignCards } from "@/lib/campaigns";
 import { loadLocations, loadSubgroups } from "@/lib/catalog";
+import { leadFlags, readLeadResult } from "@/lib/leads";
 import { mailHref, telHref, whatsappHref } from "@/lib/links";
 import type { Ctx } from "@/lib/server";
 
-import type { ContentPage } from "../index";
+import type { ContentPage, InquiryKind, Query } from "../index";
 import { Eyebrow } from "./parts";
 import { AboutImage, aboutHighlights } from "./sections/about";
 import { OfficeCard, isAirport } from "./sections/branches";
 import { FaqList } from "./sections/faq";
+import {
+  CampaignCardView,
+  CampaignCode,
+  CampaignVisual,
+  validityText,
+} from "./sections/campaigns";
 import { FleetActions, SegmentTabs } from "./sections/fleet";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -294,7 +306,69 @@ function AboutPage({ ctx }: { ctx: Ctx }) {
   );
 }
 
-function Contact({ ctx }: { ctx: Ctx }) {
+/** Phone, WhatsApp, e-mail and address of the site settings. */
+function ContactList({ ctx }: { ctx: Ctx }) {
+  const { t, site } = ctx;
+  const c = site.config.contact;
+  const tel = telHref(c.phone);
+  const wa = whatsappHref(c.whatsapp);
+  const mail = mailHref(c.email);
+  if (!(
+    (c.phone && tel) ||
+    (c.whatsapp && wa) ||
+    (c.email && mail) ||
+    c.address
+  ))
+    return null;
+  return (
+    <ul className="tw-contact-list">
+      {c.phone && tel ? (
+        <li>
+          <Phone aria-hidden size={20} />
+          <span>
+            <small>{t("contact.phone")}</small>
+            <a href={tel}>{c.phone}</a>
+          </span>
+        </li>
+      ) : null}
+      {c.whatsapp && wa ? (
+        <li>
+          <MessageCircle aria-hidden size={20} />
+          <span>
+            <small>{t("contact.whatsapp")}</small>
+            <a href={wa} target="_blank" rel="noopener noreferrer">
+              {c.whatsapp}
+            </a>
+          </span>
+        </li>
+      ) : null}
+      {c.email && mail ? (
+        <li>
+          <Mail aria-hidden size={20} />
+          <span>
+            <small>{t("contact.email")}</small>
+            <a href={mail}>{c.email}</a>
+          </span>
+        </li>
+      ) : null}
+      {c.address ? (
+        <li>
+          <MapPin aria-hidden size={20} />
+          <span>
+            <small>{t("contact.address")}</small>
+            <span className="tw-pre-line">{c.address}</span>
+          </span>
+        </li>
+      ) : null}
+    </ul>
+  );
+}
+
+/**
+ * /contact: the contact details and, while the published `leads.contact`
+ * flag is on, the contact form (otherwise the quick-contact card).
+ */
+function Contact({ ctx, query }: { ctx: Ctx; query?: Query }) {
   const { t, site } = ctx;
   const c = site.config.contact;
   const tel = telHref(c.phone);
@@ -303,6 +377,7 @@ function Contact({ ctx }: { ctx: Ctx }) {
   const has = Boolean(
     (c.phone && tel) || (c.whatsapp && wa) || (c.email && mail) || c.address,
   );
+  const form = leadFlags(site).contact;
   return (
     <>
       <PageHeading
@@ -311,7 +386,7 @@ function Contact({ ctx }: { ctx: Ctx }) {
         lead={t("tw.contact.lead")}
       />
       <PageSection>
-        {!has ? (
+        {!has && !form ? (
           <EmptyState title={t("page.empty")} />
         ) : (
           <div className="tw-inquiry-grid">
@@ -321,79 +396,220 @@ function Contact({ ctx }: { ctx: Ctx }) {
               </span>
               <h2>{t("tw.contact.title")}</h2>
               <p>{t("tw.contact.text")}</p>
-              <ul className="tw-contact-list">
-                {c.phone && tel ? (
-                  <li>
-                    <Phone aria-hidden size={20} />
-                    <span>
-                      <small>{t("contact.phone")}</small>
-                      <a href={tel}>{c.phone}</a>
-                    </span>
-                  </li>
-                ) : null}
-                {c.whatsapp && wa ? (
-                  <li>
-                    <MessageCircle aria-hidden size={20} />
-                    <span>
-                      <small>{t("contact.whatsapp")}</small>
-                      <a href={wa} target="_blank" rel="noopener noreferrer">
-                        {c.whatsapp}
-                      </a>
-                    </span>
-                  </li>
-                ) : null}
-                {c.email && mail ? (
-                  <li>
-                    <Mail aria-hidden size={20} />
-                    <span>
-                      <small>{t("contact.email")}</small>
-                      <a href={mail}>{c.email}</a>
-                    </span>
-                  </li>
-                ) : null}
-                {c.address ? (
-                  <li>
-                    <MapPin aria-hidden size={20} />
-                    <span>
-                      <small>{t("contact.address")}</small>
-                      <span className="tw-pre-line">{c.address}</span>
-                    </span>
-                  </li>
-                ) : null}
-              </ul>
+              <ContactList ctx={ctx} />
             </div>
-            <div className="rt-card tw-contact-card">
-              <Headphones aria-hidden size={24} />
-              <h2>{t("tw.contact.card_title")}</h2>
-              <p>{t("tw.contact.card_text")}</p>
-              <div className="tw-contact-actions">
-                {wa ? (
-                  <a
-                    href={wa}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="rt-button rt-button--primary"
-                  >
-                    <MessageCircle aria-hidden size={18} />
-                    {t("tw.contact.whatsapp")}
-                  </a>
-                ) : null}
-                {tel ? (
-                  <a href={tel} className="rt-button rt-button--outline">
-                    <Phone aria-hidden size={18} />
-                    {t("tw.contact.call")}
-                  </a>
-                ) : null}
-                {mail ? (
-                  <a href={mail} className="rt-button rt-button--outline">
-                    <Mail aria-hidden size={18} />
-                    {t("tw.contact.mail")}
-                  </a>
-                ) : null}
+            {form ? (
+              <LeadForm
+                ctx={ctx}
+                kind="contact"
+                result={readLeadResult(query, "contact")}
+                title={t("tw.inquiry.contact_form")}
+                className="rt-lead-form tw-page-form"
+              />
+            ) : (
+              <div className="rt-card tw-contact-card">
+                <Headphones aria-hidden size={24} />
+                <h2>{t("tw.contact.card_title")}</h2>
+                <p>{t("tw.contact.card_text")}</p>
+                <div className="tw-contact-actions">
+                  {wa ? (
+                    <a
+                      href={wa}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rt-button rt-button--primary"
+                    >
+                      <MessageCircle aria-hidden size={18} />
+                      {t("tw.contact.whatsapp")}
+                    </a>
+                  ) : null}
+                  {tel ? (
+                    <a href={tel} className="rt-button rt-button--outline">
+                      <Phone aria-hidden size={18} />
+                      {t("tw.contact.call")}
+                    </a>
+                  ) : null}
+                  {mail ? (
+                    <a href={mail} className="rt-button rt-button--outline">
+                      <Mail aria-hidden size={18} />
+                      {t("tw.contact.mail")}
+                    </a>
+                  ) : null}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
+      </PageSection>
+    </>
+  );
+}
+
+/**
+ * /corporate and /franchise: the application forms (404 while the
+ * published flag is off or the site has no usable key).
+ */
+export function Inquiry({
+  ctx,
+  kind,
+  query,
+}: {
+  ctx: Ctx;
+  kind: InquiryKind;
+  query?: Query;
+}) {
+  const { t, site } = ctx;
+  if (!leadFlags(site)[kind]) notFound();
+  const Icon = kind === "corporate" ? BriefcaseBusiness : Handshake;
+  return (
+    <>
+      <PageHeading
+        ctx={ctx}
+        title={t(kind === "corporate" ? "page.corporate" : "page.franchise")}
+        lead={t(
+          kind === "corporate" ? "tw.corporate.lead" : "tw.franchise.lead",
+        )}
+      />
+      <PageSection>
+        <div className="tw-inquiry-grid">
+          <div className="tw-inquiry-copy">
+            <span className="tw-page-icon" aria-hidden>
+              <Icon size={26} />
+            </span>
+            <h2>
+              {t(
+                kind === "corporate"
+                  ? "tw.corporate.title"
+                  : "tw.franchise.title",
+              )}
+            </h2>
+            <p>
+              {t(
+                kind === "corporate"
+                  ? "tw.corporate.text"
+                  : "tw.franchise.text",
+              )}
+            </p>
+            <ContactList ctx={ctx} />
+          </div>
+          <LeadForm
+            ctx={ctx}
+            kind={kind}
+            result={readLeadResult(query, kind)}
+            title={t("tw.inquiry.form_title")}
+            className="rt-lead-form tw-page-form"
+          />
+        </div>
+      </PageSection>
+    </>
+  );
+}
+
+/** /campaigns: every live campaign of the storefront. */
+export function CampaignList({ ctx }: { ctx: Ctx }) {
+  const { t, site } = ctx;
+  const cards = campaignCards(site, ctx.locale);
+  return (
+    <>
+      <PageHeading
+        ctx={ctx}
+        title={t("page.campaigns")}
+        lead={t("tw.campaigns.lead")}
+      />
+      <PageSection>
+        {cards.length ? (
+          <ul className="tw-campaign-list">
+            {cards.map((card, i) => (
+              <li key={card.uuid}>
+                <CampaignCardView
+                  ctx={ctx}
+                  card={card}
+                  heading="h2"
+                  eyebrow={String(i + 1).padStart(2, "0")}
+                />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <EmptyState
+            title={t("tw.campaigns.empty")}
+            text={t("tw.campaigns.empty_text")}
+            action={
+              site.booking_enabled ? (
+                <Link href="/vehicles" className="rt-button rt-button--primary">
+                  {t("nav.vehicles")}
+                  <ArrowRight aria-hidden size={17} />
+                </Link>
+              ) : undefined
+            }
+          />
+        )}
+      </PageSection>
+    </>
+  );
+}
+
+/** /campaigns/{uuid}: one live campaign (404 once it is no longer live). */
+export function CampaignDetail({ ctx, uuid }: { ctx: Ctx; uuid: string }) {
+  const { t, site } = ctx;
+  const card = campaignCard(site, uuid, ctx.locale);
+  if (!card) notFound();
+  const title = card.title || t("tw.campaigns.default_title");
+  return (
+    <>
+      <PageHeading
+        ctx={ctx}
+        title={title}
+        trail={[{ href: "/campaigns", label: t("page.campaigns") }]}
+      />
+      <PageSection>
+        <div className="tw-editorial-grid">
+          <article className="tw-prose">
+            <CampaignVisual ctx={ctx} card={card} label={false} />
+            <p className="tw-mini-label">{validityText(ctx, card)}</p>
+            {card.summary ? (
+              <Paragraphs text={card.summary} className="tw-campaign-summary" />
+            ) : null}
+            {card.code ? (
+              <div className="tw-campaign-code-box">
+                <CampaignCode ctx={ctx} code={card.code} />
+                <p>{t("tw.campaigns.code_hint")}</p>
+              </div>
+            ) : null}
+            <h2>{t("tw.campaigns.how")}</h2>
+            <ol>
+              <li>{t("tw.campaigns.step1")}</li>
+              <li>{t("tw.campaigns.step2")}</li>
+              <li>{t("tw.campaigns.step3")}</li>
+            </ol>
+            <div className="rt-notice">
+              <ShieldCheck aria-hidden size={19} />
+              <p>{t("tw.campaigns.terms")}</p>
+            </div>
+          </article>
+          <aside
+            className="tw-editorial-cta"
+            aria-label={t("tw.campaigns.aside_title")}
+          >
+            <h2>{t("tw.campaigns.aside_title")}</h2>
+            <p>{t("tw.campaigns.aside_text")}</p>
+            {site.booking_enabled ? (
+              <Link href="/vehicles" className="rt-button rt-button--primary">
+                {t("nav.vehicles")}
+                <ArrowRight aria-hidden size={17} />
+              </Link>
+            ) : (
+              <Link href="/contact" className="rt-button rt-button--primary">
+                {t("tw.campaigns.aside_contact")}
+                <ArrowRight aria-hidden size={17} />
+              </Link>
+            )}
+            <Link href="/campaigns" className="tw-text-button">
+              <ArrowLeft aria-hidden size={15} />
+              {t("tw.campaigns.all")}
+            </Link>
+          </aside>
+        </div>
       </PageSection>
     </>
   );
@@ -422,14 +638,22 @@ function Legal({ ctx, page }: { ctx: Ctx; page: "terms" | "privacy" }) {
 }
 
 /** The content pages of the settings document (about, FAQ, contact, legal). */
-export function Content({ ctx, page }: { ctx: Ctx; page: ContentPage }) {
+export function Content({
+  ctx,
+  page,
+  query,
+}: {
+  ctx: Ctx;
+  page: ContentPage;
+  query?: Query;
+}) {
   switch (page) {
     case "faq":
       return <Faq ctx={ctx} />;
     case "about":
       return <AboutPage ctx={ctx} />;
     case "contact":
-      return <Contact ctx={ctx} />;
+      return <Contact ctx={ctx} query={query} />;
     default:
       return <Legal ctx={ctx} page={page} />;
   }

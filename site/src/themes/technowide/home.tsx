@@ -1,6 +1,8 @@
 import { SearchForm } from "@/components/site/search-form";
 import { Alert } from "@/components/ui/card";
+import { campaignCards } from "@/lib/campaigns";
 import { loadLocations, loadSubgroups } from "@/lib/catalog";
+import { leadFlags, readLeadResult } from "@/lib/leads";
 import { homeBlocks } from "@/lib/sections";
 import type { Ctx } from "@/lib/server";
 import type { Location } from "@/lib/types";
@@ -9,9 +11,13 @@ import { THEME_SECTIONS } from "../registry";
 import { About } from "./sections/about";
 import { Advantages } from "./sections/advantages";
 import { Branches } from "./sections/branches";
+import { Campaigns } from "./sections/campaigns";
 import { Faq } from "./sections/faq";
 import { Fleet } from "./sections/fleet";
 import { Hero } from "./sections/hero";
+import { Newsletter } from "./sections/newsletter";
+
+type Query = Record<string, string | string[] | undefined>;
 
 /** `search` placed away from the hero: the booking card in its own band. */
 function SearchSection({
@@ -49,12 +55,18 @@ function SearchSection({
 /**
  * The home page: the active template's enabled sections in the
  * organization's order (lib/sections.ts drops sections whose data service
- * does not exist yet). Catalog data is live from the public API.
+ * does not exist yet, and campaigns / newsletter without data for this
+ * site). Catalog data is live from the public API; campaigns come with the
+ * resolve answer. `query` carries the newsletter form's outcome.
  */
-export async function Home({ ctx }: { ctx: Ctx }) {
+export async function Home({ ctx, query }: { ctx: Ctx; query?: Query }) {
   const blocks = homeBlocks(
     ctx.site.sections,
     THEME_SECTIONS["technowide-design"],
+    {
+      campaigns: campaignCards(ctx.site, ctx.locale).length > 0,
+      newsletter: leadFlags(ctx.site).newsletter,
+    },
   );
   const ids = new Set(blocks.map((b) => b.id));
   const needsLocations =
@@ -84,6 +96,16 @@ export async function Home({ ctx }: { ctx: Ctx }) {
           case "search":
             return (
               <SearchSection key="search" ctx={ctx} locations={locations} />
+            );
+          case "campaigns":
+            return <Campaigns key="campaigns" ctx={ctx} />;
+          case "newsletter":
+            return (
+              <Newsletter
+                key="newsletter"
+                ctx={ctx}
+                result={readLeadResult(query, "newsletter")}
+              />
             );
           case "fleet":
             return <Fleet key="fleet" ctx={ctx} subgroups={subgroups} />;

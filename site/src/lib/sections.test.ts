@@ -56,7 +56,7 @@ test("search right after the hero is drawn inside it", () => {
 test("sections without a data service or disabled never render", () => {
   const blocks = homeBlocks(
     [
-      ...on("hero", "campaigns", "newsletter", "guide", "app_promo"),
+      ...on("hero", "guide", "app_promo"),
       { id: "faq", enabled: false },
       ...on("about"),
     ],
@@ -66,9 +66,30 @@ test("sections without a data service or disabled never render", () => {
     blocks.map((b) => b.id),
     ["hero", "about"],
   );
-  for (const id of ["campaigns", "guide", "newsletter", "app_promo"])
+  for (const id of ["guide", "app_promo"])
     assert.equal(sectionRenders(id), false);
-  assert.equal(sectionRenders("fleet"), true);
+  for (const id of ["fleet", "campaigns", "newsletter"])
+    assert.equal(sectionRenders(id), true);
+});
+
+test("campaigns and newsletter render when their data is ready", () => {
+  const list = on("hero", "campaigns", "fleet", "newsletter", "about");
+  assert.deepEqual(
+    homeBlocks(list, TW).map((b) => b.id),
+    ["hero", "campaigns", "fleet", "newsletter", "about"],
+  );
+  assert.deepEqual(
+    homeBlocks(list, TW, { campaigns: false, newsletter: false }).map(
+      (b) => b.id,
+    ),
+    ["hero", "fleet", "about"],
+  );
+  // A dropped section does not keep the search out of the hero.
+  const withSearch = homeBlocks(on("hero", "campaigns", "search"), TW, {
+    campaigns: false,
+  });
+  assert.deepEqual(withSearch[0], { id: "hero", withSearch: true });
+  assert.equal(withSearch.length, 1);
 });
 
 test("unknown, unsupported and duplicate sections are dropped", () => {

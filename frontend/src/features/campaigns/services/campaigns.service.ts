@@ -6,6 +6,8 @@ import type {
   CampaignPage,
   CampaignPatchRequest,
   CampaignRedemptionPage,
+  CampaignStorefront,
+  CampaignStorefrontPatch,
   ListCampaignsParams,
 } from "@/features/campaigns/types";
 import type { ResourceMeta } from "@/features/io/types";
@@ -52,6 +54,22 @@ export const campaignsService = {
       "GET",
       `${CAMPAIGNS}/${uuid}/activity`,
       { query: params },
+    );
+  },
+  /** Website card fields (`GET/PATCH …/{uuid}/storefront`, TEC-784). */
+  storefront(slug: string, uuid: string) {
+    return tenantRequest<CampaignStorefront>(
+      slug,
+      "GET",
+      `${CAMPAIGNS}/${uuid}/storefront`,
+    );
+  },
+  updateStorefront(slug: string, uuid: string, body: CampaignStorefrontPatch) {
+    return tenantRequest<CampaignStorefront>(
+      slug,
+      "PATCH",
+      `${CAMPAIGNS}/${uuid}/storefront`,
+      { body },
     );
   },
   redemptions(slug: string, uuid: string, params: PageParams) {

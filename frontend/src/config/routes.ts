@@ -257,6 +257,9 @@ export const routes = {
         `/t/${encodeURIComponent(slug)}/settings/public-api`,
       /** Branded site: theme, content, publish history (TEC-730). */
       site: (slug: string) => `/t/${encodeURIComponent(slug)}/settings/site`,
+      /** Website enquiries and newsletter subscriptions (TEC-786). */
+      siteLeads: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/settings/site-leads`,
       roles: {
         root: (slug: string) => `/t/${encodeURIComponent(slug)}/settings/roles`,
         create: (slug: string) =>

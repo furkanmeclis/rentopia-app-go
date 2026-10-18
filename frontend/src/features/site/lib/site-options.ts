@@ -140,13 +140,21 @@ export const SECTION_IDS = [
 /**
  * Sections that wait for a backend service (the API refuses enabling them
  * with SECTION_UNAVAILABLE). Mirrors `themes.NeedsService`; the API's
- * `section_statuses` wins for the saved template.
+ * `section_statuses` wins for the saved template. Campaigns (TEC-784) and
+ * the newsletter (TEC-786) have their services now.
  */
 export const NEEDS_SERVICE: Partial<Record<SectionId, string>> = {
-  campaigns: "TEC-784",
   guide: "TEC-785",
-  newsletter: "TEC-786",
 };
+
+/** Website forms of `config.leads` (TEC-786), in display order. */
+export const LEAD_FORMS = [
+  "contact",
+  "corporate",
+  "franchise",
+  "newsletter",
+] as const;
+export type LeadForm = (typeof LEAD_FORMS)[number];
 
 /** i18n key segment of an id with dashes / camelCase (`technowide-design` → `technowide_design`). */
 export function keySegment(id: string): string {

@@ -17,7 +17,8 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ArrowDown, ArrowUp, GripVertical, Lock } from "lucide-react";
+import { ArrowDown, ArrowUp, GripVertical, Inbox, Lock } from "lucide-react";
+import Link from "next/link";
 import {
   Controller,
   get,
@@ -27,12 +28,16 @@ import {
 } from "react-hook-form";
 
 import { EmptyState } from "@/components/common/empty-state";
-import { FormSection } from "@/components/forms";
+import { AppSwitch, FormSection } from "@/components/forms";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { permissions } from "@/config/permissions";
+import { routes } from "@/config/routes";
 import {
+  LEAD_FORMS,
   NEEDS_SERVICE,
+  type LeadForm,
   SECTION_IDS,
   keySegment,
   type SectionId,
@@ -40,8 +45,10 @@ import {
   type ThemeDefinition,
 } from "@/features/site/lib/site-options";
 import type { SiteFormValues } from "@/features/site/schemas/site-form";
+import { useTenant } from "@/features/tenant/components/tenant-provider";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/providers/locale-provider";
+import { usePermission } from "@/providers/permission-provider";
 
 type SectionLock =
   | { kind: "required" }
@@ -106,6 +113,9 @@ function SectionRow({
   } = useSortable({ id, disabled: disabled || pinned });
   const k = keySegment(id);
   const switchLocked = lock !== null;
+  const newsletterOn = useWatch<SiteFormValues, "config.leads.newsletter">({
+    name: "config.leads.newsletter",
+  });
   return (
     <li
       ref={setNodeRef}
@@ -174,6 +184,14 @@ function SectionRow({
         ) : lock?.kind === "unavailable" ? (
           <p className="text-muted-foreground text-xs">
             {t("site.sections.unavailable")}
+          </p>
+        ) : id === "newsletter" && newsletterOn === false ? (
+          <p className="text-muted-foreground text-xs">
+            {t("site.sections.newsletter_form_off")}
+          </p>
+        ) : id === "campaigns" ? (
+          <p className="text-muted-foreground text-xs">
+            {t("site.sections.campaigns_hint")}
           </p>
         ) : null}
       </div>
@@ -271,13 +289,73 @@ export function SiteSectionsTab({
     name: "config.template",
   });
   return (
-    <SectionList
-      key={template}
-      template={template}
-      def={registry.find((d) => d.id === template)}
-      statuses={template === savedTemplate ? statuses : undefined}
-      disabled={disabled}
-    />
+    <div className="space-y-4">
+      <SectionList
+        key={template}
+        template={template}
+        def={registry.find((d) => d.id === template)}
+        statuses={template === savedTemplate ? statuses : undefined}
+        disabled={disabled}
+      />
+      <SiteFormsSection disabled={disabled} />
+    </div>
+  );
+}
+
+/**
+ * Formlar: which website forms are offered (`config.leads`, TEC-786).
+ * Draft content like the rest of the document: it applies once published.
+ * Submissions land in Ayarlar → Site başvuruları.
+ */
+const FORM_KEYS: Record<LeadForm, { label: string; hint: string }> = {
+  contact: { label: "site.forms.contact", hint: "site.forms.contact_hint" },
+  corporate: {
+    label: "site.forms.corporate",
+    hint: "site.forms.corporate_hint",
+  },
+  franchise: {
+    label: "site.forms.franchise",
+    hint: "site.forms.franchise_hint",
+  },
+  newsletter: {
+    label: "site.forms.newsletter",
+    hint: "site.forms.newsletter_hint",
+  },
+};
+
+function SiteFormsSection({ disabled }: { disabled?: boolean }) {
+  const { t } = useLocale();
+  const { slug } = useTenant();
+  const { can } = usePermission();
+  return (
+    <FormSection
+      title={t("site.forms.title")}
+      description={t("site.forms.description")}
+      columns={2}
+    >
+      {LEAD_FORMS.map((form) => (
+        <AppSwitch
+          key={form}
+          name={`config.leads.${form}`}
+          label={t(FORM_KEYS[form].label)}
+          description={t(FORM_KEYS[form].hint)}
+          disabled={disabled}
+        />
+      ))}
+      <p className="text-muted-foreground text-xs sm:col-span-2">
+        {t("site.forms.note")}
+      </p>
+      {can(permissions.tenant.siteLeads.read) ? (
+        <div className="sm:col-span-2">
+          <Button asChild type="button" size="sm" variant="outline">
+            <Link href={routes.tenant.settings.siteLeads(slug)}>
+              <Inbox className="size-4" />
+              {t("site.forms.leads_link")}
+            </Link>
+          </Button>
+        </div>
+      ) : null}
+    </FormSection>
   );
 }
 

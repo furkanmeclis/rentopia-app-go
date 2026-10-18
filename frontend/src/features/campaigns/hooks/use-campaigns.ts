@@ -6,6 +6,7 @@ import { campaignsService } from "@/features/campaigns/services/campaigns.servic
 import type {
   CampaignCreateRequest,
   CampaignPatchRequest,
+  CampaignStorefrontPatch,
   ListCampaignsParams,
 } from "@/features/campaigns/types";
 import { useTenant } from "@/features/tenant/components/tenant-provider";
@@ -25,6 +26,8 @@ export const campaignKeys = {
     [...campaignKeys.all(slug), "activity", uuid, params] as const,
   redemptions: (slug: string, uuid: string, params: Record<string, unknown>) =>
     [...campaignKeys.all(slug), "redemptions", uuid, params] as const,
+  storefront: (slug: string, uuid: string) =>
+    [...campaignKeys.all(slug), "storefront", uuid] as const,
 };
 
 function useInvalidate() {
@@ -135,6 +138,34 @@ export function useDeleteCampaign() {
     onSuccess: () => {
       appToast.success(t("campaigns.toast.deleted"));
       void invalidate();
+    },
+  });
+}
+
+/**
+ * Website card of a campaign. The list asks one per visible row (the list
+ * answer has no storefront fields), so answers stay fresh for a minute.
+ */
+export function useCampaignStorefront(uuid: string, enabled = true) {
+  const { slug } = useTenant();
+  return useQuery({
+    queryKey: campaignKeys.storefront(slug, uuid),
+    queryFn: () => campaignsService.storefront(slug, uuid),
+    enabled: Boolean(uuid) && enabled,
+    staleTime: 60_000,
+  });
+}
+
+export function useUpdateCampaignStorefront(uuid: string) {
+  const { slug } = useTenant();
+  const { t } = useLocale();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CampaignStorefrontPatch) =>
+      campaignsService.updateStorefront(slug, uuid, body),
+    onSuccess: (data) => {
+      queryClient.setQueryData(campaignKeys.storefront(slug, uuid), data);
+      appToast.success(t("campaigns.storefront.saved"));
     },
   });
 }

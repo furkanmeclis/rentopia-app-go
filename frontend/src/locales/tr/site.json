@@ -528,5 +528,19 @@
   "media.errors.too_large": "{{name}}: dosya en fazla {{size}} MB olabilir.",
   "media.toast.uploaded": "{{count}} görsel yüklendi.",
   "media.toast.alt_saved": "Alternatif metin kaydedildi.",
-  "media.toast.deleted": "Görsel silindi."
+  "media.toast.deleted": "Görsel silindi.",
+  "sections.newsletter_form_off": "E-bülten formu kapalı (Formlar); bölüm açık olsa da sitede görünmez.",
+  "sections.campaigns_hint": "Kampanyalar ekranında “Sitede göster” işaretli, aktif ve web kanalındaki kampanyalar listelenir; yoksa bölüm gizlenir.",
+  "forms.title": "Formlar",
+  "forms.description": "Sitede hangi formların sunulacağı. Diğer içerikler gibi taslağa kaydedilir ve yayınlandığında geçerli olur.",
+  "forms.contact": "İletişim formu",
+  "forms.contact_hint": "İletişim sayfasında ad, e-posta ve mesaj formu.",
+  "forms.corporate": "Kurumsal kiralama başvurusu",
+  "forms.corporate_hint": "/corporate sayfası: firma, yetkili, telefon ve filo ihtiyacı.",
+  "forms.franchise": "Bayilik başvurusu",
+  "forms.franchise_hint": "/franchise sayfası: ad, telefon ve şehir.",
+  "forms.newsletter": "E-bülten aboneliği",
+  "forms.newsletter_hint": "Ana sayfadaki E-bülten bölümü (Bölümler listesinde de açık olmalı).",
+  "forms.note": "Formlar çevrimiçi satış (web kanalı ve site anahtarı) açıkken çalışır. Tüm formlarda KVKK onayı zorunludur; gönderimler saatlik sınırlarla korunur.",
+  "forms.leads_link": "Gelen başvurular"
 }

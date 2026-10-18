@@ -83,6 +83,14 @@
     white-space: nowrap;
     border: 0;
   }
+  /* The bot trap of the lead forms: off-screen, never focusable. */
+  .rt-hp {
+    position: absolute;
+    left: -10000px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
   .rt-skip {
     position: fixed;
     left: 16px;

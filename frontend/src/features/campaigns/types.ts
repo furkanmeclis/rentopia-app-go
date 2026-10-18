@@ -15,6 +15,9 @@ export type CampaignState = Campaign["state"];
 export type CampaignScope = Campaign["product_scope"];
 export type RedemptionStatus = CampaignRedemption["status"];
 export type CampaignActivityPage = Schemas["FleetActivityPage"];
+/** Website card of a campaign (TEC-784): editorial fields only. */
+export type CampaignStorefront = Schemas["CampaignStorefront"];
+export type CampaignStorefrontPatch = Schemas["CampaignStorefrontPatch"];
 
 /** List query of `GET /v1/tenant/campaigns` (multi-values comma-joined). */
 export type ListCampaignsParams = {

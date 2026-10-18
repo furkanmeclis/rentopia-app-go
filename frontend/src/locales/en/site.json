@@ -528,5 +528,19 @@
   "media.errors.too_large": "{{name}}: the file can be at most {{size}} MB.",
   "media.toast.uploaded": "{{count}} image(s) uploaded.",
   "media.toast.alt_saved": "Alt text saved.",
-  "media.toast.deleted": "Image deleted."
+  "media.toast.deleted": "Image deleted.",
+  "sections.newsletter_form_off": "The newsletter form is off (Forms); the section stays hidden on the site even when switched on.",
+  "sections.campaigns_hint": "Lists the active web-channel campaigns marked “Show on site” on the Campaigns screen; hidden when there is none.",
+  "forms.title": "Forms",
+  "forms.description": "Which forms the site offers. Saved to the draft like other content and applied when published.",
+  "forms.contact": "Contact form",
+  "forms.contact_hint": "Name, e-mail and message form on the contact page.",
+  "forms.corporate": "Corporate rental application",
+  "forms.corporate_hint": "/corporate page: company, contact person, phone and fleet needs.",
+  "forms.franchise": "Franchise application",
+  "forms.franchise_hint": "/franchise page: name, phone and city.",
+  "forms.newsletter": "Newsletter subscription",
+  "forms.newsletter_hint": "The newsletter section of the home page (it must also be on in Sections).",
+  "forms.note": "Forms work while online sales (web channel and the site key) are on. KVKK consent is required on every form; submissions are rate limited per hour.",
+  "forms.leads_link": "Received applications"
 }

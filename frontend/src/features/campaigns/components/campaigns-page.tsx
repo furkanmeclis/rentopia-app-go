@@ -26,6 +26,7 @@ import {
   useBulkSelection,
 } from "@/features/bulk-engine";
 import {
+  CampaignSiteCell,
   CampaignStateChip,
   DiscountText,
   UsageText,
@@ -203,6 +204,13 @@ export function CampaignsPage() {
             label: `${t(STATE_LABEL_KEYS[v])} (${countOf(facets?.state, v)})`,
           })),
           cell: ({ row }) => <CampaignStateChip state={row.original.state} />,
+        }),
+        createColumn<Campaign>({
+          id: "on_site",
+          accessorFn: (row) => row.uuid,
+          labelKey: "campaigns.columns.on_site",
+          enableSorting: false,
+          cell: ({ row }) => <CampaignSiteCell uuid={row.original.uuid} />,
         }),
         ...auditColumns<Campaign>(
           {

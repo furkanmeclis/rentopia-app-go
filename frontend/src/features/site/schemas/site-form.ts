@@ -205,6 +205,12 @@ export function createSiteSchema(t: T) {
       ),
     default_locale: z.enum(SITE_LOCALES),
     config: z.object({
+      leads: z.object({
+        contact: z.boolean(),
+        corporate: z.boolean(),
+        franchise: z.boolean(),
+        newsletter: z.boolean(),
+      }),
       template: z.enum(TEMPLATE_IDS),
       templates: z.record(
         z.string(),
@@ -414,6 +420,13 @@ export function settingsToForm(s: SiteSettings): SiteFormValues {
     subdomain: s.subdomain,
     default_locale: s.default_locale,
     config: {
+      // Every form is on when the document has no `leads` object (API default).
+      leads: {
+        contact: c.leads?.contact ?? true,
+        corporate: c.leads?.corporate ?? true,
+        franchise: c.leads?.franchise ?? true,
+        newsletter: c.leads?.newsletter ?? true,
+      },
       template,
       templates,
       theme: {

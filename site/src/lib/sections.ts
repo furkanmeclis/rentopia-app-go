@@ -6,8 +6,12 @@ import type { SiteSection } from "./types";
  * The resolve answer lists the active template's enabled sections in the
  * organization's order. The site applies the API's section status again,
  * so a section never shows without its data service:
- * - `campaigns` (TEC-784), `guide` (TEC-785) and `newsletter` (TEC-786) are
- *   `needs_service`: they render nothing until their backend exists;
+ * - `guide` (TEC-785) is `needs_service`: it renders nothing until its
+ *   backend exists (`campaigns`, TEC-784, and `newsletter`, TEC-786, have
+ *   their services now);
+ * - sections whose data is missing for this site (`ready[id] === false`:
+ *   no live campaign, the newsletter form switched off or no usable key)
+ *   are dropped before the layout is decided;
  * - `app_promo` is always hidden (no store links yet);
  * - unknown ids, ids the renderer does not support, duplicates and disabled
  *   entries are dropped;
@@ -18,7 +22,7 @@ import type { SiteSection } from "./types";
  * Technowide booking card); anywhere else it is its own section.
  */
 
-export const NEEDS_SERVICE = ["campaigns", "guide", "newsletter"] as const;
+export const NEEDS_SERVICE = ["guide"] as const;
 export const ALWAYS_HIDDEN = ["app_promo"] as const;
 
 export type HomeBlock =
@@ -44,6 +48,7 @@ export const LEGACY_SECTIONS: SiteSection[] = [
 export function homeBlocks(
   sections: SiteSection[] | null | undefined,
   supported: readonly string[],
+  ready: Partial<Record<string, boolean>> = {},
 ): HomeBlock[] {
   const list = Array.isArray(sections) ? sections : LEGACY_SECTIONS;
   const seen = new Set<string>();
@@ -52,7 +57,7 @@ export function homeBlocks(
     if (!s || typeof s.id !== "string" || s.enabled !== true) continue;
     if (seen.has(s.id) || !supported.includes(s.id)) continue;
     seen.add(s.id);
-    if (sectionRenders(s.id)) ids.push(s.id);
+    if (sectionRenders(s.id) && ready[s.id] !== false) ids.push(s.id);
   }
   const rest = ids.filter((id) => id !== "hero");
   const withSearch = rest[0] === "search";
