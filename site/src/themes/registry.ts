@@ -7,13 +7,14 @@
  */
 export const DEFAULT_THEME = "technowide-design";
 
-/** Renderers shipped in this image (src/themes/index.ts). */
-export const THEME_IDS = [DEFAULT_THEME] as const;
+/** Renderers shipped in this image (src/themes/index.tsx). */
+export const THEME_IDS = [DEFAULT_THEME, "horizon-design"] as const;
 
 export type ThemeId = (typeof THEME_IDS)[number];
 
 export function resolveThemeId(template: string | null | undefined): ThemeId {
-  return (THEME_IDS as readonly string[]).includes(template ?? "")
+  return typeof template === "string" &&
+    (THEME_IDS as readonly string[]).includes(template)
     ? (template as ThemeId)
     : DEFAULT_THEME;
 }
@@ -21,8 +22,10 @@ export function resolveThemeId(template: string | null | undefined): ThemeId {
 /**
  * Home sections each renderer supports, in its default order (the API's
  * theme registry: Technowide = hero, search, campaigns, fleet, advantages,
- * newsletter, guide, about, faq, app_promo). `branches` is rendered too
- * when a template's answer contains it.
+ * newsletter, guide, about, faq, app_promo; Horizon = hero, search,
+ * campaigns, fleet, guide, about, faq, like the studio's Horizon, which
+ * has no advantages, newsletter, app or branches section). Technowide also
+ * renders `branches` when a template's answer contains it.
  */
 export const THEME_SECTIONS: Record<ThemeId, readonly string[]> = {
   "technowide-design": [
@@ -38,4 +41,24 @@ export const THEME_SECTIONS: Record<ThemeId, readonly string[]> = {
     "app_promo",
     "branches",
   ],
+  "horizon-design": [
+    "hero",
+    "search",
+    "campaigns",
+    "fleet",
+    "guide",
+    "about",
+    "faq",
+  ],
 };
+
+/**
+ * Horizon's `heroAlign` setting (left | center); anything else is the
+ * default, left. The API validates the value; the site checks it again
+ * because it becomes a class name.
+ */
+export function heroAlign(
+  settings: Record<string, string> | null | undefined,
+): "left" | "center" {
+  return settings?.heroAlign === "center" ? "center" : "left";
+}

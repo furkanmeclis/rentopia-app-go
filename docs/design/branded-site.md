@@ -221,7 +221,7 @@ Local: `make site-dev` serves the site on `http://{subdomain}.localhost:3100`; b
 | `TestCustomDomainHookAndAssets` | a custom domain resolves through the hook and is added to the key's origins; an unverified domain → 404; logo falls back to the organization logo and streams; unknown kind / site → 404 |
 | `TestHostHelpers` | dev origins (`http://acme.localhost:3100`) are valid public API origins; host normalization; slug → subdomain |
 | `site/src/lib/theme.test.ts` | the theme CSS drops anything that is not a hex color or a known value; corner styles → card / control / image radii (`soft` keeps the theme's own); heading font (follow body, chosen font, Georgia); dark tokens; GA ID; same-site redirects only; session cookies bound to their origin |
-| `site/src/lib/sections.test.ts` | template registry fallback to Technowide; home sections keep the API order, hero first, search inside the hero only right after it; `needs_service`, `app_promo`, disabled, unknown, unsupported and duplicate sections never render; legacy answers get defaults |
+| `site/src/lib/sections.test.ts` | template registry (Horizon resolves, unknown ids fall back to Technowide); Horizon section filtering and `heroAlign`; home sections keep the API order, hero first, search inside the hero only right after it; `needs_service`, `app_promo`, disabled, unknown, unsupported and duplicate sections never render; legacy answers get defaults |
 | `site/src/lib/links.test.ts` | menu / CTA hrefs (same-site paths or https only), localized menu labels and fallback, social links on their network's host only, tel / WhatsApp / mailto links, library media URLs bound to the site |
 
 RT-A01 covers `GET/PUT /v1/tenant/site` (the PUT is on the allowlist: it acts on the caller's own document).
@@ -375,8 +375,9 @@ colors and light/dark/system mode are retained. The JSON body limit remains
 **1 MiB**: the combined document remains bounded independently of each
 field's character limit, and uploads use their own multipart limit.
 
-`config.template` defaults to `technowide-design`. `horizon-design`, `classic`
-and `aurum` are registered but unavailable for selection. The Go registry in
+`config.template` defaults to `technowide-design`. `horizon-design` is
+selectable since TEC-787 (§13); `classic` and `aurum` are registered but
+unavailable for selection (`TEMPLATE_UNAVAILABLE`). The Go registry in
 `backend/internal/modules/site/themes` defines each theme's supported section
 order, required first section and typed enum settings. The persisted
 `templates.{id} = {sections:[{id,enabled}], settings:{...}}` keeps each theme's
@@ -540,7 +541,7 @@ Technowide.
 
 `lib/theme.ts` writes `--primary … --border` (light / dark / system),
 `--font-brand`, `--font-heading` (`theme` follows the body font; Horizon's
-`theme` will be Georgia; `georgia` is the device's Georgia) and, for the
+`theme` is Georgia; `georgia` is the device's Georgia) and, for the
 seven uniform corner styles, `--radius-card`, `--radius-control`,
 `--radius-image` (`sharp` 0, `xs` 4, `sm` 8, `md` 12, `lg` 16, `xl` 24,
 `pill` 32 px with fully rounded controls). `soft` writes no corner
@@ -574,8 +575,8 @@ cookie, so tokens never appear in HTML.
   Technowide section (the studio markup and CSS classes are the
   reference) and drop the id from `NEEDS_SERVICE`. Campaigns (TEC-784) and
   the newsletter / lead forms (TEC-786) are done (§12).
-- **TEC-783 and later**: the remaining templates (Horizon, classic, Aurum)
-  as further `ThemeRenderer` entries, plus any panel controls still missing
+- **TEC-783 and later**: the remaining templates (classic, Aurum; Horizon is
+  done, §13) as further `ThemeRenderer` entries, plus any panel controls still missing
   for the v2 content this renderer reads (slides, advantages, about, menus,
   brand).
 - Mobile Safari / real-device checks and an automated visual test (the site
@@ -749,3 +750,82 @@ Public article media uses the existing API-owned public media route, authorized
 only while a published article references it on an enabled, accessible site.
 Mutation activity uses resource `tenant.site_articles` and localized created,
 updated, deleted, published and unpublished action labels.
+
+## 14. Horizon renderer (TEC-787)
+
+Horizon Design is the second selectable template: a server-rendered port of
+the template studio's redesigned Horizon (`template-studio/src/templates/horizon`,
+the "editorial" look): large serif headlines, an asymmetric split hero with a
+tilted photo stamp and a round action, a ruled booking band, numbered vehicle
+rows, an asymmetric campaign collage, a dark story band, ruled questions and
+a large italic footer invitation. No studio images or demo copy are shipped;
+missing photos are token gradients.
+
+### 14.1 Registry and availability
+
+- API (`backend/internal/modules/site/themes`): `horizon-design` is
+  `available: true`. Sections (default order): hero, search, campaigns, fleet,
+  guide, about, faq — the studio's Horizon (all sections except advantages,
+  newsletter and app) plus the explicit `search`; the Go registry already
+  matched the studio, so it was not changed. `branches`, `advantages`,
+  `newsletter` and `app_promo` are `unsupported_by_theme`, `guide` stays
+  `needs_service` (TEC-785). Setting: `heroAlign=left|center` (default
+  `left`); Technowide's `heroLayout` is an unknown setting for Horizon and
+  is rejected. Switching templates keeps every template's own sections and
+  settings (`config.templates.{id}`); `TestConfigV2SwitchTechnowideHorizonPreservesBoth`
+  and `themes/registry_test.go` cover this. No OpenAPI change.
+- Site (`site/src/themes/registry.ts`): `THEME_IDS` contains
+  `horizon-design`, so the template resolves to the Horizon renderer; any
+  other unknown id still renders Technowide. `THEME_SECTIONS["horizon-design"]`
+  mirrors the API list; `heroAlign(settings)` returns `center` only for that
+  exact value.
+- Panel: the Tema tab's Horizon card is selectable (the registry answer drives
+  it) and shows the "Giriş metni hizası" choice with left / centered previews.
+
+### 14.2 Structure
+
+| Path | What |
+|------|------|
+| `site/src/themes/horizon/chrome.tsx` | Header (slogan line with address, serif wordmark or logo with the asterisk, numbered menu, language, portal sign-in, underlined "Rezervasyon sorgula", `<details>` mobile menu) and footer (italic invitation with a round arrow, brand / explore / good-to-know / note columns, copyright) |
+| `site/src/themes/horizon/home.tsx`, `sections.tsx` | Home: hero, booking band (`search` after the hero) or a standalone booking section, campaigns, fleet, about, faq; sections are numbered in reading order like the studio |
+| `site/src/themes/horizon/pages.tsx` | Horizon's own about (story band + questions) and FAQ pages; contact and legal pages delegate to the shared markup |
+| `site/src/themes/horizon/horizon.css` | Horizon's stylesheet, scoped to `.theme-horizon` |
+
+The `<body>` carries `theme-technowide theme-horizon`: the shared pages
+(vehicles, offices, campaigns + detail, contact, corporate / franchise forms,
+legal, booking flow, lookup, embed) keep the shared `rt-*` / `tw-*` markup
+and Technowide's layout, and `horizon.css` redraws them in Horizon's
+typography and surfaces (serif headings at weight 400, wash page headings,
+ink buttons, ruled filters, flat cards, square controls). `horizon.css` is
+imported after `technowide.css` in `themes/index.tsx` and uses the same
+`components` layer, so equal selectors win by source order.
+
+### 14.3 Home sections
+
+| Section | Data | Empty |
+|---------|------|-------|
+| hero | the same slides as Technowide (`heroSlides`); kicker = brand tagline, else the name; the round action is the slide's CTA, else "Kendi yolunu bul" → `/vehicles` (or `/branches` while booking is off). Several slides form a scroll-snap track; the caption's arrow is an anchor to the next slide (no JavaScript). `heroAlign=center` centers the copy column | always renders |
+| search | booking band: "01 / Sıradaki hikâyen — Nereye gidiyoruz?" beside the flat search form | booking off / no location notice |
+| campaigns | first three live campaigns as a collage (the first spans two rows), validity kicker, code chip, "Tüm kampanyalar" | hidden |
+| fleet | first four live vehicle groups as numbered rows (image or placeholder, published conditions, "or similar"), action to `/search` | hidden |
+| about | dark band: title, the first two paragraphs (`/about`: all), `about.image` or a gradient, highlights as numbered promises | hidden |
+| faq | first six questions as ruled `<details>`, links to all questions (more than six) and contact (when it exists) | hidden |
+
+### 14.4 Tokens
+
+Ink = `--foreground`, paper = `--background`, wash = `--muted`, accent =
+`--primary`. Headings use `--font-heading` (Georgia when `theme`). For the
+`soft` corner style `lib/theme.ts` writes Horizon's own corners
+(`TEMPLATE_CORNERS`: cards and controls 0, images 2 px), so the shared pages
+are square too; any other corner style applies as chosen.
+
+### 14.5 Checks
+
+`site/src/lib/sections.test.ts` (Horizon resolves, unsupported sections never
+render, order / search-in-hero / empty campaigns, legacy defaults,
+`heroAlign`), `site/src/lib/theme.test.ts` (Horizon's soft corners) and the
+Go tests above. Visual check: the home at 1280 px and 360 px (no horizontal
+scroll), left and centered hero, two slides, the mobile menu, vehicles,
+search, contact, about and campaigns pages against a local mock API. Not
+checked: real devices / Safari, dark mode with real brand colors.
+

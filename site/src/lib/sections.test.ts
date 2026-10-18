@@ -4,17 +4,21 @@ import { test } from "node:test";
 import {
   DEFAULT_THEME,
   THEME_SECTIONS,
+  heroAlign,
   resolveThemeId,
 } from "../themes/registry.ts";
 import { homeBlocks, sectionRenders } from "./sections.ts";
 
 const TW = THEME_SECTIONS["technowide-design"];
+const HZ = THEME_SECTIONS["horizon-design"];
 const on = (...ids: string[]) => ids.map((id) => ({ id, enabled: true }));
 
 test("theme registry falls back to Technowide", () => {
   assert.equal(resolveThemeId("technowide-design"), "technowide-design");
+  assert.equal(resolveThemeId("horizon-design"), "horizon-design");
   for (const unknown of [
-    "horizon-design",
+    "Horizon-Design",
+    "horizon",
     "classic",
     "aurum",
     "",
@@ -118,4 +122,67 @@ test("answers without sections get the legacy defaults", () => {
     homeBlocks([], TW).map((b) => b.id),
     ["hero"],
   );
+});
+
+test("Horizon renders the studio's sections only", () => {
+  assert.deepEqual(
+    [...HZ],
+    ["hero", "search", "campaigns", "fleet", "guide", "about", "faq"],
+  );
+  const blocks = homeBlocks(
+    on(
+      "hero",
+      "advantages",
+      "newsletter",
+      "fleet",
+      "app_promo",
+      "branches",
+      "guide",
+      "campaigns",
+      "about",
+      "faq",
+    ),
+    HZ,
+    { campaigns: true },
+  );
+  assert.deepEqual(
+    blocks.map((b) => b.id),
+    ["hero", "fleet", "campaigns", "about", "faq"],
+  );
+});
+
+test("Horizon keeps the order, folds search into the hero and drops empty campaigns", () => {
+  const blocks = homeBlocks(
+    on("hero", "search", "faq", "campaigns", "fleet"),
+    HZ,
+    {
+      campaigns: false,
+    },
+  );
+  assert.deepEqual(blocks[0], { id: "hero", withSearch: true });
+  assert.deepEqual(
+    blocks.map((b) => b.id),
+    ["hero", "faq", "fleet"],
+  );
+  // Legacy answers without sections get Horizon's supported defaults.
+  assert.deepEqual(
+    homeBlocks(undefined, HZ).map((b) => b.id),
+    ["hero", "fleet", "about", "faq"],
+  );
+});
+
+test("Horizon heroAlign is left unless exactly center", () => {
+  assert.equal(heroAlign({ heroAlign: "center" }), "center");
+  assert.equal(heroAlign({ heroAlign: "left" }), "left");
+  const bad: (Record<string, string> | null | undefined)[] = [
+    { heroAlign: "right" },
+    { heroAlign: "CENTER" },
+    { heroLayout: "split" },
+    {},
+    null,
+    undefined,
+  ];
+  for (const settings of bad) {
+    assert.equal(heroAlign(settings), "left");
+  }
 });
