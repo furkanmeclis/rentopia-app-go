@@ -375,9 +375,10 @@ colors and light/dark/system mode are retained. The JSON body limit remains
 **1 MiB**: the combined document remains bounded independently of each
 field's character limit, and uploads use their own multipart limit.
 
-`config.template` defaults to `technowide-design`. `horizon-design` (§14)
-and `classic` (§15) are selectable since TEC-787; `aurum` is registered but
-unavailable for selection (`TEMPLATE_UNAVAILABLE`). The Go registry in
+`config.template` defaults to `technowide-design`. `horizon-design` (§14),
+`classic` (§15) and `aurum` (§16) are selectable since TEC-787; an id the
+registry does not know (for example the studio's `aurum-design`) is
+rejected with `TEMPLATE_UNAVAILABLE`. The Go registry in
 `backend/internal/modules/site/themes` defines each theme's supported section
 order, required first section and typed enum settings. The persisted
 `templates.{id} = {sections:[{id,enabled}], settings:{...}}` keeps each theme's
@@ -990,3 +991,111 @@ light and dark, soft corners, guide cards) and the Go tests above. Visual
 check against a scratch mock API at 1280 px and 360 px (no horizontal
 scroll; mobile menu, quick navigation): home with two and three columns,
 `/vehicles?segment=`, `/about`, `/contact`.
+
+## 16. Aurum renderer (TEC-787)
+
+Aurum is the fourth selectable template: a server-rendered port of the
+template studio's Aurum (`template-studio/src/templates/aurum`, the
+"Premium Mobility" adaptation, studio id `aurum-design`, API id `aurum`): a
+calm white header with the car mark, a centered headline whose last two
+words carry the accent, the booking card above a wide photo panel, soft
+advantage cards, chips and vehicle cards in two or three columns, light /
+dark offer cards, the story split, questions beside their heading, guide
+cards, a dark support band and a pale footer. `/vehicles` is the studio's
+catalog layout.
+
+### 16.1 Registry and availability
+
+- API: `aurum` is `available: true`; every registered template now has a
+  renderer. Sections (default order, unchanged; the studio's Aurum plus
+  `search`): hero, search, advantages, fleet, campaigns, about, faq, guide.
+  `newsletter`, `app_promo` and `branches` are `unsupported_by_theme`.
+  Setting `fleetColumns=2|3` (default `3`), stored per template, so classic
+  and Aurum keep their own value. Tests: `TestAurumIsSelectable` (also: no
+  registered template is unavailable), `TestConfigV2Validation` (invalid
+  columns, branches, the studio id `aurum-design`) and
+  `TestConfigV2ClassicAndAurumKeepTheirOwnColumns` (switching through all
+  four templates).
+- Site: `THEME_IDS` / `THEME_SECTIONS.aurum`; `fleetColumns(settings)` is
+  shared with classic. Panel: the Aurum card is selectable and shows the
+  same two / three column previews.
+
+### 16.2 Structure
+
+| Path | What |
+|------|------|
+| `site/src/themes/aurum/chrome.tsx` | Header (mark + name or logo, menu, language, dark account action: the customer portal, else "Rezervasyon sorgula"; `<details>` menu below 850 px) and footer (dark support band with the phone or the contact page, brand / explore / useful information / contact columns, copyright) |
+| `site/src/themes/aurum/home.tsx`, `sections.tsx` | Home sections and the `/vehicles` result row |
+| `site/src/themes/aurum/pages.tsx` | `/vehicles`: route bar (prices need dates → `/search`), heading, filter card with the live segments as links and counts, wide result rows |
+| `site/src/themes/aurum/helpers.ts` | Pure: title emphasis split, home fleet limit |
+| `site/src/themes/aurum/aurum.css` | Stylesheet scoped to `.theme-aurum` |
+
+The `<body>` carries `theme-technowide theme-aurum`. Like the studio (whose
+other pages use the shared `TemplatePage`), about, FAQ, offices, campaigns +
+detail, contact, corporate / franchise forms, legal pages, the booking flow
+(`/search`, `/book/…`, `/reservation/…`), lookup and `/embed` are the shared
+markup restyled by `aurum.css`: flat bordered cards, navy primary buttons,
+accent kickers, the studio's centered row of numbered step circles and a
+dashed total rule in the summary.
+
+### 16.3 Home sections
+
+| Section | Data | Empty |
+|---------|------|-------|
+| hero | pill eyebrow = tagline, else the name; the first slide's title (last two words emphasized) and text; booking card when `search` follows; photo panel with the slide's media, else the cover, else a token gradient, the name, tagline and the slide's CTA, else "Filoyu keşfedin" → `/vehicles` (`/branches` while booking is off). One message like the studio; further slides are not shown | always renders |
+| search | the booking card on its own (heading strip + shared form) | booking off / no location notice |
+| advantages | `content.{locale}.advantages`: soft cards with icon tile, title and text | hidden |
+| fleet | heading + "Tüm araçları gör", segment chips (links to `/vehicles?segment=`), three groups (`fleetColumns=3`) or four (`2`): segment badge, image or placeholder, "veya benzeri", the four published conditions, "Tarihinize özel teklif" and a square action → `/search` | hidden |
+| campaigns | first four live campaigns as alternating light / dark offer cards (validity badge, summary, code, image at 25 % opacity when there is one) | hidden |
+| about | story split: `about.image` or a gradient, kicker, "{name} ile yolculuk", two paragraphs, "Bizi tanıyın" → `/about` | hidden |
+| faq | heading column (links to all questions when more than six, and contact) beside six `<details>` rows | hidden |
+| guide | up to three resolve `articles` cards → `/guide/{locale}/{slug}` | renders only once `lib/sections.ts` lets `guide` through (as classic) |
+
+### 16.4 Tokens
+
+Navy = `--primary` (buttons, mark, current step), dark surfaces =
+`--foreground` (offer cards, support band, account button), soft cards =
+`--muted`, kickers and the headline emphasis = `--au-text-accent`, written
+by `lib/theme.ts` for light and dark tokens: the accent when it reads at
+4.5:1 on the background, else the foreground (the studio's
+`readableAccent`). `soft` corners are the studio's 12 px. Fonts are the
+organization's (the studio defaults to Plus Jakarta Sans, which is one of
+the selectable fonts). The support band's phone action is the inverse of
+the band (background on foreground), readable with any palette.
+
+### 16.5 Intentionally not ported
+
+Per `template-studio/docs/AURUM-MIGRATION.md` the studio's Aurum contains a
+mock journey. None of it was ported; Rentopia's real pages are used,
+styled in Aurum:
+
+- the vehicle detail / extras page with the gallery, **sample insurance
+  packages** ("güvence") and extras (additional driver, navigation, child
+  seats): the real flow is `/search` → `/book/{quote}` with the API's
+  extras; insurance packages come with TEC-779;
+- the **demo payment** summary (driver form, demo confirmation) and the
+  **digital voucher / PNR / QR / "e-mail sent"** screens: the real booking,
+  payment hand-off and `/reservation/{reference}` are unchanged;
+- **prices, deposits, installments, ratings and reviews** from the
+  reference: there is no data source; cards say that the quote depends on
+  the dates;
+- the catalog's **price filter, sort `Select`, model search, gearbox / fuel
+  checkboxes and fake result / pagination counts**: the filter card lists
+  the real segments as links (no JavaScript), the count is the real number
+  of groups;
+- `search-state.ts` (client-side search validation): the search is the
+  shared GET form, validated by the server;
+- the studio's "THE AURUM COLLECTION" label, demo vehicles, images and the
+  "Theme preview · no live bookings" footer line.
+
+Simplified for server rendering: Sheet menu → `<details>`; accordion →
+`<details>`; category buttons → links; the language toggle → TR / EN links.
+
+### 16.6 Checks
+
+`site/src/lib/templates.test.ts` (Aurum resolves, its sections, title
+emphasis, fleet rows, readable accent, soft corners) and the Go tests
+above. Visual check against the scratch mock API at 1280 px and 360 px (no
+horizontal scroll): home, `/vehicles` with a segment. Not checked: real
+devices / Safari, the booking pages with a live API, dark mode with real
+brand colors.
