@@ -34,7 +34,7 @@ func TestHorizonDefaultsAndStatuses(t *testing.T) {
 		t.Fatal(c.Settings)
 	}
 	for _, s := range c.Sections {
-		if s.Enabled == (s.ID == "guide") {
+		if !s.Enabled {
 			t.Fatalf("default %s enabled=%v", s.ID, s.Enabled)
 		}
 	}
@@ -42,10 +42,6 @@ func TestHorizonDefaultsAndStatuses(t *testing.T) {
 		switch st.ID {
 		case "advantages", "newsletter", "app_promo", "branches":
 			if st.Status != "unsupported_by_theme" || st.CanEnable {
-				t.Fatal(st)
-			}
-		case "guide":
-			if st.Status != "needs_service" || st.CanEnable {
 				t.Fatal(st)
 			}
 		default:
