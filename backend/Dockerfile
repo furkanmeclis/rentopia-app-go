@@ -27,9 +27,11 @@ FROM alpine:3.22 AS runtime
 # Chromium + DejaVu fonts (Turkish glyphs) print contract PDFs
 # (internal/platform/pdfrender). The launcher on PATH adds the flags a
 # non-root container needs; chromedp finds `chromium` before
-# `chromium-browser`.
+# `chromium-browser`. appuser has no home, so crashpad gets a writable dump
+# dir under /tmp (without it Chromium exits with "chrome_crashpad_handler:
+# --database is required").
 RUN apk add --no-cache ca-certificates tzdata chromium font-dejavu \
-    && printf '#!/bin/sh\nexec /usr/bin/chromium-browser --no-sandbox --disable-dev-shm-usage --disable-gpu "$@"\n' > /usr/local/bin/chromium \
+    && printf '#!/bin/sh\nexport XDG_CONFIG_HOME=/tmp/chromium XDG_CACHE_HOME=/tmp/chromium\nexec /usr/bin/chromium-browser --no-sandbox --disable-dev-shm-usage --disable-gpu --disable-crash-reporter --crash-dumps-dir=/tmp/chromium/crashpad "$@"\n' > /usr/local/bin/chromium \
     && chmod 0755 /usr/local/bin/chromium \
     && adduser -D -H -u 10001 appuser
 
