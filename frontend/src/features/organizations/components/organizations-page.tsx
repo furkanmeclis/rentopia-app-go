@@ -12,6 +12,7 @@ import {
   EntityTable,
   EntityToolbar,
   useServerListState,
+  useUrlListDefaults,
 } from "@/components/entity";
 import { createSelectColumnDef } from "@/components/tables";
 import { permissions } from "@/config/permissions";
@@ -55,8 +56,14 @@ function filterValues(value: unknown): string[] {
 export function OrganizationsPage() {
   const { t } = useLocale();
   const router = useRouter();
+  // Deep links from the platform overview (`?access=expired`, `?status=…`).
+  const urlDefaults = useUrlListDefaults(
+    ["status", "access", "window"],
+    ["name", "status", "vehicle_count", "access_ends_at", "created_at"],
+  );
   const listState = useServerListState({
-    initialSort: "-created_at",
+    initialSort: urlDefaults.initialSort ?? "-created_at",
+    initialColumnFilters: urlDefaults.initialColumnFilters,
     initialPageSize: 20,
     realtime: { resource: ORGANIZATIONS_RESOURCE },
   });
