@@ -60,7 +60,7 @@ func TestPDFPrintsWithChromium(t *testing.T) {
 		t.Skip("no chromium on PATH")
 	}
 	dir := t.TempDir()
-	script := "#!/bin/sh\nexec " + real + " --no-sandbox --disable-dev-shm-usage --disable-gpu \"$@\"\n"
+	script := "#!/bin/sh\nexec " + real + " --no-sandbox --disable-dev-shm-usage --disable-gpu --disable-crash-reporter --crash-dumps-dir=" + filepath.Join(dir, "crashpad") + " \"$@\"\n"
 	if err := os.WriteFile(filepath.Join(dir, "headless_shell"), []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
