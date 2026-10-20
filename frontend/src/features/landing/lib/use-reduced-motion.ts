@@ -1,0 +1,20 @@
+"use client";
+
+import { useSyncExternalStore } from "react";
+
+const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
+
+function subscribe(onChange: () => void) {
+  const query = window.matchMedia(REDUCED_MOTION);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
+
+/** True when the visitor asks for less motion; the server assumes it does. */
+export function usePrefersReducedMotion() {
+  return useSyncExternalStore(
+    subscribe,
+    () => window.matchMedia(REDUCED_MOTION).matches,
+    () => true,
+  );
+}

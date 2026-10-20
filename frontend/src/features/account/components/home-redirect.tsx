@@ -8,9 +8,9 @@ import { useAuth } from "@/providers/auth-provider";
 import { useLocale } from "@/providers/locale-provider";
 
 /**
- * `/` has no content of its own: once the profile is fresh it sends the user
- * to their home (platform, their organization, the organization picker or
- * the "no access yet" page).
+ * The dispatch page (served at `/` for signed-in users, see `auth.ts`): once
+ * the profile is fresh it sends the user to their home (platform, their
+ * organization, the organization picker or the "no access yet" page).
  */
 export function HomeRedirect() {
   const router = useRouter();

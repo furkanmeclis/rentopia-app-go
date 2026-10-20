@@ -45,7 +45,9 @@ function isGuestAuthPath(pathname: string) {
 }
 
 function isProtectedPath(pathname: string) {
-  if (pathname === routes.account.home) return true;
+  // `/` is the public landing page; signed-in visitors are rewritten to
+  // the dispatch page in `authorized` below.
+  if (pathname === routes.account.dispatch) return true;
   if (
     pathname === routes.account.profile.root ||
     pathname.startsWith(`${routes.account.profile.root}/`)
@@ -392,6 +394,13 @@ const authHandlers = NextAuth(async () => ({
   callbacks: {
     authorized({ auth, request }) {
       const { pathname } = request.nextUrl;
+      // Signed-in visitors never see the landing page: `/` serves the
+      // dispatch page (same URL), which sends them to their home.
+      if (pathname === routes.public.root && auth) {
+        const url = request.nextUrl.clone();
+        url.pathname = routes.account.dispatch;
+        return NextResponse.rewrite(url);
+      }
       if (!isProtectedPath(pathname) || auth) {
         return true;
       }
