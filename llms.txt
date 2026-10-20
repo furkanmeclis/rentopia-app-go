@@ -1,12 +1,13 @@
-# Next.js + Go Boilerplate
+# Rentopya
 
-Starter monorepo: Go HTTP API (`backend/`) + Next.js BFF (`frontend/`). No tenants or workspaces. Kept modules: auth, global RBAC, platform users/roles, notifications, realtime, queue, MinIO.
+Rentopya, a car rental management platform. Monorepo built on the Next.js + Go boilerplate: Go HTTP API (`backend/`) + Next.js BFF (`frontend/`). No tenants or workspaces. Kept modules: auth, global RBAC, platform users/roles, notifications, realtime, queue, MinIO.
 
 ## Start here
 
 - docs/ARCHITECTURE.md — repo map, shells, request flow
 - docs/DEVELOPMENT.md — env, local-dev, Dokploy
 - docs/EXTENDING.md — how to add a module
+- docs/brand.md — Rentopya brand kit, colors, logo usage
 - backend/API_CONVENTIONS.md — HTTP envelope and lists
 - backend/docs/auth.md — RBAC and JWT
 - frontend/README.md — BFF and panels
