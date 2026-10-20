@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"context"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/pdfrender"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/pdfrender/pdftest"
 	"github.com/google/uuid"
 )
 
@@ -49,18 +49,13 @@ func TestHTMLShowsTheInvoice(t *testing.T) {
 // PATH (the same no-sandbox launcher as the pdfrender test); hosts without
 // one skip.
 func TestPDFPrintsWithChromium(t *testing.T) {
-	real := ""
-	for _, name := range []string{"chromium", "chromium-browser", "google-chrome", "headless_shell"} {
-		if p, err := exec.LookPath(name); err == nil {
-			real = p
-			break
-		}
-	}
+	real := pdftest.Browser()
 	if real == "" {
 		t.Skip("no chromium on PATH")
 	}
 	dir := t.TempDir()
-	script := "#!/bin/sh\nexec " + real + " --no-sandbox --disable-dev-shm-usage --disable-gpu \"$@\"\n"
+	script := pdftest.Launcher(dir, real)
+	t.Logf("browser: %s", real)
 	if err := os.WriteFile(filepath.Join(dir, "headless_shell"), []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
