@@ -233,7 +233,7 @@ func Codes() []string {
 func SampleVars(lang string) map[string]string {
 	if lang == "en" {
 		return map[string]string{
-			"customer_name": "Jane Doe", "staff_name": "Alex Smith", "organization_name": "Rentopia Demo",
+			"customer_name": "Jane Doe", "staff_name": "Alex Smith", "organization_name": "Rentopya Demo",
 			"reference": "R-2026-000123", "pickup_at": "18.10.2026 10:00", "pickup_branch": "Airport",
 			"return_at": "21.10.2026 10:00", "return_branch": "Airport", "payment_deadline": "17.10.2026 18:00",
 			"invoice_number": "RNT2026000000042", "due_date": "25.10.2026", "task_type": "Handover",
@@ -241,7 +241,7 @@ func SampleVars(lang string) map[string]string {
 		}
 	}
 	return map[string]string{
-		"customer_name": "Ayşe Yılmaz", "staff_name": "Mehmet Kaya", "organization_name": "Rentopia Demo",
+		"customer_name": "Ayşe Yılmaz", "staff_name": "Mehmet Kaya", "organization_name": "Rentopya Demo",
 		"reference": "R-2026-000123", "pickup_at": "18.10.2026 10:00", "pickup_branch": "Havalimanı",
 		"return_at": "21.10.2026 10:00", "return_branch": "Havalimanı", "payment_deadline": "17.10.2026 18:00",
 		"invoice_number": "RNT2026000000042", "due_date": "25.10.2026", "task_type": "Teslim",

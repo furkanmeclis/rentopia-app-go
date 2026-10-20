@@ -41,7 +41,7 @@ The tenant shell has no step-up policy yet (the step-up engine guards platform r
 
 ### 3.1 Provider layer
 
-`payments.Provider` = `integrations.Adapter` + `CreateCheckout` (hosted 3DS checkout / pay-with-provider page), `Retrieve` (read and verify a checkout result), `Refund` (partial / full), `ParseWebhook` and `VerifyWebhook`. `PreAuthorizer` (`PreAuth`, `Capture`, `Void`) is the optional deposit flow. Since TEC-719 the iyzico adapter implements it with the Checkout Form's pre-auth variant (hosted, no card data), post-auth and cancel; pending sandbox verification ([deposits.md](./deposits.md) §5). **No card field ever exists in Rentopia**: the customer pays on iyzico's Checkout Form page.
+`payments.Provider` = `integrations.Adapter` + `CreateCheckout` (hosted 3DS checkout / pay-with-provider page), `Retrieve` (read and verify a checkout result), `Refund` (partial / full), `ParseWebhook` and `VerifyWebhook`. `PreAuthorizer` (`PreAuth`, `Capture`, `Void`) is the optional deposit flow. Since TEC-719 the iyzico adapter implements it with the Checkout Form's pre-auth variant (hosted, no card data), post-auth and cancel; pending sandbox verification ([deposits.md](./deposits.md) §5). **No card field ever exists in Rentopya**: the customer pays on iyzico's Checkout Form page.
 
 ### 3.2 iyzico adapter
 

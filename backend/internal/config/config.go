@@ -318,7 +318,7 @@ func Load() (Config, error) {
 			Username: getEnv("SMTP_USERNAME", ""),
 			Password: getEnv("SMTP_PASSWORD", ""),
 			From:     firstNonEmpty(getEnv("MAIL_FROM", ""), getEnv("SMTP_FROM", "noreply@localhost")),
-			FromName: getEnv("MAIL_FROM_NAME", "App"),
+			FromName: getEnv("MAIL_FROM_NAME", "Rentopya"),
 		},
 		Queue: QueueConfig{
 			Enabled:         getBool("QUEUE_ENABLED", true),
@@ -423,6 +423,11 @@ func Load() (Config, error) {
 }
 
 // Development-only fallbacks. validate() rejects them outside development.
+// ProductName is the user-visible product name: the passkey prompt's relying
+// party name and the authenticator app's TOTP issuer. APP_NAME stays the
+// technical service name used in logs.
+const ProductName = "Rentopya"
+
 const (
 	defaultEncryptionKey       = "app-dev-encryption-key-32bytes!!"
 	defaultAdapterSecret       = "app-dev-auth-adapter-secret-change-me"

@@ -16,7 +16,7 @@
 #   rename with  @rename OLD NEW <version>,  retire with  @remove KEY <version>.
 #   Never change the rule of an existing secret: running installs keep theirs anyway.
 
-@version 7
+@version 8
 
 # --- Identity / Docker ---
 NAME_PREFIX | const:rentopia
@@ -71,7 +71,7 @@ LOG_LEVEL | const:info
 
 # --- Mail (fill in to send e-mail) ---
 MAIL_FROM | derive:noreply@{APP_HOST}
-MAIL_FROM_NAME | const:Rentopia
+MAIL_FROM_NAME | const:Rentopya
 SMTP_HOST | empty
 SMTP_PORT | const:587
 SMTP_USERNAME | empty

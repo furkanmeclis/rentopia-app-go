@@ -7,6 +7,7 @@ Human and agent entry points for this boilerplate. Prefer these files over lefto
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Anyone new to the repo |
 | [DEVELOPMENT.md](./DEVELOPMENT.md) | Local setup and production |
 | [EXTENDING.md](./EXTENDING.md) | Adding a feature on top of the starter |
+| [brand.md](./brand.md) | Rentopya logos, colours, kept `rentopia` identifiers |
 | [../AGENTS.md](../AGENTS.md) | Agent skill index |
 | [../CONTRIBUTING.md](../CONTRIBUTING.md) | Day-to-day contribution rules |
 | [../backend/README.md](../backend/README.md) | Go API |

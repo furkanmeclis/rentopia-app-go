@@ -67,7 +67,7 @@ Login: http://localhost:3000/platform/login
 
 ## Branding
 
-Swap name and colors in `frontend/src/config/brand.ts` and the CSS tokens in the frontend theme. Default product name is **App**.
+The product is **Rentopya**: name and colors in `frontend/src/config/brand.ts`, CSS tokens in `frontend/src/styles/theme.css`, logos in `frontend/src/components/brand/`. Brand kit, usage rules and the identifiers that intentionally stay `rentopia`: [brand.md](./brand.md).
 
 ## VAPID (optional Web Push)
 

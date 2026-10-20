@@ -65,7 +65,7 @@
   "links.statuses.expired": "Süresi doldu",
   "links.statuses.cancelled": "İptal edildi",
   "links.create_title": "Ödeme linki oluştur",
-  "links.create_description": "Müşteri iyzico'nun güvenli ödeme sayfasında (3D Secure) öder; kart bilgisi Rentopia'ya ulaşmaz.",
+  "links.create_description": "Müşteri iyzico'nun güvenli ödeme sayfasında (3D Secure) öder; kart bilgisi Rentopya'ya ulaşmaz.",
   "links.amount_hint": "Kalan kira: {{balance}}",
   "links.create_failed": "Ödeme linki oluşturulamadı.",
   "links.created_title": "Ödeme linki hazır",

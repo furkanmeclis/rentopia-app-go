@@ -1,7 +1,7 @@
 {
-  "app_name": "App",
-  "app_product": "Admin",
-  "app_tagline": "Platform yönetim konsolu",
+  "app_name": "Rentopya",
+  "app_product": "Rentopya",
+  "app_tagline": "Araç kiralama yönetim platformu",
   "loading": "Yükleniyor…",
   "soon": "Yakında",
   "logout": "Çıkış",

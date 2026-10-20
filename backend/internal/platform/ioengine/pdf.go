@@ -170,13 +170,13 @@ func logoImageType(mime string) string {
 }
 
 func parseRGB(lh *Letterhead, _ bool) (int, int, int) {
-	c := "#0F172A"
+	c := "#2E358C" // Rentopya indigo
 	if lh != nil && lh.PrimaryColor != "" {
 		c = lh.PrimaryColor
 	}
 	c = strings.TrimPrefix(strings.TrimSpace(c), "#")
 	if len(c) != 6 {
-		return 15, 23, 42
+		return 46, 53, 140
 	}
 	var r, g, b int
 	_, _ = fmt.Sscanf(c, "%02x%02x%02x", &r, &g, &b)

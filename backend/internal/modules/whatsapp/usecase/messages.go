@@ -164,7 +164,7 @@ func (s *Service) TestSend(ctx context.Context, orgID int64, in model.TestInput)
 	}
 	sent, err := s.SendText(ctx, orgID, SendInput{
 		Purpose: "test", Phone: in.Phone, Test: true,
-		Body: "Rentopia: WhatsApp bağlantınız çalışıyor. / Your WhatsApp connection works.",
+		Body: "Rentopya: WhatsApp bağlantınız çalışıyor. / Your WhatsApp connection works.",
 	})
 	if err != nil {
 		return model.Message{}, err

@@ -1,6 +1,6 @@
-# Next.js + Go Boilerplate
+# Rentopya
 
-Starter monorepo for an authenticated admin + organization product: Go HTTP API, Next.js BFF frontend, and Docker infra. Domain product modules (tenants, workspaces, CRM, inbox, commerce, AI, tickets) are stripped. What remains is the platform you build on.
+Rentopya is a car rental management platform. It is built on the Next.js + Go boilerplate, a monorepo for an authenticated admin + organization product: Go HTTP API, Next.js BFF frontend, and Docker infra. Domain product modules (tenants, workspaces, CRM, inbox, commerce, AI, tickets) are stripped. What remains is the platform you build on.
 
 | Path | Role |
 |------|------|
@@ -8,7 +8,7 @@ Starter monorepo for an authenticated admin + organization product: Go HTTP API,
 | [`frontend/`](./frontend) | Next.js App Router BFF (`/platform` + organizations `/t/{slug}`) |
 | [`compose.local.yml`](./compose.local.yml) | Local infra only |
 | [`compose.prod.yml`](./compose.prod.yml) | Full stack + Dokploy network |
-| [`docs/`](./docs) | Architecture, local/prod setup, how to extend |
+| [`docs/`](./docs) | Architecture, local/prod setup, how to extend, [brand kit](./docs/brand.md) |
 | [`AGENTS.md`](./AGENTS.md) | Agent skill index |
 
 ## What you get

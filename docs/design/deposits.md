@@ -103,7 +103,7 @@ Only operations iyzico offers are used, behind `payments.PreAuthorizer`:
 
 | Step | Endpoint |
 |------|----------|
-| Open the hold | `POST /payment/iyzipos/checkoutform/initialize/preauth/ecom`: the Checkout Form's pre-auth variant, so no card data reaches Rentopia. The direct `/payment/preauth` needs card fields on the merchant side and is not used. |
+| Open the hold | `POST /payment/iyzipos/checkoutform/initialize/preauth/ecom`: the Checkout Form's pre-auth variant, so no card data reaches Rentopya. The direct `/payment/preauth` needs card fields on the merchant side and is not used. |
 | Confirm | `POST /payment/iyzipos/checkoutform/auth/ecom/detail` (the same retrieve as payments) |
 | Capture | `POST /payment/postauth` with `paymentId` and `paidPrice` (at most the held amount, once) |
 | Release | `POST /payment/cancel`. iyzico has no other way to drop a pre-auth. |
