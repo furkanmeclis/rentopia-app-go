@@ -1,5 +1,5 @@
 /*
- * Rentopia booking widget loader (TEC-732).
+ * Rentopya booking widget loader (TEC-732).
  *
  *   <script src="https://{site}/widget.js" async
  *           data-key="rtp_pk_…" data-branch="{uuid}" data-subgroup="{uuid}"

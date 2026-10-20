@@ -25,7 +25,7 @@ Unsupported operations answer `integrations.ErrUnsupported`. One active account 
 
 ### Yolcu360
 
-Rentopia needs the supplier (fleet publishing) protocol, not the public Agency API. The adapter implements the contract as documented so far (REST/JSON, `X-Api-Key` + HMAC-SHA256 signature over timestamp, method, path and body; inventory PUT, booking-events GET + ack, statements GET, ping). Hosts default to the sandbox / live hosts in the package and can be overridden per account (`base_url`) during onboarding. Classification: connection refused / DNS → `ErrUnavailable`, 4xx → `ErrRejected`, timeouts and 5xx → unknown (the next push replaces it; pulls are read only).
+Rentopya needs the supplier (fleet publishing) protocol, not the public Agency API. The adapter implements the contract as documented so far (REST/JSON, `X-Api-Key` + HMAC-SHA256 signature over timestamp, method, path and body; inventory PUT, booking-events GET + ack, statements GET, ping). Hosts default to the sandbox / live hosts in the package and can be overridden per account (`base_url`) during onboarding. Classification: connection refused / DNS → `ErrUnavailable`, 4xx → `ErrRejected`, timeouts and 5xx → unknown (the next push replaces it; pulls are read only).
 
 **To be confirmed in writing with Yolcu360 (TEC-680):** connection direction (supplier or distributor), who generates product codes, model guarantee support, availability format (count / offer / open-closed), where the booking becomes final, retry / timeout / cancellation rules, stop-sale and disconnection behaviour. Until then `yolcu360_fake` (outside production only; `scenario` = ok / outage / reject) is the tested path.
 

@@ -384,7 +384,7 @@ func (s *Service) TestSend(ctx context.Context, orgID int64, account uuid.UUID, 
 	}
 	return s.Send(ctx, orgID, SendInput{
 		Class: sms.ClassTransactional, Purpose: "integration_test", Phone: phone,
-		Body: "Rentopia SMS bağlantı testi. Bu mesajı aldıysanız SMS hesabınız çalışıyor.", AccountUUID: &account,
+		Body: "Rentopya SMS bağlantı testi. Bu mesajı aldıysanız SMS hesabınız çalışıyor.", AccountUUID: &account,
 		RefType: "integration_account", RefUUID: &account,
 	})
 }

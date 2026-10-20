@@ -65,7 +65,7 @@
   "links.statuses.expired": "Expired",
   "links.statuses.cancelled": "Cancelled",
   "links.create_title": "Create payment link",
-  "links.create_description": "The customer pays on iyzico's secure page (3D Secure); card data never reaches Rentopia.",
+  "links.create_description": "The customer pays on iyzico's secure page (3D Secure); card data never reaches Rentopya.",
   "links.amount_hint": "Remaining rent: {{balance}}",
   "links.create_failed": "The payment link could not be created.",
   "links.created_title": "Payment link ready",

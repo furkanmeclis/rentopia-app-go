@@ -15,7 +15,7 @@ export default async function EmbedLayout({
         <WidgetBridge domains={site.config.widget?.allowed_domains ?? []} />
       </Suspense>
       {children}
-      <footer className="rt-embed-credit">Rentopia</footer>
+      <footer className="rt-embed-credit">Rentopya</footer>
     </div>
   );
 }

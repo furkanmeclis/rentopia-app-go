@@ -8574,7 +8574,7 @@ export interface paths {
         put?: never;
         /**
          * Start the hosted checkout
-         * @description No auth; rate-limited per IP and token. Opens the provider's hosted 3DS checkout (iyzico Checkout Form) on the organization's active account and returns its URL. No card data reaches Rentopia.
+         * @description No auth; rate-limited per IP and token. Opens the provider's hosted 3DS checkout (iyzico Checkout Form) on the organization's active account and returns its URL. No card data reaches Rentopya.
          */
         post: operations["postPublicPayCheckout"];
         delete?: never;
@@ -12158,7 +12158,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Channel vs Rentopia reconciliation report
+         * Channel vs Rentopya reconciliation report
          * @description `tenant.channels.read`. Bookings picked up in the period: the channel's statement (`source = statement`,
          *     when the adapter has one; otherwise `local`, the last message of each booking) against the channel bookings
          *     and their reservations. Each line is `matched`, `missing_local`, `missing_channel`, `status_mismatch`,
@@ -19171,7 +19171,7 @@ export interface components {
         TenantContext: {
             organization: components["schemas"]["TenantOrganization"];
             /**
-             * @description Caller's primary tenant role key in this organization (`owner`, `admin`, `member`, a Rentopia template or a custom key)
+             * @description Caller's primary tenant role key in this organization (`owner`, `admin`, `member`, a Rentopya template or a custom key)
              * @example owner
              */
             role: string;

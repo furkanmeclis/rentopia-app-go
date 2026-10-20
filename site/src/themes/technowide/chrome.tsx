@@ -371,7 +371,7 @@ export async function Footer({ ctx }: { ctx: Ctx }) {
             © {new Date().getFullYear()} {site.organization.name}.{" "}
             {t("footer.rights")}
           </small>
-          <span className="tw-footer-credit">Rentopia</span>
+          <span className="tw-footer-credit">Rentopya</span>
         </div>
       </div>
     </footer>

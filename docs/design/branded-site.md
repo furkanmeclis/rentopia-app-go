@@ -278,7 +278,7 @@ TEC-731 tests in `backend/internal/modules/site/domains_test.go` cover fake DNS 
 
 ## 9. Embeddable booking widget (TEC-732)
 
-The same site image serves `/embed`, `/embed/search`, `/embed/book/{quote}`, `/embed/book/{quote}/details`, `/embed/reservation/{reference}` and `/embed/pay`. Search, results, extras, customer details and confirmation reuse the normal site's components, pages, actions and public API client. The compact layout omits the site header/footer and analytics and includes a small Rentopia credit. Turkish and English remain available. The iframe **must use the organization's site origin**, either its subdomain or a verified custom domain; there is no central widget host and no key-to-host discovery endpoint.
+The same site image serves `/embed`, `/embed/search`, `/embed/book/{quote}`, `/embed/book/{quote}/details`, `/embed/reservation/{reference}` and `/embed/pay`. Search, results, extras, customer details and confirmation reuse the normal site's components, pages, actions and public API client. The compact layout omits the site header/footer and analytics and includes a small Rentopya credit. Turkish and English remain available. The iframe **must use the organization's site origin**, either its subdomain or a verified custom domain; there is no central widget host and no key-to-host discovery endpoint.
 
 ### 9.1 Exact loader / panel contract
 
@@ -1066,7 +1066,7 @@ the band (background on foreground), readable with any palette.
 ### 16.5 Intentionally not ported
 
 Per `template-studio/docs/AURUM-MIGRATION.md` the studio's Aurum contains a
-mock journey. None of it was ported; Rentopia's real pages are used,
+mock journey. None of it was ported; Rentopya's real pages are used,
 styled in Aurum:
 
 - the vehicle detail / extras page with the gallery, **sample insurance
