@@ -1,0 +1,10 @@
+node_modules/
+renders/
+output/
+out/
+.hyperframes/
+.cache/
+*.mp4
+*.webm
+*.mov
+snapshots/

@@ -1,0 +1,871 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>Rentopya hero loop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      :root {
+        --ink: #141527;
+        --indigo: #2e358c;
+        --indigo-2: #5a62c4;
+        --indigo-3: #8e95ec;
+        --tint: #eceef9;
+        --tint-2: #f4f5fb;
+        --line: #e3e5f1;
+        --muted: #5d6079;
+        --bg: #f6f7fc;
+        --ok: #157a4a;
+        --ok-bg: #e3f4ea;
+        --warn: #8a5a00;
+        --warn-bg: #fbf0d9;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: var(--bg);
+      }
+      #root {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: "Plus Jakarta Sans", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* ---------- background ---------- */
+      .bg-grid {
+        position: absolute;
+        left: -96px;
+        top: -96px;
+        width: 2112px;
+        height: 1272px;
+        background-image: radial-gradient(circle, #d9dcef 1.6px, transparent 1.8px);
+        background-size: 48px 48px;
+        opacity: 0.75;
+      }
+      .bg-fade {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+          ellipse 62% 70% at 50% 50%,
+          var(--bg) 40%,
+          rgba(246, 247, 252, 0.6) 70%,
+          rgba(246, 247, 252, 0) 100%
+        );
+      }
+      .bg-rule {
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: var(--line);
+      }
+
+      /* ---------- shared ---------- */
+      .scene {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .card {
+        position: relative;
+        background: #ffffff;
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        box-shadow:
+          0 1px 2px rgba(20, 21, 39, 0.04),
+          0 24px 60px -24px rgba(20, 21, 39, 0.16);
+      }
+      .eyebrow {
+        font-size: 20px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--indigo-2);
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        height: 40px;
+        padding: 0 18px;
+        border-radius: 999px;
+        font-size: 20px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .chip .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      .chip-indigo {
+        background: var(--tint);
+        color: var(--indigo);
+      }
+      .chip-ok {
+        background: var(--ok-bg);
+        color: var(--ok);
+      }
+      .chip-warn {
+        background: var(--warn-bg);
+        color: var(--warn);
+      }
+      .chip-ghost {
+        border: 1px solid var(--line);
+        color: var(--muted);
+        background: #fff;
+      }
+      .plate {
+        display: inline-block;
+        font-weight: 700;
+        font-size: 22px;
+        letter-spacing: 0.04em;
+        color: var(--ink);
+        border: 1.5px solid var(--ink);
+        border-radius: 7px;
+        padding: 2px 10px 2px 10px;
+        line-height: 1.3;
+      }
+
+      /* ---------- scene 1: fleet calendar ---------- */
+      #cal {
+        width: 1440px;
+        padding: 40px 44px 44px;
+      }
+      .cal-head {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        margin-bottom: 30px;
+      }
+      .cal-title {
+        font-size: 40px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin-top: 8px;
+      }
+      .cal-tools {
+        display: flex;
+        gap: 12px;
+      }
+      .cal-grid {
+        position: relative;
+        display: grid;
+        grid-template-columns: 340px repeat(7, 1fr);
+        border-top: 1px solid var(--line);
+      }
+      .cal-day {
+        height: 72px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        color: var(--muted);
+        font-weight: 500;
+        border-left: 1px solid var(--line);
+      }
+      .cal-day b {
+        font-size: 26px;
+        color: var(--ink);
+        font-weight: 700;
+      }
+      .cal-day.today b {
+        color: var(--indigo);
+      }
+      .cal-corner {
+        height: 72px;
+        display: flex;
+        align-items: center;
+        font-size: 20px;
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .cal-row {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: 340px repeat(7, 1fr);
+        height: 104px;
+        border-top: 1px solid var(--line);
+        position: relative;
+      }
+      .cal-veh {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 8px;
+      }
+      .cal-veh .model {
+        font-size: 20px;
+        color: var(--muted);
+        font-weight: 500;
+      }
+      .cal-cell {
+        border-left: 1px solid var(--line);
+      }
+      .bar-track {
+        position: absolute;
+        top: 22px;
+        bottom: 22px;
+        left: 340px;
+        right: 0;
+      }
+      .bar {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        padding: 0 20px;
+        font-size: 20px;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        transform-origin: left center;
+      }
+      .bar-solid {
+        background: var(--indigo);
+        color: #fff;
+      }
+      .bar-soft {
+        background: var(--tint);
+        color: var(--indigo);
+        border: 1px solid #d5d8f1;
+      }
+      .bar-warn {
+        background: var(--warn-bg);
+        color: var(--warn);
+      }
+      .bar-free {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        display: flex;
+        align-items: center;
+      }
+      .today-line {
+        position: absolute;
+        top: 72px;
+        bottom: 0;
+        width: 2px;
+        background: var(--indigo-2);
+        transform-origin: top center;
+      }
+      .today-line::before {
+        content: "";
+        position: absolute;
+        top: -6px;
+        left: -5px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--indigo-2);
+      }
+
+      /* ---------- scene 2: flow ---------- */
+      #flow {
+        width: 1500px;
+        padding: 44px 48px 52px;
+      }
+      .flow-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        margin-bottom: 40px;
+      }
+      .flow-title {
+        font-size: 40px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin-top: 8px;
+      }
+      .flow-steps {
+        position: relative;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 72px;
+      }
+      .step {
+        position: relative;
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        padding: 30px 30px 32px;
+        background: #fff;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+      }
+      .step-top {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 22px;
+      }
+      .step-ico {
+        width: 56px;
+        height: 56px;
+        border-radius: 16px;
+        background: var(--tint);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: none;
+      }
+      .step-name {
+        font-size: 28px;
+        font-weight: 700;
+      }
+      .step-ref {
+        font-size: 20px;
+        color: var(--muted);
+        font-weight: 500;
+      }
+      .step-line {
+        display: flex;
+        justify-content: space-between;
+        font-size: 21px;
+        padding: 12px 0;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+      }
+      .step-line b {
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .step-amount {
+        font-size: 44px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        margin: 4px 0 14px;
+      }
+      .step-status {
+        position: relative;
+        height: 40px;
+        margin-top: auto;
+        padding-top: 18px;
+        box-sizing: content-box;
+      }
+      .step-status .chip {
+        position: absolute;
+        left: 0;
+        top: 18px;
+      }
+      .connector {
+        position: absolute;
+        top: 58px;
+        height: 2px;
+        background: var(--indigo-3);
+        transform-origin: left center;
+        z-index: 0;
+      }
+
+      /* ---------- scene 3: booking site ---------- */
+      #site {
+        width: 1440px;
+        padding-bottom: 56px;
+        overflow: hidden;
+      }
+      .browser-bar {
+        height: 68px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 26px;
+        border-bottom: 1px solid var(--line);
+        background: var(--tint-2);
+      }
+      .browser-bar .b-dot {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #d6d8e6;
+      }
+      .url {
+        margin-left: 24px;
+        height: 40px;
+        width: 560px;
+        border-radius: 12px;
+        background: #fff;
+        border: 1px solid var(--line);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 18px;
+        font-size: 20px;
+        color: var(--muted);
+        font-weight: 500;
+      }
+      .site-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 30px 60px;
+      }
+      .tenant {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        font-size: 28px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+      .tenant-mark {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        background: var(--ink);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        font-weight: 800;
+      }
+      .site-links {
+        display: flex;
+        gap: 40px;
+        font-size: 21px;
+        font-weight: 600;
+        color: var(--muted);
+      }
+      .site-hero {
+        padding: 22px 60px 0;
+      }
+      .site-h1 {
+        font-size: 60px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1.08;
+        max-width: 900px;
+      }
+      .site-sub {
+        margin-top: 14px;
+        font-size: 24px;
+        color: var(--muted);
+        font-weight: 500;
+      }
+      .search {
+        margin-top: 36px;
+        display: grid;
+        grid-template-columns: 1.4fr 1fr 1fr auto;
+        gap: 16px;
+        padding: 16px;
+        border-radius: 22px;
+        background: var(--tint-2);
+        border: 1px solid var(--line);
+      }
+      .field {
+        background: #fff;
+        border: 1px solid #e3e5f1;
+        box-shadow: 0 0 0 0px rgba(90, 98, 196, 0);
+        border-radius: 14px;
+        padding: 14px 20px;
+        height: 88px;
+      }
+      .field label {
+        display: block;
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+      .field .val {
+        font-size: 23px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .field.active {
+        border-color: var(--indigo-2);
+        box-shadow: 0 0 0 4px rgba(90, 98, 196, 0.14);
+      }
+      .btn {
+        height: 88px;
+        padding: 0 40px;
+        border-radius: 14px;
+        background: var(--indigo);
+        color: #fff;
+        font-size: 24px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .results {
+        margin-top: 28px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+      }
+      .car {
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        padding: 18px 22px;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        background: #fff;
+      }
+      .car-pic {
+        width: 112px;
+        height: 64px;
+        border-radius: 12px;
+        background: var(--tint-2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: none;
+      }
+      .car-name {
+        font-size: 22px;
+        font-weight: 700;
+      }
+      .car-meta {
+        font-size: 19px;
+        color: var(--muted);
+        font-weight: 500;
+        margin-top: 2px;
+      }
+      .car-price {
+        margin-top: 8px;
+        font-size: 24px;
+        font-weight: 800;
+        color: var(--indigo);
+        white-space: nowrap;
+      }
+      .car-price small {
+        display: inline;
+        font-size: 18px;
+        color: var(--muted);
+        font-weight: 500;
+      }
+
+      /* ---------- scene 4: wordmark ---------- */
+      .brand-wrap {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+      }
+      #logo {
+        display: block;
+        width: 640px;
+        height: 229px;
+        overflow: visible;
+      }
+      .tagline {
+        font-size: 34px;
+        font-weight: 500;
+        color: var(--muted);
+        letter-spacing: -0.01em;
+      }
+      .tagline b {
+        color: var(--ink);
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="16"
+      data-width="1920"
+      data-height="1080"
+    >
+      <!-- background -->
+      <div class="bg-grid" id="bgGrid"></div>
+      <div class="bg-fade"></div>
+
+      <!-- ============ SCENE 1: fleet calendar ============ -->
+      <section class="scene" id="s1">
+        <div class="card" id="cal">
+          <div class="cal-head">
+            <div>
+              <div class="eyebrow">Filo</div>
+              <div class="cal-title">Müsaitlik takvimi</div>
+            </div>
+            <div class="cal-tools">
+              <span class="chip chip-ghost">Tüm şubeler</span>
+              <span class="chip chip-indigo"><span class="dot"></span>12 araç · 9 kirada</span>
+            </div>
+          </div>
+          <div class="cal-grid" id="calGrid">
+            <div class="cal-corner">Araç</div>
+            <div class="cal-day">Pzt <b>10</b></div>
+            <div class="cal-day">Sal <b>11</b></div>
+            <div class="cal-day today">Çar <b>12</b></div>
+            <div class="cal-day">Per <b>13</b></div>
+            <div class="cal-day">Cum <b>14</b></div>
+            <div class="cal-day">Cmt <b>15</b></div>
+            <div class="cal-day">Paz <b>16</b></div>
+
+            <div class="today-line" id="todayLine" style="left: calc(340px + (100% - 340px) / 7 * 2.5)"></div>
+            <div class="cal-row">
+              <div class="cal-veh"><span><span class="plate">34 ABC 123</span></span><span class="model">Renault Clio · Otomatik</span></div>
+              <div class="cal-cell"></div><div class="cal-cell"></div><div class="cal-cell"></div><div class="cal-cell"></div><div class="cal-cell"></div><div class="cal-cell"></div><div class="cal-cell"></div>
+              <div class="bar-track">
+                <div class="bar bar-solid" style="left: calc(100% / 7 * 2 + 6px); width: calc(100% / 7 * 3 - 12px)">Rezervasyon · 3 gün</div>
+              </div>
+            </div>
+            <div class="cal-row">
+              <div class="cal-veh"><span><span class="plate">06 DRN 482</span></span><span class="model">Fiat Egea · Manuel</span></div>
+              <div class="cal-cell"></div><div class="cal-cell"></div><div class="cal-cell"></div><div class="cal-cell"></div><div class="cal-cell"></div><div class="cal-cell"></div><div class="cal-cell"></div>
+              <div class="bar-track">
+                <div class="bar bar-soft" style="left: 6px; width: calc(100% / 7 * 4 - 12px)">Kirada · İade Per</div>
+                <div class="bar bar-solid" style="left: calc(100% / 7 * 5 + 6px); width: calc(100% / 7 * 2 - 12px)">Rezervasyon</div>
+              </div>
+            </div>
+            <div class="cal-row">
+              <div class="cal-veh"><span><span class="plate">35 KLM 907</span></span><span class="model">Toyota Corolla · Otomatik</span></div>
+              <div class="cal-cell"></div><div class="cal-cell"></div><div class="cal-cell"></div><div class="cal-cell"></div><div class="cal-cell"></div><div class="cal-cell"></div><div class="cal-cell"></div>
+              <div class="bar-track">
+                <div class="bar-free" style="left: calc(100% / 7 * 0 + 14px)"><span class="chip chip-ok"><span class="dot"></span>Müsait</span></div>
+                <div class="bar bar-solid" style="left: calc(100% / 7 * 3 + 6px); width: calc(100% / 7 * 4 - 12px)">Rezervasyon · 4 gün</div>
+              </div>
+            </div>
+            <div class="cal-row">
+              <div class="cal-veh"><span><span class="plate">34 RNT 215</span></span><span class="model">VW Passat · Otomatik</span></div>
+              <div class="cal-cell"></div><div class="cal-cell"></div><div class="cal-cell"></div><div class="cal-cell"></div><div class="cal-cell"></div><div class="cal-cell"></div><div class="cal-cell"></div>
+              <div class="bar-track">
+                <div class="bar bar-warn" style="left: calc(100% / 7 * 1 + 6px); width: calc(100% / 7 * 2 - 12px)">Bakım</div>
+                <div class="bar-free" style="left: calc(100% / 7 * 3 + 14px)"><span class="chip chip-ok"><span class="dot"></span>Müsait</span></div>
+              </div>
+            </div>
+            <div class="cal-row">
+              <div class="cal-veh"><span><span class="plate">16 BRS 064</span></span><span class="model">Dacia Duster · Manuel</span></div>
+              <div class="cal-cell"></div><div class="cal-cell"></div><div class="cal-cell"></div><div class="cal-cell"></div><div class="cal-cell"></div><div class="cal-cell"></div><div class="cal-cell"></div>
+              <div class="bar-track">
+                <div class="bar bar-soft" style="left: 6px; width: calc(100% / 7 * 2 - 12px)">Kirada</div>
+                <div class="bar bar-solid" style="left: calc(100% / 7 * 2 + 6px); width: calc(100% / 7 * 5 - 12px)">Rezervasyon · Uzun dönem</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SCENE 2: reservation -> agreement -> payment ============ -->
+      <section class="scene" id="s2">
+        <div class="card" id="flow">
+          <div class="flow-head">
+            <div>
+              <div class="eyebrow">Rezervasyon akışı</div>
+              <div class="flow-title">RZ-2481 · 34 ABC 123</div>
+            </div>
+            <span class="chip chip-ghost">12–15 Kasım · 3 gün</span>
+          </div>
+          <div class="flow-steps" id="steps">
+            <div class="connector" id="con1" style="left: 420px; width: 72px"></div>
+            <div class="connector" id="con2" style="left: 912px; width: 72px"></div>
+
+            <div class="step" id="st1">
+              <div class="step-top">
+                <div class="step-ico">
+                  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#2E358C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+                </div>
+                <div><div class="step-name">Rezervasyon</div><div class="step-ref">Web sitesi · 09:42</div></div>
+              </div>
+              <div class="step-line"><span>Araç</span><b>Renault Clio</b></div>
+              <div class="step-line"><span>Alış</span><b>İstanbul Havalimanı</b></div>
+              <div class="step-status" data-layout-allow-overlap><span class="chip chip-indigo" id="c1"><span class="dot"></span>Onaylandı</span></div>
+            </div>
+
+            <div class="step" id="st2">
+              <div class="step-top">
+                <div class="step-ico">
+                  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#2E358C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>
+                </div>
+                <div><div class="step-name">Sözleşme</div><div class="step-ref">SZ-1093</div></div>
+              </div>
+              <div class="step-line"><span>Teslim</span><b>12 Kas · 10:00</b></div>
+              <div class="step-line"><span>İmza</span><b>Dijital</b></div>
+              <div class="step-status" data-layout-allow-overlap>
+                <span class="chip chip-warn" id="c2a"><span class="dot"></span>İmza bekliyor</span>
+                <span class="chip chip-ok" id="c2b">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+                  İmzalandı
+                </span>
+              </div>
+            </div>
+
+            <div class="step" id="st3">
+              <div class="step-top">
+                <div class="step-ico">
+                  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#2E358C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M2.5 10h19M6.5 15h4"/></svg>
+                </div>
+                <div><div class="step-name">Tahsilat</div><div class="step-ref">Kredi kartı · 3D Secure</div></div>
+              </div>
+              <div class="step-amount">₺ <span id="amount">7.450</span>,00</div>
+              <div class="step-status" data-layout-allow-overlap>
+                <span class="chip chip-warn" id="c3a"><span class="dot"></span>Bekliyor</span>
+                <span class="chip chip-ok" id="c3b">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+                  Ödendi
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SCENE 3: tenant booking site ============ -->
+      <section class="scene" id="s3">
+        <div class="card" id="site">
+          <div class="browser-bar">
+            <span class="b-dot"></span><span class="b-dot"></span><span class="b-dot"></span>
+            <div class="url">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5D6079" stroke-width="2.4" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+              demorent.example
+            </div>
+          </div>
+          <div class="site-nav">
+            <div class="tenant"><span class="tenant-mark">D</span>Demo Rent</div>
+            <div class="site-links"><span>Araçlar</span><span>Şubeler</span><span>Kampanyalar</span><span>İletişim</span></div>
+          </div>
+          <div class="site-hero">
+            <div class="site-h1" id="siteH1">Aracınızı dakikalar içinde ayırtın.</div>
+            <div class="site-sub" id="siteSub">Şeffaf fiyat, anında onay, online ödeme.</div>
+            <div class="search" id="search">
+              <div class="field" id="f1"><label>Alış yeri</label><div class="val" id="v1">İstanbul Havalimanı</div></div>
+              <div class="field" id="f2"><label>Alış tarihi</label><div class="val" id="v2">12 Kas · 10:00</div></div>
+              <div class="field" id="f3"><label>İade tarihi</label><div class="val" id="v3">15 Kas · 10:00</div></div>
+              <div class="btn" id="btn">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+                Araç bul
+              </div>
+            </div>
+            <div class="results">
+              <div class="car" id="r1">
+                <div class="car-pic"><svg width="88" height="40" viewBox="0 0 88 40" fill="none"><path d="M6 28c0-5 3-8 8-9l12-9c3-2 6-3 10-3h14c4 0 7 1 10 4l8 8c8 1 14 4 14 9v3H6z" fill="#2E358C"/><circle cx="24" cy="31" r="6" fill="#141527" stroke="#fff" stroke-width="2.5"/><circle cx="66" cy="31" r="6" fill="#141527" stroke="#fff" stroke-width="2.5"/></svg></div>
+                <div><div class="car-name">Renault Clio</div><div class="car-meta">Ekonomi · Otomatik</div><div class="car-price">₺ 1.450 <small>/ gün</small></div></div>
+              </div>
+              <div class="car" id="r2">
+                <div class="car-pic"><svg width="88" height="40" viewBox="0 0 88 40" fill="none"><path d="M6 28c0-5 3-8 8-9l12-9c3-2 6-3 10-3h14c4 0 7 1 10 4l8 8c8 1 14 4 14 9v3H6z" fill="#5A62C4"/><circle cx="24" cy="31" r="6" fill="#141527" stroke="#fff" stroke-width="2.5"/><circle cx="66" cy="31" r="6" fill="#141527" stroke="#fff" stroke-width="2.5"/></svg></div>
+                <div><div class="car-name">Toyota Corolla</div><div class="car-meta">Orta sınıf · Hibrit</div><div class="car-price">₺ 2.100 <small>/ gün</small></div></div>
+              </div>
+              <div class="car" id="r3">
+                <div class="car-pic"><svg width="88" height="40" viewBox="0 0 88 40" fill="none"><path d="M6 27c0-5 3-7 8-8l10-10c3-2 6-3 10-3h18c4 0 7 1 9 4l7 9c8 1 14 3 14 8v4H6z" fill="#8E95EC"/><circle cx="24" cy="31" r="6" fill="#141527" stroke="#fff" stroke-width="2.5"/><circle cx="66" cy="31" r="6" fill="#141527" stroke="#fff" stroke-width="2.5"/></svg></div>
+                <div><div class="car-name">Dacia Duster</div><div class="car-meta">SUV · Manuel</div><div class="car-price">₺ 1.850 <small>/ gün</small></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SCENE 4: wordmark ============ -->
+      <section class="scene" id="s4">
+        <div class="brand-wrap">
+          <svg id="logo" viewBox="0 0 1536 550" xmlns="http://www.w3.org/2000/svg" aria-label="Rentopya">
+            <defs>
+              <clipPath id="lettersClip"><rect id="lettersClipRect" x="440" y="0" width="0" height="550" /></clipPath>
+            </defs>
+            <g id="logoMark"><path fill="#2e358c" fill-rule="evenodd" transform="translate(0 -389)" d="M304,674a80,80,0,0,0,0-160H123c5.586,61.13,39.655,63,67,63H297.5a19.5,19.5,0,0,1,0,39H178c-26.892,0-55.241,10.135-69,34s-19.909,57.331,13,91,46.276,48.077,57,59,19.116,15,34,15h49c6.73,0,13.716-.726,6-11s-89.062-95.013-98-104-8.279-26,8-26H304Zm3,30c8.938,8.987,86.284,89.726,94,100s0.73,11-6,11H346c-14.884,0-23.276-4.077-34-15s-70.3-71.128-103-105h66C282.183,695,298.062,695.013,307,704Z" /></g>
+            <g clip-path="url(#lettersClip)"><path id="logoLetters" fill="#141527" fill-rule="evenodd" transform="translate(0 -389)" d="M624.719,673.455C619.863,659.721,608.654,650,593,650c-15.382,0-28.258,10.643-33,24ZM661,699s0.308-9.957,0-16c-1.721-33.8-29.34-66-68-66a70,70,0,0,0,0,140c38.66,0,60.618-27.712,64-45H620s-10.742,12-27,12c-16.185,0-28.061-10.392-32.3-24.868L661,699m134-26c0-34.794-28.206-56-63-56s-63,21.206-63,56v81h37V678c0-15.1,10.533-25,27-25s25,13.9,25,27v74h37V673Zm153.5-20.5c19.606,0,35.5,15.446,35.5,34.5s-15.894,34.5-35.5,34.5S913,706.054,913,687,928.894,652.5,948.5,652.5Zm0-35.5c39.488,0,71.5,31.34,71.5,70s-32.012,70-71.5,70S877,725.66,877,687,909.012,617,948.5,617Zm419,35.5c19.61,0,35.5,15.446,35.5,34.5s-15.89,34.5-35.5,34.5S1332,706.054,1332,687,1347.89,652.5,1367.5,652.5ZM1402,754v-9c-9.78,7.017-22.04,12-34.5,12-39.49,0-71.5-31.34-71.5-70s32.01-70,71.5-70,70.5,31.34,70.5,70v67h-36ZM1163,620h40l31,77,31-77h40l-81,186h-39l29-66ZM874,754V720s-33,2.863-33-27V653h33V618H841V584H805V695C805,736.939,835.189,754,874,754Zm223.5-101.5c19.61,0,35.5,15.446,35.5,34.5s-15.89,34.5-35.5,34.5S1062,706.054,1062,687,1077.89,652.5,1097.5,652.5ZM1063,806V746c10.21,5.708,21.77,11,34.5,11,39.49,0,71.5-31.34,71.5-70s-32.01-70-71.5-70-70.5,31.34-70.5,70V806h36ZM473,754V687c0-19.939,10.839-34,33-34h18V620H503c-15.274,0-66,2.9-66,58v76h36Z" /></g>
+          </svg>
+          <div class="tagline" id="tagline">Araç kiralama işiniz, <b>tek panelde.</b></div>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      const tl = gsap.timeline({ paused: true });
+      const E_IN = "power3.out";
+      const E_OUT = "power2.in";
+      const E_SOFT = "power2.inOut";
+
+      // ---------- background: drift exactly one tile over the loop ----------
+      tl.fromTo("#bgGrid", { x: 0, y: 0 }, { x: 48, y: 48, duration: 16, ease: "none" }, 0);
+
+      // ---------- initial states (t = 0 == loop seam) ----------
+      gsap.set(["#s2", "#s3", "#s4"], { opacity: 0 });
+      gsap.set("#s1 .bar, #s1 .bar-free", { scaleX: 0, opacity: 0 });
+      gsap.set("#todayLine", { scaleY: 0, opacity: 0 });
+
+      // ================= SCENE 1 (0 – 4.4) =================
+      const bars = gsap.utils.toArray("#s1 .bar, #s1 .bar-free");
+      tl.to(bars, { scaleX: 1, opacity: 1, duration: 0.9, ease: "expo.out", stagger: 0.12 }, 0.35);
+      tl.to("#todayLine", { scaleY: 1, opacity: 1, duration: 0.8, ease: E_IN }, 1.7);
+      tl.fromTo("#cal", { y: 0 }, { y: -10, duration: 3.6, ease: "sine.inOut", immediateRender: false }, 0.2);
+      tl.to("#s1", { opacity: 0, duration: 0.5, ease: E_OUT }, 3.9);
+      tl.to("#cal", { y: -36, scale: 0.985, duration: 0.5, ease: E_OUT }, 3.9);
+
+      // ================= SCENE 2 (4.2 – 8.6) =================
+      gsap.set(["#st1", "#st2", "#st3"], { opacity: 0, y: 28 });
+      gsap.set(["#con1", "#con2"], { scaleX: 0 });
+      gsap.set(["#c2b", "#c3b"], { opacity: 0, scale: 0.9 });
+      tl.to("#s2", { opacity: 1, duration: 0.5, ease: E_IN }, 4.3);
+      tl.fromTo("#flow", { y: 36 }, { y: 0, duration: 0.8, ease: E_IN, immediateRender: false }, 4.3);
+      tl.to("#st1", { opacity: 1, y: 0, duration: 0.6, ease: E_IN }, 4.55);
+      tl.to("#con1", { scaleX: 1, duration: 0.5, ease: E_SOFT }, 5.05);
+      tl.to("#st2", { opacity: 1, y: 0, duration: 0.6, ease: E_IN }, 5.3);
+      tl.to("#c2a", { opacity: 0, scale: 0.92, duration: 0.25, ease: E_OUT }, 6.0);
+      tl.to("#c2b", { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(1.6)" }, 6.15);
+      tl.to("#con2", { scaleX: 1, duration: 0.5, ease: E_SOFT }, 6.3);
+      tl.to("#st3", { opacity: 1, y: 0, duration: 0.6, ease: E_IN }, 6.55);
+      tl.to("#c3a", { opacity: 0, scale: 0.92, duration: 0.25, ease: E_OUT }, 7.25);
+      tl.to("#c3b", { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(1.6)" }, 7.4);
+      tl.to("#s2", { opacity: 0, duration: 0.5, ease: E_OUT }, 8.15);
+      tl.to("#flow", { y: -36, scale: 0.985, duration: 0.5, ease: E_OUT }, 8.15);
+
+      // ================= SCENE 3 (8.5 – 12.7) =================
+      gsap.set(["#siteH1", "#siteSub", "#search"], { opacity: 0, y: 20 });
+      gsap.set(["#v1", "#v2", "#v3"], { opacity: 0, x: -10 });
+      gsap.set(["#r1", "#r2", "#r3"], { opacity: 0, y: 24 });
+      tl.to("#s3", { opacity: 1, duration: 0.5, ease: E_IN }, 8.6);
+      tl.fromTo("#site", { y: 36 }, { y: 0, duration: 0.8, ease: E_IN, immediateRender: false }, 8.6);
+      tl.to("#siteH1", { opacity: 1, y: 0, duration: 0.6, ease: E_IN }, 8.85);
+      tl.to("#siteSub", { opacity: 1, y: 0, duration: 0.6, ease: E_IN }, 9.0);
+      tl.to("#search", { opacity: 1, y: 0, duration: 0.6, ease: E_IN }, 9.15);
+      [["#f1", "#v1", 9.6], ["#f2", "#v2", 10.0], ["#f3", "#v3", 10.4]].forEach(([f, v, t]) => {
+        tl.to(f, { borderColor: "#5A62C4", boxShadow: "0 0 0 4px rgba(90,98,196,0.14)", duration: 0.15 }, t);
+        tl.to(v, { opacity: 1, x: 0, duration: 0.35, ease: E_IN }, t + 0.05);
+        tl.to(f, { borderColor: "#E3E5F1", boxShadow: "0 0 0 0px rgba(90,98,196,0)", duration: 0.25 }, t + 0.38);
+      });
+      tl.to("#btn", { scale: 0.96, duration: 0.12, ease: "power1.out" }, 10.85);
+      tl.to("#btn", { scale: 1, duration: 0.25, ease: "power2.out" }, 10.97);
+      tl.to(["#r1", "#r2", "#r3"], { opacity: 1, y: 0, duration: 0.6, ease: E_IN, stagger: 0.1 }, 11.1);
+      tl.to("#s3", { opacity: 0, duration: 0.5, ease: E_OUT }, 12.3);
+      tl.to("#site", { y: -36, scale: 0.985, duration: 0.5, ease: E_OUT }, 12.3);
+
+      // ================= SCENE 4 (12.7 – 15.3) =================
+      gsap.set("#logoMark", { opacity: 0, scale: 0.92, transformOrigin: "50% 50%" });
+      gsap.set("#tagline", { opacity: 0, y: 16 });
+      tl.to("#s4", { opacity: 1, duration: 0.01 }, 12.75);
+      tl.to("#logoMark", { opacity: 1, scale: 1, duration: 0.8, ease: "expo.out" }, 12.8);
+      tl.to("#lettersClipRect", { attr: { width: 1100 }, duration: 0.9, ease: "power3.inOut" }, 13.0);
+      tl.to("#tagline", { opacity: 1, y: 0, duration: 0.6, ease: E_IN }, 13.6);
+      tl.to("#s4", { opacity: 0, duration: 0.5, ease: E_OUT }, 14.95);
+
+      // ================= LOOP SEAM: calendar returns to its t = 0 state =================
+      tl.set("#s1 .bar, #s1 .bar-free", { scaleX: 0, opacity: 0 }, 5.0);
+      tl.set("#todayLine", { scaleY: 0, opacity: 0 }, 5.0);
+      tl.set("#cal", { y: 28, scale: 1 }, 15.25);
+      tl.to("#s1", { opacity: 1, duration: 0.55, ease: E_IN }, 15.3);
+      tl.to("#cal", { y: 0, duration: 0.6, ease: E_IN }, 15.3);
+
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>
