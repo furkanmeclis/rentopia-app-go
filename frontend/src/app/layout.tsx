@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import Script from "next/script";
 
 import { brand } from "@/config/brand";
@@ -12,8 +12,8 @@ import { AppProviders } from "@/providers/app-providers";
 
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const jakartaSans = Plus_Jakarta_Sans({
+  variable: "--font-jakarta-sans",
   subsets: ["latin", "latin-ext"],
 });
 
@@ -39,7 +39,7 @@ export default function RootLayout({
   return (
     <html lang="tr" suppressHydrationWarning className="h-full">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} min-h-full font-sans antialiased`}
+        className={`${jakartaSans.variable} ${geistMono.variable} min-h-full font-sans antialiased`}
       >
         {/* Runtime browser config (Sentry DSN); must run before hydration. */}
         <Script src="/api/client-env" strategy="beforeInteractive" />

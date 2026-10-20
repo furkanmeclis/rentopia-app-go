@@ -1,43 +1,47 @@
 "use client";
 
-import { useTheme } from "next-themes";
 import { useEffect, type ReactNode } from "react";
-import { Toaster, toast } from "sonner";
+import { toast } from "sonner";
+
+import { Toaster } from "@/components/ui/sonner";
 
 import { ApiError, setGlobalApiErrorHandler } from "@/lib/api";
 import { useLocale } from "@/providers/locale-provider";
 
 export function ToastProvider({ children }: { children: ReactNode }) {
-  const { theme } = useTheme();
   const { t } = useLocale();
 
   useEffect(() => {
+    // Same message, same id: parallel failing requests show one toast.
+    const showError = (message: string) =>
+      toast.error(message, { id: message });
+
     setGlobalApiErrorHandler((error: ApiError) => {
       if (error.isUnauthorized) {
-        toast.error(t("auth.session_expired"));
+        showError(t("auth.session_expired"));
         return;
       }
       if (error.isForbidden) {
-        toast.error(t("common.error_forbidden"));
+        showError(t("common.error_forbidden"));
         return;
       }
       if (error.isNotFound) {
-        toast.error(t("common.error_not_found"));
+        showError(t("common.error_not_found"));
         return;
       }
       if (error.isValidation) {
-        toast.error(error.message || t("common.error_validation"));
+        showError(error.message || t("common.error_validation"));
         return;
       }
       if (error.isServer) {
-        toast.error(
+        showError(
           error.requestId
             ? `${t("common.error_server")} (${error.requestId})`
             : t("common.error_server"),
         );
         return;
       }
-      toast.error(error.message || t("common.error_generic"));
+      showError(error.message || t("common.error_generic"));
     });
 
     return () => setGlobalApiErrorHandler(null);
@@ -46,11 +50,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <>
       {children}
-      <Toaster
-        richColors
-        position="top-right"
-        theme={theme === "dark" ? "dark" : "light"}
-      />
+      <Toaster position="top-right" closeButton />
     </>
   );
 }

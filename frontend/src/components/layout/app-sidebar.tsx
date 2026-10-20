@@ -27,7 +27,7 @@ function OrganizationSidebarLogo() {
   return (
     <>
       <OrganizationAvatar logoUrl={tenant.organization?.logoUrl} />
-      <span className="grid flex-1 text-left text-sm leading-tight">
+      <span className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
         <span className="truncate font-medium">
           {tenant.organization?.name ?? tenant.slug}
         </span>
@@ -47,7 +47,11 @@ export function AppSidebar({
   const { catalog, homeHref } = useShellNav(variant);
 
   return (
-    <Sidebar collapsible="icon" variant="inset">
+    <Sidebar
+      collapsible="icon"
+      variant="floating"
+      className="sidebar-ink dark text-sidebar-foreground"
+    >
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>

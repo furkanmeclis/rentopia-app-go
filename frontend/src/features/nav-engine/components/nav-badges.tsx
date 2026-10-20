@@ -120,7 +120,7 @@ export function NavCollapsedIndicator({
     return (
       <span
         className={cn(
-          "bg-primary text-primary-foreground pointer-events-none absolute -end-1 -top-1 z-10 flex h-4 min-w-4 items-center justify-center rounded-full px-0.5 text-[9px] font-medium tabular-nums",
+          "bg-primary text-primary-foreground ring-sidebar pointer-events-none absolute -end-1.5 -top-1.5 z-10 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] leading-none font-semibold tabular-nums ring-2",
           className,
         )}
       >
@@ -132,7 +132,7 @@ export function NavCollapsedIndicator({
   return (
     <span
       className={cn(
-        "bg-primary pointer-events-none absolute -end-0.5 -top-0.5 z-10 size-2 rounded-full",
+        "bg-primary ring-sidebar pointer-events-none absolute -end-0.5 -top-0.5 z-10 size-2 rounded-full ring-2",
         className,
       )}
     />

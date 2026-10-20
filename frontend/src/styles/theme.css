@@ -2,7 +2,7 @@
    light #2E358C on white, dark #8E95EC with ink #141527 text */
 
 :root {
-  --radius: 0.625rem;
+  --radius: 1.125rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.205 0.036 280.316);
   --card: oklch(1 0 0);
@@ -34,6 +34,18 @@
   --sidebar-accent-foreground: oklch(0.379 0.142 273.908);
   --sidebar-border: oklch(0.929 0.013 255.508);
   --sidebar-ring: oklch(0.54 0.151 276.595);
+}
+
+/*
+ * Panel sidebar (app-sidebar.tsx, together with .dark): brand ink in both
+ * colour modes, and tighter corners so icon-only items stay rounded squares.
+ */
+.sidebar-ink.dark {
+  --sidebar: #141527;
+  --sidebar-accent: #22264a;
+  --sidebar-accent-foreground: #c7caf6;
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --radius: 0.75rem;
 }
 
 .dark {
@@ -108,9 +120,10 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-jakarta-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono:
     var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco,
     Consolas, monospace;
-  --font-display: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display:
+    var(--font-jakarta-sans), ui-sans-serif, system-ui, sans-serif;
 }

@@ -40,22 +40,25 @@ export function Header({
   return (
     <header
       className={cn(
-        "z-50 h-16",
+        "z-50 h-16 px-2 pt-2",
         fixed && "header-fixed peer/header sticky top-0 w-[inherit]",
-        offset > 10 && fixed ? "shadow" : "shadow-none",
         className,
       )}
       {...props}
     >
       <div
         className={cn(
-          "relative flex h-full items-center gap-3 p-4 sm:gap-4",
+          "relative flex h-full items-center gap-3 rounded-2xl border border-transparent px-2 transition-[background-color,border-color,box-shadow] duration-200 sm:gap-4",
+          // Scrolled: the bar floats as a rounded frosted strip.
           offset > 10 &&
             fixed &&
-            "after:bg-background/20 after:absolute after:inset-0 after:-z-10 after:backdrop-blur-lg",
+            "bg-background/70 border-border/60 shadow-lg shadow-black/5 backdrop-blur-xl",
         )}
       >
-        <SidebarTrigger variant="outline" className="max-md:scale-125" />
+        <SidebarTrigger
+          variant="ghost"
+          className="size-9 rounded-full [&_svg:not([class*='size-'])]:size-[1.15rem]"
+        />
         <Separator orientation="vertical" className="h-6" />
         <div className="flex min-w-0 flex-1 items-center">{children}</div>
         <div className="ms-auto flex items-center gap-1">
