@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"context"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/pdfrender/pdftest"
 )
 
 // withLauncher puts a launcher in front of PATH that starts the host's
@@ -16,18 +17,13 @@ import (
 // runners (Ubuntu 24.04) cannot start Chrome's sandbox.
 func withLauncher(t *testing.T) {
 	t.Helper()
-	var real string
-	for _, name := range executables {
-		if p, err := exec.LookPath(name); err == nil {
-			real = p
-			break
-		}
-	}
+	real := pdftest.Browser()
 	if real == "" {
 		t.Skip("no chromium on PATH")
 	}
 	dir := t.TempDir()
-	script := "#!/bin/sh\nexec " + real + " --no-sandbox --disable-dev-shm-usage --disable-gpu --disable-crash-reporter --crash-dumps-dir=" + filepath.Join(dir, "crashpad") + " \"$@\"\n"
+	script := pdftest.Launcher(dir, real)
+	t.Logf("browser: %s", real)
 	if err := os.WriteFile(filepath.Join(dir, executables[0]), []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
