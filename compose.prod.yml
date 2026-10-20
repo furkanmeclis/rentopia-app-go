@@ -79,7 +79,7 @@ x-backend-environment: &backend-environment
   DOKPLOY_SITE_PORT: ${DOKPLOY_SITE_PORT:-3000}
   APP_NETWORK_NAME: ${APP_NETWORK_NAME:-${NAME_PREFIX:?NAME_PREFIX is required}-app}
   MAIL_FROM: ${MAIL_FROM:-noreply@localhost}
-  MAIL_FROM_NAME: ${MAIL_FROM_NAME:-App}
+  MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Rentopya}
   MAIL_DRIVER: ${MAIL_DRIVER:-smtp}
   SMTP_HOST: ${SMTP_HOST:-}
   SMTP_PORT: ${SMTP_PORT:-587}
@@ -263,7 +263,7 @@ services:
       WUZAPI_ADMIN_TOKEN: ${WUZAPI_ADMIN_TOKEN:?WUZAPI_ADMIN_TOKEN is required}
       WUZAPI_GLOBAL_ENCRYPTION_KEY: ${WUZAPI_ENCRYPTION_KEY:?WUZAPI_ENCRYPTION_KEY is required}
       WEBHOOK_FORMAT: json
-      SESSION_DEVICE_NAME: ${WUZAPI_DEVICE_NAME:-Rentopia}
+      SESSION_DEVICE_NAME: ${WUZAPI_DEVICE_NAME:-Rentopya}
       TZ: Europe/Istanbul
     volumes:
       - wuzapi_data:/app/dbdata

@@ -375,7 +375,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	}
 	if webauthn, err := stepup.NewWebAuthn(stepup.WebAuthnConfig{
 		RPID:          cfg.Auth.WebAuthnRPID,
-		RPDisplayName: cfg.App.Name,
+		RPDisplayName: config.ProductName,
 		RPOrigins:     stepUpOrigins,
 	}); err == nil {
 		stepUpWebAuthn = webauthn
@@ -400,7 +400,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	authSettingsSvc := authsettingsusecase.New(deps.Queries)
 	uc.SetAuthSettings(authSettingsSvc)
 	uc.SetAccessPolicy(stepUpSvc)
-	uc.SetSecretBox(secretBox, cfg.App.Name)
+	uc.SetSecretBox(secretBox, config.ProductName)
 	oauthUC := authusecase.NewOAuth(repo, secretBox)
 	uc.SetReviewAccounts(cfg.Auth.ReviewAccounts)
 	// Apple signing key: admin-uploaded .p8 (DB) first, AUTH_APPLE_* env fallback.
