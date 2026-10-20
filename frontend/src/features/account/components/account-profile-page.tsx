@@ -1,8 +1,19 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Fingerprint, Monitor, ShieldCheck } from "lucide-react";
+import {
+  Bell,
+  Fingerprint,
+  KeyRound,
+  Link2,
+  Monitor,
+  ShieldCheck,
+  TriangleAlert,
+  UserRound,
+  type LucideIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/layout";
@@ -12,6 +23,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/common/card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { routes } from "@/config/routes";
@@ -37,19 +49,174 @@ function homeHref(shell: AccountShell) {
   return shell === "platform" ? routes.platform.home : routes.account.home;
 }
 
+type ProfileSection =
+  | "general"
+  | "security"
+  | "connections"
+  | "sessions"
+  | "notifications"
+  | "permissions"
+  | "danger";
+
+const SECTIONS: {
+  id: ProfileSection;
+  icon: LucideIcon;
+  labelKey: string;
+  hintKey: string;
+}[] = [
+  {
+    id: "general",
+    icon: UserRound,
+    labelKey: "auth.profile.nav_general",
+    hintKey: "auth.profile.nav_general_hint",
+  },
+  {
+    id: "security",
+    icon: ShieldCheck,
+    labelKey: "auth.profile.nav_security",
+    hintKey: "auth.profile.nav_security_hint",
+  },
+  {
+    id: "connections",
+    icon: Link2,
+    labelKey: "auth.profile.nav_connections",
+    hintKey: "auth.oauth.profile_hint",
+  },
+  {
+    id: "sessions",
+    icon: Monitor,
+    labelKey: "auth.profile.nav_sessions",
+    hintKey: "auth.sessions.description",
+  },
+  {
+    id: "notifications",
+    icon: Bell,
+    labelKey: "auth.profile.nav_notifications",
+    hintKey: "auth.preferences.description",
+  },
+  {
+    id: "permissions",
+    icon: KeyRound,
+    labelKey: "auth.profile.nav_permissions",
+    hintKey: "auth.profile.permissions_hint",
+  },
+  {
+    id: "danger",
+    icon: TriangleAlert,
+    labelKey: "auth.profile.nav_danger",
+    hintKey: "auth.delete_account.description",
+  },
+];
+
+function isSection(value: string | null): value is ProfileSection {
+  return SECTIONS.some((section) => section.id === value);
+}
+
+/** Profile with a section sub-nav; the open section lives in `?tab=`. */
 export function AccountProfilePage({ shell }: { shell: AccountShell }) {
-  const { t, locale } = useLocale();
+  return (
+    <Suspense fallback={null}>
+      <AccountProfileContent shell={shell} />
+    </Suspense>
+  );
+}
+
+function AccountProfileContent({ shell }: { shell: AccountShell }) {
+  const { t } = useLocale();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const raw = searchParams.get("tab");
+  const active: ProfileSection = isSection(raw) ? raw : "general";
+  const current = SECTIONS.find((section) => section.id === active)!;
+
+  const select = (id: ProfileSection) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (id === "general") params.delete("tab");
+    else params.set("tab", id);
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, {
+      scroll: false,
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title={t("auth.profile.title")}
+        description={t("auth.profile.description")}
+        breadcrumbs={[
+          { label: t("layout.breadcrumb_home"), href: homeHref(shell) },
+          { label: t("auth.profile") },
+        ]}
+      />
+
+      <ProfileIdentity />
+
+      <div className="grid gap-6 lg:grid-cols-[14rem_minmax(0,1fr)] lg:items-start">
+        <nav
+          aria-label={t("auth.profile.nav_label")}
+          className="-mx-4 overflow-x-auto px-4 lg:sticky lg:top-20 lg:mx-0 lg:overflow-visible lg:px-0"
+        >
+          <ul className="flex gap-1 lg:flex-col">
+            {SECTIONS.map(({ id, icon: Icon, labelKey }) => {
+              const selected = id === active;
+              return (
+                <li key={id} className="shrink-0">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    aria-current={selected ? "page" : undefined}
+                    onClick={() => select(id)}
+                    className={cn(
+                      "text-muted-foreground h-9 w-full justify-start gap-2.5 px-3 font-medium",
+                      selected &&
+                        "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
+                      id === "danger" && !selected && "hover:text-destructive",
+                      id === "danger" &&
+                        selected &&
+                        "bg-destructive/10 text-destructive hover:bg-destructive/15 hover:text-destructive",
+                    )}
+                  >
+                    <Icon className="size-4" aria-hidden />
+                    {t(labelKey)}
+                  </Button>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+
+        <section className="min-w-0 space-y-4">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold tracking-tight">
+              {t(current.labelKey)}
+            </h2>
+            <CardHint>{t(current.hintKey)}</CardHint>
+          </div>
+          <SectionBody section={active} />
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function ProfileIdentity() {
+  const { t } = useLocale();
   const { user, hydrateProfile } = useAuth();
-  const { data: appConfig } = useQuery({
-    queryKey: ["app", "config", locale],
-    queryFn: () => fetchAppPublicConfig(locale),
-  });
 
   const roles = user?.roles?.length
     ? user.roles
     : user?.isSuperAdmin
       ? ["super_admin"]
       : [];
+  const initials =
+    (user?.fullName ?? "")
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toLocaleUpperCase("tr"))
+      .join("") || "?";
 
   const requestVerify = async () => {
     try {
@@ -67,133 +234,147 @@ export function AccountProfilePage({ shell }: { shell: AccountShell }) {
   };
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title={t("auth.profile.title")}
-        description={t("auth.profile.description")}
-        breadcrumbs={[
-          { label: t("layout.breadcrumb_home"), href: homeHref(shell) },
-          { label: t("auth.profile") },
-        ]}
-      />
-
-      <Card className="shadow-none">
-        <CardHeader>
-          <CardTitle>{t("auth.profile.title")}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <Fact
-              label={t("auth.profile.name")}
-              value={user?.fullName || "—"}
-            />
-            <Fact label={t("auth.profile.email")} value={user?.email || "—"} />
-            <Fact
-              label={t("auth.profile.email_verified")}
-              value={
-                user?.emailVerified ? (
-                  <Badge variant="success">{t("auth.profile.verified")}</Badge>
-                ) : (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="warning">
-                      {t("auth.profile.unverified")}
-                    </Badge>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={requestVerify}
-                    >
-                      {t("auth.verify.request")}
-                    </Button>
-                  </div>
-                )
-              }
-            />
-            <Fact
-              label={t("auth.profile.status")}
-              value={
-                user?.status ? (
-                  <Badge variant="secondary">{user.status}</Badge>
-                ) : (
-                  "—"
-                )
-              }
-            />
-            <Fact
-              label={t("auth.profile.roles_title")}
-              value={
-                roles.length ? (
-                  <div className="flex flex-wrap gap-1.5">
-                    {roles.map((role) => (
-                      <Badge key={role} variant="secondary">
-                        {role}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : (
-                  "—"
-                )
-              }
-            />
-            <Fact
-              label={t("auth.profile.uuid")}
-              value={
-                <span className="font-mono text-xs">{user?.uuid ?? "—"}</span>
-              }
-            />
-          </dl>
-
-          <div className="border-border space-y-3 border-t pt-5">
-            <div>
-              <h3 className="text-sm font-semibold">
-                {t("auth.profile.edit_title")}
-              </h3>
-              <CardHint>{t("auth.profile.edit_hint")}</CardHint>
-            </div>
-            <ProfileEditForm />
+    <Card className="shadow-none">
+      <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center">
+        <Avatar className="size-16 text-lg">
+          <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
+            {initials}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="truncate text-lg font-semibold">
+              {user?.fullName || "—"}
+            </p>
+            {roles.map((role) => (
+              <Badge key={role} variant="secondary">
+                {role}
+              </Badge>
+            ))}
           </div>
-        </CardContent>
-      </Card>
+          <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
+            <span className="truncate">{user?.email || "—"}</span>
+            {user?.emailVerified ? (
+              <Badge variant="success">{t("auth.profile.verified")}</Badge>
+            ) : (
+              <>
+                <Badge variant="warning">{t("auth.profile.unverified")}</Badge>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={requestVerify}
+                >
+                  {t("auth.verify.request")}
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
-      <div className="grid gap-4 lg:grid-cols-2 lg:items-start xl:grid-cols-3">
-        <Card className="shadow-none">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Fingerprint
-                className="text-muted-foreground size-5"
-                aria-hidden
-              />
-              {t("auth.passkey.title")}
-            </CardTitle>
-            <CardHint>{t("auth.passkey.description")}</CardHint>
-          </CardHeader>
-          <CardContent>
-            <PasskeyManager />
-          </CardContent>
-        </Card>
+function SectionBody({ section }: { section: ProfileSection }) {
+  const { t, locale } = useLocale();
+  const { user } = useAuth();
+  const { data: appConfig } = useQuery({
+    queryKey: ["app", "config", locale],
+    queryFn: () => fetchAppPublicConfig(locale),
+    enabled: section === "connections",
+  });
 
+  switch (section) {
+    case "general":
+      return (
+        <>
+          <Card className="shadow-none">
+            <CardHeader>
+              <CardTitle>{t("auth.profile.edit_title")}</CardTitle>
+              <CardHint>{t("auth.profile.edit_hint")}</CardHint>
+            </CardHeader>
+            <CardContent>
+              <ProfileEditForm />
+            </CardContent>
+          </Card>
+          <Card className="shadow-none">
+            <CardContent>
+              <dl className="grid gap-4 sm:grid-cols-2">
+                <Fact
+                  label={t("auth.profile.status")}
+                  value={
+                    user?.status ? (
+                      <Badge variant="secondary">
+                        {user.status === "active"
+                          ? t("auth.profile.status_active")
+                          : user.status}
+                      </Badge>
+                    ) : (
+                      "—"
+                    )
+                  }
+                />
+                <Fact
+                  label={t("auth.profile.uuid")}
+                  value={
+                    <span className="font-mono text-xs">
+                      {user?.uuid ?? "—"}
+                    </span>
+                  }
+                />
+              </dl>
+            </CardContent>
+          </Card>
+        </>
+      );
+    case "security":
+      return (
+        <>
+          <Card className="shadow-none">
+            <CardHeader>
+              <CardTitle>{t("auth.password.title")}</CardTitle>
+              <CardHint>{t("auth.profile.change_password_body")}</CardHint>
+            </CardHeader>
+            <CardContent>
+              <ChangePasswordForm />
+            </CardContent>
+          </Card>
+          <Card className="shadow-none">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Fingerprint
+                  className="text-muted-foreground size-5"
+                  aria-hidden
+                />
+                {t("auth.passkey.title")}
+              </CardTitle>
+              <CardHint>{t("auth.passkey.description")}</CardHint>
+            </CardHeader>
+            <CardContent>
+              <PasskeyManager />
+            </CardContent>
+          </Card>
+          <Card className="shadow-none">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ShieldCheck
+                  className="text-muted-foreground size-5"
+                  aria-hidden
+                />
+                {t("auth.totp.title")}
+              </CardTitle>
+              <CardHint>{t("auth.totp.description")}</CardHint>
+            </CardHeader>
+            <CardContent>
+              <TotpManager />
+            </CardContent>
+          </Card>
+        </>
+      );
+    case "connections":
+      return (
         <Card className="shadow-none">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ShieldCheck
-                className="text-muted-foreground size-5"
-                aria-hidden
-              />
-              {t("auth.totp.title")}
-            </CardTitle>
-            <CardHint>{t("auth.totp.description")}</CardHint>
-          </CardHeader>
-          <CardContent>
-            <TotpManager />
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-none">
-          <CardHeader>
-            <CardTitle>{t("auth.oauth.title")}</CardTitle>
-            <CardHint>{t("auth.oauth.profile_hint")}</CardHint>
-          </CardHeader>
           <CardContent>
             <OAuthIdentityManager
               providers={[
@@ -217,62 +398,43 @@ export function AccountProfilePage({ shell }: { shell: AccountShell }) {
             />
           </CardContent>
         </Card>
-
+      );
+    case "sessions":
+      return (
         <Card className="shadow-none">
-          <CardHeader>
-            <CardTitle>{t("auth.password.title")}</CardTitle>
-            <CardHint>{t("auth.profile.change_password_body")}</CardHint>
-          </CardHeader>
           <CardContent>
-            <ChangePasswordForm />
+            <SessionManager />
           </CardContent>
         </Card>
-      </div>
-
-      <Card className="shadow-none">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Monitor className="text-muted-foreground size-5" aria-hidden />
-            {t("auth.sessions.title")}
-          </CardTitle>
-          <CardHint>{t("auth.sessions.description")}</CardHint>
-        </CardHeader>
-        <CardContent>
-          <SessionManager />
-        </CardContent>
-      </Card>
-
-      <Card className="shadow-none">
-        <CardHeader>
-          <CardTitle>{t("auth.preferences.title")}</CardTitle>
-          <CardHint>{t("auth.preferences.description")}</CardHint>
-        </CardHeader>
-        <CardContent>
-          <NotificationPreferencesForm />
-        </CardContent>
-      </Card>
-
-      <Card className="shadow-none">
-        <CardHeader>
-          <CardTitle>{t("auth.profile.permissions_title")}</CardTitle>
-          <CardHint>{t("auth.profile.permissions_hint")}</CardHint>
-        </CardHeader>
-        <CardContent>
-          <ProfilePermissionsList granted={user?.permissions} />
-        </CardContent>
-      </Card>
-
-      <Card className="border-destructive/40 shadow-none">
-        <CardHeader>
-          <CardTitle>{t("auth.delete_account.title")}</CardTitle>
-          <CardHint>{t("auth.delete_account.description")}</CardHint>
-        </CardHeader>
-        <CardContent>
-          <DeleteAccountDialog />
-        </CardContent>
-      </Card>
-    </div>
-  );
+      );
+    case "notifications":
+      return (
+        <Card className="shadow-none">
+          <CardContent>
+            <NotificationPreferencesForm />
+          </CardContent>
+        </Card>
+      );
+    case "permissions":
+      return (
+        <Card className="shadow-none">
+          <CardContent>
+            <ProfilePermissionsList granted={user?.permissions} />
+          </CardContent>
+        </Card>
+      );
+    case "danger":
+      return (
+        <Card className="border-destructive/40 shadow-none">
+          <CardHeader>
+            <CardTitle>{t("auth.delete_account.title")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DeleteAccountDialog />
+          </CardContent>
+        </Card>
+      );
+  }
 }
 
 function CardHint({

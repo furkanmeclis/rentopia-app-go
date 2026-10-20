@@ -15,11 +15,14 @@ export const routes = {
     verifyEmail: "/platform/verify-email",
   },
   /**
-   * Shell-independent pages for every signed-in user. `/` only routes the
-   * user to their home (see `defaultHomeForUser`).
+   * Shell-independent pages for every signed-in user. `/` is the public
+   * landing page for visitors; for a signed-in user the proxy serves
+   * `dispatch` there, which routes them to their home (see
+   * `defaultHomeForUser`).
    */
   account: {
     home: "/",
+    dispatch: "/home",
     profile: {
       root: "/profile",
       password: "/profile/password",

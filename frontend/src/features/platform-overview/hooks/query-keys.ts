@@ -1,7 +1,6 @@
-import type { OverviewFetchScopes } from "@/features/platform-overview/services/overview.service";
-
 export const overviewKeys = {
   all: ["platform-overview"] as const,
-  stats: (scopes: OverviewFetchScopes) =>
-    [...overviewKeys.all, "stats", scopes] as const,
+  usersTotal: () => [...overviewKeys.all, "users-total"] as const,
+  /** Shared with `PlatformSiteDomainsPage` (same request, same key). */
+  siteDomains: () => ["platform", "site-domains"] as const,
 };

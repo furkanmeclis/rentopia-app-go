@@ -5,10 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { signIn as signInPasskey } from "next-auth/webauthn";
 import { useQuery } from "@tanstack/react-query";
-import { Fingerprint, Mail, QrCode, ShieldCheck } from "lucide-react";
+import { Fingerprint, Mail, ShieldCheck } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 
-import { brand } from "@/config/brand";
 import { AppleIcon } from "@/components/icons/apple-icon";
 import { FacebookIcon } from "@/components/icons/facebook-icon";
 import { GitHubIcon } from "@/components/icons/github-icon";
@@ -36,7 +35,6 @@ import { authService } from "@/services/auth.service";
 import { z } from "zod";
 
 import { AuthCard } from "./auth-card";
-import { QRLoginPanel } from "./qr-login-panel";
 
 function resolveNext(raw: string | null, fallback: string) {
   // Only same-origin paths. Browsers treat a backslash like "/", so a value
@@ -103,7 +101,6 @@ export function LoginForm() {
   const emailCodeSchema = useMemo(() => createEmailCodeSchema(t), [t]);
   const [emailCodeStep, setEmailCodeStep] = useState<EmailCodeStep>("off");
   const [emailCodeEmail, setEmailCodeEmail] = useState("");
-  const [qrStep, setQrStep] = useState(false);
 
   const { data: appConfig } = useQuery({
     queryKey: ["app", "config", locale],
@@ -415,12 +412,8 @@ export function LoginForm() {
               placeholder={t("auth.totp.code_placeholder")}
             />
 
-            <Field className="flex flex-col gap-2 sm:flex-row">
-              <Button
-                type="submit"
-                disabled={authPending}
-                className="sm:flex-1"
-              >
+            <Field className="gap-2">
+              <Button type="submit" disabled={authPending}>
                 <ShieldCheck aria-hidden />
                 {pending
                   ? t("auth.login.submitting")
@@ -437,38 +430,6 @@ export function LoginForm() {
             </Field>
           </FieldGroup>
         </AppForm>
-      </AuthCard>
-    );
-  }
-
-  if (qrStep) {
-    return (
-      <AuthCard
-        title={t("auth.qr.title")}
-        description={t("auth.qr.description", { app: brand.name })}
-      >
-        <div className="space-y-4">
-          {displayError ? (
-            <Field data-invalid={true}>
-              <FieldError>{displayError}</FieldError>
-            </Field>
-          ) : null}
-          <QRLoginPanel
-            onSignedIn={finishLogin}
-            onErrorCode={(code) => setFormError(resolveCredentialsError(code))}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            onClick={() => {
-              setFormError(null);
-              setQrStep(false);
-            }}
-          >
-            {t("common.back")}
-          </Button>
-        </div>
       </AuthCard>
     );
   }
@@ -504,12 +465,8 @@ export function LoginForm() {
                 autoComplete="email"
                 placeholder={t("auth.placeholders.email")}
               />
-              <Field className="flex flex-col gap-2 sm:flex-row">
-                <Button
-                  type="submit"
-                  disabled={authPending}
-                  className="sm:flex-1"
-                >
+              <Field className="gap-2">
+                <Button type="submit" disabled={authPending}>
                   <Mail aria-hidden />
                   {pending
                     ? t("auth.email_code.sending")
@@ -543,12 +500,8 @@ export function LoginForm() {
                 maxLength={6}
                 placeholder={t("auth.email_code.code_placeholder")}
               />
-              <Field className="flex flex-col gap-2 sm:flex-row">
-                <Button
-                  type="submit"
-                  disabled={authPending}
-                  className="sm:flex-1"
-                >
+              <Field className="gap-2">
+                <Button type="submit" disabled={authPending}>
                   {pending
                     ? t("auth.login.submitting")
                     : t("auth.email_code.verify")}
@@ -578,20 +531,6 @@ export function LoginForm() {
       description={t("auth.login.description")}
     >
       <div className="space-y-4">
-        <Button
-          type="button"
-          variant="outline"
-          className="w-full"
-          disabled={authPending}
-          onClick={() => {
-            setFormError(null);
-            setQrStep(true);
-          }}
-        >
-          <QrCode aria-hidden />
-          {t("auth.qr.sign_in")}
-        </Button>
-
         {showPasskey ? (
           <Button
             type="button"

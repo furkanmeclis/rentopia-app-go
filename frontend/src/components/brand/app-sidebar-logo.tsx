@@ -17,9 +17,12 @@ export function AppSidebarLogo({ className }: AppSidebarLogoProps) {
     <>
       <RentopyaIconSvg
         title={brand.name}
-        className={cn("aspect-square size-8 rounded-lg", className)}
+        className={cn(
+          "aspect-square size-8! rounded-[10px] shadow-sm ring-1 ring-white/15",
+          className,
+        )}
       />
-      <span className="grid flex-1 text-left text-sm leading-tight">
+      <span className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
         <span className="truncate font-semibold">{brand.productName}</span>
         <span className="truncate text-xs opacity-70">
           {t("common.app_tagline")}

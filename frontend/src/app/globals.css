@@ -56,3 +56,34 @@
   --accent: var(--brand-accent, var(--accent));
   --radius: var(--brand-radius, var(--radius));
 }
+
+/*
+ * Guest pages (AuthShell, always dark): frosted-glass card over the animated
+ * backdrop below the lg breakpoint, rounder corners on the card.
+ */
+.auth-glass [data-slot="card"] {
+  border-radius: 1.75rem;
+}
+
+@media (width < 64rem) {
+  .auth-glass [data-slot="card"] {
+    background: color-mix(in oklab, #141527 55%, transparent);
+    border-color: rgb(255 255 255 / 0.12);
+    box-shadow:
+      0 24px 60px -12px rgb(0 0 0 / 0.6),
+      inset 0 1px 0 rgb(255 255 255 / 0.08);
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+  }
+
+  .auth-glass input,
+  .auth-glass [data-slot="input-group"],
+  .auth-glass [data-slot="button"][data-variant="outline"] {
+    background: rgb(255 255 255 / 0.06);
+    border-color: rgb(255 255 255 / 0.14);
+  }
+
+  .auth-glass [data-slot="input-group"] input {
+    background: transparent;
+  }
+}
