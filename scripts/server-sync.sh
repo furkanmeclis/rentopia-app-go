@@ -2,7 +2,7 @@
 # Pull the deploy branch and redeploy the production stack when it moved.
 # Meant for cron on a plain Docker host, e.g. every 5 minutes:
 #
-#   */5 * * * * /opt/rentopia/scripts/server-sync.sh >> /var/log/rentopia-sync.log 2>&1
+#   */5 * * * * /opt/rentopya/scripts/server-sync.sh >> /var/log/rentopya-sync.log 2>&1
 #
 #   scripts/server-sync.sh [--force] [--dry-run]
 #     --force    rebuild and restart even if the branch did not move
@@ -87,7 +87,7 @@ log "building and starting"
 compose up -d --build --remove-orphans
 
 prefix="$(grep -E '^NAME_PREFIX=' "$ENV_FILE" | head -1 | cut -d= -f2- | tr -d '"')"
-backend="${prefix:-rentopia}-backend"
+backend="${prefix:-rentopya}-backend"
 deadline=$(( $(date +%s) + HEALTH_TIMEOUT ))
 status=""
 while (( $(date +%s) < deadline )); do

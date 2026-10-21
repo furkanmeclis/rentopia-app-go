@@ -116,7 +116,7 @@ ask_app_url() {
   fi
   [[ -t 0 ]] || die "APP_URL is required: pass --app-url https://your.domain"
   while true; do
-    read -rp "Uygulama adresi (ör. https://rentopia.example.com): " u
+    read -rp "Uygulama adresi (ör. https://rentopya.example.com): " u
     if u="$(normalize_url "$u")"; then printf '%s' "$u"; return; fi
     echo "  Geçersiz adres: https:// ile başlamalı, yol içermemeli." >&2
   done

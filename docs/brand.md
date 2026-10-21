@@ -97,11 +97,12 @@ integrations, deployments or stored data.
   `rentopia/site-preview/v1`, `rentopia/inspection-media/v1`); changing them
   invalidates issued tokens and links.
 - Browser storage names (IndexedDB `rentopia-inspections`), cookie names.
-- Infra names: `NAME_PREFIX=rentopia`, Docker images, containers, network
-  `rentopia-app`, DB user / name, S3 bucket, `/opt/rentopia` paths, wuzapi
-  session names `rentopia-<uuid>`, obilet `rentopia-channel/1` version string,
-  invoice XSL style name `rentopia-invoice`.
-- Domains (`rentopia.technowide.tr`, `*.rentopia.app` examples), the repo name
-  and the Go module path.
+- Wuzapi session names `rentopia-<uuid>`, obilet `rentopia-channel/1` version
+  string, invoice XSL style name `rentopia-invoice`.
+- The repo name and the Go module path.
 - Migration files and code comments that mention Rentopia (history, not UI).
 - Test fixtures (EXIF make `Rentopia`, letterhead `Rentopia`, host names).
+
+Production infra moved to the new name with the `rentopya.app` install:
+`NAME_PREFIX=rentopya` (images, containers, volumes, network `rentopya-app`),
+DB user / name and S3 bucket `rentopya`, `/opt/rentopya` paths.

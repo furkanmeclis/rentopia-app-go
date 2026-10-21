@@ -19,7 +19,7 @@
 @version 8
 
 # --- Identity / Docker ---
-NAME_PREFIX | const:rentopia
+NAME_PREFIX | const:rentopya
 BACKEND_IMAGE | derive:{NAME_PREFIX}-backend:latest
 FRONTEND_IMAGE | derive:{NAME_PREFIX}-frontend:latest
 SITE_IMAGE | derive:{NAME_PREFIX}-site:latest
@@ -38,14 +38,14 @@ AUTH_WEBAUTHN_RP_ID | derive:{APP_HOST}
 SITE_BASE_URL | derive:{APP_URL}
 
 # --- Database / cache / search ---
-DB_USER | const:rentopia
-DB_NAME | const:rentopia
+DB_USER | const:rentopya
+DB_NAME | const:rentopya
 DB_PASSWORD | secret:alnum:32
 REDIS_PASSWORD | secret:alnum:32
 MEILI_MASTER_KEY | secret:hex:32
 
 # --- Object storage (SeaweedFS S3) ---
-S3_BUCKET | const:rentopia
+S3_BUCKET | const:rentopya
 S3_ACCESS_KEY | secret:alnum:20
 S3_SECRET_KEY | secret:alnum:40
 
