@@ -11387,7 +11387,14 @@ paths:
       tags: [Tenant]
       operationId: postTenantPaymentRefund
       summary: Refund a payment (partial or full)
-      description: "`tenant.payments.read` + `tenant.payment.refund`. Through the provider (manual payments are recorded). Amount defaults to the refundable rest."
+      description: |
+        `tenant.payments.read` + `tenant.payment.refund`. Through the provider (manual payments are recorded).
+        Amount defaults to the refundable rest. Refund guard (TEC-962): before a provider refund the provider's
+        refunds of the payment are read; when it shows more refunded than our records (a refund made after
+        the backup a database was restored from) nothing is sent, a reconciliation item is opened and the
+        answer is `409 REFUND_STATE_MISMATCH` (`data`: `our_refunded`, `provider_refunded`,
+        `reconciliation_item_uuid`). When the provider's refunds cannot be read the refund is not blocked: it
+        goes ahead as before and an open `unverified` reconciliation item is kept for staff.
       security:
         - bearerAuth: []
       parameters:
@@ -11404,6 +11411,139 @@ paths:
               properties:
                 amount: { type: [string, "null"] }
                 reason: { type: string, minLength: 3, maxLength: 500 }
+      responses:
+        "200": { $ref: "#/components/responses/PaymentOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "502": { $ref: "#/components/responses/PaymentProviderError" }
+
+  /v1/tenant/payments/orphans:
+    get:
+      tags: [Tenant]
+      operationId: getTenantPaymentOrphans
+      summary: Provider notifications that named no payment
+      description: |
+        `tenant.payments.read`. Notifications whose order reference is unknown (e.g. a checkout created after
+        the backup a database was restored from) whose signature verified with one of the organization's
+        accounts. Match one to a reservation with `POST /v1/tenant/payments/orphans/{uuid}/match`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Q"
+        - name: sort
+          in: query
+          description: "`created_at`; prefix `-` for descending. Default `-created_at`."
+          schema: { type: string }
+        - { name: status, in: query, schema: { type: string }, description: "unmatched, matched" }
+        - { name: since, in: query, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: Orphan page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopePaymentWebhookOrphanPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/payments/orphans/{uuid}/match:
+    post:
+      tags: [Tenant]
+      operationId: postTenantPaymentOrphanMatch
+      summary: Attach an orphan notification to a reservation
+      description: |
+        `tenant.payments.read` + `tenant.payment.collect`. The checkout is retrieved from the provider; when it
+        is paid, is the notified payment, carries one of our order references and the reservation's currency,
+        it is recreated as a payment of the reservation under its own order reference and confirmed through
+        the usual verification (once; the reservation is told once). Refusals: `409 INVALID_STATE`
+        (`orphan_not_paid`, `orphan_mismatch`, `orphan_unmatchable`, `currency_mismatch`, `orphan_matched`,
+        `orphan_no_token`, `orphan_conflict`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [reservation_uuid, note]
+              properties:
+                reservation_uuid: { type: string, format: uuid }
+                note: { type: string, minLength: 3, maxLength: 500 }
+      responses:
+        "200": { $ref: "#/components/responses/PaymentOK" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "502": { $ref: "#/components/responses/PaymentProviderError" }
+
+  /v1/tenant/payments/reconciliation:
+    get:
+      tags: [Tenant]
+      operationId: getTenantPaymentReconciliation
+      summary: Our provider payments beside the provider's view
+      description: |
+        `tenant.payments.read`. Provider payments created since `since` (at most 100, oldest first;
+        `truncated` = ask again with a later `since`), each with one provider retrieve and one refund lookup:
+        the iyzico adapter has no list call, so a payment made after the backup that we never recorded shows
+        up only as an orphan notification (`orphans`). `mismatches`: `unconfirmed_payment`,
+        `status_mismatch`, `amount_mismatch`, `refund_missing_in_ledger`, `refund_missing_at_provider`,
+        `pending_refund`, `provider_unreachable`, `refund_lookup_unsupported`. `items`: open refund
+        reconciliation items and those created since `since`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - { name: since, in: query, required: true, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: Report
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopePaymentReconciliation" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/payments/reconciliation-items/{uuid}/resolve:
+    post:
+      tags: [Tenant]
+      operationId: postTenantPaymentReconciliationItemResolve
+      summary: Resolve a refund reconciliation item
+      description: |
+        `tenant.payments.read` + `tenant.payment.refund`. `record_refund`: the provider is asked again and the
+        refund it shows beyond our records is entered as a succeeded refund (no provider call; ledger, reservation
+        recount); `dismiss`: closed with the note only. A resolved item answers `409 INVALID_STATE`
+        (`item_resolved`); `record_refund` with the provider unreadable answers `502 PAYMENT_PROVIDER_ERROR`
+        (`dismiss` still works).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [resolution, note]
+              properties:
+                resolution: { type: string, enum: [record_refund, dismiss] }
+                note: { type: string, minLength: 3, maxLength: 500 }
       responses:
         "200": { $ref: "#/components/responses/PaymentOK" }
         "400": { $ref: "#/components/responses/BadRequest" }
@@ -11786,6 +11926,90 @@ paths:
         "403": { $ref: "#/components/responses/TenantForbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/integration-jobs/{uuid}/reconcile:
+    post:
+      tags: [Tenant]
+      operationId: postTenantIntegrationJobReconcile
+      summary: Mark a job reconciled ("Mutabık işaretle")
+      description: |
+        `tenant.integrations.manage` (like retry). The work was confirmed outside the runner (provider panel,
+        delivery log), e.g. sent after the backup a database was restored from: the job moves to `reconciled`
+        and is never sent again. Sends nothing, so no plan feature is required. Who / when / why are kept on
+        the job (`reconciliation`) and as an activity event (`integrations.job_reconciled`). Applies to
+        outbound jobs in `pending`, `submitted`, `needs_verification` or `failed`; final states, inbound
+        notifications, payment refunds and KABİS notifications (their own reconcile) answer
+        `409 INTEGRATION_JOB_NOT_RECONCILABLE`; a job held by a worker `409 INTEGRATION_JOB_BUSY`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [note]
+              properties:
+                note: { type: string, minLength: 3, maxLength: 500 }
+                external_ref: { type: string, maxLength: 200, description: "The provider's reference of the work, when known." }
+      responses:
+        "200":
+          description: Reconciled job
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeIntegrationJobDetail" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/tenant/integration-jobs/reconcile:
+    post:
+      tags: [Tenant]
+      operationId: postTenantIntegrationJobsReconcile
+      summary: Mark matching jobs reconciled (restore runbook)
+      description: |
+        `tenant.integrations.manage`. Every reconcilable job of the organization created before `before` in
+        one of `statuses` (and `kinds`, when given) is marked reconciled with the note; jobs held by a worker
+        are skipped. Answers the count and the job uuids. Across organizations the operator uses
+        `cmd/integration-jobs-reconcile` (docs/operations/backup-restore.md).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [before, statuses, note]
+              properties:
+                before: { type: string, format: date-time, description: "Cut-off: only jobs created before it (the backup time)." }
+                statuses:
+                  type: array
+                  minItems: 1
+                  items: { type: string, enum: [pending, submitted, needs_verification, failed] }
+                kinds:
+                  type: array
+                  maxItems: 50
+                  items: { type: string, maxLength: 48 }
+                note: { type: string, minLength: 3, maxLength: 500 }
+      responses:
+        "200":
+          description: Reconciled jobs
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeIntegrationJobBulkReconcile" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
 
   /v1/public/documents/{token}:
     get:
@@ -13843,7 +14067,9 @@ paths:
         otherwise). The payment is then confirmed only by a provider retrieve matching order reference,
         amount, currency and token. The same notification delivered again is one integration job
         (`duplicate: true`): one payment, one reservation change (RT-A16). Non-2xx answers make iyzico
-        retry.
+        retry. A notification naming no payment of ours is kept as an orphan (TEC-962): when its signature
+        verifies with one of an organization's accounts the answer is 200 with `orphan: true` (matched by
+        staff later); otherwise it is kept platform-level and answered 404.
       security: []
       parameters:
         - { name: X-IYZ-SIGNATURE-V3, in: header, required: true, schema: { type: string } }
@@ -35063,6 +35289,118 @@ components:
         data: { $ref: "#/components/schemas/Payment" }
         meta: { $ref: "#/components/schemas/ResponseMeta" }
 
+    PaymentWebhookOrphan:
+      type: object
+      description: A provider notification that named no payment of ours (references only, no card data).
+      required: [uuid, provider, event_type, provider_status, provider_payment_id, conversation_id, reference_code, signature_verified, deliveries, status, account_uuid, account_name, payment_uuid, reservation, matched_by, matched_at, match_note, created_at, updated_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        provider: { type: string }
+        event_type: { type: string }
+        provider_status: { type: string }
+        provider_payment_id: { type: string }
+        conversation_id: { type: string }
+        reference_code: { type: string }
+        signature_verified: { type: boolean }
+        deliveries: { type: integer }
+        status: { type: string, enum: [unmatched, matched] }
+        account_uuid: { type: [string, "null"], format: uuid }
+        account_name: { type: string }
+        payment_uuid: { type: [string, "null"], format: uuid }
+        reservation:
+          oneOf:
+            - $ref: "#/components/schemas/PaymentReservationRef"
+            - type: "null"
+        matched_by:
+          oneOf:
+            - $ref: "#/components/schemas/PaymentActor"
+            - type: "null"
+        matched_at: { type: [string, "null"], format: date-time }
+        match_note: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    EnvelopePaymentWebhookOrphanPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/PaymentWebhookOrphan" }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    PaymentReconciliationItem:
+      type: object
+      description: "A refund guard item: `refund_mismatch` = the provider shows a refund our records lack (the refund was refused); `unverified` = a refund made while the provider's refunds could not be read."
+      required: [uuid, kind, status, currency, our_refunded, provider_refunded, data, resolution, resolution_note, resolved_at, payment_uuid, reservation, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        kind: { type: string, enum: [refund_mismatch, unverified] }
+        status: { type: string, enum: [open, resolved] }
+        currency: { type: string }
+        our_refunded: { type: string }
+        provider_refunded: { type: string }
+        data: { type: object, additionalProperties: true }
+        resolution: { type: string, enum: ["", record_refund, dismiss] }
+        resolution_note: { type: string }
+        resolved_at: { type: [string, "null"], format: date-time }
+        payment_uuid: { type: string, format: uuid }
+        reservation: { $ref: "#/components/schemas/PaymentReservationRef" }
+        created_at: { type: string, format: date-time }
+
+    PaymentReconciliationRow:
+      type: object
+      required: [payment_uuid, reservation, provider, status, currency, amount, refunded_amount, pending_refunds, provider_payment_id, provider_status, provider_paid, provider_refunded, mismatches, created_at]
+      properties:
+        payment_uuid: { type: string, format: uuid }
+        reservation: { $ref: "#/components/schemas/PaymentReservationRef" }
+        provider: { type: string }
+        status: { type: string }
+        currency: { type: string }
+        amount: { type: string }
+        refunded_amount: { type: string }
+        pending_refunds: { type: integer, format: int64 }
+        provider_payment_id: { type: [string, "null"] }
+        provider_status: { type: string }
+        provider_paid: { type: [string, "null"] }
+        provider_refunded: { type: [string, "null"] }
+        mismatches:
+          type: array
+          items: { type: string }
+        error: { type: string }
+        created_at: { type: string, format: date-time }
+
+    EnvelopePaymentReconciliation:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [since, generated_at, truncated, payments, orphans, items]
+          properties:
+            since: { type: string, format: date-time }
+            generated_at: { type: string, format: date-time }
+            truncated: { type: boolean }
+            payments:
+              type: array
+              items: { $ref: "#/components/schemas/PaymentReconciliationRow" }
+            orphans:
+              type: array
+              items: { $ref: "#/components/schemas/PaymentWebhookOrphan" }
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/PaymentReconciliationItem" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
     EnvelopePaymentPage:
       type: object
       required: [success, data, meta]
@@ -35282,6 +35620,7 @@ components:
         completed_at: { type: [string, "null"], format: date-time }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+        reconcilable: { type: boolean, description: "The staff \"reconciled\" resolution applies." }
 
     IntegrationAttempt:
       type: object
@@ -35325,9 +35664,42 @@ components:
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
         retryable: { type: boolean, description: "A staff retry applies (outbound, not a payment refund, not succeeded)." }
+        reconcilable: { type: boolean, description: "The staff \"reconciled\" resolution applies (outbound pending / submitted / needs_verification / failed; not refunds or KABİS)." }
+        reconciliation:
+          oneOf:
+            - $ref: "#/components/schemas/IntegrationJobReconciliation"
+            - type: "null"
         attempt_log:
           type: array
           items: { $ref: "#/components/schemas/IntegrationAttempt" }
+
+    IntegrationJobReconciliation:
+      type: object
+      description: Who marked the job reconciled, when and why (an operator tool leaves `by` empty).
+      required: [at, by, note, external_ref]
+      properties:
+        at: { type: string, format: date-time }
+        by:
+          oneOf:
+            - $ref: "#/components/schemas/PaymentActor"
+            - type: "null"
+        note: { type: string }
+        external_ref: { type: string }
+
+    EnvelopeIntegrationJobBulkReconcile:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [count, job_uuids]
+          properties:
+            count: { type: integer }
+            job_uuids:
+              type: array
+              items: { type: string, format: uuid }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
 
     EnvelopeIntegrationJobDetail:
       type: object
@@ -35432,6 +35804,7 @@ components:
           properties:
             duplicate: { type: boolean }
             status: { type: string }
+            orphan: { type: boolean, description: "The notification named no payment; kept for manual matching." }
         meta: { $ref: "#/components/schemas/ResponseMeta" }
 
     RentalChargeOverrideRequest:
@@ -40383,7 +40756,7 @@ components:
         channel: { type: string, enum: [sms, email, whatsapp, push] }
         attempt_no: { type: integer, format: int32 }
         status: { type: string, enum: [sending, sent, delivered, failed, skipped] }
-        dispatch_status: { type: string, enum: [pending, sending, delivered, failed, skipped] }
+        dispatch_status: { type: string, enum: [pending, sending, delivered, failed, skipped, reconciled] }
         provider: { type: string }
         provider_ref: { type: string }
         recipient_masked: { type: string }
@@ -40425,7 +40798,9 @@ components:
         uuid: { type: string, format: uuid }
         event: { type: string }
         audience: { type: string, enum: [customer, staff] }
-        status: { type: string, enum: [pending, sending, delivered, failed, skipped] }
+        # reconciled: still unsent in restored data but sent after the backup;
+        # marked by the operator (cmd/messaging-reconcile), never sent again.
+        status: { type: string, enum: [pending, sending, delivered, failed, skipped, reconciled] }
         channels: { type: array, items: { type: string } }
         fallback: { type: boolean }
         language: { type: string }

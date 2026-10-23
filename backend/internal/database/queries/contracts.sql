@@ -250,12 +250,30 @@ WHERE organization_id = sqlc.arg(organization_id)
   AND content_hash = sqlc.arg(content_hash)
   AND status IN ('draft', 'issued');
 
--- name: SetDocumentVersionPDFPending :execrows
+-- name: SetDocumentVersionPDFPending :one
+-- Requests a render: from none / failed, or again from a pending request
+-- older than stale_before (its queue task was lost, e.g. after a restore;
+-- TEC-962). The conditional update lets one caller win.
 UPDATE document_versions
-SET pdf_status = 'pending', pdf_error = ''
+SET pdf_status = 'pending', pdf_error = '', pdf_requested_at = sqlc.arg(requested_at)
 WHERE organization_id = sqlc.arg(organization_id)
   AND id = sqlc.arg(id)
-  AND pdf_status IN ('none', 'failed');
+  AND (
+    pdf_status IN ('none', 'failed')
+    OR (pdf_status = 'pending' AND (pdf_requested_at IS NULL OR pdf_requested_at < sqlc.arg(stale_before)))
+  )
+RETURNING uuid;
+
+-- name: ListStalePendingDocumentPDFs :many
+-- The worker sweep (TEC-962): pending renders requested before
+-- stale_before, across organizations (each row carries its
+-- organization_id; the service re-scopes from it).
+SELECT v.organization_id, v.id, v.uuid
+FROM document_versions v
+WHERE v.pdf_status = 'pending'
+  AND (v.pdf_requested_at IS NULL OR v.pdf_requested_at < sqlc.arg(stale_before))
+ORDER BY v.pdf_requested_at NULLS FIRST, v.id
+LIMIT sqlc.arg(limit_count);
 
 -- name: SetDocumentVersionPDF :execrows
 UPDATE document_versions

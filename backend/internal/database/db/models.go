@@ -925,6 +925,7 @@ type DocumentVersion struct {
 	SupersededAt    pgtype.Timestamptz `json:"superseded_at"`
 	CreatedBy       pgtype.Int8        `json:"created_by"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	PdfRequestedAt  pgtype.Timestamptz `json:"pdf_requested_at"`
 }
 
 type Driver struct {
@@ -1339,6 +1340,10 @@ type IntegrationJob struct {
 	SubmittedAt          pgtype.Timestamptz `json:"submitted_at"`
 	LockedUntil          pgtype.Timestamptz `json:"locked_until"`
 	Priority             string             `json:"priority"`
+	ReconciledAt         pgtype.Timestamptz `json:"reconciled_at"`
+	ReconciledBy         pgtype.Int8        `json:"reconciled_by"`
+	ReconcileNote        string             `json:"reconcile_note"`
+	ReconcileExternalRef string             `json:"reconcile_external_ref"`
 }
 
 type Invoice struct {
@@ -1588,6 +1593,7 @@ type Notification struct {
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	OrganizationID    pgtype.Int8        `json:"organization_id"`
+	IdempotencyKey    pgtype.Text        `json:"idempotency_key"`
 }
 
 type NotificationDelivery struct {
@@ -1981,6 +1987,26 @@ type PaymentLink struct {
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 }
 
+type PaymentReconciliationItem struct {
+	ID               int64              `json:"id"`
+	Uuid             uuid.UUID          `json:"uuid"`
+	OrganizationID   int64              `json:"organization_id"`
+	PaymentID        int64              `json:"payment_id"`
+	Kind             string             `json:"kind"`
+	Status           string             `json:"status"`
+	Currency         string             `json:"currency"`
+	OurRefunded      pgtype.Numeric     `json:"our_refunded"`
+	ProviderRefunded pgtype.Numeric     `json:"provider_refunded"`
+	Data             []byte             `json:"data"`
+	Resolution       string             `json:"resolution"`
+	ResolutionNote   string             `json:"resolution_note"`
+	ResolvedBy       pgtype.Int8        `json:"resolved_by"`
+	ResolvedAt       pgtype.Timestamptz `json:"resolved_at"`
+	CreatedBy        pgtype.Int8        `json:"created_by"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
 type PaymentRefund struct {
 	ID               int64              `json:"id"`
 	Uuid             uuid.UUID          `json:"uuid"`
@@ -1995,6 +2021,32 @@ type PaymentRefund struct {
 	CreatedBy        pgtype.Int8        `json:"created_by"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type PaymentWebhookOrphan struct {
+	ID                   int64              `json:"id"`
+	Uuid                 uuid.UUID          `json:"uuid"`
+	OrganizationID       pgtype.Int8        `json:"organization_id"`
+	IntegrationAccountID pgtype.Int8        `json:"integration_account_id"`
+	Provider             string             `json:"provider"`
+	DedupeKey            string             `json:"dedupe_key"`
+	EventType            string             `json:"event_type"`
+	ProviderStatus       string             `json:"provider_status"`
+	ProviderPaymentID    string             `json:"provider_payment_id"`
+	ConversationID       string             `json:"conversation_id"`
+	ProviderToken        string             `json:"provider_token"`
+	ReferenceCode        string             `json:"reference_code"`
+	MerchantID           string             `json:"merchant_id"`
+	SignatureVerified    bool               `json:"signature_verified"`
+	Payload              []byte             `json:"payload"`
+	Deliveries           int32              `json:"deliveries"`
+	Status               string             `json:"status"`
+	MatchedPaymentID     pgtype.Int8        `json:"matched_payment_id"`
+	MatchedBy            pgtype.Int8        `json:"matched_by"`
+	MatchedAt            pgtype.Timestamptz `json:"matched_at"`
+	MatchNote            string             `json:"match_note"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Permission struct {
@@ -2872,6 +2924,7 @@ type SmsMessage struct {
 	CreatedBy            pgtype.Int8        `json:"created_by"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	IdempotencyKey       pgtype.Text        `json:"idempotency_key"`
 }
 
 type SmsOtpChallenge struct {

@@ -208,4 +208,136 @@ type CheckoutStart struct {
 type WebhookResult struct {
 	Duplicate bool   `json:"duplicate"`
 	Status    string `json:"status"`
+	// Orphan: the notification named no payment of ours; it was kept for
+	// manual matching (TEC-962).
+	Orphan bool `json:"orphan,omitempty"`
+}
+
+// ResourceOrphans is the live list of orphan provider notifications.
+const ResourceOrphans = "tenant.payment_webhook_orphans"
+
+// Orphan statuses.
+const (
+	OrphanUnmatched = "unmatched"
+	OrphanMatched   = "matched"
+)
+
+// OrphanStatuses lists the orphan statuses in display order.
+var OrphanStatuses = []string{OrphanUnmatched, OrphanMatched}
+
+// Orphan is a provider notification that named no payment of ours (a
+// checkout created after the backup the database was restored from;
+// TEC-962). Only references, never card data.
+type Orphan struct {
+	UUID              uuid.UUID       `json:"uuid"`
+	Provider          string          `json:"provider"`
+	EventType         string          `json:"event_type"`
+	ProviderStatus    string          `json:"provider_status"`
+	ProviderPaymentID string          `json:"provider_payment_id"`
+	ConversationID    string          `json:"conversation_id"`
+	ReferenceCode     string          `json:"reference_code"`
+	SignatureVerified bool            `json:"signature_verified"`
+	Deliveries        int32           `json:"deliveries"`
+	Status            string          `json:"status"`
+	AccountUUID       *uuid.UUID      `json:"account_uuid"`
+	AccountName       string          `json:"account_name"`
+	PaymentUUID       *uuid.UUID      `json:"payment_uuid"`
+	Reservation       *ReservationRef `json:"reservation"`
+	MatchedBy         *Actor          `json:"matched_by"`
+	MatchedAt         *time.Time      `json:"matched_at"`
+	MatchNote         string          `json:"match_note"`
+	CreatedAt         time.Time       `json:"created_at"`
+	UpdatedAt         time.Time       `json:"updated_at"`
+}
+
+// OrphanFilter selects a page of orphans.
+type OrphanFilter struct {
+	Q             string
+	Statuses      []string
+	Since         *time.Time
+	SortDesc      bool
+	Limit, Offset int32
+}
+
+// MatchOrphanInput is POST /v1/tenant/payments/orphans/{uuid}/match: the
+// reservation the money belongs to and why.
+type MatchOrphanInput struct {
+	ReservationUUID *uuid.UUID `json:"reservation_uuid"`
+	Note            string     `json:"note"`
+}
+
+// Reconciliation item kinds: refund_mismatch (the provider shows a refund
+// our records lack; the refund was refused), unverified (a refund made
+// while the provider's refunds could not be read).
+const (
+	ItemKindRefundMismatch = "refund_mismatch"
+	ItemKindUnverified     = "unverified"
+)
+
+// Reconciliation item resolutions.
+const (
+	ResolutionRecordRefund = "record_refund"
+	ResolutionDismiss      = "dismiss"
+)
+
+// ReconciliationItem is a refund guard item: a refund the provider shows
+// and our ledger does not (refund_mismatch), or a refund made without the
+// provider's refund state (unverified).
+type ReconciliationItem struct {
+	UUID             uuid.UUID       `json:"uuid"`
+	Kind             string          `json:"kind"`
+	Status           string          `json:"status"`
+	Currency         string          `json:"currency"`
+	OurRefunded      money.Money     `json:"our_refunded"`
+	ProviderRefunded money.Money     `json:"provider_refunded"`
+	Data             json.RawMessage `json:"data"`
+	Resolution       string          `json:"resolution"`
+	ResolutionNote   string          `json:"resolution_note"`
+	ResolvedAt       *time.Time      `json:"resolved_at"`
+	PaymentUUID      uuid.UUID       `json:"payment_uuid"`
+	Reservation      ReservationRef  `json:"reservation"`
+	CreatedAt        time.Time       `json:"created_at"`
+}
+
+// ResolveItemInput is POST
+// /v1/tenant/payments/reconciliation-items/{uuid}/resolve.
+type ResolveItemInput struct {
+	Resolution string `json:"resolution"`
+	Note       string `json:"note"`
+}
+
+// ReconciliationRow is one of our provider payments next to the
+// provider's view of it.
+type ReconciliationRow struct {
+	PaymentUUID       uuid.UUID      `json:"payment_uuid"`
+	Reservation       ReservationRef `json:"reservation"`
+	Provider          string         `json:"provider"`
+	Status            string         `json:"status"`
+	Currency          string         `json:"currency"`
+	Amount            money.Money    `json:"amount"`
+	RefundedAmount    money.Money    `json:"refunded_amount"`
+	PendingRefunds    int64          `json:"pending_refunds"`
+	ProviderPaymentID *string        `json:"provider_payment_id"`
+	ProviderStatus    string         `json:"provider_status"`
+	ProviderPaid      *money.Money   `json:"provider_paid"`
+	ProviderRefunded  *money.Money   `json:"provider_refunded"`
+	// Mismatches: unconfirmed_payment, status_mismatch, amount_mismatch,
+	// refund_missing_in_ledger, refund_missing_at_provider, pending_refund,
+	// provider_unreachable, refund_lookup_unsupported.
+	Mismatches []string  `json:"mismatches"`
+	Error      string    `json:"error,omitempty"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+// Reconciliation is GET /v1/tenant/payments/reconciliation: our provider
+// payments since a time beside the provider's view (one retrieve and one
+// refund lookup per payment: the iyzico adapter has no list call), the
+// unmatched orphan notifications and the refund reconciliation items.
+type Reconciliation struct {
+	Since       time.Time            `json:"since"`
+	GeneratedAt time.Time            `json:"generated_at"`
+	Truncated   bool                 `json:"truncated"`
+	Payments    []ReconciliationRow  `json:"payments"`
+	Orphans     []Orphan             `json:"orphans"`
+	Items       []ReconciliationItem `json:"items"`
 }

@@ -147,9 +147,12 @@ RETURNING id, uuid, organization_id, status, (xmax = 0)::boolean AS inserted;
 SELECT j.id, j.uuid, j.organization_id, j.integration_account_id, j.direction, j.provider, j.kind, j.idempotency_key,
     j.status, j.attempts, j.max_attempts, j.deliveries, j.last_error, j.payload, j.result, j.ref_type, j.ref_uuid,
     j.priority, j.provider_ref, j.next_attempt_at, j.submitted_at, j.locked_until, j.completed_at, j.created_at,
-    j.updated_at, a.uuid AS account_uuid
+    j.updated_at, a.uuid AS account_uuid, j.reconciled_at, j.reconcile_note, j.reconcile_external_ref,
+    ru.uuid AS reconciled_by_uuid, ru.name AS reconciled_by_name, ru.surname AS reconciled_by_surname,
+    ru.email AS reconciled_by_email
 FROM integration_jobs j
 LEFT JOIN integration_accounts a ON a.organization_id = j.organization_id AND a.id = j.integration_account_id
+LEFT JOIN users ru ON ru.id = j.reconciled_by
 WHERE j.organization_id IS NOT DISTINCT FROM sqlc.narg(organization_id)
   AND j.id = sqlc.arg(id);
 
@@ -157,9 +160,12 @@ WHERE j.organization_id IS NOT DISTINCT FROM sqlc.narg(organization_id)
 SELECT j.id, j.uuid, j.organization_id, j.integration_account_id, j.direction, j.provider, j.kind, j.idempotency_key,
     j.status, j.attempts, j.max_attempts, j.deliveries, j.last_error, j.payload, j.result, j.ref_type, j.ref_uuid,
     j.priority, j.provider_ref, j.next_attempt_at, j.submitted_at, j.locked_until, j.completed_at, j.created_at,
-    j.updated_at, a.uuid AS account_uuid
+    j.updated_at, a.uuid AS account_uuid, j.reconciled_at, j.reconcile_note, j.reconcile_external_ref,
+    ru.uuid AS reconciled_by_uuid, ru.name AS reconciled_by_name, ru.surname AS reconciled_by_surname,
+    ru.email AS reconciled_by_email
 FROM integration_jobs j
 LEFT JOIN integration_accounts a ON a.organization_id = j.organization_id AND a.id = j.integration_account_id
+LEFT JOIN users ru ON ru.id = j.reconciled_by
 WHERE j.organization_id = sqlc.arg(organization_id)
   AND j.uuid = sqlc.arg(uuid);
 
@@ -226,3 +232,66 @@ FROM integration_attempts t
 WHERE t.organization_id IS NOT DISTINCT FROM sqlc.narg(organization_id)
   AND t.integration_job_id = sqlc.arg(integration_job_id)
 ORDER BY t.id;
+
+-- Staff / operator resolution "reconciled" (TEC-962): the work was
+-- confirmed outside the runner (provider panel, delivery log) and is never
+-- sent again. Sends nothing; refused while a worker holds the job. The
+-- kinds other flows own stay out: payment refunds (/payments/{uuid}/refund)
+-- and KABİS notifications (their own reconcile with reason and evidence).
+
+-- name: ReconcileRunnerJob :execrows
+UPDATE integration_jobs
+SET status = 'reconciled', next_attempt_at = NULL, locked_until = NULL, completed_at = NOW(),
+    reconciled_at = NOW(), reconciled_by = sqlc.narg(reconciled_by), reconcile_note = sqlc.arg(note),
+    reconcile_external_ref = sqlc.arg(external_ref)
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND direction = 'outbound'
+  AND kind <> 'payment.refund'
+  AND kind NOT LIKE 'kabis.%'
+  AND status = ANY(sqlc.arg(from_statuses)::text[])
+  AND (locked_until IS NULL OR locked_until < NOW());
+
+-- name: ReconcileRunnerJobs :many
+-- Bulk (restore runbook): every matching job of the organization created
+-- before the cut-off.
+WITH target AS (
+    SELECT t.id, t.status
+    FROM integration_jobs t
+    WHERE t.organization_id = sqlc.arg(organization_id)
+      AND t.direction = 'outbound'
+      AND t.kind <> 'payment.refund'
+      AND t.kind NOT LIKE 'kabis.%'
+      AND t.status = ANY(sqlc.arg(statuses)::text[])
+      AND t.created_at < sqlc.arg(before)
+      AND (sqlc.narg(kinds)::text[] IS NULL OR t.kind = ANY(sqlc.narg(kinds)::text[]))
+      AND (t.locked_until IS NULL OR t.locked_until < NOW())
+    ORDER BY t.id
+    FOR UPDATE SKIP LOCKED
+)
+UPDATE integration_jobs j
+SET status = 'reconciled', next_attempt_at = NULL, locked_until = NULL, completed_at = NOW(),
+    reconciled_at = NOW(), reconciled_by = sqlc.narg(reconciled_by), reconcile_note = sqlc.arg(note),
+    reconcile_external_ref = ''
+FROM target
+WHERE j.organization_id = sqlc.arg(organization_id)
+  AND j.id = target.id
+RETURNING j.id, j.uuid, j.kind, target.status AS previous_status;
+
+-- name: ListReconcilableRunnerJobs :many
+-- Operator CLI (cmd/integration-jobs-reconcile): the jobs a bulk reconcile
+-- would touch, across organizations or in the named ones (dry run).
+SELECT j.organization_id, o.uuid AS organization_uuid, o.slug AS organization_slug, j.id, j.uuid, j.provider,
+    j.kind, j.status, j.attempts, j.created_at, j.updated_at
+FROM integration_jobs j
+JOIN organizations o ON o.id = j.organization_id
+WHERE j.organization_id IS NOT NULL
+  AND (sqlc.narg(organization_uuids)::uuid[] IS NULL OR o.uuid = ANY(sqlc.narg(organization_uuids)::uuid[]))
+  AND (sqlc.narg(job_uuids)::uuid[] IS NULL OR j.uuid = ANY(sqlc.narg(job_uuids)::uuid[]))
+  AND j.direction = 'outbound'
+  AND j.kind <> 'payment.refund'
+  AND j.kind NOT LIKE 'kabis.%'
+  AND j.status = ANY(sqlc.arg(statuses)::text[])
+  AND j.created_at < sqlc.arg(before)
+  AND (sqlc.narg(kinds)::text[] IS NULL OR j.kind = ANY(sqlc.narg(kinds)::text[]))
+ORDER BY j.organization_id, j.id;

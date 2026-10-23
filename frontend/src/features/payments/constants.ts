@@ -3,12 +3,15 @@ import type {
   PaymentLinkStatus,
   PaymentMethod,
   PaymentStatus,
+  PaymentWebhookOrphanStatus,
   PublicPayState,
 } from "@/features/payments/types";
 
 /** Live list resources (backend payments/model). */
 export const PAYMENTS_RESOURCE = "tenant.payments" as const;
 export const PAYMENT_LINKS_RESOURCE = "tenant.payment_links" as const;
+export const PAYMENT_ORPHANS_RESOURCE =
+  "tenant.payment_webhook_orphans" as const;
 
 type Tone = "default" | "success" | "warning" | "danger";
 
@@ -255,4 +258,23 @@ export const CHECK_STATUS_LABEL_KEYS: Record<string, string> = {
   "": "payments.integrations.check.never",
   ok: "payments.integrations.check.ok",
   failed: "payments.integrations.check.failed",
+};
+
+/** Orphan provider notifications (TEC-962). */
+export const ORPHAN_STATUSES: PaymentWebhookOrphanStatus[] = [
+  "unmatched",
+  "matched",
+];
+
+export const ORPHAN_STATUS_LABEL_KEYS: Record<
+  PaymentWebhookOrphanStatus,
+  string
+> = {
+  unmatched: "payments.orphans.statuses.unmatched",
+  matched: "payments.orphans.statuses.matched",
+};
+
+export const ORPHAN_STATUS_TONES: Record<PaymentWebhookOrphanStatus, Tone> = {
+  unmatched: "warning",
+  matched: "success",
 };

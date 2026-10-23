@@ -182,6 +182,9 @@ export const routes = {
         `/t/${encodeURIComponent(slug)}/finance/supplier-invoices`,
       supplierPayments: (slug: string) =>
         `/t/${encodeURIComponent(slug)}/finance/supplier-payments`,
+      /** Provider notifications that named no payment (TEC-962). */
+      paymentOrphans: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/finance/payment-orphans`,
       payables: (slug: string) =>
         `/t/${encodeURIComponent(slug)}/finance/payables`,
       /** Security deposits; `?rental=` opens that rental's resolution. */

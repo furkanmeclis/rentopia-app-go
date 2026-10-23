@@ -18,7 +18,13 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -trimpath -ldflags="-s -w" -o /out/create-super-admin ./cmd/create-super-admin && \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -trimpath -ldflags="-s -w" -o /out/catalog-import ./cmd/catalog-import
+    go build -trimpath -ldflags="-s -w" -o /out/catalog-import ./cmd/catalog-import && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -trimpath -ldflags="-s -w" -o /out/integration-jobs-reconcile ./cmd/integration-jobs-reconcile
+
+# Restore runbook tool (docs/operations/backup-restore.md "Mesaj mutabakatı").
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -trimpath -ldflags="-s -w" -o /out/messaging-reconcile ./cmd/messaging-reconcile
 
 FROM migrate/migrate:v4.19.1 AS migrate
 
@@ -42,6 +48,8 @@ COPY --from=builder /out/server /app/server
 COPY --from=builder /out/worker /app/worker
 COPY --from=builder /out/create-super-admin /app/create-super-admin
 COPY --from=builder /out/catalog-import /app/catalog-import
+COPY --from=builder /out/integration-jobs-reconcile /app/integration-jobs-reconcile
+COPY --from=builder /out/messaging-reconcile /app/messaging-reconcile
 COPY migrations /app/migrations
 COPY deploy/docker/entrypoint.sh /app/entrypoint.sh
 

@@ -21,6 +21,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/queue"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -239,6 +240,12 @@ func (s *Service) Confirm(ctx context.Context, jobUUID uuid.UUID, actorID int64)
 // ProcessImport applies rows in worker.
 func (s *Service) ProcessImport(ctx context.Context, jobID int64) error {
 	job, err := s.q.MarkImportJobApplying(ctx, jobID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		// Not queued any more: another run took the job or it is final. A
+		// task that runs twice (Asynq retry, recovery of an active task
+		// after a restore) does nothing the second time (TEC-962).
+		return nil
+	}
 	if err != nil {
 		return err
 	}

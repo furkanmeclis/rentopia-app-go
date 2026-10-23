@@ -30,6 +30,7 @@ import (
 	"io"
 	"math/big"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -56,6 +57,11 @@ const (
 	pathRetrieve          = "/payment/iyzipos/checkoutform/auth/ecom/detail"
 	pathRefund            = "/v2/payment/refund"
 	pathBinCheck          = "/payment/bin/check"
+	// Reporting (TEC-962 refund guard): the payment with its refunds and
+	// cancels. GET; signed like every v2 call over the path without the
+	// query (iyzipay-php IyziAuthV2Generator). Not verified against the
+	// sandbox yet (TEC-684).
+	pathPaymentDetails = "/v2/reporting/payment/details"
 
 	// SignatureHeader carries the webhook signature.
 	SignatureHeader = "X-IYZ-SIGNATURE-V3"
@@ -103,6 +109,7 @@ func New(cfg Config) *Adapter {
 var (
 	_ payments.Provider      = (*Adapter)(nil)
 	_ payments.PreAuthorizer = (*Adapter)(nil)
+	_ payments.RefundLookup  = (*Adapter)(nil)
 )
 
 // Kind implements integrations.Adapter.
@@ -173,20 +180,40 @@ func equalHex(a, b string) bool {
 // post sends one signed request and decodes the JSON answer (numbers kept
 // as json.Number so signed values keep their text).
 func (a *Adapter) post(ctx context.Context, account integrations.Account, path string, body any) (map[string]any, error) {
-	apiKey, secret := account.Credentials[FieldAPIKey], account.Credentials[FieldSecretKey]
-	if apiKey == "" || secret == "" {
-		return nil, &payments.ProviderError{Code: "credentials_missing", Message: "api key and secret key are required"}
-	}
 	raw, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
+	return a.do(ctx, account, http.MethodPost, path, "", raw)
+}
+
+// get sends one signed GET (reporting): the signature covers the path
+// without the query and an empty body.
+func (a *Adapter) get(ctx context.Context, account integrations.Account, path string, query url.Values) (map[string]any, error) {
+	return a.do(ctx, account, http.MethodGet, path, query.Encode(), nil)
+}
+
+func (a *Adapter) do(ctx context.Context, account integrations.Account, method, path, query string, raw []byte) (map[string]any, error) {
+	apiKey, secret := account.Credentials[FieldAPIKey], account.Credentials[FieldSecretKey]
+	if apiKey == "" || secret == "" {
+		return nil, &payments.ProviderError{Code: "credentials_missing", Message: "api key and secret key are required"}
+	}
 	rnd := a.randomKey()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, a.baseURL(account)+path, bytes.NewReader(raw))
+	target := a.baseURL(account) + path
+	if query != "" {
+		target += "?" + query
+	}
+	var reader io.Reader
+	if raw != nil {
+		reader = bytes.NewReader(raw)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, target, reader)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Content-Type", "application/json")
+	if raw != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("x-iyzi-rnd", rnd)
 	req.Header.Set("Authorization", AuthorizationHeader(apiKey, secret, rnd, path, raw))
@@ -420,6 +447,102 @@ func (a *Adapter) Refund(ctx context.Context, account integrations.Account, in p
 		}
 	}
 	return payments.RefundResult{RefundID: id, Amount: amount(out, "price")}, nil
+}
+
+// RefundState implements payments.RefundLookup over iyzico's reporting
+// payment details (by payment id, else by conversation id): the refunds
+// of every item transaction and the cancels are summed. A refund status
+// that says "refunded" without readable amounts is an error, never zero.
+// Field names follow iyzico's reporting documentation; not verified
+// against the sandbox yet (TEC-684).
+func (a *Adapter) RefundState(ctx context.Context, account integrations.Account, in payments.RefundStateRequest) (payments.RefundState, error) {
+	q := url.Values{}
+	switch {
+	case in.PaymentID != "":
+		q.Set("paymentId", in.PaymentID)
+	case in.ConversationID != "":
+		q.Set("paymentConversationId", in.ConversationID)
+	default:
+		return payments.RefundState{}, fmt.Errorf("%w: payment id or conversation id required", payments.ErrMalformed)
+	}
+	locale := in.Locale
+	if locale == "" {
+		locale = "tr"
+	}
+	q.Set("locale", locale)
+	out, err := a.get(ctx, account, pathPaymentDetails, q)
+	if err != nil {
+		return payments.RefundState{}, err
+	}
+	list, _ := out["payments"].([]any)
+	var p map[string]any
+	for _, item := range list {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if in.PaymentID == "" || str(m, "paymentId") == in.PaymentID {
+			p = m
+			break
+		}
+	}
+	if p == nil {
+		return payments.RefundState{}, fmt.Errorf("%w: the payment is not in the report", payments.ErrMalformed)
+	}
+	st := payments.RefundState{
+		PaymentID: str(p, "paymentId"), Currency: firstOf(p, "currency", "currencyCode"), PaidPrice: amount(p, "paidPrice"),
+		Refunded: money.Zero(), ProviderStatus: str(p, "paymentRefundStatus"),
+	}
+	add := func(entries any, kind string) {
+		arr, _ := entries.([]any)
+		for _, e := range arr {
+			m, ok := e.(map[string]any)
+			if !ok {
+				continue
+			}
+			v := money.Zero()
+			for _, k := range []string{"refundPrice", "refundAmount", "price", "paidPrice"} {
+				if x := amount(m, k); x.IsPositive() {
+					v = x
+					break
+				}
+			}
+			if !v.IsPositive() {
+				continue
+			}
+			st.Refunds = append(st.Refunds, payments.ProviderRefund{
+				RefundID: firstOf(m, "refundTxId", "refundHostReference", "hostReference", "paymentTransactionId", "cancelHostReference"),
+				Amount:   v, Kind: kind,
+			})
+			st.Refunded = st.Refunded.Add(v)
+		}
+	}
+	if items, ok := p["itemTransactions"].([]any); ok {
+		for _, it := range items {
+			if m, ok := it.(map[string]any); ok {
+				add(m["refunds"], "refund")
+			}
+		}
+	}
+	add(p["refunds"], "refund")
+	add(p["cancels"], "cancel")
+	status := strings.ToUpper(st.ProviderStatus)
+	if status == "TOTALLY_REFUNDED" && st.Refunded.Cmp(st.PaidPrice) < 0 && st.PaidPrice.IsPositive() {
+		st.Refunded = st.PaidPrice
+	}
+	if (status == "PARTIALLY_REFUNDED" || status == "TOTALLY_REFUNDED") && !st.Refunded.IsPositive() {
+		return payments.RefundState{}, fmt.Errorf("%w: refund status %s without refund amounts", payments.ErrMalformed, status)
+	}
+	return st, nil
+}
+
+func firstOf(m map[string]any, keys ...string) string {
+	for _, k := range keys {
+		if v := str(m, k); v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 // Capture implements payments.PreAuthorizer (post-auth): takes amount (at

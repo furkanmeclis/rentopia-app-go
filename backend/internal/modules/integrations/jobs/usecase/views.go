@@ -51,7 +51,28 @@ type JobDetail struct {
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
 	Retryable     bool           `json:"retryable"`
-	AttemptsLog   []Attempt      `json:"attempt_log"`
+	// Reconcilable: the staff "reconciled" resolution applies (TEC-962).
+	Reconcilable bool `json:"reconcilable"`
+	// Reconciliation: who marked the job reconciled, when and why (nil
+	// unless reconciled through the generic action).
+	Reconciliation *Reconciliation `json:"reconciliation"`
+	AttemptsLog    []Attempt       `json:"attempt_log"`
+}
+
+// Actor is a user reference.
+type Actor struct {
+	UUID    uuid.UUID `json:"uuid"`
+	Name    string    `json:"name"`
+	Surname string    `json:"surname"`
+	Email   string    `json:"email"`
+}
+
+// Reconciliation is the staff "reconciled" resolution of a job.
+type Reconciliation struct {
+	At          time.Time `json:"at"`
+	By          *Actor    `json:"by"`
+	Note        string    `json:"note"`
+	ExternalRef string    `json:"external_ref"`
 }
 
 func timePtr(t pgtype.Timestamptz) *time.Time {
@@ -110,8 +131,19 @@ func (r *Runner) Detail(ctx context.Context, orgID int64, id uuid.UUID) (JobDeta
 		Result: objectOf(row.Result), RefType: row.RefType, RefUUID: uuidPtr(row.RefUuid),
 		NextAttemptAt: timePtr(row.NextAttemptAt), SubmittedAt: timePtr(row.SubmittedAt), CompletedAt: timePtr(row.CompletedAt),
 		CreatedAt: row.CreatedAt.Time.UTC(), UpdatedAt: row.UpdatedAt.Time.UTC(),
-		Retryable:   CanRetry(row.Kind, row.Direction, row.Status),
-		AttemptsLog: make([]Attempt, 0, len(attempts)),
+		Retryable:    CanRetry(row.Kind, row.Direction, row.Status),
+		Reconcilable: CanReconcile(row.Kind, row.Direction, row.Status),
+		AttemptsLog:  make([]Attempt, 0, len(attempts)),
+	}
+	if row.ReconciledAt.Valid {
+		rec := &Reconciliation{At: row.ReconciledAt.Time.UTC(), Note: row.ReconcileNote, ExternalRef: row.ReconcileExternalRef}
+		if row.ReconciledByUuid.Valid {
+			rec.By = &Actor{
+				UUID: row.ReconciledByUuid.Bytes, Name: row.ReconciledByName.String, Surname: row.ReconciledBySurname.String,
+				Email: row.ReconciledByEmail.String,
+			}
+		}
+		d.Reconciliation = rec
 	}
 	for _, a := range attempts {
 		d.AttemptsLog = append(d.AttemptsLog, Attempt{

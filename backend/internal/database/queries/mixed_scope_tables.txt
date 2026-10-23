@@ -14,3 +14,4 @@ organization_invitations   organization_id
 roles                      organization_id scope
 integration_jobs           organization_id
 integration_attempts       organization_id
+payment_webhook_orphans    organization_id

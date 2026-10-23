@@ -5,7 +5,11 @@
 //	  GET  /v1/tenant/payments                        tenant.payments.read
 //	  GET  /v1/tenant/payments/{uuid}                 tenant.payments.read
 //	  POST /v1/tenant/payments/{uuid}/verify          tenant.payments.create_link
-//	  POST /v1/tenant/payments/{uuid}/refund          tenant.payment.refund (TEC-689 slug)
+//	  POST /v1/tenant/payments/{uuid}/refund          tenant.payment.refund (TEC-689 slug; refund guard, TEC-962)
+//	  GET  /v1/tenant/payments/orphans                tenant.payments.read (TEC-962)
+//	  POST /v1/tenant/payments/orphans/{uuid}/match   tenant.payment.collect
+//	  GET  /v1/tenant/payments/reconciliation         tenant.payments.read
+//	  POST /v1/tenant/payments/reconciliation-items/{uuid}/resolve tenant.payment.refund
 //	  GET  /v1/tenant/payment-links                   tenant.payments.read
 //	  GET  /v1/tenant/payment-links/{uuid}            tenant.payments.read
 //	  POST /v1/tenant/payment-links/{uuid}/cancel     tenant.payments.create_link
@@ -52,6 +56,10 @@ func RegisterRoutes(mux *http.ServeMux, h *handler.Handler, tokens *jwt.Manager,
 	route("GET /v1/tenant/payments/{uuid}", h.Get, read)
 	route("POST /v1/tenant/payments/{uuid}/verify", h.Verify, read, link)
 	route("POST /v1/tenant/payments/{uuid}/refund", h.Refund, read, perm(rbac.PermTenantPaymentRefund))
+	route("GET /v1/tenant/payments/orphans", h.ListOrphans, read)
+	route("POST /v1/tenant/payments/orphans/{uuid}/match", h.MatchOrphan, read, perm(rbac.PermTenantPaymentCollect))
+	route("GET /v1/tenant/payments/reconciliation", h.Reconciliation, read)
+	route("POST /v1/tenant/payments/reconciliation-items/{uuid}/resolve", h.ResolveItem, read, perm(rbac.PermTenantPaymentRefund))
 	route("GET /v1/tenant/payment-links", h.ListLinks, read)
 	route("GET /v1/tenant/payment-links/{uuid}", h.GetLink, read)
 	route("POST /v1/tenant/payment-links/{uuid}/cancel", h.CancelLink, link)
@@ -63,6 +71,7 @@ func RegisterRoutes(mux *http.ServeMux, h *handler.Handler, tokens *jwt.Manager,
 func RegisterLiveResources(reg *resourceevents.Registry) {
 	reg.Register(paymodel.ResourcePayments, rbac.PermTenantPaymentsRead)
 	reg.Register(paymodel.ResourceLinks, rbac.PermTenantPaymentsRead)
+	reg.Register(paymodel.ResourceOrphans, rbac.PermTenantPaymentsRead)
 }
 
 // Limiter adapts ratelimit.Limiter to the handler's RateLimiter.

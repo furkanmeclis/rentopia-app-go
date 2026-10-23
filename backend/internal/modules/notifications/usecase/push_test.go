@@ -9,6 +9,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type pushTestQuerier struct {
@@ -64,6 +65,15 @@ func (m *pushTestQuerier) MarkNotificationProcessing(context.Context, int64) (db
 }
 func (m *pushTestQuerier) ListStuckProcessingNotificationIDs(context.Context, int32) ([]int64, error) {
 	return nil, nil
+}
+func (m *pushTestQuerier) ReclaimProcessingNotification(context.Context, db.ReclaimProcessingNotificationParams) (db.Notification, error) {
+	return db.Notification{}, pgx.ErrNoRows
+}
+func (m *pushTestQuerier) ListStaleQueuedNotifications(context.Context, int32) ([]db.ListStaleQueuedNotificationsRow, error) {
+	return nil, nil
+}
+func (m *pushTestQuerier) GetNotificationByIdempotencyKey(context.Context, pgtype.Text) (db.Notification, error) {
+	return db.Notification{}, pgx.ErrNoRows
 }
 func (m *pushTestQuerier) MarkNotificationSent(context.Context, db.MarkNotificationSentParams) (db.Notification, error) {
 	return db.Notification{}, nil

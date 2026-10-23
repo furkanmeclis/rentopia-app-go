@@ -6,6 +6,10 @@ import type {
   IntegrationJobPage,
   IntegrationJobRetry,
   ListIntegrationJobsParams,
+  ListOrphansParams,
+  MatchOrphanRequest,
+  PaymentWebhookOrphanPage,
+  ReconcileJobRequest,
   SmsSent,
   IntegrationsMeta,
   ListIntegrationsParams,
@@ -183,6 +187,36 @@ export const paymentsService = {
       "POST",
       `${INTEGRATION_JOBS}/${uuid}/retry`,
       { body: {}, silent: true },
+    );
+  },
+  /** "Mutabık işaretle": confirmed outside the runner; nothing is sent. */
+  reconcileIntegrationJob(
+    slug: string,
+    uuid: string,
+    body: ReconcileJobRequest,
+  ) {
+    return tenantRequest<IntegrationJobDetail>(
+      slug,
+      "POST",
+      `${INTEGRATION_JOBS}/${uuid}/reconcile`,
+      { body, silent: true },
+    );
+  },
+  /** Provider notifications that named no payment (TEC-962). */
+  orphans(slug: string, params: ListOrphansParams) {
+    return tenantRequest<PaymentWebhookOrphanPage>(
+      slug,
+      "GET",
+      `${PAYMENTS}/orphans`,
+      { query: params },
+    );
+  },
+  matchOrphan(slug: string, uuid: string, body: MatchOrphanRequest) {
+    return tenantRequest<Payment>(
+      slug,
+      "POST",
+      `${PAYMENTS}/orphans/${uuid}/match`,
+      { body, silent: true },
     );
   },
   testSms(slug: string, uuid: string, phone: string) {

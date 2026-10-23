@@ -3,8 +3,10 @@
 //
 //	GET  /v1/tenant/integration-jobs/{uuid}         job + attempts
 //	POST /v1/tenant/integration-jobs/{uuid}/retry   CheckStatus first, resubmit only if not done
+//	POST /v1/tenant/integration-jobs/{uuid}/reconcile  staff resolution: confirmed outside the runner (TEC-962)
+//	POST /v1/tenant/integration-jobs/reconcile      bulk reconcile (restore runbook)
 //
-// Both need tenant.integrations.manage (the account job lists are
+// All need tenant.integrations.manage (the account job lists are
 // GET /v1/tenant/integrations/{uuid}/jobs). Step-up: no tenant step-up
 // policy exists yet; retry joins the integration account routes when one
 // does (docs/design/payments.md §2.4).
@@ -32,6 +34,9 @@ func RegisterRoutes(mux *http.ServeMux, h *handler.Handler, tokens *jwt.Manager,
 	manage := middleware.RequireTenantPermission(rbac.PermTenantIntegrationsManage)
 	mux.Handle("GET /v1/tenant/integration-jobs/{uuid}", middleware.Chain(http.HandlerFunc(h.Get), authn, org, manage))
 	mux.Handle("POST /v1/tenant/integration-jobs/{uuid}/retry", middleware.Chain(http.HandlerFunc(h.Retry), authn, org, manage))
+	// Reconcile sends nothing: no plan feature gate (like disable).
+	mux.Handle("POST /v1/tenant/integration-jobs/{uuid}/reconcile", middleware.Chain(http.HandlerFunc(h.Reconcile), authn, org, manage))
+	mux.Handle("POST /v1/tenant/integration-jobs/reconcile", middleware.Chain(http.HandlerFunc(h.BulkReconcile), authn, org, manage))
 }
 
 // RegisterLiveResources declares the live job list channel.

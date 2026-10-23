@@ -277,6 +277,8 @@ type Querier interface {
 	// organization_id; the public token lookups match the sha256 token hash only.
 	CreateInvitation(ctx context.Context, arg CreateInvitationParams) (OrganizationInvitation, error)
 	CreateLogPurgeRule(ctx context.Context, arg CreateLogPurgeRuleParams) (LogPurgeRule, error)
+	// A notification whose idempotency key exists already inserts nothing (no
+	// rows): a replayed event never creates a second row (TEC-962).
 	CreateNotification(ctx context.Context, arg CreateNotificationParams) (Notification, error)
 	CreateOAuthAccount(ctx context.Context, arg CreateOAuthAccountParams) (OauthAccount, error)
 	CreateOTPCode(ctx context.Context, arg CreateOTPCodeParams) (OtpCode, error)
@@ -494,6 +496,9 @@ type Querier interface {
 	FinalizeInspection(ctx context.Context, arg FinalizeInspectionParams) (int64, error)
 	// draft → queued: the number, the stored XML and the send job.
 	FinalizeInvoice(ctx context.Context, arg FinalizeInvoiceParams) (int64, error)
+	// Deposit pre-authorizations echo the deposit uuid as conversation id;
+	// their notifications are not payment orphans.
+	FindSecurityDepositByConversation(ctx context.Context, argUuid uuid.UUID) (FindSecurityDepositByConversationRow, error)
 	// Free-text supplier names: live suppliers with this title (case and
 	// surrounding spaces ignored).
 	FindSupplierIDsByTitle(ctx context.Context, arg FindSupplierIDsByTitleParams) ([]FindSupplierIDsByTitleRow, error)
@@ -789,12 +794,16 @@ type Querier interface {
 	// The movement that settled a ledger entry (reversed with it).
 	GetMovementByEntry(ctx context.Context, arg GetMovementByEntryParams) (GetMovementByEntryRow, error)
 	GetNotificationByID(ctx context.Context, id int64) (Notification, error)
+	GetNotificationByIdempotencyKey(ctx context.Context, idempotencyKey pgtype.Text) (Notification, error)
 	GetNotificationByUUID(ctx context.Context, argUuid uuid.UUID) (Notification, error)
 	// Recipients ------------------------------------------------------------
 	GetNotificationCustomer(ctx context.Context, arg GetNotificationCustomerParams) (GetNotificationCustomerRow, error)
 	GetNotificationCustomerByUUID(ctx context.Context, arg GetNotificationCustomerByUUIDParams) (int64, error)
 	GetNotificationDeliveryByExternal(ctx context.Context, arg GetNotificationDeliveryByExternalParams) (NotificationDelivery, error)
 	GetNotificationDeliveryByUUID(ctx context.Context, arg GetNotificationDeliveryByUUIDParams) (NotificationDelivery, error)
+	// Deliveries ------------------------------------------------------------
+	// The attempt row of one dispatch and channel (unique).
+	GetNotificationDeliveryForChannel(ctx context.Context, arg GetNotificationDeliveryForChannelParams) (NotificationDelivery, error)
 	GetNotificationDispatch(ctx context.Context, arg GetNotificationDispatchParams) (NotificationDispatch, error)
 	GetNotificationDispatchByKey(ctx context.Context, arg GetNotificationDispatchByKeyParams) (NotificationDispatch, error)
 	GetNotificationDispatchView(ctx context.Context, arg GetNotificationDispatchViewParams) (GetNotificationDispatchViewRow, error)
@@ -839,11 +848,14 @@ type Querier interface {
 	GetPaymentByID(ctx context.Context, arg GetPaymentByIDParams) (GetPaymentByIDRow, error)
 	GetPaymentCollectionEntry(ctx context.Context, arg GetPaymentCollectionEntryParams) (GetPaymentCollectionEntryRow, error)
 	GetPaymentForLedger(ctx context.Context, arg GetPaymentForLedgerParams) (GetPaymentForLedgerRow, error)
+	GetPaymentIDByConversation(ctx context.Context, arg GetPaymentIDByConversationParams) (int64, error)
 	GetPaymentLink(ctx context.Context, arg GetPaymentLinkParams) (GetPaymentLinkRow, error)
 	// What the public pay page shows: organization name, reservation
 	// reference, dates, product title and the amount.
 	GetPaymentLinkPublic(ctx context.Context, arg GetPaymentLinkPublicParams) (GetPaymentLinkPublicRow, error)
+	GetPaymentReconciliationItem(ctx context.Context, arg GetPaymentReconciliationItemParams) (GetPaymentReconciliationItemRow, error)
 	GetPaymentSettlementFacts(ctx context.Context, arg GetPaymentSettlementFactsParams) (GetPaymentSettlementFactsRow, error)
+	GetPaymentWebhookOrphan(ctx context.Context, arg GetPaymentWebhookOrphanParams) (GetPaymentWebhookOrphanRow, error)
 	GetPermissionBySlug(ctx context.Context, slug string) (Permission, error)
 	GetPlanByCode(ctx context.Context, code string) (GetPlanByCodeRow, error)
 	GetPlatformHealthAlertCursor(ctx context.Context, source string) (GetPlatformHealthAlertCursorRow, error)
@@ -903,6 +915,7 @@ type Querier interface {
 	GetRateBand(ctx context.Context, arg GetRateBandParams) (GetRateBandRow, error)
 	GetRatePlan(ctx context.Context, arg GetRatePlanParams) (GetRatePlanRow, error)
 	GetRatePlanVersionByStatus(ctx context.Context, arg GetRatePlanVersionByStatusParams) (GetRatePlanVersionByStatusRow, error)
+	GetReconcileOrganizationBySlug(ctx context.Context, slug string) (int64, error)
 	GetRefundForLedger(ctx context.Context, arg GetRefundForLedgerParams) (GetRefundForLedgerRow, error)
 	// ------------------------------------------------- rentals (TEC-709)
 	// The facts of an allocation a rental works on (with its related record).
@@ -974,6 +987,8 @@ type Querier interface {
 	GetRunnerJob(ctx context.Context, arg GetRunnerJobParams) (GetRunnerJobRow, error)
 	GetRunnerJobByUUID(ctx context.Context, arg GetRunnerJobByUUIDParams) (GetRunnerJobByUUIDRow, error)
 	GetSMSMessage(ctx context.Context, arg GetSMSMessageParams) (GetSMSMessageRow, error)
+	// The send ledger: the message already created for a caller key.
+	GetSMSMessageByIdempotencyKey(ctx context.Context, arg GetSMSMessageByIdempotencyKeyParams) (GetSMSMessageByIdempotencyKeyRow, error)
 	// The sealed payload of a send job's message.
 	GetSMSMessageForSend(ctx context.Context, arg GetSMSMessageForSendParams) (GetSMSMessageForSendRow, error)
 	GetSecurityDepositRow(ctx context.Context, arg GetSecurityDepositRowParams) (GetSecurityDepositRowRow, error)
@@ -1171,7 +1186,9 @@ type Querier interface {
 	InsertKabisNotification(ctx context.Context, arg InsertKabisNotificationParams) (int64, error)
 	InsertLedgerEntry(ctx context.Context, arg InsertLedgerEntryParams) (InsertLedgerEntryRow, error)
 	InsertLedgerEntryLink(ctx context.Context, arg InsertLedgerEntryLinkParams) error
-	// Deliveries ------------------------------------------------------------
+	// A checkout paid on the provider whose row was lost (restore): recreated
+	// pending under its own order reference, then confirmed by a retrieve.
+	InsertMatchedPayment(ctx context.Context, arg InsertMatchedPaymentParams) (int64, error)
 	// One attempt per dispatch and channel: a conflicting insert returns no rows.
 	InsertNotificationDelivery(ctx context.Context, arg InsertNotificationDeliveryParams) (NotificationDelivery, error)
 	// Dispatches ------------------------------------------------------------
@@ -1240,6 +1257,8 @@ type Querier interface {
 	InsertRolePermission(ctx context.Context, arg InsertRolePermissionParams) error
 	// SMS send log and OTP challenges (TEC-734). Both tables are
 	// organization-owned: every query filters by organization_id.
+	// A message whose idempotency key exists already inserts nothing (no
+	// rows): the caller returns the existing message (TEC-962).
 	InsertSMSMessage(ctx context.Context, arg InsertSMSMessageParams) (InsertSMSMessageRow, error)
 	InsertSecurityDeposit(ctx context.Context, arg InsertSecurityDepositParams) (InsertSecurityDepositRow, error)
 	InsertSiteArticle(ctx context.Context, arg InsertSiteArticleParams) (SiteArticle, error)
@@ -1707,9 +1726,20 @@ type Querier interface {
 	// Open (planned / in transit) transfers of a vehicle overlapping
 	// [starts_at, ends_at) (NULL end = unbounded), except exclude_id.
 	ListOverlappingVehicleTransfers(ctx context.Context, arg ListOverlappingVehicleTransfersParams) ([]ListOverlappingVehicleTransfersRow, error)
+	// Payment reconciliation after a restore (TEC-962,
+	// docs/design/payments.md §3.8): provider notifications that name no
+	// payment of ours (payment_webhook_orphans, mixed scope), refunds the
+	// provider shows and our ledger does not (payment_reconciliation_items)
+	// and the report of our provider payments since a time.
+	// An orphan notification names no organization: its signature is tried
+	// against the payment accounts of the provider (each row carries its
+	// organization_id; the service opens the account in that scope).
+	ListPaymentAccountsForProvider(ctx context.Context, arg ListPaymentAccountsForProviderParams) ([]ListPaymentAccountsForProviderRow, error)
 	ListPaymentAllocationInvoiceIDs(ctx context.Context, arg ListPaymentAllocationInvoiceIDsParams) ([]int64, error)
 	ListPaymentLinks(ctx context.Context, arg ListPaymentLinksParams) ([]ListPaymentLinksRow, error)
+	ListPaymentReconciliationItems(ctx context.Context, arg ListPaymentReconciliationItemsParams) ([]ListPaymentReconciliationItemsRow, error)
 	ListPaymentRefunds(ctx context.Context, arg ListPaymentRefundsParams) ([]ListPaymentRefundsRow, error)
+	ListPaymentWebhookOrphans(ctx context.Context, arg ListPaymentWebhookOrphansParams) ([]ListPaymentWebhookOrphansRow, error)
 	ListPayments(ctx context.Context, arg ListPaymentsParams) ([]ListPaymentsRow, error)
 	// Sweep: posted payments whose collection document is missing.
 	ListPaymentsWithoutCollection(ctx context.Context, limitCount int32) ([]ListPaymentsWithoutCollectionRow, error)
@@ -1756,6 +1786,9 @@ type Querier interface {
 	// Active, unexpired allocations of a product whose customer range overlaps
 	// [from_at, to_at): channel rule accounting.
 	ListProductCommitments(ctx context.Context, arg ListProductCommitmentsParams) ([]ListProductCommitmentsRow, error)
+	// The reconciliation report: our provider payments created since a time
+	// (oldest first, capped by the caller), in the caller's branch scope.
+	ListProviderPaymentsSince(ctx context.Context, arg ListProviderPaymentsSinceParams) ([]ListProviderPaymentsSinceRow, error)
 	ListPublicAPIKeys(ctx context.Context, arg ListPublicAPIKeysParams) ([]ListPublicAPIKeysRow, error)
 	// ------------------------------------------------------------ catalog
 	ListPublicBranches(ctx context.Context, arg ListPublicBranchesParams) ([]ListPublicBranchesRow, error)
@@ -1788,6 +1821,24 @@ type Querier interface {
 	// Live plans of one scope target (matrix cells, import upserts) with their
 	// draft / active version ids.
 	ListRatePlansForTarget(ctx context.Context, arg ListRatePlansForTargetParams) ([]ListRatePlansForTargetRow, error)
+	// Operator CLI (cmd/integration-jobs-reconcile): the jobs a bulk reconcile
+	// would touch, across organizations or in the named ones (dry run).
+	ListReconcilableRunnerJobs(ctx context.Context, arg ListReconcilableRunnerJobsParams) ([]ListReconcilableRunnerJobsRow, error)
+	// Outbound messages waiting in restored data (TEC-962,
+	// cmd/messaging-reconcile, docs/operations/backup-restore.md RT-A32 (c)).
+	// The operator lists what was still unsent at backup time (created before
+	// the backup, due by the restore) and marks the ones the provider logs show
+	// as sent after the backup, so the worker never sends them again. Every
+	// query runs across organizations unless organization_id is given; list
+	// and mark use the same filter, so mark changes exactly what list showed.
+	ListReconcileDispatches(ctx context.Context, arg ListReconcileDispatchesParams) ([]ListReconcileDispatchesRow, error)
+	// Platform and organization notifications (e-mail, in-app, push) still
+	// queued or processing.
+	ListReconcileNotifications(ctx context.Context, arg ListReconcileNotificationsParams) ([]ListReconcileNotificationsRow, error)
+	// Queued SMS never accepted by the provider (no provider message id): the
+	// runner would submit them again. SMS with a provider id are checked by
+	// their delivery report, never resent.
+	ListReconcileSMSMessages(ctx context.Context, arg ListReconcileSMSMessagesParams) ([]ListReconcileSMSMessagesRow, error)
 	// Balances per rental (entries of its reservation).
 	ListRentalBalances(ctx context.Context, arg ListRentalBalancesParams) ([]ListRentalBalancesRow, error)
 	ListRentalBillingPeriods(ctx context.Context, arg ListRentalBillingPeriodsParams) ([]ListRentalBillingPeriodsRow, error)
@@ -1867,6 +1918,13 @@ type Querier interface {
 	ListSiteSitemapCatalog(ctx context.Context, organizationID int64) ([]ListSiteSitemapCatalogRow, error)
 	// Publish history, newest first.
 	ListSiteVersions(ctx context.Context, organizationID int64) ([]ListSiteVersionsRow, error)
+	// The worker sweep (TEC-962): pending renders requested before
+	// stale_before, across organizations (each row carries its
+	// organization_id; the service re-scopes from it).
+	ListStalePendingDocumentPDFs(ctx context.Context, arg ListStalePendingDocumentPDFsParams) ([]ListStalePendingDocumentPDFsRow, error)
+	// Queued rows whose delivery task never ran (lost with Redis, e.g. a
+	// restore without the Redis snapshot); scheduled rows wait for their time.
+	ListStaleQueuedNotifications(ctx context.Context, staleMinutes int32) ([]ListStaleQueuedNotificationsRow, error)
 	ListStorageActivity(ctx context.Context, arg ListStorageActivityParams) ([]ListStorageActivityRow, error)
 	ListStorageLinksByKey(ctx context.Context, objectKey string) ([]StorageLink, error)
 	ListStorageSharesByKey(ctx context.Context, objectKey string) ([]ListStorageSharesByKeyRow, error)
@@ -1874,6 +1932,10 @@ type Querier interface {
 	ListStorageStarsByKeys(ctx context.Context, arg ListStorageStarsByKeysParams) ([]StorageStar, error)
 	ListStorageStarsByUser(ctx context.Context, userID int64) ([]StorageStar, error)
 	ListStorageTrash(ctx context.Context, arg ListStorageTrashParams) ([]StorageTrash, error)
+	// Organizations with dispatches left in "sending" since before_at
+	// (reclaim sweep: a crash, or a restore of a backup taken mid-send).
+	ListStuckNotificationDispatchOrganizations(ctx context.Context, beforeAt pgtype.Timestamptz) ([]int64, error)
+	ListStuckNotificationDispatches(ctx context.Context, arg ListStuckNotificationDispatchesParams) ([]int64, error)
 	ListStuckProcessingNotificationIDs(ctx context.Context, staleMinutes int32) ([]int64, error)
 	ListSupplierFacets(ctx context.Context, organizationID int64) ([]ListSupplierFacetsRow, error)
 	ListSupplierInvoiceLines(ctx context.Context, arg ListSupplierInvoiceLinesParams) ([]ListSupplierInvoiceLinesRow, error)
@@ -1925,6 +1987,9 @@ type Querier interface {
 	// Rentals with at least one invoiceable item (bulk "invoice the selected
 	// rentals" picker).
 	ListUninvoicedRentals(ctx context.Context, arg ListUninvoicedRentalsParams) ([]ListUninvoicedRentalsRow, error)
+	// Platform health issues (newest first, every organization and the
+	// platform-level rows).
+	ListUnmatchedPaymentWebhookOrphans(ctx context.Context, rowLimit int32) ([]ListUnmatchedPaymentWebhookOrphansRow, error)
 	// Catch-up sweep: confirmed payments without their collection entry.
 	ListUnpostedPayments(ctx context.Context, limitCount int32) ([]ListUnpostedPaymentsRow, error)
 	ListUnpostedRefunds(ctx context.Context, limitCount int32) ([]ListUnpostedRefundsRow, error)
@@ -2101,6 +2166,7 @@ type Querier interface {
 	// A verified payment closes its link (also an expired one: a late payment
 	// is still a payment of that link).
 	MarkPaymentLinkPaid(ctx context.Context, arg MarkPaymentLinkPaidParams) (int64, error)
+	MarkPaymentWebhookOrphanMatched(ctx context.Context, arg MarkPaymentWebhookOrphanMatchedParams) (int64, error)
 	MarkQuoteSuperseded(ctx context.Context, arg MarkQuoteSupersededParams) error
 	// A quote is consumed once (reservation create / change apply).
 	MarkQuoteUsed(ctx context.Context, arg MarkQuoteUsedParams) (int64, error)
@@ -2205,6 +2271,8 @@ type Querier interface {
 	PatchSiteMedia(ctx context.Context, arg PatchSiteMediaParams) (SiteMedium, error)
 	// Open supplier invoices by due state (caller's branch scope).
 	PayablesSummary(ctx context.Context, arg PayablesSummaryParams) (PayablesSummaryRow, error)
+	// Platform health (every organization and the platform-level rows).
+	PaymentWebhookOrphanHealthCounts(ctx context.Context, since pgtype.Timestamptz) (PaymentWebhookOrphanHealthCountsRow, error)
 	PingDB(ctx context.Context) (int32, error)
 	// Platform-wide totals of the usage list (live organizations only).
 	PlatformUsageTotals(ctx context.Context, arg PlatformUsageTotalsParams) (PlatformUsageTotalsRow, error)
@@ -2271,6 +2339,23 @@ type Querier interface {
 	QueueImportJob(ctx context.Context, argUuid uuid.UUID) (ImportJob, error)
 	ReassignCatalogModelRules(ctx context.Context, arg ReassignCatalogModelRulesParams) (int64, error)
 	ReassignCatalogTypesModel(ctx context.Context, arg ReassignCatalogTypesModelParams) (int64, error)
+	// Takes over a delivery left in processing (worker crash, restore): only
+	// one sweep wins the row.
+	ReclaimProcessingNotification(ctx context.Context, arg ReclaimProcessingNotificationParams) (Notification, error)
+	ReconcileDispatches(ctx context.Context, arg ReconcileDispatchesParams) ([]ReconcileDispatchesRow, error)
+	ReconcileNotifications(ctx context.Context, arg ReconcileNotificationsParams) ([]ReconcileNotificationsRow, error)
+	// Staff / operator resolution "reconciled" (TEC-962): the work was
+	// confirmed outside the runner (provider panel, delivery log) and is never
+	// sent again. Sends nothing; refused while a worker holds the job. The
+	// kinds other flows own stay out: payment refunds (/payments/{uuid}/refund)
+	// and KABİS notifications (their own reconcile with reason and evidence).
+	ReconcileRunnerJob(ctx context.Context, arg ReconcileRunnerJobParams) (int64, error)
+	// Bulk (restore runbook): every matching job of the organization created
+	// before the cut-off.
+	ReconcileRunnerJobs(ctx context.Context, arg ReconcileRunnerJobsParams) ([]ReconcileRunnerJobsRow, error)
+	// The send job then finishes without calling the provider (the SMS send
+	// operation checks the message status first).
+	ReconcileSMSMessages(ctx context.Context, arg ReconcileSMSMessagesParams) ([]ReconcileSMSMessagesRow, error)
 	RecordDocumentApprovalLinkFailure(ctx context.Context, arg RecordDocumentApprovalLinkFailureParams) error
 	RecordOTPAttempt(ctx context.Context, arg RecordOTPAttemptParams) error
 	RecordWebhookEndpointResult(ctx context.Context, arg RecordWebhookEndpointResultParams) error
@@ -2363,6 +2448,7 @@ type Querier interface {
 	ResolvePaymentConversation(ctx context.Context, conversationID string) ([]ResolvePaymentConversationRow, error)
 	// Public pay page: the token names the link and its organization.
 	ResolvePaymentLinkToken(ctx context.Context, token string) (ResolvePaymentLinkTokenRow, error)
+	ResolvePaymentReconciliationItem(ctx context.Context, arg ResolvePaymentReconciliationItemParams) (int64, error)
 	// Closes the open tasks of a reservation (cancelled / expired / re-planned).
 	ResolveReservationTasks(ctx context.Context, arg ResolveReservationTasksParams) (int64, error)
 	ResolveResolutionTask(ctx context.Context, arg ResolveResolutionTaskParams) (int64, error)
@@ -2442,7 +2528,10 @@ type Querier interface {
 	SetDocumentStatus(ctx context.Context, arg SetDocumentStatusParams) (int64, error)
 	SetDocumentVersionPDF(ctx context.Context, arg SetDocumentVersionPDFParams) (int64, error)
 	SetDocumentVersionPDFFailed(ctx context.Context, arg SetDocumentVersionPDFFailedParams) (int64, error)
-	SetDocumentVersionPDFPending(ctx context.Context, arg SetDocumentVersionPDFPendingParams) (int64, error)
+	// Requests a render: from none / failed, or again from a pending request
+	// older than stale_before (its queue task was lost, e.g. after a restore;
+	// TEC-962). The conditional update lets one caller win.
+	SetDocumentVersionPDFPending(ctx context.Context, arg SetDocumentVersionPDFPendingParams) (uuid.UUID, error)
 	SetExpenseAttachment(ctx context.Context, arg SetExpenseAttachmentParams) (int64, error)
 	SetExpenseCategory(ctx context.Context, arg SetExpenseCategoryParams) (int64, error)
 	SetExtraShowOnline(ctx context.Context, arg SetExtraShowOnlineParams) (SetExtraShowOnlineRow, error)
@@ -2591,6 +2680,9 @@ type Querier interface {
 	TouchDateRule(ctx context.Context, arg TouchDateRuleParams) error
 	// A status check with the provider happened (CheckStatus attempt).
 	TouchKabisVerified(ctx context.Context, arg TouchKabisVerifiedParams) error
+	// A reclaim found nothing to change (still waiting for a delivery report):
+	// moves the dispatch to the back of the sweep.
+	TouchNotificationDispatch(ctx context.Context, arg TouchNotificationDispatchParams) error
 	// Slides the idle expiry (never beyond the hard cap).
 	TouchPortalSession(ctx context.Context, arg TouchPortalSessionParams) (int64, error)
 	// Records use at most once a minute.
@@ -2716,12 +2808,18 @@ type Querier interface {
 	UpsertNotificationRule(ctx context.Context, arg UpsertNotificationRuleParams) (NotificationRule, error)
 	UpsertOrganizationFeature(ctx context.Context, arg UpsertOrganizationFeatureParams) error
 	UpsertOrganizationPlan(ctx context.Context, arg UpsertOrganizationPlanParams) error
+	// One row per notification; a repeated delivery counts deliveries.
+	UpsertPaymentWebhookOrphan(ctx context.Context, arg UpsertPaymentWebhookOrphanParams) (UpsertPaymentWebhookOrphanRow, error)
 	UpsertPlatformHealthAlertCursor(ctx context.Context, arg UpsertPlatformHealthAlertCursorParams) error
 	// Mobile push devices (Expo) and their pending push tickets.
 	// A token moves to the calling user when the device switches accounts and is
 	// re-enabled on every registration.
 	UpsertPushDevice(ctx context.Context, arg UpsertPushDeviceParams) (PushDevice, error)
 	UpsertPushSubscription(ctx context.Context, arg UpsertPushSubscriptionParams) (PushSubscription, error)
+	// The refund guard's items: refund_mismatch (a refund refused) or
+	// unverified (a refund made while the provider could not be read); one
+	// open item per payment and kind (a later one refreshes the figures).
+	UpsertRefundGuardItem(ctx context.Context, arg UpsertRefundGuardItemParams) (uuid.UUID, error)
 	UpsertTollSettings(ctx context.Context, arg UpsertTollSettingsParams) (UpsertTollSettingsRow, error)
 	UpsertUserTOTPSetup(ctx context.Context, arg UpsertUserTOTPSetupParams) (UserTotp, error)
 	UserHasRoleSlug(ctx context.Context, arg UserHasRoleSlugParams) (bool, error)

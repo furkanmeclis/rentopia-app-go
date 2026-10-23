@@ -515,6 +515,14 @@ export function tenantNav(slug: string): NavCatalog {
             permission: permissions.tenant.finance.accounts.read,
           },
           {
+            // Provider notifications that named no payment (TEC-962).
+            id: "finance-payment-orphans",
+            titleKey: "layout.nav_finance_payment_orphans",
+            href: routes.tenant.finance.paymentOrphans(slug),
+            icon: Webhook,
+            permission: permissions.tenant.payments.read,
+          },
+          {
             id: "finance-invoices",
             titleKey: "layout.nav_finance_invoices",
             href: routes.tenant.invoices.root(slug),

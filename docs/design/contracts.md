@@ -97,6 +97,7 @@ Version timeline entries:
 - With a queue, rendering runs in the **worker**: task `app:documents:render-pdf` on the exports queue, enqueued after the version is created.
 - Without a queue (tests, single process), it renders inline.
 - `pdf_status` moves none → pending → ready or failed. On failure, the error is shown on the version.
+- A render is requested once (`SetDocumentVersionPDFPending` from none / failed, stamping `pdf_requested_at`) and queued under the Asynq task id `documents:render-pdf:<version uuid>`. A `pending` version older than 15 minutes (`PDFStaleAfter`; its task was lost, e.g. after a restore with an older Redis) is requested again: by the next download, and by the worker sweep `SweepPendingPDFs` (at start and every minute). The sweep re-stamps the version first (one winner) and enqueues under the same task id, so a task that still exists is never doubled (TEC-962; `rentals/pdf_sweep_test.go`).
 
 **Storage.**
 - The PDF is stored **privately** at `organizations/{org}/documents/{document}/{version}.pdf` (`storage.DocumentPDFObjectKey`).

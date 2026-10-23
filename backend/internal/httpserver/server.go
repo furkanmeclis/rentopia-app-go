@@ -1067,6 +1067,10 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	if err := healthRegistry.Register(channelsmodule.NewHealthSource(deps.Queries)); err != nil {
 		return nil, fmt.Errorf("httpserver: channel health: %w", err)
 	}
+	// Provider notifications that named no payment (TEC-962).
+	if err := healthRegistry.Register(paymentsmodule.NewOrphanHealthSource(deps.Queries)); err != nil {
+		return nil, fmt.Errorf("httpserver: payment orphan health: %w", err)
+	}
 	platformHealthSvc := platformhealthusecase.New(deps.Queries, healthRegistry)
 	platformHealthSvc.SetLogger(log)
 	if cfg.Queue.Enabled && deps.Redis != nil {

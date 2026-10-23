@@ -15,8 +15,12 @@
 //     channel moves to the next one when the rule allows fallback (RT-A30).
 //   - Channels that confirm later (SMS delivery reports) answer "accepted"
 //     and report through ReportDelivery; a failed report runs the fallback.
-//   - Sweep (worker, every minute) creates reminder and sweep-detected
-//     dispatches and processes the due ones.
+//   - Sweep (worker, every minute) reclaims dispatches left in "sending"
+//     (ReclaimStuck), creates reminder and sweep-detected dispatches and
+//     processes the due ones.
+//   - Channels with a send ledger (channel.Ledger, SMS) are asked before
+//     every send whether they already took a message for the delivery; a
+//     found message is never handed to the provider again (TEC-962).
 //
 // Marketing consent (İYS) is not consulted: these are transactional
 // messages; marketing communication preferences stay with the customer's
@@ -53,6 +57,9 @@ const (
 	DispatchDelivered = "delivered"
 	DispatchFailed    = "failed"
 	DispatchSkipped   = "skipped"
+	// DispatchReconciled: still unsent in restored data but sent after the
+	// backup; marked by the operator (cmd/messaging-reconcile), never sent.
+	DispatchReconciled = "reconciled"
 )
 
 // Delivery statuses.
@@ -399,7 +406,12 @@ func (e *Engine) Process(ctx context.Context, orgID, dispatchID int64) error {
 		if err != nil || st == nil {
 			return err
 		}
-		res := e.send(ctx, orgID, st)
+		res, err := e.send(ctx, orgID, st)
+		if err != nil {
+			// The channel's ledger could not tell whether the message was
+			// sent: the attempt stays "sending" and ReclaimStuck asks again.
+			return err
+		}
 		next, err := e.record(ctx, orgID, st, res)
 		if err != nil || !next {
 			return err
@@ -447,8 +459,18 @@ func (e *Engine) claim(ctx context.Context, orgID, dispatchID int64) (*step, err
 				Subject: truncate(subject, 200), Body: body,
 			})
 			if errors.Is(err, pgx.ErrNoRows) {
-				idx++ // this channel was already tried for this dispatch
-				continue
+				// This channel was already tried for this dispatch. An
+				// attempt interrupted before anything was recorded (released
+				// by ReclaimStuck) resumes on its own row; the channel's
+				// ledger still stops a second message.
+				prev, perr := q.GetNotificationDeliveryForChannel(ctx, db.GetNotificationDeliveryForChannelParams{
+					OrganizationID: orgID, DispatchID: d.ID, Channel: ch,
+				})
+				if perr != nil || !interrupted(&prev) {
+					idx++
+					continue
+				}
+				dl, err = prev, nil
 			}
 			if err != nil {
 				return err
@@ -525,21 +547,30 @@ func (e *Engine) channelInPlan(ctx context.Context, orgID int64, ch string) (fea
 	return f, true
 }
 
-func (e *Engine) send(ctx context.Context, orgID int64, st *step) channel.Result {
+// send hands the attempt to its channel. An error leaves the attempt
+// "sending" (the ledger could not be read).
+func (e *Engine) send(ctx context.Context, orgID int64, st *step) (channel.Result, error) {
 	if f, ok := e.channelInPlan(ctx, orgID, st.channel); !ok {
 		st.planSkip = true
-		return channel.Result{Outcome: channel.OutcomeSkipped, Error: string(f) + " is not included in the organization's plan"}
+		return channel.Result{Outcome: channel.OutcomeSkipped, Error: string(f) + " is not included in the organization's plan"}, nil
 	}
 	c, ok := e.channels[st.channel]
 	if !ok {
-		return channel.Result{Outcome: channel.OutcomeSkipped, Error: "channel not available"}
+		return channel.Result{Outcome: channel.OutcomeSkipped, Error: "channel not available"}, nil
 	}
 	if !c.Supports(st.dispatch.Audience) {
-		return channel.Result{Outcome: channel.OutcomeSkipped, Error: "channel does not serve this audience"}
+		return channel.Result{Outcome: channel.OutcomeSkipped, Error: "channel does not serve this audience"}, nil
+	}
+	// Send ledger: a message the channel already took for this delivery is
+	// never handed to the provider again.
+	if res, found, err := e.lookup(ctx, orgID, st.channel, st.delivery.Uuid); err != nil {
+		return channel.Result{}, fmt.Errorf("notify ledger %s: %w", st.channel, err)
+	} else if found {
+		return res, nil
 	}
 	rcpt, err := e.recipient(ctx, orgID, st.dispatch)
 	if err != nil {
-		return channel.Result{Outcome: channel.OutcomeSkipped, Error: err.Error()}
+		return channel.Result{Outcome: channel.OutcomeSkipped, Error: err.Error()}, nil
 	}
 	vars := map[string]string{}
 	_ = json.Unmarshal(st.dispatch.Vars, &vars)
@@ -565,7 +596,21 @@ func (e *Engine) send(ctx context.Context, orgID int64, st *step) channel.Result
 	if res.Outcome == "" {
 		res.Outcome = channel.OutcomeFailed
 	}
-	return res
+	return res, nil
+}
+
+// lookup asks the channel's send ledger about a delivery (found false for
+// channels without one).
+func (e *Engine) lookup(ctx context.Context, orgID int64, ch string, delivery uuid.UUID) (channel.Result, bool, error) {
+	c, ok := e.channels[ch]
+	if !ok {
+		return channel.Result{}, false, nil
+	}
+	l, ok := c.(channel.Ledger)
+	if !ok {
+		return channel.Result{}, false, nil
+	}
+	return l.Lookup(ctx, orgID, delivery)
 }
 
 func (e *Engine) recipient(ctx context.Context, orgID int64, d db.NotificationDispatch) (channel.Recipient, error) {
@@ -591,7 +636,9 @@ func (e *Engine) recipient(ctx context.Context, orgID int64, d db.NotificationDi
 }
 
 // record writes the attempt's result and reports whether the next channel
-// should run now.
+// should run now. The provider's acceptance (reference, sent_at) and the
+// dispatch's status change commit together, under the dispatch lock (the
+// same order as ReportDelivery).
 func (e *Engine) record(ctx context.Context, orgID int64, st *step, res channel.Result) (bool, error) {
 	now := e.clock()
 	p := db.UpdateNotificationDeliveryParams{
@@ -601,36 +648,52 @@ func (e *Engine) record(ctx context.Context, orgID int64, st *step, res channel.
 	if res.ExternalUUID != nil {
 		p.ExternalUuid = pgtype.UUID{Bytes: *res.ExternalUUID, Valid: true}
 	}
-	switch res.Outcome {
-	case channel.OutcomeAccepted:
-		p.Status, p.SentAt = DeliverySent, ts(now)
-		// The dispatch stays "sending" until the report; a report that
-		// arrived first already finished the delivery (no rows here).
-		_, err := e.q.UpdateNotificationDelivery(ctx, p)
+	next := false
+	err := e.tx(ctx, func(q *db.Queries) error {
+		if e.pool != nil {
+			if _, err := q.LockNotificationDispatchWait(ctx, db.LockNotificationDispatchWaitParams{
+				OrganizationID: orgID, ID: st.dispatch.ID,
+			}); err != nil {
+				return err
+			}
+		}
+		switch res.Outcome {
+		case channel.OutcomeAccepted:
+			p.Status, p.SentAt = DeliverySent, ts(now)
+			// The dispatch stays "sending" until the report; a report that
+			// arrived first already finished the delivery (no rows here).
+			_, err := q.UpdateNotificationDelivery(ctx, p)
+			return err
+		case channel.OutcomeDelivered, channel.OutcomeSent:
+			p.Status, p.SentAt, p.FinishedAt = DeliverySent, ts(now), ts(now)
+			if res.Outcome == channel.OutcomeDelivered {
+				p.Status = DeliveryDelivered
+			}
+			// No row: a delivery report already settled this attempt.
+			if n, err := q.UpdateNotificationDelivery(ctx, p); err != nil || n == 0 {
+				return err
+			}
+			return q.UpdateNotificationDispatchState(ctx, db.UpdateNotificationDispatchStateParams{
+				OrganizationID: orgID, ID: st.dispatch.ID, Status: DispatchDelivered, NextChannelIndex: st.dispatch.NextChannelIndex,
+				CompletedAt: ts(now),
+			})
+		default:
+			p.Status, p.FinishedAt = DeliveryFailed, ts(now)
+			if res.Outcome == channel.OutcomeSkipped {
+				p.Status = DeliverySkipped
+			}
+			if n, err := q.UpdateNotificationDelivery(ctx, p); err != nil || n == 0 {
+				return err
+			}
+			var err error
+			next, err = e.advance(ctx, q, orgID, st.dispatch, st.channel, res.Error, st.planSkip)
+			return err
+		}
+	})
+	if err != nil {
 		return false, err
-	case channel.OutcomeDelivered, channel.OutcomeSent:
-		p.Status, p.SentAt, p.FinishedAt = DeliverySent, ts(now), ts(now)
-		if res.Outcome == channel.OutcomeDelivered {
-			p.Status = DeliveryDelivered
-		}
-		// No row: a delivery report already settled this attempt.
-		if n, err := e.q.UpdateNotificationDelivery(ctx, p); err != nil || n == 0 {
-			return false, err
-		}
-		return false, e.q.UpdateNotificationDispatchState(ctx, db.UpdateNotificationDispatchStateParams{
-			OrganizationID: orgID, ID: st.dispatch.ID, Status: DispatchDelivered, NextChannelIndex: st.dispatch.NextChannelIndex,
-			CompletedAt: ts(now),
-		})
-	default:
-		p.Status, p.FinishedAt = DeliveryFailed, ts(now)
-		if res.Outcome == channel.OutcomeSkipped {
-			p.Status = DeliverySkipped
-		}
-		if n, err := e.q.UpdateNotificationDelivery(ctx, p); err != nil || n == 0 {
-			return false, err
-		}
-		return e.advance(ctx, e.q, orgID, st.dispatch, st.channel, res.Error, st.planSkip)
 	}
+	return next, nil
 }
 
 // advance moves a dispatch past a failed channel: to the next channel
@@ -769,6 +832,9 @@ func (e *Engine) ProcessDueOrganization(ctx context.Context, orgID int64) (int, 
 // Sweep creates the reminder / sweep-detected dispatches and sends the due
 // ones (worker, every minute).
 func (e *Engine) Sweep(ctx context.Context) (int, error) {
+	if _, err := e.ReclaimStuck(ctx, DefaultStuckSending); err != nil {
+		e.log.Warn("notify_reclaim_failed", "error", err)
+	}
 	if err := e.Reminders(ctx); err != nil {
 		e.log.Warn("notify_reminders_failed", "error", err)
 	}

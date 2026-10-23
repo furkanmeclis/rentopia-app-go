@@ -23,6 +23,12 @@ export type IntegrationJobDetail = Schemas["IntegrationJobDetail"];
 export type IntegrationAttempt = Schemas["IntegrationAttempt"];
 export type IntegrationJobRetry =
   Schemas["EnvelopeIntegrationJobRetry"]["data"];
+export type IntegrationJobReconciliation =
+  Schemas["IntegrationJobReconciliation"];
+export type PaymentWebhookOrphan = Schemas["PaymentWebhookOrphan"];
+export type PaymentWebhookOrphanPage =
+  Schemas["EnvelopePaymentWebhookOrphanPage"]["data"];
+export type PaymentWebhookOrphanStatus = PaymentWebhookOrphan["status"];
 export type SmsSent = Schemas["SmsSent"];
 export type IntegrationProviderCode = IntegrationAccount["provider"];
 
@@ -59,6 +65,24 @@ export type ListLinksParams = {
   offset: number;
   status?: string;
   reservation?: string;
+};
+
+export type ListOrphansParams = {
+  limit: number;
+  offset: number;
+  sort?: string;
+  q?: string;
+  status?: string;
+};
+
+export type ReconcileJobRequest = {
+  note: string;
+  external_ref?: string;
+};
+
+export type MatchOrphanRequest = {
+  reservation_uuid: string;
+  note: string;
 };
 
 export type ListIntegrationJobsParams = {

@@ -9,7 +9,10 @@ import type {
   ListIntegrationJobsParams,
   ListIntegrationsParams,
   ListLinksParams,
+  ListOrphansParams,
   ListPaymentsParams,
+  MatchOrphanRequest,
+  ReconcileJobRequest,
   UpdateIntegrationRequest,
 } from "@/features/payments/types";
 import { useInvalidateReservations } from "@/features/reservations/hooks/use-reservations";
@@ -36,6 +39,8 @@ export const paymentKeys = {
   ) => [...paymentKeys.all(slug), "integration-jobs", account, params] as const,
   integrationJob: (slug: string, uuid: string) =>
     [...paymentKeys.all(slug), "integration-job", uuid] as const,
+  orphans: (slug: string, params: Record<string, unknown>) =>
+    [...paymentKeys.all(slug), "orphans", params] as const,
 };
 
 /** Payments touch reservations (paid amount, status) and vice versa. */
@@ -344,6 +349,52 @@ export function useRetryIntegrationJob() {
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: paymentKeys.all(slug) });
+    },
+  });
+}
+
+/**
+ * "Mutabık işaretle": the work was confirmed outside the runner (provider
+ * panel); the job is never sent again. Errors are shown by the dialog.
+ */
+export function useReconcileIntegrationJob() {
+  const { slug } = useTenant();
+  const { t } = useLocale();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ uuid, ...body }: { uuid: string } & ReconcileJobRequest) =>
+      paymentsService.reconcileIntegrationJob(slug, uuid, body),
+    meta: { silent: true },
+    onSuccess: () => {
+      appToast.success(t("payments.integrations.jobs.toast.reconciled"));
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: paymentKeys.all(slug) });
+    },
+  });
+}
+
+export function usePaymentOrphans(params: ListOrphansParams) {
+  const { slug } = useTenant();
+  return useQuery({
+    queryKey: paymentKeys.orphans(slug, params),
+    queryFn: () => paymentsService.orphans(slug, params),
+    placeholderData: (previous) => previous,
+  });
+}
+
+/** Attach an orphan notification to a reservation (provider retrieve first). */
+export function useMatchOrphan() {
+  const { slug } = useTenant();
+  const { t } = useLocale();
+  const invalidate = useInvalidatePayments();
+  return useMutation({
+    mutationFn: ({ uuid, ...body }: { uuid: string } & MatchOrphanRequest) =>
+      paymentsService.matchOrphan(slug, uuid, body),
+    meta: { silent: true },
+    onSuccess: () => {
+      appToast.success(t("payments.orphans.toast.matched"));
+      void invalidate();
     },
   });
 }

@@ -45,6 +45,7 @@
   "dispatch_statuses.delivered": "Ulaştı",
   "dispatch_statuses.failed": "Ulaşmadı",
   "dispatch_statuses.skipped": "Kanal yok",
+  "dispatch_statuses.reconciled": "Geri yükleme sonrası mutabık",
   "offsets.at_time": "Zamanında",
   "offsets.minutes": "{{count}} dk önce",
   "offsets.hours": "{{count}} saat önce",

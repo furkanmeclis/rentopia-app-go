@@ -78,6 +78,12 @@ The down migration drops the attempts, the new columns and every SMS account / S
 
 Not retryable (`409 INTEGRATION_JOB_NOT_RETRYABLE`): succeeded / ignored jobs, inbound notifications and `payment.refund` jobs (refunds run through `/v1/tenant/payments/{uuid}/refund`). A job held by a worker answers `409 INTEGRATION_JOB_BUSY`.
 
+### 5.1 Staff resolution "Mutabık işaretle" (TEC-962)
+
+`POST /v1/tenant/integration-jobs/{uuid}/reconcile` (`tenant.integrations.manage`, body `note`, optional `external_ref`): the work was confirmed outside the runner (provider panel, delivery log), e.g. sent after the backup a database was restored from. An outbound job in `pending`, `submitted`, `needs_verification` or `failed` moves to `reconciled` (final, never sent again); `reconciled_at` / `reconciled_by` / `reconcile_note` / `reconcile_external_ref` keep who, when and why (migration 000136), and an activity event `integrations.job_reconciled` is written. It sends nothing, so no plan feature is required (like `disable`). Refused (`409 INTEGRATION_JOB_NOT_RECONCILABLE`): final states, inbound notifications, `payment.refund` (refund guard, payments.md §3.8) and `kabis.*` (their own reconcile with evidence); a job held by a worker answers `409 INTEGRATION_JOB_BUSY`. Listeners hear the change (SMS log → `reconciled`, e-invoice → succeeded).
+
+`POST /v1/tenant/integration-jobs/reconcile` (body `before`, `statuses`, optional `kinds`, `note`): every matching job of the organization created before the cut-off. Across organizations the operator uses `backend/cmd/integration-jobs-reconcile` (dry run by default; `--apply --note`; `--jobs` for named jobs; in the backend image as `/app/integration-jobs-reconcile`). There is no platform-level job list, so no platform route.
+
 **Step-up**: the tenant shell has no step-up policy yet ([payments.md](./payments.md) §2.4). When one exists, `retry` joins `connect` / `PATCH` / `disable` behind `middleware.RequireStepUp` in `integrations/jobs/routes.go`.
 
 ## 6. Payments
@@ -90,6 +96,8 @@ The payments flow is unchanged (RT-A16 passes): the webhook keeps its upsert / c
 GET  /v1/tenant/integrations/{uuid}/jobs        page of an account's jobs (status, kind filters; sort created_at / updated_at)
 GET  /v1/tenant/integration-jobs/{uuid}         job + attempt log
 POST /v1/tenant/integration-jobs/{uuid}/retry   §5
+POST /v1/tenant/integration-jobs/{uuid}/reconcile  §5.1
+POST /v1/tenant/integration-jobs/reconcile      §5.1 (bulk)
 ```
 
 All behind `RequireOrganization` + `tenant.integrations.manage`; RT-A01 covers them (`integration-jobs/uuid` → the seeded job of a test SMS).

@@ -285,6 +285,48 @@ func (q *Queries) GetNotificationDeliveryByUUID(ctx context.Context, arg GetNoti
 	return i, err
 }
 
+const getNotificationDeliveryForChannel = `-- name: GetNotificationDeliveryForChannel :one
+
+SELECT id, uuid, organization_id, dispatch_id, channel, attempt_no, provider, provider_ref, external_uuid, recipient_masked, subject, body, status, error, sent_at, finished_at, created_at, updated_at FROM notification_deliveries dl
+WHERE dl.organization_id = $1
+  AND dl.dispatch_id = $2
+  AND dl.channel = $3
+`
+
+type GetNotificationDeliveryForChannelParams struct {
+	OrganizationID int64  `json:"organization_id"`
+	DispatchID     int64  `json:"dispatch_id"`
+	Channel        string `json:"channel"`
+}
+
+// Deliveries ------------------------------------------------------------
+// The attempt row of one dispatch and channel (unique).
+func (q *Queries) GetNotificationDeliveryForChannel(ctx context.Context, arg GetNotificationDeliveryForChannelParams) (NotificationDelivery, error) {
+	row := q.db.QueryRow(ctx, getNotificationDeliveryForChannel, arg.OrganizationID, arg.DispatchID, arg.Channel)
+	var i NotificationDelivery
+	err := row.Scan(
+		&i.ID,
+		&i.Uuid,
+		&i.OrganizationID,
+		&i.DispatchID,
+		&i.Channel,
+		&i.AttemptNo,
+		&i.Provider,
+		&i.ProviderRef,
+		&i.ExternalUuid,
+		&i.RecipientMasked,
+		&i.Subject,
+		&i.Body,
+		&i.Status,
+		&i.Error,
+		&i.SentAt,
+		&i.FinishedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getNotificationDispatch = `-- name: GetNotificationDispatch :one
 SELECT id, uuid, organization_id, event_code, audience, customer_id, user_id, ref_type, ref_uuid, idempotency_key, language, vars, channels, fallback, next_channel_index, status, scheduled_at, last_error, completed_at, test, created_by, created_at, updated_at FROM notification_dispatches d
 WHERE d.organization_id = $1
@@ -659,7 +701,6 @@ func (q *Queries) GetNotifySMSRef(ctx context.Context, arg GetNotifySMSRefParams
 }
 
 const insertNotificationDelivery = `-- name: InsertNotificationDelivery :one
-
 INSERT INTO notification_deliveries (
     organization_id, dispatch_id, channel, attempt_no, status, subject, body
 ) VALUES (
@@ -680,7 +721,6 @@ type InsertNotificationDeliveryParams struct {
 	Body           string `json:"body"`
 }
 
-// Deliveries ------------------------------------------------------------
 // One attempt per dispatch and channel: a conflicting insert returns no rows.
 func (q *Queries) InsertNotificationDelivery(ctx context.Context, arg InsertNotificationDeliveryParams) (NotificationDelivery, error) {
 	row := q.db.QueryRow(ctx, insertNotificationDelivery,
@@ -1683,6 +1723,71 @@ func (q *Queries) ListNotifyReturnCandidates(ctx context.Context, arg ListNotify
 	return items, nil
 }
 
+const listStuckNotificationDispatchOrganizations = `-- name: ListStuckNotificationDispatchOrganizations :many
+SELECT DISTINCT d.organization_id
+FROM notification_dispatches d
+WHERE d.status = 'sending'
+  AND d.updated_at < $1::timestamptz
+LIMIT 1000
+`
+
+// Organizations with dispatches left in "sending" since before_at
+// (reclaim sweep: a crash, or a restore of a backup taken mid-send).
+func (q *Queries) ListStuckNotificationDispatchOrganizations(ctx context.Context, beforeAt pgtype.Timestamptz) ([]int64, error) {
+	rows, err := q.db.Query(ctx, listStuckNotificationDispatchOrganizations, beforeAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var organization_id int64
+		if err := rows.Scan(&organization_id); err != nil {
+			return nil, err
+		}
+		items = append(items, organization_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStuckNotificationDispatches = `-- name: ListStuckNotificationDispatches :many
+SELECT d.id FROM notification_dispatches d
+WHERE d.organization_id = $1
+  AND d.status = 'sending'
+  AND d.updated_at < $2::timestamptz
+ORDER BY d.updated_at, d.id
+LIMIT $3
+`
+
+type ListStuckNotificationDispatchesParams struct {
+	OrganizationID int64              `json:"organization_id"`
+	BeforeAt       pgtype.Timestamptz `json:"before_at"`
+	LimitCount     int32              `json:"limit_count"`
+}
+
+func (q *Queries) ListStuckNotificationDispatches(ctx context.Context, arg ListStuckNotificationDispatchesParams) ([]int64, error) {
+	rows, err := q.db.Query(ctx, listStuckNotificationDispatches, arg.OrganizationID, arg.BeforeAt, arg.LimitCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockNotificationDispatch = `-- name: LockNotificationDispatch :one
 SELECT id, uuid, organization_id, event_code, audience, customer_id, user_id, ref_type, ref_uuid, idempotency_key, language, vars, channels, fallback, next_channel_index, status, scheduled_at, last_error, completed_at, test, created_by, created_at, updated_at FROM notification_dispatches d
 WHERE d.organization_id = $1
@@ -1807,6 +1912,25 @@ func (q *Queries) NotificationDeliveryFacets(ctx context.Context, organizationID
 		return nil, err
 	}
 	return items, nil
+}
+
+const touchNotificationDispatch = `-- name: TouchNotificationDispatch :exec
+UPDATE notification_dispatches
+SET updated_at = NOW()
+WHERE organization_id = $1
+  AND id = $2
+`
+
+type TouchNotificationDispatchParams struct {
+	OrganizationID int64 `json:"organization_id"`
+	ID             int64 `json:"id"`
+}
+
+// A reclaim found nothing to change (still waiting for a delivery report):
+// moves the dispatch to the back of the sweep.
+func (q *Queries) TouchNotificationDispatch(ctx context.Context, arg TouchNotificationDispatchParams) error {
+	_, err := q.db.Exec(ctx, touchNotificationDispatch, arg.OrganizationID, arg.ID)
+	return err
 }
 
 const updateNotificationDelivery = `-- name: UpdateNotificationDelivery :execrows

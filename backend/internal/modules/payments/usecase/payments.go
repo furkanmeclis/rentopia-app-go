@@ -11,6 +11,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
 	paymodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/payments/model"
 	resmodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/model"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/integrations"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/payments"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/pkg/money"
@@ -213,6 +214,21 @@ func (s *Service) Refund(ctx context.Context, orgID int64, id uuid.UUID, in paym
 	if !amount.IsPositive() || amount.Cmp(left) > 0 {
 		return paymodel.Payment{}, validation("amount", "out_of_range", "the amount must be positive and at most "+left.String())
 	}
+	// Provider payments: the refund guard asks the provider what it has
+	// refunded already (TEC-962) before anything is recorded or sent.
+	var prov payments.Provider
+	var acc integrations.Account
+	if r.Provider != paymodel.ProviderManual {
+		if prov, err = s.provider(r.Provider); err != nil {
+			return paymodel.Payment{}, err
+		}
+		if acc, err = s.accounts.AccountByID(ctx, orgID, r.IntegrationAccountID.Int64); err != nil {
+			return paymodel.Payment{}, err
+		}
+		if err := s.guardRefund(ctx, orgID, r, prov, acc, amount, reason); err != nil {
+			return paymodel.Payment{}, err
+		}
+	}
 	refund, err := s.q.InsertPaymentRefund(ctx, db.InsertPaymentRefundParams{
 		OrganizationID: orgID, PaymentID: r.ID, Amount: amount.Numeric(), Currency: r.Currency, Reason: reason, CreatedBy: actorID(ctx),
 	})
@@ -220,15 +236,7 @@ func (s *Service) Refund(ctx context.Context, orgID int64, id uuid.UUID, in paym
 		return paymodel.Payment{}, err
 	}
 	providerRefundID := pgtype.Text{}
-	if r.Provider != paymodel.ProviderManual {
-		prov, err := s.provider(r.Provider)
-		if err != nil {
-			return paymodel.Payment{}, err
-		}
-		acc, err := s.accounts.AccountByID(ctx, orgID, r.IntegrationAccountID.Int64)
-		if err != nil {
-			return paymodel.Payment{}, err
-		}
+	if prov != nil {
 		job, err := s.q.UpsertIntegrationJob(ctx, db.UpsertIntegrationJobParams{
 			OrganizationID: pgtype.Int8{Int64: orgID, Valid: true}, IntegrationAccountID: pgtype.Int8{Int64: acc.ID, Valid: true},
 			Direction: "outbound", Provider: r.Provider, Kind: "payment.refund",
@@ -262,29 +270,52 @@ func (s *Service) Refund(ctx context.Context, orgID int64, id uuid.UUID, in paym
 			Result: mustJSON(map[string]any{"refund_id": res.RefundID}),
 		})
 	}
-	err = s.tx(ctx, func(q *db.Queries) error {
-		if err := q.FinishPaymentRefund(ctx, db.FinishPaymentRefundParams{
-			OrganizationID: orgID, ID: refund.ID, Status: "succeeded", ProviderRefundID: providerRefundID,
-		}); err != nil {
-			return err
-		}
-		n, err := q.AddPaymentRefunded(ctx, db.AddPaymentRefundedParams{OrganizationID: orgID, ID: r.ID, Amount: amount.Numeric()})
-		if err != nil {
-			return err
-		}
-		if n != 1 {
-			return stateErr("not_refundable", "the payment changed in between; reload")
-		}
-		return event(ctx, q, orgID, r.ReservationID, "payment_refunded", reason, map[string]any{
-			"payment_uuid": r.Uuid, "refund_uuid": refund.Uuid, "amount": amount.String(),
-		})
-	})
-	if err != nil {
+	if err := s.finishRefund(ctx, orgID, r, refund.ID, refund.Uuid, amount, reason, providerRefundID); err != nil {
 		return paymodel.Payment{}, err
 	}
+	return s.Get(ctx, orgID, id)
+}
+
+// finishRefund records a refund that happened (the provider answered, or
+// a manual refund): refundTx in one transaction, then afterRefund.
+func (s *Service) finishRefund(ctx context.Context, orgID int64, r db.GetPaymentRow, refundID int64, refundUUID uuid.UUID,
+	amount money.Money, reason string, providerRefundID pgtype.Text) error {
+	if err := s.tx(ctx, func(q *db.Queries) error {
+		return refundTx(ctx, q, orgID, r, refundID, refundUUID, amount, reason, providerRefundID)
+	}); err != nil {
+		return err
+	}
+	s.afterRefund(ctx, orgID, r, refundID, refundUUID)
+	return nil
+}
+
+// refundTx marks the refund row succeeded, adds it to the payment's
+// refunded amount and writes the reservation timeline entry.
+func refundTx(ctx context.Context, q *db.Queries, orgID int64, r db.GetPaymentRow, refundID int64, refundUUID uuid.UUID,
+	amount money.Money, reason string, providerRefundID pgtype.Text) error {
+	if err := q.FinishPaymentRefund(ctx, db.FinishPaymentRefundParams{
+		OrganizationID: orgID, ID: refundID, Status: "succeeded", ProviderRefundID: providerRefundID,
+	}); err != nil {
+		return err
+	}
+	n, err := q.AddPaymentRefunded(ctx, db.AddPaymentRefundedParams{OrganizationID: orgID, ID: r.ID, Amount: amount.Numeric()})
+	if err != nil {
+		return err
+	}
+	if n != 1 {
+		return stateErr("not_refundable", "the payment changed in between; reload")
+	}
+	return event(ctx, q, orgID, r.ReservationID, "payment_refunded", reason, map[string]any{
+		"payment_uuid": r.Uuid, "refund_uuid": refundUUID, "amount": amount.String(),
+	})
+}
+
+// afterRefund posts the refund to the ledger and recounts the
+// reservation's paid total (fail-soft; the finance sweep catches up).
+func (s *Service) afterRefund(ctx context.Context, orgID int64, r db.GetPaymentRow, refundID int64, refundUUID uuid.UUID) {
 	if s.ledger != nil {
-		if err := s.ledger.PostRefund(ctx, orgID, refund.ID); err != nil {
-			s.log.Warn("payment_refund_ledger_post_failed", "refund", refund.Uuid, "error", err)
+		if err := s.ledger.PostRefund(ctx, orgID, refundID); err != nil {
+			s.log.Warn("payment_refund_ledger_post_failed", "refund", refundUUID, "error", err)
 		}
 	}
 	p, err := s.q.GetPaymentByID(ctx, db.GetPaymentByIDParams{OrganizationID: orgID, ID: r.ID})
@@ -294,7 +325,6 @@ func (s *Service) Refund(ctx context.Context, orgID int64, id uuid.UUID, in paym
 		}
 	}
 	s.publish(ctx, paymodel.ResourcePayments, "updated", r.Uuid)
-	return s.Get(ctx, orgID, id)
 }
 
 // recordAttempt writes the integration_attempts row of a provider call made

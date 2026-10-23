@@ -1282,6 +1282,49 @@ func (q *Queries) ListLiveDocumentKinds(ctx context.Context, arg ListLiveDocumen
 	return items, nil
 }
 
+const listStalePendingDocumentPDFs = `-- name: ListStalePendingDocumentPDFs :many
+SELECT v.organization_id, v.id, v.uuid
+FROM document_versions v
+WHERE v.pdf_status = 'pending'
+  AND (v.pdf_requested_at IS NULL OR v.pdf_requested_at < $1)
+ORDER BY v.pdf_requested_at NULLS FIRST, v.id
+LIMIT $2
+`
+
+type ListStalePendingDocumentPDFsParams struct {
+	StaleBefore pgtype.Timestamptz `json:"stale_before"`
+	LimitCount  int32              `json:"limit_count"`
+}
+
+type ListStalePendingDocumentPDFsRow struct {
+	OrganizationID int64     `json:"organization_id"`
+	ID             int64     `json:"id"`
+	Uuid           uuid.UUID `json:"uuid"`
+}
+
+// The worker sweep (TEC-962): pending renders requested before
+// stale_before, across organizations (each row carries its
+// organization_id; the service re-scopes from it).
+func (q *Queries) ListStalePendingDocumentPDFs(ctx context.Context, arg ListStalePendingDocumentPDFsParams) ([]ListStalePendingDocumentPDFsRow, error) {
+	rows, err := q.db.Query(ctx, listStalePendingDocumentPDFs, arg.StaleBefore, arg.LimitCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListStalePendingDocumentPDFsRow{}
+	for rows.Next() {
+		var i ListStalePendingDocumentPDFsRow
+		if err := rows.Scan(&i.OrganizationID, &i.ID, &i.Uuid); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setDocumentCurrent = `-- name: SetDocumentCurrent :execrows
 UPDATE documents
 SET current_version_id = $1, status = $2,
@@ -1389,25 +1432,38 @@ func (q *Queries) SetDocumentVersionPDFFailed(ctx context.Context, arg SetDocume
 	return result.RowsAffected(), nil
 }
 
-const setDocumentVersionPDFPending = `-- name: SetDocumentVersionPDFPending :execrows
+const setDocumentVersionPDFPending = `-- name: SetDocumentVersionPDFPending :one
 UPDATE document_versions
-SET pdf_status = 'pending', pdf_error = ''
-WHERE organization_id = $1
-  AND id = $2
-  AND pdf_status IN ('none', 'failed')
+SET pdf_status = 'pending', pdf_error = '', pdf_requested_at = $1
+WHERE organization_id = $2
+  AND id = $3
+  AND (
+    pdf_status IN ('none', 'failed')
+    OR (pdf_status = 'pending' AND (pdf_requested_at IS NULL OR pdf_requested_at < $4))
+  )
+RETURNING uuid
 `
 
 type SetDocumentVersionPDFPendingParams struct {
-	OrganizationID int64 `json:"organization_id"`
-	ID             int64 `json:"id"`
+	RequestedAt    pgtype.Timestamptz `json:"requested_at"`
+	OrganizationID int64              `json:"organization_id"`
+	ID             int64              `json:"id"`
+	StaleBefore    pgtype.Timestamptz `json:"stale_before"`
 }
 
-func (q *Queries) SetDocumentVersionPDFPending(ctx context.Context, arg SetDocumentVersionPDFPendingParams) (int64, error) {
-	result, err := q.db.Exec(ctx, setDocumentVersionPDFPending, arg.OrganizationID, arg.ID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
+// Requests a render: from none / failed, or again from a pending request
+// older than stale_before (its queue task was lost, e.g. after a restore;
+// TEC-962). The conditional update lets one caller win.
+func (q *Queries) SetDocumentVersionPDFPending(ctx context.Context, arg SetDocumentVersionPDFPendingParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, setDocumentVersionPDFPending,
+		arg.RequestedAt,
+		arg.OrganizationID,
+		arg.ID,
+		arg.StaleBefore,
+	)
+	var uuid uuid.UUID
+	err := row.Scan(&uuid)
+	return uuid, err
 }
 
 const supersedeDocumentVersion = `-- name: SupersedeDocumentVersion :execrows

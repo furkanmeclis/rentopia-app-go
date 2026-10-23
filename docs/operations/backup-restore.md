@@ -147,7 +147,7 @@ Sıra:
 9. Doğrulama (henüz trafik yokken): satır sayıları manifest ile karşılaştırılır, PDF anahtarları bucket'ta aranır, kuyruk durumu yazılır.
 10. `worker` ve `backend` başlatılır (`--no-start` durdurulmuş bırakır). Sonra tekrar: `scripts/restore.sh verify --env-file ... --manifest /tmp/<set>.manifest.txt`.
 
-**Prod'a dönüşte** `--no-start` kullanın ve worker'ı başlatmadan önce aşağıdaki "(c)" bölümündeki gözden geçirmeyi yapın: setten sonra gerçekten gönderilmiş işler, worker açılınca yeniden gönderilir.
+**Prod'a dönüşte** `--no-start` kullanın ve worker'ı başlatmadan önce aşağıdaki "(c)" bölümündeki gözden geçirmeyi yapın: setten sonra gerçekten gönderilmiş işler, worker açılınca yeniden gönderilir. SMS / e-posta / bildirim motoru mesajları için bu adım [`messaging-reconcile`](#mesaj-mutabakatı-messaging-reconcile)'dır (9. ile 10. adım arası); entegrasyon işleri (e-Fatura, HGS, kanal yöneticisi, WhatsApp, runner SMS işleri) için `integration-jobs-reconcile` (aşağıda "(c)"). Ödemeler ve iadeler worker'ı beklemez: eşleşmeyen bildirimler ve iade koruması trafik başlayınca çalışır.
 
 ## Staging provası
 
@@ -182,7 +182,7 @@ Amaç: (a) kayıt tutarlılığı, (b) bekleyen işlerin kaldığı yerden devam
 3. Staging'in setini alın: `BACKUP_AGE_RECIPIENT` dolu bir `.env.staging` ile `scripts/backup.sh --env-file .env.staging`. Manifestteki `integration_jobs.*`, `asynq.*` değerlerini not edin.
 4. "Kayıp pencere"yi oynatın: netgsm-fake'i açın, işlerin bir kısmı gönderilsin; fake'in listesini kaydedin. Bir tahsilat daha girin.
 5. 3. adımdaki seti staging'e geri yükleyin.
-6. RT-A32 kontrolleri (aşağıda). 4. adımda gönderilen SMS'lerin yeniden gönderildiğini (bilinen açık, "(c)") ve 4. adımdaki tahsilatın kaybolduğunu (RPO) görmeniz beklenir; bunları prova notuna yazın.
+6. RT-A32 kontrolleri (aşağıda). 4. adımdaki tahsilatın kaybolduğunu (RPO) görmeniz beklenir. 5. adımı `--no-start` ile yaptıysanız worker'ı başlatmadan [`messaging-reconcile`](#mesaj-mutabakatı-messaging-reconcile) `list --before <3. adımın set zamanı>` 4. adımda gönderilen SMS'leri listeler; netgsm-fake listesiyle karşılaştırıp `mark --yes` edin, sonra worker'ı başlatın: işaretlenenler ikinci kez gitmez, işaretlenmeyenler gider. Sonuçları prova notuna yazın.
 
 ## RT-A32 doğrulama
 
@@ -193,7 +193,7 @@ Amaç: (a) kayıt tutarlılığı, (b) bekleyen işlerin kaldığı yerden devam
 - `rows.*` sayıları manifest ile aynı (trafik başlamadan önce). Tablolar: organizations, users, customers, vehicles, reservations, rentals, documents, document_versions, document_approvals, inspections, payments, payment_refunds, collections, ledger_entries, invoices, security_deposits, notifications, notification_dispatches, notification_deliveries, sms_messages, whatsapp_messages, kabis_notifications, toll_passes, integration_jobs, integration_attempts, outbox_events; ayrıca `schema_migrations` sürümü.
 - PDF anahtarları: `document_versions.pdf_object_key` (`pdf_status = 'ready'`) ve `document_approvals.pdf_object_key` bucket'ta var (`missing: 0`). Anahtar biçimi `organizations/<org>/documents/<doküman>/<sürüm>.pdf` (`storage.DocumentPDFObjectKey`).
 - Elle: panelden bir sözleşme PDF'i ve bir muayene fotoğrafı açın.
-- Eksik sürüm PDF'i varsa: sürümün HTML'i veritabanında olduğundan yeniden basılabilir; `pdf_status`'u `failed` yapın, ilk indirmede yeniden istenir (`OpenPDF` → `requestPDF`, yalnız `none` / `failed` durumundan). Yeni PDF'in baytları (ve `pdf_sha256`) farklı olur. Onay PDF'leri için aynı yol doğrulanmadı.
+- Eksik sürüm PDF'i varsa: sürümün HTML'i veritabanında olduğundan yeniden basılabilir; `pdf_status`'u `failed` yapın, ilk indirmede yeniden istenir (`OpenPDF` → `requestPDF`: `none` / `failed` ya da 15 dk'dan eski `pending` durumundan). Yeni PDF'in baytları (ve `pdf_sha256`) farklı olur. Onay PDF'leri için aynı yol doğrulanmadı.
 
 ```sql
 UPDATE document_versions SET pdf_status = 'failed', pdf_error = 'restore: object missing'
@@ -205,12 +205,12 @@ WHERE pdf_object_key IN (/* restore.sh'in listelediği eksik anahtarlar */);
 | İş | Durum nerede | Geri yükleme sonrası | Kod |
 |----|--------------|----------------------|-----|
 | Entegrasyon işleri (SMS, e-Fatura, KABİS, HGS, kanal yöneticisi, WhatsApp) | `integration_jobs` (Postgres) | `app:integrations:sweep` her dakika `RunDue`: `pending` / `submitted` / `needs_verification`, `next_attempt_at <= now`, `locked_until` geçmiş, `attempts < max_attempts`. Dump anında çağrı ortasındaki iş 2 dk'lık kilit (lease) dolunca yeniden alınır. Redis'teki `app:integrations:run` görevi yalnız hızlandırır; aynı işe ikinci görev `LockRunnerJob` → `ErrBusy` ile çağrı yapmaz | `modules/integrations/jobs/usecase/runner.go`, `queries/integrations.sql`, `queue/integrations.go` |
-| Bildirim motoru (müşteri / personel SMS, e-posta, WhatsApp, push) | `notification_dispatches` | Her dakika sweep `pending` ve zamanı gelmişleri gönderir. Dump anında `sending` olan dispatch kendiliğinden ilerlemez (yeniden de gönderilmez) | `modules/notifyengine/usecase/engine.go`, `queue/notify_engine.go` |
-| Platform bildirimleri (uygulama içi, e-posta) | `notifications` + Asynq `app:notification:deliver` | `queued` olanları yalnız Redis'teki görev teslim eder: Redis seti şart; Redis'siz geri yüklemede `queued` kalırlar (açık). `processing` olanlar worker açılışında 2 dk'dan eskiyse yeniden teslim edilir (`ReclaimStuck`) | `modules/notifications/usecase/service.go` |
+| Bildirim motoru (müşteri / personel SMS, e-posta, WhatsApp, push) | `notification_dispatches` | Her dakika sweep `pending` ve zamanı gelmişleri gönderir. 10 dk'dan uzun `sending` kalan dispatch'ler worker açılışında ve her sweep'te `ReclaimStuck` ile ele alınır: denemeye hiçbir şey kaydedilmemişse (sağlayıcı ref'i / kanal kaydı yok) `pending`'e döner ve aynı deneme satırında sürer; kanalın gönderim defterinde (SMS: teslimatın `sms_messages` satırı) mesaj varsa gönderildi sayılır, tekrar gönderilmez; rapor bekleyen SMS kesinleşmişse (rapor kaybolmuş, mutabık) dispatch kapanır | `modules/notifyengine/usecase/reclaim.go`, `queue/notify_engine.go` |
+| Platform bildirimleri (uygulama içi, e-posta) | `notifications` + Asynq `app:notification:deliver` | Görev Redis'te varsa onu teslim eder. 5 dk'dan eski `queued` satırlar her 2 dk'da (`app:notification:sweep`) ve worker açılışında satırın uuid'sinden türeyen görev kimliğiyle yeniden kuyruğa girer (görev hâlâ Redis'teyse kuyruk reddeder, iş yapılmaz); 2 dk'dan eski `processing` satırları tek bir sweep devralıp yeniden teslim eder (`ReclaimStuck`). Aynı satırın ikinci görevi hiçbir şey yapmaz | `modules/notifications/usecase/service.go`, `queue/notification_sweep.go` |
 | Domain olayları | `outbox_events` | Publisher döngüsü `pending` satırları alır (en az bir kez) | `platform/outbox/outbox.go` |
 | Bekleyen ödemeler | `payments` | `ReconcilePending` her dakika 2 dk–2 gün arası bekleyen checkout'ları sağlayıcıdan sorgular | `modules/payments/usecase/service.go` |
-| Sözleşme PDF'leri | `document_versions.pdf_status` + Asynq görevi | `pending` + görev Redis'te → basılır. Görev yoksa `pending` sonsuza kadar kalır (açık; yukarıdaki SQL ile `failed` yapın) | `modules/contracts/usecase/pdf.go` |
-| Diğer Asynq görevleri | Redis | `active` görevler kilit süresi dolunca Asynq recoverer ile retry'a alınır ve yeniden çalışır (en az bir kez; Asynq v0.26 davranışı). Periyodik görevler worker açılışında yeniden kaydedilir. Export / import / toplu işlem görevlerinin yeniden çalışmada ne yaptığı doğrulanmadı | `queue/*.go` |
+| Sözleşme PDF'leri | `document_versions.pdf_status` + `pdf_requested_at` + Asynq görevi | Görev, sürüm uuid'sinden türeyen görev kimliğiyle (`documents:render-pdf:<uuid>`) kuyruğa girer. `pending` + görev Redis'te → basılır. 15 dk'dan eski `pending` (görev kaybolmuş) worker açılışında ve her dakika (`SweepPendingPDFs`) ya da ilk indirmede yeniden istenir: görev hâlâ Redis'teyse kuyruk reddeder (ikinci basım yok), yoksa bir kez kuyruğa girer. Bu sütundan önce istenmiş `pending`'ler (`pdf_requested_at` boş) eski sayılır | `modules/contracts/usecase/pdf.go` |
+| Diğer Asynq görevleri | Redis | `active` görevler kilit süresi dolunca Asynq recoverer ile retry'a alınır ve yeniden çalışır (en az bir kez; Asynq v0.26 davranışı). Periyodik görevler worker açılışında yeniden kaydedilir. Export / import / toplu işlem görevleri önce iş satırını `queued`'dan alır; ikinci çalışma (retry, geri yükleme sonrası recoverer) hiçbir şey yapmadan biter (`Process*` → `ErrNoRows` → nil). Dump anında `processing` / `applying` olan iş ise kendiliğinden bitmez (açık; panelden yeniden başlatılır) | `queue/*.go` |
 | Arama | Meilisearch | Boş indeksler worker açılışında yeniden kurulur | `platform/searchengine/indexer.go` |
 
 Kontrol: `restore.sh` çıktısındaki "(b) work to resume" bölümü + birkaç dakika sonra tekrar `verify`; `integration_jobs.pending` / `submitted` ve `asynq.*.pending` / `retry` azalmalı, `document_versions.pdf_pending` 0'a inmeli. Panel: Entegrasyon işleri ekranı.
@@ -228,7 +228,9 @@ Veritabanı içindeki güvenceler (geri yüklenen zaman çizgisinde ikinci kayı
 | Fatura | `uq_invoices_organization_idempotency`, `uq_invoices_organization_job`, `uq_invoices_organization_number`; e-Fatura ETTN ilk gönderimden önce üretilir ve her denemede aynıdır, belirsiz sonuçta önce durum sorgulanır | 000108, `platform/einvoice/einvoice.go` |
 | Ödeme | `uq_payments_organization_provider_payment`, `uq_payments_organization_conversation`; durum `pending → succeeded` koşullu | 000078 |
 | Entegrasyon işi | `uq_integration_jobs_provider_key` (sağlayıcı + idempotency key); belirsiz sonuç yeniden gönderilmeden önce `CheckStatus` ile doğrulanır | 000077, `runner.go` |
-| Bildirim motoru | `uq_notification_dispatches_idempotency`, `uq_notification_deliveries_dispatch_channel` (dispatch + kanal başına bir deneme) | 000113 |
+| Bildirim motoru | `uq_notification_dispatches_idempotency` (olay + referans + ayırıcı; alıcı referanstan ya da ayırıcıdan gelir), `uq_notification_deliveries_dispatch_channel` (dispatch + kanal başına bir deneme). Sağlayıcının kabulü (ref, `sent_at`) ve dispatch durumu tek transaction'da yazılır; gönderim defteri olan kanal (SMS) her gönderimden önce sorulur | 000113, `notifyengine/usecase/engine.go` |
+| SMS mesajı | `uq_sms_messages_organization_idempotency`: bildirim motorunun SMS'i `notify:<teslimat uuid>` anahtarını taşır; aynı teslimat için ikinci gönderim mevcut mesajı döner, Netgsm'e ikinci istek gitmez. `reconciled` mesajın gönderim işi sağlayıcıyı çağırmadan biter | 000137, `modules/sms/usecase/service.go` |
+| Platform bildirimi | `uq_notifications_idempotency`: olaydan doğan bildirim `event:<olay id>\|<tür>\|user:<id>\|<kanal>`, bildirim motorunun push'u `notify:<teslimat uuid>\|inapp`; ikinci ekleme satır oluşturmaz. Teslim görevi satır uuid'sinden türeyen Asynq görev kimliğiyle kuyruğa girer | 000137, `modules/notifications/usecase/service.go` |
 | Public API yazmaları | `public_api_idempotency` (24 saat) | 000115 |
 
 Kontrol SQL'i (hepsi 0 satır döner):
@@ -244,30 +246,58 @@ SELECT organization_id, dispatch_id, channel, count(*) FROM notification_deliver
 **Garanti olmayanlar** (set zamanı ile felaket arasındaki pencere; veritabanı bu pencereyi bilmez):
 
 - Pencerede girilen tahsilat, fatura, iade, rezervasyon kaybolur (RPO). Sistem bunları çoğaltmaz; personel yeniden girer ve mutabakat yapar.
-- Pencerede ödeme yapan müşteri: ödeme satırı setten sonra oluştuysa gelen webhook `ErrUnknownPayment` alır; para iyzico'dadır, kayıt yoktur → iyzico panelinden mutabakat. Satır sette `pending` ise `ReconcilePending` sağlayıcıdan doğrular, tek tahsilat oluşur.
-- Pencerede yapılan iade: iade senkron yapılır, otomatik yeniden denenmez; ama `refunded_amount` geride kalır ve personel aynı iadeyi tekrar yapabilir. iyzico'nun fazla iadeyi reddettiği doğrulanmadı.
+- Pencerede ödeme yapan müşteri: ödeme satırı setten sonra oluştuysa gelen webhook kaydı bulamaz. Bildirim `payment_webhook_orphans`'a yazılır: imzası bir firmanın iyzico hesabıyla doğrulanırsa o firmaya bağlanır (cevap 200, iyzico tekrar göndermez), doğrulanamazsa platform düzeyinde kalır (cevap 404 olarak sürer). Platform sağlığı sayfası eşleşmeyenleri sayar (kaynak `payment_webhook_orphans`). Firma Finans → Eşleşmeyen ödemeler ekranında bildirimi rezervasyonla eşleştirir (`POST /v1/tenant/payments/orphans/{uuid}/match`): checkout sağlayıcıdan okunur, ödenmiş ve bizim sipariş referansımızı taşıyorsa ödeme kendi uuid'siyle yeniden oluşturulup bir kez onaylanır. Rezervasyonun kendisi de pencerede oluştuysa önce yeniden girilir. Satır sette `pending` ise `ReconcilePending` sağlayıcıdan doğrular, tek tahsilat oluşur. Webhook hiç gelmediyse (iyzico'da bildirim kapalı) ödeme yalnız iyzico panelinden görülür.
+- Pencerede yapılan iade: `refunded_amount` geride kalır. İade koruması: sağlayıcı iadesinden önce sağlayıcının o ödemedeki iadeleri okunur (iyzico raporlama `payment/details`; sandbox'ta doğrulanmadı, TEC-684); sağlayıcı kayıtlarımızdan fazla iade gösteriyorsa iade yapılmaz, `409 REFUND_STATE_MISMATCH` döner ve mutabakat kaydı açılır; sağlayıcının iadeleri okunamazsa iade engellenmez (korumadan önceki gibi yapılır), uyarı loglanır, Sentry'ye gider ve ödeme başına bir `unverified` mutabakat kaydı açılır (personel sonradan kontrol eder). Kayıt `POST /v1/tenant/payments/reconciliation-items/{uuid}/resolve` ile kapatılır (`record_refund`: sağlayıcıdaki eksik iade, sağlayıcı çağrılmadan kayda geçer; `dismiss`). Geri yükleme sonrası özet: `GET /v1/tenant/payments/reconciliation?since=<set zamanı>` (ödeme başına bir retrieve + bir iade sorgusu; iyzico adaptöründe listeleme yok, kaydımız olmayan ödeme yalnız eşleşmeyen bildirim olarak görünür).
 - Dış gönderimler setteki durumdan yeniden yapılır:
-  - **SMS (Netgsm)**: sette `pending` olan iş Submit edilir; Netgsm'e bizim tarafımızdan tekrar önleme anahtarı gitmez (`jobid` kabulde sağlayıcı verir, `platform/sms/netgsm/netgsm.go`). Pencerede gönderilmiş SMS ikinci kez gider.
-  - **E-posta**: SMTP'de tekrar önleme yok; sette `pending` dispatch'ler ve `queued` / `processing` platform bildirimleri yeniden gönderilir.
+  - **SMS (Netgsm)**: sette `queued` olan mesajın işi Submit edilir; Netgsm'e bizim tarafımızdan tekrar önleme anahtarı gitmez (`jobid` kabulde sağlayıcı verir, `platform/sms/netgsm/netgsm.go`) ve Netgsm raporu yalnız `jobid` ile sorgulanabildiğinden sette `jobid`'si olmayan mesajın gönderilip gönderilmediği otomatik anlaşılamaz. Pencerede gönderilmiş SMS, [`messaging-reconcile`](#mesaj-mutabakatı-messaging-reconcile) ile işaretlenmezse ikinci kez gider.
+  - **E-posta**: SMTP'de tekrar önleme yok; sette `pending` dispatch'ler ve `queued` / `processing` platform bildirimleri, `messaging-reconcile` ile işaretlenmezse yeniden gönderilir. Çökme / dump anında yarıda kalan e-posta denemesi (kayıt yok) en az bir kez kuralıyla yeniden denenir.
   - **WhatsApp**: mesaj kimliğini biz seçip gönderiyoruz (`wuzapi.go`, `Id`); WhatsApp'ın aynı kimliği ikinci kez düşürdüğü doğrulanmadı.
   - **e-Fatura**: aynı ETTN tekrar gider; entegratörün ikinciyi reddetmesi beklenir (entegratör henüz seçilmedi, TEC-685; doğrulanmadı).
-  - **Outbox**: setten sonra yayımlanmış olaylar yeniden yayımlanır; bildirimleri çoğaltmadıkları doğrulanmadı.
+  - **Outbox**: setten sonra yayımlanmış olaylar yeniden yayımlanır. Yan etkili tek tüketici bildirim merkezidir (`notifications/bus.go`) ve olay kimliğiyle idempotenttir (ikinci yayın satır oluşturmaz, `TestOutboxReplayCreatesOneNotification`). Bildirim motoru outbox tüketicisi değildir (rezervasyon geçişinin transaction'ında ve sweep'te yazılır; anahtarı olay + referans + ayırıcı). Outbox'tan entegrasyon işi oluşturan tüketici yok; entegrasyon işleri modüllerin kendi transaction'ında `uq_integration_jobs_provider_key` ile oluşur.
 - Prod'a dönüşte azaltma (`--no-start` ile, worker kapalıyken):
 
-```sql
--- Gönderilmeyi bekleyen dış işler: sağlayıcı panelleri / mail logları ile set zamanından sonrası karşılaştırılır.
-SELECT uuid, organization_id, provider, kind, status, attempts, updated_at
-FROM integration_jobs WHERE direction = 'outbound' AND status IN ('pending', 'submitted', 'needs_verification')
-ORDER BY updated_at;
-SELECT uuid, organization_id, event_code, status, scheduled_at FROM notification_dispatches
-WHERE status IN ('pending', 'sending') ORDER BY scheduled_at;
-
--- Sağlayıcıda zaten yapıldığı teyit edilen iş: personel çözümü (runner bir daha çağırmaz).
-UPDATE integration_jobs SET status = 'reconciled', next_attempt_at = NULL, locked_until = NULL
-WHERE uuid IN (/* teyit edilenler */);
+```sh
+# Gönderilmeyi bekleyen dış işler (tüm firmalar; kuru çalışma, yalnız listeler). --before: setin UTC zamanı (RFC 3339).
+make prod-integration-jobs-reconcile ARGS="--before 2026-10-20T03:15:00Z"
+# Daraltma: --kinds einvoice.send,sms.send  --orgs <org uuid>,...  --statuses pending,submitted,needs_verification,failed
+# Sağlayıcı panelleri / gönderim kayıtlarıyla set zamanından sonrası karşılaştırılır; yapıldığı teyit edilenler işaretlenir
+# (runner bir daha çağırmaz; kim / ne zaman / neden işte ve etkinlik kaydında kalır, SMS kaydı ve e-Fatura durumu izler):
+make prod-integration-jobs-reconcile ARGS='--jobs <uuid>,<uuid> --apply --note "geri yükleme: Netgsm panelinde gönderilmiş"'
+# Bir türün tamamı teyit edildiyse filtreyle: --before ... --kinds einvoice.send --apply --note "..."
+# SMS mesajları, bildirim motoru dispatch'leri, platform bildirimleri: aşağıdaki messaging-reconcile.
 ```
 
-Panelde genel bir "mutabık" işlemi yok (yalnız `retry` var); bu yüzden SQL.
+Yerelde / staging'de repo kökünden `make integration-jobs-reconcile ARGS="..."`.
+
+Araç hiçbir şey göndermez; ödeme iadeleri (`payment.refund`, aşağıdaki iade koruması) ve KABİS bildirimleri (KABİS ekranındaki mutabakat, kanıtla) dışarıda kalır; worker'ın tuttuğu iş `busy` olarak raporlanır. Firma içinde aynı işlem panelde: Entegrasyonlar → hesabın işleri → "Mutabık işaretle" (`POST /v1/tenant/integration-jobs/{uuid}/reconcile`, toplu: `POST /v1/tenant/integration-jobs/reconcile`).
+
+### Mesaj mutabakatı (`messaging-reconcile`)
+
+Sette gönderilmeyi bekleyen ama set zamanından sonra (kayıp pencerede) gerçekten gönderilmiş mesajlar, worker açılınca ikinci kez gider: Netgsm ve SMTP tekrarı düşürecek bir anahtar almaz, geri yüklenen veritabanı da pencereyi bilmez. Karar operatöründür; araç listeler ve işaretler (`cmd/messaging-reconcile`, `internal/platform/msgreconcile`).
+
+Ne zaman: geri yükleme `--no-start` ile, 9. adımdan (doğrulama) sonra, worker'ı başlatmadan (10. adım) önce. Staging provasında da aynı yer.
+
+```sh
+# Set zamanı: set adındaki UTC zaman (rentopia-20261020T031500Z.tar.age → 20261020T031500Z) ya da RFC 3339.
+make prod-messaging-reconcile ARGS="list --before 20261020T031500Z"
+# Yalnız bir organizasyon / tür: --org <slug>, --kind dispatch,sms,notification; ileride planlı hatırlatmalar
+# --due-until (varsayılan: şimdi) sonrasıysa listelenmez (pencerede gönderilmiş olamazlar).
+
+# Sağlayıcı kayıtlarıyla karşılaştırın (Netgsm panelindeki gönderilenler, mail sunucusu logu, netgsm-fake listesi):
+make prod-messaging-reconcile ARGS="mark --before 20261020T031500Z --uuids <uuid,uuid,...>"        # kuru çalışma
+make prod-messaging-reconcile ARGS="mark --before 20261020T031500Z --uuids <uuid,uuid,...> --yes"  # işaretle
+# Listedeki hepsi gönderildiyse --uuids'siz mark aynı filtrenin tamamını işaretler.
+```
+
+Yerelde / staging'de repo kökünden `make messaging-reconcile ARGS="..."` (kök `.env`). Prod hedefi backend imajını `docker compose run --rm --no-deps` ile çalıştırır (backend durdurulmuşken de çalışır).
+
+| Tür | Liste | İşaretleme | Sonra |
+|-----|-------|------------|-------|
+| `dispatch` | `notification_dispatches` `pending` / `sending`, set zamanından önce oluşmuş, `scheduled_at <= --due-until` | `reconciled` (+ not) | Sweep göndermez; panelde "Geri yükleme sonrası mutabık" |
+| `sms` | `sms_messages` `queued`, sağlayıcı mesaj kimliği yok, set zamanından önce | `reconciled`, mühürlü metin silinir | Gönderim işi Netgsm'i çağırmadan `succeeded` biter (deneme yanıtı `reconciled: true`); motorun dispatch'i "ulaştı" olur |
+| `notification` | `notifications` `queued` / `processing` (platform ve organizasyon; e-posta, uygulama içi, push) | `cancelled` + `last_error` notu + `reconciled` geçmiş kaydı | Teslim görevi hiçbir şey yapmaz |
+
+İşaretlenmeyenler normal akışla gönderilir. Sağlayıcı kimliği olan SMS (`submitted`) listede yoktur: rapor sorgulanır, yeniden gönderilmez. `unknown` (sonucu belirsiz) SMS'ler entegrasyon işi olarak `needs_verification`'da kalır, entegrasyon işleri ekranından çözülür. WhatsApp mesajları ve diğer entegrasyon işleri bu aracın kapsamında değil (yukarıdaki `integration-jobs-reconcile`).
 
 ## Sorun giderme
 

@@ -103,6 +103,9 @@ func (p *Push) sendStaff(ctx context.Context, orgID int64, m channel.Message) (c
 		OrganizationID: &org, UserID: &user, Channels: []string{notifmodel.ChannelInapp},
 		Priority: notifmodel.PriorityNormal, Title: m.Subject, Body: m.Body, SourceEvent: "notify." + m.Event,
 		Payload: map[string]any{"notification_delivery_uuid": m.DeliveryUUID.String()},
+		// One inbox row per delivery attempt: a resumed attempt gets the
+		// existing row back (TEC-962).
+		IdempotencyKey: "notify:" + m.DeliveryUUID.String(),
 	}
 	if link := relativeLink(m.Link); link != "" {
 		in.ActionURL = &link

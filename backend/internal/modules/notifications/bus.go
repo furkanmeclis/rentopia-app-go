@@ -11,7 +11,10 @@ import (
 )
 
 // RegisterEventHandlers attaches Notification Center listeners to the platform bus.
-// Handlers enqueue via Service.Enqueue only — never SMTP.
+// Handlers enqueue via Service.Enqueue only — never SMTP. Every enqueue
+// carries notifmodel.EventKey (event id + kind + recipient): the outbox
+// publishes at least once (a replay after a restore, a retry after a
+// failed status write) and a replayed event creates no second row.
 func RegisterEventHandlers(bus events.Bus, svc *notifusecase.Service, log *slog.Logger) {
 	if bus == nil {
 		return
@@ -63,6 +66,7 @@ func enqueueAssigned(ctx context.Context, svc *notifusecase.Service, event event
 		Title:          "Müşteri atandı",
 		Body:           customerName + " size atandı.",
 		TemplateCode:   "customers.assigned",
+		IdempotencyKey: notifmodel.EventKey(event.EventID, "customers.assigned", userID),
 		TemplateVars:   map[string]string{"customer_name": customerName},
 		SourceEvent:    events.CustomersAssigned,
 		Payload: map[string]any{
@@ -90,6 +94,7 @@ func enqueueConversationAssigned(ctx context.Context, svc *notifusecase.Service,
 		Title:          "Konuşma atandı",
 		Body:           "Bir konuşma size atandı.",
 		TemplateCode:   "conversations.assigned",
+		IdempotencyKey: notifmodel.EventKey(event.EventID, "conversations.assigned", userID),
 		TemplateVars:   map[string]string{},
 		SourceEvent:    events.ConversationsAssigned,
 		Payload: map[string]any{
@@ -122,6 +127,7 @@ func enqueueStatusBlocked(ctx context.Context, svc *notifusecase.Service, event 
 		Title:          "Müşteri engellendi",
 		Body:           customerName + " durumu blocked olarak güncellendi.",
 		TemplateCode:   "customers.status_blocked",
+		IdempotencyKey: notifmodel.EventKey(event.EventID, "customers.status_blocked", userID),
 		TemplateVars:   map[string]string{"customer_name": customerName},
 		SourceEvent:    events.CustomersStatusChanged,
 		Payload: map[string]any{
@@ -152,6 +158,7 @@ func enqueueAIEscalated(ctx context.Context, svc *notifusecase.Service, event ev
 			Title:          "AI escalate",
 			Body:           "Bir konuşma AI tarafından ekibe iletildi.",
 			TemplateCode:   "ai.pipeline.escalated",
+			IdempotencyKey: notifmodel.EventKey(event.EventID, "ai.pipeline.escalated", uid),
 			TemplateVars:   map[string]string{},
 			SourceEvent:    events.AIPipelineEscalated,
 			Payload: map[string]any{
@@ -182,6 +189,7 @@ func enqueueAIDraftPending(ctx context.Context, svc *notifusecase.Service, event
 			Title:          "AI draft bekliyor",
 			Body:           "İncelemeniz için yeni bir AI yanıt taslağı oluşturuldu.",
 			TemplateCode:   "ai.draft.pending",
+			IdempotencyKey: notifmodel.EventKey(event.EventID, "ai.draft.pending", uid),
 			TemplateVars:   map[string]string{},
 			SourceEvent:    events.AIDraftCreated,
 			Payload: map[string]any{

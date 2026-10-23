@@ -1,6 +1,9 @@
 package model
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -100,4 +103,34 @@ type EnqueueInput struct {
 	Language       string
 	// SecurityEmail bypasses email preference (password reset / verification).
 	SecurityEmail bool
+	// IdempotencyKey (optional) names the cause of the notification and its
+	// recipient (EventKey for outbox events, "notify:<delivery>" for the
+	// notification engine). Each channel's row stores RowKey(key, channel)
+	// under a unique index: a replayed event or a retried caller gets the
+	// existing row back and nothing is delivered twice (TEC-962).
+	IdempotencyKey string
+}
+
+// EventKey is the idempotency key of what one domain event notifies one
+// recipient of: the event id (stable across outbox replays), the kind
+// (template code) and the recipient.
+func EventKey(eventID uuid.UUID, kind string, userID int64) string {
+	return "event:" + eventID.String() + "|" + kind + "|user:" + strconv.FormatInt(userID, 10)
+}
+
+// maxKeyLen is notifications.idempotency_key's length.
+const maxKeyLen = 255
+
+// RowKey is the stored key of one channel's row. A key that does not fit
+// the column is replaced by its SHA-256 (still deterministic).
+func RowKey(base, channel string) string {
+	if base == "" {
+		return ""
+	}
+	k := base + "|" + channel
+	if len(k) <= maxKeyLen {
+		return k
+	}
+	sum := sha256.Sum256([]byte(k))
+	return "sha256:" + hex.EncodeToString(sum[:])
 }

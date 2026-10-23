@@ -57,6 +57,8 @@
   "codes.DRIVER_NOT_ELIGIBLE": "The drivers do not meet the product's age or licence rules.",
   "codes.EXTENSION_CONFLICT": "The extension does not fit the current vehicle; alternatives were offered.",
   "codes.INVALID_STATE": "The reservation is not in a state that allows this action.",
+  "codes.REFUND_STATE_MISMATCH": "The provider shows a refund of this payment that our records lack; nothing was refunded. A reconciliation item was opened.",
+  "codes.INTEGRATION_JOB_NOT_RECONCILABLE": "This job cannot be marked reconciled.",
   "codes.PRICING_UNAVAILABLE": "No price was found for this product and range.",
   "codes.EQUIPMENT_UNAVAILABLE": "Not enough equipment in stock.",
   "codes.MEMBERSHIP_IN_USE": "Reservations that rely on this group membership cannot move to another vehicle.",

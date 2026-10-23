@@ -57,6 +57,8 @@
   "codes.DRIVER_NOT_ELIGIBLE": "Sürücüler ürünün yaş veya ehliyet kurallarına uymuyor.",
   "codes.EXTENSION_CONFLICT": "Uzatma mevcut araçla yapılamıyor; alternatifler sunuldu.",
   "codes.INVALID_STATE": "Rezervasyon bu işlem için uygun durumda değil.",
+  "codes.REFUND_STATE_MISMATCH": "Sağlayıcı bu ödemede kayıtlarımızda olmayan bir iade gösteriyor; iade yapılmadı. Mutabakat kaydı açıldı.",
+  "codes.INTEGRATION_JOB_NOT_RECONCILABLE": "Bu iş mutabık işaretlenemez.",
   "codes.PRICING_UNAVAILABLE": "Bu ürün ve aralık için fiyat bulunamadı.",
   "codes.EQUIPMENT_UNAVAILABLE": "Ekipman stoğu yetersiz.",
   "codes.MEMBERSHIP_IN_USE": "Bu grup üyeliğine dayanan rezervasyonlar başka araca aktarılamıyor.",

@@ -63,6 +63,7 @@ type env struct {
 	custUUID uuid.UUID
 	fake     *netgsmfake.Fake
 	runner   *jobsusecase.Runner
+	sms      *smsusecase.Service
 	mail     *mailbox
 	eng      *engine.Engine
 }
@@ -122,7 +123,7 @@ func newEnv(t *testing.T, withSMSAccount bool) *env {
 	smsCh := adapters.NewSMS(smsSvc, q)
 	eng.Register(smsCh, adapters.NewEmail(box), adapters.NewPush(nil, q, adapters.VAPID{}))
 	runner.AddListener(smsCh)
-	e := &env{ctx: ctx, pool: pool, q: q, org: org.ID, slug: org.Slug, fake: fake, runner: runner, mail: box, eng: eng}
+	e := &env{ctx: ctx, pool: pool, q: q, org: org.ID, slug: org.Slug, fake: fake, runner: runner, sms: smsSvc, mail: box, eng: eng}
 	if err := pool.QueryRow(ctx, `INSERT INTO customers (organization_id, customer_type, first_name, last_name, phone, email)
 		VALUES ($1, 'individual', 'Ayşe', 'Yılmaz', '+905321112233', 'ayse@example.test') RETURNING id, uuid`, org.ID).
 		Scan(&e.customer, &e.custUUID); err != nil {

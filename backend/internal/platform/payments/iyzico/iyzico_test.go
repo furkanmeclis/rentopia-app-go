@@ -167,3 +167,44 @@ func TestPreAuthCaptureVoid(t *testing.T) {
 		t.Fatalf("post-auths %d, cancels %d", f.PostAuths.Load(), f.Cancels.Load())
 	}
 }
+
+// TestRefundState: the reporting call (signed GET) sums the refunds of a
+// payment, ours and those made without us.
+func TestRefundState(t *testing.T) {
+	f, a, acc := setup(t)
+	ctx := context.Background()
+	conv := "6f1c2d3e-0000-4000-8000-000000000002"
+	co, err := a.CreateCheckout(ctx, acc, payments.CheckoutRequest{
+		ConversationID: conv, BasketID: conv, Amount: money.MustParse("300"), Currency: "TRY",
+		CallbackURL: "https://app.test/pay/x/callback", ItemID: "R1", ItemName: "Rezervasyon", ItemCategory: "Araç kiralama",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := f.Complete(co.Token, iyzicofake.StatePaid); err != nil {
+		t.Fatal(err)
+	}
+	r, err := a.Retrieve(ctx, acc, payments.RetrieveRequest{Token: co.Token, ConversationID: conv})
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := a.RefundState(ctx, acc, payments.RefundStateRequest{PaymentID: r.PaymentID})
+	if err != nil || !st.Refunded.IsZero() || st.ProviderStatus != "NOT_REFUNDED" || !st.PaidPrice.Equal(money.MustParse("300")) {
+		t.Fatalf("before refunds: %+v %v", st, err)
+	}
+	if _, err := a.Refund(ctx, acc, payments.RefundRequest{PaymentID: r.PaymentID, ConversationID: conv, Amount: money.MustParse("100"), Currency: "TRY"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.RefundOutside(r.PaymentID, money.MustParse("50")); err != nil {
+		t.Fatal(err)
+	}
+	st, err = a.RefundState(ctx, acc, payments.RefundStateRequest{ConversationID: conv})
+	if err != nil || !st.Refunded.Equal(money.MustParse("150")) || len(st.Refunds) != 2 || st.ProviderStatus != "PARTIALLY_REFUNDED" {
+		t.Fatalf("after refunds: %+v %v", st, err)
+	}
+	f.FailReports.Store(true)
+	var pe *payments.ProviderError
+	if _, err := a.RefundState(ctx, acc, payments.RefundStateRequest{PaymentID: r.PaymentID}); !errors.As(err, &pe) || !pe.Temporary {
+		t.Fatalf("provider down: %v", err)
+	}
+}

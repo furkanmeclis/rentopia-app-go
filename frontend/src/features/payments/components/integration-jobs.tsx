@@ -1,8 +1,8 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { Eye, RotateCcw } from "lucide-react";
-import { useMemo } from "react";
+import { CheckCheck, Eye, RotateCcw } from "lucide-react";
+import { useMemo, useState } from "react";
 
 import { ErrorState } from "@/components/common/error-state";
 import { Loading } from "@/components/common/loading";
@@ -19,6 +19,7 @@ import { createColumn } from "@/components/tables";
 import { Button } from "@/components/ui/button";
 import { permissions } from "@/config/permissions";
 import { PermissionGuard } from "@/components/common/permission-guard";
+import { ReconcileJobDialog } from "@/features/payments/components/reconcile-job-dialog";
 import {
   ATTEMPT_OPERATION_LABEL_KEYS,
   ATTEMPT_OUTCOME_LABEL_KEYS,
@@ -84,6 +85,8 @@ export function IntegrationJobsSection({
   };
   const query = useIntegrationJobs(account.uuid, params);
   const total = query.data?.total ?? 0;
+  const [reconcileTarget, setReconcileTarget] = useState<string | null>(null);
+  const manage = permissions.tenant.integrations.manage;
 
   const columns = useMemo(
     () =>
@@ -182,12 +185,26 @@ export function IntegrationJobsSection({
                   icon: Eye,
                   onSelect: () => onOpenJob(row.original.uuid),
                 },
+                ...(row.original.reconcilable
+                  ? [
+                      {
+                        id: "reconcile",
+                        label: t(
+                          "payments.integrations.jobs.actions.reconcile",
+                        ),
+                        icon: CheckCheck,
+                        permission: manage,
+                        separatorBefore: true,
+                        onSelect: () => setReconcileTarget(row.original.uuid),
+                      },
+                    ]
+                  : []),
               ]}
             />
           ),
         }),
       ] as ColumnDef<IntegrationJob, unknown>[],
-    [locale, onOpenJob, t],
+    [locale, manage, onOpenJob, t],
   );
 
   return (
@@ -223,6 +240,10 @@ export function IntegrationJobsSection({
             refreshDisabled={query.isFetching}
           />
         }
+      />
+      <ReconcileJobDialog
+        jobUuid={reconcileTarget}
+        onClose={() => setReconcileTarget(null)}
       />
     </EntitySectionCard>
   );
@@ -268,6 +289,7 @@ export function IntegrationJobDrawer({
   const query = useIntegrationJob(jobUuid);
   const retry = useRetryIntegrationJob();
   const job = query.data;
+  const [reconcileTarget, setReconcileTarget] = useState<string | null>(null);
   return (
     <EntityDrawer
       open={Boolean(jobUuid)}
@@ -278,16 +300,28 @@ export function IntegrationJobDrawer({
       title={t("payments.integrations.jobs.detail_title")}
       description={t("payments.integrations.jobs.detail_description")}
       footer={
-        job?.retryable ? (
+        job?.retryable || job?.reconcilable ? (
           <PermissionGuard permission={permissions.tenant.integrations.manage}>
-            <Button
-              type="button"
-              disabled={retry.isPending}
-              onClick={() => retry.mutate(job.uuid)}
-            >
-              <RotateCcw className="size-4" />
-              {t("payments.integrations.jobs.actions.retry")}
-            </Button>
+            {job.reconcilable ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setReconcileTarget(job.uuid)}
+              >
+                <CheckCheck className="size-4" />
+                {t("payments.integrations.jobs.actions.reconcile")}
+              </Button>
+            ) : null}
+            {job.retryable ? (
+              <Button
+                type="button"
+                disabled={retry.isPending}
+                onClick={() => retry.mutate(job.uuid)}
+              >
+                <RotateCcw className="size-4" />
+                {t("payments.integrations.jobs.actions.retry")}
+              </Button>
+            ) : null}
           </PermissionGuard>
         ) : null
       }
@@ -304,6 +338,10 @@ export function IntegrationJobDrawer({
       ) : (
         <JobDetailBody job={job} />
       )}
+      <ReconcileJobDialog
+        jobUuid={reconcileTarget}
+        onClose={() => setReconcileTarget(null)}
+      />
     </EntityDrawer>
   );
 }
@@ -485,6 +523,37 @@ function JobDetailBody({ job }: { job: IntegrationJobDetail }) {
         <p className="bg-muted rounded-md p-3 text-sm">
           {t("payments.integrations.jobs.needs_verification_note")}
         </p>
+      ) : null}
+      {job.reconciliation ? (
+        <div className="bg-muted grid grid-cols-1 gap-4 rounded-md p-3 sm:grid-cols-2">
+          <Fact
+            label={t("payments.integrations.jobs.reconciliation.at")}
+            value={datetime(job.reconciliation.at, DATE, locale)}
+          />
+          <Fact
+            label={t("payments.integrations.jobs.reconciliation.by")}
+            value={
+              job.reconciliation.by
+                ? `${job.reconciliation.by.name} ${job.reconciliation.by.surname}`.trim() ||
+                  job.reconciliation.by.email
+                : t("payments.integrations.jobs.reconciliation.operator")
+            }
+          />
+          <Fact
+            label={t("payments.integrations.jobs.reconciliation.note")}
+            value={
+              <span className="break-words">{job.reconciliation.note}</span>
+            }
+          />
+          <Fact
+            label={t("payments.integrations.jobs.reconciliation.external_ref")}
+            value={
+              <span className="font-mono text-xs break-all">
+                {job.reconciliation.external_ref || "—"}
+              </span>
+            }
+          />
+        </div>
       ) : null}
       {job.last_error ? (
         <Fact

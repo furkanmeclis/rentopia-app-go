@@ -7009,9 +7009,112 @@ export interface paths {
         put?: never;
         /**
          * Refund a payment (partial or full)
-         * @description `tenant.payments.read` + `tenant.payment.refund`. Through the provider (manual payments are recorded). Amount defaults to the refundable rest.
+         * @description `tenant.payments.read` + `tenant.payment.refund`. Through the provider (manual payments are recorded).
+         *     Amount defaults to the refundable rest. Refund guard (TEC-962): before a provider refund the provider's
+         *     refunds of the payment are read; when it shows more refunded than our records (a refund made after
+         *     the backup a database was restored from) nothing is sent, a reconciliation item is opened and the
+         *     answer is `409 REFUND_STATE_MISMATCH` (`data`: `our_refunded`, `provider_refunded`,
+         *     `reconciliation_item_uuid`). When the provider's refunds cannot be read the refund is not blocked: it
+         *     goes ahead as before and an open `unverified` reconciliation item is kept for staff.
          */
         post: operations["postTenantPaymentRefund"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/payments/orphans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Provider notifications that named no payment
+         * @description `tenant.payments.read`. Notifications whose order reference is unknown (e.g. a checkout created after
+         *     the backup a database was restored from) whose signature verified with one of the organization's
+         *     accounts. Match one to a reservation with `POST /v1/tenant/payments/orphans/{uuid}/match`.
+         */
+        get: operations["getTenantPaymentOrphans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/payments/orphans/{uuid}/match": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Attach an orphan notification to a reservation
+         * @description `tenant.payments.read` + `tenant.payment.collect`. The checkout is retrieved from the provider; when it
+         *     is paid, is the notified payment, carries one of our order references and the reservation's currency,
+         *     it is recreated as a payment of the reservation under its own order reference and confirmed through
+         *     the usual verification (once; the reservation is told once). Refusals: `409 INVALID_STATE`
+         *     (`orphan_not_paid`, `orphan_mismatch`, `orphan_unmatchable`, `currency_mismatch`, `orphan_matched`,
+         *     `orphan_no_token`, `orphan_conflict`).
+         */
+        post: operations["postTenantPaymentOrphanMatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/payments/reconciliation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Our provider payments beside the provider's view
+         * @description `tenant.payments.read`. Provider payments created since `since` (at most 100, oldest first;
+         *     `truncated` = ask again with a later `since`), each with one provider retrieve and one refund lookup:
+         *     the iyzico adapter has no list call, so a payment made after the backup that we never recorded shows
+         *     up only as an orphan notification (`orphans`). `mismatches`: `unconfirmed_payment`,
+         *     `status_mismatch`, `amount_mismatch`, `refund_missing_in_ledger`, `refund_missing_at_provider`,
+         *     `pending_refund`, `provider_unreachable`, `refund_lookup_unsupported`. `items`: open refund
+         *     reconciliation items and those created since `since`.
+         */
+        get: operations["getTenantPaymentReconciliation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/payments/reconciliation-items/{uuid}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve a refund reconciliation item
+         * @description `tenant.payments.read` + `tenant.payment.refund`. `record_refund`: the provider is asked again and the
+         *     refund it shows beyond our records is entered as a succeeded refund (no provider call; ledger, reservation
+         *     recount); `dismiss`: closed with the note only. A resolved item answers `409 INVALID_STATE`
+         *     (`item_resolved`); `record_refund` with the provider unreadable answers `502 PAYMENT_PROVIDER_ERROR`
+         *     (`dismiss` still works).
+         */
+        post: operations["postTenantPaymentReconciliationItemResolve"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7295,6 +7398,55 @@ export interface paths {
          *     step-up policy exists yet (docs/design/integration-jobs.md).
          */
         post: operations["postTenantIntegrationJobRetry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/integration-jobs/{uuid}/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a job reconciled ("Mutabık işaretle")
+         * @description `tenant.integrations.manage` (like retry). The work was confirmed outside the runner (provider panel,
+         *     delivery log), e.g. sent after the backup a database was restored from: the job moves to `reconciled`
+         *     and is never sent again. Sends nothing, so no plan feature is required. Who / when / why are kept on
+         *     the job (`reconciliation`) and as an activity event (`integrations.job_reconciled`). Applies to
+         *     outbound jobs in `pending`, `submitted`, `needs_verification` or `failed`; final states, inbound
+         *     notifications, payment refunds and KABİS notifications (their own reconcile) answer
+         *     `409 INTEGRATION_JOB_NOT_RECONCILABLE`; a job held by a worker `409 INTEGRATION_JOB_BUSY`.
+         */
+        post: operations["postTenantIntegrationJobReconcile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/integration-jobs/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark matching jobs reconciled (restore runbook)
+         * @description `tenant.integrations.manage`. Every reconcilable job of the organization created before `before` in
+         *     one of `statuses` (and `kinds`, when given) is marked reconciled with the note; jobs held by a worker
+         *     are skipped. Answers the count and the job uuids. Across organizations the operator uses
+         *     `cmd/integration-jobs-reconcile` (docs/operations/backup-restore.md).
+         */
+        post: operations["postTenantIntegrationJobsReconcile"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8751,7 +8903,9 @@ export interface paths {
          *     otherwise). The payment is then confirmed only by a provider retrieve matching order reference,
          *     amount, currency and token. The same notification delivered again is one integration job
          *     (`duplicate: true`): one payment, one reservation change (RT-A16). Non-2xx answers make iyzico
-         *     retry.
+         *     retry. A notification naming no payment of ours is kept as an orphan (TEC-962): when its signature
+         *     verifies with one of an organization's accounts the answer is 200 with `orphan: true` (matched by
+         *     staff later); otherwise it is kept platform-level and answered 404.
          */
         post: operations["postPublicIyzicoWebhook"];
         delete?: never;
@@ -25010,6 +25164,107 @@ export interface components {
             data: components["schemas"]["Payment"];
             meta: components["schemas"]["ResponseMeta"];
         };
+        /** @description A provider notification that named no payment of ours (references only, no card data). */
+        PaymentWebhookOrphan: {
+            /** Format: uuid */
+            uuid: string;
+            provider: string;
+            event_type: string;
+            provider_status: string;
+            provider_payment_id: string;
+            conversation_id: string;
+            reference_code: string;
+            signature_verified: boolean;
+            deliveries: number;
+            /** @enum {string} */
+            status: "unmatched" | "matched";
+            /** Format: uuid */
+            account_uuid: string | null;
+            account_name: string;
+            /** Format: uuid */
+            payment_uuid: string | null;
+            reservation: components["schemas"]["PaymentReservationRef"] | null;
+            matched_by: components["schemas"]["PaymentActor"] | null;
+            /** Format: date-time */
+            matched_at: string | null;
+            match_note: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        EnvelopePaymentWebhookOrphanPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["PaymentWebhookOrphan"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        /** @description A refund guard item: `refund_mismatch` = the provider shows a refund our records lack (the refund was refused); `unverified` = a refund made while the provider's refunds could not be read. */
+        PaymentReconciliationItem: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            kind: "refund_mismatch" | "unverified";
+            /** @enum {string} */
+            status: "open" | "resolved";
+            currency: string;
+            our_refunded: string;
+            provider_refunded: string;
+            data: {
+                [key: string]: unknown;
+            };
+            /** @enum {string} */
+            resolution: "" | "record_refund" | "dismiss";
+            resolution_note: string;
+            /** Format: date-time */
+            resolved_at: string | null;
+            /** Format: uuid */
+            payment_uuid: string;
+            reservation: components["schemas"]["PaymentReservationRef"];
+            /** Format: date-time */
+            created_at: string;
+        };
+        PaymentReconciliationRow: {
+            /** Format: uuid */
+            payment_uuid: string;
+            reservation: components["schemas"]["PaymentReservationRef"];
+            provider: string;
+            status: string;
+            currency: string;
+            amount: string;
+            refunded_amount: string;
+            /** Format: int64 */
+            pending_refunds: number;
+            provider_payment_id: string | null;
+            provider_status: string;
+            provider_paid: string | null;
+            provider_refunded: string | null;
+            mismatches: string[];
+            error?: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        EnvelopePaymentReconciliation: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                /** Format: date-time */
+                since: string;
+                /** Format: date-time */
+                generated_at: string;
+                truncated: boolean;
+                payments: components["schemas"]["PaymentReconciliationRow"][];
+                orphans: components["schemas"]["PaymentWebhookOrphan"][];
+                items: components["schemas"]["PaymentReconciliationItem"][];
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
         EnvelopePaymentPage: {
             /** @enum {boolean} */
             success: true;
@@ -25192,6 +25447,8 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+            /** @description The staff "reconciled" resolution applies. */
+            reconcilable?: boolean;
         };
         IntegrationAttempt: {
             /** Format: uuid */
@@ -25255,7 +25512,27 @@ export interface components {
             updated_at: string;
             /** @description A staff retry applies (outbound, not a payment refund, not succeeded). */
             retryable: boolean;
+            /** @description The staff "reconciled" resolution applies (outbound pending / submitted / needs_verification / failed; not refunds or KABİS). */
+            reconcilable?: boolean;
+            reconciliation?: components["schemas"]["IntegrationJobReconciliation"] | null;
             attempt_log: components["schemas"]["IntegrationAttempt"][];
+        };
+        /** @description Who marked the job reconciled, when and why (an operator tool leaves `by` empty). */
+        IntegrationJobReconciliation: {
+            /** Format: date-time */
+            at: string;
+            by: components["schemas"]["PaymentActor"] | null;
+            note: string;
+            external_ref: string;
+        };
+        EnvelopeIntegrationJobBulkReconcile: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                count: number;
+                job_uuids: string[];
+            };
+            meta: components["schemas"]["ResponseMeta"];
         };
         EnvelopeIntegrationJobDetail: {
             /** @enum {boolean} */
@@ -25339,6 +25616,8 @@ export interface components {
             data: {
                 duplicate: boolean;
                 status: string;
+                /** @description The notification named no payment; kept for manual matching. */
+                orphan?: boolean;
             };
             meta: components["schemas"]["ResponseMeta"];
         };
@@ -29826,7 +30105,7 @@ export interface components {
             /** @enum {string} */
             status: "sending" | "sent" | "delivered" | "failed" | "skipped";
             /** @enum {string} */
-            dispatch_status: "pending" | "sending" | "delivered" | "failed" | "skipped";
+            dispatch_status: "pending" | "sending" | "delivered" | "failed" | "skipped" | "reconciled";
             provider: string;
             provider_ref: string;
             recipient_masked: string;
@@ -29877,7 +30156,7 @@ export interface components {
             /** @enum {string} */
             audience: "customer" | "staff";
             /** @enum {string} */
-            status: "pending" | "sending" | "delivered" | "failed" | "skipped";
+            status: "pending" | "sending" | "delivered" | "failed" | "skipped" | "reconciled";
             channels: string[];
             fallback: boolean;
             language: string;
@@ -44772,6 +45051,145 @@ export interface operations {
             502: components["responses"]["PaymentProviderError"];
         };
     };
+    getTenantPaymentOrphans: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                q?: components["parameters"]["Q"];
+                /** @description `created_at`; prefix `-` for descending. Default `-created_at`. */
+                sort?: string;
+                /** @description unmatched, matched */
+                status?: string;
+                since?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Orphan page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePaymentWebhookOrphanPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantPaymentOrphanMatch: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    reservation_uuid: string;
+                    note: string;
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["PaymentOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            502: components["responses"]["PaymentProviderError"];
+        };
+    };
+    getTenantPaymentReconciliation: {
+        parameters: {
+            query: {
+                since: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePaymentReconciliation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantPaymentReconciliationItemResolve: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    resolution: "record_refund" | "dismiss";
+                    note: string;
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["PaymentOK"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            502: components["responses"]["PaymentProviderError"];
+        };
+    };
     getTenantPaymentLinks: {
         parameters: {
             query?: {
@@ -45264,6 +45682,90 @@ export interface operations {
             403: components["responses"]["TenantForbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantIntegrationJobReconcile: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    note: string;
+                    /** @description The provider's reference of the work, when known. */
+                    external_ref?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Reconciled job */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeIntegrationJobDetail"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postTenantIntegrationJobsReconcile: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: date-time
+                     * @description Cut-off: only jobs created before it (the backup time).
+                     */
+                    before: string;
+                    statuses: ("pending" | "submitted" | "needs_verification" | "failed")[];
+                    kinds?: string[];
+                    note: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Reconciled jobs */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeIntegrationJobBulkReconcile"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
         };
     };
     getPublicDocument: {

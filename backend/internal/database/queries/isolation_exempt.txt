@@ -37,6 +37,9 @@ MarkNotificationProcessing delivery worker: row by id
 MarkNotificationSent       delivery worker: row by id
 MarkNotificationFailed     delivery worker: row by id
 ListStuckProcessingNotificationIDs delivery sweep over every row
+ReclaimProcessingNotification delivery sweep: row by id
+ListStaleQueuedNotifications delivery sweep over every row
+GetNotificationByIdempotencyKey key holds the event and recipient; returned to the enqueuing caller only
 
 # Organization invitations: the token / uuid flows compare the invitation's
 # organization with the caller's scope in the organizations use case.

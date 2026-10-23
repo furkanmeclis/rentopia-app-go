@@ -88,6 +88,7 @@ var isolationAllowlist = map[string]string{
 	"POST /v1/tenant/finance/expenses/import":        "rows match category / branch / plate / account codes inside the organization; the job is the {uuid} cases",
 	"POST /v1/tenant/toll-passes/import":             "rows match provider transaction ids and plates / tags inside the organization (tolls tests); the job is the {uuid} cases",
 	"POST /v1/tenant/toll-passes/fetch":              "no body; fetches with the caller's organization's active toll account (tolls fetch test)",
+	"POST /v1/tenant/integration-jobs/reconcile":     "body names no records (cut-off, states, kinds, note); updates the caller's organization's jobs only (integrations/jobs routes test)",
 	"PATCH /v1/tenant/toll-settings":                 "processing fee / fetch options of the caller's organization; no foreign references",
 	"PUT /v1/tenant/invoices/settings":               "invoice settings of the caller's organization (series, supplier address, tax mapping); no foreign references",
 	"POST /v1/tenant/suppliers":                      "body has no foreign references (title, tax number, contact and billing values)",
@@ -507,6 +508,20 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		ids["payment"] = str(must(call(o, http.MethodPost, "/v1/tenant/reservations/"+ids["reservation"]+"/collections", map[string]any{
 			"amount": "10", "method": "cash", "note": m,
 		}), http.StatusCreated, "collection"), "uuid")
+		// Restore reconciliation (TEC-962): an orphan provider notification
+		// and a refund reconciliation item on the collection.
+		var orphanUUID, itemUUID uuid.UUID
+		if err := pool.QueryRow(ctx, `INSERT INTO payment_webhook_orphans (organization_id, provider, dedupe_key, provider_payment_id,
+			conversation_id, signature_verified) VALUES ($1, 'iyzico', $2, $2, $2, TRUE) RETURNING uuid`, o.org.ID, m+"-orphan").Scan(&orphanUUID); err != nil {
+			t.Fatal(err)
+		}
+		ids["paymentOrphan"] = orphanUUID.String()
+		if err := pool.QueryRow(ctx, `INSERT INTO payment_reconciliation_items (organization_id, payment_id, kind)
+			SELECT organization_id, id, 'refund_mismatch' FROM payments WHERE organization_id = $1 AND uuid = $2 RETURNING uuid`,
+			o.org.ID, ids["payment"]).Scan(&itemUUID); err != nil {
+			t.Fatal(err)
+		}
+		ids["reconciliationItem"] = itemUUID.String()
 		// Rentals / contracts (TEC-709 / TEC-710): an active terms template,
 		// a reservation whose fixed plate created a rental (preparation +
 		// handover tasks) and its terms document (one version).
@@ -965,11 +980,13 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		"GET /v1/tenant/reservations": {
 			"?product=" + b["product"], "?customer=" + b["customer"], "?branch=" + b["branch"], "?q=" + orgB.marker,
 		},
-		"GET /v1/tenant/quotes":           {"?reservation=" + b["reservation"], "?product=" + b["product"]},
-		"GET /v1/tenant/resolution-tasks": {"?reservation=" + b["reservation"], "?assignee=" + bob.Uuid.String()},
-		"GET /v1/tenant/payments":         {"?reservation=" + b["reservation"], "?q=" + orgB.marker},
-		"GET /v1/tenant/payment-links":    {"?reservation=" + b["reservation"]},
-		"GET /v1/tenant/integrations":     {"?q=" + orgB.marker},
+		"GET /v1/tenant/quotes":                  {"?reservation=" + b["reservation"], "?product=" + b["product"]},
+		"GET /v1/tenant/resolution-tasks":        {"?reservation=" + b["reservation"], "?assignee=" + bob.Uuid.String()},
+		"GET /v1/tenant/payments":                {"?reservation=" + b["reservation"], "?q=" + orgB.marker},
+		"GET /v1/tenant/payment-links":           {"?reservation=" + b["reservation"]},
+		"GET /v1/tenant/payments/orphans":        {"?q=" + orgB.marker, "?status=unmatched"},
+		"GET /v1/tenant/payments/reconciliation": {"?since=2000-01-01T00:00:00Z"},
+		"GET /v1/tenant/integrations":            {"?q=" + orgB.marker},
 		"GET /v1/tenant/rentals": {
 			"?reservation=" + b["rentalReservation"], "?vehicle=" + b["vehicle"], "?branch=" + b["branch"], "?product=" + b["product"],
 			"?customer=" + b["customer"], "?q=" + orgB.marker,
@@ -1649,6 +1666,10 @@ func paramKey(prev, name string) string {
 		return "payment"
 	case "payment-links/uuid":
 		return "paymentLink"
+	case "orphans/uuid":
+		return "paymentOrphan"
+	case "reconciliation-items/uuid":
+		return "reconciliationItem"
 	case "rentals/uuid":
 		return "rental"
 	case "charges/chargeUuid":
