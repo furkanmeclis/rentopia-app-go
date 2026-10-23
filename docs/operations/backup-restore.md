@@ -58,7 +58,7 @@ age-keygen -y rentopia-backup.agekey      # age1... → BACKUP_AGE_RECIPIENT
 - Birden çok alıcı virgülle: `BACKUP_AGE_RECIPIENT=age1aaa...,age1bbb...` (iki kişi ayrı anahtar tutar).
 - Değiştirme: yeni açık anahtarı ekleyin, eski gizli anahtarı eski setlerin saklaması bitene kadar (en az `BACKUP_KEEP_WEEKLY` hafta + off-site saklama) saklayın.
 
-### 2. Env (şema v9)
+### 2. Env (şema v9'dan beri; güncel v10)
 
 ```sh
 scripts/prod-env.sh upgrade .env.server    # yeni anahtarları ekler, mevcut değerleri korur
