@@ -81,6 +81,8 @@
   "drivers.empty": "No drivers",
   "drivers.primary": "Primary",
   "drivers.title": "Drivers",
+  "empty_customer_description": "Rentals started from this customer's reservations are listed here.",
+  "empty_customer_title": "This customer has no rentals",
   "empty_description": "Start a rental from a confirmed reservation.",
   "empty_filtered_description": "Change the filters and try again.",
   "empty_filtered_title": "No matching rentals",

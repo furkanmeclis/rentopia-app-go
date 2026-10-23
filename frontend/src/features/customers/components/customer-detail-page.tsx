@@ -60,6 +60,7 @@ import {
   useDeleteCustomer,
 } from "@/features/customers/hooks/use-customers";
 import type { Customer } from "@/features/customers/types";
+import { RentalsTable } from "@/features/rentals/components/rentals-table";
 import { useTenant } from "@/features/tenant/components/tenant-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { usePermission } from "@/providers/permission-provider";
@@ -196,16 +197,24 @@ function AnonymizeDialog({
   );
 }
 
-function ComingSoonTab({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
+/** Rentals of the customer (every reservation's rental), newest first. */
+function CustomerRentalsTab({ customerUuid }: { customerUuid: string }) {
+  const { t } = useLocale();
+  const { can } = usePermission();
   return (
-    <EntitySectionCard title={title}>
-      <EmptyState className="py-10" title={description} />
+    <EntitySectionCard title={t("customers.tabs.rentals")}>
+      {can(permissions.tenant.rentals.read) ? (
+        <RentalsTable
+          customerUuid={customerUuid}
+          persistKey="tenant-customer-rentals-v1"
+        />
+      ) : (
+        <EmptyState
+          className="py-10"
+          title={t("customers.rentals.no_access_title")}
+          description={t("rentals.forbidden")}
+        />
+      )}
     </EntitySectionCard>
   );
 }
@@ -436,10 +445,7 @@ function CustomerDetail({
               />
             </TabsContent>
             <TabsContent value="rentals">
-              <ComingSoonTab
-                title={t("customers.tabs.rentals")}
-                description={t("customers.coming.rentals")}
-              />
+              <CustomerRentalsTab customerUuid={uuid} />
             </TabsContent>
             <TabsContent value="account">
               <CustomerLedgerCard customerUuid={uuid} />

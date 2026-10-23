@@ -32,6 +32,8 @@ export type UseServerListStateOptions = {
   initialSort?: string;
   /** Column filters to start with (e.g. from URL search params). */
   initialColumnFilters?: ColumnFiltersState;
+  /** Search text to start with (e.g. `?q=` from a link). */
+  initialSearch?: string;
   searchDebounceMs?: number;
   /**
    * Opt-in live updates: the list follows `resource.changed` events on
@@ -68,6 +70,7 @@ export function useServerListState(options: UseServerListStateOptions = {}) {
     initialPageSize = 20,
     initialSort = "-created_at",
     initialColumnFilters,
+    initialSearch,
     searchDebounceMs = 300,
     realtime,
   } = options;
@@ -84,7 +87,7 @@ export function useServerListState(options: UseServerListStateOptions = {}) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(
     () => initialColumnFilters ?? [],
   );
-  const [globalFilter, setGlobalFilter] = useState("");
+  const [globalFilter, setGlobalFilter] = useState(initialSearch ?? "");
   const debouncedSearch = useDebounce(globalFilter, searchDebounceMs);
 
   const onPaginationChange: OnChangeFn<PaginationState> = useCallback(

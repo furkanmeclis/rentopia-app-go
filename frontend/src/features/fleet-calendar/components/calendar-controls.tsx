@@ -39,7 +39,6 @@ import {
 import {
   CALENDAR_ZOOMS,
   LEGEND_ENTRIES,
-  MILESTONE_HINT_KEYS,
   ZOOM_LABEL_KEYS,
 } from "@/features/fleet-calendar/constants";
 import {
@@ -148,9 +147,9 @@ export function CalendarNavigation({
 }
 
 /**
- * Colour legend. Rentals and preparation (M3) are placeholders shown
- * disabled. Reservation bars with a provisional plate can be dragged onto
- * another vehicle row ("plaka değişimi").
+ * Colour legend. Reservation bars include the return branch's preparation
+ * buffer; bars with a provisional plate can be dragged onto another vehicle
+ * row ("plaka değişimi").
  */
 export function CalendarLegend({ className }: { className?: string }) {
   const { t } = useLocale();
@@ -162,14 +161,9 @@ export function CalendarLegend({ className }: { className?: string }) {
       )}
       aria-label={t("fleet_calendar.legend.title")}
     >
-      {LEGEND_ENTRIES.map((entry) => {
-        const body = (
-          <span
-            className={cn(
-              "inline-flex items-center gap-1.5",
-              entry.milestone && "opacity-50",
-            )}
-          >
+      {LEGEND_ENTRIES.map((entry) => (
+        <li key={entry.id}>
+          <span className="inline-flex items-center gap-1.5">
             <span
               aria-hidden
               className={cn(
@@ -179,32 +173,9 @@ export function CalendarLegend({ className }: { className?: string }) {
               )}
             />
             {t(entry.labelKey)}
-            {entry.milestone ? (
-              <Badge variant="outline" className="px-1 py-0 text-[10px]">
-                {entry.milestone}
-              </Badge>
-            ) : null}
           </span>
-        );
-        return (
-          <li key={entry.id}>
-            {entry.milestone ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span tabIndex={0} aria-disabled="true">
-                    {body}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {t(MILESTONE_HINT_KEYS[entry.milestone])}
-                </TooltipContent>
-              </Tooltip>
-            ) : (
-              body
-            )}
-          </li>
-        );
-      })}
+        </li>
+      ))}
       <li>
         <Tooltip>
           <TooltipTrigger asChild>

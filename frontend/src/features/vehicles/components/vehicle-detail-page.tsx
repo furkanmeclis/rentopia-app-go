@@ -420,17 +420,32 @@ function VehicleSummaryTab({
   );
 }
 
-/** Placeholder of a tab whose records arrive with a later milestone. */
-function ComingSoonTab({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
+/**
+ * "Hasar kayıtları": damages are marked on the handover / return forms of
+ * the vehicle's rentals; the forms list opens searched by the plate.
+ */
+function VehicleDamageTab({ plate }: { plate: string }) {
+  const { t } = useLocale();
+  const { slug } = useTenant();
+  const { can } = usePermission();
   return (
-    <EntitySectionCard title={title}>
-      <EmptyState className="py-10" title={description} />
+    <EntitySectionCard title={t("vehicles.tabs.damage")}>
+      <EmptyState
+        className="py-10"
+        title={t("vehicles.damage.title")}
+        description={t("vehicles.damage.description")}
+        action={
+          can(permissions.tenant.rentals.read) ? (
+            <Button asChild size="sm" variant="outline">
+              <Link
+                href={`${routes.tenant.inspections.root(slug)}?q=${encodeURIComponent(plate)}`}
+              >
+                {t("vehicles.damage.open_forms")}
+              </Link>
+            </Button>
+          ) : null
+        }
+      />
     </EntitySectionCard>
   );
 }
@@ -716,10 +731,7 @@ export function VehicleDetailPage({
             </TabsContent>
 
             <TabsContent value="damage">
-              <ComingSoonTab
-                title={t("vehicles.tabs.damage")}
-                description={t("vehicles.coming.damage")}
-              />
+              <VehicleDamageTab plate={vehicle.plate} />
             </TabsContent>
 
             {can(permissions.tenant.finance.reports.read) ? (

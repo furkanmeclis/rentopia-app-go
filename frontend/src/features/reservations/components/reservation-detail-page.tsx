@@ -842,7 +842,7 @@ function OverviewCard({ reservation }: { reservation: Reservation }) {
  * no-show, change / upgrade, extend, plate, drivers, staff), customer and
  * drivers (masked, reveal through the customers API), price snapshot,
  * vehicle plan (sold product vs planned / promised vehicle), resolution
- * tasks and the timeline. Payments and documents arrive with M3.
+ * tasks, customer requests, payments, documents and the timeline.
  */
 export function ReservationDetailPage({ uuid }: { uuid: string }) {
   const { t, locale } = useLocale();
@@ -1153,8 +1153,8 @@ export function ReservationDetailPage({ uuid }: { uuid: string }) {
                 ) : (
                   <EntitySectionCard title={t("reservations.tabs.documents")}>
                     <EntityUnavailable
-                      title={t("reservations.documents.title")}
-                      description={t("reservations.documents.description")}
+                      title={t("reservations.documents.no_access_title")}
+                      description={t("reservations.documents.no_access_hint")}
                     />
                   </EntitySectionCard>
                 )}

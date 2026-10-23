@@ -60,7 +60,7 @@
   "fields.is_active": "Active",
   "fields.max_discount": "Max discount (TRY)",
   "fields.min_completed_rentals": "Min completed rentals",
-  "fields.min_completed_rentals_hint": "Rentals arrive with M3; until then this campaign does not apply.",
+  "fields.min_completed_rentals_hint": "The completed-rentals condition is not applied yet; campaigns of this type are not applied to any customer for now.",
   "fields.min_subtotal": "Min rental subtotal (TRY)",
   "fields.name": "Name",
   "fields.per_customer_limit": "Per-customer limit",

@@ -60,7 +60,7 @@
   "fields.is_active": "Aktif",
   "fields.max_discount": "En fazla indirim (TL)",
   "fields.min_completed_rentals": "En az tamamlanmış kiralama",
-  "fields.min_completed_rentals_hint": "Kiralamalar M3 ile gelir; o zamana kadar bu kampanya uygulanmaz.",
+  "fields.min_completed_rentals_hint": "Tamamlanmış kiralama sayısı koşulu henüz uygulanmıyor; bu tür kampanyalar şu an hiçbir müşteriye otomatik uygulanmaz.",
   "fields.min_subtotal": "En az kiralama tutarı (TL)",
   "fields.name": "Ad",
   "fields.per_customer_limit": "Müşteri başı limit",

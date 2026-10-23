@@ -54,7 +54,6 @@ const TABS = [
   "general",
   "members",
   "status",
-  "plan",
   "domains",
   "integrations",
   "activity",
@@ -65,7 +64,6 @@ const TAB_LABEL_KEYS: Record<Tab, string> = {
   general: "organizations.tabs.general",
   members: "organizations.tabs.members",
   status: "organizations.tabs.status",
-  plan: "organizations.tabs.plan",
   domains: "organizations.tabs.domains",
   integrations: "organizations.tabs.integrations",
   activity: "organizations.tabs.activity",
@@ -359,10 +357,35 @@ function StatusTab({ org }: { org: OrganizationSummary }) {
   );
 }
 
-function PlaceholderTab({ title, body }: { title: string; body: string }) {
+/**
+ * A tab whose records the organization manages in its own panel: says where
+ * they live and links to the platform-wide view when the viewer can read it.
+ */
+function ManagedInPanelTab({
+  title,
+  heading,
+  body,
+  action,
+}: {
+  title: string;
+  heading: string;
+  body: string;
+  action?: { href: string; label: string } | null;
+}) {
   return (
     <EntitySectionCard title={title}>
-      <EmptyState className="py-10" title={body} />
+      <EmptyState
+        className="py-10"
+        title={heading}
+        description={body}
+        action={
+          action ? (
+            <Button asChild size="sm" variant="outline">
+              <Link href={action.href}>{action.label}</Link>
+            </Button>
+          ) : null
+        }
+      />
     </EntitySectionCard>
   );
 }
@@ -441,8 +464,8 @@ function ActivityTab({ uuid }: { uuid: string }) {
 
 /**
  * Platform organization page (TEC-670): header with status and access
- * state, tabs Genel / Üyeler / Durum / Paket / Alan adları / Bağlantılar /
- * Aktivite (`?tab=`).
+ * state, tabs Genel / Üyeler / Durum / Alan adları / Bağlantılar / Aktivite
+ * (`?tab=`).
  */
 export function OrganizationDetailPage({
   uuid,
@@ -557,22 +580,34 @@ export function OrganizationDetailPage({
             <TabsContent value="status">
               <StatusTab org={org} />
             </TabsContent>
-            <TabsContent value="plan">
-              <PlaceholderTab
-                title={t("organizations.tabs.plan")}
-                body={t("organizations.placeholders.plan")}
-              />
-            </TabsContent>
             <TabsContent value="domains">
-              <PlaceholderTab
+              <ManagedInPanelTab
                 title={t("organizations.tabs.domains")}
-                body={t("organizations.placeholders.domains")}
+                heading={t("organizations.managed.domains_title")}
+                body={t("organizations.managed.domains_body")}
+                action={
+                  can(permissions.siteDomains.read)
+                    ? {
+                        href: routes.platform.siteDomains,
+                        label: t("organizations.managed.domains_action"),
+                      }
+                    : null
+                }
               />
             </TabsContent>
             <TabsContent value="integrations">
-              <PlaceholderTab
+              <ManagedInPanelTab
                 title={t("organizations.tabs.integrations")}
-                body={t("organizations.placeholders.integrations")}
+                heading={t("organizations.managed.integrations_title")}
+                body={t("organizations.managed.integrations_body")}
+                action={
+                  can(permissions.platformHealth.read)
+                    ? {
+                        href: `${routes.platform.health}?tab=health`,
+                        label: t("organizations.managed.integrations_action"),
+                      }
+                    : null
+                }
               />
             </TabsContent>
             <TabsContent value="activity">
