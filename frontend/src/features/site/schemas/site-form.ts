@@ -307,7 +307,7 @@ export function emptySlide(): SiteSlideValues {
 
 /** Default enabled state of a section (mirrors `themes.Defaults`). */
 function defaultEnabled(id: string) {
-  return id !== "app_promo" && !NEEDS_SERVICE[id as SectionId];
+  return id !== "app_promo" && !NEEDS_SERVICE.has(id as SectionId);
 }
 
 /** A template's configuration completed against its registry definition. */

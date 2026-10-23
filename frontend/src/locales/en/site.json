@@ -357,7 +357,7 @@
   "sections.badge_service": "Service pending",
   "sections.badge_soon": "Coming soon",
   "sections.required_first": "The hero is always first and on.",
-  "sections.needs_service": "This section's service is not connected yet: it can be switched on once {{feature}} ({{ticket}}) ships.",
+  "sections.needs_service": "This section can be switched on once {{feature}} is connected.",
   "sections.app_promo_locked": "Can be switched on once the store links are ready.",
   "sections.unavailable": "This section cannot be switched on right now.",
   "sections.names.hero": "Hero",

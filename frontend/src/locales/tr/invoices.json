@@ -237,7 +237,7 @@
   "settings.connection_title": "Entegratör ve satıcı",
   "settings.open_integrations": "Entegrasyonlar",
   "settings.connection_hint.none": "e-Fatura entegrasyonu yok. Faturalar kesinleştirilir ama gönderim bağlantı kurulana kadar bekler.",
-  "settings.connection_hint.waiting": "Resmi entegratör bağlantısı bekleniyor (TEC-685). Gönderimler hazır olduğunda kendiliğinden başlar.",
+  "settings.connection_hint.waiting": "Resmi entegratör bağlantısı bekleniyor. Gönderimler bağlantı hazır olduğunda kendiliğinden başlar.",
   "settings.connection_hint.test": "Test entegratörü bağlı: belgeler gerçek olarak GİB'e iletilmez.",
   "settings.connection_hint.unavailable": "Entegratör şu anda erişilemiyor; gönderimler bekletiliyor.",
   "settings.connection_hint.ready": "Entegratör hazır.",

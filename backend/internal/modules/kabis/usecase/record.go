@@ -31,7 +31,7 @@ func holdMessage(reason string) string {
 	case model.HoldNoAccount:
 		return "waiting on dependency: no active KABİS connection is set up for the organization"
 	case model.HoldAdapterUnverified:
-		return "waiting on dependency: the official KABİS connection method is not verified yet (TEC-682)"
+		return "waiting on dependency: the official KABİS connection method is not verified yet"
 	case model.HoldAdapterUnavailable:
 		return "waiting on dependency: the connected KABİS adapter is not available in this environment"
 	}

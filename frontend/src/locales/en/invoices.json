@@ -237,7 +237,7 @@
   "settings.connection_title": "Integrator and supplier",
   "settings.open_integrations": "Integrations",
   "settings.connection_hint.none": "No e-invoice integration. Invoices are finalized but sending waits until one is connected.",
-  "settings.connection_hint.waiting": "Waiting on the official integrator (TEC-685). Sends start on their own once it is ready.",
+  "settings.connection_hint.waiting": "Waiting on the official integrator connection. Sends start on their own once it is ready.",
   "settings.connection_hint.test": "A test integrator is connected: documents do not reach GİB for real.",
   "settings.connection_hint.unavailable": "The integrator is unavailable; sends are on hold.",
   "settings.connection_hint.ready": "The integrator is ready.",

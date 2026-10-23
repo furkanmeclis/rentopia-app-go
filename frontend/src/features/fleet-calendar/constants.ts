@@ -97,12 +97,11 @@ export const MAINTENANCE_STATE_LABEL_KEYS: Record<
   done: "vehicle_records.maintenance_status.done",
 };
 
-/** Legend entries; `milestone` ones are placeholders shown disabled. */
+/** Legend entries, one per bar / marker style the timeline draws. */
 export type LegendEntry = {
   id: string;
   labelKey: string;
   swatch: string;
-  milestone?: "M2" | "M3";
 };
 
 export const LEGEND_ENTRIES: LegendEntry[] = [
@@ -156,21 +155,4 @@ export const LEGEND_ENTRIES: LegendEntry[] = [
     labelKey: "fleet_calendar.legend.reservation",
     swatch: ALLOCATION_BAR_CLASSES.reservation,
   },
-  {
-    id: "rental",
-    labelKey: "fleet_calendar.legend.rental",
-    swatch: "bg-muted border-border",
-    milestone: "M3",
-  },
-  {
-    id: "preparation",
-    labelKey: "fleet_calendar.legend.preparation",
-    swatch: "bg-muted border-border",
-    milestone: "M3",
-  },
 ];
-
-export const MILESTONE_HINT_KEYS: Record<"M2" | "M3", string> = {
-  M2: "fleet_calendar.legend.coming_m2",
-  M3: "fleet_calendar.legend.coming_m3",
-};

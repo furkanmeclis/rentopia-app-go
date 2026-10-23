@@ -119,7 +119,7 @@ type Provider interface {
 var (
 	// ErrDependencyPending: no integrator is chosen yet (TEC-685); nothing
 	// can be sent.
-	ErrDependencyPending = errors.New("einvoice: waiting on dependency: the integrator is not chosen yet (TEC-685)")
+	ErrDependencyPending = errors.New("einvoice: waiting on dependency: the integrator is not chosen yet")
 	// ErrUnavailable: the request did not reach the integrator; nothing was
 	// sent, sending again is safe.
 	ErrUnavailable = errors.New("einvoice: integrator unavailable (nothing was sent)")

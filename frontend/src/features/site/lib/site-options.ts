@@ -144,7 +144,7 @@ export const SECTION_IDS = [
  * newsletter (TEC-786) and the guide (TEC-785) have their services now, so
  * nothing waits today.
  */
-export const NEEDS_SERVICE: Partial<Record<SectionId, string>> = {};
+export const NEEDS_SERVICE: ReadonlySet<SectionId> = new Set<SectionId>();
 
 /** Website forms of `config.leads` (TEC-786), in display order. */
 export const LEAD_FORMS = [

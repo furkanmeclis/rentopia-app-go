@@ -357,7 +357,7 @@
   "sections.badge_service": "Servis bekleniyor",
   "sections.badge_soon": "Yakında",
   "sections.required_first": "Giriş alanı her zaman ilk sırada ve açıktır.",
-  "sections.needs_service": "Bu bölüm için servis henüz bağlı değil: {{feature}} ({{ticket}}) tamamlandığında açılabilir.",
+  "sections.needs_service": "Bu bölümün servisi henüz bağlı değil ({{feature}}); bağlandığında açılabilir.",
   "sections.app_promo_locked": "Mağaza bağlantıları hazır olduğunda açılabilir.",
   "sections.unavailable": "Bu bölüm şu anda açılamaz.",
   "sections.names.hero": "Giriş alanı",

@@ -2,7 +2,7 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import { Eye } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 
 import { ErrorState } from "@/components/common/error-state";
@@ -55,16 +55,21 @@ function countOf(facets: InspectionFacetValue[] | undefined, value: string) {
 
 /**
  * Handover / return forms; `review_status = pending` is the authorized
- * review queue of disputed or unsigned returns.
+ * review queue of disputed or unsigned returns. A `?q=` link (a vehicle's
+ * plate from its damage tab) opens every form matching that search instead.
  */
 export function InspectionsPage() {
   const { t, locale } = useLocale();
   const { slug, organization } = useTenant();
   const router = useRouter();
+  const initialSearch = useSearchParams().get("q")?.trim() || undefined;
   const listState = useServerListState({
     initialSort: "-created_at",
     initialPageSize: 20,
-    initialColumnFilters: [{ id: "review_status", value: ["pending"] }],
+    initialSearch,
+    initialColumnFilters: initialSearch
+      ? undefined
+      : [{ id: "review_status", value: ["pending"] }],
     realtime: tenantLiveList(organization, INSPECTIONS_RESOURCE),
   });
   const facetsQuery = useInspectionFacets();

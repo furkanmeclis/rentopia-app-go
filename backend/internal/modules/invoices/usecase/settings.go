@@ -157,7 +157,7 @@ func holdMessage(reason string) string {
 	case model.HoldNoAccount:
 		return "waiting on dependency: no active e-invoice integrator is connected"
 	case model.HoldAdapterUnverified:
-		return "waiting on dependency: the e-invoice integrator is not chosen yet (TEC-685)"
+		return "waiting on dependency: the e-invoice integrator is not chosen yet"
 	case model.HoldAdapterUnavailable:
 		return "waiting on dependency: the connected e-invoice adapter is not available in this environment"
 	}

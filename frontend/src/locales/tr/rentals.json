@@ -81,6 +81,8 @@
   "drivers.empty": "Sürücü yok",
   "drivers.primary": "Asıl",
   "drivers.title": "Sürücüler",
+  "empty_customer_description": "Bu müşterinin rezervasyonlarından başlatılan kiralamalar burada listelenir.",
+  "empty_customer_title": "Bu müşterinin kiralaması yok",
   "empty_description": "Kesinleşmiş bir rezervasyonun detayından kiralama başlatın.",
   "empty_filtered_description": "Filtreleri değiştirip tekrar deneyin.",
   "empty_filtered_title": "Eşleşen kiralama yok",

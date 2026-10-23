@@ -52,7 +52,7 @@ import { usePermission } from "@/providers/permission-provider";
 
 type SectionLock =
   | { kind: "required" }
-  | { kind: "needs_service"; ticket: string }
+  | { kind: "needs_service" }
   | { kind: "app_promo" }
   | { kind: "unavailable" }
   | null;
@@ -71,10 +71,12 @@ function lockOf(
     return { kind: "required" };
   }
   if (id === "app_promo") return { kind: "app_promo" };
-  const ticket = NEEDS_SERVICE[id as SectionId];
   const status = statuses?.find((s) => s.id === id);
-  if (status?.status === "needs_service" || ticket) {
-    return { kind: "needs_service", ticket: ticket ?? "" };
+  if (
+    status?.status === "needs_service" ||
+    NEEDS_SERVICE.has(id as SectionId)
+  ) {
+    return { kind: "needs_service" };
   }
   if (
     status &&
@@ -171,7 +173,6 @@ function SectionRow({
           <p className="text-muted-foreground text-xs">
             {t("site.sections.needs_service", {
               feature: t(`site.sections.services.${k}`),
-              ticket: lock.ticket,
             })}
           </p>
         ) : lock?.kind === "app_promo" ? (

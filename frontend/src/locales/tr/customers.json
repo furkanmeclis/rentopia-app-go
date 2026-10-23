@@ -96,7 +96,7 @@
   "tabs.rentals": "Kiralamalar",
   "tabs.account": "Cari",
   "tabs.activity": "Aktivite",
-  "coming.rentals": "Kiralama geçmişi rezervasyon ve sözleşmelerle (M3) gelecek.",
+  "rentals.no_access_title": "Kiralama bilgisi gizli",
   "header.drivers": "{{count}} sürücü",
   "detail.identity": "Kimlik",
   "detail.contact": "İletişim",
