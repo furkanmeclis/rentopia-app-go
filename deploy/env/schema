@@ -16,7 +16,7 @@
 #   rename with  @rename OLD NEW <version>,  retire with  @remove KEY <version>.
 #   Never change the rule of an existing secret: running installs keep theirs anyway.
 
-@version 8
+@version 9
 
 # --- Identity / Docker ---
 NAME_PREFIX | const:rentopia
@@ -110,3 +110,19 @@ DOKPLOY_COMPOSE_ID | empty
 DOKPLOY_SITE_SERVICE | const:site
 DOKPLOY_SITE_PORT | const:3000
 APP_NETWORK_NAME | empty
+
+# --- Backups (TEC-741, docs/operations/backup-restore.md) ---
+# COMPOSE_PROFILES=backup starts the scheduled `backup` service. Fill in
+# BACKUP_AGE_RECIPIENT (age public key, `age-keygen`, private key kept off
+# the server) before enabling it. Off-site copy runs when BACKUP_OFFSITE_BUCKET is set.
+COMPOSE_PROFILES | empty
+BACKUP_AGE_RECIPIENT | empty
+BACKUP_DIR | derive:/var/backups/{NAME_PREFIX}
+BACKUP_TIME | const:03:15
+BACKUP_KEEP_DAILY | const:7
+BACKUP_KEEP_WEEKLY | const:4
+BACKUP_OFFSITE_ENDPOINT | empty
+BACKUP_OFFSITE_REGION | empty
+BACKUP_OFFSITE_BUCKET | empty
+BACKUP_OFFSITE_ACCESS_KEY | empty
+BACKUP_OFFSITE_SECRET_KEY | empty

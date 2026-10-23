@@ -424,6 +424,58 @@ services:
       - app
       - dokploy-network
 
+  # Scheduled encrypted backups (TEC-741, docs/operations/backup-restore.md).
+  # Opt-in: `--profile backup` or COMPOSE_PROFILES=backup in the env file.
+  # Runs scripts/backup.sh daily at BACKUP_TIME (Europe/Istanbul): pg_dump,
+  # Redis snapshot and the S3 bucket, encrypted with age to
+  # BACKUP_AGE_RECIPIENT, kept in BACKUP_DIR on the host, optionally copied
+  # off-site (BACKUP_OFFSITE_*). It drives the other containers through the
+  # Docker socket (root-equivalent on the host): never attach it to
+  # dokploy-network or publish a port.
+  backup:
+    image: ${NAME_PREFIX:?NAME_PREFIX is required}-backup:latest
+    build:
+      context: .
+      dockerfile: deploy/backup/Dockerfile
+    container_name: ${NAME_PREFIX:?NAME_PREFIX is required}-backup
+    profiles: ["backup"]
+    command: ["schedule"]
+    environment:
+      NAME_PREFIX: ${NAME_PREFIX:?NAME_PREFIX is required}
+      APP_NETWORK_NAME: ${APP_NETWORK_NAME:-${NAME_PREFIX:?NAME_PREFIX is required}-app}
+      S3_BUCKET: ${S3_BUCKET:?S3_BUCKET is required}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      # Empty is allowed here so `compose config` works without the profile;
+      # the script refuses to run without a recipient.
+      BACKUP_AGE_RECIPIENT: ${BACKUP_AGE_RECIPIENT:-}
+      BACKUP_DIR: ${BACKUP_DIR:-/var/backups/${NAME_PREFIX:?NAME_PREFIX is required}}
+      BACKUP_TIME: ${BACKUP_TIME:-03:15}
+      BACKUP_KEEP_DAILY: ${BACKUP_KEEP_DAILY:-7}
+      BACKUP_KEEP_WEEKLY: ${BACKUP_KEEP_WEEKLY:-4}
+      BACKUP_OFFSITE_ENDPOINT: ${BACKUP_OFFSITE_ENDPOINT:-}
+      BACKUP_OFFSITE_REGION: ${BACKUP_OFFSITE_REGION:-}
+      BACKUP_OFFSITE_BUCKET: ${BACKUP_OFFSITE_BUCKET:-}
+      BACKUP_OFFSITE_ACCESS_KEY: ${BACKUP_OFFSITE_ACCESS_KEY:-}
+      BACKUP_OFFSITE_SECRET_KEY: ${BACKUP_OFFSITE_SECRET_KEY:-}
+      TZ: Europe/Istanbul
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Same path inside and out, so `backup.sh status` on the host and in
+      # the container name the same files.
+      - ${BACKUP_DIR:-/var/backups/${NAME_PREFIX:?NAME_PREFIX is required}}:${BACKUP_DIR:-/var/backups/${NAME_PREFIX:?NAME_PREFIX is required}}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      seaweedfs:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - app
+
 volumes:
   site_domains:
     name: ${NAME_PREFIX:?NAME_PREFIX is required}-prod-site-domains
