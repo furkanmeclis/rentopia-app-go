@@ -2,7 +2,8 @@
 name: verify-changes
 description: >-
   Run the same checks CI runs (backend vet/test/lint, OpenAPI lint, frontend
-  typecheck/lint/build) before committing or opening a PR. Use before saying a
+  typecheck/lint/i18n/build, site typecheck/lint/test/build, prod env schema)
+  before committing or opening a PR. Use before saying a
   change is done.
 ---
 
@@ -34,17 +35,34 @@ pnpm format:check
 pnpm build            # slow; run before a PR
 ```
 
+From the repo root: `node scripts/check-i18n.mjs` (CI runs it; 0 errors).
+
 Stale `.next/types` after deleting a route: `rm -rf .next/types` and typecheck again.
+
+## Site (any `site/**` change)
+
+```bash
+cd site
+pnpm typecheck
+pnpm lint
+pnpm format:check
+pnpm test
+pnpm build
+```
 
 ## Database
 
-New migration → round-trip it (see the `db-migration` skill).
+New migration → round-trip it (see the `db-migration` skill). Database tests (`TEST_DATABASE_URL`, including the RT-A01 isolation test in `internal/httpserver`) are skipped in CI; run them locally when you touch tenant tables, queries or `/v1/tenant` routes.
 
-## Prod compose
+## Prod compose / env schema
 
 ```bash
-docker compose --env-file <filled env> -f compose.prod.yml config >/dev/null
+scripts/prod-env.sh init -o /tmp/prod.env --app-url https://ci.example.com
+docker compose --env-file /tmp/prod.env -f compose.prod.yml config -q
+scripts/prod-env.sh check /tmp/prod.env
 ```
+
+(the CI `prod-env` job; run it when `deploy/env/schema` or `compose.prod.yml` changed)
 
 `NAME_PREFIX` must be set; internal hosts stay `<service>.<app network>`.
 

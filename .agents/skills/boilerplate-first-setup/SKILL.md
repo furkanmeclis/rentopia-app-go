@@ -1,20 +1,21 @@
 ---
 name: boilerplate-first-setup
 description: >-
-  First-time setup for this Next.js + Go boilerplate: root .env, NAME_PREFIX,
-  compose local/prod, Dokploy network, VAPID, media URL rules, super admin,
-  and make local-dev. Use when initializing the repo, configuring Docker naming,
+  First-time setup for this repo (Rentopya, built on the Next.js + Go
+  boilerplate): root .env, NAME_PREFIX, compose local/prod, Dokploy network,
+  VAPID, media URL rules, super admin, make local-dev and make site-dev. Use when initializing the repo, configuring Docker naming,
   or onboarding a new clone.
 ---
 
-# Boilerplate first setup
+# First setup
 
 Human docs: `docs/DEVELOPMENT.md`. Canonical env is the **repo-root** `.env`.
 
 ## Layout
 
 - `backend/` — Go API + worker (`:8080`, `/v1/...`)
-- `frontend/` — Next.js BFF (`/platform` + organizations `/t/{slug}`)
+- `frontend/` — Next.js BFF (`/platform`, company panel `/t/{slug}`, customer portal `/r/{orgSlug}`)
+- `site/` — branded site (`make site-dev`, http://{subdomain}.localhost:3100)
 - `compose.local.yml` — infra only (Postgres, Redis, SeaweedFS, MailHog, Adminer, Centrifugo, Meilisearch)
 - `compose.prod.yml` — full stack on its own app network; frontend + centrifugo also join `dokploy-network`
 
@@ -24,8 +25,7 @@ Do **not** keep a long-lived `frontend/.env.local` for API URLs. Do **not** trea
 
 ```sh
 cp .env.example .env
-# production later:
-cp .env.example .env.server   # then replace every secret
+# production later: make prod-env (generates .env.server from deploy/env/schema)
 ```
 
 `API_URL` **must** include `/v1` (default `http://127.0.0.1:8080/v1`).
@@ -59,6 +59,7 @@ make create-super-admin
 | `make infra` / `make infra-down` | Compose infra only |
 | `make backend-dev` | air on `:8080` |
 | `make frontend-dev` | pnpm on `:3000` |
+| `make site-dev` | branded site on `:3100` |
 | `make migrate-up` | SQL migrations |
 | `make search-reindex` | Rebuild Meilisearch indexes |
 
@@ -81,9 +82,10 @@ Sign-in: `super_admin` / any `platform.*` permission → `/platform`; one organi
 - Platform (`/platform`): `super_admin` or any `platform.*` permission
 - Organization (`/t/{slug}`): members of that organization
 - Account pages (`/profile`, `/organizations`, `/no-access`): any signed-in user
-- Public register creates a user with **no** roles
-- Assign roles from platform admin
-- No tenants / workspaces / `/business`
+- Public register creates a user with **no** roles (or the configured default role)
+- Platform admins create organizations (`/platform/organizations`); members join by invitation and get one or more organization roles
+- Organization routes need `TENANCY_ENABLED=true` (on in `.env.example` and the prod schema)
+- No workspaces / `/business` shell
 
 Brand: `frontend/src/config/brand.ts` + `NAME_PREFIX`.
 
@@ -107,13 +109,13 @@ Browser must **never** assemble S3 URLs from object keys. Use API-returned `publ
 
 ## 7. Production / Dokploy
 
-1. Fill `.env.server` with a unique `NAME_PREFIX` — every `${VAR:?…}` is required
+1. `make prod-env` (asks the app URL, generates every secret into `.env.server`), or fill it by hand from `.env.server.example`; every `${VAR:?…}` in `compose.prod.yml` is required
 2. `make prod-config` then `make prod-up`
 3. Plain Docker host only: `docker network create dokploy-network` (once; Dokploy creates it itself)
 
-Compose creates the app's own private network (`${NAME_PREFIX}-app`). Only **frontend** and **centrifugo** join `dokploy-network` (set their domains in Dokploy: service + container port). Backend, SeaweedFS, Postgres, Redis, Meilisearch and the worker stay private.
+Compose creates the app's own private network (`${NAME_PREFIX}-app`). Only **frontend**, **site** and **centrifugo** join `dokploy-network` (set their domains in Dokploy: service + container port; the site gets `*.<app host>`). Backend, SeaweedFS, Postgres, Redis, Meilisearch, wuzapi and the worker stay private.
 
-`SEARCH_*` / `MEILI_*` enable Cmd+K. `APP_ENCRYPTION_KEY` (32-byte raw or base64) encrypts GitHub App secrets. Generate: `openssl rand -base64 32`.
+`SEARCH_*` / `MEILI_*` enable Cmd+K. `APP_ENCRYPTION_KEY` (32-byte raw or base64) derives every at-rest key: OAuth / GitHub secrets, organization integration credentials, encrypted personal data and blind indexes. Generate once (`openssl rand -base64 32`) and never change it on a running install.
 
 ## 8. After clone checklist
 
@@ -123,5 +125,5 @@ Compose creates the app's own private network (`${NAME_PREFIX}-app`). Only **fro
 - [ ] Login at `/platform/login`
 - [ ] MailHog receives verify/reset mail
 - [ ] VAPID keys if push is in scope
-- [ ] `APP_ENCRYPTION_KEY` replaced if GitHub OAuth will be used
-- [ ] Brand tokens swapped if this is a named product
+- [ ] `APP_ENCRYPTION_KEY` replaced before any real data (it cannot be rotated by editing the env)
+- [ ] Organization created under `/platform/organizations`; its panel opens at `/t/{slug}`

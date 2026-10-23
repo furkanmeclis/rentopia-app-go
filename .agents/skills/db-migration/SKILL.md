@@ -8,6 +8,8 @@ description: >-
 
 # Database migration
 
+Organization-owned tables (`organization_id`, composite FKs, `queries/tenant_tables.txt`, template role grants): `.agents/skills/add-tenant-resource` §1–2. Integration providers (widening `integration_accounts` checks): `.agents/skills/integration-adapter` §3.
+
 Rules live in [backend/DATABASE_RULES.md](../../../backend/DATABASE_RULES.md). This is the checklist.
 
 ## 1. Create the files

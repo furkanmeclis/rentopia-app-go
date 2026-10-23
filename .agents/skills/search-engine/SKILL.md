@@ -8,6 +8,8 @@ description: >-
 
 # Search engine
 
+Organization resources (`Scope: searchengine.ScopeTenant`, `TenantDocumentID`, `/v1/tenant/search`, `BranchScoped`): `.agents/skills/add-tenant-resource` §4. The steps below are written for platform resources.
+
 Use when adding **record search** to the Cmd+K palette or wiring a new resource into Meilisearch.
 
 ## Backend adapter

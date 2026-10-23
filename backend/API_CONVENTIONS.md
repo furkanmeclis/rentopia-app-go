@@ -1,6 +1,14 @@
 # API conventions
 
-HTTP contract for `github.com/furkanmeclis/nextjs-go-boilerplate/backend`. Paths use `/v1/...` (no `/api` prefix).
+HTTP contract of the Rentopya API (Go module `github.com/furkanmeclis/nextjs-go-boilerplate/backend`; the path is kept on purpose). Paths use `/v1/...` (no `/api` prefix).
+
+| Prefix | Who | Auth |
+|--------|-----|------|
+| `/v1/auth/*`, `/v1/notifications*`, `/v1/realtime/*`, `/v1/search*` | signed-in users | Bearer JWT |
+| `/v1/platform/*` | platform admins | Bearer JWT + `platform.*` |
+| `/v1/tenant/*` | organization members | Bearer JWT + `X-Organization` header + `tenant.*` |
+| `/v1/customer/{orgSlug}/*` | a company's customers (portal) | customer session token, never the staff JWT |
+| `/v1/public/*` | branded site, widget, partners, provider webhooks | publishable / secret API key, booking session or signature |
 
 ## Response envelope
 
@@ -69,19 +77,21 @@ Primary list resources expose `GET /v1/{resource}/meta` via `internal/platform/r
 - `GET /v1/platform/logs/meta`
 - `GET /v1/platform/log-rules/meta`
 - `GET /v1/platform/catalog/{brands,models,types,imports}/meta`
+- every organization list: `GET /v1/tenant/<plural>/meta` (`/v1/tenant/branches/meta`, `/v1/tenant/vehicles/meta`, …)
 
 Register `/meta` **before** `/{uuid}` on `ServeMux`. Capabilities must match live routes (do not advertise unfinished bulk/export).
 
 ## Auth
 
 - Bearer JWT on protected routes
-- Global users; no tenant (`tid`) or workspace (`wid`) claims
+- Global users; no organization or workspace claim in the token
+- Tenant routes: `X-Organization: <slug|uuid>` on every request → `400 ORGANIZATION_REQUIRED` when missing, `403 NO_TENANT_MEMBERSHIP` for an unknown organization or a non-member (same answer), `403 FORBIDDEN` without the tenant permission. Another organization's record answers `404` ([docs/auth.md](docs/auth.md#tenancy-organizations))
 - User fields: `name` / `surname`
-- Platform routes require the matching `platform.*` permission (`super_admin` bypasses `HasPermission`)
+- Platform routes require the matching `platform.*` permission (`super_admin` bypasses `HasPermission`); tenant permissions have no super-admin bypass
 
 ## Notifications
 
-Domain / auth use cases call `notifications.Service.Enqueue(...)` only. HTTP handlers never call SMTP/SMS inline.
+Domain / auth use cases call `notifications.Service.Enqueue(...)` for user notifications. Customer messages of an organization (SMS, e-mail, push, WhatsApp) go through the notification engine (`modules/notifyengine`), provider work through the integration job runner. HTTP handlers never call SMTP, SMS or a provider inline.
 
 - Channels: `inapp` | `email` | `realtime` | `sms` | `push` (sms/push = noop unless VAPID is configured)
 - Delivery: Asynq task `app:notification:deliver` on queue `notifications`
@@ -94,4 +104,4 @@ Cross-module signals use the platform event bus (`internal/platform/events`). Us
 
 Contract: `docs/openapi.yaml` (OpenAPI 3.1) + Scalar at `/docs/`. Run `make openapi-lint` after path/schema changes.
 
-Live routes are registered in `internal/modules/**/routes.go`. If the YAML still describes a stripped product path, the Go router wins until the spec is trimmed.
+Live routes are registered in `internal/modules/**/routes.go`; every `/v1` route must be in the spec in the same change (RT-A01 cross-checks `/v1/tenant` routes against it). Tenant routes use tag `Tenant` and the `XOrganization` header parameter.

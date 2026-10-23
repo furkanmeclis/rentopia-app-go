@@ -7,6 +7,8 @@ description: >-
 
 # Bulk engine
 
+Organization resources (`tenant.<plural>.bulk.<action>`, `/v1/tenant/<plural>/bulk`, `bulkH.TenantExecute`): `.agents/skills/add-tenant-resource` §4. The steps below are written for platform resources.
+
 Use when adding batch actions (disable, delete, …) to a DataTable list resource.
 
 Canonical adapters: `backend/internal/platform/bulkengine/adapters/` (users, roles).

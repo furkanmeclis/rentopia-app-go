@@ -30,7 +30,7 @@ Use helpers; do not invent prefixes:
 
 Object **bytes** live in S3. **Metadata** (name, size, versions, shares) stays in Postgres.
 
-Env: `STORAGE_DRIVER`, `STORAGE_PUBLIC_BASE_URL`, `S3_*`. `STORAGE_PUBLIC_BASE_URL` is for the API, not the browser.
+Env: `STORAGE_DRIVER` (`minio` = any self-hosted S3-compatible server; SeaweedFS in compose), `S3_*`, `STORAGE_MAX_BYTES`. `S3_PUBLIC_BASE_URL` (default `S3_ENDPOINT/S3_BUCKET`) is for the API, not the browser. Organization objects live under `organizations/{org_uuid}/` (`storage.*ObjectKey` helpers); serve a key read from a row only after `storage.OrganizationOwnsKey`.
 
 ## Frontend
 
@@ -42,7 +42,7 @@ const src = assertServiceMediaURL(apiObject.public_url);
 
 - Relative `/...` and absolute `http(s)://...` returned by the API are allowed.
 - Local file preview may use `URL.createObjectURL`; revoke after use.
-- Do not concatenate `STORAGE_PUBLIC_BASE_URL` or bucket + key in React.
+- Do not concatenate `S3_PUBLIC_BASE_URL` or bucket + key in React.
 
 ## Explorer API
 

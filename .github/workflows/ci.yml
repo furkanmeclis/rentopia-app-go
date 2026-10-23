@@ -41,6 +41,28 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    # Database tests (tenant isolation, module integration tests) skip without
+    # TEST_DATABASE_URL. They expect an already migrated database; tests that
+    # need a private copy (dbtest.FreshDatabase) create one on the same server,
+    # so the role needs CREATEDB (the image's POSTGRES_USER is a superuser).
+    # Same Postgres major as compose.prod.yml.
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          POSTGRES_DB: app_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U app -d app_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://app:app@localhost:5432/app_test?sslmode=disable
+      CATALOG_TEST_DATABASE_URL: postgres://app:app@localhost:5432/app_test?sslmode=disable
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
@@ -60,6 +82,14 @@ jobs:
         with:
           version: latest
           working-directory: backend
+      # Same golang-migrate image and version as backend/Dockerfile (prod's
+      # migrate role); keep the two in step.
+      - name: Migrate test database
+        run: >-
+          docker run --rm --network host
+          -v "$PWD/migrations:/migrations:ro"
+          migrate/migrate:v4.19.1
+          -path /migrations -database "$TEST_DATABASE_URL" up
       - name: Test
         run: go test ./...
       - name: OpenAPI lint
