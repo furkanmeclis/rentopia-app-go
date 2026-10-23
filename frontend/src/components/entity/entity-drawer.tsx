@@ -11,7 +11,7 @@ type EntityDrawerProps = {
   description?: string;
   children?: ReactNode;
   footer?: ReactNode;
-  size?: "sm" | "md" | "lg" | "xl";
+  size?: "sm" | "md" | "lg" | "xl" | "4xl";
 };
 
 /** Standard entity drawer (create / edit / detail). */

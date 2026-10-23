@@ -16,6 +16,7 @@ Entry points for the starter API. Interactive contract: `/docs/` (Scalar) when t
 | Doc | Description |
 |-----|-------------|
 | [`../DATABASE_RULES.md`](../DATABASE_RULES.md) | Database / migration / sqlc |
+| [`organizations.md`](organizations.md) | Company delete: soft delete via the API, hard delete cascade guarantee |
 | [`../TOOLCHAIN.md`](../TOOLCHAIN.md) | Local toolchain |
 | [`../README.md`](../README.md) | Commands and curl examples |
 

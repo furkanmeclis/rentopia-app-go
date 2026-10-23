@@ -276,6 +276,47 @@ func (c fixedCounter) CompletedRentals(context.Context, int64, uuid.UUID) (int, 
 	return int(c), nil
 }
 
+// Repeat-customer campaigns apply from min_completed_rentals completed
+// rentals on: two required, one completed is refused (not_eligible with the
+// numbers), two completed redeem.
+func TestRepeatCustomerMinCompletedRentals(t *testing.T) {
+	f := newFx(t)
+	value := model.Decimal("150")
+	camp, err := f.svc.Create(f.ctx, f.org, model.CampaignInput{
+		Name: ptr("İkinci kiralama"), CampaignType: ptr(model.TypeRepeatCustomer), DiscountKind: ptr(model.KindAmount),
+		DiscountValue: &value, MinCompletedRentals: ptr(2),
+	})
+	if err != nil || camp.MinCompletedRentals != 2 {
+		t.Fatalf("create = %+v %v", camp, err)
+	}
+	customer := uuid.New()
+	// Automatic (no code) for Evaluate; by campaign uuid for Redeem.
+	quote := f.quote("", "1000")
+	quote.CustomerUUID = &customer
+	byUUID := quote
+	byUUID.CampaignUUID = &camp.UUID
+
+	f.svc.SetRentalCounter(fixedCounter(1))
+	if ev, err := f.svc.Evaluate(f.ctx, f.org, quote); err != nil || ev.Discount != nil {
+		t.Fatalf("one completed rental must not apply: %+v %v", ev, err)
+	}
+	_, err = f.svc.Redeem(f.ctx, f.org, usecase.RedeemInput{Quote: byUUID, ReservationUUID: uuid.New()})
+	var re *usecase.RejectionError
+	if !errors.As(err, &re) || re.Reason != model.ReasonNotEligible ||
+		re.Params["min_completed_rentals"] != "2" || re.Params["completed_rentals"] != "1" {
+		t.Fatalf("one completed rental: %v %+v", err, re)
+	}
+
+	f.svc.SetRentalCounter(fixedCounter(2))
+	if ev, err := f.svc.Evaluate(f.ctx, f.org, quote); err != nil || ev.Discount == nil || ev.Discount.Amount.String() != "150.00" {
+		t.Fatalf("two completed rentals must apply: %+v %v", ev, err)
+	}
+	red, err := f.svc.Redeem(f.ctx, f.org, usecase.RedeemInput{Quote: byUUID, ReservationUUID: uuid.New()})
+	if err != nil || red.Status != model.RedemptionReserved || red.DiscountAmount.String() != "150.00" {
+		t.Fatalf("two completed rentals redeem = %+v %v", red, err)
+	}
+}
+
 // One discount per reservation; release gives the usage back only when the
 // campaign says so; codes are unique per organization (case-insensitive).
 func TestRedemptionLifecycle(t *testing.T) {

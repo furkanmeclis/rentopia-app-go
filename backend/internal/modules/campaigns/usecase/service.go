@@ -82,14 +82,15 @@ func (e *ValidationError) orNil() error {
 }
 
 // CompletedRentalCounter answers how many completed rentals a customer has
-// in the organization (repeat-customer campaigns). Rentals arrive in M3;
-// until then ZeroRentalCounter answers 0, so repeat-customer campaigns
-// never apply.
+// in the organization (repeat-customer campaigns). The rentals use case
+// implements it (status returned) and is plugged with SetRentalCounter
+// wherever the service is built; without it ZeroRentalCounter answers 0
+// and repeat-customer campaigns never apply.
 type CompletedRentalCounter interface {
 	CompletedRentals(ctx context.Context, orgID int64, customer uuid.UUID) (int, error)
 }
 
-// ZeroRentalCounter is the M2 counter: nobody has completed a rental yet.
+// ZeroRentalCounter is the default counter: nobody has completed a rental.
 type ZeroRentalCounter struct{}
 
 // CompletedRentals implements CompletedRentalCounter.
@@ -105,13 +106,18 @@ type Service struct {
 	now     func() time.Time
 }
 
-// New builds the service with the zero rental counter.
+// New builds the service with the zero rental counter (SetRentalCounter
+// plugs the real one).
 func New(pool *pgxpool.Pool, q *db.Queries) *Service {
 	return &Service{pool: pool, q: q, rentals: ZeroRentalCounter{}, now: time.Now}
 }
 
-// SetRentalCounter plugs the completed-rental counter (M3 rentals).
-func (s *Service) SetRentalCounter(c CompletedRentalCounter) { s.rentals = c }
+// SetRentalCounter plugs the completed-rental counter (rentals use case).
+func (s *Service) SetRentalCounter(c CompletedRentalCounter) {
+	if c != nil {
+		s.rentals = c
+	}
+}
 
 // SetClock replaces the clock (tests).
 func (s *Service) SetClock(now func() time.Time) { s.now = now }

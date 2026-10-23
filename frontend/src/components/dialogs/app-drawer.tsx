@@ -19,8 +19,11 @@ type AppDrawerProps = {
   children?: ReactNode;
   footer?: ReactNode;
   side?: "left" | "right";
-  /** Width preset for form / detail drawers */
-  size?: "sm" | "md" | "lg" | "xl";
+  /**
+   * Width preset for form / detail drawers. `4xl` fits a full sectioned
+   * form (FormLayout `embedded`: section nav beside the fields).
+   */
+  size?: "sm" | "md" | "lg" | "xl" | "4xl";
   className?: string;
 };
 
@@ -29,6 +32,7 @@ const sizeClass: Record<NonNullable<AppDrawerProps["size"]>, string> = {
   md: "sm:max-w-md",
   lg: "sm:max-w-lg",
   xl: "sm:max-w-xl",
+  "4xl": "sm:max-w-4xl",
 };
 
 /** Drawer alias — left/right sheet for denser admin workflows */

@@ -356,10 +356,23 @@ func TestRentalLifecycle(t *testing.T) {
 		t.Fatalf("an early return proposes no automatic charge: %+v", r.Charges)
 	}
 
+	// Repeat-customer campaigns: a rental in return check is not completed yet.
+	if n, err := f.rentals.CompletedRentals(f.ctx, f.org, f.customer.uuid); err != nil || n != 0 {
+		t.Fatalf("completed rentals in return check = %d %v", n, err)
+	}
 	r, err = f.rentals.CompleteReturn(f.ctx, f.org, r.UUID, model.CompleteReturnInput{})
 	f.must(err)
 	if r.Status != model.StatusReturned {
 		t.Fatalf("status %s", r.Status)
+	}
+	if n, err := f.rentals.CompletedRentals(f.ctx, f.org, f.customer.uuid); err != nil || n != 1 {
+		t.Fatalf("completed rentals after the return check = %d %v", n, err)
+	}
+	if n, err := f.rentals.CompletedRentals(f.ctx, f.org, uuid.New()); err != nil || n != 0 {
+		t.Fatalf("completed rentals of another customer = %d %v", n, err)
+	}
+	if n, err := f.rentals.CompletedRentals(f.ctx, f.org+1_000_000, f.customer.uuid); err != nil || n != 0 {
+		t.Fatalf("completed rentals in another organization = %d %v", n, err)
 	}
 	got := f.tasks(r.UUID)
 	if got[model.TaskCleaning] != model.TaskPlanned {

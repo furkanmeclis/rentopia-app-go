@@ -280,6 +280,19 @@ func (s *Service) Facets(ctx context.Context, orgID int64) (model.Facets, error)
 	return out, nil
 }
 
+// CompletedRentals counts the customer's completed rentals in the
+// organization: status returned (return check done). It implements the
+// campaigns CompletedRentalCounter port (repeat-customer campaigns, TEC-703)
+// and is organization-wide on purpose: a customer's history is not limited
+// to the caller's branch scope.
+func (s *Service) CompletedRentals(ctx context.Context, orgID int64, customer uuid.UUID) (int, error) {
+	n, err := s.q.CountCustomerCompletedRentals(ctx, db.CountCustomerCompletedRentalsParams{OrganizationID: orgID, CustomerUuid: customer})
+	if err != nil {
+		return 0, err
+	}
+	return int(n), nil
+}
+
 // Events returns a page of the rental timeline (newest first).
 func (s *Service) Events(ctx context.Context, orgID int64, id uuid.UUID, limit, offset int32) ([]model.Event, int64, error) {
 	c, err := s.core(ctx, orgID, id)

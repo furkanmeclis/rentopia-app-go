@@ -513,3 +513,18 @@ SELECT b.id, b.uuid, b.code, b.name, b.prep_minutes
 FROM branches b
 WHERE b.organization_id = sqlc.arg(organization_id)
   AND b.id = sqlc.arg(id);
+
+-- name: CountCustomerCompletedRentals :one
+-- Repeat-customer campaigns (TEC-703 min_completed_rentals): rentals of the
+-- customer (the reservation's contract party) whose return check is done
+-- (status returned). Rentals still in preparation, out, in return check or
+-- cancelled do not count.
+SELECT COUNT(*)::int AS completed
+FROM rentals r
+JOIN reservations res ON res.organization_id = r.organization_id AND res.id = r.reservation_id
+JOIN customers c ON c.organization_id = res.organization_id AND c.id = res.customer_id
+WHERE r.organization_id = sqlc.arg(organization_id)
+  AND res.organization_id = sqlc.arg(organization_id)
+  AND c.organization_id = sqlc.arg(organization_id)
+  AND c.uuid = sqlc.arg(customer_uuid)
+  AND r.status = 'returned';

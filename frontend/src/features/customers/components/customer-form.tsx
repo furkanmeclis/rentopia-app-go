@@ -47,6 +47,8 @@ type CustomerFormProps = {
   isSubmitting?: boolean;
   onSubmit: (values: CustomerFormValues) => Promise<void>;
   onCancel: () => void;
+  /** Rendered inside a drawer (e.g. the reservation wizard), not a page. */
+  embedded?: boolean;
 };
 
 /**
@@ -62,6 +64,7 @@ export function CustomerForm({
   isSubmitting,
   onSubmit,
   onCancel,
+  embedded = false,
 }: CustomerFormProps) {
   const { t, locale } = useLocale();
   const schema = useMemo(
@@ -121,7 +124,7 @@ export function CustomerForm({
           { value: NO_IDENTITY, label: t("customers.identity_types.none") },
         ];
         return (
-          <FormLayout navItems={sections.navItems}>
+          <FormLayout navItems={sections.navItems} embedded={embedded}>
             <FormSection
               id={sections.id("party")}
               title={t("customers.form.section_party")}

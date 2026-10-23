@@ -3,7 +3,10 @@
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { useActiveSection } from "@/components/forms/use-active-section";
+import {
+  findScrollParent,
+  useActiveSection,
+} from "@/components/forms/use-active-section";
 import { useLocale } from "@/providers/locale-provider";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +25,13 @@ type FormLayoutProps = {
   navTitle?: string;
   /** Escape hatch for fully custom aside content */
   aside?: ReactNode;
+  /**
+   * Rendered inside a drawer / dialog instead of a page: the columns follow
+   * the width of the overlay (container queries) rather than the viewport,
+   * the aside sticks to the top of the overlay's scroll area and the nav
+   * tracks that scroll area instead of the window.
+   */
+  embedded?: boolean;
   className?: string;
 };
 
@@ -34,26 +44,39 @@ export function FormLayout({
   navItems,
   navTitle,
   aside,
+  embedded = false,
   className,
 }: FormLayoutProps) {
   const showNav = Boolean(navItems?.length);
   const showAside = showNav || Boolean(aside);
 
-  return (
+  const grid = (
     <div
       className={cn(
         "grid gap-6",
-        showAside
+        showAside && !embedded
           ? "lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)]"
           : null,
-        className,
+        showAside && embedded
+          ? "@3xl/form-layout:grid-cols-[220px_minmax(0,1fr)] @5xl/form-layout:grid-cols-[240px_minmax(0,1fr)]"
+          : null,
+        embedded ? null : className,
       )}
     >
       {showAside ? (
-        <aside className="hidden lg:block">
-          <div className="sticky top-20">
+        <aside
+          className={
+            embedded ? "hidden @3xl/form-layout:block" : "hidden lg:block"
+          }
+        >
+          <div className={embedded ? "sticky top-0" : "sticky top-20"}>
             {showNav ? (
-              <FormNav items={navItems!} title={navTitle} variant="sidebar" />
+              <FormNav
+                items={navItems!}
+                title={navTitle}
+                variant="sidebar"
+                embedded={embedded}
+              />
             ) : (
               aside
             )}
@@ -61,14 +84,33 @@ export function FormLayout({
         </aside>
       ) : null}
 
-      <div className="min-w-0 space-y-6">
+      <div
+        className={cn(
+          "min-w-0 space-y-6",
+          // Inside an overlay there is no sticky app header to clear.
+          embedded && "[&>section]:scroll-mt-4",
+        )}
+      >
         {showNav ? (
-          <div className="lg:hidden">
-            <FormNav items={navItems!} title={navTitle} variant="pills" />
+          <div className={embedded ? "@3xl/form-layout:hidden" : "lg:hidden"}>
+            <FormNav
+              items={navItems!}
+              title={navTitle}
+              variant="pills"
+              embedded={embedded}
+            />
           </div>
         ) : null}
         {children}
       </div>
+    </div>
+  );
+
+  if (!embedded) return grid;
+
+  return (
+    <div className={cn("@container/form-layout min-w-0", className)}>
+      {grid}
     </div>
   );
 }
@@ -77,6 +119,8 @@ type FormNavProps = {
   items: FormNavItem[];
   title?: string;
   variant?: "sidebar" | "pills";
+  /** Sections scroll inside an overlay (drawer / dialog), not the window. */
+  embedded?: boolean;
   className?: string;
 };
 
@@ -84,15 +128,35 @@ export function FormNav({
   items,
   title,
   variant = "sidebar",
+  embedded = false,
   className,
 }: FormNavProps) {
   const { t } = useLocale();
-  const activeId = useActiveSection(items.map((item) => item.id));
+  const activeId = useActiveSection(
+    items.map((item) => item.id),
+    true,
+    embedded ? "nearest" : "window",
+  );
   const heading = title ?? t("form.on_this_page");
 
   const scrollTo = (id: string) => {
     const el = document.getElementById(id);
     if (!el) return;
+    const container = embedded ? findScrollParent(el) : null;
+    if (container) {
+      // scrollIntoView would also scroll the overlay's own clipped box
+      // (header out of view); move only the overlay's scroll area.
+      const margin = parseFloat(window.getComputedStyle(el).scrollMarginTop);
+      container.scrollTo({
+        top:
+          container.scrollTop +
+          el.getBoundingClientRect().top -
+          container.getBoundingClientRect().top -
+          (Number.isNaN(margin) ? 0 : margin),
+        behavior: "smooth",
+      });
+      return;
+    }
     // Scroll only — never write readable labels into the URL hash
     el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
