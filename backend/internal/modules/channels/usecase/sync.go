@@ -10,6 +10,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/channels/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/channels"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/integrations"
 	"github.com/google/uuid"
 )
@@ -110,6 +111,9 @@ func (s *Service) accountForAction(ctx context.Context, orgID int64, id uuid.UUI
 	if err != nil {
 		return r, err
 	}
+	if err := s.requireChannelFeature(ctx, orgID, r.Channel); err != nil {
+		return r, err
+	}
 	if r.Status != "active" {
 		return r, ErrAccountInactive
 	}
@@ -176,6 +180,14 @@ func (s *Service) SyncDue(ctx context.Context) (int, error) {
 			continue
 		}
 		orgID := a.OrganizationID
+		// A channel outside the plan is not synced (its account and
+		// history stay; TEC-674).
+		if err := s.requireChannelFeature(ctx, orgID, p.Channel()); err != nil {
+			if _, off := features.FeatureOf(err); !off {
+				s.log.Warn("channel_feature_check_failed", "organization_id", orgID, "error", err)
+			}
+			continue
+		}
 		if err := s.q.EnsureChannelAccount(ctx, db.EnsureChannelAccountParams{OrganizationID: orgID, IntegrationAccountID: a.ID, Channel: p.Channel()}); err != nil {
 			s.log.Warn("channel_state_failed", "organization_id", orgID, "error", err)
 			continue

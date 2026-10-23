@@ -54,6 +54,7 @@ const (
 	CodeAccountExists             = "ACCOUNT_EXISTS"
 	CodeCapacityUnavailable       = "CAPACITY_UNAVAILABLE"
 	CodeEquipmentUnavailable      = "EQUIPMENT_UNAVAILABLE"
+	CodeFeatureNotEnabled         = "FEATURE_NOT_ENABLED"
 )
 
 // RequestIDFunc resolves the correlation id from request context.
@@ -163,6 +164,15 @@ func Forbidden(w http.ResponseWriter, r *http.Request, message string) {
 // StepUpRequired writes HTTP 403 STEP_UP_REQUIRED.
 func StepUpRequired(w http.ResponseWriter, r *http.Request) {
 	Error(w, r, http.StatusForbidden, CodeStepUpRequired, "Recent authentication is required")
+}
+
+// FeatureNotEnabled writes HTTP 403 FEATURE_NOT_ENABLED: the feature is not
+// in the organization's plan (TEC-674). The feature key is the detail's
+// field.
+func FeatureNotEnabled(w http.ResponseWriter, r *http.Request, feature string) {
+	msg := "This feature is not included in the organization's plan"
+	ErrorWithDetails(w, r, http.StatusForbidden, CodeFeatureNotEnabled, msg,
+		[]Detail{{Field: "feature", Code: feature, Message: msg}})
 }
 
 // NotFound writes HTTP 404 NOT_FOUND.

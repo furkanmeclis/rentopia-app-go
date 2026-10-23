@@ -13,6 +13,11 @@ export type OrganizationActivityPage = Schemas["OrganizationActivityPage"];
 export type PlatformMemberRequest = Schemas["PlatformMemberRequest"];
 export type PlatformMemberPatchRequest = Schemas["PlatformMemberPatchRequest"];
 export type BranchOption = Schemas["BranchOption"];
+export type Plan = Schemas["Plan"];
+export type PlanPage = Schemas["PlanPage"];
+export type OrganizationPlan = Schemas["OrganizationPlan"];
+export type OrganizationFeatureState = Schemas["OrganizationFeatureState"];
+export type SetOrganizationPlanRequest = Schemas["SetOrganizationPlanRequest"];
 export type OrganizationStatus = OrganizationSummary["status"];
 export type OrganizationAccessState = OrganizationSummary["access_state"];
 

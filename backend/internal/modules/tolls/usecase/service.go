@@ -27,6 +27,7 @@ import (
 	jobsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/jobs/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tolls/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/authctx"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/integrations"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/resourceevents"
@@ -94,6 +95,8 @@ type Service struct {
 	events    resourceevents.Publisher
 	log       *slog.Logger
 	now       func() time.Time
+	// features: toll passes (HGS) are the hgs plan feature (TEC-674); nil = no gate.
+	features features.AccessPolicy
 }
 
 // New builds the service and registers the fetch operation of every
@@ -128,6 +131,9 @@ func (s *Service) SetResourceEvents(p resourceevents.Publisher) {
 		s.events = p
 	}
 }
+
+// SetFeatures gates the background work by the organization's plan.
+func (s *Service) SetFeatures(p features.AccessPolicy) { s.features = p }
 
 // SetLogger replaces the logger.
 func (s *Service) SetLogger(l *slog.Logger) {

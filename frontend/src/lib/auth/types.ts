@@ -26,6 +26,10 @@ export type AuthOrganization = {
   role: { key: string; name: string };
   /** `tenant.*` permissions granted in this organization only. */
   permissions: string[];
+  /** Plan of the organization (TEC-674); absent in sessions cached before plans. */
+  plan?: { code: string; name: string };
+  /** Enabled plan feature keys; absent = unknown (nothing is hidden). */
+  features?: string[];
 };
 
 /** Client session identity — profile + RBAC. */
@@ -64,6 +68,8 @@ export function mapMeOrganization(org: MeOrganization): AuthOrganization {
     accessEndsAt: org.access_ends_at ?? null,
     role: { key: org.role.key, name: org.role.name },
     permissions: org.permissions ?? [],
+    plan: org.plan ? { code: org.plan.code, name: org.plan.name } : undefined,
+    features: org.features ?? undefined,
   };
 }
 

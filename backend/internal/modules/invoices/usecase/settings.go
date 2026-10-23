@@ -217,6 +217,9 @@ func (s *Service) GetSettings(ctx context.Context, orgID int64) (model.Settings,
 
 // PutSettings saves the invoice settings and tax mappings.
 func (s *Service) PutSettings(ctx context.Context, orgID int64, in model.SettingsInput) (model.Settings, error) {
+	if err := s.requireEInvoice(ctx, orgID); err != nil {
+		return model.Settings{}, err
+	}
 	st, err := s.loadSettings(ctx, s.q, orgID)
 	if err != nil {
 		return model.Settings{}, err

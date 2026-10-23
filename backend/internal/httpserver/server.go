@@ -215,6 +215,7 @@ import (
 	bulkadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/bulkengine/adapters"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/crypto"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/events"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/integrations"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/ioengine"
 	ioadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/ioengine/adapters"
@@ -467,11 +468,23 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	orgH.SetRegistrationLimiter(ratelimit.New(deps.Redis, cfg.App.Env))
 	orgH.SetResourceEvents(resourceEvents)
 	organizationsmodule.RegisterPlatformLiveResources(liveResources)
+	// Plans and feature entitlements (TEC-674): scopes carry the enabled
+	// features (RequireFeature), public and background paths ask the
+	// feature policy, cached per organization next to the scopes.
+	featureStore := features.NewStore(deps.Queries)
+	orgH.SetPlans(orgusecase.NewPlans(orgSvc, orgrepository.NewPlans(deps.Queries), featureStore))
+	var featurePolicy features.AccessPolicy = features.LoaderPolicy{Loader: featureStore}
+	// Scopes and /v1/auth/me read features and plan through the cache
+	// below when tenancy is on.
+	orgSvc.SetFeatures(featureStore)
 	var tenantResolver orgctx.Resolver
 	if cfg.Tenancy.Enabled {
 		orgCache := orgcache.New(orgSvc, deps.Redis, cfg.Tenancy.CacheTTL, cfg.App.Env)
 		orgSvc.SetInvalidator(orgCache)
 		tenantResolver = orgCache
+		featureCache := orgCache.Features(featureStore)
+		featurePolicy = featureCache
+		orgSvc.SetFeatures(featureCache)
 	}
 	tenantmodule.RegisterRoutes(mux, tokens, loader, tenantResolver)
 	organizationsmodule.RegisterTenantRoutes(mux, orgH, tokens, loader, tenantResolver)
@@ -559,6 +572,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	notifyEngine := notifyengineusecase.New(deps.DB, deps.Queries, cfg.Auth.FrontendURL)
 	notifyEngine.SetActivity(activityRec)
 	notifyEngine.SetLogger(log)
+	notifyEngine.SetFeatures(featurePolicy)
 	notifySMS := notifyengineadapters.NewSMS(smsSvc, deps.Queries)
 	notifyEngine.Register(notifySMS, notifyengineadapters.NewEmail(mailer),
 		notifyengineadapters.NewPush(notifSvc, deps.Queries, notifyengineadapters.VAPID{
@@ -628,12 +642,14 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		return nil, fmt.Errorf("httpserver: channels: %w", err)
 	}
 	channelsSvc.SetResourceEvents(resourceEvents)
+	channelsSvc.SetFeatures(featurePolicy)
 	channelsSvc.SetLogger(log)
 	// Toll passes (TEC-725): provider fetch jobs on the integration runner,
 	// file import fallback, matching to rentals (toll charges), review
 	// queue. The finance ledger (TEC-717) plugs in with SetLedger.
 	tollsSvc := tollsusecase.New(deps.DB, deps.Queries, integrationAccountsSvc, integrationRunner, integrationOps, tollProviders...)
 	tollsSvc.SetResourceEvents(resourceEvents)
+	tollsSvc.SetFeatures(featurePolicy)
 	tollsSvc.SetLogger(log)
 	// KABİS notifications (TEC-726): recorded in the handover / return
 	// transaction of rentals, sent through the integration runner.
@@ -642,6 +658,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		return nil, fmt.Errorf("httpserver: kabis: %w", err)
 	}
 	kabisSvc.SetStore(deps.Storage)
+	kabisSvc.SetFeatures(featurePolicy)
 	kabisSvc.SetResourceEvents(resourceEvents)
 	kabisSvc.SetLogger(log)
 	rentalsSvc.SetKabis(kabisSvc)
@@ -685,6 +702,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		return nil, fmt.Errorf("httpserver: invoices: %w", err)
 	}
 	invoicesSvc.SetStore(deps.Storage)
+	invoicesSvc.SetFeatures(featurePolicy)
 	invoicesSvc.SetPDFRenderer(pdfrender.NewChromium())
 	invoicesSvc.SetResourceEvents(resourceEvents)
 	invoicesSvc.SetLogger(log)
@@ -705,6 +723,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		return nil, fmt.Errorf("httpserver: public api: %w", err)
 	}
 	publicAPISvc.SetActivity(activityRec)
+	publicAPISvc.SetFeatures(featurePolicy)
 	publicAPISvc.SetResourceEvents(resourceEvents)
 	publicAPISvc.SetLogger(log)
 	publicAPISvc.SetBaseURL(strings.TrimRight(cfg.Auth.FrontendURL, "/") + "/api")
@@ -723,6 +742,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	}
 	siteSvc := siteusecase.New(deps.Queries, publicAPISvc, orgSettingsSvc, siteBase, cfg.Auth.FrontendURL)
 	siteSvc.SetStorage(deps.Storage)
+	siteSvc.SetFeatures(featurePolicy)
 	// Preview links (TEC-730) are signed with a key derived from the field
 	// encryption key: no separate secret to configure.
 	siteSvc.SetPreviewSecret(cfg.Encryption.Key)

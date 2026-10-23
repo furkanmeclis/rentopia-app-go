@@ -10,6 +10,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
 	jobsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/jobs/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/kabis/model"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/kabis"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/resourceevents"
@@ -84,6 +85,14 @@ func decide(b built, r route) (status, lastError, hold string) {
 // returned function runs after the commit (first step of a pending job,
 // live list); it may be nil.
 func (s *Service) RecordRentalEvent(ctx context.Context, q *db.Queries, orgID, rentalID int64, cause string) (func(context.Context), error) {
+	// Outside the plan (TEC-674) nothing is recorded: the rental goes on
+	// and the company notifies KABİS by its own means.
+	if err := features.Require(ctx, s.features, orgID, features.Kabis); err != nil {
+		if _, off := features.FeatureOf(err); off {
+			return nil, nil
+		}
+		return nil, err
+	}
 	switch cause {
 	case model.CauseHandover:
 		return s.recordOnce(ctx, q, orgID, rentalID, kabis.EventRentalStart, cause)

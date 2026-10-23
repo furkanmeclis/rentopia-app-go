@@ -37,7 +37,7 @@ Errors:
 ```
 
 - Success: `response.JSON(w, r, status, data)`
-- Errors: `Unauthorized` / `Forbidden` / `NotFound` / `Conflict` / `ValidationError` / `Internal`
+- Errors: `Unauthorized` / `Forbidden` / `NotFound` / `Conflict` / `ValidationError` / `Internal` / `FeatureNotEnabled` (`403 FEATURE_NOT_ENABLED`: a change in a plan-gated area outside the organization's plan; `details[0]` is `{field: "feature", code: <feature key>}`; module error mappers call `features.WriteError` first)
 - Branch on `error.code`, not message text
 - Correlation: middleware sets `X-Request-ID` (generate if missing) and mirrors into `meta.request_id`
 - **Outside envelope:** `GET /healthz`, `GET /readyz`
@@ -85,7 +85,7 @@ Register `/meta` **before** `/{uuid}` on `ServeMux`. Capabilities must match liv
 
 - Bearer JWT on protected routes
 - Global users; no organization or workspace claim in the token
-- Tenant routes: `X-Organization: <slug|uuid>` on every request → `400 ORGANIZATION_REQUIRED` when missing, `403 NO_TENANT_MEMBERSHIP` for an unknown organization or a non-member (same answer), `403 FORBIDDEN` without the tenant permission. Another organization's record answers `404` ([docs/auth.md](docs/auth.md#tenancy-organizations))
+- Tenant routes: `X-Organization: <slug|uuid>` on every request → `400 ORGANIZATION_REQUIRED` when missing, `403 NO_TENANT_MEMBERSHIP` for an unknown organization or a non-member (same answer), `403 FORBIDDEN` without the tenant permission, `403 FEATURE_NOT_ENABLED` for a change in a plan-gated area the organization's plan does not include (`details[0].code` = feature key; reads and exports stay open, TEC-674). Another organization's record answers `404` ([docs/auth.md](docs/auth.md#tenancy-organizations))
 - User fields: `name` / `surname`
 - Platform routes require the matching `platform.*` permission (`super_admin` bypasses `HasPermission`); tenant permissions have no super-admin bypass
 

@@ -10,6 +10,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/jobs/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/activity"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/authctx"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/httpkit"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/pkg/response"
@@ -60,9 +61,17 @@ func (h *Handler) Retry(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if _, err := h.runner.Detail(r.Context(), orgID(r), id); err != nil {
+	job, err := h.runner.Detail(r.Context(), orgID(r), id)
+	if err != nil {
 		writeError(w, r, err)
 		return
+	}
+	// A retry sends again: the provider's plan feature must be on (TEC-674).
+	if f, ok := features.ForProvider(job.Provider); ok {
+		if err := features.Require(r.Context(), nil, orgID(r), f); err != nil {
+			features.WriteError(w, r, err)
+			return
+		}
 	}
 	res, err := h.runner.Retry(r.Context(), orgID(r), id)
 	var ve *usecase.VerifyError

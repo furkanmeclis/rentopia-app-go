@@ -12,6 +12,7 @@ import (
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/publicapi/model"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/pkg/money"
 	"github.com/jackc/pgx/v5"
@@ -89,11 +90,16 @@ func (s *Service) checkOrganization(k keyRow) error {
 	return nil
 }
 
-// checkChannel is the feature gate: the key sells as a sales channel that
-// the organization must have switched on (orgsettings sales_channels).
-// Package entitlements (public_api / widget / site) plug in here once
-// packages exist (TEC-674).
+// checkChannel is the feature gate: the key sells as a sales channel whose
+// plan feature (web = site, widget, api = public_api; TEC-674) must be
+// enabled (403 FEATURE_NOT_ENABLED) and that the organization must have
+// switched on (orgsettings sales_channels).
 func (s *Service) checkChannel(ctx context.Context, orgID int64, channel string) error {
+	if f, ok := features.ForSalesChannel(channel); ok {
+		if err := features.Require(ctx, s.features, orgID, f); err != nil {
+			return err
+		}
+	}
 	if s.settings == nil {
 		return nil
 	}

@@ -27,7 +27,7 @@ Public API: `defineNav`, `defineNavItem`, `defineNavGroup`, `createNavAdornment`
 1. Route in `frontend/src/config/routes.ts`, permission in `frontend/src/config/permissions.ts`.
 2. i18n: `titleKey` / group `labelKey` as `layout.*` in `frontend/src/locales/{en,tr}/layout.json`.
 3. Put the item in the right group in `config/nav.ts` (inline object **or** `defineNavItem` exported from the feature).
-4. Gate with `permission` (AND) or `anyPermission` (OR). Omit both → always visible if the group is visible.
+4. Gate with `permission` (AND) or `anyPermission` (OR). Omit both → always visible if the group is visible. In the tenant shell, gate by plan with `feature: "site"` (an array = any of them; keys in `config/features.ts`, TEC-674): without the feature the item is hidden, or with `featureOff: "readonly"` kept with a "not in plan" label when the screen still shows history (wrap its route in `FeatureGate`, which renders it under a read-only banner, and hide create / send / sync actions with `useFeature`).
 
 ```ts
 {

@@ -41,6 +41,7 @@ The full catalog is `internal/platform/rbac/rbac.go` (mirrored in `frontend/src/
 | `platform.integrations.google.read` / `.write` | Google OAuth settings (also requires super admin) |
 | `platform.integrations.facebook.read` / `.write` | Facebook OAuth settings (also requires super admin) |
 | `platform.integrations.apple.read` / `.write` | Apple OAuth settings (also requires super admin) |
+| `platform.organizations.plan.read` / `.plan.write` | Organization plan, period and feature overrides (TEC-674; together with `platform.organizations.read` / `.write`) |
 | `auth.session` | Sign-in / account pages |
 | `notifications.read` / `notifications.manage` | User notifications |
 
@@ -165,7 +166,7 @@ The BFF forwards the browser IP as `X-Forwarded-For`; the Go API must not be rea
 
 ## `/v1/auth/me`
 
-Returns `user`, `roles[]`, `permissions[]` (platform scope), `organizations[]` (memberships: uuid, slug, name, logo, status, access end, role, tenant permissions in that organization), self-service links, realtime hints and the impersonation state. The frontend picks the landing page from it (`defaultHomeForUser`).
+Returns `user`, `roles[]`, `permissions[]` (platform scope), `organizations[]` (memberships: uuid, slug, name, logo, status, access end, role, tenant permissions in that organization, `plan {code, name}` and the enabled plan `features[]`), self-service links, realtime hints and the impersonation state. The frontend picks the landing page from it (`defaultHomeForUser`).
 
 ## Platform users
 
@@ -211,6 +212,7 @@ Behind `TENANCY_ENABLED` (config default `false`; on in `.env.example` and the p
 | Organization suspended | `403 ORGANIZATION_SUSPENDED` |
 | Outside the access window (`access_starts_at` / `access_ends_at`) | `403 ORGANIZATION_ACCESS_EXPIRED` |
 | Tenant permission missing in this organization | `403 FORBIDDEN` |
+| A change in a plan-gated area whose feature the organization's plan lacks | `403 FEATURE_NOT_ENABLED` (`details[0].code` = feature key) |
 
 **Per-organization permissions.** Platform permissions (`platform.*`, global roles) are unchanged. Tenant permissions (`tenant.*`) come only from the membership role in the **current** organization: an owner of A who is a member of B has member rights in B. `super_admin` is not exempt: it needs a membership (or impersonation) like everyone else, and `RequireTenantPermission` has no super-admin bypass. Tenant slugs follow the same triad rule (migration + `internal/platform/rbac` + `frontend/src/config/permissions.ts`).
 
@@ -220,7 +222,13 @@ Behind `TENANCY_ENABLED` (config default `false`; on in `.env.example` and the p
 
 **Caching.** `orgcache.CachedResolver` wraps the resolver with Redis (TTL `TENANCY_CACHE_TTL`, default `60s`; nil Redis = no cache; Redis errors fall back to the database). Entries are keyed by (organization id, version, user, ref) and only successful resolutions are cached. Every change that affects resolution (status, access window, membership, roles, role permissions, branch scope, slug) must call `orgctx.Invalidate(ctx, inv, orgID)` after commit: it bumps the organization's version counter, so old entries are never read again and revocation is effectively immediate. A cached entry whose `access_ends_at` has passed is rejected without waiting for the TTL.
 
-Probe: `GET /v1/tenant/context` returns `{organization, role, roles, permissions, branch_scope}` of the resolved scope.
+Probe: `GET /v1/tenant/context` returns `{organization, role, roles, permissions, branch_scope, features}` of the resolved scope.
+
+**Plan features (TEC-674).** An organization has one plan (`management` = Yönetim: the panel only; `complete` = Komple: every feature; default `complete`, also for every organization that existed before migration 000134) with an optional contract period, and optional per-feature overrides (`organization_features`: an override beats the plan default). Feature keys: `site`, `widget`, `public_api`, `channel.yolcu360`, `channel.obilet`, `kabis`, `hgs`, `einvoice`, `whatsapp`, `sms` (`internal/platform/features`, mirrored in `frontend/src/config/features.ts`). The panel itself (customers, fleet, reservations, rentals, contracts, finance, documents, e-mail notifications) and the customer portal, contract / document / payment links are never gated.
+
+- **Reads stay open, changes are gated.** `orgctx.Scope.Features` (resolved with the scope, cached with it, so no extra query) feeds `middleware.RequireFeature(f)` / `RequireAnyFeature(...)` on the routes that create work or send something (create, update, retry, sync, send, test, enable, connect, settings PUT, key creation) → `403 FEATURE_NOT_ENABLED`. GET lists / details and exports, and actions that only switch something off (revoking a key, disabling an integration account, logging out WhatsApp, closing out a KABİS notification by hand), stay open on every plan, so a downgrade never hides history. Mutations reachable outside those routes (bulk invoicing, per-account channel actions) check `features.Require` in the use case.
+- **Public and background paths** ask `features.AccessPolicy` (`orgcache.Features`, same Redis version counter, which also caches the plan for `/v1/auth/me`): the branded site / widget resolution (outside the plan an anonymous site host answers `404 SITE_NOT_FOUND`, like a disabled site, so it never reveals the organization or its plan), public API keys per channel (`web` → `site`, `widget` → `widget`, `api` → `public_api`), webhook emission, the notification engine (SMS / WhatsApp skipped, the dispatch moves on to the next channel), channel syncs, toll fetches and KABİS records.
+- **Platform API.** `GET /v1/platform/plans`, `GET|PUT /v1/platform/organizations/{uuid}/plan`, `PUT /v1/platform/organizations/{uuid}/features/{key}` (`enabled` true / false / null). Every change calls `orgctx.Invalidate` and is recorded (`organizations.plan_updated`, `organizations.feature_updated`). Turning a feature off never deletes data.
 
 ## CLI
 

@@ -28,6 +28,9 @@ import (
 //     integrator confirms it does not have it (*jobsusecase.VerifyError when
 //     the answer is unknown).
 func (s *Service) Retry(ctx context.Context, orgID int64, id uuid.UUID) (model.RetryResult, error) {
+	if err := s.requireEInvoice(ctx, orgID); err != nil {
+		return model.RetryResult{}, err
+	}
 	r, err := s.row(ctx, orgID, id)
 	if err != nil {
 		return model.RetryResult{}, err
@@ -152,6 +155,12 @@ func (s *Service) Cancel(ctx context.Context, orgID int64, id uuid.UUID, in mode
 	if err != nil {
 		return model.Detail{}, err
 	}
+	// A draft is a plain record; anything past it is an e-document.
+	if r.Status != model.StatusDraft {
+		if err := s.requireEInvoice(ctx, orgID); err != nil {
+			return model.Detail{}, err
+		}
+	}
 	ve := &ValidationError{}
 	reason := reasonOf(ve, in.Reason, r.Status != model.StatusDraft)
 	if err := ve.err(); err != nil {
@@ -271,6 +280,9 @@ func (s *Service) requestCancel(ctx context.Context, orgID int64, r db.GetInvoic
 // freed. Nothing is posted to the ledger: correcting the debt (a reversal
 // or an adjustment) is a separate finance action.
 func (s *Service) Return(ctx context.Context, orgID int64, id uuid.UUID, in model.ReturnInput) (model.Detail, error) {
+	if err := s.requireEInvoice(ctx, orgID); err != nil {
+		return model.Detail{}, err
+	}
 	r, err := s.row(ctx, orgID, id)
 	if err != nil {
 		return model.Detail{}, err

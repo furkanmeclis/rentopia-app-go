@@ -12,6 +12,7 @@ import (
 	authmodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/auth/model"
 	orgmodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/repository"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/slug"
 	"github.com/google/uuid"
@@ -110,7 +111,15 @@ type Service struct {
 	repo        Repository
 	hooks       OrganizationHooks
 	invalidator orgctx.Invalidator
-	now         func() time.Time
+	// features loads plan entitlements for scopes and /auth/me, normally
+	// through the per-organization cache (orgcache.Features: features and
+	// plan under the scope's version counter), so /me costs no query per
+	// membership once warm (nil: every feature, as on the default plan).
+	features FeatureSource
+	// plans assigns the plan of new organizations (set by NewPlans; nil:
+	// no plan row, the default plan applies).
+	plans *Plans
+	now   func() time.Time
 }
 
 func New(repo Repository, hooks OrganizationHooks) *Service {
@@ -119,6 +128,24 @@ func New(repo Repository, hooks OrganizationHooks) *Service {
 
 func (s *Service) SetInvalidator(inv orgctx.Invalidator) {
 	s.invalidator = inv
+}
+
+// SetFeatures attaches the plan entitlement source (features.Store).
+func (s *Service) SetFeatures(fs FeatureSource) {
+	s.features = fs
+}
+
+// enabledFeatures returns the enabled feature keys of an organization
+// (every feature without a source).
+func (s *Service) enabledFeatures(ctx context.Context, orgID int64) ([]string, error) {
+	if s.features == nil {
+		return features.AllStrings(), nil
+	}
+	keys, err := s.features.EnabledFeatures(ctx, orgID)
+	if err != nil {
+		return nil, err
+	}
+	return features.Strings(keys), nil
 }
 
 func (s *Service) CreateOrganization(ctx context.Context, in orgmodel.CreateOrganizationInput) (orgmodel.Organization, error) {
@@ -182,6 +209,11 @@ func (s *Service) createOrganization(
 			}
 		}
 		created = row
+		if s.plans != nil {
+			if err := s.plans.assign(ctx, q, row.ID, in.PlanCode, in.OwnerUserID); err != nil {
+				return err
+			}
+		}
 		if s.hooks != nil {
 			if err := s.hooks.OnCreated(ctx, tx, mapOrganization(row), mapUser(owner)); err != nil {
 				return err
@@ -446,12 +478,26 @@ func (s *Service) ListForUser(ctx context.Context, userID int64) ([]authmodel.Me
 		if err != nil {
 			return nil, err
 		}
+		feats, err := s.enabledFeatures(ctx, row.OrganizationID)
+		if err != nil {
+			return nil, err
+		}
+		plan := authmodel.MePlan{Code: features.DefaultPlan, Name: features.DefaultPlan}
+		if s.features != nil {
+			ref, err := s.features.Plan(ctx, row.OrganizationID)
+			if err != nil {
+				return nil, err
+			}
+			plan = authmodel.MePlan{Code: ref.Code, Name: ref.Name}
+		}
 		out = append(out, authmodel.MeOrganization{
 			UUID: row.OrganizationUuid, Slug: row.OrganizationSlug, Name: row.OrganizationName,
 			LogoURL: LogoURL(row.OrganizationUuid, row.LogoObjectKey), Status: row.OrganizationStatus,
 			AccessEndsAt: timePtr(row.AccessEndsAt),
 			Role:         authmodel.MeOrganizationRole{Key: row.RoleKey, Name: row.RoleName},
 			Permissions:  perms,
+			Plan:         plan,
+			Features:     feats,
 		})
 	}
 	return out, nil
@@ -529,10 +575,15 @@ func (s *Service) Resolve(ctx context.Context, orgRef string, userID int64) (org
 			branchIDs = []int64{}
 		}
 	}
+	feats, err := s.enabledFeatures(ctx, rowID)
+	if err != nil {
+		return orgctx.Scope{}, err
+	}
 	return orgctx.Scope{
 		ID: rowID, UUID: rowUUID, Slug: rowSlug, Name: rowName, Status: rowStatus,
 		AccessStartsAt: startsAt.Time.UTC(), AccessEndsAt: accessEnds,
 		MemberRole: roleKey, MemberRoles: roleKeys, Permissions: perms, BranchIDs: branchIDs,
+		Features: feats,
 	}, nil
 }
 

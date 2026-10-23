@@ -11,6 +11,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/publicapi/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/authctx"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -301,6 +302,12 @@ func (s *Service) CreateKey(ctx context.Context, orgID int64, in model.KeyInput)
 	f, err := validateKey(in, nil)
 	if err != nil {
 		return model.IssuedKey{}, err
+	}
+	// A key for a channel outside the plan would never answer (TEC-674).
+	if feat, ok := features.ForSalesChannel(f.channel); ok {
+		if err := features.Require(ctx, s.features, orgID, feat); err != nil {
+			return model.IssuedKey{}, err
+		}
 	}
 	secret, newID, err := insertKey(ctx, orgID, s.q, f, pgtype.Int8{})
 	if err != nil {

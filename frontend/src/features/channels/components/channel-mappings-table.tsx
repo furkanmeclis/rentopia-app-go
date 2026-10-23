@@ -41,6 +41,7 @@ import {
 import { useTenant } from "@/features/tenant/components/tenant-provider";
 import { tenantLiveList } from "@/features/tenant/lib/live";
 import { datetime } from "@/lib/utils/format";
+import { useFeature } from "@/providers/feature-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { usePermission } from "@/providers/permission-provider";
 
@@ -59,7 +60,8 @@ export function ChannelMappingsTable() {
   const { t, locale } = useLocale();
   const { organization } = useTenant();
   const { can } = usePermission();
-  const canWrite = can(permissions.tenant.channels.write);
+  const inPlan = useFeature(["channel.yolcu360", "channel.obilet"]);
+  const canWrite = inPlan && can(permissions.tenant.channels.write);
   const listState = useServerListState({
     initialSort: "-created_at",
     initialPageSize: 20,

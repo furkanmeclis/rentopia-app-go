@@ -209,6 +209,9 @@ func pdfKey(orgUUID, invoiceUUID uuid.UUID, number string) string {
 // the problems per field) and nothing is sent. A finalized invoice answers
 // as it is (a repeated request finalizes and sends nothing twice).
 func (s *Service) Finalize(ctx context.Context, orgID int64, id uuid.UUID) (model.Detail, error) {
+	if err := s.requireEInvoice(ctx, orgID); err != nil {
+		return model.Detail{}, err
+	}
 	row, err := s.row(ctx, orgID, id)
 	if err != nil {
 		return model.Detail{}, err

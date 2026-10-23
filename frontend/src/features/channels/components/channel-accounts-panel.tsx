@@ -46,6 +46,7 @@ import {
 import type { ChannelAccount } from "@/features/channels/types";
 import { useTenant } from "@/features/tenant/components/tenant-provider";
 import { datetime } from "@/lib/utils/format";
+import { useFeature } from "@/providers/feature-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { usePermission } from "@/providers/permission-provider";
 import { appToast } from "@/providers/toast-provider";
@@ -72,8 +73,11 @@ function AccountCard({
   const { t, locale } = useLocale();
   const { can } = usePermission();
   const sync = useChannelSync();
-  const canSync = can(permissions.tenant.channels.sync);
-  const canWrite = can(permissions.tenant.channels.write);
+  const inPlan = useFeature(
+    account.channel === "obilet" ? "channel.obilet" : "channel.yolcu360",
+  );
+  const canSync = inPlan && can(permissions.tenant.channels.sync);
+  const canWrite = inPlan && can(permissions.tenant.channels.write);
   const s = account.sync;
   const when = (v: string | null) =>
     v ? datetime(v, "d MMM yyyy HH:mm", locale) : "—";

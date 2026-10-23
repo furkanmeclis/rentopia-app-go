@@ -25,6 +25,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/config"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/middleware"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/whatsapp/handler"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/integrations"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/jwt"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
@@ -66,17 +67,22 @@ func RegisterRoutes(mux *http.ServeMux, h *handler.Handler, tokens *jwt.Manager,
 	authn := middleware.Authenticate(tokens, loader)
 	org := middleware.RequireOrganization(resolver)
 	manage := middleware.RequireTenantPermission(rbac.PermTenantIntegrationsManage)
-	route := func(pattern string, fn http.HandlerFunc) {
-		mux.Handle(pattern, middleware.Chain(fn, authn, org, manage))
+	// WhatsApp is a plan feature (TEC-674): the session status, the message
+	// log, logging out and removing the session stay open on every plan;
+	// connecting, the QR code, settings and test sends need it. Delivery
+	// receipts of messages already sent still arrive on the public webhook.
+	feature := middleware.RequireFeature(features.WhatsApp)
+	route := func(pattern string, fn http.HandlerFunc, guards ...func(http.Handler) http.Handler) {
+		mux.Handle(pattern, middleware.Chain(fn, append([]func(http.Handler) http.Handler{authn, org, manage}, guards...)...))
 	}
 	route("GET /v1/tenant/whatsapp/session", h.Session)
-	route("PATCH /v1/tenant/whatsapp/session", h.UpdateSettings)
+	route("PATCH /v1/tenant/whatsapp/session", h.UpdateSettings, feature)
 	route("DELETE /v1/tenant/whatsapp/session", h.Remove)
-	route("POST /v1/tenant/whatsapp/session/connect", h.Connect)
-	route("GET /v1/tenant/whatsapp/session/qr", h.QR)
-	route("POST /v1/tenant/whatsapp/session/refresh", h.Refresh)
+	route("POST /v1/tenant/whatsapp/session/connect", h.Connect, feature)
+	route("GET /v1/tenant/whatsapp/session/qr", h.QR, feature)
+	route("POST /v1/tenant/whatsapp/session/refresh", h.Refresh, feature)
 	route("POST /v1/tenant/whatsapp/session/logout", h.Logout)
-	route("POST /v1/tenant/whatsapp/test-messages", h.TestSend)
+	route("POST /v1/tenant/whatsapp/test-messages", h.TestSend, feature)
 	route("GET /v1/tenant/whatsapp/messages", h.Messages)
 	mux.HandleFunc("POST /v1/public/whatsapp/webhook/{token}", h.Webhook)
 }

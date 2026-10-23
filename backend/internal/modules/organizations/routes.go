@@ -31,6 +31,8 @@ func RegisterRoutes(
 	authn := middleware.Authenticate(tokens, loader)
 	read := middleware.RequirePermission(rbac.PermPlatformOrganizationsRead)
 	write := middleware.RequirePermission(rbac.PermPlatformOrganizationsWrite)
+	planRead := middleware.RequirePermission(rbac.PermPlatformOrganizationsPlanRead)
+	planWrite := middleware.RequirePermission(rbac.PermPlatformOrganizationsPlanWrite)
 	route := func(pattern string, fn http.HandlerFunc, guards ...func(http.Handler) http.Handler) {
 		mux.Handle(pattern, middleware.Chain(fn, append([]func(http.Handler) http.Handler{authn}, guards...)...))
 	}
@@ -56,6 +58,11 @@ func RegisterRoutes(
 	route("POST /v1/platform/organizations/{uuid}/status", h.SetStatus, write)
 	route("POST /v1/platform/organizations/{uuid}/access", h.SetAccess, write)
 	route("GET /v1/platform/organizations/{uuid}/activity", h.ListActivity, read)
+	// Plans and feature entitlements (TEC-674).
+	route("GET /v1/platform/plans", h.ListPlans, planRead)
+	route("GET /v1/platform/organizations/{uuid}/plan", h.GetPlan, read, planRead)
+	route("PUT /v1/platform/organizations/{uuid}/plan", h.PutPlan, read, write, planRead, planWrite)
+	route("PUT /v1/platform/organizations/{uuid}/features/{key}", h.PutFeature, read, write, planRead, planWrite)
 	route("GET /v1/platform/organizations/{uuid}/roles", h.ListRoles, read)
 	route("GET /v1/platform/organizations/{uuid}/branches", h.ListBranches, read)
 	route("GET /v1/platform/organizations/{uuid}/members", h.ListMembers, read)

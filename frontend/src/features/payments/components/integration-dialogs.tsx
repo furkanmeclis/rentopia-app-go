@@ -32,6 +32,7 @@ import type {
   IntegrationProviderCode,
 } from "@/features/payments/types";
 import { reasonText } from "@/features/reservations/constants";
+import { useFeatures } from "@/providers/feature-provider";
 import { useLocale } from "@/providers/locale-provider";
 
 const CONNECT_FORM = "integration-connect-form";
@@ -107,7 +108,16 @@ export function ConnectIntegrationDialog({
   const { t } = useLocale();
   const connect = useConnectIntegration();
   const meta = useIntegrationsMeta();
-  const providers = meta.data?.providers ?? [];
+  const { hasFeature } = useFeatures();
+  // Providers outside the organization's plan (TEC-674) are not offered;
+  // the API refuses them with FEATURE_NOT_ENABLED.
+  const providers = useMemo(
+    () =>
+      (meta.data?.providers ?? []).filter(
+        (p) => !p.feature || hasFeature(p.feature),
+      ),
+    [meta.data, hasFeature],
+  );
   const [providerCode, setProviderCode] =
     useState<IntegrationProviderCode>("iyzico");
   const provider = providers.find((p) => p.provider === providerCode);

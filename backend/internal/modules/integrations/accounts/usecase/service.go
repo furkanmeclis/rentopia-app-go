@@ -15,6 +15,7 @@ import (
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/authctx"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/integrations"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -92,6 +93,9 @@ type ProviderInfo struct {
 	Provider string               `json:"provider"`
 	Fields   []integrations.Field `json:"fields"`
 	Modes    []string             `json:"modes"`
+	// Feature is the plan feature the provider needs (TEC-674); empty for
+	// providers every plan has (payments).
+	Feature string `json:"feature,omitempty"`
 }
 
 // ConnectInput is POST /v1/tenant/integrations.
@@ -193,10 +197,14 @@ func validMode(m string) bool { return m == integrations.ModeSandbox || m == int
 func (s *Service) Providers() []ProviderInfo {
 	out := []ProviderInfo{}
 	for _, a := range s.reg.Providers() {
-		out = append(out, ProviderInfo{
+		info := ProviderInfo{
 			Kind: a.Kind(), Provider: a.Provider(), Fields: a.Fields(),
 			Modes: []string{integrations.ModeSandbox, integrations.ModeLive},
-		})
+		}
+		if f, ok := features.ForIntegration(a.Kind(), a.Provider()); ok {
+			info.Feature = string(f)
+		}
+		out = append(out, info)
 	}
 	return out
 }

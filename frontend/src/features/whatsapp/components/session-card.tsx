@@ -32,6 +32,7 @@ import {
 } from "@/features/whatsapp/hooks/use-whatsapp";
 import type { WhatsAppSession } from "@/features/whatsapp/types";
 import { datetime } from "@/lib/utils/format";
+import { useFeature } from "@/providers/feature-provider";
 import { useLocale } from "@/providers/locale-provider";
 
 /**
@@ -40,6 +41,8 @@ import { useLocale } from "@/providers/locale-provider";
  */
 export function SessionCard({ session }: { session: WhatsAppSession }) {
   const { t, locale } = useLocale();
+  // Outside the plan (TEC-674) the status stays; connect / test / refresh go.
+  const inPlan = useFeature("whatsapp");
   const refresh = useRefreshWhatsApp();
   const logout = useLogoutWhatsApp();
   const remove = useRemoveWhatsApp();
@@ -122,14 +125,14 @@ export function SessionCard({ session }: { session: WhatsAppSession }) {
               : null}
           </dl>
         </div>
-        {pairing && hasAccount ? <QRPanel /> : null}
+        {inPlan && pairing && hasAccount ? <QRPanel /> : null}
         {status === "not_connected" ? (
           <p className="text-muted-foreground text-sm">
             {t("whatsapp.session.not_connected_help")}
           </p>
         ) : null}
         <div className="flex flex-wrap gap-2">
-          {!linked ? (
+          {!inPlan ? null : !linked ? (
             <Button type="button" onClick={() => setConnectOpen(true)}>
               <MessageCircle className="size-4" />
               {status === "not_connected"
@@ -142,7 +145,7 @@ export function SessionCard({ session }: { session: WhatsAppSession }) {
               {t("whatsapp.actions.test")}
             </Button>
           )}
-          {hasAccount ? (
+          {inPlan && hasAccount ? (
             <Button
               type="button"
               variant="outline"

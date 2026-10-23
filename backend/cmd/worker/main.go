@@ -100,6 +100,7 @@ import (
 	bulkadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/bulkengine/adapters"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/crypto"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/events"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/integrations"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/ioengine"
 	ioadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/ioengine/adapters"
@@ -266,11 +267,31 @@ func main() {
 	}
 	smsSvc.SetActivity(activityRec)
 	smsSvc.SetLogger(log)
+	// Redis (organization cache invalidation, plan feature cache); the
+	// worker runs without it.
+	workerRDB, err := cache.NewRedisClient(ctx, cfg.Redis)
+	if err != nil {
+		log.Warn("worker_redis_unavailable", "error", err)
+		workerRDB = nil
+	} else {
+		defer func() { _ = workerRDB.Close() }()
+	}
+	// Plan features (TEC-674): SMS / WhatsApp sends, channel syncs, toll
+	// fetches and KABİS records skip organizations whose plan lacks the
+	// feature; cached per organization in Redis like the API.
+	featureStore := features.NewStore(queries)
+	var featurePolicy features.AccessPolicy = features.LoaderPolicy{Loader: featureStore}
+	var featureSource features.Source = featureStore
+	if workerRDB != nil {
+		featureCache := orgcache.NewFeatures(featureStore, workerRDB, cfg.Tenancy.CacheTTL, cfg.App.Env)
+		featurePolicy, featureSource = featureCache, featureCache
+	}
 	// Notification engine (TEC-733): reminders, sweep-detected events and
 	// due dispatches (minute sweep); SMS delivery reports run the fallback.
 	notifyEngine := notifyengineusecase.New(pool, queries, cfg.Auth.FrontendURL)
 	notifyEngine.SetActivity(activityRec)
 	notifyEngine.SetLogger(log)
+	notifyEngine.SetFeatures(featurePolicy)
 	notifySMS := notifyengineadapters.NewSMS(smsSvc, queries)
 	notifyEngine.Register(notifySMS, notifyengineadapters.NewEmail(mailer),
 		notifyengineadapters.NewPush(notifSvc, queries, notifyengineadapters.VAPID{
@@ -333,6 +354,7 @@ func main() {
 		exit(1)
 	}
 	channelsSvc.SetLogger(log)
+	channelsSvc.SetFeatures(featurePolicy)
 	// Public booking API (TEC-728): lifecycle events of its reservations
 	// (expiry and cancellations run here too) become webhook deliveries;
 	// the minute sweep sends them. No booking runs in the worker.
@@ -343,12 +365,14 @@ func main() {
 		exit(1)
 	}
 	publicAPISvc.SetLogger(log)
+	publicAPISvc.SetFeatures(featurePolicy)
 	publicAPISvc.AllowPrivateWebhooks(!strings.EqualFold(strings.TrimSpace(cfg.App.Env), "production"))
 	reservationSvc.SetLifecycleListener(reservationusecase.Listeners{rentalsSvc, fieldTasksSvc, publicAPISvc, channelsSvc})
 	// Toll passes (TEC-725): fetch steps (runner operations), the hourly
 	// fetch schedule and re-match, file imports.
 	tollsSvc := tollsusecase.New(pool, queries, integrationAccountsSvc, integrationRunner, integrationOps, tollProviders...)
 	tollsSvc.SetLogger(log)
+	tollsSvc.SetFeatures(featurePolicy)
 	tollsSvc.SetLedger(tollsadapters.Ledger{Finance: financeSvc})
 	// KABİS notifications (TEC-726): send / status-check steps (runner
 	// operations), the release of waiting notifications in the minute
@@ -360,6 +384,7 @@ func main() {
 	}
 	kabisSvc.SetStore(store)
 	kabisSvc.SetLogger(log)
+	kabisSvc.SetFeatures(featurePolicy)
 	rentalsSvc.SetKabis(kabisSvc)
 	// E-invoices (TEC-722): send / status / cancel steps (runner
 	// operations), the release of waiting sends in the minute sweep, list
@@ -371,6 +396,7 @@ func main() {
 		exit(1)
 	}
 	invoicesSvc.SetStore(store)
+	invoicesSvc.SetFeatures(featurePolicy)
 	invoicesSvc.SetPDFRenderer(pdfRenderer)
 	invoicesSvc.SetLogger(log)
 	// Bulk rental group changes go through the engine like the API.
@@ -381,11 +407,9 @@ func main() {
 	// Platform organizations (export, bulk activate / suspend). Status
 	// changes invalidate the API's organization cache when Redis is up.
 	jobScopes := orgusecase.New(orgrepository.NewPostgres(pool, queries), nil)
-	if rdb, err := cache.NewRedisClient(ctx, cfg.Redis); err == nil {
-		defer func() { _ = rdb.Close() }()
-		jobScopes.SetInvalidator(orgcache.New(jobScopes, rdb, cfg.Tenancy.CacheTTL, cfg.App.Env))
-	} else {
-		log.Warn("worker_redis_unavailable", "error", err)
+	jobScopes.SetFeatures(featureSource)
+	if workerRDB != nil {
+		jobScopes.SetInvalidator(orgcache.New(jobScopes, workerRDB, cfg.Tenancy.CacheTTL, cfg.App.Env))
 	}
 	ioReg := ioengine.NewRegistry(
 		ioadapters.NewUsers(queries),

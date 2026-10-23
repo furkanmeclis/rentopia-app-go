@@ -42,6 +42,7 @@ import type {
 } from "@/features/site-articles/types";
 import { useTenant } from "@/features/tenant/components/tenant-provider";
 import { datetime } from "@/lib/utils/format";
+import { useFeature } from "@/providers/feature-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { usePermission } from "@/providers/permission-provider";
 
@@ -75,7 +76,7 @@ export function SiteArticlesPage() {
   const { slug } = useTenant();
   const router = useRouter();
   const { can } = usePermission();
-  const canManage = can(permissions.tenant.site.manage);
+  const canManage = useFeature("site") && can(permissions.tenant.site.manage);
   const listState = useServerListState({
     initialSort: "-created_at",
     initialPageSize: 20,

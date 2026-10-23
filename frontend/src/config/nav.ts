@@ -414,6 +414,8 @@ export function tenantNav(slug: string): NavCatalog {
             href: routes.tenant.channels.root(slug),
             icon: Network,
             permission: permissions.tenant.channels.read,
+            feature: ["channel.yolcu360", "channel.obilet"],
+            featureOff: "readonly",
             Adornment: ChannelsNavAdornment,
           },
         ],
@@ -466,6 +468,8 @@ export function tenantNav(slug: string): NavCatalog {
             href: routes.tenant.tolls.root(slug),
             icon: Route,
             permission: permissions.tenant.tolls.read,
+            feature: "hgs",
+            featureOff: "readonly",
           },
           {
             id: "tolls-review",
@@ -473,6 +477,8 @@ export function tenantNav(slug: string): NavCatalog {
             href: routes.tenant.tolls.review(slug),
             icon: ScanLine,
             permission: permissions.tenant.tolls.read,
+            feature: "hgs",
+            featureOff: "readonly",
             Adornment: TollReviewNavAdornment,
           },
           {
@@ -481,6 +487,8 @@ export function tenantNav(slug: string): NavCatalog {
             href: routes.tenant.kabis.root(slug),
             icon: ShieldCheck,
             permission: permissions.tenant.kabis.read,
+            feature: "kabis",
+            featureOff: "readonly",
             Adornment: KabisNavAdornment,
           },
         ],
@@ -820,6 +828,8 @@ export function tenantNav(slug: string): NavCatalog {
             href: routes.tenant.settings.publicApi(slug),
             icon: Webhook,
             permission: permissions.tenant.publicApi.read,
+            feature: "public_api",
+            featureOff: "readonly",
           },
           {
             id: "settings-site",
@@ -827,6 +837,8 @@ export function tenantNav(slug: string): NavCatalog {
             href: routes.tenant.settings.site(slug),
             icon: Globe,
             permission: permissions.tenant.site.read,
+            feature: "site",
+            featureOff: "readonly",
           },
           {
             id: "settings-site-articles",
@@ -834,6 +846,8 @@ export function tenantNav(slug: string): NavCatalog {
             href: routes.tenant.settings.siteArticles.root(slug),
             icon: BookOpenText,
             permission: permissions.tenant.site.read,
+            feature: "site",
+            featureOff: "readonly",
           },
           {
             id: "settings-site-leads",
@@ -841,6 +855,8 @@ export function tenantNav(slug: string): NavCatalog {
             href: routes.tenant.settings.siteLeads(slug),
             icon: Inbox,
             permission: permissions.tenant.siteLeads.read,
+            feature: "site",
+            featureOff: "readonly",
             Adornment: SiteLeadsNavAdornment,
           },
           {
@@ -849,6 +865,7 @@ export function tenantNav(slug: string): NavCatalog {
             href: routes.tenant.invoices.settings(slug),
             icon: ReceiptText,
             permission: permissions.tenant.invoices.settings,
+            feature: "einvoice",
           },
           {
             id: "settings-notifications",
@@ -863,6 +880,8 @@ export function tenantNav(slug: string): NavCatalog {
             href: routes.tenant.settings.whatsapp(slug),
             icon: MessageCircle,
             permission: permissions.tenant.integrations.manage,
+            feature: "whatsapp",
+            featureOff: "readonly",
           },
           {
             id: "settings-inspection-templates",

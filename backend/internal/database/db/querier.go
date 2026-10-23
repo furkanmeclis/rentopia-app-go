@@ -44,6 +44,8 @@ type Querier interface {
 	// A new assignee resets the task to assigned (planned without one); the
 	// same assignee again changes nothing.
 	AssignOperationTask(ctx context.Context, arg AssignOperationTaskParams) (int64, error)
+	// New organizations: the chosen plan (or the default plan).
+	AssignOrganizationPlanByCode(ctx context.Context, arg AssignOrganizationPlanByCodeParams) (int64, error)
 	AssignResolutionTask(ctx context.Context, arg AssignResolutionTaskParams) (int64, error)
 	AssignUserRoleBySlug(ctx context.Context, arg AssignUserRoleBySlugParams) error
 	BranchCodeTaken(ctx context.Context, arg BranchCodeTakenParams) (bool, error)
@@ -388,6 +390,7 @@ type Querier interface {
 	DeleteNotificationRule(ctx context.Context, arg DeleteNotificationRuleParams) (int64, error)
 	DeleteOAuthAccountByProviderAccount(ctx context.Context, arg DeleteOAuthAccountByProviderAccountParams) error
 	DeleteOAuthAccountByUserProvider(ctx context.Context, arg DeleteOAuthAccountByUserProviderParams) error
+	DeleteOrganizationFeature(ctx context.Context, arg DeleteOrganizationFeatureParams) (int64, error)
 	DeleteOrganizationMember(ctx context.Context, arg DeleteOrganizationMemberParams) (int64, error)
 	// Planned periods never reached the ledger: a re-plan replaces them.
 	DeletePlannedBillingPeriods(ctx context.Context, arg DeletePlannedBillingPeriodsParams) (int64, error)
@@ -812,8 +815,13 @@ type Querier interface {
 	GetOrganizationByID(ctx context.Context, id int64) (Organization, error)
 	GetOrganizationBySlug(ctx context.Context, slug string) (Organization, error)
 	GetOrganizationByUUID(ctx context.Context, argUuid uuid.UUID) (Organization, error)
+	// Usage counters of the platform plan screen: one indexed count per
+	// feature (organization_id leads every index used here).
+	GetOrganizationFeatureUsage(ctx context.Context, organizationID int64) (GetOrganizationFeatureUsageRow, error)
 	GetOrganizationMember(ctx context.Context, arg GetOrganizationMemberParams) (GetOrganizationMemberRow, error)
 	GetOrganizationMemberByUserUUID(ctx context.Context, arg GetOrganizationMemberByUserUUIDParams) (GetOrganizationMemberByUserUUIDRow, error)
+	// The plan of an organization (the default plan when it has no row).
+	GetOrganizationPlan(ctx context.Context, arg GetOrganizationPlanParams) (GetOrganizationPlanRow, error)
 	GetOrganizationSettingsVersion(ctx context.Context, arg GetOrganizationSettingsVersionParams) (GetOrganizationSettingsVersionRow, error)
 	GetOrganizationUUIDForFinance(ctx context.Context, id int64) (uuid.UUID, error)
 	GetOrganizationUUIDForInspections(ctx context.Context, id int64) (uuid.UUID, error)
@@ -827,6 +835,7 @@ type Querier interface {
 	GetPaymentLinkPublic(ctx context.Context, arg GetPaymentLinkPublicParams) (GetPaymentLinkPublicRow, error)
 	GetPaymentSettlementFacts(ctx context.Context, arg GetPaymentSettlementFactsParams) (GetPaymentSettlementFactsRow, error)
 	GetPermissionBySlug(ctx context.Context, slug string) (Permission, error)
+	GetPlanByCode(ctx context.Context, code string) (GetPlanByCodeRow, error)
 	GetPlatformHealthAlertCursor(ctx context.Context, source string) (GetPlatformHealthAlertCursorRow, error)
 	GetPlatformSiteDomain(ctx context.Context, argUuid uuid.UUID) (SiteDomain, error)
 	// Channel, contact hash and time of a verified challenge (the session binds
@@ -1506,6 +1515,8 @@ type Querier interface {
 	ListExtras(ctx context.Context, arg ListExtrasParams) ([]ListExtrasRow, error)
 	// Active accounts whose last connection test failed, newest first.
 	ListFailingIntegrationAccounts(ctx context.Context, rowLimit int32) ([]ListFailingIntegrationAccountsRow, error)
+	// Plans and feature entitlements (TEC-674, migration 000134).
+	ListFeatureKeys(ctx context.Context) ([]string, error)
 	// Members whose roles let them work field tasks (pickers, the per-staff
 	// day timeline), with their branch scope.
 	ListFieldAssignees(ctx context.Context, arg ListFieldAssigneesParams) ([]ListFieldAssigneesRow, error)
@@ -1641,6 +1652,10 @@ type Querier interface {
 	ListOperationTaskFacets(ctx context.Context, arg ListOperationTaskFacetsParams) ([]ListOperationTaskFacetsRow, error)
 	ListOperationTasks(ctx context.Context, arg ListOperationTasksParams) ([]ListOperationTasksRow, error)
 	ListOrganizationBranchOptions(ctx context.Context, organizationID int64) ([]ListOrganizationBranchOptionsRow, error)
+	// Every feature with the organization's plan default and its override.
+	// An organization without a plan row reads the default plan (callers pass
+	// the code, normally 'complete').
+	ListOrganizationFeatureStates(ctx context.Context, arg ListOrganizationFeatureStatesParams) ([]ListOrganizationFeatureStatesRow, error)
 	ListOrganizationMembersByOrg(ctx context.Context, arg ListOrganizationMembersByOrgParams) ([]ListOrganizationMembersByOrgRow, error)
 	ListOrganizationMembershipsByUser(ctx context.Context, userID int64) ([]ListOrganizationMembershipsByUserRow, error)
 	ListOrganizationResourceActivity(ctx context.Context, arg ListOrganizationResourceActivityParams) ([]ListOrganizationResourceActivityRow, error)
@@ -1691,6 +1706,7 @@ type Querier interface {
 	ListPermissionSlugsByRoleID(ctx context.Context, roleID int64) ([]string, error)
 	ListPermissionSlugsByRoleSlug(ctx context.Context, slug string) ([]string, error)
 	ListPermissionsFiltered(ctx context.Context, arg ListPermissionsFilteredParams) ([]Permission, error)
+	ListPlans(ctx context.Context) ([]ListPlansRow, error)
 	ListPlatformHealthAlertCursors(ctx context.Context) ([]ListPlatformHealthAlertCursorsRow, error)
 	// Platform rows only: organization-stamped notifications show in their
 	// organization's panel (/v1/tenant/notifications), never here.
@@ -2678,6 +2694,8 @@ type Querier interface {
 	UpsertNotificationMessageTemplate(ctx context.Context, arg UpsertNotificationMessageTemplateParams) (NotificationMessageTemplate, error)
 	UpsertNotificationPreferences(ctx context.Context, arg UpsertNotificationPreferencesParams) (NotificationPreference, error)
 	UpsertNotificationRule(ctx context.Context, arg UpsertNotificationRuleParams) (NotificationRule, error)
+	UpsertOrganizationFeature(ctx context.Context, arg UpsertOrganizationFeatureParams) error
+	UpsertOrganizationPlan(ctx context.Context, arg UpsertOrganizationPlanParams) error
 	UpsertPlatformHealthAlertCursor(ctx context.Context, arg UpsertPlatformHealthAlertCursorParams) error
 	// Mobile push devices (Expo) and their pending push tickets.
 	// A token moves to the calling user when the device switches accounts and is

@@ -26,6 +26,10 @@ func (s *Service) publishedSite(ctx context.Context, rawHost string) (resolvedRo
 	if !accessible || !row.Enabled || !row.PublishedRevision.Valid {
 		return resolvedRow{}, ErrNotFound
 	}
+	// Outside the plan (TEC-674): the same 404 as a disabled site.
+	if err := s.siteInPlan(ctx, row.OrganizationID); err != nil {
+		return resolvedRow{}, err
+	}
 	return row, nil
 }
 

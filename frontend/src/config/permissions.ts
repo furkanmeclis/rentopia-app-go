@@ -15,6 +15,8 @@ export const Permission = {
   PlatformOrganizationsExport: "platform.organizations.export",
   PlatformOrganizationsBulkActivate: "platform.organizations.bulk.activate",
   PlatformOrganizationsBulkSuspend: "platform.organizations.bulk.suspend",
+  PlatformOrganizationsPlanRead: "platform.organizations.plan.read",
+  PlatformOrganizationsPlanWrite: "platform.organizations.plan.write",
   PlatformCatalogRead: "platform.catalog.read",
   PlatformCatalogWrite: "platform.catalog.write",
   PlatformNotificationsRead: "platform.notifications.read",
@@ -221,6 +223,8 @@ export const permissions = {
     export: Permission.PlatformOrganizationsExport,
     bulkActivate: Permission.PlatformOrganizationsBulkActivate,
     bulkSuspend: Permission.PlatformOrganizationsBulkSuspend,
+    planRead: Permission.PlatformOrganizationsPlanRead,
+    planWrite: Permission.PlatformOrganizationsPlanWrite,
   },
   catalog: {
     read: Permission.PlatformCatalogRead,

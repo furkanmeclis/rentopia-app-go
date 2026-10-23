@@ -25,6 +25,8 @@ const (
 	PermPlatformOrganizationsExport       = "platform.organizations.export"
 	PermPlatformOrganizationsBulkActivate = "platform.organizations.bulk.activate"
 	PermPlatformOrganizationsBulkSuspend  = "platform.organizations.bulk.suspend"
+	PermPlatformOrganizationsPlanRead     = "platform.organizations.plan.read"
+	PermPlatformOrganizationsPlanWrite    = "platform.organizations.plan.write"
 	PermPlatformCatalogRead               = "platform.catalog.read"
 	PermPlatformCatalogWrite              = "platform.catalog.write"
 	PermPlatformBulkRead                  = "platform.bulk.read"

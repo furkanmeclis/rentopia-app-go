@@ -35,6 +35,7 @@ import (
 	pamodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/publicapi/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/site/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/site/themes"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/storage"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -174,8 +175,11 @@ type Service struct {
 	base       BaseURL
 	portal     string
 	previewKey []byte
-	log        *slog.Logger
-	now        func() time.Time
+	// features gates the public site by the organization's plan
+	// (TEC-674): site for every host resolution, widget for embedding.
+	features features.AccessPolicy
+	log      *slog.Logger
+	now      func() time.Time
 }
 
 // New builds the service. portalBase is the app's public URL (the customer
@@ -186,6 +190,10 @@ func New(q *db.Queries, keys Keys, settings SettingsReader, base BaseURL, portal
 		log: slog.Default(), now: time.Now,
 	}
 }
+
+// SetFeatures gates the public site and the widget by the organization's
+// plan (nil: no gate).
+func (s *Service) SetFeatures(p features.AccessPolicy) { s.features = p }
 
 // SetStorage enables image uploads and the image stream.
 func (s *Service) SetStorage(d Store) { s.storage = d }

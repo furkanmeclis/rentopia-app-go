@@ -50,6 +50,7 @@ import { actorName } from "@/features/reservations/components/reservation-cells"
 import { useTenant } from "@/features/tenant/components/tenant-provider";
 import { fileSize } from "@/lib/utils";
 import { datetime } from "@/lib/utils/format";
+import { useFeature } from "@/providers/feature-provider";
 import { useLocale } from "@/providers/locale-provider";
 
 type Person = {
@@ -176,6 +177,7 @@ export function KabisDetailPage({ uuid }: { uuid: string }) {
   const { slug } = useTenant();
   const query = useKabisNotification(uuid);
   const retry = useKabisRetryAction();
+  const kabis = useFeature("kabis");
   const download = useDownloadKabisAttachment();
   const [resolve, setResolve] = useState<KabisResolution | null>(null);
   const n = query.data;
@@ -204,7 +206,7 @@ export function KabisDetailPage({ uuid }: { uuid: string }) {
       actions={
         n ? (
           <div className="flex flex-wrap gap-2">
-            {n.actions.retry ? (
+            {kabis && n.actions.retry ? (
               <Button
                 type="button"
                 size="sm"

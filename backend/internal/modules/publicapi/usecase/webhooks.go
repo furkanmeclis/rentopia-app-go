@@ -23,6 +23,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/publicapi/model"
 	resusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/usecase"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -504,6 +505,14 @@ func (s *Service) emit(ctx context.Context, orgID int64, eventType string, reser
 		return nil
 	}
 	if err != nil {
+		return err
+	}
+	// Webhooks are part of the public_api plan feature (TEC-674): outside
+	// the plan no event is queued (endpoints stay).
+	if err := features.Require(ctx, s.features, orgID, features.PublicAPI); err != nil {
+		if _, off := features.FeatureOf(err); off {
+			return nil
+		}
 		return err
 	}
 	endpoints, err := s.q.ListWebhookEndpointsForEvent(ctx, db.ListWebhookEndpointsForEventParams{OrganizationID: orgID, EventType: eventType})

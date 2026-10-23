@@ -12,12 +12,14 @@ import {
   AppForm,
   AppInput,
   AppRadioGroup,
+  AppSelect,
   FormActions,
   FormLayout,
   FormSection,
   createFormSections,
 } from "@/components/forms";
 import { Button } from "@/components/ui/button";
+import { PLAN_CODES, PLAN_LABEL_KEYS } from "@/config/features";
 import { permissions } from "@/config/permissions";
 import { routes } from "@/config/routes";
 import {
@@ -34,6 +36,7 @@ import {
 } from "@/features/organizations/schemas/organization-form";
 import { UserAsyncPicker } from "@/features/users/components/user-async-picker";
 import { useLocale } from "@/providers/locale-provider";
+import { usePermission } from "@/providers/permission-provider";
 
 function Forbidden() {
   const { t } = useLocale();
@@ -112,6 +115,8 @@ function OwnerFields() {
 /** `/platform/organizations/create`: name, slug and owner (account or invitation). */
 export function OrganizationCreatePage() {
   const { t } = useLocale();
+  const { can } = usePermission();
+  const canPickPlan = can(permissions.organizations.planWrite);
   const router = useRouter();
   const create = useCreateOrganization();
   const schema = useMemo(() => createOrganizationSchema(t), [t]);
@@ -158,6 +163,7 @@ export function OrganizationCreatePage() {
             owner_mode: "existing",
             owner_user_uuid: "",
             owner_email: "",
+            plan_code: "complete",
           }}
           onSubmit={async (values) => {
             const result = await create.mutateAsync({
@@ -166,6 +172,9 @@ export function OrganizationCreatePage() {
               ...(values.owner_mode === "existing"
                 ? { owner_user_uuid: values.owner_user_uuid }
                 : { owner_email: values.owner_email.trim() }),
+              ...(canPickPlan && values.plan_code
+                ? { plan_code: values.plan_code }
+                : {}),
             });
             router.push(
               routes.platform.organizations.detail(result.organization.uuid),
@@ -193,6 +202,17 @@ export function OrganizationCreatePage() {
                   description={t("organizations.form.slug_hint")}
                   startIcon={Link2}
                 />
+                {canPickPlan ? (
+                  <AppSelect
+                    name="plan_code"
+                    label={t("organizations.plan.fields.plan")}
+                    description={t("organizations.form.plan_hint")}
+                    options={PLAN_CODES.map((code) => ({
+                      value: code,
+                      label: t(PLAN_LABEL_KEYS[code]),
+                    }))}
+                  />
+                ) : null}
               </FormSection>
               <FormSection
                 id={sections.id("owner")}

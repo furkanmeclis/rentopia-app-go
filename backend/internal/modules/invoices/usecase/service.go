@@ -36,6 +36,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/authctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/crypto"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/einvoice"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/integrations"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/pdfrender"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/resourceevents"
@@ -158,6 +159,18 @@ type Service struct {
 	events    resourceevents.Publisher
 	log       *slog.Logger
 	now       func() time.Time
+	// features: sending e-documents (finalize, retry, cancel of a sent
+	// invoice, return) and the e-invoice settings are the einvoice plan
+	// feature (TEC-674); drafts, lists, previews and downloads are not.
+	features features.AccessPolicy
+}
+
+// SetFeatures gates e-document sending by the organization's plan.
+func (s *Service) SetFeatures(p features.AccessPolicy) { s.features = p }
+
+// requireEInvoice refuses e-document transmission outside the plan.
+func (s *Service) requireEInvoice(ctx context.Context, orgID int64) error {
+	return features.Require(ctx, s.features, orgID, features.EInvoice)
 }
 
 // AccountSource opens an organization's integration account by id (the

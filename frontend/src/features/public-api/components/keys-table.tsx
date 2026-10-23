@@ -50,6 +50,7 @@ import type {
 import { useTenant } from "@/features/tenant/components/tenant-provider";
 import { tenantLiveList } from "@/features/tenant/lib/live";
 import { datetime } from "@/lib/utils/format";
+import { useFeature } from "@/providers/feature-provider";
 import { useLocale } from "@/providers/locale-provider";
 
 /** The widget / site snippet of a publishable key. */
@@ -76,6 +77,7 @@ export function KeysTable({ baseUrl }: { baseUrl: string }) {
   const { t, locale } = useLocale();
   const { organization } = useTenant();
   const manage = permissions.tenant.publicApi.manage;
+  const inPlan = useFeature("public_api");
   const listState = useServerListState({
     initialSort: "-created_at",
     initialPageSize: 20,
@@ -346,11 +348,13 @@ export function KeysTable({ baseUrl }: { baseUrl: string }) {
               onRefresh={() => void query.refetch()}
               refreshDisabled={query.isFetching}
             />
-            <EntityCreateButton
-              label={t("public_api.keys.create")}
-              permission={manage}
-              onClick={() => setFormOpen(true)}
-            />
+            {inPlan ? (
+              <EntityCreateButton
+                label={t("public_api.keys.create")}
+                permission={manage}
+                onClick={() => setFormOpen(true)}
+              />
+            ) : null}
           </div>
         }
       />

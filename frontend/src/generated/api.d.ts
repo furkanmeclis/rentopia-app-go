@@ -1064,6 +1064,78 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/platform/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List plans
+         * @description The plans an organization can be on (TEC-674) with the features each enables: `management` (Yönetim:
+         *     the panel only) and `complete` (Komple: every feature). Needs `platform.organizations.plan.read`.
+         */
+        get: operations["getPlatformPlans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/organizations/{uuid}/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Organization plan and features
+         * @description The organization's plan and contract period, every feature with its plan default, override, effective
+         *     state and usage counter, and the enabled keys (TEC-674). Needs `platform.organizations.read` and
+         *     `platform.organizations.plan.read`.
+         */
+        get: operations["getPlatformOrganizationPlan"];
+        /**
+         * Change organization plan
+         * @description Moves the organization to another plan and sets its contract period (both optional; the end must be after
+         *     the start). Overrides stay. Past rentals, finance records, domains, keys and channel accounts are kept:
+         *     a feature that turns off only stops being served. Recorded as `organizations.plan_updated`. Needs
+         *     `platform.organizations.write` and `platform.organizations.plan.write`.
+         */
+        put: operations["putPlatformOrganizationPlan"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/organizations/{uuid}/features/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Override one feature
+         * @description `enabled: true` / `false` overrides the plan default for this organization; `null` clears the override.
+         *     Recorded as `organizations.feature_updated`. Unknown key: `404`. Needs `platform.organizations.write` and
+         *     `platform.organizations.plan.write`.
+         */
+        put: operations["putPlatformOrganizationFeature"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/platform/organizations/{uuid}/roles": {
         parameters: {
             query?: never;
@@ -7995,6 +8067,10 @@ export interface paths {
          *     answer `404 SITE_NOT_FOUND`, and so does a site that was never published (TEC-730: visitors only get the
          *     published revision); another organization's site is never returned. `booking_enabled` is false (and the
          *     key empty) while the web sales channel is off or the site key is revoked. Rate-limited per IP (600 / min).
+         *     An organization whose plan lacks the `site` feature answers the same `404 SITE_NOT_FOUND` (also with a
+         *     preview token, and on the public articles and sitemap), so a host never reveals whether an organization
+         *     exists or what its plan is; without the `widget` feature `config.widget.allowed_domains` is empty, so no
+         *     origin may embed the site (TEC-674).
          */
         get: operations["getPublicSiteResolve"];
         put?: never;
@@ -16684,6 +16760,99 @@ export interface components {
             data: components["schemas"]["OrganizationSummary"];
             meta: components["schemas"]["ResponseMeta"];
         };
+        /**
+         * @description Plan feature key (TEC-674; backend/internal/platform/features, frontend/src/config/features.ts)
+         * @enum {string}
+         */
+        FeatureKey: "site" | "widget" | "public_api" | "channel.yolcu360" | "channel.obilet" | "kabis" | "hgs" | "einvoice" | "whatsapp" | "sms";
+        Plan: {
+            /**
+             * @example management
+             * @example complete
+             */
+            code: string;
+            /**
+             * @description Turkish name
+             * @example Yönetim
+             * @example Komple
+             */
+            name: string;
+            /**
+             * @example Management
+             * @example Complete
+             */
+            name_en: string;
+            features: components["schemas"]["FeatureKey"][];
+        };
+        PlanPage: {
+            items: components["schemas"]["Plan"][];
+            /** Format: int64 */
+            total: number;
+            limit: number;
+            offset: number;
+        };
+        EnvelopePlanPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["PlanPage"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        OrganizationPlanRef: {
+            code: string;
+            name: string;
+            name_en: string;
+        };
+        OrganizationFeatureState: {
+            key: components["schemas"]["FeatureKey"];
+            /** @description Enabled by the plan */
+            plan_default: boolean;
+            /** @description Organization override; null when the plan default applies */
+            override: boolean | null;
+            /** @description Effective state: the override, else the plan default */
+            enabled: boolean;
+            /**
+             * Format: int64
+             * @description Usage counter (null when none is tracked): site = custom domains, public_api = active keys,
+             *     channel.* = channel accounts, kabis = notifications, hgs = toll passes, einvoice = numbered invoices,
+             *     whatsapp = sessions, sms = messages
+             */
+            usage: number | null;
+        };
+        OrganizationPlan: {
+            plan: components["schemas"]["OrganizationPlanRef"];
+            /** Format: date-time */
+            period_starts_at: string | null;
+            /** Format: date-time */
+            period_ends_at: string | null;
+            /**
+             * Format: date-time
+             * @description Last plan change; null when the organization has no plan row yet (default plan)
+             */
+            updated_at: string | null;
+            features: components["schemas"]["OrganizationFeatureState"][];
+            enabled_features: components["schemas"]["FeatureKey"][];
+        };
+        EnvelopeOrganizationPlan: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["OrganizationPlan"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        SetOrganizationPlanRequest: {
+            /**
+             * @example management
+             * @example complete
+             */
+            code: string;
+            /** Format: date-time */
+            period_starts_at?: string | null;
+            /** Format: date-time */
+            period_ends_at?: string | null;
+        };
+        SetOrganizationFeatureRequest: {
+            /** @description true / false overrides the plan; null clears the override */
+            enabled: boolean | null;
+        };
         EnvelopeOrganizationSummaryPage: {
             /** @enum {boolean} */
             success: true;
@@ -19184,6 +19353,8 @@ export interface components {
              * @enum {string}
              */
             branch_scope: "all" | "selected";
+            /** @description Enabled plan features of the organization (TEC-674); gated routes answer `403 FEATURE_NOT_ENABLED` without them */
+            features: components["schemas"]["FeatureKey"][];
         };
         EnvelopeTenantContext: {
             /** @enum {boolean} */
@@ -19322,6 +19493,7 @@ export interface components {
              * @example NO_TENANT_MEMBERSHIP
              * @example ORGANIZATION_SUSPENDED
              * @example ORGANIZATION_ACCESS_EXPIRED
+             * @example FEATURE_NOT_ENABLED
              */
             code: string;
             message: string;
@@ -19399,6 +19571,18 @@ export interface components {
             key: string;
             name: string;
         };
+        MePlan: {
+            /**
+             * @example complete
+             * @example management
+             */
+            code: string;
+            /**
+             * @example Komple
+             * @example Yönetim
+             */
+            name: string;
+        };
         MeOrganization: {
             /** Format: uuid */
             uuid: string;
@@ -19411,6 +19595,12 @@ export interface components {
             access_ends_at?: string | null;
             role: components["schemas"]["MeOrganizationRole"];
             permissions: string[];
+            plan: components["schemas"]["MePlan"];
+            /**
+             * @description Enabled plan features of the organization (plan default + platform overrides, TEC-674). The panel
+             *     hides what is off; the API refuses it with `403 FEATURE_NOT_ENABLED`.
+             */
+            features: components["schemas"]["FeatureKey"][];
         };
         Me: {
             user: components["schemas"]["PublicUser"];
@@ -19555,6 +19745,12 @@ export interface components {
              * @description Invite this e-mail as owner instead (the organization starts without members).
              */
             owner_email?: string;
+            /**
+             * @description Plan of the new organization (TEC-674); default `complete`. An unknown code is `400`.
+             * @example complete
+             * @example management
+             */
+            plan_code?: string;
         };
         PatchOrganizationRequest: {
             name?: string;
@@ -24800,6 +24996,12 @@ export interface components {
             provider: "iyzico" | "netgsm" | "log" | "hgs_fake" | "kabis" | "kabis_fake" | "einvoice" | "einvoice_fake" | "yolcu360" | "yolcu360_fake" | "obilet" | "obilet_fake";
             fields: components["schemas"]["IntegrationField"][];
             modes: ("sandbox" | "live")[];
+            /**
+             * @description Plan feature the provider needs (TEC-674); absent for payment providers, which every plan has.
+             *     Connecting, editing, testing or enabling an account of a provider outside the plan answers
+             *     `403 FEATURE_NOT_ENABLED`; disabling it is always allowed.
+             */
+            feature?: components["schemas"]["FeatureKey"];
         };
         EnvelopeIntegrationsMeta: {
             /** @enum {boolean} */
@@ -31453,8 +31655,15 @@ export interface components {
         };
         /**
          * @description `NO_TENANT_MEMBERSHIP` (unknown organization or not a member),
-         *     `ORGANIZATION_SUSPENDED`, `ORGANIZATION_ACCESS_EXPIRED`, or `FORBIDDEN`
-         *     (tenant permission missing in this organization)
+         *     `ORGANIZATION_SUSPENDED`, `ORGANIZATION_ACCESS_EXPIRED`, `FORBIDDEN`
+         *     (tenant permission missing in this organization), or
+         *     `FEATURE_NOT_ENABLED` (TEC-674) on a change in a plan-gated area (site,
+         *     public API, channel managers, KABİS retry, HGS, e-invoice sending,
+         *     WhatsApp, SMS, integration accounts / job retries of those providers)
+         *     when the organization's plan does not include the feature;
+         *     `details[0].code` names the feature key. Reads (lists, details,
+         *     exports) and switching things off stay open on every plan, so history
+         *     never disappears after a downgrade
          */
         TenantForbidden: {
             headers: {
@@ -31465,8 +31674,9 @@ export interface components {
             };
         };
         /**
-         * @description `ORIGIN_NOT_ALLOWED`, `SECRET_KEY_IN_BROWSER`, `INSUFFICIENT_SCOPE`, `CHANNEL_DISABLED` or
-         *     `ORGANIZATION_UNAVAILABLE`
+         * @description `ORIGIN_NOT_ALLOWED`, `SECRET_KEY_IN_BROWSER`, `INSUFFICIENT_SCOPE`, `CHANNEL_DISABLED`,
+         *     `ORGANIZATION_UNAVAILABLE` or `FEATURE_NOT_ENABLED` (the key's channel is outside the organization's plan:
+         *     `web` needs `site`, `widget` needs `widget`, `api` needs `public_api`; TEC-674)
          */
         PublicForbidden: {
             headers: {
@@ -33349,6 +33559,118 @@ export interface operations {
                     "application/json": components["schemas"]["EnvelopeOrganizationActivityPage"];
                 };
             };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getPlatformPlans: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Plans */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePlanPage"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getPlatformOrganizationPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Plan */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeOrganizationPlan"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putPlatformOrganizationPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetOrganizationPlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Plan */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeOrganizationPlan"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putPlatformOrganizationFeature: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+                key: components["schemas"]["FeatureKey"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetOrganizationFeatureRequest"];
+            };
+        };
+        responses: {
+            /** @description Plan */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeOrganizationPlan"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

@@ -30,6 +30,7 @@ import (
 	resusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/activity"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/crypto"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/resourceevents"
 	"github.com/google/uuid"
@@ -154,6 +155,10 @@ type Service struct {
 	allowPrivate bool
 	immediate    bool
 	baseURL      string
+	// features gates keys by the organization's plan (TEC-674): a key
+	// sells as a channel whose feature (web = site, widget, api =
+	// public_api) must be enabled.
+	features features.AccessPolicy
 }
 
 // New builds the service. cipher signs session tokens and seals webhook
@@ -179,6 +184,9 @@ func New(pool *pgxpool.Pool, q *db.Queries, cipher *crypto.FieldCipher, settings
 	s.client = &http.Client{Timeout: s.limits.WebhookTimeout, Transport: s.webhookTransport(), CheckRedirect: noRedirect}
 	return s, nil
 }
+
+// SetFeatures gates keys by the organization's plan (nil: no gate).
+func (s *Service) SetFeatures(p features.AccessPolicy) { s.features = p }
 
 // SetActivity records panel actions.
 func (s *Service) SetActivity(r *activity.Recorder) { s.activity = r }

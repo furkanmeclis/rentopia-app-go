@@ -31,7 +31,10 @@ import {
   NavSidebarItem,
 } from "@/features/nav-engine/components/nav-item";
 import { useNavGroupOpen } from "@/features/nav-engine/hooks/use-nav-group-open";
-import { visibleNavItems } from "@/features/nav-engine/lib/access";
+import {
+  isNavEntryReadOnly,
+  visibleNavItems,
+} from "@/features/nav-engine/lib/access";
 import {
   formatNavCount,
   isNavHrefActive,
@@ -42,6 +45,7 @@ import {
   visibleCountTotal,
 } from "@/features/nav-engine/lib/adornment";
 import type { NavGroupDef, ResolvedNavItem } from "@/features/nav-engine/types";
+import { useFeatures } from "@/providers/feature-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { usePermission } from "@/providers/permission-provider";
 
@@ -54,8 +58,26 @@ export function NavGroup({
   catalogId: string;
   homeHref: string;
 }) {
+  const { t } = useLocale();
   const { can, canAny } = usePermission();
-  const items = visibleNavItems(group, { can, canAny });
+  const { hasFeature } = useFeatures();
+  const access = { can, canAny, hasFeature };
+  // Items outside the plan that stay readable carry a label (TEC-674).
+  const items = visibleNavItems(group, access).map((item) =>
+    isNavEntryReadOnly(item, access)
+      ? {
+          ...item,
+          badges: [
+            ...(item.badges ?? []),
+            {
+              kind: "label" as const,
+              text: t("features.nav_not_in_plan"),
+              variant: "outline" as const,
+            },
+          ],
+        }
+      : item,
+  );
   if (!items.length) return null;
 
   return (

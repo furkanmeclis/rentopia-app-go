@@ -44,6 +44,8 @@
   "actions.organizations.deleted": "Organization deleted",
   "actions.organizations.status_updated": "Organization status updated",
   "actions.organizations.access_updated": "Organization access window updated",
+  "actions.organizations.plan_updated": "Organization plan changed",
+  "actions.organizations.feature_updated": "Organization feature changed",
   "actions.organizations.member_added": "Organization member added",
   "actions.organizations.member_role_updated": "Organization member role updated",
   "actions.organizations.member_removed": "Organization member removed",

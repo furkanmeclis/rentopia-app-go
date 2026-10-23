@@ -67,6 +67,9 @@ type CreateOrganizationInput struct {
 	// NoOwner creates the organization without a member (the owner joins
 	// later through an invitation).
 	NoOwner bool
+	// PlanCode is the plan of the new organization (TEC-674); empty =
+	// features.DefaultPlan.
+	PlanCode string
 }
 
 type PatchOrganizationInput struct {

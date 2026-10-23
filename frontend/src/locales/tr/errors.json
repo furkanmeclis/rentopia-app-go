@@ -59,5 +59,6 @@
   "codes.INVALID_STATE": "Rezervasyon bu işlem için uygun durumda değil.",
   "codes.PRICING_UNAVAILABLE": "Bu ürün ve aralık için fiyat bulunamadı.",
   "codes.EQUIPMENT_UNAVAILABLE": "Ekipman stoğu yetersiz.",
-  "codes.MEMBERSHIP_IN_USE": "Bu grup üyeliğine dayanan rezervasyonlar başka araca aktarılamıyor."
+  "codes.MEMBERSHIP_IN_USE": "Bu grup üyeliğine dayanan rezervasyonlar başka araca aktarılamıyor.",
+  "codes.FEATURE_NOT_ENABLED": "Bu özellik firmanızın paketinde yok. Paketinizi değiştirmek için platform yöneticinizle iletişime geçin."
 }

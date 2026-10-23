@@ -20,6 +20,7 @@ import {
 import type { PaletteItem } from "@/features/search-engine/types";
 import { useApiScope } from "@/features/tenant/hooks/use-api-scope";
 import { scopeKey } from "@/lib/api/scoped-request";
+import { useFeatures } from "@/providers/feature-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { usePermission } from "@/providers/permission-provider";
 
@@ -36,7 +37,11 @@ export function useCommandPaletteData(variant: AppLayoutVariant) {
     queryFn: () => Promise.resolve(readRecentItems()),
     staleTime: Infinity,
   });
-  const access = useMemo(() => ({ can, canAny }), [can, canAny]);
+  const { hasFeature } = useFeatures();
+  const access = useMemo(
+    () => ({ can, canAny, hasFeature }),
+    [can, canAny, hasFeature],
+  );
 
   const specsQuery = useQuery({
     queryKey: ["search", scopeKey(scope), "specs"],

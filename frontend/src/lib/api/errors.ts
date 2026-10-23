@@ -1,3 +1,4 @@
+import { FEATURE_NOT_ENABLED } from "@/config/features";
 import { i18nConfig, type AppLocale } from "@/config/i18n";
 import { translate } from "@/lib/i18n/messages";
 
@@ -77,7 +78,12 @@ export class ApiError extends Error {
 export function parseApiError(status: number, data: unknown): ApiError {
   const body = data as Partial<ApiErrorBody> | null;
   const code = body?.error?.code ?? `HTTP_${status}`;
-  const message = localizedMessage(code, status, body?.error?.message);
+  // Plan features (TEC-674): always the panel's own text, the same one the
+  // gated screens show, never the API's English message.
+  const message =
+    code === FEATURE_NOT_ENABLED
+      ? translate(activeLocale(), "errors.codes.FEATURE_NOT_ENABLED")
+      : localizedMessage(code, status, body?.error?.message);
   return new ApiError({
     status,
     code,

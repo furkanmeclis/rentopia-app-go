@@ -1,10 +1,12 @@
 // Package orgcache caches orgctx resolutions in Redis.
 //
-// Keys (prefix app:{env}:orgctx):
+// Keys (prefix app:{env}:orgctx2; "2" since scopes carry plan features, so
+// entries cached without them are never read):
 //
 //	ref:{ref}                      -> organization id (slug or uuid lookup)
 //	ver:{orgID}                    -> version counter, no TTL
 //	m:{orgID}:{ver}:{userID}:{ref} -> JSON Scope, TTL
+//	f:{orgID}:{ver}                -> JSON enabled feature keys, TTL (Features)
 //
 // InvalidateOrganization increments ver:{orgID}, so every entry written under
 // the old version is never read again and simply expires. The version is
@@ -69,7 +71,7 @@ func New(inner orgctx.Resolver, rdb *redis.Client, ttl time.Duration, appEnv str
 		inner:  inner,
 		rdb:    rdb,
 		ttl:    ttl,
-		prefix: "app:" + env + ":orgctx:",
+		prefix: "app:" + env + ":orgctx2:",
 		now:    time.Now,
 	}
 }

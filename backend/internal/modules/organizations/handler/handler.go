@@ -13,6 +13,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/activity"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/authctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/rbac"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/resourceevents"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/storage"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/pkg/apiquery"
@@ -39,6 +40,7 @@ type RegistrationLimiter interface {
 type Handler struct {
 	svc      *orgusecase.Service
 	mgmt     *orgusecase.Management
+	plans    *orgusecase.Plans
 	activity *activity.Recorder
 	events   resourceevents.Publisher
 	storage  storage.Driver
@@ -107,12 +109,20 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		Slug          string    `json:"slug"`
 		OwnerUserUUID uuid.UUID `json:"owner_user_uuid"`
 		OwnerEmail    string    `json:"owner_email"`
+		PlanCode      string    `json:"plan_code"`
 	}
 	if err := decodeJSON(w, r, &in); err != nil {
 		return
 	}
 	p := authctx.MustPrincipal(r.Context())
-	input := orgmodel.CreateOrganizationInput{Name: in.Name, Slug: in.Slug, OwnerUserUUID: in.OwnerUserUUID, OwnerUserID: p.UserInternal}
+	// Picking the plan is a plan change (TEC-674).
+	if strings.TrimSpace(in.PlanCode) != "" && !p.HasPermission(rbac.PermPlatformOrganizationsPlanWrite) {
+		response.Forbidden(w, r, "Missing permission: "+rbac.PermPlatformOrganizationsPlanWrite)
+		return
+	}
+	input := orgmodel.CreateOrganizationInput{
+		Name: in.Name, Slug: in.Slug, OwnerUserUUID: in.OwnerUserUUID, OwnerUserID: p.UserInternal, PlanCode: in.PlanCode,
+	}
 	var (
 		org        orgmodel.Organization
 		invitation *orgmodel.Invitation

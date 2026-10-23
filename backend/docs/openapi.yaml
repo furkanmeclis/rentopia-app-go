@@ -1806,6 +1806,116 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/platform/plans:
+    get:
+      tags: [Platform]
+      operationId: getPlatformPlans
+      summary: List plans
+      description: |
+        The plans an organization can be on (TEC-674) with the features each enables: `management` (Yönetim:
+        the panel only) and `complete` (Komple: every feature). Needs `platform.organizations.plan.read`.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Plans
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopePlanPage"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/platform/organizations/{uuid}/plan:
+    get:
+      tags: [Platform]
+      operationId: getPlatformOrganizationPlan
+      summary: Organization plan and features
+      description: |
+        The organization's plan and contract period, every feature with its plan default, override, effective
+        state and usage counter, and the enabled keys (TEC-674). Needs `platform.organizations.read` and
+        `platform.organizations.plan.read`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeOrganizationPlan"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [Platform]
+      operationId: putPlatformOrganizationPlan
+      summary: Change organization plan
+      description: |
+        Moves the organization to another plan and sets its contract period (both optional; the end must be after
+        the start). Overrides stay. Past rentals, finance records, domains, keys and channel accounts are kept:
+        a feature that turns off only stops being served. Recorded as `organizations.plan_updated`. Needs
+        `platform.organizations.write` and `platform.organizations.plan.write`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetOrganizationPlanRequest"
+      responses:
+        "200":
+          description: Plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeOrganizationPlan"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/platform/organizations/{uuid}/features/{key}:
+    put:
+      tags: [Platform]
+      operationId: putPlatformOrganizationFeature
+      summary: Override one feature
+      description: |
+        `enabled: true` / `false` overrides the plan default for this organization; `null` clears the override.
+        Recorded as `organizations.feature_updated`. Unknown key: `404`. Needs `platform.organizations.write` and
+        `platform.organizations.plan.write`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceUUID"
+        - name: key
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/FeatureKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetOrganizationFeatureRequest"
+      responses:
+        "200":
+          description: Plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeOrganizationPlan"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /v1/platform/organizations/{uuid}/roles:
     get:
       tags: [Platform]
@@ -12767,6 +12877,10 @@ paths:
         answer `404 SITE_NOT_FOUND`, and so does a site that was never published (TEC-730: visitors only get the
         published revision); another organization's site is never returned. `booking_enabled` is false (and the
         key empty) while the web sales channel is off or the site key is revoked. Rate-limited per IP (600 / min).
+        An organization whose plan lacks the `site` feature answers the same `404 SITE_NOT_FOUND` (also with a
+        preview token, and on the public articles and sitemap), so a host never reveals whether an organization
+        exists or what its plan is; without the `widget` feature `config.widget.allowed_domains` is empty, so no
+        origin may embed the site (TEC-674).
       security: []
       parameters:
         - name: host
@@ -24410,8 +24524,15 @@ components:
     TenantForbidden:
       description: |
         `NO_TENANT_MEMBERSHIP` (unknown organization or not a member),
-        `ORGANIZATION_SUSPENDED`, `ORGANIZATION_ACCESS_EXPIRED`, or `FORBIDDEN`
-        (tenant permission missing in this organization)
+        `ORGANIZATION_SUSPENDED`, `ORGANIZATION_ACCESS_EXPIRED`, `FORBIDDEN`
+        (tenant permission missing in this organization), or
+        `FEATURE_NOT_ENABLED` (TEC-674) on a change in a plan-gated area (site,
+        public API, channel managers, KABİS retry, HGS, e-invoice sending,
+        WhatsApp, SMS, integration accounts / job retries of those providers)
+        when the organization's plan does not include the feature;
+        `details[0].code` names the feature key. Reads (lists, details,
+        exports) and switching things off stay open on every plan, so history
+        never disappears after a downgrade
       content:
         application/json:
           schema:
@@ -24419,8 +24540,9 @@ components:
 
     PublicForbidden:
       description: |
-        `ORIGIN_NOT_ALLOWED`, `SECRET_KEY_IN_BROWSER`, `INSUFFICIENT_SCOPE`, `CHANNEL_DISABLED` or
-        `ORGANIZATION_UNAVAILABLE`
+        `ORIGIN_NOT_ALLOWED`, `SECRET_KEY_IN_BROWSER`, `INSUFFICIENT_SCOPE`, `CHANNEL_DISABLED`,
+        `ORGANIZATION_UNAVAILABLE` or `FEATURE_NOT_ENABLED` (the key's channel is outside the organization's plan:
+        `web` needs `site`, `widget` needs `widget`, `api` needs `public_api`; TEC-674)
       content:
         application/json:
           schema:
@@ -25099,6 +25221,111 @@ components:
         success: { type: boolean, enum: [true] }
         data: { $ref: "#/components/schemas/OrganizationSummary" }
         meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    FeatureKey:
+      type: string
+      description: Plan feature key (TEC-674; backend/internal/platform/features, frontend/src/config/features.ts)
+      enum: [site, widget, public_api, channel.yolcu360, channel.obilet, kabis, hgs, einvoice, whatsapp, sms]
+
+    Plan:
+      type: object
+      required: [code, name, name_en, features]
+      properties:
+        code: { type: string, examples: [management, complete] }
+        name: { type: string, description: Turkish name, examples: [Yönetim, Komple] }
+        name_en: { type: string, examples: [Management, Complete] }
+        features:
+          type: array
+          items: { $ref: "#/components/schemas/FeatureKey" }
+
+    PlanPage:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Plan" }
+        total: { type: integer, format: int64 }
+        limit: { type: integer }
+        offset: { type: integer }
+
+    EnvelopePlanPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/PlanPage" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    OrganizationPlanRef:
+      type: object
+      required: [code, name, name_en]
+      properties:
+        code: { type: string }
+        name: { type: string }
+        name_en: { type: string }
+
+    OrganizationFeatureState:
+      type: object
+      required: [key, plan_default, override, enabled, usage]
+      properties:
+        key: { $ref: "#/components/schemas/FeatureKey" }
+        plan_default: { type: boolean, description: Enabled by the plan }
+        override:
+          type: [boolean, "null"]
+          description: Organization override; null when the plan default applies
+        enabled: { type: boolean, description: "Effective state: the override, else the plan default" }
+        usage:
+          type: [integer, "null"]
+          format: int64
+          description: |
+            Usage counter (null when none is tracked): site = custom domains, public_api = active keys,
+            channel.* = channel accounts, kabis = notifications, hgs = toll passes, einvoice = numbered invoices,
+            whatsapp = sessions, sms = messages
+
+    OrganizationPlan:
+      type: object
+      required: [plan, period_starts_at, period_ends_at, updated_at, features, enabled_features]
+      properties:
+        plan: { $ref: "#/components/schemas/OrganizationPlanRef" }
+        period_starts_at: { type: [string, "null"], format: date-time }
+        period_ends_at: { type: [string, "null"], format: date-time }
+        updated_at:
+          type: [string, "null"]
+          format: date-time
+          description: Last plan change; null when the organization has no plan row yet (default plan)
+        features:
+          type: array
+          items: { $ref: "#/components/schemas/OrganizationFeatureState" }
+        enabled_features:
+          type: array
+          items: { $ref: "#/components/schemas/FeatureKey" }
+
+    EnvelopeOrganizationPlan:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/OrganizationPlan" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    SetOrganizationPlanRequest:
+      type: object
+      required: [code]
+      additionalProperties: false
+      properties:
+        code: { type: string, examples: [management, complete] }
+        period_starts_at: { type: [string, "null"], format: date-time }
+        period_ends_at: { type: [string, "null"], format: date-time }
+
+    SetOrganizationFeatureRequest:
+      type: object
+      required: [enabled]
+      additionalProperties: false
+      properties:
+        enabled:
+          type: [boolean, "null"]
+          description: true / false overrides the plan; null clears the override
 
     EnvelopeOrganizationSummaryPage:
       type: object
@@ -27954,7 +28181,7 @@ components:
 
     TenantContext:
       type: object
-      required: [organization, role, roles, permissions, branch_scope]
+      required: [organization, role, roles, permissions, branch_scope, features]
       properties:
         organization: { $ref: "#/components/schemas/TenantOrganization" }
         role:
@@ -27973,6 +28200,10 @@ components:
           type: string
           enum: [all, selected]
           description: "`selected`: branch-bound data (branches and later reservations, vehicles, …) is limited to the caller's branches; other branches answer `404`"
+        features:
+          type: array
+          description: Enabled plan features of the organization (TEC-674); gated routes answer `403 FEATURE_NOT_ENABLED` without them
+          items: { $ref: "#/components/schemas/FeatureKey" }
 
     EnvelopeTenantContext:
       type: object
@@ -28145,6 +28376,7 @@ components:
             - NO_TENANT_MEMBERSHIP
             - ORGANIZATION_SUSPENDED
             - ORGANIZATION_ACCESS_EXPIRED
+            - FEATURE_NOT_ENABLED
         message:
           type: string
         details:
@@ -28248,9 +28480,16 @@ components:
         key: { type: string, examples: [owner, admin, member] }
         name: { type: string }
 
+    MePlan:
+      type: object
+      required: [code, name]
+      properties:
+        code: { type: string, examples: [complete, management] }
+        name: { type: string, examples: [Komple, Yönetim] }
+
     MeOrganization:
       type: object
-      required: [uuid, slug, name, status, role, permissions]
+      required: [uuid, slug, name, status, role, permissions, plan, features]
       properties:
         uuid: { type: string, format: uuid }
         slug: { type: string }
@@ -28263,6 +28502,14 @@ components:
         permissions:
           type: array
           items: { type: string }
+        plan:
+          $ref: "#/components/schemas/MePlan"
+        features:
+          type: array
+          description: |
+            Enabled plan features of the organization (plan default + platform overrides, TEC-674). The panel
+            hides what is off; the API refuses it with `403 FEATURE_NOT_ENABLED`.
+          items: { $ref: "#/components/schemas/FeatureKey" }
 
     Me:
       type: object
@@ -28491,6 +28738,10 @@ components:
           type: string
           format: email
           description: Invite this e-mail as owner instead (the organization starts without members).
+        plan_code:
+          type: string
+          description: Plan of the new organization (TEC-674); default `complete`. An unknown code is `400`.
+          examples: [complete, management]
 
     PatchOrganizationRequest:
       type: object
@@ -34792,6 +35043,13 @@ components:
         modes:
           type: array
           items: { type: string, enum: [sandbox, live] }
+        feature:
+          description: |
+            Plan feature the provider needs (TEC-674); absent for payment providers, which every plan has.
+            Connecting, editing, testing or enabling an account of a provider outside the plan answers
+            `403 FEATURE_NOT_ENABLED`; disabling it is always allowed.
+          allOf:
+            - $ref: "#/components/schemas/FeatureKey"
 
     EnvelopeIntegrationsMeta:
       type: object
