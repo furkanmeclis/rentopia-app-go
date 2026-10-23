@@ -147,6 +147,11 @@ type Querier interface {
 	CountCatalogImports(ctx context.Context, arg CountCatalogImportsParams) (int64, error)
 	CountCatalogModels(ctx context.Context, arg CountCatalogModelsParams) (int64, error)
 	CountCatalogTypes(ctx context.Context, arg CountCatalogTypesParams) (int64, error)
+	// Repeat-customer campaigns (TEC-703 min_completed_rentals): rentals of the
+	// customer (the reservation's contract party) whose return check is done
+	// (status returned). Rentals still in preparation, out, in return check or
+	// cancelled do not count.
+	CountCustomerCompletedRentals(ctx context.Context, arg CountCustomerCompletedRentalsParams) (int32, error)
 	// Usages of a campaign by a customer that still count (reserved /
 	// consumed, or released without giving the usage back).
 	CountCustomerRedemptions(ctx context.Context, arg CountCustomerRedemptionsParams) (int64, error)

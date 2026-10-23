@@ -301,6 +301,9 @@ func main() {
 	contractsSvc.SetRenderer(pdfRenderer)
 	rentalsSvc := rentalusecase.New(pool, queries, availabilitySvc, rentaladapters.NewReservations(reservationSvc), vehicleSvc)
 	rentalsSvc.SetDocuments(contractsSvc)
+	// Repeat-customer campaigns (min_completed_rentals) count the
+	// customer's returned rentals.
+	campaignsSvc.SetRentalCounter(rentalsSvc)
 	// Finance: exports / imports / bulk of the ledger and cash book, the
 	// catch-up posting sweep; rentals and payments post here too.
 	financeSvc := financeusecase.New(pool, queries, store)

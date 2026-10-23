@@ -604,6 +604,9 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	// engine, operation tasks; documents through contracts.
 	rentalsSvc := rentalusecase.New(deps.DB, deps.Queries, availabilitySvc, rentaladapters.NewReservations(reservationSvc), vehicleSvc)
 	rentalsSvc.SetDocuments(contractsSvc)
+	// Repeat-customer campaigns (min_completed_rentals) count the
+	// customer's returned rentals.
+	campaignsSvc.SetRentalCounter(rentalsSvc)
 	// Operation task events of rentals and inspections also refresh the
 	// field task lists (board, my tasks).
 	rentalsSvc.SetResourceEvents(fieldtasksusecase.MirrorPublisher{Publisher: resourceEvents})

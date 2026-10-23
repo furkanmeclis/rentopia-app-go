@@ -118,6 +118,34 @@ func (q *Queries) CopyReservationDriversToRental(ctx context.Context, arg CopyRe
 	return err
 }
 
+const countCustomerCompletedRentals = `-- name: CountCustomerCompletedRentals :one
+SELECT COUNT(*)::int AS completed
+FROM rentals r
+JOIN reservations res ON res.organization_id = r.organization_id AND res.id = r.reservation_id
+JOIN customers c ON c.organization_id = res.organization_id AND c.id = res.customer_id
+WHERE r.organization_id = $1
+  AND res.organization_id = $1
+  AND c.organization_id = $1
+  AND c.uuid = $2
+  AND r.status = 'returned'
+`
+
+type CountCustomerCompletedRentalsParams struct {
+	OrganizationID int64     `json:"organization_id"`
+	CustomerUuid   uuid.UUID `json:"customer_uuid"`
+}
+
+// Repeat-customer campaigns (TEC-703 min_completed_rentals): rentals of the
+// customer (the reservation's contract party) whose return check is done
+// (status returned). Rentals still in preparation, out, in return check or
+// cancelled do not count.
+func (q *Queries) CountCustomerCompletedRentals(ctx context.Context, arg CountCustomerCompletedRentalsParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countCustomerCompletedRentals, arg.OrganizationID, arg.CustomerUuid)
+	var completed int32
+	err := row.Scan(&completed)
+	return completed, err
+}
+
 const countLivePolicyLateCharges = `-- name: CountLivePolicyLateCharges :one
 SELECT COUNT(*)::bigint
 FROM rental_charges ch
