@@ -91,6 +91,16 @@ Non-2xx answers make iyzico retry; a failed processing leaves the job `failed` f
 
 `POST /v1/tenant/payments/{uuid}/refund` (`tenant.payment.refund`): partial or full, never above `amount − refunded`; through the provider (`/v2/payment/refund`), manual payments are refunded as a record. `POST /v1/tenant/reservations/{uuid}/collections` (`tenant.payment.collect`): money taken at the branch, confirmed at once. Both recount the reservation (§4).
 
+### 3.8 After a restore (TEC-962)
+
+A database restored from a backup does not know the payments and refunds made after the backup ([backup-restore.md](../operations/backup-restore.md) RT-A32 (c)). Three guards (migration 000136):
+
+- **Refund guard.** Before a provider refund, `payments.RefundLookup.RefundState` reads what the provider has refunded (iyzico: reporting `GET /v2/reporting/payment/details`, signed over the path without the query; **not verified against the sandbox yet**, TEC-684). Decision table (`usecase.DecideRefund`): lookup unsupported → refund as before; lookup error (e.g. the reporting call is not available) → the refund is **not blocked**: it runs as before the guard existed, with a warning log (payment uuid, provider error), a Sentry event (`observability`, throttled per payment) and one open `payment_reconciliation_items` row (`unverified`) per payment for staff to check; provider refunded > `payments.refunded_amount` → `409 REFUND_STATE_MISMATCH`, nothing sent, one open `payment_reconciliation_items` row (`refund_mismatch`) per payment; otherwise the refund runs. `POST /v1/tenant/payments/reconciliation-items/{uuid}/resolve` (`tenant.payment.refund`): `record_refund` asks the provider again and enters the missing amount as a succeeded refund without calling it (ledger, reservation recount; the provider still unreadable → `502 PAYMENT_PROVIDER_ERROR`), `dismiss` closes with a note.
+- **Orphan notifications.** A webhook whose conversation id names no payment (and no deposit) is kept in `payment_webhook_orphans` (mixed scope). Its signature is tried against the provider's payment accounts: the verifying account names the organization (answer 200 `orphan: true`); otherwise the row is platform-level and the answer stays 404. Repeated deliveries count `deliveries`. `GET /v1/tenant/payments/orphans` lists them (panel: Finans → Eşleşmeyen ödemeler); `POST …/orphans/{uuid}/match` (`tenant.payment.collect`, body `reservation_uuid`, `note`) retrieves the checkout and, when it is paid, the notified payment, carries our order reference (`basketId` = the lost payment uuid) and the reservation's currency (`usecase.CheckOrphanMatch`), recreates the payment under that uuid and confirms it through §3.5 (once). The platform health page counts unmatched orphans (source `payment_webhook_orphans`).
+- **Report.** `GET /v1/tenant/payments/reconciliation?since=` lists our provider payments since a time (≤ 100 per call) with one retrieve and one refund lookup each — the adapter has no list call, so a payment we never recorded appears only as an orphan — plus the unmatched orphans and the refund items. Mismatch codes: `unconfirmed_payment`, `status_mismatch`, `amount_mismatch`, `refund_missing_in_ledger`, `refund_missing_at_provider`, `pending_refund`, `provider_unreachable`, `refund_lookup_unsupported`.
+
+Tests: `usecase/reconciliation_test.go` (decision table, orphan matching), `reservations/usecase/restore_reconcile_test.go` (DB + fake: refused refund, item, record, report, unreadable provider → refund made + one `unverified` item; orphan kept, forged one platform-level, match once).
+
 ## 4. Reservations port
 
 `PaymentRecorder.RecordPayment(ctx, org, reservation, PaymentUpdate{Paid, Refunded, Payment, Amount, Source}) (outcome, error)` — `Paid` is the total received (refunds deducted, `SumReservationPayments`), so repeated calls are harmless. It sets `payment_status` (`unpaid | partially_paid | paid | refunded`) and `paid_amount`, writes `payment_recorded`, then:
@@ -158,6 +168,8 @@ Tenant (RequireOrganization; RT-A01 covers each — path cases for `integrations
 GET|POST /v1/tenant/integrations            GET /v1/tenant/integrations/meta
 GET|PATCH /v1/tenant/integrations/{uuid}    POST …/{uuid}/test | /disable | /enable    GET …/{uuid}/jobs
 GET /v1/tenant/payments   GET /v1/tenant/payments/{uuid}   POST …/{uuid}/verify   POST …/{uuid}/refund
+GET /v1/tenant/payments/orphans   POST …/orphans/{uuid}/match   GET /v1/tenant/payments/reconciliation
+POST /v1/tenant/payments/reconciliation-items/{uuid}/resolve                                  (§3.8)
 GET /v1/tenant/payment-links   GET /v1/tenant/payment-links/{uuid}   POST …/{uuid}/cancel
 POST /v1/tenant/reservations/{uuid}/payment-links | /collections | /accept | /reject
 ```

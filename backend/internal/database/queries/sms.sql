@@ -2,16 +2,27 @@
 -- organization-owned: every query filters by organization_id.
 
 -- name: InsertSMSMessage :one
+-- A message whose idempotency key exists already inserts nothing (no
+-- rows): the caller returns the existing message (TEC-962).
 INSERT INTO sms_messages (
     uuid, organization_id, integration_account_id, class, purpose, provider, phone_masked, phone_hash, body_redacted,
-    body_hash, payload_ciphertext, customer_id, status, error, ref_type, ref_uuid, created_by
+    body_hash, payload_ciphertext, customer_id, status, error, ref_type, ref_uuid, created_by, idempotency_key
 ) VALUES (
     sqlc.arg(uuid), sqlc.arg(organization_id), sqlc.narg(integration_account_id), sqlc.arg(class), sqlc.arg(purpose),
     sqlc.arg(provider), sqlc.arg(phone_masked), sqlc.arg(phone_hash), sqlc.arg(body_redacted), sqlc.arg(body_hash),
     sqlc.arg(payload_ciphertext), sqlc.narg(customer_id), sqlc.arg(status), sqlc.arg(error), sqlc.arg(ref_type), sqlc.narg(ref_uuid),
-    sqlc.narg(created_by)
+    sqlc.narg(created_by), sqlc.narg(idempotency_key)
 )
+ON CONFLICT (organization_id, idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING
 RETURNING id, uuid;
+
+-- name: GetSMSMessageByIdempotencyKey :one
+-- The send ledger: the message already created for a caller key.
+SELECT m.id, m.uuid, m.status, m.class, m.purpose, m.provider, m.integration_account_id, m.phone_masked,
+    m.provider_message_id, m.error, m.integration_job_id, (m.payload_ciphertext <> '')::boolean AS has_payload, m.created_at
+FROM sms_messages m
+WHERE m.organization_id = sqlc.arg(organization_id)
+  AND m.idempotency_key = sqlc.arg(idempotency_key);
 
 -- name: SetSMSMessageJob :exec
 UPDATE sms_messages

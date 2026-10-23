@@ -57,6 +57,7 @@ export const DISPATCH_STATUS_LABEL_KEYS: Record<
   delivered: "notification_engine.dispatch_statuses.delivered",
   failed: "notification_engine.dispatch_statuses.failed",
   skipped: "notification_engine.dispatch_statuses.skipped",
+  reconciled: "notification_engine.dispatch_statuses.reconciled",
 };
 
 export type Tone = "default" | "success" | "warning" | "danger";
@@ -75,6 +76,7 @@ export const DISPATCH_STATUS_TONES: Record<NotificationDispatchStatus, Tone> = {
   delivered: "success",
   failed: "danger",
   skipped: "warning",
+  reconciled: "default",
 };
 
 /** Event labels (static keys; the catalog lives in the backend). */

@@ -58,6 +58,7 @@ integration_accounts
 payment_links
 payments
 payment_refunds
+payment_reconciliation_items
 sms_messages
 sms_otp_challenges
 rentals

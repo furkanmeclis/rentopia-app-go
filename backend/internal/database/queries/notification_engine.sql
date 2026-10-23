@@ -132,7 +132,39 @@ WHERE d.organization_id = sqlc.arg(organization_id)
 ORDER BY d.scheduled_at, d.id
 LIMIT sqlc.arg(limit_count);
 
+-- name: ListStuckNotificationDispatchOrganizations :many
+-- Organizations with dispatches left in "sending" since before_at
+-- (reclaim sweep: a crash, or a restore of a backup taken mid-send).
+SELECT DISTINCT d.organization_id
+FROM notification_dispatches d
+WHERE d.status = 'sending'
+  AND d.updated_at < sqlc.arg(before_at)::timestamptz
+LIMIT 1000;
+
+-- name: ListStuckNotificationDispatches :many
+SELECT d.id FROM notification_dispatches d
+WHERE d.organization_id = sqlc.arg(organization_id)
+  AND d.status = 'sending'
+  AND d.updated_at < sqlc.arg(before_at)::timestamptz
+ORDER BY d.updated_at, d.id
+LIMIT sqlc.arg(limit_count);
+
+-- name: TouchNotificationDispatch :exec
+-- A reclaim found nothing to change (still waiting for a delivery report):
+-- moves the dispatch to the back of the sweep.
+UPDATE notification_dispatches
+SET updated_at = NOW()
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id);
+
 -- Deliveries ------------------------------------------------------------
+
+-- name: GetNotificationDeliveryForChannel :one
+-- The attempt row of one dispatch and channel (unique).
+SELECT * FROM notification_deliveries dl
+WHERE dl.organization_id = sqlc.arg(organization_id)
+  AND dl.dispatch_id = sqlc.arg(dispatch_id)
+  AND dl.channel = sqlc.arg(channel);
 
 -- name: InsertNotificationDelivery :one
 -- One attempt per dispatch and channel: a conflicting insert returns no rows.

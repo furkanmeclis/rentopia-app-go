@@ -90,6 +90,7 @@
   "nav_finance_reports": "Finans raporları",
   "nav_kabis": "KABİS bildirimleri",
   "nav_finance_collections": "Tahsilatlar",
+  "nav_finance_payment_orphans": "Eşleşmeyen ödemeler",
   "nav_finance_invoices": "Faturalar",
   "nav_tenant_settings_invoices": "Fatura ayarları",
   "nav_finance_suppliers": "Tedarikçiler",

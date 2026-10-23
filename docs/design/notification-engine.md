@@ -59,6 +59,27 @@ event twice on one channel), renders the template and calls the channel.
 A delivery report (`Engine.ReportDelivery`) settles an accepted attempt; a
 failed report runs the next channel (RT-A30).
 
+Idempotency and recovery (TEC-962, [backup-restore](../operations/backup-restore.md)
+RT-A32 (c)):
+
+- The attempt's result (provider reference, `sent_at`) and the dispatch's
+  status commit in one transaction, under the dispatch lock.
+- Send ledger: a channel implementing `channel.Ledger` is asked before every
+  send whether it already took a message for the delivery; a found message
+  stands in for the send and never reaches the provider again. SMS answers
+  from `sms_messages.idempotency_key` = `notify:<delivery uuid>` (unique per
+  organization, so the SMS module itself refuses a second message); member
+  push goes through the notification center with the key
+  `notify:<delivery uuid>`. E-mail and customer web push keep no ledger.
+- `Engine.ReclaimStuck` (worker start, every sweep): a dispatch "sending" for
+  10 minutes goes back to pending when nothing was recorded for its attempt
+  (the same attempt row resumes), follows its attempt when the ledger or the
+  attempt row has a result, and stays waiting for an SMS report unless the
+  SMS is final (a lost report, a reconciled message).
+- `reconciled`: a dispatch the operator marked after a restore
+  (`cmd/messaging-reconcile`) because it went out after the backup; never
+  sent.
+
 ## Channels
 
 `notifyengine/channel.Channel` is the adapter contract (`Name`, `Supports`,

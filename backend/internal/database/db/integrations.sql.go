@@ -290,9 +290,12 @@ const getRunnerJob = `-- name: GetRunnerJob :one
 SELECT j.id, j.uuid, j.organization_id, j.integration_account_id, j.direction, j.provider, j.kind, j.idempotency_key,
     j.status, j.attempts, j.max_attempts, j.deliveries, j.last_error, j.payload, j.result, j.ref_type, j.ref_uuid,
     j.priority, j.provider_ref, j.next_attempt_at, j.submitted_at, j.locked_until, j.completed_at, j.created_at,
-    j.updated_at, a.uuid AS account_uuid
+    j.updated_at, a.uuid AS account_uuid, j.reconciled_at, j.reconcile_note, j.reconcile_external_ref,
+    ru.uuid AS reconciled_by_uuid, ru.name AS reconciled_by_name, ru.surname AS reconciled_by_surname,
+    ru.email AS reconciled_by_email
 FROM integration_jobs j
 LEFT JOIN integration_accounts a ON a.organization_id = j.organization_id AND a.id = j.integration_account_id
+LEFT JOIN users ru ON ru.id = j.reconciled_by
 WHERE j.organization_id IS NOT DISTINCT FROM $1
   AND j.id = $2
 `
@@ -329,6 +332,13 @@ type GetRunnerJobRow struct {
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 	AccountUuid          pgtype.UUID        `json:"account_uuid"`
+	ReconciledAt         pgtype.Timestamptz `json:"reconciled_at"`
+	ReconcileNote        string             `json:"reconcile_note"`
+	ReconcileExternalRef string             `json:"reconcile_external_ref"`
+	ReconciledByUuid     pgtype.UUID        `json:"reconciled_by_uuid"`
+	ReconciledByName     pgtype.Text        `json:"reconciled_by_name"`
+	ReconciledBySurname  pgtype.Text        `json:"reconciled_by_surname"`
+	ReconciledByEmail    pgtype.Text        `json:"reconciled_by_email"`
 }
 
 func (q *Queries) GetRunnerJob(ctx context.Context, arg GetRunnerJobParams) (GetRunnerJobRow, error) {
@@ -361,6 +371,13 @@ func (q *Queries) GetRunnerJob(ctx context.Context, arg GetRunnerJobParams) (Get
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.AccountUuid,
+		&i.ReconciledAt,
+		&i.ReconcileNote,
+		&i.ReconcileExternalRef,
+		&i.ReconciledByUuid,
+		&i.ReconciledByName,
+		&i.ReconciledBySurname,
+		&i.ReconciledByEmail,
 	)
 	return i, err
 }
@@ -369,9 +386,12 @@ const getRunnerJobByUUID = `-- name: GetRunnerJobByUUID :one
 SELECT j.id, j.uuid, j.organization_id, j.integration_account_id, j.direction, j.provider, j.kind, j.idempotency_key,
     j.status, j.attempts, j.max_attempts, j.deliveries, j.last_error, j.payload, j.result, j.ref_type, j.ref_uuid,
     j.priority, j.provider_ref, j.next_attempt_at, j.submitted_at, j.locked_until, j.completed_at, j.created_at,
-    j.updated_at, a.uuid AS account_uuid
+    j.updated_at, a.uuid AS account_uuid, j.reconciled_at, j.reconcile_note, j.reconcile_external_ref,
+    ru.uuid AS reconciled_by_uuid, ru.name AS reconciled_by_name, ru.surname AS reconciled_by_surname,
+    ru.email AS reconciled_by_email
 FROM integration_jobs j
 LEFT JOIN integration_accounts a ON a.organization_id = j.organization_id AND a.id = j.integration_account_id
+LEFT JOIN users ru ON ru.id = j.reconciled_by
 WHERE j.organization_id = $1
   AND j.uuid = $2
 `
@@ -408,6 +428,13 @@ type GetRunnerJobByUUIDRow struct {
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 	AccountUuid          pgtype.UUID        `json:"account_uuid"`
+	ReconciledAt         pgtype.Timestamptz `json:"reconciled_at"`
+	ReconcileNote        string             `json:"reconcile_note"`
+	ReconcileExternalRef string             `json:"reconcile_external_ref"`
+	ReconciledByUuid     pgtype.UUID        `json:"reconciled_by_uuid"`
+	ReconciledByName     pgtype.Text        `json:"reconciled_by_name"`
+	ReconciledBySurname  pgtype.Text        `json:"reconciled_by_surname"`
+	ReconciledByEmail    pgtype.Text        `json:"reconciled_by_email"`
 }
 
 func (q *Queries) GetRunnerJobByUUID(ctx context.Context, arg GetRunnerJobByUUIDParams) (GetRunnerJobByUUIDRow, error) {
@@ -440,6 +467,13 @@ func (q *Queries) GetRunnerJobByUUID(ctx context.Context, arg GetRunnerJobByUUID
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.AccountUuid,
+		&i.ReconciledAt,
+		&i.ReconcileNote,
+		&i.ReconcileExternalRef,
+		&i.ReconciledByUuid,
+		&i.ReconciledByName,
+		&i.ReconciledBySurname,
+		&i.ReconciledByEmail,
 	)
 	return i, err
 }
@@ -831,6 +865,85 @@ func (q *Queries) ListIntegrationJobs(ctx context.Context, arg ListIntegrationJo
 	return items, nil
 }
 
+const listReconcilableRunnerJobs = `-- name: ListReconcilableRunnerJobs :many
+SELECT j.organization_id, o.uuid AS organization_uuid, o.slug AS organization_slug, j.id, j.uuid, j.provider,
+    j.kind, j.status, j.attempts, j.created_at, j.updated_at
+FROM integration_jobs j
+JOIN organizations o ON o.id = j.organization_id
+WHERE j.organization_id IS NOT NULL
+  AND ($1::uuid[] IS NULL OR o.uuid = ANY($1::uuid[]))
+  AND ($2::uuid[] IS NULL OR j.uuid = ANY($2::uuid[]))
+  AND j.direction = 'outbound'
+  AND j.kind <> 'payment.refund'
+  AND j.kind NOT LIKE 'kabis.%'
+  AND j.status = ANY($3::text[])
+  AND j.created_at < $4
+  AND ($5::text[] IS NULL OR j.kind = ANY($5::text[]))
+ORDER BY j.organization_id, j.id
+`
+
+type ListReconcilableRunnerJobsParams struct {
+	OrganizationUuids []uuid.UUID        `json:"organization_uuids"`
+	JobUuids          []uuid.UUID        `json:"job_uuids"`
+	Statuses          []string           `json:"statuses"`
+	Before            pgtype.Timestamptz `json:"before"`
+	Kinds             []string           `json:"kinds"`
+}
+
+type ListReconcilableRunnerJobsRow struct {
+	OrganizationID   pgtype.Int8        `json:"organization_id"`
+	OrganizationUuid uuid.UUID          `json:"organization_uuid"`
+	OrganizationSlug string             `json:"organization_slug"`
+	ID               int64              `json:"id"`
+	Uuid             uuid.UUID          `json:"uuid"`
+	Provider         string             `json:"provider"`
+	Kind             string             `json:"kind"`
+	Status           string             `json:"status"`
+	Attempts         int32              `json:"attempts"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Operator CLI (cmd/integration-jobs-reconcile): the jobs a bulk reconcile
+// would touch, across organizations or in the named ones (dry run).
+func (q *Queries) ListReconcilableRunnerJobs(ctx context.Context, arg ListReconcilableRunnerJobsParams) ([]ListReconcilableRunnerJobsRow, error) {
+	rows, err := q.db.Query(ctx, listReconcilableRunnerJobs,
+		arg.OrganizationUuids,
+		arg.JobUuids,
+		arg.Statuses,
+		arg.Before,
+		arg.Kinds,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListReconcilableRunnerJobsRow{}
+	for rows.Next() {
+		var i ListReconcilableRunnerJobsRow
+		if err := rows.Scan(
+			&i.OrganizationID,
+			&i.OrganizationUuid,
+			&i.OrganizationSlug,
+			&i.ID,
+			&i.Uuid,
+			&i.Provider,
+			&i.Kind,
+			&i.Status,
+			&i.Attempts,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockRunnerJob = `-- name: LockRunnerJob :execrows
 UPDATE integration_jobs
 SET locked_until = NOW() + make_interval(secs => $1::int)
@@ -860,6 +973,125 @@ func (q *Queries) LockRunnerJob(ctx context.Context, arg LockRunnerJobParams) (i
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const reconcileRunnerJob = `-- name: ReconcileRunnerJob :execrows
+
+UPDATE integration_jobs
+SET status = 'reconciled', next_attempt_at = NULL, locked_until = NULL, completed_at = NOW(),
+    reconciled_at = NOW(), reconciled_by = $1, reconcile_note = $2,
+    reconcile_external_ref = $3
+WHERE organization_id = $4
+  AND id = $5
+  AND direction = 'outbound'
+  AND kind <> 'payment.refund'
+  AND kind NOT LIKE 'kabis.%'
+  AND status = ANY($6::text[])
+  AND (locked_until IS NULL OR locked_until < NOW())
+`
+
+type ReconcileRunnerJobParams struct {
+	ReconciledBy   pgtype.Int8 `json:"reconciled_by"`
+	Note           string      `json:"note"`
+	ExternalRef    string      `json:"external_ref"`
+	OrganizationID pgtype.Int8 `json:"organization_id"`
+	ID             int64       `json:"id"`
+	FromStatuses   []string    `json:"from_statuses"`
+}
+
+// Staff / operator resolution "reconciled" (TEC-962): the work was
+// confirmed outside the runner (provider panel, delivery log) and is never
+// sent again. Sends nothing; refused while a worker holds the job. The
+// kinds other flows own stay out: payment refunds (/payments/{uuid}/refund)
+// and KABİS notifications (their own reconcile with reason and evidence).
+func (q *Queries) ReconcileRunnerJob(ctx context.Context, arg ReconcileRunnerJobParams) (int64, error) {
+	result, err := q.db.Exec(ctx, reconcileRunnerJob,
+		arg.ReconciledBy,
+		arg.Note,
+		arg.ExternalRef,
+		arg.OrganizationID,
+		arg.ID,
+		arg.FromStatuses,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const reconcileRunnerJobs = `-- name: ReconcileRunnerJobs :many
+WITH target AS (
+    SELECT t.id, t.status
+    FROM integration_jobs t
+    WHERE t.organization_id = $3
+      AND t.direction = 'outbound'
+      AND t.kind <> 'payment.refund'
+      AND t.kind NOT LIKE 'kabis.%'
+      AND t.status = ANY($4::text[])
+      AND t.created_at < $5
+      AND ($6::text[] IS NULL OR t.kind = ANY($6::text[]))
+      AND (t.locked_until IS NULL OR t.locked_until < NOW())
+    ORDER BY t.id
+    FOR UPDATE SKIP LOCKED
+)
+UPDATE integration_jobs j
+SET status = 'reconciled', next_attempt_at = NULL, locked_until = NULL, completed_at = NOW(),
+    reconciled_at = NOW(), reconciled_by = $1, reconcile_note = $2,
+    reconcile_external_ref = ''
+FROM target
+WHERE j.organization_id = $3
+  AND j.id = target.id
+RETURNING j.id, j.uuid, j.kind, target.status AS previous_status
+`
+
+type ReconcileRunnerJobsParams struct {
+	ReconciledBy   pgtype.Int8        `json:"reconciled_by"`
+	Note           string             `json:"note"`
+	OrganizationID pgtype.Int8        `json:"organization_id"`
+	Statuses       []string           `json:"statuses"`
+	Before         pgtype.Timestamptz `json:"before"`
+	Kinds          []string           `json:"kinds"`
+}
+
+type ReconcileRunnerJobsRow struct {
+	ID             int64     `json:"id"`
+	Uuid           uuid.UUID `json:"uuid"`
+	Kind           string    `json:"kind"`
+	PreviousStatus string    `json:"previous_status"`
+}
+
+// Bulk (restore runbook): every matching job of the organization created
+// before the cut-off.
+func (q *Queries) ReconcileRunnerJobs(ctx context.Context, arg ReconcileRunnerJobsParams) ([]ReconcileRunnerJobsRow, error) {
+	rows, err := q.db.Query(ctx, reconcileRunnerJobs,
+		arg.ReconciledBy,
+		arg.Note,
+		arg.OrganizationID,
+		arg.Statuses,
+		arg.Before,
+		arg.Kinds,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ReconcileRunnerJobsRow{}
+	for rows.Next() {
+		var i ReconcileRunnerJobsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Uuid,
+			&i.Kind,
+			&i.PreviousStatus,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const saveRunnerJob = `-- name: SaveRunnerJob :exec

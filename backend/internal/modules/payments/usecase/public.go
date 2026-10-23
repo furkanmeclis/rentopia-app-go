@@ -187,7 +187,8 @@ func buyerName(v db.GetReservationViewRow) (string, string) {
 }
 
 // Webhook handles a provider notification: parse → find our payment by
-// the echoed conversation id (which names the organization) → verify the
+// the echoed conversation id (which names the organization; none = an
+// orphan, kept for manual matching, TEC-962) → verify the
 // signature with that organization's secret → one integration job per
 // notification key → provider retrieve and confirm (verify). The same
 // notification delivered again is answered as a duplicate.
@@ -203,6 +204,11 @@ func (s *Service) Webhook(ctx context.Context, providerCode string, header http.
 	refs, err := s.q.ResolvePaymentConversation(ctx, hook.ConversationID)
 	if err != nil {
 		return paymodel.WebhookResult{}, err
+	}
+	if len(refs) == 0 {
+		// No payment of ours (e.g. created after the backup the database
+		// was restored from): kept as an orphan for manual matching.
+		return s.orphan(ctx, prov, providerCode, hook, header, body)
 	}
 	if len(refs) != 1 {
 		return paymodel.WebhookResult{}, ErrUnknownPayment

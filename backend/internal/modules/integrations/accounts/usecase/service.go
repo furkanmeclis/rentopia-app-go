@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	jobsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/jobs/usecase"
 	"strings"
 	"time"
 
@@ -144,6 +145,8 @@ type Job struct {
 	CompletedAt   *time.Time `json:"completed_at"`
 	CreatedAt     time.Time  `json:"created_at"`
 	UpdatedAt     time.Time  `json:"updated_at"`
+	// Reconcilable: the staff "reconciled" resolution applies (TEC-962).
+	Reconcilable bool `json:"reconcilable"`
 }
 
 // JobFilter selects a page of an account's jobs.
@@ -527,6 +530,7 @@ func (s *Service) Jobs(ctx context.Context, orgID int64, id uuid.UUID, f JobFilt
 			Attempts: j.Attempts, MaxAttempts: j.MaxAttempts, Deliveries: j.Deliveries, LastError: j.LastError,
 			RefType: j.RefType, NextAttemptAt: timePtr(j.NextAttemptAt), SubmittedAt: timePtr(j.SubmittedAt),
 			CompletedAt: timePtr(j.CompletedAt), CreatedAt: j.CreatedAt.Time.UTC(), UpdatedAt: j.UpdatedAt.Time.UTC(),
+			Reconcilable: jobsusecase.CanReconcile(j.Kind, j.Direction, j.Status),
 		}
 		if j.RefUuid.Valid {
 			u := uuid.UUID(j.RefUuid.Bytes)

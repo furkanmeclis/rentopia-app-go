@@ -246,6 +246,57 @@ func (q *Queries) GetSMSMessage(ctx context.Context, arg GetSMSMessageParams) (G
 	return i, err
 }
 
+const getSMSMessageByIdempotencyKey = `-- name: GetSMSMessageByIdempotencyKey :one
+SELECT m.id, m.uuid, m.status, m.class, m.purpose, m.provider, m.integration_account_id, m.phone_masked,
+    m.provider_message_id, m.error, m.integration_job_id, (m.payload_ciphertext <> '')::boolean AS has_payload, m.created_at
+FROM sms_messages m
+WHERE m.organization_id = $1
+  AND m.idempotency_key = $2
+`
+
+type GetSMSMessageByIdempotencyKeyParams struct {
+	OrganizationID int64       `json:"organization_id"`
+	IdempotencyKey pgtype.Text `json:"idempotency_key"`
+}
+
+type GetSMSMessageByIdempotencyKeyRow struct {
+	ID                   int64              `json:"id"`
+	Uuid                 uuid.UUID          `json:"uuid"`
+	Status               string             `json:"status"`
+	Class                string             `json:"class"`
+	Purpose              string             `json:"purpose"`
+	Provider             string             `json:"provider"`
+	IntegrationAccountID pgtype.Int8        `json:"integration_account_id"`
+	PhoneMasked          string             `json:"phone_masked"`
+	ProviderMessageID    string             `json:"provider_message_id"`
+	Error                string             `json:"error"`
+	IntegrationJobID     pgtype.Int8        `json:"integration_job_id"`
+	HasPayload           bool               `json:"has_payload"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+}
+
+// The send ledger: the message already created for a caller key.
+func (q *Queries) GetSMSMessageByIdempotencyKey(ctx context.Context, arg GetSMSMessageByIdempotencyKeyParams) (GetSMSMessageByIdempotencyKeyRow, error) {
+	row := q.db.QueryRow(ctx, getSMSMessageByIdempotencyKey, arg.OrganizationID, arg.IdempotencyKey)
+	var i GetSMSMessageByIdempotencyKeyRow
+	err := row.Scan(
+		&i.ID,
+		&i.Uuid,
+		&i.Status,
+		&i.Class,
+		&i.Purpose,
+		&i.Provider,
+		&i.IntegrationAccountID,
+		&i.PhoneMasked,
+		&i.ProviderMessageID,
+		&i.Error,
+		&i.IntegrationJobID,
+		&i.HasPayload,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getSMSMessageForSend = `-- name: GetSMSMessageForSend :one
 SELECT m.id, m.uuid, m.class, m.purpose, m.status, m.payload_ciphertext
 FROM sms_messages m
@@ -327,13 +378,14 @@ const insertSMSMessage = `-- name: InsertSMSMessage :one
 
 INSERT INTO sms_messages (
     uuid, organization_id, integration_account_id, class, purpose, provider, phone_masked, phone_hash, body_redacted,
-    body_hash, payload_ciphertext, customer_id, status, error, ref_type, ref_uuid, created_by
+    body_hash, payload_ciphertext, customer_id, status, error, ref_type, ref_uuid, created_by, idempotency_key
 ) VALUES (
     $1, $2, $3, $4, $5,
     $6, $7, $8, $9, $10,
     $11, $12, $13, $14, $15, $16,
-    $17
+    $17, $18
 )
+ON CONFLICT (organization_id, idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING
 RETURNING id, uuid
 `
 
@@ -355,6 +407,7 @@ type InsertSMSMessageParams struct {
 	RefType              string      `json:"ref_type"`
 	RefUuid              pgtype.UUID `json:"ref_uuid"`
 	CreatedBy            pgtype.Int8 `json:"created_by"`
+	IdempotencyKey       pgtype.Text `json:"idempotency_key"`
 }
 
 type InsertSMSMessageRow struct {
@@ -364,6 +417,8 @@ type InsertSMSMessageRow struct {
 
 // SMS send log and OTP challenges (TEC-734). Both tables are
 // organization-owned: every query filters by organization_id.
+// A message whose idempotency key exists already inserts nothing (no
+// rows): the caller returns the existing message (TEC-962).
 func (q *Queries) InsertSMSMessage(ctx context.Context, arg InsertSMSMessageParams) (InsertSMSMessageRow, error) {
 	row := q.db.QueryRow(ctx, insertSMSMessage,
 		arg.Uuid,
@@ -383,6 +438,7 @@ func (q *Queries) InsertSMSMessage(ctx context.Context, arg InsertSMSMessagePara
 		arg.RefType,
 		arg.RefUuid,
 		arg.CreatedBy,
+		arg.IdempotencyKey,
 	)
 	var i InsertSMSMessageRow
 	err := row.Scan(&i.ID, &i.Uuid)

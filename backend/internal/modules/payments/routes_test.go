@@ -81,6 +81,13 @@ func TestPaymentPermissionGates(t *testing.T) {
 		{"delivery passes the collect gate", http.MethodPost, "/v1/tenant/reservations/not-a-uuid/collections", "delivery", "{}", http.StatusBadRequest},
 		{"accounting passes the refund gate", http.MethodPost, "/v1/tenant/payments/not-a-uuid/refund", "accounting", "{}", http.StatusBadRequest},
 		{"not a member", http.MethodGet, "/v1/tenant/payments", "other", "", http.StatusForbidden},
+		{"member cannot list orphans", http.MethodGet, "/v1/tenant/payments/orphans", "member", "", http.StatusForbidden},
+		{"accounting cannot match orphans", http.MethodPost, "/v1/tenant/payments/orphans/" + id + "/match", "accounting", "{}", http.StatusForbidden},
+		{"delivery passes the match gate", http.MethodPost, "/v1/tenant/payments/orphans/not-a-uuid/match", "delivery", "{}", http.StatusBadRequest},
+		{"member cannot read the reconciliation", http.MethodGet, "/v1/tenant/payments/reconciliation?since=2026-01-01T00:00:00Z", "member", "", http.StatusForbidden},
+		{"reconciliation needs since", http.MethodGet, "/v1/tenant/payments/reconciliation", "sales", "", http.StatusBadRequest},
+		{"sales cannot resolve items", http.MethodPost, "/v1/tenant/payments/reconciliation-items/" + id + "/resolve", "sales", "{}", http.StatusForbidden},
+		{"accounting passes the resolve gate", http.MethodPost, "/v1/tenant/payments/reconciliation-items/not-a-uuid/resolve", "accounting", "{}", http.StatusBadRequest},
 		{"public webhook needs no auth (malformed body)", http.MethodPost, "/v1/public/payments/iyzico/webhook", "", "{}", http.StatusBadRequest},
 	}
 	for _, tc := range cases {

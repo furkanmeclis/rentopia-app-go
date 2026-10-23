@@ -21,6 +21,7 @@ FRONTEND_PORT ?= 3000
 .PHONY: infra infra-down infra-logs infra-ps migrate-up backend-dev frontend-dev site-dev local-dev \
 	free-dev-ports prod-env prod-env-upgrade prod-env-check prod-sync prod-super-admin prod-config prod-up prod-down \
 	prod-backup prod-backup-status tools create-super-admin search-reindex check-i18n \
+	messaging-reconcile prod-messaging-reconcile integration-jobs-reconcile prod-integration-jobs-reconcile \
 	acceptance acceptance-backend acceptance-e2e acceptance-stack-up acceptance-stack-down
 
 infra:
@@ -172,6 +173,24 @@ create-super-admin:
 
 search-reindex:
 	@$(load_env) $(MAKE) -C backend search-reindex
+
+# Outbound messages waiting in restored data (docs/operations/backup-restore.md
+# "Mesaj mutabakatı"): ARGS="list --before <set time>" / ARGS="mark ... --yes".
+messaging-reconcile:
+	@$(load_env) $(MAKE) -C backend messaging-reconcile ARGS='$(ARGS)'
+
+prod-messaging-reconcile:
+	docker compose --env-file $(PROD_ENV_FILE) -f compose.prod.yml run --rm --no-deps \
+		--entrypoint /app/messaging-reconcile backend $(ARGS)
+
+# Integration jobs done after the backup (docs/operations/backup-restore.md
+# RT-A32 (c)): ARGS="--before <set time>" lists, add "--apply --note ..." to mark.
+integration-jobs-reconcile:
+	@$(load_env) $(MAKE) -C backend integration-jobs-reconcile ARGS='$(ARGS)'
+
+prod-integration-jobs-reconcile:
+	docker compose --env-file $(PROD_ENV_FILE) -f compose.prod.yml run --rm --no-deps \
+		--entrypoint /app/integration-jobs-reconcile backend $(ARGS)
 
 check-i18n:
 	node scripts/check-i18n.mjs

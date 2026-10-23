@@ -149,6 +149,12 @@ func (h *Handler) Refund(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p, err := h.svc.Refund(r.Context(), orgID(r), id, in, httpkit.ClientIP(r))
+	var ge *usecase.RefundGuardError
+	if errors.As(err, &ge) && ge.Code == usecase.CodeRefundStateMismatch {
+		h.audit(r, paymodel.ResourcePayments, "payments.refund_refused", id, map[string]any{
+			"code": ge.Code, "our_refunded": ge.OurRefunded.String(), "provider_refunded": ge.ProviderRefunded.String(),
+		})
+	}
 	if err != nil {
 		writeError(w, r, err)
 		return
@@ -315,8 +321,101 @@ func (h *Handler) Webhook(provider string) http.HandlerFunc {
 	}
 }
 
+// ListOrphans serves GET /v1/tenant/payments/orphans: provider
+// notifications that named no payment of ours (TEC-962).
+func (h *Handler) ListOrphans(w http.ResponseWriter, r *http.Request) {
+	q, ok := httpkit.ListQuery(w, r, map[string]string{"created_at": "created_at"})
+	if !ok {
+		return
+	}
+	f := paymodel.OrphanFilter{Q: q.Q, Statuses: httpkit.Values(r, "status"), SortDesc: true, Limit: q.Limit, Offset: q.Offset}
+	if len(q.Sort) > 0 {
+		f.SortDesc = q.Sort[0].Desc
+	}
+	if v := strings.TrimSpace(r.URL.Query().Get("since")); v != "" {
+		t, err := time.Parse(time.RFC3339, v)
+		if err != nil {
+			response.ValidationError(w, r, []response.Detail{{Field: "since", Code: "invalid", Message: "since must be an RFC 3339 time"}})
+			return
+		}
+		f.Since = &t
+	}
+	items, total, err := h.svc.ListOrphans(r.Context(), orgID(r), f)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	response.JSON(w, r, http.StatusOK, apiquery.NewPage(items, total, q.Limit, q.Offset))
+}
+
+// MatchOrphan serves POST /v1/tenant/payments/orphans/{uuid}/match.
+func (h *Handler) MatchOrphan(w http.ResponseWriter, r *http.Request) {
+	id, ok := httpkit.PathUUID(w, r, "uuid")
+	if !ok {
+		return
+	}
+	var in paymodel.MatchOrphanInput
+	if !httpkit.DecodeJSON(w, r, &in, false) {
+		return
+	}
+	p, err := h.svc.MatchOrphan(r.Context(), orgID(r), id, in)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	h.audit(r, paymodel.ResourceOrphans, "payments.orphan_matched", id, map[string]any{
+		"payment_uuid": p.UUID, "reservation_uuid": p.Reservation.UUID, "note": strings.TrimSpace(in.Note),
+	})
+	response.JSON(w, r, http.StatusOK, p)
+}
+
+// Reconciliation serves GET /v1/tenant/payments/reconciliation?since=.
+func (h *Handler) Reconciliation(w http.ResponseWriter, r *http.Request) {
+	v := strings.TrimSpace(r.URL.Query().Get("since"))
+	since, err := time.Parse(time.RFC3339, v)
+	if err != nil {
+		response.ValidationError(w, r, []response.Detail{{Field: "since", Code: "required", Message: "since (RFC 3339) is required"}})
+		return
+	}
+	out, err := h.svc.Reconcile(r.Context(), orgID(r), since)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	response.JSON(w, r, http.StatusOK, out)
+}
+
+// ResolveItem serves POST
+// /v1/tenant/payments/reconciliation-items/{uuid}/resolve.
+func (h *Handler) ResolveItem(w http.ResponseWriter, r *http.Request) {
+	id, ok := httpkit.PathUUID(w, r, "uuid")
+	if !ok {
+		return
+	}
+	var in paymodel.ResolveItemInput
+	if !httpkit.DecodeJSON(w, r, &in, false) {
+		return
+	}
+	p, err := h.svc.ResolveItem(r.Context(), orgID(r), id, in)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	h.audit(r, paymodel.ResourcePayments, "payments.reconciliation_item_resolved", id, map[string]any{
+		"payment_uuid": p.UUID, "resolution": in.Resolution, "refunded_amount": p.RefundedAmount.String(), "note": strings.TrimSpace(in.Note),
+	})
+	response.JSON(w, r, http.StatusOK, p)
+}
+
 func writeError(w http.ResponseWriter, r *http.Request, err error) {
 	response.RecordFailure(w, err)
+	var ge *usecase.RefundGuardError
+	if errors.As(err, &ge) {
+		data := map[string]any{"our_refunded": ge.OurRefunded, "provider_refunded": ge.ProviderRefunded, "reconciliation_item_uuid": ge.ItemUUID}
+		response.ErrorWithData(w, r, http.StatusConflict, ge.Code, ge.Message,
+			[]response.Detail{{Code: strings.ToLower(ge.Code), Message: ge.Message}}, data)
+		return
+	}
 	var ve *usecase.ValidationError
 	if errors.As(err, &ve) {
 		out := make([]response.Detail, 0, len(ve.Details))
@@ -346,6 +445,10 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, usecase.ErrNotFound):
 		response.NotFound(w, r, "Payment was not found")
+	case errors.Is(err, usecase.ErrOrphanNotFound):
+		response.NotFound(w, r, "Orphan notification was not found")
+	case errors.Is(err, usecase.ErrItemNotFound):
+		response.NotFound(w, r, "Reconciliation item was not found")
 	case errors.Is(err, usecase.ErrLinkNotFound):
 		response.NotFound(w, r, "Payment link was not found")
 	case errors.Is(err, usecase.ErrReservationNotFound):

@@ -27,7 +27,7 @@ endef
 
 DB_URL ?= postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=disable
 
-.PHONY: tools run dev worker ping-job search-reindex build test lint fmt tidy sqlc migrate-up migrate-down migrate-create health create-super-admin openapi-lint
+.PHONY: tools run dev worker ping-job search-reindex messaging-reconcile integration-jobs-reconcile build test lint fmt tidy sqlc migrate-up migrate-down migrate-create health create-super-admin openapi-lint
 
 tools:
 	@echo "go:            $$(go version)"
@@ -51,6 +51,12 @@ ping-job:
 
 search-reindex:
 	@$(load_env) go run ./cmd/search-reindex
+
+messaging-reconcile:
+	@$(load_env) go run ./cmd/messaging-reconcile $(ARGS)
+
+integration-jobs-reconcile:
+	@$(load_env) go run ./cmd/integration-jobs-reconcile $(ARGS)
 
 build:
 	go build -o bin/$(APP_NAME) ./cmd/server

@@ -168,6 +168,41 @@ type PreAuthorizer interface {
 	Void(ctx context.Context, account integrations.Account, in VoidRequest) error
 }
 
+// RefundStateRequest names a payment on the provider.
+type RefundStateRequest struct {
+	PaymentID      string
+	ConversationID string
+	Locale         string
+}
+
+// ProviderRefund is one refund (or cancel) the provider shows.
+type ProviderRefund struct {
+	RefundID string
+	Amount   money.Money
+	Kind     string // refund | cancel
+}
+
+// RefundState is what the provider has refunded on a payment.
+type RefundState struct {
+	PaymentID string
+	Currency  string
+	PaidPrice money.Money
+	Refunded  money.Money
+	// ProviderStatus is the provider's refund status text
+	// (NOT_REFUNDED, PARTIALLY_REFUNDED, TOTALLY_REFUNDED …).
+	ProviderStatus string
+	Refunds        []ProviderRefund
+}
+
+// RefundLookup is the optional provider call the refund guard and the
+// reconciliation report use (TEC-962): what the provider has already
+// refunded on a payment, so a refund made after the backup a database was
+// restored from is never made twice. An adapter that cannot tell returns
+// integrations.ErrUnsupported.
+type RefundLookup interface {
+	RefundState(ctx context.Context, account integrations.Account, in RefundStateRequest) (RefundState, error)
+}
+
 var (
 	// ErrInvalidSignature: a webhook or an answer did not verify.
 	ErrInvalidSignature = errors.New("payments: invalid signature")

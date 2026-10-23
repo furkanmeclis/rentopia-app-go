@@ -41,6 +41,9 @@ type Querier interface {
 	CountPlatformNotifications(ctx context.Context, arg db.CountPlatformNotificationsParams) (int64, error)
 	MarkNotificationProcessing(ctx context.Context, id int64) (db.Notification, error)
 	ListStuckProcessingNotificationIDs(ctx context.Context, staleMinutes int32) ([]int64, error)
+	ReclaimProcessingNotification(ctx context.Context, arg db.ReclaimProcessingNotificationParams) (db.Notification, error)
+	ListStaleQueuedNotifications(ctx context.Context, staleMinutes int32) ([]db.ListStaleQueuedNotificationsRow, error)
+	GetNotificationByIdempotencyKey(ctx context.Context, idempotencyKey pgtype.Text) (db.Notification, error)
 	MarkNotificationSent(ctx context.Context, arg db.MarkNotificationSentParams) (db.Notification, error)
 	MarkNotificationFailed(ctx context.Context, arg db.MarkNotificationFailedParams) (db.Notification, error)
 	MarkNotificationRead(ctx context.Context, arg db.MarkNotificationReadParams) (db.Notification, error)
@@ -71,6 +74,9 @@ type Service struct {
 	pushQueue    Enqueuer
 	actionSecret []byte
 	actionTTL    time.Duration
+	// redeliver re-enqueues stale queued rows (ReclaimStuck); nil delivers
+	// them inline.
+	redeliver Enqueuer
 }
 
 // New creates a notification service.
@@ -86,6 +92,14 @@ func New(q Querier, enq Enqueuer, provs []providers.Provider, log *slog.Logger) 
 		q: q, queue: enq, providers: m, log: log, syncMode: enq == nil,
 		actionTTL: actionlink.DefaultTTL,
 	}
+}
+
+// WithRedeliverQueue makes ReclaimStuck hand stale queued rows back to the
+// delivery queue (the worker, whose own deliveries run inline) instead of
+// delivering them inline.
+func (s *Service) WithRedeliverQueue(enq Enqueuer) *Service {
+	s.redeliver = enq
+	return s
 }
 
 // WithActionSigner enables HMAC-signed action URLs (marks read on redeem).
@@ -172,6 +186,7 @@ func (s *Service) Enqueue(ctx context.Context, in model.EnqueueInput) ([]model.N
 				recipient = pgtype.Text{String: u.Email, Valid: true}
 			}
 		}
+		key := model.RowKey(strings.TrimSpace(in.IdempotencyKey), ch)
 		row, err := s.q.CreateNotification(ctx, db.CreateNotificationParams{
 			UserID:         int8Ptr(in.UserID),
 			Channel:        ch,
@@ -187,7 +202,18 @@ func (s *Service) Enqueue(ctx context.Context, in model.EnqueueInput) ([]model.N
 			ScheduledAt:    pgtype.Timestamptz{},
 			MaxAttempts:    5,
 			OrganizationID: int8Ptr(in.OrganizationID),
+			IdempotencyKey: pgtype.Text{String: key, Valid: key != ""},
 		})
+		if errors.Is(err, pgx.ErrNoRows) && key != "" {
+			// Already created for this cause, channel and recipient (a
+			// replayed event): the existing row, delivered once.
+			existing, gerr := s.q.GetNotificationByIdempotencyKey(ctx, pgtype.Text{String: key, Valid: true})
+			if gerr != nil {
+				return nil, fmt.Errorf("existing notification: %w", gerr)
+			}
+			out = append(out, s.project(existing))
+			continue
+		}
 		if err != nil {
 			return nil, fmt.Errorf("create notification: %w", err)
 		}
@@ -196,7 +222,7 @@ func (s *Service) Enqueue(ctx context.Context, in model.EnqueueInput) ([]model.N
 			Event:          "queued",
 			Metadata:       []byte("{}"),
 		})
-		if err := s.scheduleDeliver(ctx, row.ID); err != nil {
+		if err := s.scheduleDeliver(ctx, row.ID, row.Uuid); err != nil {
 			return nil, err
 		}
 		out = append(out, s.project(row))
@@ -204,50 +230,63 @@ func (s *Service) Enqueue(ctx context.Context, in model.EnqueueInput) ([]model.N
 	return out, nil
 }
 
-func (s *Service) scheduleDeliver(ctx context.Context, id int64) error {
+func (s *Service) scheduleDeliver(ctx context.Context, id int64, rowUUID uuid.UUID) error {
 	if s.syncMode || s.queue == nil {
 		return s.Deliver(ctx, id)
 	}
+	return enqueueDeliver(s.queue, id, rowUUID)
+}
+
+// DeliverTaskID is the Asynq task id of a notification's delivery: a second
+// enqueue of the same row (the queued sweep, a replay) is refused while the
+// first task exists, and Deliver's status check covers the rest.
+func DeliverTaskID(rowUUID uuid.UUID) string { return "notification:deliver:" + rowUUID.String() }
+
+// enqueueDeliver enqueues the delivery task; an existing task of the row
+// (task id conflict) counts as enqueued.
+func enqueueDeliver(enq Enqueuer, id int64, rowUUID uuid.UUID) error {
 	task, err := queue.NewNotificationDeliverTask(id)
 	if err != nil {
 		return err
 	}
-	_, err = s.queue.Enqueue(task, asynq.Queue(queue.QueueNotifications))
+	opts := []asynq.Option{asynq.Queue(queue.QueueNotifications)}
+	if rowUUID != uuid.Nil {
+		opts = append(opts, asynq.TaskID(DeliverTaskID(rowUUID)))
+	}
+	if _, err = enq.Enqueue(task, opts...); errors.Is(err, asynq.ErrTaskIDConflict) {
+		return nil
+	}
 	return err
 }
 
+// DefaultStuckProcessingMinutes: a delivery in processing this long is
+// taken over by ReclaimStuck (worker crash, restore).
 const DefaultStuckProcessingMinutes int32 = 2
 
-// Deliver processes one queued notification.
+// DefaultStuckQueuedMinutes: a queued row whose task has not run for this
+// long is handed to delivery again by ReclaimStuck (task lost with Redis).
+const DefaultStuckQueuedMinutes int32 = 5
+
+// Deliver processes one queued notification. A row another delivery holds
+// (processing) or that is final is left alone: a duplicate task never
+// delivers twice; ReclaimStuck takes over rows left in processing.
 func (s *Service) Deliver(ctx context.Context, id int64) error {
 	row, err := s.q.MarkNotificationProcessing(ctx, id)
-	resumed := false
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil // gone, final, or another delivery holds it
+	}
 	if err != nil {
-		if !errors.Is(err, pgx.ErrNoRows) {
-			return err
-		}
-		existing, getErr := s.q.GetNotificationByID(ctx, id)
-		if getErr != nil {
-			if errors.Is(getErr, pgx.ErrNoRows) {
-				return nil
-			}
-			return getErr
-		}
-		switch existing.Status {
-		case model.StatusSent, model.StatusDelivered, model.StatusRead, model.StatusCancelled:
-			return nil
-		case model.StatusProcessing:
-			row = existing
-			resumed = true
-		default:
-			return nil
-		}
+		return err
 	}
-	if !resumed {
-		_, _ = s.q.InsertNotificationHistory(ctx, db.InsertNotificationHistoryParams{
-			NotificationID: row.ID, Event: "processing", Metadata: []byte("{}"),
-		})
-	}
+	_, _ = s.q.InsertNotificationHistory(ctx, db.InsertNotificationHistoryParams{
+		NotificationID: row.ID, Event: "processing", Metadata: []byte("{}"),
+	})
+	return s.deliverRow(ctx, row)
+}
+
+// deliverRow delivers a row this caller holds (processing).
+func (s *Service) deliverRow(ctx context.Context, row db.Notification) error {
+	id := row.ID
 	p, ok := s.providers[row.Channel]
 	if !ok {
 		p = providers.NoopProvider{Name: row.Channel, Log: s.log}
@@ -309,8 +348,16 @@ func (s *Service) Deliver(ctx context.Context, id int64) error {
 	return nil
 }
 
-// ReclaimStuck re-runs delivery for rows left in processing after a worker
-// crash or a failed status write. Asynq may have already dropped the task.
+// ReclaimStuck is the delivery sweep (worker start and every few
+// minutes, TEC-962):
+//
+//   - rows left in processing for staleMinutes (worker crash, failed status
+//     write, a restore of a backup taken mid-delivery) are taken over, one
+//     sweep per row, and delivered again (at least once);
+//   - rows still queued after DefaultStuckQueuedMinutes (or staleMinutes
+//     when larger) lost their task (a restore without the Redis snapshot):
+//     they are enqueued again under their task id, so a task that still
+//     exists makes the enqueue a no-op (inline delivery without a queue).
 func (s *Service) ReclaimStuck(ctx context.Context, staleMinutes int32) (int, error) {
 	if staleMinutes < 0 {
 		staleMinutes = 0
@@ -321,8 +368,40 @@ func (s *Service) ReclaimStuck(ctx context.Context, staleMinutes int32) (int, er
 	}
 	var n int
 	for _, id := range ids {
-		if err := s.Deliver(ctx, id); err != nil {
+		row, err := s.q.ReclaimProcessingNotification(ctx, db.ReclaimProcessingNotificationParams{ID: id, StaleMinutes: staleMinutes})
+		if errors.Is(err, pgx.ErrNoRows) {
+			continue // finished meanwhile, or another sweep took it
+		}
+		if err == nil {
+			_, _ = s.q.InsertNotificationHistory(ctx, db.InsertNotificationHistoryParams{
+				NotificationID: row.ID, Event: "reclaimed", Metadata: []byte("{}"),
+			})
+			err = s.deliverRow(ctx, row)
+		}
+		if err != nil {
 			s.log.Error("notification_reclaim_failed", "id", id, "error", err)
+			continue
+		}
+		n++
+	}
+	queuedMinutes := DefaultStuckQueuedMinutes
+	if staleMinutes > queuedMinutes {
+		queuedMinutes = staleMinutes
+	}
+	queued, err := s.q.ListStaleQueuedNotifications(ctx, queuedMinutes)
+	if err != nil {
+		return n, fmt.Errorf("list queued notifications: %w", err)
+	}
+	for _, r := range queued {
+		if s.redeliver != nil {
+			err = enqueueDeliver(s.redeliver, r.ID, r.Uuid)
+		} else if s.queue != nil && !s.syncMode {
+			err = enqueueDeliver(s.queue, r.ID, r.Uuid)
+		} else {
+			err = s.Deliver(ctx, r.ID)
+		}
+		if err != nil {
+			s.log.Error("notification_requeue_failed", "id", r.ID, "error", err)
 			continue
 		}
 		n++

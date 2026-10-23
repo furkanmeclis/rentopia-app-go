@@ -90,6 +90,7 @@
   "nav_finance_reports": "Finance reports",
   "nav_kabis": "KABİS notifications",
   "nav_finance_collections": "Collections",
+  "nav_finance_payment_orphans": "Unmatched payments",
   "nav_finance_invoices": "Invoices",
   "nav_tenant_settings_invoices": "Invoice settings",
   "nav_finance_suppliers": "Suppliers",

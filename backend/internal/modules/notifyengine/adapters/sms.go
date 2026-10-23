@@ -18,11 +18,19 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/pii"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/sms"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // RefTypeDelivery is the sms_messages.ref_type of engine messages (the
 // ref uuid is the notification delivery).
 const RefTypeDelivery = "notification_delivery"
+
+// DeliveryKey is the sms_messages.idempotency_key of the engine's message
+// for one delivery attempt (unique per organization, TEC-962): the
+// delivery is one dispatch (event + recipient) on one channel, so a
+// replayed or resumed attempt finds its message instead of sending again.
+func DeliveryKey(delivery uuid.UUID) string { return "notify:" + delivery.String() }
 
 // SMSSender is the part of the SMS service the channel needs.
 type SMSSender interface {
@@ -61,7 +69,7 @@ func (s *SMS) Send(ctx context.Context, orgID int64, m channel.Message) (channel
 	ref := m.DeliveryUUID
 	in := smsusecase.SendInput{
 		Class: sms.ClassTransactional, Purpose: "notify." + m.Event, Phone: phone, Body: m.Body,
-		RedactedBody: m.RedactedBody, RefType: RefTypeDelivery, RefUUID: &ref,
+		RedactedBody: m.RedactedBody, RefType: RefTypeDelivery, RefUUID: &ref, IdempotencyKey: DeliveryKey(ref),
 	}
 	if m.Recipient.CustomerID > 0 {
 		id := m.Recipient.CustomerID
@@ -77,17 +85,44 @@ func (s *SMS) Send(ctx context.Context, orgID int64, m channel.Message) (channel
 	case err != nil:
 		return channel.Result{Outcome: channel.OutcomeFailed, RecipientMasked: masked, Error: err.Error()}, nil
 	}
-	id := sent.MessageUUID
-	res := channel.Result{Outcome: channel.OutcomeAccepted, Provider: "sms", ExternalUUID: &id, RecipientMasked: masked}
 	// Without a worker queue the first step ran inline: a final state is
 	// known already.
-	switch sent.Status {
-	case smsusecase.StatusDelivered:
+	return smsResult(sent.MessageUUID, masked, sent.Status, ""), nil
+}
+
+// smsResult maps an SMS message's status to the channel result.
+func smsResult(id uuid.UUID, masked, status, errText string) channel.Result {
+	res := channel.Result{Outcome: channel.OutcomeAccepted, Provider: "sms", ExternalUUID: &id, RecipientMasked: masked}
+	switch status {
+	case smsusecase.StatusDelivered, smsusecase.StatusReconciled:
 		res.Outcome = channel.OutcomeDelivered
 	case smsusecase.StatusFailed, smsusecase.StatusUndelivered, smsusecase.StatusBlocked:
-		res.Outcome, res.Error = channel.OutcomeFailed, "SMS "+sent.Status
+		res.Outcome, res.Error = channel.OutcomeFailed, "SMS "+status
+		if errText != "" {
+			res.Error += ": " + errText
+		}
 	}
-	return res, nil
+	return res
+}
+
+// Lookup implements channel.Ledger: the SMS already created for the
+// delivery (sms_messages.idempotency_key), whatever its state.
+func (s *SMS) Lookup(ctx context.Context, orgID int64, delivery uuid.UUID) (channel.Result, bool, error) {
+	if s.q == nil {
+		return channel.Result{}, false, nil
+	}
+	m, err := s.q.GetSMSMessageByIdempotencyKey(ctx, db.GetSMSMessageByIdempotencyKeyParams{
+		OrganizationID: orgID, IdempotencyKey: pgtype.Text{String: DeliveryKey(delivery), Valid: true},
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return channel.Result{}, false, nil
+	}
+	if err != nil {
+		return channel.Result{}, false, err
+	}
+	res := smsResult(m.Uuid, m.PhoneMasked, m.Status, m.Error)
+	res.ProviderRef = m.ProviderMessageID
+	return res, true, nil
 }
 
 // IntegrationJobChanged implements the runner listener: the final state
@@ -131,4 +166,7 @@ func (s *SMS) IntegrationJobChanged(ctx context.Context, orgID int64, job jobsus
 	s.reporter.ReportDelivery(ctx, orgID, r)
 }
 
-var _ channel.ReportingChannel = (*SMS)(nil)
+var (
+	_ channel.ReportingChannel = (*SMS)(nil)
+	_ channel.Ledger           = (*SMS)(nil)
+)

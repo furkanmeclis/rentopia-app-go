@@ -143,6 +143,18 @@ type ReportingChannel interface {
 	SetReporter(r Reporter)
 }
 
+// Ledger is a channel that keeps its own record of every message it took,
+// keyed by the delivery (Message.DeliveryUUID), so a send can be checked
+// before it reaches a provider that cannot drop a repeat (TEC-962). The
+// engine asks Lookup before every Send: a found message is never handed to
+// the provider again; its result stands in for the send (an attempt
+// interrupted by a crash or a restore, a replay).
+type Ledger interface {
+	// Lookup returns the result of an earlier send of the delivery; found
+	// is false when the channel never took a message for it.
+	Lookup(ctx context.Context, orgID int64, delivery uuid.UUID) (res Result, found bool, err error)
+}
+
 // MaskEmail keeps the first letter of the local part and the domain.
 func MaskEmail(v string) string {
 	v = strings.TrimSpace(v)

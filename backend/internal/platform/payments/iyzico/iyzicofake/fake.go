@@ -1,6 +1,6 @@
 // Package iyzicofake is an in-process fake of the iyzico endpoints the
 // adapter uses (Checkout Form initialize / retrieve, the pre-auth form,
-// post-auth and cancel, refund v2, BIN check)
+// post-auth and cancel, refund v2, BIN check, reporting payment details)
 // plus a minimal hosted payment page. It checks the IYZWSv2 authorization
 // of every request, signs its answers like iyzico and builds signed
 // webhooks, so tests (and local browser checks, cmd/iyzico-fake) exercise
@@ -56,6 +56,14 @@ type Checkout struct {
 	PreAuth   bool
 	Captured  money.Money
 	Cancelled bool
+	// RefundLog lists the refunds (reporting payment details).
+	RefundLog []RefundEntry
+}
+
+// RefundEntry is one refund of a payment.
+type RefundEntry struct {
+	ID     string
+	Amount money.Money
 }
 
 // Fake is the fake iyzico server.
@@ -79,6 +87,24 @@ type Fake struct {
 	// FailRefunds makes the refund endpoint refuse every refund (a
 	// provider-side failure in tests).
 	FailRefunds atomic.Bool
+	// Reports counts reporting calls; FailReports makes them fail (5xx).
+	Reports     atomic.Int64
+	FailReports atomic.Bool
+}
+
+// RefundOutside records a refund made on the provider without us (e.g.
+// after the backup a test database stands for).
+func (f *Fake) RefundOutside(paymentID string, amount money.Money) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	c, ok := f.payments[paymentID]
+	if !ok {
+		return fmt.Errorf("unknown payment %s", paymentID)
+	}
+	f.seq++
+	c.Refunded = c.Refunded.Add(amount)
+	c.RefundLog = append(c.RefundLog, RefundEntry{ID: "refund-" + strconv.FormatInt(f.seq, 10), Amount: amount})
+	return nil
 }
 
 // Payment returns a copy of a completed checkout by provider payment id.
@@ -248,8 +274,52 @@ func (f *Fake) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	in := map[string]any{}
 	_ = json.Unmarshal(body, &in)
+	for k, v := range r.URL.Query() {
+		if len(v) > 0 {
+			in[k] = v[0]
+		}
+	}
 	s := func(k string) string { v, _ := in[k].(string); return v }
 	switch r.URL.Path {
+	case "/v2/reporting/payment/details":
+		f.Reports.Add(1)
+		if f.FailReports.Load() {
+			w.WriteHeader(http.StatusBadGateway)
+			return
+		}
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		var c *Checkout
+		if id := s("paymentId"); id != "" {
+			c = f.payments[id]
+		} else {
+			for _, x := range f.payments {
+				if x.ConversationID == s("paymentConversationId") {
+					c = x
+				}
+			}
+		}
+		if c == nil || c.APIKey != apiKey {
+			failure(w, "5093", "Ödeme bulunamadı")
+			return
+		}
+		refunds := []map[string]any{}
+		for _, e := range c.RefundLog {
+			refunds = append(refunds, map[string]any{"refundTxId": e.ID, "refundPrice": json.Number(iyzico.FormatPrice(e.Amount))})
+		}
+		status := "NOT_REFUNDED"
+		if c.Refunded.IsPositive() {
+			status = "PARTIALLY_REFUNDED"
+			if c.Refunded.Cmp(c.PaidPrice) >= 0 {
+				status = "TOTALLY_REFUNDED"
+			}
+		}
+		writeJSON(w, map[string]any{"status": "success", "payments": []map[string]any{{
+			"paymentId": c.PaymentID, "paymentConversationId": c.ConversationID, "paymentStatus": 1,
+			"paymentRefundStatus": status, "price": json.Number(iyzico.FormatPrice(c.Price)),
+			"paidPrice": json.Number(iyzico.FormatPrice(c.PaidPrice)), "currency": c.Currency,
+			"itemTransactions": []map[string]any{{"paymentTransactionId": c.PaymentID + "-1", "refunds": refunds}},
+		}}})
 	case "/payment/bin/check":
 		writeJSON(w, map[string]any{"status": "success", "binNumber": s("binNumber"), "cardAssociation": "MASTER_CARD"})
 	case "/payment/iyzipos/checkoutform/initialize/auth/ecom", "/payment/iyzipos/checkoutform/initialize/preauth/ecom":
@@ -309,6 +379,7 @@ func (f *Fake) serve(w http.ResponseWriter, r *http.Request) {
 		}
 		c.Refunded = c.Refunded.Add(amount)
 		f.seq++
+		c.RefundLog = append(c.RefundLog, RefundEntry{ID: "refund-" + strconv.FormatInt(f.seq, 10), Amount: amount})
 		writeJSON(w, map[string]any{
 			"status": "success", "paymentId": c.PaymentID, "price": json.Number(iyzico.FormatPrice(amount)),
 			"currency": c.Currency, "hostReference": "refund-" + strconv.FormatInt(f.seq, 10),

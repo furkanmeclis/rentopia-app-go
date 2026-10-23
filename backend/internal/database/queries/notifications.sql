@@ -1,14 +1,20 @@
 -- name: CreateNotification :one
+-- A notification whose idempotency key exists already inserts nothing (no
+-- rows): a replayed event never creates a second row (TEC-962).
 INSERT INTO notifications (
     user_id, channel, status, priority,
     title, body, payload, action_url, recipient, template_code, source_event,
-    scheduled_at, max_attempts, organization_id
+    scheduled_at, max_attempts, organization_id, idempotency_key
 ) VALUES (
     $1, $2, $3, $4,
     $5, $6, $7, $8, $9, $10, $11,
-    $12, $13, sqlc.narg(organization_id)
+    $12, $13, sqlc.narg(organization_id), sqlc.narg(idempotency_key)
 )
+ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING
 RETURNING *;
+
+-- name: GetNotificationByIdempotencyKey :one
+SELECT * FROM notifications WHERE idempotency_key = sqlc.arg(idempotency_key);
 
 -- name: GetNotificationByUUID :one
 SELECT * FROM notifications WHERE uuid = $1;
@@ -124,6 +130,26 @@ SELECT id FROM notifications
 WHERE status = 'processing'
   AND updated_at < NOW() - make_interval(mins => sqlc.arg(stale_minutes)::int)
 ORDER BY id
+LIMIT 500;
+
+-- name: ReclaimProcessingNotification :one
+-- Takes over a delivery left in processing (worker crash, restore): only
+-- one sweep wins the row.
+UPDATE notifications
+SET attempt_count = attempt_count + 1
+WHERE id = sqlc.arg(id)
+  AND status = 'processing'
+  AND updated_at < NOW() - make_interval(mins => sqlc.arg(stale_minutes)::int)
+RETURNING *;
+
+-- name: ListStaleQueuedNotifications :many
+-- Queued rows whose delivery task never ran (lost with Redis, e.g. a
+-- restore without the Redis snapshot); scheduled rows wait for their time.
+SELECT id, uuid FROM notifications
+WHERE status = 'queued'
+  AND updated_at < NOW() - make_interval(mins => sqlc.arg(stale_minutes)::int)
+  AND (scheduled_at IS NULL OR scheduled_at <= NOW())
+ORDER BY updated_at, id
 LIMIT 500;
 
 -- name: MarkNotificationSent :one

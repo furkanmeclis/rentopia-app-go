@@ -45,6 +45,7 @@
   "dispatch_statuses.delivered": "Reached",
   "dispatch_statuses.failed": "Not reached",
   "dispatch_statuses.skipped": "No channel",
+  "dispatch_statuses.reconciled": "Reconciled after restore",
   "offsets.at_time": "On time",
   "offsets.minutes": "{{count}} min before",
   "offsets.hours": "{{count}} h before",

@@ -63,6 +63,7 @@ import (
 	orgusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/organizations/usecase"
 	orgsettingsrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/repository"
 	orgsettingsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/orgsettings/usecase"
+	paymentsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/payments"
 	paymentsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/payments/usecase"
 	platformhealthmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/platformhealth"
 	platformhealthusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/platformhealth/usecase"
@@ -514,7 +515,13 @@ func main() {
 		exit(1)
 	}
 	notifSvc.WithPushQueue(queueClient)
+	// Stale queued notifications go back to the delivery queue under their
+	// task id (TEC-962); the worker's own deliveries stay inline.
+	notifSvc.WithRedeliverQueue(queueClient)
 	integrationRunner.SetDispatcher(queue.IntegrationDispatcher{Client: queueClient})
+	// Contract PDFs re-requested by the pending sweep go through the queue
+	// under the version's task id (TEC-962).
+	contractsSvc.SetQueue(queueClient)
 	persist := logging.Attach(log, logsSvc)
 	log = persist.Logger()
 	defer persist.Close()
@@ -550,6 +557,10 @@ func main() {
 	// the error queue.
 	if err := healthRegistry.Register(channelsmodule.NewHealthSource(queries)); err != nil {
 		log.Error("channel_health_init_failed", "error", err)
+	}
+	// Provider notifications that named no payment (TEC-962).
+	if err := healthRegistry.Register(paymentsmodule.NewOrphanHealthSource(queries)); err != nil {
+		log.Error("payment_orphan_health_init_failed", "error", err)
 	}
 	platformHealthSvc := platformhealthusecase.New(queries, healthRegistry)
 	platformHealthSvc.SetNotifier(notifSvc)
@@ -591,6 +602,13 @@ func main() {
 			p, err := paymentsSvc.ReconcilePending(ctx)
 			if err != nil {
 				return r + n + m + p, err
+			}
+			// Contract PDFs pending past their render window (lost queue
+			// task, e.g. after a restore) are requested again (TEC-962).
+			if d, err := contractsSvc.SweepPendingPDFs(ctx); err != nil {
+				log.Warn("document_pdf_sweep_failed", "error", err)
+			} else {
+				p += d
 			}
 			// Late vehicles: keep them busy, re-plan or flag what follows.
 			o, err := rentalsSvc.SweepOverdue(ctx)
@@ -637,6 +655,9 @@ func main() {
 		WithPublicWebhooks(publicAPISvc.DeliverDue).
 		WithSiteDomains(siteDomains.Sweep).
 		WithNotifyEngine(notifyEngine.Sweep).
+		WithNotificationSweep(func(ctx context.Context) (int, error) {
+			return notifSvc.ReclaimStuck(ctx, notifusecase.DefaultStuckProcessingMinutes)
+		}).
 		WithWhatsApp(whatsappSvc.Watch).
 		WithDocumentPDF(contractsSvc.RenderPDF).
 		WithSearch(
@@ -694,6 +715,10 @@ func main() {
 		log.Error("notify_engine_scheduler_failed", "error", err)
 		exit(1)
 	}
+	if err := queue.RegisterNotificationSweepSchedule(scheduler); err != nil {
+		log.Error("notification_sweep_scheduler_failed", "error", err)
+		exit(1)
+	}
 	if err := queue.RegisterWhatsAppSchedule(scheduler); err != nil {
 		log.Error("whatsapp_scheduler_failed", "error", err)
 		exit(1)
@@ -714,6 +739,15 @@ func main() {
 		log.Error("notification_reclaim_failed", "error", err)
 	} else if n > 0 {
 		log.Info("notification_reclaim_completed", "count", n)
+	}
+	if n, err := contractsSvc.SweepPendingPDFs(ctx); err != nil {
+		log.Error("document_pdf_sweep_failed", "error", err)
+	} else if n > 0 {
+		log.Info("document_pdf_sweep_completed", "count", n)
+	}
+	// Dispatches left "sending" (crash, restore of a backup taken mid-send).
+	if _, err := notifyEngine.ReclaimStuck(ctx, notifyengineusecase.DefaultStuckSending); err != nil {
+		log.Error("notify_reclaim_failed", "error", err)
 	}
 
 	errCh := make(chan error, 1)

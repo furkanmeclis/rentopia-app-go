@@ -65,6 +65,10 @@ const (
 	StatusFailed      = "failed"
 	StatusUnknown     = "unknown"
 	StatusBlocked     = "blocked"
+	// StatusReconciled: queued in restored data but sent after the backup,
+	// marked by the operator (cmd/messaging-reconcile); its send job
+	// finishes without calling the provider.
+	StatusReconciled = "reconciled"
 )
 
 const maxBody = 900
@@ -209,6 +213,10 @@ type SendInput struct {
 	// AccountUUID sends through this account instead of the active one
 	// (connection test).
 	AccountUUID *uuid.UUID
+	// IdempotencyKey (optional) names the caller's message (the
+	// notification engine's delivery attempt). A second send with the same
+	// key returns the first message and sends nothing (TEC-962).
+	IdempotencyKey string
 }
 
 // Sent is a queued message.
@@ -254,6 +262,15 @@ func (s *Service) Send(ctx context.Context, orgID int64, in SendInput) (Sent, er
 	if body == "" || len([]rune(body)) > maxBody {
 		return Sent{}, &ValidationError{Field: "body", Code: "invalid", Message: "the text is required (at most 900 characters)"}
 	}
+	key := strings.TrimSpace(in.IdempotencyKey)
+	if len(key) > 200 {
+		return Sent{}, &ValidationError{Field: "idempotency_key", Code: "invalid", Message: "at most 200 characters"}
+	}
+	if key != "" {
+		if out, found, err := s.existing(ctx, orgID, key); err != nil || found {
+			return out, err
+		}
+	}
 	redacted := body
 	// An OTP always keeps a redacted body in the log; other classes may
 	// redact too (a message carrying a bearer link, TEC-711).
@@ -288,6 +305,7 @@ func (s *Service) Send(ctx context.Context, orgID int64, in SendInput) (Sent, er
 		Purpose: in.Purpose, Provider: acc.Provider, PhoneMasked: pii.MaskPhone(phone), PhoneHash: phoneHash,
 		BodyRedacted: redacted, BodyHash: s.cipher.BlindIndex(PurposeBodyHash, orgScope(orgID), redacted),
 		Status: StatusQueued, RefType: in.RefType, CreatedBy: actorID(ctx),
+		IdempotencyKey: pgtype.Text{String: key, Valid: key != ""},
 	}
 	if in.CustomerID != nil {
 		row.CustomerID = pgtype.Int8{Int64: *in.CustomerID, Valid: true}
@@ -306,7 +324,10 @@ func (s *Service) Send(ctx context.Context, orgID int64, in SendInput) (Sent, er
 		}
 		if !ok {
 			row.Status, row.Error = StatusBlocked, "no İYS SMS consent"
-			if _, err := s.q.InsertSMSMessage(ctx, row); err != nil {
+			if _, err := s.q.InsertSMSMessage(ctx, row); errors.Is(err, pgx.ErrNoRows) && key != "" {
+				out, _, err := s.existing(ctx, orgID, key)
+				return out, err
+			} else if err != nil {
 				return Sent{}, err
 			}
 			return Sent{MessageUUID: id, Status: StatusBlocked, PhoneMasked: row.PhoneMasked}, ErrNoConsent
@@ -329,28 +350,66 @@ func (s *Service) Send(ctx context.Context, orgID int64, in SendInput) (Sent, er
 		return Sent{}, err
 	}
 	msg, err := s.q.InsertSMSMessage(ctx, row)
+	if errors.Is(err, pgx.ErrNoRows) && key != "" {
+		// A concurrent send with the same key won the insert.
+		out, _, err := s.existing(ctx, orgID, key)
+		return out, err
+	}
 	if err != nil {
 		return Sent{}, err
 	}
+	return s.enqueueJob(ctx, orgID, msg.ID, id, acc.ID, acc.Provider, in.Class, in.Purpose, row.PhoneMasked)
+}
+
+// enqueueJob creates the message's send job (idempotent: the job key is
+// the message uuid) and links it to the message.
+func (s *Service) enqueueJob(ctx context.Context, orgID, msgID int64, id uuid.UUID, accountID int64, provider, class, purpose, masked string) (Sent, error) {
 	job, err := s.runner.Enqueue(ctx, jobsusecase.EnqueueInput{
-		OrganizationID: orgID, AccountID: acc.ID, Provider: acc.Provider, Kind: JobKind,
+		OrganizationID: orgID, AccountID: accountID, Provider: provider, Kind: JobKind,
 		IdempotencyKey: fmt.Sprintf("org:%d:sms:%s", orgID, id),
-		Payload:        map[string]any{"sms_message_uuid": id.String(), "class": in.Class, "purpose": in.Purpose, "to": row.PhoneMasked},
-		RefType:        "sms_message", RefUUID: &id, Critical: in.Class != sms.ClassInformational, MaxAttempts: 8,
+		Payload:        map[string]any{"sms_message_uuid": id.String(), "class": class, "purpose": purpose, "to": masked},
+		RefType:        "sms_message", RefUUID: &id, Critical: class != sms.ClassInformational, MaxAttempts: 8,
 	})
 	if err != nil {
 		return Sent{}, err
 	}
 	if err := s.q.SetSMSMessageJob(ctx, db.SetSMSMessageJobParams{
-		OrganizationID: orgID, ID: msg.ID, IntegrationJobID: pgtype.Int8{Int64: job.ID, Valid: true},
+		OrganizationID: orgID, ID: msgID, IntegrationJobID: pgtype.Int8{Int64: job.ID, Valid: true},
 	}); err != nil {
 		return Sent{}, err
 	}
-	out := Sent{MessageUUID: id, JobUUID: job.UUID, JobStatus: job.Status, PhoneMasked: row.PhoneMasked}
-	if m, err := s.q.GetSMSMessage(ctx, db.GetSMSMessageParams{OrganizationID: orgID, ID: msg.ID}); err == nil {
+	out := Sent{MessageUUID: id, JobUUID: job.UUID, JobStatus: job.Status, PhoneMasked: masked}
+	if m, err := s.q.GetSMSMessage(ctx, db.GetSMSMessageParams{OrganizationID: orgID, ID: msgID}); err == nil {
 		out.Status = m.Status
 	}
 	return out, nil
+}
+
+// existing is the send ledger: the message already created for a caller
+// key. A queued message whose send job was never created (a crash between
+// the two writes) gets its job now; nothing else is sent again.
+func (s *Service) existing(ctx context.Context, orgID int64, key string) (Sent, bool, error) {
+	m, err := s.q.GetSMSMessageByIdempotencyKey(ctx, db.GetSMSMessageByIdempotencyKeyParams{
+		OrganizationID: orgID, IdempotencyKey: pgtype.Text{String: key, Valid: true},
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Sent{}, false, nil
+	}
+	if err != nil {
+		return Sent{}, false, err
+	}
+	if !m.IntegrationJobID.Valid && m.Status == StatusQueued && m.HasPayload && m.IntegrationAccountID.Valid {
+		out, err := s.enqueueJob(ctx, orgID, m.ID, m.Uuid, m.IntegrationAccountID.Int64, m.Provider, m.Class, m.Purpose, m.PhoneMasked)
+		return out, true, err
+	}
+	out := Sent{MessageUUID: m.Uuid, Status: m.Status, PhoneMasked: m.PhoneMasked}
+	if full, err := s.q.GetSMSMessage(ctx, db.GetSMSMessageParams{OrganizationID: orgID, ID: m.ID}); err == nil && full.JobUuid.Valid {
+		out.JobUUID = uuid.UUID(full.JobUuid.Bytes)
+	}
+	if m.Status == StatusBlocked {
+		return out, true, ErrNoConsent
+	}
+	return out, true, nil
 }
 
 // HasActiveAccount reports whether the organization has an active SMS
@@ -411,6 +470,9 @@ func (s *Service) IntegrationJobChanged(ctx context.Context, orgID int64, job jo
 		status = StatusSubmitted
 	case jobsusecase.StatusSucceeded:
 		status, clear = StatusDelivered, true
+		if reconciled, _ := res.Response["reconciled"].(bool); reconciled {
+			status = StatusReconciled
+		}
 	case jobsusecase.StatusFailed:
 		status, clear = StatusFailed, true
 		if job.Operation == jobsusecase.OpCheckStatus {
@@ -418,6 +480,10 @@ func (s *Service) IntegrationJobChanged(ctx context.Context, orgID int64, job jo
 		}
 	case jobsusecase.StatusNeedsVerification:
 		status = StatusUnknown
+	case jobsusecase.StatusReconciled:
+		// The send job was marked reconciled (integration job reconcile,
+		// TEC-962): sent outside the restored timeline, never resent.
+		status, clear = StatusReconciled, true
 	}
 	params := db.UpdateSMSMessageStatusParams{
 		OrganizationID: orgID, Uuid: id, Status: status, IntegrationJobID: pgtype.Int8{Int64: job.ID, Valid: true},
@@ -478,6 +544,14 @@ func (o *sendOperation) Submit(ctx context.Context, acc integrations.Account, jo
 	m, sp, err := o.message(ctx, job)
 	if errors.Is(err, pgx.ErrNoRows) || (err == nil && m.ID == 0) {
 		return integrations.Result{Outcome: integrations.OutcomeFailed, Message: "the message no longer exists"}, nil
+	}
+	if m.ID != 0 && m.Status == StatusReconciled {
+		// Send ledger (TEC-962): a message the operator reconciled after a
+		// restore was sent before; the provider is not called again.
+		return integrations.Result{
+			Outcome: integrations.OutcomeSucceeded, Message: "reconciled: sent before the restore, not sent again",
+			Response: map[string]any{"reconciled": true},
+		}, nil
 	}
 	if err != nil {
 		// Nothing was sent: the provider was never called.
