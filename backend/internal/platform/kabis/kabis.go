@@ -167,3 +167,33 @@ func (Official) Report(context.Context, integrations.Account, Notification) (Rec
 func (Official) Lookup(context.Context, integrations.Account, string, string) (LookupResult, error) {
 	return LookupResult{}, integrations.ErrUnsupported
 }
+
+// Guard wraps the official adapter outside production (TEC-744,
+// platform/envguard): with a non-nil refusal it never reaches the
+// authority. Check, Ready, Report and Lookup answer the refusal, so jobs
+// on it are held (waiting on dependency) and nothing is sent. A nil
+// refusal returns p unchanged.
+func Guard(p Provider, refusal error) Provider {
+	if refusal == nil || p == nil {
+		return p
+	}
+	return guarded{inner: p, refusal: refusal}
+}
+
+type guarded struct {
+	inner   Provider
+	refusal error
+}
+
+func (g guarded) Kind() string                 { return g.inner.Kind() }
+func (g guarded) Provider() string             { return g.inner.Provider() }
+func (g guarded) Fields() []integrations.Field { return g.inner.Fields() }
+
+func (g guarded) Check(context.Context, integrations.Account) error { return g.refusal }
+func (g guarded) Ready() error                                      { return g.refusal }
+func (g guarded) Report(context.Context, integrations.Account, Notification) (Receipt, error) {
+	return Receipt{}, g.refusal
+}
+func (g guarded) Lookup(context.Context, integrations.Account, string, string) (LookupResult, error) {
+	return LookupResult{}, g.refusal
+}

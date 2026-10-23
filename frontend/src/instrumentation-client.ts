@@ -11,7 +11,11 @@ import { commonSentryOptions } from "@/lib/observability/sentry-options";
  * before hydration), so the script calls back into __onAppEnv; if it already
  * ran (order is not guaranteed across Next versions) we init right away.
  */
-type ClientEnv = { sentryDsn?: string; sentryEnvironment?: string };
+type ClientEnv = {
+  sentryDsn?: string;
+  sentryEnvironment?: string;
+  sentryRelease?: string;
+};
 type AppEnvGlobal = {
   __APP_ENV__?: ClientEnv;
   __onAppEnv?: (env: ClientEnv) => void;
@@ -25,7 +29,8 @@ function initSentry(env: ClientEnv | undefined) {
   Sentry.init({
     ...commonSentryOptions,
     dsn: env.sentryDsn,
-    environment: env.sentryEnvironment || "production",
+    environment: env.sentryEnvironment || "development",
+    ...(env.sentryRelease ? { release: env.sentryRelease } : {}),
   });
 }
 

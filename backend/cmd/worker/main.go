@@ -242,13 +242,13 @@ func main() {
 	tollProviders := tollsmodule.Providers(cfg.App.Env, log)
 	// KABİS adapters (TEC-726): the official slot and the fake outside
 	// production only.
-	kabisProviders := kabismodule.Providers(cfg.App.Env, log)
+	kabisProviders := kabismodule.Providers(cfg.App.Env, cfg.Guard.KabisAllowProduction, log)
 	integrationAdapters := append([]integrations.Adapter{iyzicoAdapter}, smsmodule.Adapters(smsProviders)...)
 	integrationAdapters = append(integrationAdapters, tollsmodule.Adapters(tollProviders)...)
 	integrationAdapters = append(integrationAdapters, kabismodule.Adapters(kabisProviders)...)
 	// E-invoice integrators (TEC-722): the official slot and the fake
 	// outside production only.
-	invoiceProviders := invoicesmodule.Providers(cfg.App.Env, log)
+	invoiceProviders := invoicesmodule.Providers(cfg.App.Env, cfg.Guard.EInvoiceAllowProduction, log)
 	integrationAdapters = append(integrationAdapters, invoicesmodule.Adapters(invoiceProviders)...)
 	whatsappProviders, whatsappFake := whatsappmodule.Providers(cfg.WhatsApp, cfg.App.Env, log)
 	integrationAdapters = append(integrationAdapters, whatsappmodule.Adapters(whatsappProviders)...)
@@ -554,6 +554,12 @@ func main() {
 	platformHealthSvc := platformhealthusecase.New(queries, healthRegistry)
 	platformHealthSvc.SetNotifier(notifSvc)
 	platformHealthSvc.SetLogger(log)
+	// Failed-work alerts (TEC-744): dead tasks and integration jobs that
+	// need attention, one per job kind per window (Redis dedupe).
+	platformHealthSvc.SetFailureAlerts(platformhealthusecase.FailureAlertConfig{
+		Email: cfg.Alerts.Email, Window: cfg.Alerts.DedupeWindow, Dedupe: platformhealthusecase.RedisDeduper{RDB: workerRDB},
+	})
+	integrationRunner.AddListener(platformHealthSvc)
 
 	worker := queue.NewWorker(cfg, log, notifSvc.Deliver).
 		WithExport(exportSvc.ProcessExport).
@@ -627,6 +633,7 @@ func main() {
 		WithTolls(tollsSvc.ScheduleFetches, tollsSvc.RematchDue).
 		WithAgreementPeriods(financeSvc.AccruePeriods).
 		WithPlatformHealthAlerts(platformHealthSvc.RunAlertsCount).
+		WithFailureAlerts(platformHealthSvc.AlertDeadTask).
 		WithPublicWebhooks(publicAPISvc.DeliverDue).
 		WithSiteDomains(siteDomains.Sweep).
 		WithNotifyEngine(notifyEngine.Sweep).

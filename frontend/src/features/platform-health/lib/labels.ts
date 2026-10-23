@@ -9,7 +9,7 @@ import { loadMessages } from "@/lib/i18n/messages";
  */
 export function healthLabel(
   locale: AppLocale,
-  group: "sources" | "metrics" | "kinds",
+  group: "sources" | "metrics" | "kinds" | "job_status",
   code: string,
 ): string {
   const messages = loadMessages(locale) as Record<

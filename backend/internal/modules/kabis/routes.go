@@ -13,11 +13,11 @@ package kabis
 import (
 	"log/slog"
 	"net/http"
-	"strings"
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/middleware"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/kabis/handler"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/kabis/model"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/envguard"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/integrations"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/jwt"
@@ -34,10 +34,13 @@ const Resource = model.Resource
 // Providers builds the KABİS adapters of the environment: the official
 // slot always (it reports "waiting on dependency" until TEC-682 verifies
 // the method), the fake (kabis_fake) outside production only, so it is
-// never selectable there.
-func Providers(appEnv string, _ *slog.Logger) []kabis.Provider {
-	out := []kabis.Provider{kabis.Official{}}
-	if !strings.EqualFold(strings.TrimSpace(appEnv), "production") {
+// never selectable there. Outside production the official slot is also
+// guarded (TEC-744): it never reaches the authority unless
+// KABIS_ALLOW_PRODUCTION_IN_NON_PROD (allowProduction) is set.
+func Providers(appEnv string, allowProduction bool, _ *slog.Logger) []kabis.Provider {
+	refusal := envguard.Refusal(appEnv, "kabis", envguard.AllowKabisKey, allowProduction)
+	out := []kabis.Provider{kabis.Guard(kabis.Official{}, refusal)}
+	if !envguard.IsProduction(appEnv) {
 		out = append(out, kabisfake.New())
 	}
 	return out

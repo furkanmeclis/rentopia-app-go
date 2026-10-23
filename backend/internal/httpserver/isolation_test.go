@@ -104,6 +104,7 @@ var isolationAllowlist = map[string]string{
 	"POST /v1/tenant/whatsapp/session/logout":        "unlinks the caller's organization's WhatsApp session; no body",
 	"POST /v1/tenant/whatsapp/test-messages":         "test text to a typed number through the caller's organization's session; no records",
 	"POST /v1/tenant/public-api/keys":                "body has no foreign references (kind, name, channel, scopes, origins, rate limit)",
+	"POST /v1/tenant/support-access":                 "body has no foreign references (scope, duration, note); grants are the {uuid} revoke cases",
 	"POST /v1/tenant/public-api/webhooks":            "body has no foreign references (name, URL, event names)",
 	"POST /v1/tenant/site/media":                     "file and alt only; organization derived from scope (media quota and isolation tests)",
 	"POST /v1/tenant/site/domains":                   "host only; organization comes from authenticated scope (domain isolation tests)",
@@ -675,6 +676,9 @@ func TestTenantIsolationRT_A01(t *testing.T) {
 		}), http.StatusCreated, "create supplier payment"), "uuid")
 		// Public booking API (TEC-728): a key, a webhook endpoint and its
 		// test delivery (the target refuses the connection).
+		ids["supportGrant"] = str(must(call(o, http.MethodPost, "/v1/tenant/support-access", map[string]any{
+			"scope": "read_only", "duration_hours": 24, "note": m + " destek",
+		}), http.StatusCreated, "open support access"), "uuid")
 		ids["publicKey"] = str(must(call(o, http.MethodPost, "/v1/tenant/public-api/keys", map[string]any{
 			"kind": "publishable", "name": m + " Site", "channel": "web", "allowed_origins": []string{"https://" + strings.ToLower(m) + ".example"},
 		}), http.StatusCreated, "create public api key"), "key", "uuid")
@@ -1733,6 +1737,8 @@ func paramKey(prev, name string) string {
 		return "webhookDelivery"
 	case "notification-dispatches/uuid":
 		return "notificationDispatch"
+	case "support-access/uuid":
+		return "supportGrant"
 	}
 	return ""
 }

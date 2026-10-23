@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/envguard"
 	"github.com/joho/godotenv"
 )
 
@@ -36,6 +37,27 @@ type Config struct {
 	SMS        SMSConfig
 	WhatsApp   WhatsAppConfig
 	Site       SiteConfig
+	Guard      ProductionGuardConfig
+	Alerts     AlertsConfig
+}
+
+// ProductionGuardConfig lifts the non-production refusal of an official
+// provider endpoint (TEC-744, internal/platform/envguard). All false by
+// default: outside APP_ENV=production the KABİS and e-invoice official
+// adapters are refused (Netgsm: SMSConfig.NetgsmAllowProduction). Ignored
+// in production.
+type ProductionGuardConfig struct {
+	KabisAllowProduction    bool
+	EInvoiceAllowProduction bool
+}
+
+// AlertsConfig routes failed-work alerts (TEC-744): a dead Asynq task or an
+// integration job that needs attention notifies the platform
+// administrators (platform.health.read) in the panel and, when Email is
+// set, by e-mail too. One alert per job kind per DedupeWindow.
+type AlertsConfig struct {
+	Email        string
+	DedupeWindow time.Duration
 }
 
 // SiteConfig is the branded site (TEC-729): every organization's site
@@ -71,10 +93,16 @@ type WhatsAppConfig struct {
 // URL is empty in production (sandbox accounts refuse to send) and points
 // at cmd/netgsm-fake in development. LogProvider registers the development
 // log provider; it is ignored when APP_ENV is production.
+//
+// Outside production live accounts are refused while NetgsmLiveBaseURL is
+// Netgsm's official host (real SMS), unless NetgsmAllowProduction
+// (NETGSM_ALLOW_PRODUCTION_IN_NON_PROD) is set; pointing the live URL at
+// cmd/netgsm-fake (staging rehearsal) is allowed.
 type SMSConfig struct {
-	NetgsmLiveBaseURL    string
-	NetgsmSandboxBaseURL string
-	LogProvider          bool
+	NetgsmLiveBaseURL     string
+	NetgsmSandboxBaseURL  string
+	LogProvider           bool
+	NetgsmAllowProduction bool
 }
 
 // PaymentsConfig holds the provider endpoints (TEC-707). Credentials are
@@ -282,7 +310,7 @@ func Load() (Config, error) {
 	cfg := Config{
 		App: AppConfig{
 			Name: getEnv("APP_NAME", "api"),
-			Env:  getEnv("APP_ENV", "development"),
+			Env:  envguard.Normalize(getEnv("APP_ENV", envguard.Development)),
 		},
 		Encryption: EncryptionConfig{
 			Key: getEnv("APP_ENCRYPTION_KEY", defaultEncryptionKey),
@@ -378,7 +406,7 @@ func Load() (Config, error) {
 		},
 		Sentry: SentryConfig{
 			DSN:              strings.TrimSpace(getEnv("SENTRY_DSN", "")),
-			Environment:      getEnv("SENTRY_ENVIRONMENT", getEnv("APP_ENV", "development")),
+			Environment:      getEnv("SENTRY_ENVIRONMENT", envguard.Normalize(getEnv("APP_ENV", envguard.Development))),
 			Release:          getEnv("SENTRY_RELEASE", ""),
 			TracesSampleRate: clampRate(getFloat("SENTRY_TRACES_SAMPLE_RATE", 0)),
 		},
@@ -392,9 +420,10 @@ func Load() (Config, error) {
 			IyzicoLiveBaseURL:    getEnv("IYZICO_LIVE_BASE_URL", "https://api.iyzipay.com"),
 		},
 		SMS: SMSConfig{
-			NetgsmLiveBaseURL:    getEnv("NETGSM_LIVE_BASE_URL", "https://api.netgsm.com.tr"),
-			NetgsmSandboxBaseURL: getEnv("NETGSM_SANDBOX_BASE_URL", ""),
-			LogProvider:          getBool("SMS_LOG_PROVIDER", false),
+			NetgsmLiveBaseURL:     getEnv("NETGSM_LIVE_BASE_URL", "https://api.netgsm.com.tr"),
+			NetgsmSandboxBaseURL:  getEnv("NETGSM_SANDBOX_BASE_URL", ""),
+			LogProvider:           getBool("SMS_LOG_PROVIDER", false),
+			NetgsmAllowProduction: getBool(envguard.AllowNetgsmKey, false),
 		},
 		WhatsApp: WhatsAppConfig{
 			WuzapiBaseURL:    getEnv("WUZAPI_BASE_URL", ""),
@@ -413,6 +442,14 @@ func Load() (Config, error) {
 			DokploySiteService: getEnv("DOKPLOY_SITE_SERVICE", "site"),
 			DokploySitePort:    getInt("DOKPLOY_SITE_PORT", 3000),
 			AppNetworkName:     getEnv("APP_NETWORK_NAME", ""),
+		},
+		Guard: ProductionGuardConfig{
+			KabisAllowProduction:    getBool(envguard.AllowKabisKey, false),
+			EInvoiceAllowProduction: getBool(envguard.AllowEInvoiceKey, false),
+		},
+		Alerts: AlertsConfig{
+			Email:        strings.TrimSpace(getEnv("ALERT_EMAIL", "")),
+			DedupeWindow: 15 * time.Minute,
 		},
 	}
 
@@ -438,6 +475,9 @@ const (
 func (c Config) validate() error {
 	if c.App.Name == "" {
 		return fmt.Errorf("config: APP_NAME is required")
+	}
+	if !envguard.Valid(c.App.Env) {
+		return fmt.Errorf("config: APP_ENV must be development, staging or production (got %q)", c.App.Env)
 	}
 	if c.HTTP.Addr == "" {
 		return fmt.Errorf("config: APP_HTTP_ADDR is required")

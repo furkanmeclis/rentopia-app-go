@@ -853,7 +853,9 @@ export interface paths {
          *     `integration_jobs` — failed jobs of the last 7 days, jobs waiting on verification, on a dependency or
          *     blocked, overdue work). Other modules register further sources; clients render unknown source codes,
          *     metric keys and issue kinds generically. A source that cannot be read reports `unknown`. `alerts`
-         *     holds the failed-work alert sweep's cursor per source.
+         *     holds the failed-work alert sweep's cursor per source. `queues` is the Asynq snapshot per queue
+         *     (pending / active / scheduled / retry / archived = dead) and `integration_jobs` the job count per
+         *     status (TEC-744).
          */
         get: operations["getPlatformHealth"];
         put?: never;
@@ -1056,6 +1058,27 @@ export interface paths {
          * @description Platform operations on the organization plus every activity event recorded inside it, newest first (`platform.organizations.read`).
          */
         get: operations["getPlatformOrganizationActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/support-grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Active support access grants
+         * @description `platform.users.impersonate` (TEC-678). Organizations that currently allow support access, soonest
+         *     expiry first (at most 200). Impersonating a member of an organization needs one of these.
+         */
+        get: operations["getPlatformSupportGrants"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1452,6 +1475,9 @@ export interface paths {
          * Impersonate user
          * @description Issues tokens for the target user while preserving the actor in the `imp` JWT claim
          *     and refresh token metadata. Requires step-up verification.
+         *     A target who is a member of any organization can be impersonated only while one of
+         *     those organizations has an active support access grant (TEC-678), otherwise
+         *     `403 SUPPORT_GRANT_REQUIRED`; no super admin bypass.
          */
         post: operations["postPlatformUserImpersonate"];
         delete?: never;
@@ -7644,6 +7670,56 @@ export interface paths {
         get: operations["getTenantPublicAPIOverview"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/support-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List support access grants
+         * @description `tenant.support_access.manage` (TEC-678). The organization's support access grants, newest first.
+         *     `status` is derived at request time: `active` (not revoked, not expired), `expired`, `revoked`.
+         */
+        get: operations["getTenantSupportAccessGrants"];
+        put?: never;
+        /**
+         * Open support access
+         * @description `tenant.support_access.manage` (TEC-678). Lets platform support staff enter the organization through
+         *     impersonation for `duration_hours` (1 to 168), `read_only` (every non-GET tenant request answers
+         *     `403 SUPPORT_READ_ONLY`) or `full`. Replaces the active grant, if any. Impersonated sessions cannot
+         *     open or revoke grants (`403 FORBIDDEN`). Recorded as `support_access.opened`.
+         */
+        post: operations["postTenantSupportAccessGrant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/support-access/{uuid}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke support access
+         * @description `tenant.support_access.manage` (TEC-678). Ends an active grant at once: support sessions in the
+         *     organization are refused from the next request (`403 SUPPORT_GRANT_REQUIRED`). An expired or already
+         *     revoked grant answers `404`. Recorded as `support_access.revoked`.
+         */
+        post: operations["postTenantSupportAccessGrantRevoke"];
         delete?: never;
         options?: never;
         head?: never;
@@ -16352,6 +16428,23 @@ export interface components {
             last_alert_at: string | null;
             last_alert_count: number;
         };
+        /** @description One background (Asynq) queue at check time. Archived tasks are dead (retries exhausted). */
+        PlatformHealthQueue: {
+            queue: string;
+            pending: number;
+            active: number;
+            scheduled: number;
+            retry: number;
+            /** @description Dead tasks (retries exhausted). */
+            archived: number;
+            paused: boolean;
+        };
+        PlatformHealthJobStatusCount: {
+            /** @description integration_jobs.status (pending, processing, submitted, succeeded, failed, needs_verification, blocked, waiting_dependency, …). */
+            status: string;
+            /** Format: int64 */
+            count: number;
+        };
         PlatformHealthSummary: {
             /** @enum {string} */
             status: "healthy" | "degraded" | "failing" | "unknown";
@@ -16361,6 +16454,12 @@ export interface components {
             warning: number;
             sources: components["schemas"]["PlatformHealthSource"][];
             alerts: components["schemas"]["PlatformHealthAlertState"][];
+            /** @description Asynq queue snapshot (empty when the queue is off). */
+            queues: components["schemas"]["PlatformHealthQueue"][];
+            /** @description Set when the queue snapshot could not be read. */
+            queues_error?: string;
+            /** @description Integration jobs per status (all time, live organizations and platform jobs). */
+            integration_jobs: components["schemas"]["PlatformHealthJobStatusCount"][];
         };
         EnvelopePlatformHealthSummary: {
             /** @enum {boolean} */
@@ -30289,6 +30388,83 @@ export interface components {
             name: string;
             surname: string;
         };
+        SupportGrantUser: {
+            /** Format: uuid */
+            uuid: string;
+            name: string;
+            surname: string;
+            email: string;
+        };
+        /** @description Support access grant of an organization (TEC-678). */
+        SupportGrant: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            scope: "read_only" | "full";
+            /** @enum {string} */
+            status: "active" | "expired" | "revoked";
+            note: string;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            revoked_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            created_by: components["schemas"]["SupportGrantUser"] | null;
+            revoked_by: components["schemas"]["SupportGrantUser"] | null;
+        };
+        SupportGrantOpenRequest: {
+            /** @enum {string} */
+            scope: "read_only" | "full";
+            duration_hours: number;
+            note?: string;
+        };
+        EnvelopeSupportGrant: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["SupportGrant"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeSupportGrantPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["SupportGrant"][];
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        PlatformSupportGrant: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            scope: "read_only" | "full";
+            note: string;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            created_at: string;
+            organization: {
+                /** Format: uuid */
+                uuid: string;
+                slug: string;
+                name: string;
+            };
+            created_by: components["schemas"]["SupportGrantUser"] | null;
+        };
+        EnvelopePlatformSupportGrantPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["PlatformSupportGrant"][];
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
         PublicAPIKey: {
             /** Format: uuid */
             uuid: string;
@@ -31664,6 +31840,9 @@ export interface components {
          *     `details[0].code` names the feature key. Reads (lists, details,
          *     exports) and switching things off stay open on every plan, so history
          *     never disappears after a downgrade
+         *     `SUPPORT_GRANT_REQUIRED` (TEC-678): an impersonated (support) session
+         *     and the organization has no active support access grant;
+         *     `SUPPORT_READ_ONLY`: a non-GET request under a `read_only` grant.
          */
         TenantForbidden: {
             headers: {
@@ -33562,6 +33741,28 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getPlatformSupportGrants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active grants */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopePlatformSupportGrantPage"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
         };
     };
     getPlatformPlans: {
@@ -45618,6 +45819,105 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["TenantForbidden"];
+        };
+    };
+    getTenantSupportAccessGrants: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                /** @description Comma-separated statuses: active, expired, revoked */
+                status?: string;
+            };
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Grant page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSupportGrantPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantSupportAccessGrant: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupportGrantOpenRequest"];
+            };
+        };
+        responses: {
+            /** @description Opened grant */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSupportGrant"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+        };
+    };
+    postTenantSupportAccessGrantRevoke: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Organization of a `/v1/tenant/*` request: its slug (preferred, readable
+                 *     in logs) or uuid. The BFF forwards it on `/api/v1/tenant/*` only.
+                 */
+                "X-Organization": components["parameters"]["XOrganization"];
+            };
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked grant */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeSupportGrant"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["TenantForbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     getTenantPublicAPIKeys: {

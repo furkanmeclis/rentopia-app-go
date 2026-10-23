@@ -182,3 +182,41 @@ func (Official) Download(context.Context, integrations.Account, string, string, 
 func (Official) LookupTaxpayer(context.Context, integrations.Account, string) (Taxpayer, error) {
 	return Taxpayer{}, integrations.ErrUnsupported
 }
+
+// Guard wraps the official integrator adapter outside production (TEC-744,
+// platform/envguard): with a non-nil refusal it never reaches the
+// integrator. Every call answers the refusal, so sends are held (waiting
+// on dependency) and nothing leaves. A nil refusal returns p unchanged.
+func Guard(p Provider, refusal error) Provider {
+	if refusal == nil || p == nil {
+		return p
+	}
+	return guarded{inner: p, refusal: refusal}
+}
+
+type guarded struct {
+	inner   Provider
+	refusal error
+}
+
+func (g guarded) Kind() string                 { return g.inner.Kind() }
+func (g guarded) Provider() string             { return g.inner.Provider() }
+func (g guarded) Fields() []integrations.Field { return g.inner.Fields() }
+
+func (g guarded) Check(context.Context, integrations.Account) error { return g.refusal }
+func (g guarded) Ready() error                                      { return g.refusal }
+func (g guarded) Send(context.Context, integrations.Account, Document) (SendResult, error) {
+	return SendResult{}, g.refusal
+}
+func (g guarded) Status(context.Context, integrations.Account, string, string) (StatusResult, error) {
+	return StatusResult{}, g.refusal
+}
+func (g guarded) Cancel(context.Context, integrations.Account, string, string, string) error {
+	return g.refusal
+}
+func (g guarded) Download(context.Context, integrations.Account, string, string, string) ([]byte, error) {
+	return nil, g.refusal
+}
+func (g guarded) LookupTaxpayer(context.Context, integrations.Account, string) (Taxpayer, error) {
+	return Taxpayer{}, g.refusal
+}

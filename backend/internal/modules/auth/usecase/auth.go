@@ -33,6 +33,9 @@ var (
 	ErrLastSuperAdmin       = errors.New("cannot demote the last super admin")
 	ErrSystemRole           = errors.New("system role cannot be modified")
 	ErrAlreadyImpersonating = errors.New("already impersonating another user")
+	// ErrSupportGrantRequired: none of the target's organizations has an
+	// active support access grant (TEC-678).
+	ErrSupportGrantRequired = errors.New("support access grant required")
 	// ErrAccountDeactivated wraps ErrUserDisabled: the user deleted (deactivated)
 	// their own account. Handlers report it with a dedicated error code.
 	ErrAccountDeactivated = fmt.Errorf("%w: account deactivated", ErrUserDisabled)
@@ -117,6 +120,7 @@ type AuthUseCase struct {
 	realtime      RealtimeHints
 	searchIndexer SearchIndexer
 	orgs          OrganizationsLister
+	supportAccess SupportAccessGate
 	// Optional registration / method policy (nil = allow password login, deny register).
 	authSettings AuthSettingsGate
 	accessPolicy AccessPolicyGate
@@ -156,6 +160,13 @@ type SearchIndexer interface {
 // OrganizationsLister attaches tenant memberships to /auth/me when tenancy is wired.
 type OrganizationsLister interface {
 	ListForUser(ctx context.Context, userID int64) ([]model.MeOrganization, error)
+}
+
+// SupportAccessGate decides whether a user may be impersonated (TEC-678):
+// a member of any organization only while one of them has an active
+// support access grant. Implemented by supportaccess usecase.Service.
+type SupportAccessGate interface {
+	TargetHasSupportAccess(ctx context.Context, userID int64) (bool, error)
 }
 
 // RealtimeHints carries non-secret Centrifugo metadata for /me.

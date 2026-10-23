@@ -3,7 +3,13 @@
 import { useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Ban, CalendarX2, ShieldAlert, TriangleAlert } from "lucide-react";
+import {
+  Ban,
+  CalendarX2,
+  LifeBuoy,
+  ShieldAlert,
+  TriangleAlert,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -25,9 +31,11 @@ export const TENANT_ACCESS_CODES = {
   notMember: "NO_TENANT_MEMBERSHIP",
   suspended: "ORGANIZATION_SUSPENDED",
   expired: "ORGANIZATION_ACCESS_EXPIRED",
+  supportGrantRequired: "SUPPORT_GRANT_REQUIRED",
 } as const;
 
-type AccessIssue = "not_member" | "suspended" | "expired" | "unavailable";
+type AccessIssue =
+  "not_member" | "suspended" | "expired" | "support" | "unavailable";
 
 function issueFor(code: string | undefined): AccessIssue {
   switch (code) {
@@ -37,6 +45,8 @@ function issueFor(code: string | undefined): AccessIssue {
       return "suspended";
     case TENANT_ACCESS_CODES.expired:
       return "expired";
+    case TENANT_ACCESS_CODES.supportGrantRequired:
+      return "support";
     default:
       return "unavailable";
   }
@@ -57,6 +67,11 @@ const ISSUE_VIEW = {
     icon: CalendarX2,
     title: "tenant.access.expired_title",
     body: "tenant.access.expired_body",
+  },
+  support: {
+    icon: LifeBuoy,
+    title: "tenant.access.support_title",
+    body: "tenant.access.support_body",
   },
   unavailable: {
     icon: TriangleAlert,

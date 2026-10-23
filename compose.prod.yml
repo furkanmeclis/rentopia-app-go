@@ -33,7 +33,9 @@ x-site-image: &site-image
 
 x-backend-environment: &backend-environment
   APP_NAME: ${APP_NAME:-api}
-  APP_ENV: production
+  # development | staging | production (TEC-744). A staging stack sets
+  # staging: official KABİS / e-invoice / Netgsm endpoints are then refused.
+  APP_ENV: ${APP_ENV:-production}
   APP_HTTP_ADDR: :8080
   DB_HOST: postgres.${APP_NETWORK_NAME:-${NAME_PREFIX:?NAME_PREFIX is required}-app}
   DB_PORT: "5432"
@@ -117,9 +119,17 @@ x-backend-environment: &backend-environment
   # --- Error tracking (Sentry protocol, self-hosted). Empty DSN = off. ---
   # Dokploy env is shared by every service, so the backend DSN has its own name.
   SENTRY_DSN: ${BACKEND_SENTRY_DSN:-}
-  SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+  # Empty = APP_ENV.
+  SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-}
+  SENTRY_RELEASE: ${SENTRY_RELEASE:-}
   # Share of HTTP requests sent as performance transactions (0 = off).
   SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0}
+  # --- Failed-work alerts (TEC-744): e-mail copy for platform admins (optional). ---
+  ALERT_EMAIL: ${ALERT_EMAIL:-}
+  # --- Production guard (TEC-744): ignored when APP_ENV=production. ---
+  KABIS_ALLOW_PRODUCTION_IN_NON_PROD: ${KABIS_ALLOW_PRODUCTION_IN_NON_PROD:-false}
+  EINVOICE_ALLOW_PRODUCTION_IN_NON_PROD: ${EINVOICE_ALLOW_PRODUCTION_IN_NON_PROD:-false}
+  NETGSM_ALLOW_PRODUCTION_IN_NON_PROD: ${NETGSM_ALLOW_PRODUCTION_IN_NON_PROD:-false}
   # --- Payments: provider endpoints only (merchant keys live per organization). ---
   IYZICO_SANDBOX_BASE_URL: ${IYZICO_SANDBOX_BASE_URL:-https://sandbox-api.iyzipay.com}
   IYZICO_LIVE_BASE_URL: ${IYZICO_LIVE_BASE_URL:-https://api.iyzipay.com}
@@ -365,7 +375,10 @@ services:
       # Error tracking, read at runtime by the Next.js server/edge and served
       # to the browser by /api/client-env (no build arg). Empty = off.
       SENTRY_DSN: ${FRONTEND_SENTRY_DSN:-}
-      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+      APP_ENV: ${APP_ENV:-production}
+      # Empty = APP_ENV.
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-}
+      SENTRY_RELEASE: ${SENTRY_RELEASE:-}
     depends_on:
       backend:
         condition: service_healthy
@@ -402,6 +415,12 @@ services:
     environment:
       SITE_EMBED_SECRET: ${SITE_EMBED_SECRET:?SITE_EMBED_SECRET is required}
       API_URL: http://backend.${APP_NETWORK_NAME:-${NAME_PREFIX:?NAME_PREFIX is required}-app}:8080/v1
+      # TEC-744: staging is never indexed (robots); error tracking is off
+      # without SITE_SENTRY_DSN.
+      APP_ENV: ${APP_ENV:-production}
+      SENTRY_DSN: ${SITE_SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-}
+      SENTRY_RELEASE: ${SENTRY_RELEASE:-}
     depends_on:
       backend:
         condition: service_healthy

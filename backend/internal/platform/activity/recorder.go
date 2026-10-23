@@ -9,6 +9,7 @@ import (
 	"net/netip"
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/authctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -33,6 +34,7 @@ func (r *Recorder) Record(ctx context.Context, actorID *int64, action, resource 
 	if r == nil || r.q == nil {
 		return
 	}
+	payload = withSupportContext(ctx, payload)
 	body, err := json.Marshal(payload)
 	if err != nil || payload == nil {
 		body = []byte("{}")
@@ -72,6 +74,26 @@ func (r *Recorder) Record(ctx context.Context, actorID *int64, action, resource 
 	if err != nil {
 		r.log.Warn("activity_record_failed", "action", action, "error", err)
 	}
+}
+
+// withSupportContext tags events of impersonated sessions (TEC-678): imp is
+// the impersonating platform user, support_grant_uuid the organization's
+// support access grant the request ran under. The caller's map is not
+// modified.
+func withSupportContext(ctx context.Context, payload map[string]any) map[string]any {
+	p, ok := authctx.PrincipalFrom(ctx)
+	if !ok || p.ImpersonatorUserID == nil {
+		return payload
+	}
+	out := make(map[string]any, len(payload)+2)
+	for k, v := range payload {
+		out[k] = v
+	}
+	out["imp"] = p.ImpersonatorUserID.String()
+	if s, ok := orgctx.From(ctx); ok && s.SupportGrant != nil {
+		out["support_grant_uuid"] = s.SupportGrant.UUID.String()
+	}
+	return out
 }
 
 func pgtypeInt8(id *int64) pgtype.Int8 {

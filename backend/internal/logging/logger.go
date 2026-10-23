@@ -6,9 +6,12 @@ import (
 	"strings"
 )
 
-// New creates a structured slog logger from level and format settings.
+// New creates a structured slog logger from level and format settings
+// (JSON by default: time, level, msg and attributes). Secret attributes
+// and secret-looking text are masked (RedactAttr); records logged with a
+// request context carry request_id and organization_uuid.
 func New(level, format string) *slog.Logger {
-	opts := &slog.HandlerOptions{Level: parseLevel(level)}
+	opts := &slog.HandlerOptions{Level: parseLevel(level), ReplaceAttr: RedactAttr}
 
 	var handler slog.Handler
 	if strings.EqualFold(format, "text") {
@@ -17,7 +20,7 @@ func New(level, format string) *slog.Logger {
 		handler = slog.NewJSONHandler(os.Stdout, opts)
 	}
 
-	return slog.New(handler)
+	return slog.New(contextHandler{next: handler})
 }
 
 func parseLevel(level string) slog.Level {

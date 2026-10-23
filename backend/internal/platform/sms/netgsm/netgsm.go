@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -82,10 +83,28 @@ var reportStates = map[int]sms.DeliveryState{
 // Config holds the base URLs and the HTTP client. Netgsm has no sandbox:
 // SandboxBaseURL is empty in production (sandbox accounts then refuse to
 // send) and points at netgsmfake / cmd/netgsm-fake in development.
+//
+// RefuseOfficial (TEC-744, platform/envguard): when set, live accounts are
+// refused while LiveBaseURL is Netgsm's official host (the API outside
+// production); a live URL pointed at netgsmfake stays usable.
 type Config struct {
 	LiveBaseURL    string
 	SandboxBaseURL string
 	HTTPClient     *http.Client
+	RefuseOfficial error
+}
+
+// OfficialHost is the host of Netgsm's production API.
+const OfficialHost = "api.netgsm.com.tr"
+
+// IsOfficial reports whether baseURL points at Netgsm's production API.
+func IsOfficial(baseURL string) bool {
+	u, err := url.Parse(strings.TrimSpace(baseURL))
+	if err != nil {
+		return false
+	}
+	host := strings.ToLower(u.Hostname())
+	return host == OfficialHost || strings.HasSuffix(host, ".netgsm.com.tr") || host == "netgsm.com.tr"
 }
 
 // Adapter implements sms.Provider for Netgsm.
@@ -125,6 +144,9 @@ func (a *Adapter) Fields() []integrations.Field {
 
 func (a *Adapter) baseURL(acc integrations.Account) (string, error) {
 	if acc.Mode == integrations.ModeLive {
+		if a.cfg.RefuseOfficial != nil && IsOfficial(a.cfg.LiveBaseURL) {
+			return "", a.cfg.RefuseOfficial
+		}
 		return a.cfg.LiveBaseURL, nil
 	}
 	if a.cfg.SandboxBaseURL == "" {
@@ -175,7 +197,11 @@ func IsUncertain(err error) bool {
 func (a *Adapter) do(ctx context.Context, acc integrations.Account, method, path string, body any) (answer, error) {
 	base, err := a.baseURL(acc)
 	if err != nil {
-		return answer{}, &sms.Rejected{Code: "sandbox", Message: err.Error()}
+		code := "sandbox"
+		if acc.Mode == integrations.ModeLive {
+			code = "environment"
+		}
+		return answer{}, &sms.Rejected{Code: code, Message: err.Error()}
 	}
 	var reader io.Reader
 	if body != nil {

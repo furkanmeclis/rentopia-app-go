@@ -10,6 +10,8 @@ export type HealthSummary = Schemas["PlatformHealthSummary"];
 export type HealthSource = Schemas["PlatformHealthSource"];
 export type HealthMetric = Schemas["PlatformHealthMetric"];
 export type HealthAlertState = Schemas["PlatformHealthAlertState"];
+export type HealthQueue = Schemas["PlatformHealthQueue"];
+export type HealthJobStatusCount = Schemas["PlatformHealthJobStatusCount"];
 export type HealthIssue = Schemas["PlatformHealthIssue"];
 export type HealthIssuePage =
   Schemas["EnvelopePlatformHealthIssuePage"]["data"];

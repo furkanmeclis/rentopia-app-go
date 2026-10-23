@@ -5,6 +5,8 @@
   "access.suspended_body": "\"{{slug}}\" has been suspended. Contact the platform administrator.",
   "access.expired_title": "Access period ended",
   "access.expired_body": "The access period of \"{{slug}}\" has ended. Contact the platform administrator to extend it.",
+  "access.support_title": "No support access",
+  "access.support_body": "\"{{slug}}\" has not granted support access, or the access has expired. Ask the company to open access under Settings → Support access.",
   "access.unavailable_title": "Organization could not be loaded",
   "access.unavailable_body": "\"{{slug}}\" could not be loaded right now. Please try again.",
   "access.signed_in_as": "Signed in as {{email}}",

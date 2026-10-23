@@ -206,3 +206,13 @@ WHERE p.slug = sqlc.arg(slug)
   AND u.deactivated_at IS NULL
   AND u.status = 'active'
 ORDER BY u.id;
+
+-- name: CountIntegrationJobsByStatus :many
+-- Integration jobs of live organizations (and platform jobs) per status,
+-- all time (the platform health queue snapshot, TEC-744).
+SELECT ij.status, COUNT(*)::bigint AS count
+FROM integration_jobs ij
+LEFT JOIN organizations o ON o.id = ij.organization_id
+WHERE (ij.organization_id IS NULL OR o.deleted_at IS NULL)
+GROUP BY ij.status
+ORDER BY ij.status;

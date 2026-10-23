@@ -4,13 +4,15 @@
  * read the Sentry DSN from the container env (SENTRY_DSN) instead of a
  * build-time NEXT_PUBLIC_* variable. A DSN is public by design.
  */
+import { sentryEnvironment, sentryRelease } from "@/lib/observability/app-env";
+
 export const dynamic = "force-dynamic";
 
 export function GET() {
   const payload = {
     sentryDsn: process.env.SENTRY_DSN?.trim() || "",
-    sentryEnvironment:
-      process.env.SENTRY_ENVIRONMENT?.trim() || process.env.NODE_ENV || "",
+    sentryEnvironment: sentryEnvironment(),
+    sentryRelease: sentryRelease() ?? "",
   };
   const json = JSON.stringify(payload).replace(/</g, "\\u003c");
   // instrumentation-client.ts registers __onAppEnv before this runs.

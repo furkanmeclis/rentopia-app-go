@@ -229,6 +229,8 @@
   "labels.tenant.public_api.read": "View public API keys and webhooks",
   "labels.tenant.public_api.manage": "Manage public API keys and webhooks",
   "groups.tenant_public_api": "Public API",
+  "labels.tenant.support_access.manage": "Open, list and revoke support access",
+  "groups.tenant_support_access": "Support access",
   "labels.tenant.site.read": "View branded site settings",
   "labels.tenant.site.manage": "Manage the branded site (publishing, address, theme, content)",
   "groups.tenant_site": "Branded site",

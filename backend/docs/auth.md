@@ -183,6 +183,13 @@ Returns `user`, `roles[]`, `permissions[]` (platform scope), `organizations[]` (
 
 Last super admin cannot be demoted via role removal or disable.
 
+**Support access (TEC-678).** Impersonation enters an organization only with its consent. Owners / admins (`tenant.support_access.manage`) open a grant under `/v1/tenant/support-access` (`scope` `read_only` | `full`, 1 h – 7 d, optional note; a new grant replaces the active one) and revoke it at any time (`POST …/{uuid}/revoke`); both are recorded (`support_access.opened` / `.revoked`). Rules, with **no super admin bypass**:
+
+- `POST /v1/platform/users/{uuid}/impersonate`: a target who is a member of any organization needs an active grant in at least one of them, else `403 SUPPORT_GRANT_REQUIRED` (a user without memberships enters no organization).
+- Every tenant request of a session with the `imp` claim needs an active (not revoked, `expires_at` > now, checked per request; no cron) grant of that organization, else `403 SUPPORT_GRANT_REQUIRED` (`supportaccess.GuardResolver` wraps the tenant resolver outside the cache; realtime rules too). Under a `read_only` grant every non-GET tenant request answers `403 SUPPORT_READ_ONLY` (`RequireOrganization`).
+- Impersonated sessions cannot open or revoke grants. Activity events of impersonated sessions carry `imp` (impersonator uuid) and `support_grant_uuid` in the payload.
+- `GET /v1/platform/support-grants` (`platform.users.impersonate`) lists the organizations that currently allow support access.
+
 ## Platform roles
 
 | Method | Path | Permission |

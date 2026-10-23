@@ -14,6 +14,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/database/db"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/platformhealth/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/healthcheck"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/queue"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/pkg/rentaltime"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -28,7 +29,17 @@ type Queries interface {
 	UpsertPlatformHealthAlertCursor(ctx context.Context, arg db.UpsertPlatformHealthAlertCursorParams) error
 	ListPlatformHealthAlertCursors(ctx context.Context) ([]db.ListPlatformHealthAlertCursorsRow, error)
 	ListPlatformUsersWithPermission(ctx context.Context, slug string) ([]db.ListPlatformUsersWithPermissionRow, error)
+	CountIntegrationJobsByStatus(ctx context.Context) ([]db.CountIntegrationJobsByStatusRow, error)
 }
+
+// QueueInspector reads the background queues (queue.Inspector).
+type QueueInspector interface {
+	Snapshot(ctx context.Context) ([]queue.QueueSnapshot, error)
+}
+
+// SetQueueInspector adds the Asynq queue snapshot to the dashboard (nil:
+// the queue is off, no snapshot).
+func (s *Service) SetQueueInspector(i QueueInspector) { s.queues = i }
 
 // ValidationError carries field details for the handler.
 type ValidationError struct {
@@ -42,6 +53,8 @@ type Service struct {
 	q        Queries
 	registry *healthcheck.Registry
 	notifier Notifier
+	failures *FailureAlertConfig
+	queues   QueueInspector
 	log      *slog.Logger
 	now      func() time.Time
 }
@@ -178,6 +191,28 @@ func (s *Service) Health(ctx context.Context) (model.HealthSummary, error) {
 		out.Sources = append(out.Sources, sh)
 	}
 	out.Status = healthcheck.WorstStatus(statuses...)
+	out.Queues = []model.QueueStats{}
+	if s.queues != nil {
+		snap, err := s.queues.Snapshot(ctx)
+		if err != nil {
+			s.log.Warn("platform_health_queue_snapshot_failed", "error", err)
+			out.QueuesError = "queue unavailable"
+		}
+		for _, q := range snap {
+			out.Queues = append(out.Queues, model.QueueStats{
+				Queue: q.Queue, Pending: q.Pending, Active: q.Active, Scheduled: q.Scheduled,
+				Retry: q.Retry, Archived: q.Archived, Paused: q.Paused,
+			})
+		}
+	}
+	counts, err := s.q.CountIntegrationJobsByStatus(ctx)
+	if err != nil {
+		return model.HealthSummary{}, err
+	}
+	out.IntegrationJobs = make([]model.JobStatusCount, 0, len(counts))
+	for _, c := range counts {
+		out.IntegrationJobs = append(out.IntegrationJobs, model.JobStatusCount{Status: c.Status, Count: c.Count})
+	}
 	cursors, err := s.q.ListPlatformHealthAlertCursors(ctx)
 	if err != nil {
 		return model.HealthSummary{}, err

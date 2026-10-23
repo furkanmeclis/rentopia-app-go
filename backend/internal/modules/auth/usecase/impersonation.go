@@ -46,6 +46,18 @@ func (u *AuthUseCase) ImpersonatePlatformUser(
 		return model.ImpersonationResult{}, fmt.Errorf("%w: cannot impersonate a super admin", ErrForbidden)
 	}
 
+	// Support access (TEC-678): entering an organization needs its consent.
+	// Applies to every actor, super admins included.
+	if u.supportAccess != nil {
+		granted, err := u.supportAccess.TargetHasSupportAccess(ctx, target.ID)
+		if err != nil {
+			return model.ImpersonationResult{}, err
+		}
+		if !granted {
+			return model.ImpersonationResult{}, ErrSupportGrantRequired
+		}
+	}
+
 	meta.ImpersonatorUserID = &actor.ID
 	tokens, err := u.issueTokensForUser(ctx, target, meta)
 	if err != nil {

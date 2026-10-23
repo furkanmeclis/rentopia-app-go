@@ -14,13 +14,13 @@ package invoices
 import (
 	"log/slog"
 	"net/http"
-	"strings"
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/middleware"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/invoices/handler"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/invoices/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/einvoice"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/einvoice/einvoicefake"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/envguard"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/integrations"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/jwt"
@@ -39,9 +39,14 @@ var ExportQueryKeys = append([]string{"q"}, handler.QueryKeys...)
 // integrator slot always (it reports "waiting on dependency" until TEC-685
 // chooses the integrator), the fake (einvoice_fake) outside production
 // only, so it is never selectable there.
-func Providers(appEnv string, _ *slog.Logger) []einvoice.Provider {
-	out := []einvoice.Provider{einvoice.Official{}}
-	if !strings.EqualFold(strings.TrimSpace(appEnv), "production") {
+//
+// Outside production the official slot is guarded (TEC-744): it never
+// reaches the integrator unless EINVOICE_ALLOW_PRODUCTION_IN_NON_PROD
+// (allowProduction) is set.
+func Providers(appEnv string, allowProduction bool, _ *slog.Logger) []einvoice.Provider {
+	refusal := envguard.Refusal(appEnv, "einvoice", envguard.AllowEInvoiceKey, allowProduction)
+	out := []einvoice.Provider{einvoice.Guard(einvoice.Official{}, refusal)}
+	if !envguard.IsProduction(appEnv) {
 		out = append(out, einvoicefake.New())
 	}
 	return out

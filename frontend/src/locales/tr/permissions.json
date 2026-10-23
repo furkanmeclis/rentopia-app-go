@@ -229,6 +229,8 @@
   "labels.tenant.public_api.read": "Public API anahtarlarını ve webhook'ları görüntüle",
   "labels.tenant.public_api.manage": "Public API anahtarlarını ve webhook'ları yönet",
   "groups.tenant_public_api": "Public API",
+  "labels.tenant.support_access.manage": "Destek erişimini aç, listele ve iptal et",
+  "groups.tenant_support_access": "Destek erişimi",
   "labels.tenant.site.read": "Markalı site ayarlarını görüntüle",
   "labels.tenant.site.manage": "Markalı siteyi yönet (yayın, adres, tema, içerik)",
   "groups.tenant_site": "Markalı site",

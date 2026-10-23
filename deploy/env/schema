@@ -16,7 +16,7 @@
 #   rename with  @rename OLD NEW <version>,  retire with  @remove KEY <version>.
 #   Never change the rule of an existing secret: running installs keep theirs anyway.
 
-@version 9
+@version 10
 
 # --- Identity / Docker ---
 NAME_PREFIX | const:rentopia
@@ -68,6 +68,10 @@ VAPID_SUBJECT | derive:mailto:noreply@{APP_HOST}
 TENANCY_ENABLED | const:true
 TENANCY_SELF_SERVE | const:false
 LOG_LEVEL | const:info
+# TEC-744: development | staging | production. A staging stack sets staging:
+# the official KABİS / e-invoice / Netgsm endpoints are then refused unless the
+# *_ALLOW_PRODUCTION_IN_NON_PROD key below is true (ignored in production).
+APP_ENV | const:production
 
 # --- Mail (fill in to send e-mail) ---
 MAIL_FROM | derive:noreply@{APP_HOST}
@@ -80,6 +84,10 @@ SMTP_PASSWORD | empty
 # --- Error tracking (optional) ---
 BACKEND_SENTRY_DSN | empty
 FRONTEND_SENTRY_DSN | empty
+# TEC-744: the site's DSN; SENTRY_ENVIRONMENT empty = APP_ENV.
+SITE_SENTRY_DSN | empty
+SENTRY_ENVIRONMENT | empty
+SENTRY_RELEASE | empty
 
 # --- Payments (TEC-707; merchant keys are per organization, in the panel) ---
 IYZICO_SANDBOX_BASE_URL | const:https://sandbox-api.iyzipay.com
@@ -91,6 +99,14 @@ IYZICO_LIVE_BASE_URL | const:https://api.iyzipay.com
 NETGSM_LIVE_BASE_URL | const:https://api.netgsm.com.tr
 NETGSM_SANDBOX_BASE_URL | empty
 SMS_LOG_PROVIDER | const:false
+
+# --- Production guard (TEC-744, docs/operations/observability.md) ---
+KABIS_ALLOW_PRODUCTION_IN_NON_PROD | const:false
+EINVOICE_ALLOW_PRODUCTION_IN_NON_PROD | const:false
+NETGSM_ALLOW_PRODUCTION_IN_NON_PROD | const:false
+
+# --- Failed-work alerts (TEC-744): e-mail copy of the in-app alerts (optional) ---
+ALERT_EMAIL | empty
 
 # --- WhatsApp (TEC-735; wuzapi on the private app network, one session per organization) ---
 # Organizations link their own number in the panel (QR). Pin WUZAPI_IMAGE to a
