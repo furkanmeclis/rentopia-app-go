@@ -65,12 +65,28 @@ type Scope struct {
 	// branch of the organization (branch_scope 'all'); a non-nil slice,
 	// possibly empty, limits branch-bound data to those ids. See branch.go.
 	BranchIDs []int64
+	// Features are the enabled plan feature keys of the organization
+	// (internal/platform/features: plan default + overrides). Resolvers
+	// always set a non-nil slice; nil means the scope was built without
+	// them (a background job scope, an entry cached before features
+	// existed).
+	Features []string
 }
 
 // Has reports whether the scope grants a tenant permission slug.
 func (s Scope) Has(slug string) bool {
 	for _, p := range s.Permissions {
 		if p == slug {
+			return true
+		}
+	}
+	return false
+}
+
+// HasFeature reports whether the organization has a plan feature enabled.
+func (s Scope) HasFeature(key string) bool {
+	for _, f := range s.Features {
+		if f == key {
 			return true
 		}
 	}
@@ -87,7 +103,8 @@ type Resolver interface {
 
 // Invalidator drops cached resolutions of one organization. The
 // organizations module calls it after any change that affects Resolve
-// (status, access window, membership, role, role permissions, slug).
+// (status, access window, membership, role, role permissions, slug, plan
+// and feature overrides).
 // A nil Invalidator is allowed: callers use Invalidate.
 type Invalidator interface {
 	InvalidateOrganization(ctx context.Context, organizationID int64) error

@@ -6,8 +6,10 @@ import { organizationsService } from "@/features/organizations/services/organiza
 import type {
   CreateOrganizationRequest,
   ListOrganizationsParams,
+  OrganizationPlan,
   PatchOrganizationRequest,
   PlatformMemberPatchRequest,
+  SetOrganizationPlanRequest,
   PlatformMemberRequest,
 } from "@/features/organizations/types";
 import type { ListTenantMembersParams } from "@/features/tenant-members/types";
@@ -27,6 +29,8 @@ export const organizationKeys = {
     [...organizationKeys.detail(uuid), "branches"] as const,
   activity: (uuid: string, limit: number) =>
     [...organizationKeys.detail(uuid), "activity", limit] as const,
+  plan: (uuid: string) => [...organizationKeys.detail(uuid), "plan"] as const,
+  plans: () => [...organizationKeys.all, "plans"] as const,
 };
 
 export function useOrganizationsList(params: ListOrganizationsParams) {
@@ -226,6 +230,61 @@ export function useRemoveOrganizationMember(uuid: string) {
     onSuccess: () => {
       appToast.success(t("organizations.members.toast.removed"));
       invalidate();
+    },
+  });
+}
+
+/** Plan catalog (TEC-674). */
+export function usePlans(enabled = true) {
+  return useQuery({
+    queryKey: organizationKeys.plans(),
+    queryFn: () => organizationsService.plans(),
+    enabled,
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** Plan, period, feature states and usage of an organization. */
+export function useOrganizationPlan(uuid: string, enabled = true) {
+  return useQuery({
+    queryKey: organizationKeys.plan(uuid),
+    queryFn: () => organizationsService.plan(uuid),
+    enabled: enabled && Boolean(uuid),
+  });
+}
+
+function useStorePlan(uuid: string) {
+  const queryClient = useQueryClient();
+  return (plan: OrganizationPlan) => {
+    queryClient.setQueryData(organizationKeys.plan(uuid), plan);
+    void queryClient.invalidateQueries({
+      queryKey: [...organizationKeys.detail(uuid), "activity"],
+    });
+  };
+}
+
+export function useSetOrganizationPlan(uuid: string) {
+  const { t } = useLocale();
+  const store = useStorePlan(uuid);
+  return useMutation({
+    mutationFn: (body: SetOrganizationPlanRequest) =>
+      organizationsService.setPlan(uuid, body),
+    onSuccess: (plan) => {
+      store(plan);
+      appToast.success(t("organizations.plan.toast.plan_updated"));
+    },
+  });
+}
+
+export function useSetOrganizationFeature(uuid: string) {
+  const { t } = useLocale();
+  const store = useStorePlan(uuid);
+  return useMutation({
+    mutationFn: ({ key, enabled }: { key: string; enabled: boolean | null }) =>
+      organizationsService.setFeature(uuid, key, enabled),
+    onSuccess: (plan) => {
+      store(plan);
+      appToast.success(t("organizations.plan.toast.feature_updated"));
     },
   });
 }

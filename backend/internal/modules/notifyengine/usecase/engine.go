@@ -38,6 +38,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/notifyengine/channel"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/activity"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/authctx"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/pkg/rentaltime"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -83,7 +84,15 @@ type Engine struct {
 	now        func() time.Time
 	portalBase string
 	batch      int32
+	// features: the SMS and WhatsApp channels are plan features
+	// (TEC-674); outside the plan the channel is skipped and the dispatch
+	// moves on to its next channel. E-mail and push are never gated.
+	features features.AccessPolicy
 }
+
+// SetFeatures gates the SMS / WhatsApp channels by the organization's
+// plan (nil: no gate).
+func (e *Engine) SetFeatures(p features.AccessPolicy) { e.features = p }
 
 // New builds the engine. frontendURL builds the customer portal link of
 // customer messages (empty: no link).
@@ -376,6 +385,9 @@ type step struct {
 	dispatch db.NotificationDispatch
 	delivery db.NotificationDelivery
 	channel  string
+	// planSkip: the channel is outside the organization's plan; the
+	// dispatch moves on even when the rule has no fallback.
+	planSkip bool
 }
 
 // Process sends a dispatch on its next channel, moving on to the next one
@@ -494,7 +506,30 @@ func (e *Engine) templateFor(ctx context.Context, q *db.Queries, orgID int64, co
 	return t.Subject, t.Body
 }
 
+// channelInPlan reports whether the organization's plan has the channel's
+// feature. A failed lookup fails open (the message goes out, as before
+// plans existed) and is logged.
+func (e *Engine) channelInPlan(ctx context.Context, orgID int64, ch string) (features.Feature, bool) {
+	f, gated := features.ForNotifyChannel(ch)
+	if !gated {
+		return "", true
+	}
+	err := features.Require(ctx, e.features, orgID, f)
+	if err == nil {
+		return f, true
+	}
+	if _, off := features.FeatureOf(err); off {
+		return f, false
+	}
+	e.log.Warn("notify_feature_check_failed", "organization_id", orgID, "channel", ch, "error", err)
+	return f, true
+}
+
 func (e *Engine) send(ctx context.Context, orgID int64, st *step) channel.Result {
+	if f, ok := e.channelInPlan(ctx, orgID, st.channel); !ok {
+		st.planSkip = true
+		return channel.Result{Outcome: channel.OutcomeSkipped, Error: string(f) + " is not included in the organization's plan"}
+	}
 	c, ok := e.channels[st.channel]
 	if !ok {
 		return channel.Result{Outcome: channel.OutcomeSkipped, Error: "channel not available"}
@@ -594,18 +629,18 @@ func (e *Engine) record(ctx context.Context, orgID int64, st *step, res channel.
 		if n, err := e.q.UpdateNotificationDelivery(ctx, p); err != nil || n == 0 {
 			return false, err
 		}
-		return e.advance(ctx, e.q, orgID, st.dispatch, st.channel, res.Error)
+		return e.advance(ctx, e.q, orgID, st.dispatch, st.channel, res.Error, st.planSkip)
 	}
 }
 
 // advance moves a dispatch past a failed channel: to the next channel
-// (pending) when fallback allows, else failed (skipped when every
-// attempt was skipped).
-func (e *Engine) advance(ctx context.Context, q *db.Queries, orgID int64, d db.NotificationDispatch, ch, reason string) (bool, error) {
+// (pending) when fallback allows or the channel was outside the plan
+// (always), else failed (skipped when every attempt was skipped).
+func (e *Engine) advance(ctx context.Context, q *db.Queries, orgID int64, d db.NotificationDispatch, ch, reason string, always bool) (bool, error) {
 	now := e.clock()
 	lastErr := ch + ": " + reason
 	next := d.NextChannelIndex + 1
-	if d.Fallback && int(next) < len(d.Channels) {
+	if (d.Fallback || always) && int(next) < len(d.Channels) {
 		return true, q.UpdateNotificationDispatchState(ctx, db.UpdateNotificationDispatchStateParams{
 			OrganizationID: orgID, ID: d.ID, Status: DispatchPending, NextChannelIndex: next, LastError: lastErr,
 		})
@@ -679,7 +714,7 @@ func (e *Engine) ReportDelivery(ctx context.Context, orgID int64, r channel.Repo
 		if reason == "" {
 			reason = "not delivered"
 		}
-		next, err = e.advance(ctx, q, orgID, d, dl.Channel, reason)
+		next, err = e.advance(ctx, q, orgID, d, dl.Channel, reason, false)
 		return err
 	})
 	if err != nil {

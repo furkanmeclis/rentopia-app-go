@@ -1101,6 +1101,12 @@ type ExtraPrice struct {
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 }
 
+type Feature struct {
+	Key       string             `json:"key"`
+	SortOrder int32              `json:"sort_order"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type GithubAppSetting struct {
 	ID              int16              `json:"id"`
 	Enabled         bool               `json:"enabled"`
@@ -1810,6 +1816,15 @@ type Organization struct {
 	DeletedAt      pgtype.Timestamptz `json:"deleted_at"`
 }
 
+type OrganizationFeature struct {
+	OrganizationID int64              `json:"organization_id"`
+	FeatureKey     string             `json:"feature_key"`
+	Enabled        bool               `json:"enabled"`
+	UpdatedBy      pgtype.Int8        `json:"updated_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
 type OrganizationInvitation struct {
 	ID             int64              `json:"id"`
 	Uuid           uuid.UUID          `json:"uuid"`
@@ -1865,6 +1880,16 @@ type OrganizationMemberRole struct {
 	MemberID       int64              `json:"member_id"`
 	RoleID         int64              `json:"role_id"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type OrganizationPlan struct {
+	OrganizationID int64              `json:"organization_id"`
+	PlanID         int64              `json:"plan_id"`
+	PeriodStartsAt pgtype.Timestamptz `json:"period_starts_at"`
+	PeriodEndsAt   pgtype.Timestamptz `json:"period_ends_at"`
+	UpdatedBy      pgtype.Int8        `json:"updated_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 type OrganizationSettingsVersion struct {
@@ -1982,6 +2007,22 @@ type Permission struct {
 
 type PgExtension struct {
 	Extname string `json:"extname"`
+}
+
+type Plan struct {
+	ID        int64              `json:"id"`
+	Uuid      uuid.UUID          `json:"uuid"`
+	Code      string             `json:"code"`
+	Name      string             `json:"name"`
+	NameEn    string             `json:"name_en"`
+	SortOrder int32              `json:"sort_order"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type PlanFeature struct {
+	PlanID     int64  `json:"plan_id"`
+	FeatureKey string `json:"feature_key"`
 }
 
 type PlatformHealthAlertCursor struct {

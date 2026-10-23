@@ -11,6 +11,7 @@ import { problemText } from "@/features/notification-engine/lib/format";
 import { RATE_LIMIT_MAX, RATE_LIMIT_MIN } from "@/features/whatsapp/constants";
 import { useUpdateWhatsAppSettings } from "@/features/whatsapp/hooks/use-whatsapp";
 import type { WhatsAppSession } from "@/features/whatsapp/types";
+import { useFeature } from "@/providers/feature-provider";
 import { useLocale } from "@/providers/locale-provider";
 
 /** Send limit of the session and the transactional-only policy. */
@@ -23,7 +24,9 @@ export function SettingsCard({ session }: { session: WhatsAppSession }) {
   const valid =
     Number.isInteger(n) && n >= RATE_LIMIT_MIN && n <= RATE_LIMIT_MAX;
   const dirty = n !== session.rate_limit_per_minute;
-  const hasSession = session.status !== "not_connected";
+  // Outside the plan (TEC-674) the settings stay visible, read-only.
+  const hasSession =
+    useFeature("whatsapp") && session.status !== "not_connected";
 
   const submit = async () => {
     setProblem(null);

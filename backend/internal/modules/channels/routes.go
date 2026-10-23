@@ -23,6 +23,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/channels/channelfake"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/channels/obilet"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/channels/yolcu360"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/integrations"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/jwt"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
@@ -64,30 +65,34 @@ func RegisterRoutes(mux *http.ServeMux, h *handler.Handler, tokens *jwt.Manager,
 	read := perm(rbac.PermTenantChannelsRead)
 	write := perm(rbac.PermTenantChannelsWrite)
 	sync := perm(rbac.PermTenantChannelsSync)
+	// Channel manager changes need at least one channel feature (TEC-674);
+	// account actions also check the account's own channel feature in the
+	// use case. Reads and dismissing a failed message stay open.
+	feature := middleware.RequireAnyFeature(features.ChannelYolcu360, features.ChannelObilet)
 	route := func(pattern string, fn http.HandlerFunc, guards ...func(http.Handler) http.Handler) {
 		mux.Handle(pattern, middleware.Chain(fn, append([]func(http.Handler) http.Handler{authn, org}, guards...)...))
 	}
 
 	route("GET /v1/tenant/channel-accounts", h.ListAccounts, read)
 	route("GET /v1/tenant/channel-accounts/{uuid}", h.GetAccount, read)
-	route("PATCH /v1/tenant/channel-accounts/{uuid}", h.UpdateAccount, read, write)
-	route("POST /v1/tenant/channel-accounts/{uuid}/push", h.Push, read, sync)
-	route("POST /v1/tenant/channel-accounts/{uuid}/pull", h.Pull, read, sync)
-	route("POST /v1/tenant/channel-accounts/{uuid}/simulate", h.Simulate, read, sync)
+	route("PATCH /v1/tenant/channel-accounts/{uuid}", h.UpdateAccount, read, write, feature)
+	route("POST /v1/tenant/channel-accounts/{uuid}/push", h.Push, read, sync, feature)
+	route("POST /v1/tenant/channel-accounts/{uuid}/pull", h.Pull, read, sync, feature)
+	route("POST /v1/tenant/channel-accounts/{uuid}/simulate", h.Simulate, read, sync, feature)
 	route("GET /v1/tenant/channel-accounts/{uuid}/reconciliation", h.Reconciliation, read)
 
 	// Static segments before /{uuid}.
 	route("GET /v1/tenant/channel-mappings/facets", h.MappingFacets, read)
 	route("GET /v1/tenant/channel-mappings", h.ListMappings, read)
-	route("POST /v1/tenant/channel-mappings", h.CreateMapping, read, write)
+	route("POST /v1/tenant/channel-mappings", h.CreateMapping, read, write, feature)
 	route("GET /v1/tenant/channel-mappings/{uuid}", h.GetMapping, read)
-	route("PATCH /v1/tenant/channel-mappings/{uuid}", h.UpdateMapping, read, write)
-	route("DELETE /v1/tenant/channel-mappings/{uuid}", h.DeleteMapping, read, write)
+	route("PATCH /v1/tenant/channel-mappings/{uuid}", h.UpdateMapping, read, write, feature)
+	route("DELETE /v1/tenant/channel-mappings/{uuid}", h.DeleteMapping, read, write, feature)
 
 	route("GET /v1/tenant/channel-messages/facets", h.MessageFacets, read)
 	route("GET /v1/tenant/channel-messages", h.ListMessages, read)
 	route("GET /v1/tenant/channel-messages/{uuid}", h.GetMessage, read)
-	route("POST /v1/tenant/channel-messages/{uuid}/retry", h.RetryMessage, read, sync)
+	route("POST /v1/tenant/channel-messages/{uuid}/retry", h.RetryMessage, read, sync, feature)
 	route("POST /v1/tenant/channel-messages/{uuid}/ignore", h.IgnoreMessage, read, sync)
 
 	route("GET /v1/tenant/channel-sync-runs", h.ListSyncRuns, read)

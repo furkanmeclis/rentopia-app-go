@@ -140,3 +140,5 @@ site_media
 site_leads
 
 site_articles
+organization_plan
+organization_features

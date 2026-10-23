@@ -45,6 +45,7 @@ import enSite from "@/locales/en/site.json";
 import enNotificationEngine from "@/locales/en/notification_engine.json";
 import enSiteLeads from "@/locales/en/site_leads.json";
 import enWhatsapp from "@/locales/en/whatsapp.json";
+import enFeatures from "@/locales/en/features.json";
 import enUsers from "@/locales/en/users.json";
 import enVehicleRecords from "@/locales/en/vehicle_records.json";
 import enOneWayRules from "@/locales/en/one_way_rules.json";
@@ -117,6 +118,7 @@ import trSite from "@/locales/tr/site.json";
 import trNotificationEngine from "@/locales/tr/notification_engine.json";
 import trSiteLeads from "@/locales/tr/site_leads.json";
 import trWhatsapp from "@/locales/tr/whatsapp.json";
+import trFeatures from "@/locales/tr/features.json";
 import trUsers from "@/locales/tr/users.json";
 import trVehicleRecords from "@/locales/tr/vehicle_records.json";
 import trOneWayRules from "@/locales/tr/one_way_rules.json";
@@ -221,6 +223,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     notification_engine: trNotificationEngine,
     site_leads: trSiteLeads,
     whatsapp: trWhatsapp,
+    features: trFeatures,
   },
   en: {
     common: enCommon,
@@ -295,6 +298,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     notification_engine: enNotificationEngine,
     site_leads: enSiteLeads,
     whatsapp: enWhatsapp,
+    features: enFeatures,
   },
 };
 export function loadMessages(locale: AppLocale) {

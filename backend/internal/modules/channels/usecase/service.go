@@ -32,6 +32,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/authctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/channels"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/crypto"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/integrations"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/rbac"
@@ -120,8 +121,11 @@ type Service struct {
 	booker    Booker
 	providers map[string]channels.Provider
 	events    resourceevents.Publisher
-	log       *slog.Logger
-	now       func() time.Time
+	// features gates each account by its channel's plan feature
+	// (channel.yolcu360 / channel.obilet, TEC-674); nil: no gate.
+	features features.AccessPolicy
+	log      *slog.Logger
+	now      func() time.Time
 }
 
 // New builds the service.
@@ -144,6 +148,19 @@ func New(pool *pgxpool.Pool, q *db.Queries, cipher *crypto.FieldCipher, accounts
 		}
 	}
 	return s, nil
+}
+
+// SetFeatures gates accounts by the organization's plan (TEC-674).
+func (s *Service) SetFeatures(p features.AccessPolicy) { s.features = p }
+
+// requireChannelFeature refuses an account whose channel is outside the
+// organization's plan (features.NotEnabledError).
+func (s *Service) requireChannelFeature(ctx context.Context, orgID int64, channel string) error {
+	f, ok := features.ForSalesChannel(channel)
+	if !ok {
+		return nil
+	}
+	return features.Require(ctx, s.features, orgID, f)
 }
 
 // SetResourceEvents publishes live list changes.

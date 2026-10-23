@@ -94,6 +94,12 @@ type MeOrganizationRole struct {
 	Name string `json:"name"`
 }
 
+// MePlan is the plan of an organization (TEC-674).
+type MePlan struct {
+	Code string `json:"code"`
+	Name string `json:"name"`
+}
+
 // MeOrganization is one organization membership returned by /auth/me.
 type MeOrganization struct {
 	UUID         uuid.UUID          `json:"uuid"`
@@ -104,6 +110,11 @@ type MeOrganization struct {
 	AccessEndsAt *time.Time         `json:"access_ends_at,omitempty"`
 	Role         MeOrganizationRole `json:"role"`
 	Permissions  []string           `json:"permissions"`
+	// Plan and Features are the organization's plan and its enabled
+	// feature keys (plan default + overrides); the panel hides what is
+	// off, the API refuses it (403 FEATURE_NOT_ENABLED).
+	Plan     MePlan   `json:"plan"`
+	Features []string `json:"features"`
 }
 
 // Me is the session hydration payload.

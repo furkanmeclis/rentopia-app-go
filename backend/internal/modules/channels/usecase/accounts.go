@@ -109,6 +109,9 @@ func (s *Service) UpdateSettings(ctx context.Context, orgID int64, id uuid.UUID,
 	if err != nil {
 		return model.Account{}, err
 	}
+	if err := s.requireChannelFeature(ctx, orgID, r.Channel); err != nil {
+		return model.Account{}, err
+	}
 	p := db.UpdateChannelAccountSettingsParams{
 		OrganizationID: orgID, IntegrationAccountID: r.ID, PushEnabled: r.PushEnabled, PullEnabled: r.PullEnabled,
 		StopSale: r.StopSale, HorizonDays: r.HorizonDays, PushIntervalMinutes: r.PushIntervalMinutes,

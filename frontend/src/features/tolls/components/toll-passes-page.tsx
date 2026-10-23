@@ -21,6 +21,7 @@ import {
   useTollFacets,
   useTollPassesMeta,
 } from "@/features/tolls/hooks/use-tolls";
+import { useFeature } from "@/providers/feature-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { usePermission } from "@/providers/permission-provider";
 import { appToast } from "@/providers/toast-provider";
@@ -31,6 +32,7 @@ function HeaderActions({ review }: { review: boolean }) {
   const { can } = usePermission();
   const facets = useTollFacets(!review);
   const fetchNow = useFetchTollsNow();
+  const hgs = useFeature("hgs");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const queue = facets.data?.review ?? 0;
   return (
@@ -48,7 +50,7 @@ function HeaderActions({ review }: { review: boolean }) {
           </Link>
         </Button>
       ) : null}
-      {can(permissions.tenant.tolls.import) ? (
+      {hgs && can(permissions.tenant.tolls.import) ? (
         <Button
           type="button"
           variant="outline"
@@ -89,6 +91,12 @@ export function TollPassesPage() {
   const { t } = useLocale();
   const { slug } = useTenant();
   const meta = useTollPassesMeta();
+  const hgs = useFeature("hgs");
+  // Without the hgs feature the list and the export stay; no import.
+  const capabilities =
+    hgs || !meta.data?.capabilities
+      ? meta.data?.capabilities
+      : { ...meta.data.capabilities, import: false };
   return (
     <EntityPage
       title={t("tolls.title")}
@@ -113,7 +121,7 @@ export function TollPassesPage() {
           <ResourceIOToolbar
             resource={TOLLS_RESOURCE}
             query={query}
-            capabilities={meta.data?.capabilities}
+            capabilities={capabilities}
           />
         )}
       />

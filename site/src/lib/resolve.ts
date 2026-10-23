@@ -43,7 +43,12 @@ export async function resolveSite(
       { clientIp },
     );
   } catch (err) {
-    if (err instanceof ApiError && (err.status === 404 || err.status === 400)) {
+    if (
+      err instanceof ApiError &&
+      (err.status === 404 ||
+        err.status === 400 ||
+        err.code === "FEATURE_NOT_ENABLED")
+    ) {
       site = null;
     } else {
       throw err;

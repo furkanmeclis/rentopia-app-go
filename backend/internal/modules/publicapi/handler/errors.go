@@ -12,6 +12,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/publicapi/usecase"
 	resmodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/model"
 	resusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/reservations/usecase"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/pkg/apiquery"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/pkg/response"
 )
@@ -66,6 +67,9 @@ func publicAlternatives(ce *availusecase.CapacityError) map[string]any {
 // writeError maps every use case error of the public API onto the
 // envelope. Internal details never leave: unexpected errors are 500.
 func writeError(w http.ResponseWriter, r *http.Request, err error) {
+	if features.WriteError(w, r, err) {
+		return
+	}
 	response.RecordFailure(w, err)
 	var ve *usecase.ValidationError
 	if errors.As(err, &ve) {

@@ -17,6 +17,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/invoices/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/activity"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/authctx"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/httpkit"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
 	rm "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/resourcemeta"
@@ -474,6 +475,9 @@ func (h *Handler) PutSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 func writeError(w http.ResponseWriter, r *http.Request, err error) {
+	if features.WriteError(w, r, err) {
+		return
+	}
 	response.RecordFailure(w, err)
 	var ve *usecase.ValidationError
 	if errors.As(err, &ve) {

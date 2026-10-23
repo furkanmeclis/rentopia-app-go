@@ -1,21 +1,7 @@
-import { format, isValid, parseISO } from "date-fns";
+import { format } from "date-fns";
 
-/**
- * `AppDatePicker withTime` values are local `yyyy-MM-dd'T'HH:mm`; the API
- * takes RFC 3339 instants.
- */
-export function localInputToISO(value: string): string | undefined {
-  if (!value) return undefined;
-  const parsed = parseISO(value);
-  return isValid(parsed) ? parsed.toISOString() : undefined;
-}
-
-/** API instant → local `yyyy-MM-dd'T'HH:mm` for `AppDatePicker withTime`. */
-export function isoToLocalInput(value: string | null | undefined): string {
-  if (!value) return "";
-  const parsed = parseISO(value);
-  return isValid(parsed) ? format(parsed, "yyyy-MM-dd'T'HH:mm") : "";
-}
+// Moved to the shared lib; re-exported so existing imports keep working.
+export { isoToLocalInput, localInputToISO } from "@/lib/utils/datetime-input";
 
 /** Local input `hours` from now, rounded to the next quarter hour. */
 export function localInputFromNow(hours: number): string {

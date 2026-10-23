@@ -60,6 +60,8 @@
   "labels.platform.organizations.export": "Export organizations",
   "labels.platform.organizations.bulk.activate": "Bulk activate organizations",
   "labels.platform.organizations.bulk.suspend": "Bulk suspend organizations",
+  "labels.platform.organizations.plan.read": "Read organization plans and features",
+  "labels.platform.organizations.plan.write": "Change organization plans and features",
   "labels.platform.catalog.read": "Read vehicle catalog",
   "labels.platform.catalog.write": "Manage vehicle catalog and imports",
   "labels.tenant.settings.read": "Read organization settings",

@@ -6,7 +6,10 @@ import type {
   ListOrganizationsParams,
   Organization,
   OrganizationActivityPage,
+  OrganizationPlan,
   OrganizationSummary,
+  PlanPage,
+  SetOrganizationPlanRequest,
   OrganizationSummaryPage,
   PatchOrganizationRequest,
   PlatformMemberPatchRequest,
@@ -63,6 +66,30 @@ export const organizationsService = {
     return platformRequest<Organization>("POST", `${BASE}/${uuid}/access`, {
       body,
     });
+  },
+
+  /** Plan catalog (TEC-674). */
+  plans() {
+    return platformRequest<PlanPage>("GET", "/v1/platform/plans");
+  },
+
+  plan(uuid: string) {
+    return platformRequest<OrganizationPlan>("GET", `${BASE}/${uuid}/plan`);
+  },
+
+  setPlan(uuid: string, body: SetOrganizationPlanRequest) {
+    return platformRequest<OrganizationPlan>("PUT", `${BASE}/${uuid}/plan`, {
+      body,
+    });
+  },
+
+  /** `enabled: null` clears the override (back to the plan default). */
+  setFeature(uuid: string, key: string, enabled: boolean | null) {
+    return platformRequest<OrganizationPlan>(
+      "PUT",
+      `${BASE}/${uuid}/features/${encodeURIComponent(key)}`,
+      { body: { enabled } },
+    );
   },
 
   activity(uuid: string, params: { limit: number; offset: number }) {

@@ -18,6 +18,7 @@ import (
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/middleware"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/site/handler"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/jwt"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/rbac"
@@ -43,46 +44,49 @@ func RegisterRoutes(mux *http.ServeMux, h *handler.Handler, tokens *jwt.Manager,
 	mux.Handle("POST /v1/platform/site-domains/{uuid}/recheck", middleware.Chain(http.HandlerFunc(h.RecheckDomain), authn, middleware.RequirePermission(rbac.PermPlatformSiteDomainsManage)))
 	mux.Handle("POST /v1/platform/site-domains/{uuid}/mark-tls-active", middleware.Chain(http.HandlerFunc(h.MarkDomainTLSActive), authn, middleware.RequirePermission(rbac.PermPlatformSiteDomainsManage)))
 	org := middleware.RequireOrganization(resolver)
+	// The branded site is a plan feature (TEC-674): reads stay open on every
+	// plan (history never disappears), every change needs the feature.
+	feature := middleware.RequireFeature(features.Site)
 	read := middleware.RequireTenantPermission(rbac.PermTenantSiteRead)
 	manage := middleware.RequireTenantPermission(rbac.PermTenantSiteManage)
 	route := func(pattern string, fn http.HandlerFunc, guards ...func(http.Handler) http.Handler) {
 		mux.Handle(pattern, middleware.Chain(fn, append([]func(http.Handler) http.Handler{authn, org}, guards...)...))
 	}
 	route("GET /v1/tenant/site/domains", h.ListDomains, read)
-	route("POST /v1/tenant/site/domains", h.CreateDomain, manage)
+	route("POST /v1/tenant/site/domains", h.CreateDomain, manage, feature)
 	route("GET /v1/tenant/site/domains/{uuid}", h.GetDomain, read)
-	route("DELETE /v1/tenant/site/domains/{uuid}", h.DeleteDomain, manage)
-	route("POST /v1/tenant/site/domains/{uuid}/verify", h.VerifyDomain, manage)
+	route("DELETE /v1/tenant/site/domains/{uuid}", h.DeleteDomain, manage, feature)
+	route("POST /v1/tenant/site/domains/{uuid}/verify", h.VerifyDomain, manage, feature)
 	route("GET /v1/tenant/site/articles/meta", h.ArticlesMeta, read)
 	route("GET /v1/tenant/site/articles", h.ListArticles, read)
-	route("POST /v1/tenant/site/articles", h.CreateArticle, manage)
+	route("POST /v1/tenant/site/articles", h.CreateArticle, manage, feature)
 	route("GET /v1/tenant/site/articles/{uuid}", h.GetArticle, read)
-	route("PUT /v1/tenant/site/articles/{uuid}", h.UpdateArticle, manage)
-	route("DELETE /v1/tenant/site/articles/{uuid}", h.DeleteArticle, manage)
-	route("POST /v1/tenant/site/articles/{uuid}/publish", h.PublishArticle, manage)
-	route("POST /v1/tenant/site/articles/{uuid}/unpublish", h.UnpublishArticle, manage)
+	route("PUT /v1/tenant/site/articles/{uuid}", h.UpdateArticle, manage, feature)
+	route("DELETE /v1/tenant/site/articles/{uuid}", h.DeleteArticle, manage, feature)
+	route("POST /v1/tenant/site/articles/{uuid}/publish", h.PublishArticle, manage, feature)
+	route("POST /v1/tenant/site/articles/{uuid}/unpublish", h.UnpublishArticle, manage, feature)
 	route("GET /v1/tenant/site/media/{uuid}/file", h.TenantMedia, read)
 	route("GET /v1/tenant/site/media", h.ListMedia, read)
-	route("POST /v1/tenant/site/media", h.UploadMedia, manage)
-	route("PATCH /v1/tenant/site/media/{uuid}", h.PatchMedia, manage)
-	route("DELETE /v1/tenant/site/media/{uuid}", h.DeleteMedia, manage)
+	route("POST /v1/tenant/site/media", h.UploadMedia, manage, feature)
+	route("PATCH /v1/tenant/site/media/{uuid}", h.PatchMedia, manage, feature)
+	route("DELETE /v1/tenant/site/media/{uuid}", h.DeleteMedia, manage, feature)
 	route("GET /v1/tenant/site", h.Get, read)
-	route("PUT /v1/tenant/site", h.Put, read, manage)
-	route("POST /v1/tenant/site/publish", h.Publish, read, manage)
+	route("PUT /v1/tenant/site", h.Put, read, manage, feature)
+	route("POST /v1/tenant/site/publish", h.Publish, read, manage, feature)
 	route("GET /v1/tenant/site/versions", h.Versions, read)
-	route("POST /v1/tenant/site/versions/{revisionUuid}/restore", h.Restore, read, manage)
-	route("POST /v1/tenant/site/preview-token", h.PreviewToken, read)
-	route("POST /v1/tenant/site/renew-key", h.RenewKey, read, manage)
+	route("POST /v1/tenant/site/versions/{revisionUuid}/restore", h.Restore, read, manage, feature)
+	route("POST /v1/tenant/site/preview-token", h.PreviewToken, read, feature)
+	route("POST /v1/tenant/site/renew-key", h.RenewKey, read, manage, feature)
 	// One literal route per image kind (the isolation test enumerates route
 	// literals; the kind is not a record id).
-	route("PUT /v1/tenant/site/assets/logo", h.PutImage("logo"), read, manage)
-	route("DELETE /v1/tenant/site/assets/logo", h.DeleteImage("logo"), read, manage)
-	route("PUT /v1/tenant/site/assets/favicon", h.PutImage("favicon"), read, manage)
-	route("DELETE /v1/tenant/site/assets/favicon", h.DeleteImage("favicon"), read, manage)
-	route("PUT /v1/tenant/site/assets/cover", h.PutImage("cover"), read, manage)
-	route("DELETE /v1/tenant/site/assets/cover", h.DeleteImage("cover"), read, manage)
+	route("PUT /v1/tenant/site/assets/logo", h.PutImage("logo"), read, manage, feature)
+	route("DELETE /v1/tenant/site/assets/logo", h.DeleteImage("logo"), read, manage, feature)
+	route("PUT /v1/tenant/site/assets/favicon", h.PutImage("favicon"), read, manage, feature)
+	route("DELETE /v1/tenant/site/assets/favicon", h.DeleteImage("favicon"), read, manage, feature)
+	route("PUT /v1/tenant/site/assets/cover", h.PutImage("cover"), read, manage, feature)
+	route("DELETE /v1/tenant/site/assets/cover", h.DeleteImage("cover"), read, manage, feature)
 	route("GET /v1/tenant/site/catalog", h.Catalog, read)
-	route("PATCH /v1/tenant/site/catalog/branches/{uuid}", h.PatchBranch, read, manage)
-	route("PATCH /v1/tenant/site/catalog/products/{uuid}", h.PatchSubgroup, read, manage)
-	route("PATCH /v1/tenant/site/catalog/extras/{uuid}", h.PatchExtra, read, manage)
+	route("PATCH /v1/tenant/site/catalog/branches/{uuid}", h.PatchBranch, read, manage, feature)
+	route("PATCH /v1/tenant/site/catalog/products/{uuid}", h.PatchSubgroup, read, manage, feature)
+	route("PATCH /v1/tenant/site/catalog/extras/{uuid}", h.PatchExtra, read, manage, feature)
 }

@@ -49,6 +49,7 @@ import type {
 import { useTenant } from "@/features/tenant/components/tenant-provider";
 import { tenantLiveList } from "@/features/tenant/lib/live";
 import { datetime } from "@/lib/utils/format";
+import { useFeature } from "@/providers/feature-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { usePermission } from "@/providers/permission-provider";
 
@@ -79,7 +80,8 @@ export function KabisTable({ persistKey }: { persistKey: string }) {
   const { slug, organization } = useTenant();
   const router = useRouter();
   const { can } = usePermission();
-  const canRetry = can(permissions.tenant.kabis.retry);
+  const kabis = useFeature("kabis");
+  const canRetry = kabis && can(permissions.tenant.kabis.retry);
   const canReconcile = can(permissions.tenant.kabis.reconcile);
   const urlDefaults = useUrlListDefaults(
     ["status", "event", "rental"],

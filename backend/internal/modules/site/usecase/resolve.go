@@ -13,6 +13,7 @@ import (
 	pamodel "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/publicapi/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/site/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/site/themes"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/storage"
 	"github.com/google/uuid"
@@ -71,12 +72,26 @@ func (s *Service) PanelOrigin() string {
 	return u.Scheme + "://" + u.Host
 }
 
+// siteInPlan answers ErrNotFound when the organization's plan lacks the
+// branded site (TEC-674): the anonymous site endpoints give the same
+// answer as for a disabled site, so a host never tells whether an
+// organization exists or what its plan is.
+func (s *Service) siteInPlan(ctx context.Context, orgID int64) error {
+	err := features.Require(ctx, s.features, orgID, features.Site)
+	if _, off := features.FeatureOf(err); off {
+		return ErrNotFound
+	}
+	return err
+}
+
 // Resolve returns the published site a request host names. Unknown hosts,
-// disabled or never published sites and unavailable organizations are all
+// disabled or never published sites, unavailable organizations and
+// organizations whose plan lacks the `site` feature (TEC-674) are all
 // ErrNotFound. With a preview token (POST /v1/tenant/site/preview-token)
 // for this host's site it returns the draft instead, also for a site that
-// is off or was never published; a token for another site, or an expired
-// one, is ErrPreviewInvalid.
+// is off or was never published (but not outside the plan); a token for
+// another site, or an expired one, is ErrPreviewInvalid. Without the
+// `widget` feature the answer carries no embedding origins.
 func (s *Service) Resolve(ctx context.Context, rawHost, previewToken string) (model.Resolved, error) {
 	host, ok := NormalizeHost(rawHost)
 	if !ok {
@@ -98,6 +113,9 @@ func (s *Service) Resolve(ctx context.Context, rawHost, previewToken string) (mo
 	if !preview && (!row.Enabled || !row.PublishedRevision.Valid) {
 		return model.Resolved{}, ErrNotFound
 	}
+	if err := s.siteInPlan(ctx, row.OrganizationID); err != nil {
+		return model.Resolved{}, err
+	}
 	out := model.Resolved{
 		SiteUUID: row.Uuid, Host: h.Host, HostKind: h.Kind, Origin: h.Origin,
 		DefaultLocale: row.DefaultLocale, Locales: slices.Clone(model.Locales),
@@ -116,6 +134,14 @@ func (s *Service) Resolve(ctx context.Context, rawHost, previewToken string) (mo
 		if row.PublishedAt.Valid {
 			out.UpdatedAt = row.PublishedAt.Time.UTC()
 		}
+	}
+	// Without the widget feature no origin may embed the site (the site
+	// app turns an empty list into frame-ancestors 'none').
+	if err := features.Require(ctx, s.features, row.OrganizationID, features.Widget); err != nil {
+		if _, off := features.FeatureOf(err); !off {
+			return model.Resolved{}, err
+		}
+		out.Config.Widget.AllowedDomains = []string{}
 	}
 	out.Campaigns, err = campaignusecase.PublicCampaigns(ctx, s.q, row.OrganizationID, "web", nil)
 	if err != nil {

@@ -54,6 +54,7 @@ import {
 import { useTenant } from "@/features/tenant/components/tenant-provider";
 import { tenantLiveList } from "@/features/tenant/lib/live";
 import { datetime } from "@/lib/utils/format";
+import { useFeature } from "@/providers/feature-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { usePermission } from "@/providers/permission-provider";
 import { appToast } from "@/providers/toast-provider";
@@ -375,7 +376,8 @@ export function ChannelMessagesTable() {
   const { t, locale } = useLocale();
   const { slug, organization } = useTenant();
   const { can } = usePermission();
-  const canSync = can(permissions.tenant.channels.sync);
+  const inPlan = useFeature(["channel.yolcu360", "channel.obilet"]);
+  const canSync = inPlan && can(permissions.tenant.channels.sync);
   const urlDefaults = useUrlListDefaults(
     ["status", "type"],
     ["created_at", "occurred_at"],

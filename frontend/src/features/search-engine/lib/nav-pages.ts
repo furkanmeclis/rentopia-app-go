@@ -4,10 +4,7 @@ import type { PaletteItem } from "@/features/search-engine/types";
 import type { NavCatalog } from "@/features/nav-engine/types";
 import { createElement } from "react";
 
-type AccessFns = {
-  can: (permission: string | string[]) => boolean;
-  canAny: (permissions: string[]) => boolean;
-};
+type AccessFns = Parameters<typeof isNavEntryVisible>[1];
 
 export function buildNavPageItems(
   catalogs: NavCatalog[],

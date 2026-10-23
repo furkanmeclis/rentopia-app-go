@@ -14,6 +14,7 @@ import {
   tenantService,
 } from "@/features/tenant/services/tenant.service";
 import { useAuth } from "@/providers/auth-provider";
+import { FeatureProvider } from "@/providers/feature-provider";
 import { PermissionProvider } from "@/providers/permission-provider";
 
 export type TenantOrganization = {
@@ -38,6 +39,11 @@ export type TenantScope = {
   branchScope: "all" | "selected";
   /** `tenant.*` permissions in this organization only. */
   permissions: string[];
+  /**
+   * Enabled plan features (TEC-674) from `/v1/tenant/context`, else the
+   * `/me` membership; `null` while unknown (nothing is hidden).
+   */
+  features: string[] | null;
   /** The API confirmed the membership for this slug. */
   verified: boolean;
   /**
@@ -135,6 +141,7 @@ export function TenantProvider({
         roles: data.roles?.length ? data.roles : [data.role],
         branchScope: data.branch_scope ?? "all",
         permissions: data.permissions ?? EMPTY,
+        features: data.features ?? membership?.features ?? null,
         verified: true,
         optimistic,
         isLoading: false,
@@ -151,6 +158,7 @@ export function TenantProvider({
       roles: membership ? [membership.role.key] : EMPTY,
       branchScope: "all",
       permissions: membership?.permissions ?? EMPTY,
+      features: membership?.features ?? null,
       verified: false,
       optimistic,
       isLoading,
@@ -173,7 +181,7 @@ export function TenantProvider({
   return (
     <TenantContext.Provider value={value}>
       <PermissionProvider permissions={scopedPermissions} roles={roles}>
-        {children}
+        <FeatureProvider features={value.features}>{children}</FeatureProvider>
       </PermissionProvider>
     </TenantContext.Provider>
   );

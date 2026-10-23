@@ -12,6 +12,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/middleware"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tolls/handler"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tolls/model"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/integrations"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/jwt"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
@@ -75,6 +76,10 @@ func RegisterRoutes(
 	read := perm(rbac.PermTenantTollsRead)
 	importP := perm(rbac.PermTenantTollsImport)
 	review := perm(rbac.PermTenantTollsReview)
+	// Toll passes (HGS) are a plan feature (TEC-674): reads and the export
+	// stay open on every plan; fetching, importing, reviewing (which posts
+	// charges), settings and tags need it.
+	feature := middleware.RequireFeature(features.HGS)
 	route := func(pattern string, fn http.HandlerFunc, guards ...func(http.Handler) http.Handler) {
 		mux.Handle(pattern, middleware.Chain(fn, append([]func(http.Handler) http.Handler{authn, org}, guards...)...))
 	}
@@ -87,29 +92,29 @@ func RegisterRoutes(
 		route("POST /v1/tenant/toll-passes/export", engines.Export, read, perm(rbac.PermTenantTollsExport))
 	}
 	if engines.Import != nil {
-		route("POST /v1/tenant/toll-passes/import", engines.Import, read, importP)
+		route("POST /v1/tenant/toll-passes/import", engines.Import, read, importP, feature)
 	}
 	if engines.Sample != nil {
 		route("GET /v1/tenant/toll-passes/import/sample", engines.Sample, importP)
 	}
-	route("POST /v1/tenant/toll-passes/fetch", h.Fetch, read, importP)
+	route("POST /v1/tenant/toll-passes/fetch", h.Fetch, read, importP, feature)
 
 	route("GET /v1/tenant/toll-passes/{uuid}", h.Get, read)
 	route("GET /v1/tenant/toll-passes/{uuid}/candidates", h.Candidates, read, review)
-	route("POST /v1/tenant/toll-passes/{uuid}/assign", h.Assign, read, review)
-	route("POST /v1/tenant/toll-passes/{uuid}/unassign", h.Unassign, read, review)
-	route("POST /v1/tenant/toll-passes/{uuid}/ignore", h.Ignore, read, review)
-	route("POST /v1/tenant/toll-passes/{uuid}/rematch", h.Rematch, read, review)
+	route("POST /v1/tenant/toll-passes/{uuid}/assign", h.Assign, read, review, feature)
+	route("POST /v1/tenant/toll-passes/{uuid}/unassign", h.Unassign, read, review, feature)
+	route("POST /v1/tenant/toll-passes/{uuid}/ignore", h.Ignore, read, review, feature)
+	route("POST /v1/tenant/toll-passes/{uuid}/rematch", h.Rematch, read, review, feature)
 
 	route("GET /v1/tenant/toll-settings", h.Settings, read)
-	route("PATCH /v1/tenant/toll-settings", h.UpdateSettings, read, perm(rbac.PermTenantSettingsWrite))
+	route("PATCH /v1/tenant/toll-settings", h.UpdateSettings, read, perm(rbac.PermTenantSettingsWrite), feature)
 
 	// Vehicle tags are vehicle data: reading needs the toll read
 	// permission, changes the vehicle write permission.
 	route("GET /v1/tenant/vehicles/{uuid}/toll-tags", h.Tags, read)
-	route("POST /v1/tenant/vehicles/{uuid}/toll-tags", h.CreateTag, read, perm(rbac.PermTenantVehiclesWrite))
-	route("PATCH /v1/tenant/vehicles/{uuid}/toll-tags/{tagUuid}", h.UpdateTag, read, perm(rbac.PermTenantVehiclesWrite))
-	route("DELETE /v1/tenant/vehicles/{uuid}/toll-tags/{tagUuid}", h.DeleteTag, read, perm(rbac.PermTenantVehiclesWrite))
+	route("POST /v1/tenant/vehicles/{uuid}/toll-tags", h.CreateTag, read, perm(rbac.PermTenantVehiclesWrite), feature)
+	route("PATCH /v1/tenant/vehicles/{uuid}/toll-tags/{tagUuid}", h.UpdateTag, read, perm(rbac.PermTenantVehiclesWrite), feature)
+	route("DELETE /v1/tenant/vehicles/{uuid}/toll-tags/{tagUuid}", h.DeleteTag, read, perm(rbac.PermTenantVehiclesWrite), feature)
 }
 
 // RegisterLiveResources declares the toll pass list channel

@@ -34,6 +34,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/kabis/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/authctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/crypto"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/integrations"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/kabis"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/resourceevents"
@@ -117,6 +118,8 @@ type Service struct {
 	events    resourceevents.Publisher
 	log       *slog.Logger
 	now       func() time.Time
+	// features: KABİS notifications are the kabis plan feature (TEC-674); nil = no gate.
+	features features.AccessPolicy
 }
 
 // New builds the service, registers the runner operations of every
@@ -169,6 +172,9 @@ func (s *Service) SetResourceEvents(p resourceevents.Publisher) {
 		s.events = p
 	}
 }
+
+// SetFeatures gates the background work by the organization's plan.
+func (s *Service) SetFeatures(p features.AccessPolicy) { s.features = p }
 
 // SetLogger replaces the logger.
 func (s *Service) SetLogger(l *slog.Logger) {

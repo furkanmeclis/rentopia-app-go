@@ -12,6 +12,7 @@ import (
 	accountsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/accounts/usecase"
 	jobsusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/jobs/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tolls/model"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/integrations"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/tolls"
@@ -193,6 +194,10 @@ func (s *Service) ScheduleFetches(ctx context.Context) (int, error) {
 			break
 		}
 		if _, ok := s.providers[row.Provider]; !ok {
+			continue
+		}
+		// Outside the plan (TEC-674) nothing is fetched.
+		if err := features.Require(ctx, s.features, row.OrganizationID, features.HGS); err != nil {
 			continue
 		}
 		octx := orgctx.WithOrganizationID(ctx, row.OrganizationID)

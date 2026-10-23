@@ -18,6 +18,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/site/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/activity"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/authctx"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/httpkit"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/pkg/response"
@@ -376,6 +377,9 @@ func (h *Handler) Asset(w http.ResponseWriter, r *http.Request) {
 }
 
 func writeError(w http.ResponseWriter, r *http.Request, err error) {
+	if features.WriteError(w, r, err) {
+		return
+	}
 	response.RecordFailure(w, err)
 	var ve *usecase.ValidationError
 	if errors.As(err, &ve) {

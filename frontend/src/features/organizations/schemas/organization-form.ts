@@ -23,6 +23,7 @@ export function createOrganizationSchema(t: Translate) {
       owner_mode: z.enum(["existing", "invite"]),
       owner_user_uuid: z.string(),
       owner_email: z.string().trim(),
+      plan_code: z.string(),
     })
     .superRefine((values, ctx) => {
       if (values.owner_mode === "existing" && !values.owner_user_uuid) {

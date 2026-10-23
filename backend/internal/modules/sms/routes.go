@@ -11,6 +11,7 @@ import (
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/middleware"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/sms/handler"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/jwt"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/rbac"
@@ -23,5 +24,6 @@ func RegisterRoutes(mux *http.ServeMux, h *handler.Handler, tokens *jwt.Manager,
 	}
 	mux.Handle("POST /v1/tenant/integrations/{uuid}/test-sms", middleware.Chain(http.HandlerFunc(h.TestSend),
 		middleware.Authenticate(tokens, loader), middleware.RequireOrganization(resolver),
+		middleware.RequireFeature(features.SMS), // TEC-674
 		middleware.RequireTenantPermission(rbac.PermTenantIntegrationsManage)))
 }

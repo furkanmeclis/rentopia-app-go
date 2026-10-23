@@ -59,6 +59,7 @@ import type { SiteSettings } from "@/features/site/types";
 import { useTenant } from "@/features/tenant/components/tenant-provider";
 import { isApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { useFeature } from "@/providers/feature-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { usePermission } from "@/providers/permission-provider";
 import { appToast } from "@/providers/toast-provider";
@@ -456,7 +457,9 @@ export function SitePage() {
   const { t } = useLocale();
   const { slug } = useTenant();
   const { can } = usePermission();
-  const canManage = can(permissions.tenant.site.manage);
+  // Outside the plan (TEC-674) the site stays visible, read-only.
+  const inPlan = useFeature("site");
+  const canManage = inPlan && can(permissions.tenant.site.manage);
   const query = useSiteSettings();
   const publish = usePublishSite();
   const [tab, setTab] = useState<Tab>("general");

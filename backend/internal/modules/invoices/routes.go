@@ -21,6 +21,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/invoices/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/einvoice"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/einvoice/einvoicefake"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/integrations"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/jwt"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
@@ -82,7 +83,10 @@ func RegisterRoutes(mux *http.ServeMux, h *handler.Handler, engines Engines, tok
 	route("GET /v1/tenant/invoices/items", h.Items, read)
 	route("GET /v1/tenant/invoices/uninvoiced-rentals", h.UninvoicedRentals, read)
 	route("GET /v1/tenant/invoices/settings", h.Settings, read)
-	route("PUT /v1/tenant/invoices/settings", h.PutSettings, read, perm(rbac.PermTenantInvoicesSettings))
+	// e-document sending and its settings are the einvoice plan feature
+	// (TEC-674); the use case checks again for bulk actions and cancels.
+	einvoice := middleware.RequireFeature(features.EInvoice)
+	route("PUT /v1/tenant/invoices/settings", h.PutSettings, read, einvoice, perm(rbac.PermTenantInvoicesSettings))
 	route("GET /v1/tenant/invoices", h.List, read)
 	route("POST /v1/tenant/invoices", h.Create, read, write)
 	if engines.Export != nil {
@@ -95,10 +99,10 @@ func RegisterRoutes(mux *http.ServeMux, h *handler.Handler, engines Engines, tok
 	route("GET /v1/tenant/invoices/{uuid}", h.Get, read)
 	route("PATCH /v1/tenant/invoices/{uuid}", h.Patch, read, write)
 	route("POST /v1/tenant/invoices/{uuid}/validate", h.Validate, read, write)
-	route("POST /v1/tenant/invoices/{uuid}/finalize", h.Finalize, read, write)
-	route("POST /v1/tenant/invoices/{uuid}/retry", h.Retry, read, write)
+	route("POST /v1/tenant/invoices/{uuid}/finalize", h.Finalize, read, einvoice, write)
+	route("POST /v1/tenant/invoices/{uuid}/retry", h.Retry, read, einvoice, write)
 	route("POST /v1/tenant/invoices/{uuid}/cancel", h.Cancel, read, cancel)
-	route("POST /v1/tenant/invoices/{uuid}/return", h.Return, read, cancel)
+	route("POST /v1/tenant/invoices/{uuid}/return", h.Return, read, einvoice, cancel)
 	route("GET /v1/tenant/invoices/{uuid}/preview", h.Preview, read)
 	route("GET /v1/tenant/invoices/{uuid}/xml", h.XML, read)
 	route("GET /v1/tenant/invoices/{uuid}/pdf", h.PDF, read)

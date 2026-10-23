@@ -13,6 +13,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/integrations/accounts/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/activity"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/authctx"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/httpkit"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/pkg/apiquery"
@@ -44,6 +45,32 @@ func New(svc *usecase.Service, rec *activity.Recorder) *Handler {
 }
 
 func orgID(r *http.Request) int64 { return orgctx.Must(r.Context()).ID }
+
+// requireProviderFeature answers 403 FEATURE_NOT_ENABLED when the
+// provider's plan feature is off (TEC-674): SMS, KABİS, HGS, e-invoice,
+// WhatsApp and the channel managers. Payment providers are never gated.
+func requireProviderFeature(w http.ResponseWriter, r *http.Request, kind, provider string) bool {
+	f, ok := features.ForIntegration(kind, provider)
+	if !ok {
+		return true
+	}
+	if err := features.Require(r.Context(), nil, orgID(r), f); err != nil {
+		features.WriteError(w, r, err)
+		return false
+	}
+	return true
+}
+
+// requireAccountFeature loads the account and checks its provider's
+// feature (another organization's uuid answers 404).
+func (h *Handler) requireAccountFeature(w http.ResponseWriter, r *http.Request, id uuid.UUID) bool {
+	a, err := h.svc.Get(r.Context(), orgID(r), id)
+	if err != nil {
+		writeError(w, r, err)
+		return false
+	}
+	return requireProviderFeature(w, r, a.Kind, a.Provider)
+}
 
 func (h *Handler) audit(r *http.Request, action string, id uuid.UUID, payload map[string]any) {
 	if h.activity == nil {
@@ -85,6 +112,9 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 	if !httpkit.DecodeJSON(w, r, &in, false) {
 		return
 	}
+	if !requireProviderFeature(w, r, in.Kind, in.Provider) {
+		return
+	}
 	a, err := h.svc.Connect(r.Context(), orgID(r), in)
 	if err != nil {
 		writeError(w, r, err)
@@ -116,8 +146,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if _, err := h.svc.Get(r.Context(), orgID(r), id); err != nil {
-		writeError(w, r, err)
+	if !h.requireAccountFeature(w, r, id) {
 		return
 	}
 	var in usecase.UpdateInput
@@ -141,6 +170,9 @@ func (h *Handler) Test(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if !h.requireAccountFeature(w, r, id) {
+		return
+	}
 	a, err := h.svc.Test(r.Context(), orgID(r), id)
 	var ce *usecase.CheckError
 	if errors.As(err, &ce) {
@@ -161,6 +193,11 @@ func (h *Handler) status(status, action string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, ok := httpkit.PathUUID(w, r, "uuid")
 		if !ok {
+			return
+		}
+		// Switching an account off is always allowed (clean-up after a
+		// plan change); switching it on needs the feature.
+		if status == usecase.StatusActive && !h.requireAccountFeature(w, r, id) {
 			return
 		}
 		a, err := h.svc.SetStatus(r.Context(), orgID(r), id, status)

@@ -24,6 +24,7 @@ import {
 } from "@/features/site-leads/hooks/use-site-leads";
 import type { SiteLead, SiteLeadStatus } from "@/features/site-leads/types";
 import { datetime } from "@/lib/utils/format";
+import { useFeature } from "@/providers/feature-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { usePermission } from "@/providers/permission-provider";
 
@@ -52,7 +53,8 @@ export function SiteLeadDrawer({
 }) {
   const { t, locale } = useLocale();
   const { can } = usePermission();
-  const canManage = can(permissions.tenant.siteLeads.manage);
+  const inPlan = useFeature("site");
+  const canManage = inPlan && can(permissions.tenant.siteLeads.manage);
   const detail = useSiteLead(row?.uuid ?? null);
   const update = useUpdateSiteLead();
   const lead = detail.data ?? row;

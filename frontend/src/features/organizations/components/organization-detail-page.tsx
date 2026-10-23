@@ -34,6 +34,7 @@ import {
   ownerLabel,
 } from "@/features/organizations/components/organization-cells";
 import { OrganizationMembersTab } from "@/features/organizations/components/organization-members-tab";
+import { OrganizationPlanTab } from "@/features/organizations/components/organization-plan-tab";
 import {
   useDeleteOrganization,
   useOrganization,
@@ -54,6 +55,7 @@ const TABS = [
   "general",
   "members",
   "status",
+  "plan",
   "domains",
   "integrations",
   "activity",
@@ -64,6 +66,7 @@ const TAB_LABEL_KEYS: Record<Tab, string> = {
   general: "organizations.tabs.general",
   members: "organizations.tabs.members",
   status: "organizations.tabs.status",
+  plan: "organizations.tabs.plan",
   domains: "organizations.tabs.domains",
   integrations: "organizations.tabs.integrations",
   activity: "organizations.tabs.activity",
@@ -464,8 +467,8 @@ function ActivityTab({ uuid }: { uuid: string }) {
 
 /**
  * Platform organization page (TEC-670): header with status and access
- * state, tabs Genel / Üyeler / Durum / Alan adları / Bağlantılar / Aktivite
- * (`?tab=`).
+ * state, tabs Genel / Üyeler / Durum / Paket ve özellikler (TEC-674) /
+ * Alan adları / Bağlantılar / Aktivite (`?tab=`).
  */
 export function OrganizationDetailPage({
   uuid,
@@ -564,7 +567,10 @@ export function OrganizationDetailPage({
           <Tabs value={tab} onValueChange={openTab} className="space-y-4">
             <div className="-mx-1 overflow-x-auto px-1 pb-1">
               <TabsList className="h-auto w-max">
-                {TABS.map((value) => (
+                {TABS.filter(
+                  (value) =>
+                    value !== "plan" || can(permissions.organizations.planRead),
+                ).map((value) => (
                   <TabsTrigger key={value} value={value}>
                     {t(TAB_LABEL_KEYS[value])}
                   </TabsTrigger>
@@ -579,6 +585,9 @@ export function OrganizationDetailPage({
             </TabsContent>
             <TabsContent value="status">
               <StatusTab org={org} />
+            </TabsContent>
+            <TabsContent value="plan">
+              <OrganizationPlanTab organizationUuid={uuid} />
             </TabsContent>
             <TabsContent value="domains">
               <ManagedInPanelTab

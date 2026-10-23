@@ -1,6 +1,8 @@
 import type { LucideIcon } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 
+import type { FeatureKey } from "@/config/features";
+
 export type NavBadgeVariant =
   "default" | "secondary" | "success" | "warning" | "danger" | "outline";
 
@@ -62,6 +64,17 @@ export type NavItemDef = {
   icon: LucideIcon;
   permission?: string | string[];
   anyPermission?: string[];
+  /**
+   * Plan feature (TEC-674) the item needs; several = any of them. Hidden
+   * when the organization's plan lacks it (the API refuses it too).
+   */
+  feature?: FeatureKey | FeatureKey[];
+  /**
+   * Without the feature: `hide` (default) removes the item; `readonly`
+   * keeps it with an "not in plan" label, for screens whose history stays
+   * readable after a downgrade.
+   */
+  featureOff?: "hide" | "readonly";
   soon?: boolean;
   /** Command palette icon key (see resolveSearchIcon). */
   searchIcon?: string;

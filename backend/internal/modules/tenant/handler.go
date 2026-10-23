@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/features"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/orgctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/pkg/response"
 )
@@ -24,6 +25,8 @@ type contextDTO struct {
 	// BranchScope is "all" or "selected" (branch-bound data is limited to
 	// the member's branches).
 	BranchScope string `json:"branch_scope"`
+	// Features are the organization's enabled plan features (TEC-674).
+	Features []string `json:"features"`
 }
 
 // getContext returns the resolved organization scope of the request.
@@ -36,6 +39,10 @@ func getContext(w http.ResponseWriter, r *http.Request) {
 	roles := s.MemberRoles
 	if roles == nil {
 		roles = []string{s.MemberRole}
+	}
+	feats := s.Features
+	if feats == nil {
+		feats = features.AllStrings()
 	}
 	branchScope := orgctx.BranchScopeAll
 	if !s.AllBranches() {
@@ -53,5 +60,6 @@ func getContext(w http.ResponseWriter, r *http.Request) {
 		Roles:       roles,
 		Permissions: perms,
 		BranchScope: branchScope,
+		Features:    feats,
 	})
 }
