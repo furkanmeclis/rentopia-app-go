@@ -20,7 +20,8 @@ FRONTEND_PORT ?= 3000
 
 .PHONY: infra infra-down infra-logs infra-ps migrate-up backend-dev frontend-dev site-dev local-dev \
 	free-dev-ports prod-env prod-env-upgrade prod-env-check prod-sync prod-super-admin prod-config prod-up prod-down \
-	prod-backup prod-backup-status tools create-super-admin search-reindex check-i18n
+	prod-backup prod-backup-status tools create-super-admin search-reindex check-i18n \
+	acceptance acceptance-backend acceptance-e2e acceptance-stack-up acceptance-stack-down
 
 infra:
 	@if [ -n "$(ENV_FILE)" ]; then \
@@ -174,3 +175,30 @@ search-reindex:
 
 check-i18n:
 	node scripts/check-i18n.mjs
+
+# --- Acceptance suite RT-A01…A32 (TEC-740, docs/acceptance/beta.md) ---------
+# Go: every TestRT_A* / *RTA* test plus the older tests that prove a scenario
+# under another name (mapping in docs/acceptance/beta.md). Needs a migrated
+# TEST_DATABASE_URL (same as CI's backend job); without it the DB tests skip.
+ACCEPTANCE_GO_RUN ?= RT_A|RTA|^(TestPricingEndToEnd|TestPreviewExtrasAndCoupons|TestOneWayReturnMovesTheVehicle|TestBlockInTheMiddle|TestModelGuaranteeNotSoldOnOtherModel|TestBranchScope|TestVerificationMismatchIsRefused|TestLatePaymentReinstatesWhenCapacityFree|TestWebhookPostingIsIdempotent|TestRunnerUncertainChecksStatusWithoutDoubleSubmit|TestRunnerResubmitsOnlyWhenConfirmedNotDone|TestBuildAndValidateTemelAndEArsiv|TestIdempotentSendCreatesOneInvoice|TestSendFailureKeepsFinance|TestDoubleInvoicingRefused|TestUncertainSendChecksStatusFirst|TestCatalogAndSameAnswerEverywhere|TestPlatformPlanRoutes|TestPlanFeatureGate|TestRequireFeature|TestCustomerLinksAreNeverGated|TestPublicSiteOutsidePlanIsNotFound|TestFallbackAfterUndeliveredReport|TestFallbackAfterRejectionAndDelivered)$$
+
+acceptance-backend:
+	@if [ -z "$$TEST_DATABASE_URL" ]; then echo "TEST_DATABASE_URL is not set: the database scenarios would skip (see docs/acceptance/beta.md)"; exit 1; fi
+	cd backend && go test ./... -count=1 -v -run '$(ACCEPTANCE_GO_RUN)'
+
+# Playwright stack: Postgres / Redis / SeaweedFS containers, API :18080,
+# panel :13000 (next dev), site :13100 (frontend/e2e/stack/env.sh).
+acceptance-stack-up:
+	frontend/e2e/stack/up.sh
+
+acceptance-stack-down:
+	frontend/e2e/stack/down.sh
+
+acceptance-e2e:
+	cd frontend && pnpm e2e
+
+# Everything: Go scenarios, then the stack, the Playwright scenarios and the
+# stack teardown (also on failure).
+acceptance: acceptance-backend
+	@frontend/e2e/stack/up.sh && status=0 && (cd frontend && pnpm e2e) || status=$$?; \
+	frontend/e2e/stack/down.sh; exit $$status
