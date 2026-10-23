@@ -294,11 +294,12 @@ export function WizardCustomerStep({
         onOpenChange={setCreateOpen}
         title={t("reservations.wizard.new_customer")}
         description={t("reservations.wizard.new_customer_description")}
-        size="xl"
+        size="4xl"
       >
         {createOpen ? (
           <CustomerForm
             mode="create"
+            embedded
             defaultValues={customerFormDefaults()}
             isSubmitting={create.isPending}
             onCancel={() => setCreateOpen(false)}
