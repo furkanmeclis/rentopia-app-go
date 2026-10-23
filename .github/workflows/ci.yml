@@ -6,6 +6,14 @@ name: CI
 on:
   push:
     branches: ["**"]
+  # Manual run of the acceptance job with the Playwright scenarios
+  # (docs/acceptance/beta.md); the other jobs run as on a push.
+  workflow_dispatch:
+    inputs:
+      e2e:
+        description: "Run the Playwright acceptance scenarios (full stack)"
+        type: boolean
+        default: true
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -149,6 +157,89 @@ jobs:
         run: pnpm test
       - name: Build
         run: pnpm build
+
+  # Acceptance suite RT-A01…A32 (TEC-740, docs/acceptance/beta.md). The Go
+  # scenarios run on every push against the same Postgres as the backend
+  # job; the Playwright scenarios need the whole stack (containers, API,
+  # panel, site) and run on a manual dispatch only. Not a dependency of
+  # auto-pr: a red acceptance run is reported, it does not block merging.
+  acceptance:
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          POSTGRES_DB: app_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U app -d app_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://app:app@localhost:5432/app_test?sslmode=disable
+      CATALOG_TEST_DATABASE_URL: postgres://app:app@localhost:5432/app_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: Migrate test database
+        run: >-
+          docker run --rm --network host
+          -v "$PWD/backend/migrations:/migrations:ro"
+          migrate/migrate:v4.19.1
+          -path /migrations -database "$TEST_DATABASE_URL" up
+      - name: Go acceptance scenarios
+        run: |
+          set -o pipefail
+          make acceptance-backend 2>&1 | tee "$RUNNER_TEMP/rt-go.log"
+      - name: Playwright dependencies
+        if: github.event_name == 'workflow_dispatch' && inputs.e2e
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.22.0
+      - uses: actions/setup-node@v7
+        if: github.event_name == 'workflow_dispatch' && inputs.e2e
+        with:
+          node-version-file: frontend/.nvmrc
+      - name: Install panel and site, Chromium
+        if: github.event_name == 'workflow_dispatch' && inputs.e2e
+        run: |
+          (cd frontend && pnpm install --frozen-lockfile && pnpm exec playwright install --with-deps chromium)
+          (cd site && pnpm install --frozen-lockfile)
+      - name: Playwright acceptance scenarios
+        if: github.event_name == 'workflow_dispatch' && inputs.e2e
+        timeout-minutes: 30
+        env:
+          E2E_STATE: ${{ runner.temp }}/rentopya-e2e
+        run: |
+          set -o pipefail
+          status=0
+          frontend/e2e/stack/up.sh || status=$?
+          if [ "$status" = 0 ]; then
+            (cd frontend && pnpm e2e) 2>&1 | tee "$RUNNER_TEMP/rt-e2e.log" || status=$?
+          fi
+          frontend/e2e/stack/down.sh
+          exit "$status"
+      - name: Evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: acceptance-evidence
+          if-no-files-found: ignore
+          path: |
+            ${{ runner.temp }}/rt-go.log
+            ${{ runner.temp }}/rt-e2e.log
+            ${{ runner.temp }}/rentopya-e2e/*.log
+            frontend/e2e/evidence/
+            ${{ runner.temp }}/rentopya-e2e/playwright/report/
 
   # Feature branch pushed and both test jobs green → open (or reuse) a PR into
   # main and turn on auto-merge. GitHub merges once main's required checks pass.
