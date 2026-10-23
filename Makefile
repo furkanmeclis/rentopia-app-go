@@ -19,7 +19,8 @@ endef
 FRONTEND_PORT ?= 3000
 
 .PHONY: infra infra-down infra-logs infra-ps migrate-up backend-dev frontend-dev site-dev local-dev \
-	free-dev-ports prod-env prod-env-upgrade prod-env-check prod-sync prod-super-admin prod-config prod-up prod-down tools create-super-admin search-reindex check-i18n
+	free-dev-ports prod-env prod-env-upgrade prod-env-check prod-sync prod-super-admin prod-config prod-up prod-down \
+	prod-backup prod-backup-status tools create-super-admin search-reindex check-i18n
 
 infra:
 	@if [ -n "$(ENV_FILE)" ]; then \
@@ -140,6 +141,14 @@ prod-up:
 
 prod-down:
 	docker compose --env-file $(PROD_ENV_FILE) -f compose.prod.yml down
+
+# Encrypted backup set now (Postgres + Redis + bucket); see docs/operations/backup-restore.md.
+# Restores are deliberate: run scripts/restore.sh by hand.
+prod-backup:
+	scripts/backup.sh --env-file $(PROD_ENV_FILE)
+
+prod-backup-status:
+	scripts/backup.sh status --env-file $(PROD_ENV_FILE)
 
 tools:
 	@echo "docker:  $$(docker version --format '{{.Server.Version}}' 2>&1)"
