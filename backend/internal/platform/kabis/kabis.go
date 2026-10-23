@@ -121,7 +121,7 @@ type Provider interface {
 var (
 	// ErrDependencyPending: the official connection method is not verified
 	// (TEC-682); nothing can be sent.
-	ErrDependencyPending = errors.New("kabis: waiting on dependency: the official connection method is not verified (TEC-682)")
+	ErrDependencyPending = errors.New("kabis: waiting on dependency: the official connection method is not verified")
 	// ErrUnavailable: the request did not reach the authority; nothing was
 	// filed, sending again is safe.
 	ErrUnavailable = errors.New("kabis: service unavailable (nothing was sent)")
