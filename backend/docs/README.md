@@ -36,6 +36,7 @@ Details: [`../API_CONVENTIONS.md`](../API_CONVENTIONS.md). Health probes `/healt
 
 - Module and engine map: [`../../docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md)
 - Domain design per area (reservations, pricing, payments, integration jobs, KABİS, …): [`../../docs/design/`](../../docs/design)
+- Handover set (Turkish): [`../../docs/handover/`](../../docs/handover/README.md); public API for partners: [`public-api.md`](../../docs/handover/public-api.md)
 - Checklists: `.agents/skills/add-tenant-resource`, `.agents/skills/integration-adapter`, `.agents/skills/db-migration`
 
 Live routes are registered in `internal/modules/*/routes.go` (domain packages name their design doc in the package comment) and wired in `internal/httpserver/server.go`. The spec must match them: RT-A01 (`internal/httpserver/isolation_test.go`) cross-checks every `/v1/tenant` route against `openapi.yaml`.
