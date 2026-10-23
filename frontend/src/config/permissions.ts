@@ -180,6 +180,7 @@ export const Permission = {
   TenantSuppliersBulkArchive: "tenant.suppliers.bulk.archive",
   TenantPublicAPIRead: "tenant.public_api.read",
   TenantPublicAPIManage: "tenant.public_api.manage",
+  TenantSupportAccessManage: "tenant.support_access.manage",
   TenantSiteLeadsRead: "tenant.site_leads.read",
   TenantSiteLeadsManage: "tenant.site_leads.manage",
   TenantSiteRead: "tenant.site.read",
@@ -618,6 +619,14 @@ export const permissions = {
     publicApi: {
       read: Permission.TenantPublicAPIRead,
       manage: Permission.TenantPublicAPIManage,
+    },
+    /**
+     * Support access (TEC-678): open a time-boxed grant (read-only or
+     * full) that lets platform support staff enter the organization,
+     * list grants and revoke them.
+     */
+    supportAccess: {
+      manage: Permission.TenantSupportAccessManage,
     },
     /**
      * Branded site (TEC-729 / TEC-730): `read` = settings, history,

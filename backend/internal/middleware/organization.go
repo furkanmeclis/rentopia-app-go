@@ -50,6 +50,12 @@ func RequireOrganization(resolver orgctx.Resolver) func(http.Handler) http.Handl
 				writeOrganizationError(w, r, err)
 				return
 			}
+			// Support access (TEC-678): an impersonated session under a
+			// read-only grant may only read.
+			if scope.SupportGrant.ReadOnly() && !isReadMethod(r.Method) {
+				response.Error(w, r, http.StatusForbidden, response.CodeSupportReadOnly, "Support access is read-only")
+				return
+			}
 			tagOrganization(r, scope)
 			next.ServeHTTP(w, r.WithContext(orgctx.WithScope(r.Context(), scope)))
 		})
@@ -110,9 +116,16 @@ func writeOrganizationError(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, orgctx.ErrAccessExpired):
 		response.RecordFailure(w, err)
 		response.Error(w, r, http.StatusForbidden, response.CodeOrganizationAccessExpired, "Organization access has expired")
+	case errors.Is(err, orgctx.ErrSupportGrantRequired):
+		response.RecordFailure(w, err)
+		response.Error(w, r, http.StatusForbidden, response.CodeSupportGrantRequired, "The organization has not granted support access")
 	default:
 		response.InternalErr(w, r, err, "")
 	}
+}
+
+func isReadMethod(method string) bool {
+	return method == http.MethodGet || method == http.MethodHead || method == http.MethodOptions
 }
 
 func writeNoMembership(w http.ResponseWriter, r *http.Request, err error) {

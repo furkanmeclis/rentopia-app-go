@@ -75,6 +75,24 @@ type AlertState struct {
 	LastAlertCount int32      `json:"last_alert_count"`
 }
 
+// QueueStats is one background queue (Asynq) at check time. Archived
+// tasks are dead (retries exhausted).
+type QueueStats struct {
+	Queue     string `json:"queue"`
+	Pending   int    `json:"pending"`
+	Active    int    `json:"active"`
+	Scheduled int    `json:"scheduled"`
+	Retry     int    `json:"retry"`
+	Archived  int    `json:"archived"`
+	Paused    bool   `json:"paused"`
+}
+
+// JobStatusCount is the number of integration jobs in one status.
+type JobStatusCount struct {
+	Status string `json:"status"`
+	Count  int64  `json:"count"`
+}
+
 // HealthSummary is the dashboard payload.
 type HealthSummary struct {
 	Status    string         `json:"status"`
@@ -83,6 +101,12 @@ type HealthSummary struct {
 	Warning   int            `json:"warning"`
 	Sources   []SourceHealth `json:"sources"`
 	Alerts    []AlertState   `json:"alerts"`
+	// Queues is the Asynq snapshot (empty when the queue is off);
+	// QueuesError is set when Redis could not be read.
+	Queues      []QueueStats `json:"queues"`
+	QueuesError string       `json:"queues_error,omitempty"`
+	// IntegrationJobs counts integration jobs per status (all time).
+	IntegrationJobs []JobStatusCount `json:"integration_jobs"`
 }
 
 // OrganizationRef names an issue's organization.

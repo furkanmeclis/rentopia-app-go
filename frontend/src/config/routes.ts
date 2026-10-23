@@ -258,6 +258,9 @@ export const routes = {
       /** Public booking API keys and webhooks (TEC-728). */
       publicApi: (slug: string) =>
         `/t/${encodeURIComponent(slug)}/settings/public-api`,
+      /** Time-boxed platform support access grants (TEC-678). */
+      supportAccess: (slug: string) =>
+        `/t/${encodeURIComponent(slug)}/settings/support-access`,
       /** Branded site: theme, content, publish history (TEC-730). */
       site: (slug: string) => `/t/${encodeURIComponent(slug)}/settings/site`,
       /** Guide / blog articles of the branded site (TEC-785). */

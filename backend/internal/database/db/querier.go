@@ -167,6 +167,9 @@ type Querier interface {
 	CountExtras(ctx context.Context, arg CountExtrasParams) (int64, error)
 	CountImportJobsForActor(ctx context.Context, actorID int64) (int64, error)
 	CountInspectionCharges(ctx context.Context, arg CountInspectionChargesParams) (int64, error)
+	// Integration jobs of live organizations (and platform jobs) per status,
+	// all time (the platform health queue snapshot, TEC-744).
+	CountIntegrationJobsByStatus(ctx context.Context) ([]CountIntegrationJobsByStatusRow, error)
 	CountInvitations(ctx context.Context, arg CountInvitationsParams) (int64, error)
 	// Failed sends and sends waiting for a person (finance screen badge).
 	CountInvoicesNeedingAction(ctx context.Context, arg CountInvoicesNeedingActionParams) (int64, error)
@@ -213,6 +216,7 @@ type Querier interface {
 	CountStaffPushTargets(ctx context.Context, userID int64) (int64, error)
 	CountStorageActivity(ctx context.Context, objectKey string) (int64, error)
 	CountStorageTrash(ctx context.Context) (int64, error)
+	CountSupportGrants(ctx context.Context, arg CountSupportGrantsParams) (int64, error)
 	CountTenantMembers(ctx context.Context, arg CountTenantMembersParams) (int64, error)
 	// Transfers of the vehicle (not cancelled) whose actual, else planned,
 	// window contains the pass time.
@@ -307,6 +311,10 @@ type Querier interface {
 	CreateRole(ctx context.Context, arg CreateRoleParams) (Role, error)
 	CreateServicePoint(ctx context.Context, arg CreateServicePointParams) (ServicePoint, error)
 	CreateSiteDomain(ctx context.Context, arg CreateSiteDomainParams) (SiteDomain, error)
+	// Support access grants (TEC-678). Organization-scoped: every query names
+	// organization_id. "Active" = revoked_at IS NULL AND expires_at > now, with
+	// now passed by the caller (request time; no job closes grants).
+	CreateSupportGrant(ctx context.Context, arg CreateSupportGrantParams) (SupportGrant, error)
 	CreateTenantRole(ctx context.Context, arg CreateTenantRoleParams) (CreateTenantRoleRow, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	// Tenant resource: fleet vehicles (TEC-692), their status events and rental
@@ -542,6 +550,8 @@ type Querier interface {
 	GetActiveOTPByEmailType(ctx context.Context, arg GetActiveOTPByEmailTypeParams) (OtpCode, error)
 	// The newest active, unexpired pay-by-link link of a reservation.
 	GetActivePaymentLinkForReservation(ctx context.Context, arg GetActivePaymentLinkForReservationParams) (GetActivePaymentLinkForReservationRow, error)
+	// The grant platform staff act under; the newest wins if two overlap.
+	GetActiveSupportGrant(ctx context.Context, arg GetActiveSupportGrantParams) (SupportGrant, error)
 	GetAgreement(ctx context.Context, arg GetAgreementParams) (GetAgreementRow, error)
 	// ------------------------------------------------------- sales (ports)
 	// What pricing and reservations need of an agreement (by uuid).
@@ -1014,6 +1024,7 @@ type Querier interface {
 	GetSupplierInvoiceRowByID(ctx context.Context, arg GetSupplierInvoiceRowByIDParams) (GetSupplierInvoiceRowByIDRow, error)
 	GetSupplierPaymentRow(ctx context.Context, arg GetSupplierPaymentRowParams) (GetSupplierPaymentRowRow, error)
 	GetSupplierSearchDocument(ctx context.Context, arg GetSupplierSearchDocumentParams) (GetSupplierSearchDocumentRow, error)
+	GetSupportGrant(ctx context.Context, arg GetSupportGrantParams) (GetSupportGrantRow, error)
 	// A rental's handover / return task and the delivery facts of its
 	// reservation (placement.Locate).
 	GetTaskPlacementFacts(ctx context.Context, arg GetTaskPlacementFactsParams) (GetTaskPlacementFactsRow, error)
@@ -1036,6 +1047,9 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id int64) (User, error)
 	GetUserByUUID(ctx context.Context, argUuid uuid.UUID) (User, error)
+	// Impersonation gate: the target's live memberships and how many of those
+	// organizations have an active grant.
+	GetUserSupportAccessSummary(ctx context.Context, arg GetUserSupportAccessSummaryParams) (GetUserSupportAccessSummaryRow, error)
 	GetUserTOTPByUserID(ctx context.Context, userID int64) (UserTotp, error)
 	GetValidRefreshTokenByHash(ctx context.Context, tokenHash string) (RefreshToken, error)
 	// The availability allocation an equipment hold is tied to, locked FOR
@@ -1314,6 +1328,8 @@ type Querier interface {
 	// product (product_id NULL): engine candidates and activation conflicts.
 	ListActiveRatePlans(ctx context.Context, arg ListActiveRatePlansParams) ([]ListActiveRatePlansRow, error)
 	ListActiveRefreshTokensByUserID(ctx context.Context, userID int64) ([]RefreshToken, error)
+	// Platform view: active grants across organizations (support staff).
+	ListActiveSupportGrantsPlatform(ctx context.Context, now pgtype.Timestamptz) ([]ListActiveSupportGrantsPlatformRow, error)
 	// Platform audit feed: platform events only. Organization events are read
 	// per resource through ListOrganizationResourceActivity.
 	ListActivityEvents(ctx context.Context, arg ListActivityEventsParams) ([]ActivityEvent, error)
@@ -1866,6 +1882,7 @@ type Querier interface {
 	ListSupplierPayments(ctx context.Context, arg ListSupplierPaymentsParams) ([]ListSupplierPaymentsRow, error)
 	ListSupplierSearchDocuments(ctx context.Context, organizationID int64) ([]ListSupplierSearchDocumentsRow, error)
 	ListSuppliers(ctx context.Context, arg ListSuppliersParams) ([]ListSuppliersRow, error)
+	ListSupportGrants(ctx context.Context, arg ListSupportGrantsParams) ([]ListSupportGrantsRow, error)
 	ListTenantMembers(ctx context.Context, arg ListTenantMembersParams) ([]ListTenantMembersRow, error)
 	ListTenantPermissions(ctx context.Context) ([]ListTenantPermissionsRow, error)
 	ListTenantRolePermissionSlugsByRoleID(ctx context.Context, roleID int64) ([]string, error)
@@ -2363,6 +2380,8 @@ type Querier interface {
 	// live); bumps the version.
 	RestoreSiteDraft(ctx context.Context, arg RestoreSiteDraftParams) (int32, error)
 	RetrySiteDomainReconciliation(ctx context.Context, arg RetrySiteDomainReconciliationParams) error
+	// A new grant replaces the active one of the organization.
+	RevokeActiveSupportGrants(ctx context.Context, arg RevokeActiveSupportGrantsParams) (int64, error)
 	RevokeAllRefreshTokensForUser(ctx context.Context, userID int64) error
 	RevokeDocumentApprovalLink(ctx context.Context, arg RevokeDocumentApprovalLinkParams) (int64, error)
 	RevokeInvitation(ctx context.Context, arg RevokeInvitationParams) (OrganizationInvitation, error)
@@ -2374,6 +2393,7 @@ type Querier interface {
 	RevokeRefreshTokenByHash(ctx context.Context, tokenHash string) (int64, error)
 	RevokeRefreshTokenByUUIDForUser(ctx context.Context, arg RevokeRefreshTokenByUUIDForUserParams) (int64, error)
 	RevokeStorageLink(ctx context.Context, argUuid uuid.UUID) (StorageLink, error)
+	RevokeSupportGrant(ctx context.Context, arg RevokeSupportGrantParams) (SupportGrant, error)
 	// Resend: a new token (the old link stops working) and a fresh expiry.
 	RotateInvitationToken(ctx context.Context, arg RotateInvitationTokenParams) (OrganizationInvitation, error)
 	RotatePublicWebhookSecret(ctx context.Context, arg RotatePublicWebhookSecretParams) (int64, error)

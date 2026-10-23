@@ -3067,6 +3067,20 @@ type SupplierPaymentAllocation struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
+type SupportGrant struct {
+	ID             int64              `json:"id"`
+	Uuid           uuid.UUID          `json:"uuid"`
+	OrganizationID int64              `json:"organization_id"`
+	CreatedBy      pgtype.Int8        `json:"created_by"`
+	Scope          string             `json:"scope"`
+	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
+	RevokedAt      pgtype.Timestamptz `json:"revoked_at"`
+	RevokedBy      pgtype.Int8        `json:"revoked_by"`
+	Note           string             `json:"note"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
 type TollPass struct {
 	ID                   int64              `json:"id"`
 	Uuid                 uuid.UUID          `json:"uuid"`

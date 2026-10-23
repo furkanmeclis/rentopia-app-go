@@ -8,6 +8,16 @@ import { Toaster } from "@/components/ui/sonner";
 import { ApiError, setGlobalApiErrorHandler } from "@/lib/api";
 import { useLocale } from "@/providers/locale-provider";
 
+/**
+ * 403 codes with their own text instead of the generic "forbidden" one:
+ * support access (TEC-678), e.g. impersonating a member of a company that
+ * has not opened support access.
+ */
+const FORBIDDEN_CODE_KEYS: Record<string, string> = {
+  SUPPORT_GRANT_REQUIRED: "errors.codes.SUPPORT_GRANT_REQUIRED",
+  SUPPORT_READ_ONLY: "errors.codes.SUPPORT_READ_ONLY",
+};
+
 export function ToastProvider({ children }: { children: ReactNode }) {
   const { t } = useLocale();
 
@@ -22,7 +32,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         return;
       }
       if (error.isForbidden) {
-        showError(t("common.error_forbidden"));
+        const key = FORBIDDEN_CODE_KEYS[error.code];
+        showError(t(key ?? "common.error_forbidden"));
         return;
       }
       if (error.isNotFound) {

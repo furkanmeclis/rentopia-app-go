@@ -51,6 +51,23 @@ func TestValidateRejectsDefaultSecretsInProduction(t *testing.T) {
 	}
 }
 
+func TestValidateAppEnv(t *testing.T) {
+	staging := validProdConfig()
+	staging.App.Env = "staging"
+	if err := staging.validate(); err != nil {
+		t.Fatalf("staging with real secrets must pass: %v", err)
+	}
+	staging.Encryption.Key = defaultEncryptionKey
+	if err := staging.validate(); err == nil {
+		t.Fatal("staging must refuse the example secrets like production")
+	}
+	bad := validProdConfig()
+	bad.App.Env = "prod"
+	if err := bad.validate(); err == nil || !strings.Contains(err.Error(), "APP_ENV") {
+		t.Fatalf("unknown APP_ENV must be rejected, got %v", err)
+	}
+}
+
 func TestParseReviewAccounts(t *testing.T) {
 	got := parseReviewAccounts(" Review@Example.com:246810 , bad, short@x.io:123, nocolon@x.io ,x:123456")
 	if len(got) != 1 || got["review@example.com"] != "246810" {

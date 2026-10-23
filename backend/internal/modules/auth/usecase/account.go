@@ -57,6 +57,12 @@ func (u *AuthUseCase) SetOrganizationsLister(lister OrganizationsLister) {
 	u.orgs = lister
 }
 
+// SetSupportAccess attaches the support access gate of impersonation
+// (TEC-678). nil (tenancy off) = no gate.
+func (u *AuthUseCase) SetSupportAccess(gate SupportAccessGate) {
+	u.supportAccess = gate
+}
+
 // UpdateProfile patches the caller's name/surname/locale and returns refreshed Me.
 func (u *AuthUseCase) UpdateProfile(
 	ctx context.Context,

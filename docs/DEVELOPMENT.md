@@ -136,12 +136,14 @@ The tracker is a self-hosted, Sentry-protocol endpoint (events only; it has no `
 |---|---|---|
 | `BACKEND_SENTRY_DSN` | `SENTRY_DSN` | backend API + worker |
 | `FRONTEND_SENTRY_DSN` | `SENTRY_DSN` | Next.js server, edge, browser |
-| `SENTRY_ENVIRONMENT` (default `production`) | same | both |
+| `SITE_SENTRY_DSN` | `SENTRY_DSN` | branded site server + edge |
+| `SENTRY_ENVIRONMENT` (default: `APP_ENV`) | same | all |
+| `SENTRY_RELEASE` (optional) | same | all |
 | `SENTRY_TRACES_SAMPLE_RATE` (default `0`) | same | backend only |
 
-Local dev reads `SENTRY_DSN` from the root `.env` directly.
+Local dev reads `SENTRY_DSN` from the root `.env` directly. `APP_ENV` (development / staging / production), the production endpoint guard, log masking and failed-work alerts (`ALERT_EMAIL`): [operations/observability.md](./operations/observability.md).
 
-- **Backend**: 5xx responses and panics (route pattern, status, `request_id` tag), auth misconfiguration warnings (adapter secret mismatch, provider disabled, id_token audience/issuer), failed queue tasks (`task_type` tag), and `ERROR` log lines (one event per message per minute). Requests the client cancelled are logged as `499` at INFO and never reported. One `http_request` INFO line is written per 4xx and per `/v1/auth/*` / `/v1/internal/auth/*` request (method, route, status, duration, request_id, error_code, scrubbed reason).
+- **Backend**: 5xx responses and panics (route pattern, status, `request_id` tag), auth misconfiguration warnings (adapter secret mismatch, provider disabled, id_token audience/issuer), failed queue tasks (`task_type`, `task_id` and the payload's ids), integration jobs that fail or need verification (`job_kind`, `job_uuid`), and `ERROR` log lines (one event per message per minute). Requests the client cancelled are logged as `499` at INFO and never reported. One `http_request` INFO line is written per 4xx and per `/v1/auth/*` / `/v1/internal/auth/*` request (method, route, status, duration, request_id, error_code, scrubbed reason).
 - **Frontend**: `instrumentation.ts` (server/edge, `onRequestError`), `instrumentation-client.ts` (browser), `global-error.tsx`, route error boundaries, the `/api/v1` BFF proxy, and the NextAuth `logger.error` hook (user errors like `CredentialsSignin` are logged, not reported). The browser gets its DSN at runtime from `/api/client-env` (loaded `beforeInteractive` in the root layout), so the image needs no build arg.
 - **Never sent**: request bodies, cookies, query strings, `Authorization` / adapter headers, tokens, secrets, emails, phone numbers. The user is the internal user uuid only. Code: `backend/internal/observability`, `frontend/src/lib/observability`.
 

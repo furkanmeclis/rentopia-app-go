@@ -8,6 +8,8 @@
  */
 import type { ErrorEvent, EventHint } from "@sentry/nextjs";
 
+import { sentryEnvironment, sentryRelease } from "@/lib/observability/app-env";
+
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
 const PUSH_TOKEN = /(?:Exponent|Expo)PushToken(?:\[|%5B)[^\]%\s]+(?:\]|%5D)?/gi;
 const JWT = /eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/g;
@@ -107,19 +109,23 @@ export function beforeSend(event: ErrorEvent, _hint: EventHint): ErrorEvent {
   return scrubEvent(event);
 }
 
-/** Runtime config for server and edge (never inlined at build time). */
+/**
+ * Runtime config for server and edge (never inlined at build time). The
+ * environment is APP_ENV (SENTRY_ENVIRONMENT overrides it), the release
+ * SENTRY_RELEASE — the same tags the API and the worker send.
+ */
 export function serverSentryConfig(): {
   dsn: string;
   environment: string;
+  release?: string;
 } | null {
   const dsn = process.env.SENTRY_DSN?.trim();
   if (!dsn) return null;
+  const release = sentryRelease();
   return {
     dsn,
-    environment:
-      process.env.SENTRY_ENVIRONMENT?.trim() ||
-      process.env.NODE_ENV ||
-      "production",
+    environment: sentryEnvironment(),
+    ...(release ? { release } : {}),
   };
 }
 

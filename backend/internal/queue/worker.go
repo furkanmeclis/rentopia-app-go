@@ -46,6 +46,14 @@ type Worker struct {
 	processSearchDelete  ProcessSearchDeleteFunc
 	processSearchReindex ProcessSearchReindexFunc
 	purgeLogs            PurgeLogsFunc
+	failureAlert         FailureAlertFunc
+}
+
+// WithFailureAlerts registers the hook that hears tasks whose retries are
+// exhausted (the failed-work alerts, TEC-744).
+func (w *Worker) WithFailureAlerts(fn FailureAlertFunc) *Worker {
+	w.failureAlert = fn
+	return w
 }
 
 // NewWorker builds a worker that handles known task types.
@@ -57,6 +65,8 @@ func NewWorker(cfg config.Config, log *slog.Logger, deliver DeliverNotificationF
 	if concurrency <= 0 {
 		concurrency = 10
 	}
+	// w is set below; the error handler only runs once the worker starts.
+	var w *Worker
 	server := asynq.NewServer(RedisOpt(cfg.Redis), asynq.Config{
 		Concurrency: concurrency,
 		Queues: map[string]int{
@@ -73,12 +83,16 @@ func NewWorker(cfg config.Config, log *slog.Logger, deliver DeliverNotificationF
 		},
 		RetryDelayFunc: retryDelay,
 		ErrorHandler: asynq.ErrorHandlerFunc(func(ctx context.Context, task *asynq.Task, err error) {
-			log.Error("queue_task_failed", "type", task.Type(), "error", err)
-			reportTaskFailure(ctx, task, err)
+			f := describeFailure(ctx, task, err)
+			log.ErrorContext(ctx, "queue_task_failed", f.logAttrs()...)
+			reportTaskFailure(ctx, f)
+			if f.Final && w != nil && w.failureAlert != nil {
+				w.failureAlert(ctx, f)
+			}
 		}),
 	})
 	mux := asynq.NewServeMux()
-	w := &Worker{server: server, mux: mux, log: log, deliver: deliver}
+	w = &Worker{server: server, mux: mux, log: log, deliver: deliver}
 	mux.HandleFunc(TaskPing, handlePing(log))
 	mux.HandleFunc(TaskNotificationDeliver, w.handleNotificationDeliver)
 	mux.HandleFunc(TaskExportProcess, w.handleExportProcess)

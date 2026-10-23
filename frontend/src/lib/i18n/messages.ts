@@ -41,6 +41,7 @@ import enPayments from "@/locales/en/payments.json";
 import enFinance from "@/locales/en/finance.json";
 import enSuppliers from "@/locales/en/suppliers.json";
 import enPublicApi from "@/locales/en/public_api.json";
+import enSupportAccess from "@/locales/en/support_access.json";
 import enSite from "@/locales/en/site.json";
 import enNotificationEngine from "@/locales/en/notification_engine.json";
 import enSiteLeads from "@/locales/en/site_leads.json";
@@ -114,6 +115,7 @@ import trPayments from "@/locales/tr/payments.json";
 import trFinance from "@/locales/tr/finance.json";
 import trSuppliers from "@/locales/tr/suppliers.json";
 import trPublicApi from "@/locales/tr/public_api.json";
+import trSupportAccess from "@/locales/tr/support_access.json";
 import trSite from "@/locales/tr/site.json";
 import trNotificationEngine from "@/locales/tr/notification_engine.json";
 import trSiteLeads from "@/locales/tr/site_leads.json";
@@ -219,6 +221,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     finance: trFinance,
     suppliers: trSuppliers,
     public_api: trPublicApi,
+    support_access: trSupportAccess,
     site: trSite,
     notification_engine: trNotificationEngine,
     site_leads: trSiteLeads,
@@ -294,6 +297,7 @@ const catalogs: Record<AppLocale, Record<string, MessageDictionary>> = {
     finance: enFinance,
     suppliers: enSuppliers,
     public_api: enPublicApi,
+    support_access: enSupportAccess,
     site: enSite,
     notification_engine: enNotificationEngine,
     site_leads: enSiteLeads,

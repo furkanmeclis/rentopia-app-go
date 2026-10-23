@@ -12,6 +12,42 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countIntegrationJobsByStatus = `-- name: CountIntegrationJobsByStatus :many
+SELECT ij.status, COUNT(*)::bigint AS count
+FROM integration_jobs ij
+LEFT JOIN organizations o ON o.id = ij.organization_id
+WHERE (ij.organization_id IS NULL OR o.deleted_at IS NULL)
+GROUP BY ij.status
+ORDER BY ij.status
+`
+
+type CountIntegrationJobsByStatusRow struct {
+	Status string `json:"status"`
+	Count  int64  `json:"count"`
+}
+
+// Integration jobs of live organizations (and platform jobs) per status,
+// all time (the platform health queue snapshot, TEC-744).
+func (q *Queries) CountIntegrationJobsByStatus(ctx context.Context) ([]CountIntegrationJobsByStatusRow, error) {
+	rows, err := q.db.Query(ctx, countIntegrationJobsByStatus)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CountIntegrationJobsByStatusRow{}
+	for rows.Next() {
+		var i CountIntegrationJobsByStatusRow
+		if err := rows.Scan(&i.Status, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getPlatformHealthAlertCursor = `-- name: GetPlatformHealthAlertCursor :one
 SELECT source, last_seen_at, last_alert_at, last_alert_count
 FROM platform_health_alert_cursors

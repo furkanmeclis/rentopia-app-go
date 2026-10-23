@@ -257,6 +257,10 @@ const (
 	PermTenantChannelsSync  = "tenant.channels.sync"
 )
 
+// Support access (TEC-678, migration 000135): open, list and revoke the
+// time-boxed grants that let platform support staff enter the organization.
+const PermTenantSupportAccessManage = "tenant.support_access.manage"
+
 // Tenant template role keys seeded by migrations 000030 and 000041.
 const (
 	TenantRoleOwner            = "owner"

@@ -191,6 +191,10 @@ import (
 	supplieradapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/suppliers/adapters"
 	supplierhandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/suppliers/handler"
 	supplierusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/suppliers/usecase"
+	supportaccessmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/supportaccess"
+	supportaccesshandler "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/supportaccess/handler"
+	supportaccessrepository "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/supportaccess/repository"
+	supportaccessusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/supportaccess/usecase"
 	tenantmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tenant"
 	tollsmodule "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tolls"
 	tollsadapters "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/tolls/adapters"
@@ -486,6 +490,15 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 		featurePolicy = featureCache
 		orgSvc.SetFeatures(featureCache)
 	}
+	// Support access (TEC-678): impersonated sessions enter an organization
+	// only under its active grant. The guard wraps the cached resolver, so
+	// every tenant route and realtime rule checks the grant per request.
+	supportSvc := supportaccessusecase.New(supportaccessrepository.NewPostgres(deps.DB, deps.Queries))
+	if tenantResolver != nil {
+		tenantResolver = supportaccessmodule.GuardResolver(tenantResolver, supportSvc)
+		uc.SetSupportAccess(supportSvc)
+	}
+	supportaccessmodule.RegisterRoutes(mux, supportaccesshandler.New(supportSvc, activityRec), tokens, loader, tenantResolver)
 	tenantmodule.RegisterRoutes(mux, tokens, loader, tenantResolver)
 	organizationsmodule.RegisterTenantRoutes(mux, orgH, tokens, loader, tenantResolver)
 	orgSettingsSvc := orgsettingsusecase.New(orgsettingsrepository.NewPostgres(deps.DB, deps.Queries))
@@ -530,13 +543,13 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	tollProviders := tollsmodule.Providers(cfg.App.Env, log)
 	// KABİS adapters (TEC-726): the official slot (waiting on dependency
 	// until TEC-682) and the fake outside production only.
-	kabisProviders := kabismodule.Providers(cfg.App.Env, log)
+	kabisProviders := kabismodule.Providers(cfg.App.Env, cfg.Guard.KabisAllowProduction, log)
 	integrationAdapters := append([]integrations.Adapter{iyzicoAdapter}, smsmodule.Adapters(smsProviders)...)
 	integrationAdapters = append(integrationAdapters, tollsmodule.Adapters(tollProviders)...)
 	integrationAdapters = append(integrationAdapters, kabismodule.Adapters(kabisProviders)...)
 	// E-invoice integrators (TEC-722): the official slot (waiting on
 	// dependency until TEC-685) and the fake outside production only.
-	invoiceProviders := invoicesmodule.Providers(cfg.App.Env, log)
+	invoiceProviders := invoicesmodule.Providers(cfg.App.Env, cfg.Guard.EInvoiceAllowProduction, log)
 	integrationAdapters = append(integrationAdapters, invoicesmodule.Adapters(invoiceProviders)...)
 	// WhatsApp providers (TEC-735): wuzapi (configured by WUZAPI_*) and
 	// the fake outside production only.
@@ -1054,7 +1067,19 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	if err := healthRegistry.Register(channelsmodule.NewHealthSource(deps.Queries)); err != nil {
 		return nil, fmt.Errorf("httpserver: channel health: %w", err)
 	}
-	platformhealthmodule.RegisterRoutes(mux, platformhealthhandler.New(platformhealthusecase.New(deps.Queries, healthRegistry)), tokens, loader)
+	platformHealthSvc := platformhealthusecase.New(deps.Queries, healthRegistry)
+	platformHealthSvc.SetLogger(log)
+	if cfg.Queue.Enabled && deps.Redis != nil {
+		// Asynq queue snapshot on the dashboard (TEC-744).
+		platformHealthSvc.SetQueueInspector(queue.NewInspector(deps.Redis))
+	}
+	// Failed-work alerts (TEC-744): inline integration steps that fail here.
+	platformHealthSvc.SetNotifier(notifSvc)
+	platformHealthSvc.SetFailureAlerts(platformhealthusecase.FailureAlertConfig{
+		Email: cfg.Alerts.Email, Window: cfg.Alerts.DedupeWindow, Dedupe: platformhealthusecase.RedisDeduper{RDB: deps.Redis},
+	})
+	integrationRunner.AddListener(platformHealthSvc)
+	platformhealthmodule.RegisterRoutes(mux, platformhealthhandler.New(platformHealthSvc), tokens, loader)
 	contractsH := contractshandler.New(contractsSvc, activityRec)
 	contractsH.SetRateLimiter(contractsmodule.Limiter{L: ratelimit.New(deps.Redis, cfg.App.Env)})
 	contractsmodule.RegisterRoutes(mux, contractsH, tokens, loader, tenantResolver)

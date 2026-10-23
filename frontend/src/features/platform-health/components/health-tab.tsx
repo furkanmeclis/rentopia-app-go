@@ -7,6 +7,7 @@ import { EntitySectionCard } from "@/components/entity";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HealthStatusChip } from "@/features/platform-health/components/health-chips";
+import { QueuesCard } from "@/features/platform-health/components/queues-card";
 import { useHealthSummary } from "@/features/platform-health/hooks/use-platform-health";
 import { healthHint, healthLabel } from "@/features/platform-health/lib/labels";
 import type {
@@ -198,6 +199,12 @@ export function HealthTab({
           />
         ))}
       </div>
+
+      <QueuesCard
+        queues={data.queues}
+        queuesError={data.queues_error}
+        jobs={data.integration_jobs}
+      />
 
       <EntitySectionCard title={t("platform_health.alerts.title")}>
         <div className="space-y-2 text-sm">

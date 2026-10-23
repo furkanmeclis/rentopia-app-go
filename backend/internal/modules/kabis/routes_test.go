@@ -2,6 +2,7 @@ package kabis
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/kabis/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/authctx"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/crypto"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/envguard"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/integrations"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/jwt"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/kabis"
@@ -131,15 +133,27 @@ func TestLiveResource(t *testing.T) {
 // selectable outside production only.
 func TestProvidersPerEnvironment(t *testing.T) {
 	t.Parallel()
-	prod := Providers("production", nil)
+	prod := Providers("production", false, nil)
 	if len(prod) != 1 || prod[0].Provider() != kabis.ProviderOfficial || prod[0].Ready() == nil {
 		t.Fatalf("production providers %+v", prod)
 	}
 	if err := prod[0].Check(context.Background(), integrations.Account{}); err == nil {
 		t.Fatal("the official slot must report waiting on dependency")
 	}
-	dev := Providers("development", nil)
+	dev := Providers("development", false, nil)
 	if len(dev) != 2 || dev[1].Provider() != "kabis_fake" || dev[1].Ready() != nil {
 		t.Fatalf("development providers %+v", dev)
+	}
+	// Outside production the official slot is refused (TEC-744) unless
+	// explicitly allowed.
+	if err := dev[0].Ready(); !errors.Is(err, envguard.ErrProductionRefused) {
+		t.Fatalf("official slot outside production: %v", err)
+	}
+	if err := dev[0].Check(context.Background(), integrations.Account{}); !errors.Is(err, envguard.ErrProductionRefused) {
+		t.Fatalf("official check outside production: %v", err)
+	}
+	allowed := Providers("staging", true, nil)
+	if errors.Is(allowed[0].Ready(), envguard.ErrProductionRefused) || allowed[0].Provider() != kabis.ProviderOfficial {
+		t.Fatalf("explicit allow must lift the guard: %v", allowed[0].Ready())
 	}
 }

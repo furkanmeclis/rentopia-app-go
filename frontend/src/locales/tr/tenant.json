@@ -5,6 +5,8 @@
   "access.suspended_body": "\"{{slug}}\" askıya alınmış. Platform yöneticisiyle iletişime geçin.",
   "access.expired_title": "Erişim süresi doldu",
   "access.expired_body": "\"{{slug}}\" firmasının erişim süresi sona erdi. Uzatmak için platform yöneticisiyle iletişime geçin.",
+  "access.support_title": "Destek erişimi yok",
+  "access.support_body": "\"{{slug}}\" firması şu anda destek erişimi vermiyor ya da verdiği erişimin süresi doldu. Firmadan Ayarlar → Destek erişimi sayfasından erişim açmasını isteyin.",
   "access.unavailable_title": "Firma yüklenemedi",
   "access.unavailable_body": "\"{{slug}}\" şu anda yüklenemiyor. Lütfen tekrar deneyin.",
   "access.signed_in_as": "{{email}} olarak giriş yapıldı",

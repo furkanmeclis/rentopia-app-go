@@ -55,6 +55,8 @@ const (
 	CodeCapacityUnavailable       = "CAPACITY_UNAVAILABLE"
 	CodeEquipmentUnavailable      = "EQUIPMENT_UNAVAILABLE"
 	CodeFeatureNotEnabled         = "FEATURE_NOT_ENABLED"
+	CodeSupportGrantRequired      = "SUPPORT_GRANT_REQUIRED"
+	CodeSupportReadOnly           = "SUPPORT_READ_ONLY"
 )
 
 // RequestIDFunc resolves the correlation id from request context.

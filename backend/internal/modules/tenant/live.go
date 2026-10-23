@@ -124,5 +124,6 @@ func isMembershipError(err error) bool {
 	return errors.Is(err, orgctx.ErrOrganizationNotFound) ||
 		errors.Is(err, orgctx.ErrNotMember) ||
 		errors.Is(err, orgctx.ErrSuspended) ||
-		errors.Is(err, orgctx.ErrAccessExpired)
+		errors.Is(err, orgctx.ErrAccessExpired) ||
+		errors.Is(err, orgctx.ErrSupportGrantRequired)
 }

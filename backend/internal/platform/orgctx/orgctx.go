@@ -41,7 +41,31 @@ var (
 	ErrNotMember            = errors.New("orgctx: not a member of the organization")
 	ErrSuspended            = errors.New("orgctx: organization suspended")
 	ErrAccessExpired        = errors.New("orgctx: organization access window closed")
+	// ErrSupportGrantRequired: an impersonated (support) session entered an
+	// organization that has no active support access grant (TEC-678).
+	ErrSupportGrantRequired = errors.New("orgctx: support access grant required")
 )
+
+// Support access grant scopes (TEC-678).
+const (
+	SupportScopeReadOnly = "read_only"
+	SupportScopeFull     = "full"
+)
+
+// SupportGrant is the active support access grant an impersonated session
+// acts under. Set on the scope by the support access guard only for
+// impersonated sessions; nil otherwise.
+type SupportGrant struct {
+	ID        int64
+	UUID      uuid.UUID
+	Scope     string
+	ExpiresAt time.Time
+}
+
+// ReadOnly reports whether the grant allows reads only.
+func (g *SupportGrant) ReadOnly() bool {
+	return g != nil && g.Scope != SupportScopeFull
+}
 
 // Scope is the resolved organization + membership for one request.
 type Scope struct {
@@ -71,6 +95,10 @@ type Scope struct {
 	// them (a background job scope, an entry cached before features
 	// existed).
 	Features []string
+	// SupportGrant is the support access grant of an impersonated session
+	// (TEC-678); nil for regular members. Never cached: the guard sets it
+	// on every request after resolution.
+	SupportGrant *SupportGrant
 }
 
 // Has reports whether the scope grants a tenant permission slug.

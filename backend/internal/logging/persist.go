@@ -166,15 +166,25 @@ func (h *persistHandler) toEntry(ctx context.Context, rec slog.Record) Entry {
 			reqID = v
 		}
 	}
-	msg := rec.Message
+	if _, ok := attrs["organization_uuid"]; !ok {
+		if org := OrganizationFromContext(ctx); org != "" {
+			attrs["organization_uuid"] = org
+		}
+	}
+	msg := RedactString(rec.Message)
 	if len(msg) > maxMessageBytes {
 		msg = msg[:maxMessageBytes]
+	}
+	source := sourceFrom(rec, attrs)
+	// The log viewer never stores secrets (passwords, tokens, IBAN, card …).
+	for k, v := range attrs {
+		attrs[k] = RedactValue(k, v)
 	}
 	return Entry{
 		Time:      rec.Time.UTC(),
 		Level:     PersistLevel(rec.Level),
 		Message:   msg,
-		Source:    sourceFrom(rec, attrs),
+		Source:    source,
 		Attrs:     attrs,
 		RequestID: reqID,
 	}

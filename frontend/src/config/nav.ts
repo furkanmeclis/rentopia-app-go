@@ -42,6 +42,7 @@ import {
   Layers,
   ListChecks,
   LayoutDashboard,
+  LifeBuoy,
   LogIn,
   Network,
   NotebookPen,
@@ -814,6 +815,13 @@ export function tenantNav(slug: string): NavCatalog {
             href: routes.tenant.settings.roles.root(slug),
             icon: Shield,
             permission: permissions.tenant.roles.read,
+          },
+          {
+            id: "settings-support-access",
+            titleKey: "layout.nav_tenant_settings_support_access",
+            href: routes.tenant.settings.supportAccess(slug),
+            icon: LifeBuoy,
+            permission: permissions.tenant.supportAccess.manage,
           },
           {
             id: "settings-integrations",

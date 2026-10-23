@@ -619,6 +619,8 @@ func writeUsecaseError(w http.ResponseWriter, r *http.Request, err error) {
 		response.Conflict(w, r, response.CodeConflict, "Cannot demote the last super admin")
 	case errors.Is(err, usecase.ErrSystemRole):
 		response.Conflict(w, r, response.CodeConflict, "System role cannot be modified")
+	case errors.Is(err, usecase.ErrSupportGrantRequired):
+		response.Error(w, r, http.StatusForbidden, response.CodeSupportGrantRequired, "The user's organization has not granted support access")
 	case errors.Is(err, usecase.ErrAlreadyImpersonating):
 		response.Conflict(w, r, response.CodeConflict, "Stop the current impersonation session first")
 	case errors.Is(err, usecase.ErrForbidden):

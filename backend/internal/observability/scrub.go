@@ -30,6 +30,7 @@ var sensitiveKeyParts = []string{
 	"password", "passwd", "secret", "token", "authorization", "cookie",
 	"email", "e_mail", "phone", "gsm", "msisdn", "dsn", "api_key", "apikey",
 	"private_key", "otp", "totp", "ticket", "session_token", "credential",
+	"iban", "card_number", "cardnumber", "cvv", "cvc",
 }
 
 // allowedHeaders are the only request headers forwarded to the tracker.

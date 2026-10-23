@@ -1453,7 +1453,9 @@ paths:
         `integration_jobs` — failed jobs of the last 7 days, jobs waiting on verification, on a dependency or
         blocked, overdue work). Other modules register further sources; clients render unknown source codes,
         metric keys and issue kinds generically. A source that cannot be read reports `unknown`. `alerts`
-        holds the failed-work alert sweep's cursor per source.
+        holds the failed-work alert sweep's cursor per source. `queues` is the Asynq snapshot per queue
+        (pending / active / scheduled / retry / archived = dead) and `integration_jobs` the job count per
+        status (TEC-744).
       security:
         - bearerAuth: []
       responses:
@@ -1805,6 +1807,25 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/platform/support-grants:
+    get:
+      tags: [Platform]
+      operationId: getPlatformSupportGrants
+      summary: Active support access grants
+      description: |
+        `platform.users.impersonate` (TEC-678). Organizations that currently allow support access, soonest
+        expiry first (at most 200). Impersonating a member of an organization needs one of these.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Active grants
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopePlatformSupportGrantPage" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
 
   /v1/platform/plans:
     get:
@@ -2449,6 +2470,9 @@ paths:
       description: |
         Issues tokens for the target user while preserving the actor in the `imp` JWT claim
         and refresh token metadata. Requires step-up verification.
+        A target who is a member of any organization can be impersonated only while one of
+        those organizations has an active support access grant (TEC-678), otherwise
+        `403 SUPPORT_GRANT_REQUIRED`; no super admin bypass.
       security:
         - bearerAuth: []
       parameters:
@@ -12225,6 +12249,82 @@ paths:
               schema: { $ref: "#/components/schemas/EnvelopePublicAPIOverview" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/support-access:
+    get:
+      tags: [Tenant]
+      operationId: getTenantSupportAccessGrants
+      summary: List support access grants
+      description: |
+        `tenant.support_access.manage` (TEC-678). The organization's support access grants, newest first.
+        `status` is derived at request time: `active` (not revoked, not expired), `expired`, `revoked`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - { name: status, in: query, schema: { type: string }, description: "Comma-separated statuses: active, expired, revoked" }
+      responses:
+        "200":
+          description: Grant page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSupportGrantPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+    post:
+      tags: [Tenant]
+      operationId: postTenantSupportAccessGrant
+      summary: Open support access
+      description: |
+        `tenant.support_access.manage` (TEC-678). Lets platform support staff enter the organization through
+        impersonation for `duration_hours` (1 to 168), `read_only` (every non-GET tenant request answers
+        `403 SUPPORT_READ_ONLY`) or `full`. Replaces the active grant, if any. Impersonated sessions cannot
+        open or revoke grants (`403 FORBIDDEN`). Recorded as `support_access.opened`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SupportGrantOpenRequest" }
+      responses:
+        "201":
+          description: Opened grant
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSupportGrant" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+
+  /v1/tenant/support-access/{uuid}/revoke:
+    post:
+      tags: [Tenant]
+      operationId: postTenantSupportAccessGrantRevoke
+      summary: Revoke support access
+      description: |
+        `tenant.support_access.manage` (TEC-678). Ends an active grant at once: support sessions in the
+        organization are refused from the next request (`403 SUPPORT_GRANT_REQUIRED`). An expired or already
+        revoked grant answers `404`. Recorded as `support_access.revoked`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XOrganization"
+        - $ref: "#/components/parameters/ResourceUUID"
+      responses:
+        "200":
+          description: Revoked grant
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeSupportGrant" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/TenantForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /v1/tenant/public-api/keys:
     get:
@@ -24533,6 +24633,9 @@ components:
         `details[0].code` names the feature key. Reads (lists, details,
         exports) and switching things off stay open on every plan, so history
         never disappears after a downgrade
+        `SUPPORT_GRANT_REQUIRED` (TEC-678): an impersonated (support) session
+        and the organization has no active support access grant;
+        `SUPPORT_READ_ONLY`: a non-GET request under a `read_only` grant.
       content:
         application/json:
           schema:
@@ -24770,9 +24873,29 @@ components:
         last_seen_at: { type: string, format: date-time }
         last_alert_at: { type: [string, "null"], format: date-time }
         last_alert_count: { type: integer }
+    PlatformHealthQueue:
+      type: object
+      description: One background (Asynq) queue at check time. Archived tasks are dead (retries exhausted).
+      required: [queue, pending, active, scheduled, retry, archived, paused]
+      properties:
+        queue: { type: string }
+        pending: { type: integer }
+        active: { type: integer }
+        scheduled: { type: integer }
+        retry: { type: integer }
+        archived: { type: integer, description: Dead tasks (retries exhausted). }
+        paused: { type: boolean }
+    PlatformHealthJobStatusCount:
+      type: object
+      required: [status, count]
+      properties:
+        status:
+          type: string
+          description: "integration_jobs.status (pending, processing, submitted, succeeded, failed, needs_verification, blocked, waiting_dependency, …)."
+        count: { type: integer, format: int64 }
     PlatformHealthSummary:
       type: object
-      required: [status, checked_at, critical, warning, sources, alerts]
+      required: [status, checked_at, critical, warning, sources, alerts, queues, integration_jobs]
       properties:
         status: { type: string, enum: [healthy, degraded, failing, unknown] }
         checked_at: { type: string, format: date-time }
@@ -24784,6 +24907,17 @@ components:
         alerts:
           type: array
           items: { $ref: "#/components/schemas/PlatformHealthAlertState" }
+        queues:
+          type: array
+          description: Asynq queue snapshot (empty when the queue is off).
+          items: { $ref: "#/components/schemas/PlatformHealthQueue" }
+        queues_error:
+          type: string
+          description: Set when the queue snapshot could not be read.
+        integration_jobs:
+          type: array
+          description: Integration jobs per status (all time, live organizations and platform jobs).
+          items: { $ref: "#/components/schemas/PlatformHealthJobStatusCount" }
     EnvelopePlatformHealthSummary:
       type: object
       required: [success, data, meta]
@@ -40882,6 +41016,103 @@ components:
         uuid: { type: string, format: uuid }
         name: { type: string }
         surname: { type: string }
+
+    SupportGrantUser:
+      type: object
+      required: [uuid, name, surname, email]
+      properties:
+        uuid: { type: string, format: uuid }
+        name: { type: string }
+        surname: { type: string }
+        email: { type: string }
+
+    SupportGrant:
+      type: object
+      description: Support access grant of an organization (TEC-678).
+      required: [uuid, scope, status, note, expires_at, revoked_at, created_at, created_by, revoked_by]
+      properties:
+        uuid: { type: string, format: uuid }
+        scope: { type: string, enum: [read_only, full] }
+        status: { type: string, enum: [active, expired, revoked] }
+        note: { type: string }
+        expires_at: { type: string, format: date-time }
+        revoked_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+        created_by:
+          oneOf:
+            - $ref: "#/components/schemas/SupportGrantUser"
+            - type: "null"
+        revoked_by:
+          oneOf:
+            - $ref: "#/components/schemas/SupportGrantUser"
+            - type: "null"
+
+    SupportGrantOpenRequest:
+      type: object
+      required: [scope, duration_hours]
+      properties:
+        scope: { type: string, enum: [read_only, full] }
+        duration_hours: { type: integer, minimum: 1, maximum: 168 }
+        note: { type: string, maxLength: 500 }
+
+    EnvelopeSupportGrant:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/SupportGrant" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeSupportGrantPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/SupportGrant" } }
+            total: { type: integer }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    PlatformSupportGrant:
+      type: object
+      required: [uuid, scope, note, expires_at, created_at, organization, created_by]
+      properties:
+        uuid: { type: string, format: uuid }
+        scope: { type: string, enum: [read_only, full] }
+        note: { type: string }
+        expires_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        organization:
+          type: object
+          required: [uuid, slug, name]
+          properties:
+            uuid: { type: string, format: uuid }
+            slug: { type: string }
+            name: { type: string }
+        created_by:
+          oneOf:
+            - $ref: "#/components/schemas/SupportGrantUser"
+            - type: "null"
+
+    EnvelopePlatformSupportGrantPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/PlatformSupportGrant" } }
+            total: { type: integer }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
 
     PublicAPIKey:
       type: object

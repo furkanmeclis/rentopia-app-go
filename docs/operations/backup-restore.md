@@ -165,11 +165,12 @@ Geri yüklenen veritabanında organizasyonların canlı entegrasyon hesapları (
 | Kanal | Önlem |
 |-------|-------|
 | E-posta | `SMTP_*` → MailHog ya da boş |
+| Ortam | `APP_ENV=staging`: resmî KABİS / e-Fatura adaptörleri ve Netgsm'in resmî live host'u reddedilir ([observability](./observability.md#ortam-app_env)) |
 | Netgsm SMS | `NETGSM_LIVE_BASE_URL` → `cmd/netgsm-fake` (gelenleri `/` sayfasında listeler) |
 | iyzico | `IYZICO_LIVE_BASE_URL` → `cmd/iyzico-fake` |
 | WhatsApp | Staging'in kendi boş `wuzapi_data` volume'u (oturum yok → gönderim başarısız) |
 | Site alan adları | `DOKPLOY_*` boş, `SITE_DOMAIN_PROVISIONER=manual` |
-| e-Fatura, KABİS | Prod'da çalışan adaptör yok (resmi slotlar `waiting_dependency`, TEC-685 / TEC-682); fake'ler production dışında kayıtlıdır |
+| e-Fatura, KABİS | Prod'da çalışan adaptör yok (resmi slotlar `waiting_dependency`, TEC-685 / TEC-682); fake'ler production dışında kayıtlıdır; `APP_ENV=staging` resmî slotu ayrıca reddeder |
 | HGS, kanal yöneticileri, Public API webhook'ları, push | Uç noktaları env ile yönlendirilemiyor (doğrulanmadı) → **staging host'unda dış ağ çıkışını kapatın** (yalnız imaj çekme vb. izinli) |
 
 ### Prova adımları
