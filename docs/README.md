@@ -1,12 +1,13 @@
 # Documentation
 
-Human and agent entry points for this boilerplate. Prefer these files over leftover product notes — there are none left on purpose.
+Human and agent entry points for Rentopya.
 
 | Doc | Audience |
 |-----|----------|
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Anyone new to the repo |
 | [DEVELOPMENT.md](./DEVELOPMENT.md) | Local setup and production |
-| [EXTENDING.md](./EXTENDING.md) | Adding a feature on top of the starter |
+| [EXTENDING.md](./EXTENDING.md) | Adding a tenant / platform module or a provider |
+| [design/](./design) | One design doc per domain area (tenant-core, reservations, pricing, payments, integration-jobs, branded-site, …) |
 | [brand.md](./brand.md) | Rentopya logos, colours, kept `rentopia` identifiers |
 | [../AGENTS.md](../AGENTS.md) | Agent skill index |
 | [../CONTRIBUTING.md](../CONTRIBUTING.md) | Day-to-day contribution rules |

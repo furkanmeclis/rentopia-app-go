@@ -8,6 +8,8 @@ description: >-
 
 # I/O engine
 
+Organization resources (`tenant.<plural>`, `/v1/tenant/<plural>/export|import`, org-stamped jobs, branch scope in the worker): `.agents/skills/add-tenant-resource` §4. The steps below are written for platform resources.
+
 Use when a list resource needs export and/or import.
 
 Canonical example: `backend/internal/platform/ioengine/adapters/` (users, roles).

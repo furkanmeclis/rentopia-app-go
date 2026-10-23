@@ -2,8 +2,8 @@
 
 ## Prerequisites
 
-- Go 1.22+ (match `backend/go.mod`)
-- Node 20.9+ and pnpm
+- Go (version in `backend/go.mod`, currently 1.26)
+- Node (version in `frontend/.nvmrc` / `site/.nvmrc`, currently 22) and pnpm
 - Docker + Compose
 - golang-migrate, sqlc, air, golangci-lint, gofumpt — see [backend/TOOLCHAIN.md](../backend/TOOLCHAIN.md)
 
@@ -36,18 +36,34 @@ make local-dev
 make create-super-admin
 ```
 
+Sign in at http://localhost:3000/platform/login, create an organization under Platform → Organizations and open its panel at `/t/{slug}`. Organization routes need `TENANCY_ENABLED=true` (the `.env.example` value).
+
 Helpers:
 
 | Target | What it does |
 |--------|----------------|
-| `make infra` / `make infra-down` | Compose infra only |
+| `make infra` / `make infra-down` | Compose infra only (`make infra-ps`, `make infra-logs`) |
 | `make backend-dev` | air on `:8080` |
 | `make frontend-dev` | `pnpm dev` on `:3000` |
 | `make site-dev` | Branded site (`site/`) on `:3100`: open `http://{subdomain}.localhost:3100` ([branded-site.md](./design/branded-site.md)) |
+| `make -C backend worker` | Asynq worker as its own process (set `QUEUE_WORKER_INPROCESS=false`; by default the API runs it in-process) |
 | `make migrate-up` | Apply SQL migrations |
 | `make create-super-admin` | Upsert platform admin + `super_admin` role |
 | `make search-reindex` | Rebuild Meilisearch indexes (users, roles, …) |
 | `make check-i18n` | Find missing / unwired translation keys (en+tr, activity, RBAC, exports) |
+| `make free-dev-ports` | Free :8080 / :3000 from stale air / Next.js processes |
+| `make tools` | Print Docker / Compose / Go toolchain versions |
+
+### Provider fakes
+
+Outside production the API registers fake providers (`kabis_fake`, `einvoice_fake`, `hgs_fake`, `yolcu360_fake`, `obilet_fake`, `whatsapp_fake`); connect them under `/t/{slug}/settings/integrations` like real accounts (WhatsApp under `/t/{slug}/settings/whatsapp`). The KABİS, e-invoice and channel fakes take a non-secret `scenario` field (for example `ok`, `outage`, `timeout`, `reject`; each fake's package comment lists its values). Two providers have HTTP fakes for end-to-end runs (from `backend/`):
+
+| Fake | Command | Env |
+|------|---------|-----|
+| iyzico | `go run ./cmd/iyzico-fake -addr 127.0.0.1:18090 -webhook http://127.0.0.1:8080/v1/public/payments/iyzico/webhook` | `IYZICO_SANDBOX_BASE_URL=http://127.0.0.1:18090`, connect an iyzico account in sandbox mode with the fake's keys |
+| Netgsm | `go run ./cmd/netgsm-fake -addr 127.0.0.1:18091` | `NETGSM_SANDBOX_BASE_URL=http://127.0.0.1:18091`, connect a Netgsm account in sandbox mode; received messages are listed on the fake's `/` page |
+
+`SMS_LOG_PROVIDER=true` adds an SMS provider that only writes masked log lines.
 
 ### Local URLs
 
@@ -83,8 +99,8 @@ Optional frontend public vars (root `.env`): `NEXT_PUBLIC_BFF_BASE_URL`, `NEXT_P
 
 ## Production / Dokploy
 
-1. `make prod-env`: asks only for the public app URL (e.g. `https://panel.example.com`), derives every URL from it and generates all secrets into `.env.server` (mode 600). Centrifugo gets `realtime.<app host>`; edit `REALTIME_HOST` and the two Centrifugo URLs if you want another host.
-2. `make prod-config` then `make prod-up`. On Dokploy, paste `.env.server` into the compose app's environment and point the frontend domain at port 3000 and the Centrifugo domain at port 8000.
+1. `make prod-env`: asks only for the public app URL (e.g. `https://panel.example.com`), derives every URL from it and generates all secrets into `.env.server` (mode 600). Centrifugo gets `realtime.<app host>`; edit `REALTIME_HOST` and the two Centrifugo URLs if you want another host. Company sites answer on `{subdomain}.<host of SITE_BASE_URL>` (default: the app host).
+2. `make prod-config` then `make prod-up`. On Dokploy, paste `.env.server` into the compose app's environment and point the frontend domain at port 3000, the Centrifugo domain at port 8000 and the wildcard site domain (`*.<app host>`) at the `site` service, port 3000.
 3. Plain Docker host only (Dokploy creates it for you): `docker network create dokploy-network` once
 
 ### Plain Docker host with automatic updates
@@ -108,9 +124,9 @@ Rollback: `touch .sync-paused`, `git checkout <previous sha>`, `scripts/server-s
 
 `make prod-env-check` exits non-zero when the file is behind the schema. When a release needs a new env key, add it to `deploy/env/schema` and bump `@version` in the same change.
 
-Networks: Compose creates a private bridge network per app (`${APP_NETWORK_NAME:-${NAME_PREFIX}-app}`) and every service joins it. Only **frontend** (`:3000`) and **centrifugo** (`:8000`) also join the shared `dokploy-network`, so the proxy can route their domains. The backend is reached through the frontend's `/api` proxy, and SeaweedFS, Postgres, Redis, Meilisearch and the worker stay private (files reach browsers through API endpoints, never a bucket URL). No service publishes host ports.
+Networks: Compose creates a private bridge network per app (`${APP_NETWORK_NAME:-${NAME_PREFIX}-app}`) and every service joins it. Only **frontend** (`:3000`), **site** (`:3000`) and **centrifugo** (`:8000`) also join the shared `dokploy-network`, so the proxy can route their domains. The backend is reached through the frontend's `/api` proxy (the site calls it on the private network), and SeaweedFS, Postgres, Redis, Meilisearch, wuzapi and the worker stay private (files reach browsers through API endpoints, never a bucket URL). No service publishes host ports.
 
-`APP_ENCRYPTION_KEY` (32-byte, raw or base64) encrypts GitHub App secrets at rest. Generate: `openssl rand -base64 32`. Replace the example key in production.
+`APP_ENCRYPTION_KEY` (32-byte, raw or base64) derives every at-rest key: OAuth / GitHub secrets, organization integration credentials, encrypted personal data and blind indexes. Generate once (`openssl rand -base64 32`, `make prod-env` does it) and never change it on an install with data.
 
 ## Error tracking (optional, Sentry protocol)
 

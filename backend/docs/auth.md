@@ -1,6 +1,11 @@
 # Auth & RBAC
 
-Single-scope role model for this boilerplate: users are global; permissions come from assigned roles (union). No tenants or workspaces.
+Users are global. Two permission scopes:
+
+- **Platform** (`platform.*`, `auth.session`, `notifications.*`): the union of the user's global roles (below).
+- **Organization** (`tenant.*`): resolved per request from the user's roles in the organization named by `X-Organization` ([Tenancy](#tenancy-organizations)).
+
+The organization never lives in the token. There are no workspaces.
 
 ## Roles
 
@@ -12,7 +17,9 @@ Single-scope role model for this boilerplate: users are global; permissions come
 
 `users.is_super_admin` column is removed. JWT and `/me` still expose `is_super_admin` when the user has the `super_admin` role.
 
-## Permissions (seed)
+## Platform permissions (seed)
+
+The full catalog is `internal/platform/rbac/rbac.go` (mirrored in `frontend/src/config/permissions.ts`; read-only list at `GET /v1/platform/permissions`). Besides the rows below there are platform slugs for organizations, the vehicle catalog, platform health and site domains.
 
 | Permission | Purpose |
 |------------|---------|
@@ -26,7 +33,7 @@ Single-scope role model for this boilerplate: users are global; permissions come
 | `platform.settings.read` / `.write` | Letterhead / export branding |
 | `platform.activity.read` | Audit log |
 | `platform.imports.read` / `platform.exports.read` | I/O job lists |
-| `platform.storage.read` / `.write` | S3/MinIO file browser |
+| `platform.storage.read` / `.write` | Object storage browser (SeaweedFS / S3) |
 | `platform.logs.read` / `.write` | Application logs + purge |
 | `platform.access.read` / `.write` | Step-up policy |
 | `platform.auth.settings.read` / `.write` | Registration policy (also requires super admin) |
@@ -124,7 +131,7 @@ Internal NextAuth adapter routes (not in OpenAPI): `/v1/internal/auth/oauth/{pro
 
 ## JWT
 
-HS256 claims: `sub`, `roles`, `is_super_admin`, `exp`, optional `imp` (impersonator user UUID), optional `sid` (refresh-session UUID). No `tid` / `wid`.
+HS256 claims: `sub`, `roles`, `is_super_admin`, `exp`, optional `imp` (impersonator user UUID), optional `sid` (refresh-session UUID). No organization or workspace claim: tenant routes resolve the organization per request.
 
 ## Sessions
 
@@ -158,7 +165,7 @@ The BFF forwards the browser IP as `X-Forwarded-For`; the Go API must not be rea
 
 ## `/v1/auth/me`
 
-Returns `user`, `roles[]`, `permissions[]`, self-service links, and realtime hints. No tenant list.
+Returns `user`, `roles[]`, `permissions[]` (platform scope), `organizations[]` (memberships: uuid, slug, name, logo, status, access end, role, tenant permissions in that organization), self-service links, realtime hints and the impersonation state. The frontend picks the landing page from it (`defaultHomeForUser`).
 
 ## Platform users
 
@@ -189,9 +196,9 @@ Last super admin cannot be demoted via role removal or disable.
 
 New permission slugs are added via migrations/seeds only (no permission CRUD API).
 
-## Tenancy (phase 1)
+## Tenancy (organizations)
 
-Behind `TENANCY_ENABLED` (default `false`). Design: [`docs/design/tenant-core.md`](../../docs/design/tenant-core.md).
+Behind `TENANCY_ENABLED` (config default `false`; on in `.env.example` and the production env schema, since Rentopya's company panel, customer portal, public API and branded site depend on it). Design: [`docs/design/tenant-core.md`](../../docs/design/tenant-core.md). Platform admins manage organizations under `/v1/platform/organizations` (`platform.organizations.*`); members join through invitations (`/v1/tenant/invitations`, `/v1/invitations/{token}`).
 
 **Organization per request.** Nothing about the organization lives in the access token. Tenant routes (`/v1/tenant/*`) read the `X-Organization` header (slug, or uuid) on every request; the BFF forwards that header on `/api/v1/tenant/*` only. Two tabs on two organizations are independent and switching never rotates tokens.
 

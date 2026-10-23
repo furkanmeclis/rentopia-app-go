@@ -1,15 +1,17 @@
 # Rentopya
 
-Rentopya, a car rental management platform. Monorepo built on the Next.js + Go boilerplate: Go HTTP API (`backend/`) + Next.js BFF (`frontend/`). No tenants or workspaces. Kept modules: auth, global RBAC, platform users/roles, notifications, realtime, queue, MinIO.
+Rentopya is a multi-company, multi-branch car rental SaaS. Monorepo: Go HTTP API + Asynq worker (`backend/`), Next.js BFF with the platform panel `/platform`, the company panel `/t/{slug}` and the customer portal `/r/{orgSlug}` (`frontend/`), and the branded site app serving every company's site by host (`site/`). Organizations are resolved per request from the `X-Organization` header; tenant permissions come from the member's roles in that organization. Stores: PostgreSQL, Redis, SeaweedFS (S3), Meilisearch, Centrifugo. Integrations: iyzico, Netgsm SMS, WhatsApp (wuzapi), e-invoice (go-ubltr), KABİS, HGS, Yolcu360, Obilet.
 
 ## Start here
 
-- docs/ARCHITECTURE.md — repo map, shells, request flow
-- docs/DEVELOPMENT.md — env, local-dev, Dokploy
-- docs/EXTENDING.md — how to add a module
-- docs/brand.md — Rentopya brand kit, colors, logo usage
-- backend/API_CONVENTIONS.md — HTTP envelope and lists
-- backend/docs/auth.md — RBAC and JWT
-- frontend/README.md — BFF and panels
+- AGENTS.md — agent entry, hard rules, skill index (.agents/skills/)
+- docs/ARCHITECTURE.md — repo map, shells, modules, engines, RBAC
+- docs/DEVELOPMENT.md — env, make local-dev, provider fakes, Dokploy
+- docs/EXTENDING.md — how to add a tenant / platform module or a provider
+- docs/design/ — one design doc per domain area
+- docs/brand.md — Rentopya brand kit, colors, kept `rentopia` identifiers
+- backend/API_CONVENTIONS.md — HTTP envelope, lists, route prefixes
+- backend/docs/auth.md — JWT, platform and tenant RBAC
+- frontend/README.md — BFF, panels, features
 
-Canonical env: repo-root `.env`. Login: /platform/login. API: /v1/...
+Canonical env: repo-root `.env`. Login: /platform/login. API: /v1/... (`/v1/platform`, `/v1/tenant`, `/v1/customer/{orgSlug}`, `/v1/public`).

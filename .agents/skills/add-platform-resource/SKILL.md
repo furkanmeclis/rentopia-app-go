@@ -10,6 +10,8 @@ description: >-
 
 Do this in order. Skip engines you do not need; do not skip OpenAPI, RBAC, or `/meta`.
 
+Platform resources are global data managed under `/platform` (`platform.*`). Anything a rental company owns (branches, vehicles, reservations, …) is a tenant resource: use `.agents/skills/add-tenant-resource` instead.
+
 Human narrative: `docs/EXTENDING.md`.
 
 ## 1. Database
@@ -85,7 +87,7 @@ Dates: `.agents/skills/admin-date-picker`.
 
 ## 8. Do not
 
-- Tenants, workspaces, `/business`, JWT `tid` / `wid`
+- Organization-owned data here (use `.agents/skills/add-tenant-resource`); workspaces, `/business`, organization claims in the JWT
 - SMTP/SMS from a handler
 - Assemble S3 URLs in the browser
 - Advertise `capabilities.export|import|bulk` until routes exist

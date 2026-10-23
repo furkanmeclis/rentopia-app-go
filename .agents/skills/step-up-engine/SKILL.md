@@ -8,6 +8,8 @@ description: >-
 
 # Step-up engine
 
+Step-up guards platform routes. The tenant shell has no step-up policy yet (`docs/design/payments.md` §2.4); tenant integration routes note where `RequireStepUp` goes once it exists.
+
 Use when a flow must confirm the **current user's** password or passkey even though they are already signed in.
 
 ## Checklist

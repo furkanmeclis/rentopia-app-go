@@ -1,11 +1,11 @@
 # Frontend
 
-Next.js BFF for the boilerplate. The browser talks to same-origin `/api/v1/*`; the BFF forwards to the Go API and keeps JWTs in **HttpOnly** cookies.
+Next.js BFF of Rentopya: the landing page, the platform panel, the company panel and the customer portal. The browser talks to same-origin `/api/v1/*`; the BFF forwards to the Go API and keeps JWTs in **HttpOnly** cookies. The branded company sites are a separate app (`../site`).
 
 ## Stack
 
 - Next.js 16 App Router + React 19 + TypeScript
-- Tailwind CSS 4 (sidebar, tables, entity forms, dialogs)
+- Tailwind CSS 4 + shadcn/ui (`src/components/ui`), DataTable stack (`src/components/tables`, `src/components/entity`)
 - TanStack Query + TanStack Table
 - openapi-fetch + generated types from `../backend/docs/openapi.yaml`
 - NextAuth (Go adapter) + Centrifugo client
@@ -13,15 +13,17 @@ Next.js BFF for the boilerplate. The browser talks to same-origin `/api/v1/*`; t
 
 ## Panels
 
-| Who                                          | Panel                                                                                                                    |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `super_admin` or any `platform.*` permission | `/platform` — overview, users, roles, notifications, activity, logs, storage, imports, exports, settings, access, GitHub |
-| Organization members                         | `/t/{slug}` — organization panel (one org lands there, several → `/organizations` picker)                                |
-| Anyone else signed in                        | `/no-access` — waiting for an invitation; `/profile` works for every signed-in user                                      |
+| Who                                          | Path                                                                                                                                                                                                                 |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Everyone                                     | `/` — product landing page                                                                                                                                                                                           |
+| `super_admin` or any `platform.*` permission | `/platform` — overview, organizations, users, roles, usage and connection health, site domains, vehicle catalog, notifications, settings (branding, auth, OAuth, step-up, storage, imports, exports, logs, activity) |
+| Organization members                         | `/t/{slug}` — company panel (operations, reservations, rentals, finance, reports, customers, fleet, pricing, settings); one organization lands there, several → `/organizations` picker                              |
+| A company's customers                        | `/r/{orgSlug}` — customer portal (reservation reference + one-time code; own session cookie)                                                                                                                         |
+| Anyone else signed in                        | `/no-access` — waiting for an invitation; `/profile` works for every signed-in user                                                                                                                                  |
 
-Guest login: `/platform/login` (aliases at `/login`, `/forgot-password`, …).
+Guest login: `/platform/login` (aliases at `/login`, `/forgot-password`, …). Public token pages: `/pay/{token}` (pay link), `/d/{token}` (remote document approval), `/invite/{token}` (organization invitation), `/share/*` (storage shares).
 
-There is no `/business` shell and no tenant/workspace switcher.
+Tenant pages read the slug with `useTenant()` and call the API through `tenantRequest(slug, …)` (`src/lib/api/tenant-request.ts`), which sends the `X-Organization` header; the BFF forwards it on `/api/v1/tenant/*` only. There is no workspace or `/business` shell.
 
 ## Setup
 
@@ -63,27 +65,25 @@ SSE / long-lived streams are proxied without buffering when `Accept: text/event-
 
 ## Features
 
-| Feature             | Path                                                                 |
-| ------------------- | -------------------------------------------------------------------- |
-| `auth`              | Login, forgot/reset, verify email                                    |
-| `account`           | Profile, password, preferences, passkeys                             |
-| `users`             | Platform user CRUD + export/import/bulk + impersonate                |
-| `roles`             | Platform role CRUD + export/import/bulk                              |
-| `notifications`     | Inbox + platform log + export                                        |
-| `platform-overview` | `/platform` home KPIs                                                |
-| `nav-engine`        | Sidebar catalog, accordion groups, badges, info popovers             |
-| `io`                | Import/export jobs, letterhead settings, activity (shared toolbar)   |
-| `bulk-engine`       | Row selection, bulk menu, job rollback                               |
-| `storage`           | Object explorer (folders, versions, shares, links)                   |
-| `logs`              | Application logs + purge rules                                       |
-| `step-up-engine`    | Re-auth gate/dialog; access policy under `/platform/settings/access` |
-| `access`            | Step-up TTL / methods admin page                                     |
-| `search-engine`     | Cmd+K palette (Meilisearch via BFF)                                  |
-| `integrations`      | GitHub App settings (`/platform/settings/integrations?tab=github`)   |
+`src/features/<name>/` holds `components`, `hooks`, `services`, `schemas`, `types.ts`, `constants.ts` and an `index.ts`. Grouped map: [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md#frontend-features-srcfeatures).
 
-Shared infra: `components/ui`, `tables`, `entity`, `forms`, `layout`, `dialogs`, `lib/query`, `lib/i18n`, `lib/realtime`.
+| Group                  | Features                                                                                                                                                                       |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Shell and engines      | `auth`, `account`, `tenant`, `nav-engine`, `search-engine`, `step-up-engine`, `bulk-engine`, `io`, `storage`, `notifications`, `landing`                                       |
+| Platform               | `platform-overview`, `organizations`, `users`, `roles`, `catalog`, `platform-health`, `auth-settings`, `access`, `integrations` (GitHub + OAuth providers), `logs`, `settings` |
+| Organization core      | `tenant-settings`, `tenant-members`, `tenant-roles`, `invitations`, `branches` (reference list page), `overview`                                                               |
+| Fleet                  | `fleet`, `vehicles`, `vehicle-records`, `fleet-ops`, `fleet-calendar`, `availability`                                                                                          |
+| Sales                  | `pricing`, `extras`, `campaigns`, `reservations`, `customers`, `agreements`                                                                                                    |
+| Operations             | `rentals`, `field-tasks`, `inspections`, `contracts`, `kabis`, `tolls`                                                                                                         |
+| Finance                | `finance`, `payments` (also Ayarlar → Entegrasyonlar: provider accounts and integration jobs), `deposits`, `invoices`, `suppliers`, `profitability`, `reports`                 |
+| Messaging and channels | `notification-engine`, `whatsapp`, `channels`                                                                                                                                  |
+| Customer-facing        | `site`, `site-articles`, `site-leads`, `public-api`, `customer-portal`                                                                                                         |
 
-Brand tokens: `src/config/brand.ts`.
+New organization list page: `.agents/skills/add-tenant-resource` (worked example `branches`). New provider entry: `.agents/skills/integration-adapter`.
+
+Shared infra: `components/ui`, `tables`, `entity`, `forms`, `layout`, `dialogs`, `lib/query`, `lib/i18n`, `lib/realtime`. Translations: `src/locales/{tr,en}/*.json` (Turkish first), registered in `src/lib/i18n/messages.ts`; check with `node ../scripts/check-i18n.mjs`.
+
+Brand: `src/config/brand.ts`, `src/styles/theme.css`, logos in `src/components/brand/` ([../docs/brand.md](../docs/brand.md)).
 
 Media: never assemble S3 URLs in the browser. Use `assertServiceMediaURL` in `src/lib/media/urls.ts`.
 
@@ -95,6 +95,7 @@ Media: never assemble S3 URLs in the browser. Use `assertServiceMediaURL` in `sr
 | `pnpm build`        | Production build                |
 | `pnpm typecheck`    | `tsc --noEmit`                  |
 | `pnpm lint`         | ESLint                          |
+| `pnpm format:check` | Prettier check                  |
 | `pnpm api:generate` | Regenerate OpenAPI client types |
 
-`src/generated/api.d.ts` is generated. If it still lists deleted product paths, ignore unused ones and regenerate after the OpenAPI spec is trimmed.
+`src/generated/api.d.ts` is generated: never edit it, run `pnpm api:generate` after every OpenAPI change and commit the result.

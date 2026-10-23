@@ -1,6 +1,10 @@
 # Backend API
 
-Go HTTP API and Asynq worker for this boilerplate (`backend/` in the monorepo). Paths are `/v1/...` (no `/api` prefix).
+Go HTTP API and Asynq worker of Rentopya (`backend/` in the monorepo). Paths are `/v1/...` (no `/api` prefix): `/v1/platform/*` (platform admin), `/v1/tenant/*` (company panel, `X-Organization` header), `/v1/customer/{orgSlug}/*` (customer portal), `/v1/public/*` (branded site, widget, partners, webhooks).
+
+The module path stays `github.com/furkanmeclis/nextjs-go-boilerplate/backend` on purpose (renaming it is churn with no benefit); do not rename it.
+
+Layout: `cmd/` (server, worker, CLIs, provider fakes), `internal/modules/*` (one package per HTTP area; domain packages name their design doc in `../docs/design/` in the package comment), `internal/platform/*` (engines and provider layers), `migrations/`, `docs/openapi.yaml`. Map: [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md).
 
 ## Quick start
 
@@ -18,10 +22,20 @@ make migrate-up
 make sqlc
 make create-super-admin
 make dev             # air on APP_HTTP_ADDR (default :8080)
+make worker          # optional: worker as its own process (QUEUE_WORKER_INPROCESS=false)
 make health          # GET /healthz and /readyz
 ```
 
-Infra runs in Docker; the API runs on the host via `make dev` / `make run`.
+Infra runs in Docker; the API runs on the host via `make dev` / `make run`. Other targets: `make test`, `make lint`, `make openapi-lint`, `make migrate-create NAME=…`, `make migrate-down`, `make search-reindex`.
+
+| CLI (`cmd/`) | Purpose |
+|--------------|---------|
+| `server`, `worker` | API and Asynq worker |
+| `create-super-admin` | Upsert the platform admin (`make create-super-admin`) |
+| `search-reindex` | Rebuild Meilisearch indexes (`make search-reindex`) |
+| `catalog-import` | Import the monthly TSB kasko list into the platform catalog (`-file … -apply`) |
+| `enqueue-ping` | Smoke-test the queue (`make ping-job`) |
+| `iyzico-fake`, `netgsm-fake` | Local HTTP fakes of iyzico and Netgsm ([../docs/DEVELOPMENT.md](../docs/DEVELOPMENT.md#provider-fakes)) |
 
 Auth and RBAC: [`docs/auth.md`](docs/auth.md).  
 HTTP envelope / list / meta: [`API_CONVENTIONS.md`](API_CONVENTIONS.md).  
@@ -102,6 +116,22 @@ curl -sS 'http://127.0.0.1:8080/v1/platform/roles?limit=20&offset=0' \
 curl -sS 'http://127.0.0.1:8080/v1/platform/users?limit=20&offset=0' \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
+
+### Organization (tenant) requests
+
+Organization routes need `TENANCY_ENABLED=true` and a membership. Create an organization as platform admin (Platform → Organizations, or `POST /v1/platform/organizations`), then pass its slug on every tenant request:
+
+```bash
+curl -sS http://127.0.0.1:8080/v1/tenant/context \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H 'X-Organization: acme'
+
+curl -sS 'http://127.0.0.1:8080/v1/tenant/branches?limit=20&offset=0' \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H 'X-Organization: acme'
+```
+
+`super_admin` has no bypass here: without a membership in `acme` the answer is `403 NO_TENANT_MEMBERSHIP`.
 
 ### Storage / activity / logs (smoke)
 

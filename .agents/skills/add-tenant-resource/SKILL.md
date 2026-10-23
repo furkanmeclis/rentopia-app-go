@@ -78,7 +78,7 @@ Branches example: `branchusecase.Service.getBranch`, `ListFilter.BranchIDs`, `ad
 
 **Import dry-run diff.** An io adapter may implement `ioengine.RowPreviewer`; the import preview then validates every row through it and returns `op` (`create` / `update`) and `changes` per row plus `creates` / `updates` counts. Vehicles implement it (`PreviewImport`).
 
-Permissions for sensitive actions are separate slugs, granted to roles one by one: `tenant.price.override`, `tenant.discount.apply`, `tenant.payment.collect`, `tenant.payment.refund`, `tenant.damage.approve`, `tenant.signature.waive`, `tenant.document.download`, `tenant.report.export`. When a new resource adds slugs, also grant them to the matching Rentopia template roles (`merkez_yoneticisi` everything; `sube_yoneticisi` read/write of branch-bound resources; `rezervasyon_satis`, `muhasebe`, `teslim_iade` as fits) in the same migration.
+Permissions for sensitive actions are separate slugs, granted to roles one by one: `tenant.price.override`, `tenant.discount.apply`, `tenant.payment.collect`, `tenant.payment.refund`, `tenant.damage.approve`, `tenant.signature.waive`, `tenant.document.download`, `tenant.report.export`. When a new resource adds slugs, also grant them to the matching Rentopya template roles (`merkez_yoneticisi` everything; `sube_yoneticisi` read/write of branch-bound resources; `rezervasyon_satis`, `muhasebe`, `teslim_iade` as fits) in the same migration.
 
 ## 4. Engines with organization scope
 
@@ -151,7 +151,7 @@ Forms: `AppForm` + zod; dates only through `AppDatePicker` / `DatePicker` (`.age
 
 ### Isolation checklist (what a new module must pass)
 
-Two guard rails run in `go test ./...`; a new module is not done until both pass with its routes and queries in them.
+Two guard rails; a new module is not done until both pass with its routes and queries in them. The query guard runs in every `go test ./...`; RT-A01 and the other database tests skip without `TEST_DATABASE_URL`, and CI does not set it, so run them locally: `TEST_DATABASE_URL=<dsn of a migrated Postgres database the tests may write to> go test ./internal/httpserver/ ./internal/modules/<name>/...` (tests that need empty tables use `dbtest.FreshDatabase`, which needs CREATEDB).
 
 1. **Query guard** (`internal/database/queries_test.go`, no database needed):
    - new table → `queries/tenant_tables.txt`. Every query on it references `organization_id`; an aliased reference needs `alias.organization_id` (joins of a second tenant table too). Composite FKs are not a substitute in the query.
