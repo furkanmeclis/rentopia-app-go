@@ -15,7 +15,8 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
     "i18n:check": "node ../scripts/check-i18n.mjs",
-    "api:generate": "openapi-typescript ../backend/docs/openapi.yaml -o src/generated/api.d.ts"
+    "api:generate": "openapi-typescript ../backend/docs/openapi.yaml -o src/generated/api.d.ts",
+    "e2e": "playwright test -c e2e/playwright.config.ts"
   },
   "dependencies": {
     "@auth/core": "^0.41.3",
@@ -99,6 +100,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "@tailwindcss/postcss": "^4",
     "@tanstack/react-query-devtools": "^5.101.2",
     "@types/lodash": "^4.17.24",
