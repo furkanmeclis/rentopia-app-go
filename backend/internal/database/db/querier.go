@@ -100,6 +100,7 @@ type Querier interface {
 	// One delivery now (panel test / retry), unless another attempt holds it.
 	ClaimWebhookDelivery(ctx context.Context, arg ClaimWebhookDeliveryParams) (ClaimWebhookDeliveryRow, error)
 	ClearAppSettingsLogo(ctx context.Context) (AppSetting, error)
+	ClearCatalogDisplayBrandsSyncedLogos(ctx context.Context) (int64, error)
 	ClearPrimaryCustomerContact(ctx context.Context, arg ClearPrimaryCustomerContactParams) error
 	// An extension past now ends the overdue state.
 	ClearRentalOverdue(ctx context.Context, arg ClearRentalOverdueParams) (int64, error)
@@ -141,11 +142,14 @@ type Querier interface {
 	CountAppLogs(ctx context.Context, arg CountAppLogsParams) (int64, error)
 	CountAppLogsByLevel(ctx context.Context) ([]CountAppLogsByLevelRow, error)
 	CountBranches(ctx context.Context, arg CountBranchesParams) (int64, error)
+	CountBrandLogoSources(ctx context.Context) (int64, error)
+	CountBrandLogoSyncRuns(ctx context.Context) (int64, error)
 	CountBulkJobsForActor(ctx context.Context, actorID int64) (int64, error)
 	CountCampaignRedemptions(ctx context.Context, arg CountCampaignRedemptionsParams) (int64, error)
 	CountCampaigns(ctx context.Context, arg CountCampaignsParams) (int64, error)
 	CountCatalogBrands(ctx context.Context, arg CountCatalogBrandsParams) (int64, error)
 	CountCatalogDisplayBrands(ctx context.Context, arg CountCatalogDisplayBrandsParams) (int64, error)
+	CountCatalogDisplayBrandsByMatchSource(ctx context.Context) ([]CountCatalogDisplayBrandsByMatchSourceRow, error)
 	CountCatalogImports(ctx context.Context, arg CountCatalogImportsParams) (int64, error)
 	CountCatalogModels(ctx context.Context, arg CountCatalogModelsParams) (int64, error)
 	CountCatalogTypes(ctx context.Context, arg CountCatalogTypesParams) (int64, error)
@@ -221,6 +225,7 @@ type Querier interface {
 	// Transfers of the vehicle (not cancelled) whose actual, else planned,
 	// window contains the pass time.
 	CountTollVehicleTransfersAt(ctx context.Context, arg CountTollVehicleTransfersAtParams) (int64, error)
+	CountUnmatchedCatalogDisplayBrands(ctx context.Context, q_ pgtype.Text) (int64, error)
 	CountUnreadInappForUser(ctx context.Context, arg CountUnreadInappForUserParams) (int64, error)
 	CountUnresolvedCatalogTypesByCategory(ctx context.Context) ([]CountUnresolvedCatalogTypesByCategoryRow, error)
 	CountUsers(ctx context.Context, arg CountUsersParams) (int64, error)
@@ -239,6 +244,7 @@ type Querier interface {
 	// Tenant resource: branches and service points.
 	// Every query filters by organization_id (see docs/design/tenant-core.md §8).
 	CreateBranch(ctx context.Context, arg CreateBranchParams) (Branch, error)
+	CreateBrandLogoSyncRun(ctx context.Context, triggeredBy pgtype.Int8) (BrandLogoSyncRun, error)
 	CreateBulkJob(ctx context.Context, arg CreateBulkJobParams) (BulkJob, error)
 	// Tenant resource: campaigns / coupons and their redemptions (TEC-703).
 	// Every query filters by organization_id (docs/design/tenant-core.md §8).
@@ -515,6 +521,7 @@ type Querier interface {
 	FindVehicleCatalogTypesByNames(ctx context.Context, arg FindVehicleCatalogTypesByNamesParams) ([]FindVehicleCatalogTypesByNamesRow, error)
 	// Import: a live branch of the organization by code or name (code first).
 	FindVehicleImportBranch(ctx context.Context, arg FindVehicleImportBranchParams) (Branch, error)
+	FinishBrandLogoSyncRun(ctx context.Context, arg FinishBrandLogoSyncRunParams) (BrandLogoSyncRun, error)
 	FinishChannelSyncRun(ctx context.Context, arg FinishChannelSyncRunParams) error
 	// The deposit is resolved: the rental's live deposit operation task(s)
 	// are completed with the resolution as note.
@@ -541,6 +548,7 @@ type Querier interface {
 	GetAccountBySupplier(ctx context.Context, arg GetAccountBySupplierParams) (GetAccountBySupplierRow, error)
 	GetAccountRow(ctx context.Context, arg GetAccountRowParams) (GetAccountRowRow, error)
 	GetAccountRowByID(ctx context.Context, arg GetAccountRowByIDParams) (GetAccountRowByIDRow, error)
+	GetActiveBrandLogoSyncRun(ctx context.Context) (BrandLogoSyncRun, error)
 	// Resolves a tenant brand reference: a display brand uuid, or (older
 	// clients) a TSB brand uuid mapped to its display brand.
 	GetActiveCatalogDisplayBrandForTenant(ctx context.Context, ref uuid.UUID) (GetActiveCatalogDisplayBrandForTenantRow, error)
@@ -591,6 +599,11 @@ type Querier interface {
 	GetBranchRefByUUID(ctx context.Context, arg GetBranchRefByUUIDParams) (GetBranchRefByUUIDRow, error)
 	GetBranchSearchDocument(ctx context.Context, arg GetBranchSearchDocumentParams) (GetBranchSearchDocumentRow, error)
 	GetBranchUUIDByID(ctx context.Context, arg GetBranchUUIDByIDParams) (uuid.UUID, error)
+	GetBrandLogoSourceByMotomarksID(ctx context.Context, motomarksID string) (BrandLogoSource, error)
+	GetBrandLogoSyncRunByID(ctx context.Context, id int64) (BrandLogoSyncRun, error)
+	// Brand logo sync (motomarks-mirror): settings singleton, mirror brand
+	// sources, sync runs and the display brand <-> mirror links.
+	GetBrandLogoSyncSettings(ctx context.Context) (BrandLogoSyncSetting, error)
 	GetBulkJobByID(ctx context.Context, id int64) (BulkJob, error)
 	GetBulkJobByUUID(ctx context.Context, argUuid uuid.UUID) (BulkJob, error)
 	GetCampaignByCode(ctx context.Context, arg GetCampaignByCodeParams) (GetCampaignByCodeRow, error)
@@ -607,6 +620,8 @@ type Querier interface {
 	GetCatalogBrandByUUID(ctx context.Context, argUuid uuid.UUID) (GetCatalogBrandByUUIDRow, error)
 	GetCatalogDisplayBrandByName(ctx context.Context, name string) (CatalogDisplayBrand, error)
 	GetCatalogDisplayBrandByUUID(ctx context.Context, argUuid uuid.UUID) (GetCatalogDisplayBrandByUUIDRow, error)
+	// Every logo object of a display brand: the admin upload and the synced variants.
+	GetCatalogDisplayBrandLogoKeys(ctx context.Context, argUuid uuid.UUID) (GetCatalogDisplayBrandLogoKeysRow, error)
 	GetCatalogImportByID(ctx context.Context, id int64) (CatalogImport, error)
 	GetCatalogImportByUUID(ctx context.Context, argUuid uuid.UUID) (CatalogImport, error)
 	GetCatalogLatestPeriod(ctx context.Context) (string, error)
@@ -1403,6 +1418,7 @@ type Querier interface {
 	ListBranchUUIDs(ctx context.Context, arg ListBranchUUIDsParams) ([]uuid.UUID, error)
 	ListBranches(ctx context.Context, arg ListBranchesParams) ([]ListBranchesRow, error)
 	ListBranchesForExport(ctx context.Context, arg ListBranchesForExportParams) ([]Branch, error)
+	ListBrandLogoSyncRuns(ctx context.Context, arg ListBrandLogoSyncRunsParams) ([]ListBrandLogoSyncRunsRow, error)
 	ListBulkChangesForJob(ctx context.Context, jobID int64) ([]BulkChange, error)
 	ListBulkJobsForActor(ctx context.Context, arg ListBulkJobsForActorParams) ([]BulkJob, error)
 	ListCampaignRedemptions(ctx context.Context, arg ListCampaignRedemptionsParams) ([]ListCampaignRedemptionsRow, error)
@@ -1419,6 +1435,7 @@ type Querier interface {
 	// ---------- display brands ----------
 	ListCatalogDisplayBrands(ctx context.Context, arg ListCatalogDisplayBrandsParams) ([]ListCatalogDisplayBrandsRow, error)
 	ListCatalogDisplayBrandsAll(ctx context.Context) ([]CatalogDisplayBrand, error)
+	ListCatalogDisplayBrandsToMatch(ctx context.Context) ([]ListCatalogDisplayBrandsToMatchRow, error)
 	ListCatalogImports(ctx context.Context, arg ListCatalogImportsParams) ([]ListCatalogImportsRow, error)
 	ListCatalogModelRulesAll(ctx context.Context) ([]CatalogModelRule, error)
 	ListCatalogModelRulesByModel(ctx context.Context, modelID int64) ([]CatalogModelRule, error)
@@ -1987,6 +2004,7 @@ type Querier interface {
 	// Rentals with at least one invoiceable item (bulk "invoice the selected
 	// rentals" picker).
 	ListUninvoicedRentals(ctx context.Context, arg ListUninvoicedRentalsParams) ([]ListUninvoicedRentalsRow, error)
+	ListUnmatchedCatalogDisplayBrands(ctx context.Context, arg ListUnmatchedCatalogDisplayBrandsParams) ([]ListUnmatchedCatalogDisplayBrandsRow, error)
 	// Platform health issues (newest first, every organization and the
 	// platform-level rows).
 	ListUnmatchedPaymentWebhookOrphans(ctx context.Context, rowLimit int32) ([]ListUnmatchedPaymentWebhookOrphansRow, error)
@@ -2359,6 +2377,8 @@ type Querier interface {
 	RecordDocumentApprovalLinkFailure(ctx context.Context, arg RecordDocumentApprovalLinkFailureParams) error
 	RecordOTPAttempt(ctx context.Context, arg RecordOTPAttemptParams) error
 	RecordWebhookEndpointResult(ctx context.Context, arg RecordWebhookEndpointResultParams) error
+	// Denormalizes the synced variants and brand color of linked display brands.
+	RefreshCatalogDisplayBrandsSyncedLogos(ctx context.Context) (int64, error)
 	// A notification that was not sent yet takes the current data.
 	RefreshKabisNotification(ctx context.Context, arg RefreshKabisNotificationParams) (int64, error)
 	// A late payment re-secured capacity for an expired reservation (TEC-708):
@@ -2499,6 +2519,7 @@ type Querier interface {
 	SaveChannelPushState(ctx context.Context, arg SaveChannelPushStateParams) error
 	// Stores the outcome of a provider call and releases the claim.
 	SaveRunnerJob(ctx context.Context, arg SaveRunnerJobParams) error
+	SearchBrandLogoSources(ctx context.Context, arg SearchBrandLogoSourcesParams) ([]SearchBrandLogoSourcesRow, error)
 	// Open deposits by status and method in the caller's branch scope, and
 	// how many have been held since before held_before.
 	SecurityDepositTotals(ctx context.Context, arg SecurityDepositTotalsParams) ([]SecurityDepositTotalsRow, error)
@@ -2509,6 +2530,8 @@ type Querier interface {
 	SetAppSettingsLogo(ctx context.Context, logoObjectKey pgtype.Text) (AppSetting, error)
 	SetBranchActive(ctx context.Context, arg SetBranchActiveParams) (Branch, error)
 	SetBranchShowOnline(ctx context.Context, arg SetBranchShowOnlineParams) (SetBranchShowOnlineRow, error)
+	SetBrandLogoSourceObjects(ctx context.Context, arg SetBrandLogoSourceObjectsParams) error
+	SetBrandLogoSyncState(ctx context.Context, arg SetBrandLogoSyncStateParams) error
 	SetCampaignActive(ctx context.Context, arg SetCampaignActiveParams) (int64, error)
 	SetCashAccountProvider(ctx context.Context, arg SetCashAccountProviderParams) (int64, error)
 	SetCashAccountStatus(ctx context.Context, arg SetCashAccountStatusParams) (string, error)
@@ -2516,6 +2539,7 @@ type Querier interface {
 	// Points one TSB brand at a display brand; display_name mirrors its name.
 	SetCatalogBrandDisplayBrand(ctx context.Context, arg SetCatalogBrandDisplayBrandParams) (int64, error)
 	SetCatalogDisplayBrandLogo(ctx context.Context, arg SetCatalogDisplayBrandLogoParams) (CatalogDisplayBrand, error)
+	SetCatalogDisplayBrandMotomarks(ctx context.Context, arg SetCatalogDisplayBrandMotomarksParams) (CatalogDisplayBrand, error)
 	SetCatalogImportFileKey(ctx context.Context, arg SetCatalogImportFileKeyParams) (CatalogImport, error)
 	SetCatalogTypesModel(ctx context.Context, arg SetCatalogTypesModelParams) (int64, error)
 	SetCollectionRefunded(ctx context.Context, arg SetCollectionRefundedParams) (int64, error)
@@ -2638,6 +2662,7 @@ type Querier interface {
 	SoftDeleteVehicleDocument(ctx context.Context, arg SoftDeleteVehicleDocumentParams) (int64, error)
 	SoftDeleteVehicleMaintenance(ctx context.Context, arg SoftDeleteVehicleMaintenanceParams) (int64, error)
 	SoftDeleteVehicleSegment(ctx context.Context, arg SoftDeleteVehicleSegmentParams) (int64, error)
+	StartBrandLogoSyncRun(ctx context.Context, id int64) (BrandLogoSyncRun, error)
 	StartOperationTask(ctx context.Context, arg StartOperationTaskParams) (int64, error)
 	StartVehicleTransfer(ctx context.Context, arg StartVehicleTransferParams) (int64, error)
 	// Cancelling an invoice that sent nothing: its job ends as failed (nothing
@@ -2702,6 +2727,7 @@ type Querier interface {
 	UpdateAppSettings(ctx context.Context, arg UpdateAppSettingsParams) (AppSetting, error)
 	UpdateAuthSettings(ctx context.Context, arg UpdateAuthSettingsParams) (AuthSetting, error)
 	UpdateBranch(ctx context.Context, arg UpdateBranchParams) (Branch, error)
+	UpdateBrandLogoSyncSettings(ctx context.Context, arg UpdateBrandLogoSyncSettingsParams) (BrandLogoSyncSetting, error)
 	UpdateCampaign(ctx context.Context, arg UpdateCampaignParams) (int64, error)
 	UpdateCapacityRule(ctx context.Context, arg UpdateCapacityRuleParams) (int64, error)
 	UpdateCashAccount(ctx context.Context, arg UpdateCashAccountParams) (int64, error)
@@ -2791,6 +2817,7 @@ type Querier interface {
 	UpdateVehicleTransferPlan(ctx context.Context, arg UpdateVehicleTransferPlanParams) (int64, error)
 	UpdateWebAuthnCredentialCounter(ctx context.Context, arg UpdateWebAuthnCredentialCounterParams) error
 	UpdateWebAuthnCredentialName(ctx context.Context, arg UpdateWebAuthnCredentialNameParams) (WebauthnCredential, error)
+	UpsertBrandLogoSource(ctx context.Context, arg UpsertBrandLogoSourceParams) (BrandLogoSource, error)
 	UpsertCatalogModelRule(ctx context.Context, arg UpsertCatalogModelRuleParams) (CatalogModelRule, error)
 	// ---------------------------------------------------------------- offers
 	UpsertChannelOffer(ctx context.Context, arg UpsertChannelOfferParams) error

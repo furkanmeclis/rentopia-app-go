@@ -6642,6 +6642,7 @@ paths:
         - bearerAuth: []
       parameters:
         - $ref: "#/components/parameters/ResourceUUID"
+        - $ref: "#/components/parameters/CatalogLogoVariant"
       responses:
         "200":
           description: Logo image
@@ -7002,6 +7003,206 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "500": { $ref: "#/components/responses/InternalError" }
+
+  /v1/platform/catalog/brand-logos/settings:
+    get:
+      tags: [Catalog]
+      operationId: getPlatformCatalogBrandLogoSettings
+      summary: Brand logo sync settings (mirror endpoint, masked token, counters)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeCatalogBrandLogoSettings" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    patch:
+      tags: [Catalog]
+      operationId: patchPlatformCatalogBrandLogoSettings
+      summary: Update brand logo sync settings
+      description: |
+        Requires `platform.catalog.write`. The mirror base URL and API
+        token are stored in the database (token encrypted, never returned);
+        an empty `api_token` clears it.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PatchCatalogBrandLogoSettingsRequest" }
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeCatalogBrandLogoSettings" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/platform/catalog/brand-logos/test:
+    post:
+      tags: [Catalog]
+      operationId: postPlatformCatalogBrandLogoTest
+      summary: Test the brand logo mirror connection with the stored token
+      security:
+        - bearerAuth: []
+      responses:
+        "200": { description: Connection ok }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/platform/catalog/brand-logos/sync:
+    post:
+      tags: [Catalog]
+      operationId: postPlatformCatalogBrandLogoSync
+      summary: Start a brand logo sync run (background)
+      description: |
+        Asks the live mirror for its brand list (ETag aware), copies new or
+        changed badge / wordmark / full files into this app's storage and
+        matches display brands without a logo link. One run at a time (409).
+      security:
+        - bearerAuth: []
+      responses:
+        "202":
+          description: Run queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeCatalogBrandLogoSyncRun" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/platform/catalog/brand-logos/runs:
+    get:
+      tags: [Catalog]
+      operationId: getPlatformCatalogBrandLogoRuns
+      summary: Brand logo sync run history (newest first)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Runs
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeCatalogBrandLogoSyncRunPage" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/platform/catalog/brand-logos/unmatched:
+    get:
+      tags: [Catalog]
+      operationId: getPlatformCatalogBrandLogoUnmatched
+      summary: Display brands without a mirror logo link
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Q"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Unmatched display brands
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeCatalogUnmatchedDisplayBrandPage" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/platform/catalog/brand-logos/sources:
+    get:
+      tags: [Catalog]
+      operationId: getPlatformCatalogBrandLogoSources
+      summary: Search synced mirror brands (manual link picker)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Q"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Mirror brands
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success: { type: boolean, enum: [true] }
+                  data:
+                    type: object
+                    required: [items]
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: "#/components/schemas/CatalogBrandLogoSource" }
+                  meta: { $ref: "#/components/schemas/ResponseMeta" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/platform/catalog/brand-logos/sources/{id}/logo:
+    get:
+      tags: [Catalog]
+      operationId: getPlatformCatalogBrandLogoSourceLogo
+      summary: Preview a synced mirror brand logo file
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Mirror brand id (slug)
+          schema: { type: string, example: mercedes-benz }
+        - $ref: "#/components/parameters/CatalogLogoVariant"
+      responses:
+        "200":
+          description: Logo image
+          content:
+            image/png: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/platform/catalog/display-brands/{uuid}/motomarks:
+    post:
+      tags: [Catalog]
+      operationId: postPlatformCatalogDisplayBrandMotomarks
+      summary: Link a display brand to a mirror brand by hand, skip it, or unlink
+      description: Requires `platform.catalog.write`. A manual link or skip is never overwritten by a later sync run.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mode]
+              properties:
+                mode: { type: string, enum: [link, skip, unlink] }
+                motomarks_id: { type: string, description: "Required for link", example: fiat }
+      responses:
+        "200":
+          description: Updated display brand
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvelopeCatalogDisplayBrand" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /v1/platform/catalog/imports/meta:
     get:
@@ -24624,6 +24825,12 @@ components:
       description: Model year
       schema: { type: integer, minimum: 1950, maximum: 2100 }
 
+    CatalogLogoVariant:
+      name: variant
+      in: query
+      description: Logo variant. Default = full logo (upload first), `badge` = emblem, `wordmark` = text-only.
+      schema: { type: string, enum: [badge, wordmark, full] }
+
   responses:
     WhatsAppSessionOK:
       description: WhatsApp session
@@ -26977,6 +27184,9 @@ components:
         model_name: { type: string, example: Egea }
         brand_uuid: { type: [string, "null"], format: uuid }
         brand_name: { type: string, example: Fiat }
+        brand_logo_url: { type: [string, "null"], description: API-owned brand logo stream }
+        brand_badge_url: { type: [string, "null"], description: Emblem variant for rows and cards }
+        brand_wordmark_url: { type: [string, "null"], description: Text-only variant for headers }
         years:
           type: array
           description: Valid model years of the type
@@ -30812,7 +31022,7 @@ components:
 
     CatalogDisplayBrand:
       type: object
-      required: [uuid, name, slug, logo_url, is_active, brands_count, types_count, models_count, tsb_names, created_at, updated_at]
+      required: [uuid, name, slug, logo_url, logo_badge_url, logo_wordmark_url, logo_uploaded, brand_color, motomarks, is_active, brands_count, types_count, models_count, tsb_names, created_at, updated_at]
       properties:
         uuid: { type: string, format: uuid }
         name: { type: string, example: Fiat }
@@ -30820,6 +31030,11 @@ components:
         logo_url:
           type: [string, "null"]
           description: API-owned logo stream (`/v1/...`); never build storage URLs in the browser
+        logo_badge_url: { type: [string, "null"], description: "Emblem variant (synced), falls back to the upload" }
+        logo_wordmark_url: { type: [string, "null"], description: Text-only variant (synced only) }
+        logo_uploaded: { type: boolean, description: "An admin upload exists (wins over synced files)" }
+        brand_color: { type: [string, "null"], example: "#9B1B30" }
+        motomarks: { $ref: "#/components/schemas/CatalogDisplayBrandMotomarks" }
         is_active: { type: boolean }
         brands_count: { type: integer, format: int64, description: TSB brands mapped to it }
         types_count: { type: integer, format: int64, description: Active types }
@@ -31193,13 +31408,16 @@ components:
     TenantCatalogBrand:
       type: object
       description: A display brand (FIAT and TOFAS-FIAT are one "Fiat").
-      required: [uuid, display_name, slug, category, logo_url]
+      required: [uuid, display_name, slug, category, logo_url, logo_badge_url, logo_wordmark_url, brand_color]
       properties:
         uuid: { type: string, format: uuid }
         display_name: { type: string, example: Fiat }
         slug: { type: string, example: fiat }
         category: { $ref: "#/components/schemas/CatalogBrandCategory" }
         logo_url: { type: [string, "null"], description: API-owned logo stream }
+        logo_badge_url: { type: [string, "null"], description: Emblem variant for compact rows }
+        logo_wordmark_url: { type: [string, "null"], description: Text-only variant for headers }
+        brand_color: { type: [string, "null"] }
 
     TenantCatalogModel:
       type: object
@@ -42707,3 +42925,156 @@ components:
           properties:
             received: { type: boolean }
         meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    CatalogDisplayBrandMotomarks:
+      type: object
+      description: Link between a display brand and the brand logo mirror.
+      required: [id, match_source, match_score, suggested_id, suggested_score, synced_variants]
+      properties:
+        id: { type: [string, "null"], example: fiat }
+        match_source: { type: string, enum: [none, auto, manual, skip] }
+        match_score: { type: [number, "null"] }
+        suggested_id: { type: [string, "null"], description: Best candidate below the threshold }
+        suggested_score: { type: [number, "null"] }
+        synced_variants:
+          type: array
+          items: { type: string, enum: [badge, wordmark, full] }
+
+    CatalogBrandLogoSettings:
+      type: object
+      required: [base_url, token_configured, enabled, auto_match_min_score, last_run_at, last_status, last_error, sources_count, match_counts, active_run]
+      properties:
+        base_url: { type: string, example: https://logos.example.com }
+        token_configured: { type: boolean }
+        enabled: { type: boolean }
+        auto_match_min_score: { type: integer, minimum: 0, maximum: 100 }
+        last_run_at: { type: [string, "null"], format: date-time }
+        last_status: { type: [string, "null"], enum: [done, failed, null] }
+        last_error: { type: [string, "null"] }
+        sources_count: { type: integer, format: int64, description: Mirror brands stored }
+        match_counts:
+          type: object
+          description: Display brands per match source
+          additionalProperties: { type: integer, format: int64 }
+        active_run:
+          oneOf:
+            - $ref: "#/components/schemas/CatalogBrandLogoSyncRun"
+            - type: "null"
+
+    PatchCatalogBrandLogoSettingsRequest:
+      type: object
+      properties:
+        base_url: { type: string }
+        api_token: { type: string, description: "New token; empty string clears it" }
+        enabled: { type: boolean }
+        auto_match_min_score: { type: integer, minimum: 0, maximum: 100 }
+
+    EnvelopeCatalogBrandLogoSettings:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/CatalogBrandLogoSettings" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    CatalogBrandLogoSyncRun:
+      type: object
+      required: [uuid, status, triggered_by, started_at, finished_at, not_modified, requests, brands_seen, downloaded, matched, unmatched, error, created_at]
+      properties:
+        uuid: { type: string, format: uuid }
+        status: { type: string, enum: [queued, running, done, failed] }
+        triggered_by:
+          oneOf:
+            - $ref: "#/components/schemas/CatalogNamedRef"
+            - type: "null"
+        started_at: { type: [string, "null"], format: date-time }
+        finished_at: { type: [string, "null"], format: date-time }
+        not_modified: { type: boolean, description: "The mirror answered 304; only matching ran" }
+        requests: { type: integer }
+        brands_seen: { type: integer }
+        downloaded: { type: integer, description: Logo files copied }
+        matched: { type: integer }
+        unmatched: { type: integer }
+        error: { type: [string, "null"] }
+        created_at: { type: string, format: date-time }
+
+    EnvelopeCatalogBrandLogoSyncRun:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: "#/components/schemas/CatalogBrandLogoSyncRun" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    EnvelopeCatalogBrandLogoSyncRunPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/CatalogBrandLogoSyncRun" }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    CatalogUnmatchedDisplayBrand:
+      type: object
+      required: [uuid, name, slug, is_active, types_count, logo_url, suggestion]
+      properties:
+        uuid: { type: string, format: uuid }
+        name: { type: string }
+        slug: { type: string }
+        is_active: { type: boolean }
+        types_count: { type: integer, format: int64 }
+        logo_url: { type: [string, "null"] }
+        suggestion:
+          oneOf:
+            - type: object
+              required: [id, name, score]
+              properties:
+                id: { type: string }
+                name: { type: string }
+                score: { type: [number, "null"] }
+            - type: "null"
+
+    EnvelopeCatalogUnmatchedDisplayBrandPage:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [items, total, limit, offset]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/CatalogUnmatchedDisplayBrand" }
+            total: { type: integer, format: int64 }
+            limit: { type: integer }
+            offset: { type: integer }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+    CatalogBrandLogoSource:
+      type: object
+      required: [id, name, color, vehicle_types, variants, badge_url, wordmark_url, full_url, synced_at]
+      properties:
+        id: { type: string, example: fiat }
+        name: { type: string, example: Fiat }
+        color: { type: [string, "null"] }
+        vehicle_types:
+          type: array
+          items: { type: string }
+        variants:
+          type: array
+          items: { type: string, enum: [badge, wordmark, full] }
+        badge_url: { type: [string, "null"] }
+        wordmark_url: { type: [string, "null"] }
+        full_url: { type: [string, "null"] }
+        synced_at: { type: [string, "null"], format: date-time }
+

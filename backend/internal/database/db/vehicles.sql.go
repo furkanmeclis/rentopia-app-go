@@ -648,6 +648,8 @@ SELECT v.id, v.uuid, v.organization_id, v.plate, v.plate_key, v.vin, v.catalog_t
     t.uuid AS type_uuid, t.raw_name AS type_name, t.tsb_type_code AS type_code, t.years AS type_years,
     t.model_id AS catalog_model_id, m.name AS model_name,
     d.uuid AS brand_uuid, d.name AS brand_name,
+    d.logo_object_key AS brand_logo_object_key, d.synced_logo_variants AS brand_logo_variants,
+    d.updated_at AS brand_updated_at,
     COALESCE(mg.id, 0)::bigint AS model_group_id,
     COALESCE(mg.uuid, '00000000-0000-0000-0000-000000000000'::uuid)::uuid AS model_group_uuid,
     hb.uuid AS home_branch_uuid, hb.code AS home_branch_code, hb.name AS home_branch_name,
@@ -715,34 +717,37 @@ type GetVehicleDetailParams struct {
 }
 
 type GetVehicleDetailRow struct {
-	Vehicle             Vehicle        `json:"vehicle"`
-	TypeUuid            pgtype.UUID    `json:"type_uuid"`
-	TypeName            pgtype.Text    `json:"type_name"`
-	TypeCode            pgtype.Text    `json:"type_code"`
-	TypeYears           []int32        `json:"type_years"`
-	CatalogModelID      pgtype.Int8    `json:"catalog_model_id"`
-	ModelName           pgtype.Text    `json:"model_name"`
-	BrandUuid           pgtype.UUID    `json:"brand_uuid"`
-	BrandName           pgtype.Text    `json:"brand_name"`
-	ModelGroupID        int64          `json:"model_group_id"`
-	ModelGroupUuid      uuid.UUID      `json:"model_group_uuid"`
-	HomeBranchUuid      uuid.UUID      `json:"home_branch_uuid"`
-	HomeBranchCode      string         `json:"home_branch_code"`
-	HomeBranchName      string         `json:"home_branch_name"`
-	CurrentBranchUuid   uuid.UUID      `json:"current_branch_uuid"`
-	CurrentBranchCode   string         `json:"current_branch_code"`
-	CurrentBranchName   string         `json:"current_branch_name"`
-	SupplierUuid        pgtype.UUID    `json:"supplier_uuid"`
-	SupplierCode        pgtype.Text    `json:"supplier_code"`
-	SupplierTitle       pgtype.Text    `json:"supplier_title"`
-	KaskoValue          pgtype.Numeric `json:"kasko_value"`
-	KaskoPeriod         string         `json:"kasko_period"`
-	InspectionUntil     pgtype.Date    `json:"inspection_until"`
-	InsuranceUntil      pgtype.Date    `json:"insurance_until"`
-	KaskoUntil          pgtype.Date    `json:"kasko_until"`
-	DocumentExpiresAt   pgtype.Date    `json:"document_expires_at"`
-	NextMaintenanceDate pgtype.Date    `json:"next_maintenance_date"`
-	NextMaintenanceKm   int32          `json:"next_maintenance_km"`
+	Vehicle             Vehicle            `json:"vehicle"`
+	TypeUuid            pgtype.UUID        `json:"type_uuid"`
+	TypeName            pgtype.Text        `json:"type_name"`
+	TypeCode            pgtype.Text        `json:"type_code"`
+	TypeYears           []int32            `json:"type_years"`
+	CatalogModelID      pgtype.Int8        `json:"catalog_model_id"`
+	ModelName           pgtype.Text        `json:"model_name"`
+	BrandUuid           pgtype.UUID        `json:"brand_uuid"`
+	BrandName           pgtype.Text        `json:"brand_name"`
+	BrandLogoObjectKey  pgtype.Text        `json:"brand_logo_object_key"`
+	BrandLogoVariants   []string           `json:"brand_logo_variants"`
+	BrandUpdatedAt      pgtype.Timestamptz `json:"brand_updated_at"`
+	ModelGroupID        int64              `json:"model_group_id"`
+	ModelGroupUuid      uuid.UUID          `json:"model_group_uuid"`
+	HomeBranchUuid      uuid.UUID          `json:"home_branch_uuid"`
+	HomeBranchCode      string             `json:"home_branch_code"`
+	HomeBranchName      string             `json:"home_branch_name"`
+	CurrentBranchUuid   uuid.UUID          `json:"current_branch_uuid"`
+	CurrentBranchCode   string             `json:"current_branch_code"`
+	CurrentBranchName   string             `json:"current_branch_name"`
+	SupplierUuid        pgtype.UUID        `json:"supplier_uuid"`
+	SupplierCode        pgtype.Text        `json:"supplier_code"`
+	SupplierTitle       pgtype.Text        `json:"supplier_title"`
+	KaskoValue          pgtype.Numeric     `json:"kasko_value"`
+	KaskoPeriod         string             `json:"kasko_period"`
+	InspectionUntil     pgtype.Date        `json:"inspection_until"`
+	InsuranceUntil      pgtype.Date        `json:"insurance_until"`
+	KaskoUntil          pgtype.Date        `json:"kasko_until"`
+	DocumentExpiresAt   pgtype.Date        `json:"document_expires_at"`
+	NextMaintenanceDate pgtype.Date        `json:"next_maintenance_date"`
+	NextMaintenanceKm   int32              `json:"next_maintenance_km"`
 }
 
 func (q *Queries) GetVehicleDetail(ctx context.Context, arg GetVehicleDetailParams) (GetVehicleDetailRow, error) {
@@ -793,6 +798,9 @@ func (q *Queries) GetVehicleDetail(ctx context.Context, arg GetVehicleDetailPara
 		&i.ModelName,
 		&i.BrandUuid,
 		&i.BrandName,
+		&i.BrandLogoObjectKey,
+		&i.BrandLogoVariants,
+		&i.BrandUpdatedAt,
 		&i.ModelGroupID,
 		&i.ModelGroupUuid,
 		&i.HomeBranchUuid,
@@ -1538,6 +1546,8 @@ SELECT v.id, v.uuid, v.organization_id, v.plate, v.plate_key, v.vin, v.catalog_t
     t.uuid AS type_uuid, t.raw_name AS type_name, t.tsb_type_code AS type_code, t.years AS type_years,
     t.model_id AS catalog_model_id, m.name AS model_name,
     d.uuid AS brand_uuid, d.name AS brand_name,
+    d.logo_object_key AS brand_logo_object_key, d.synced_logo_variants AS brand_logo_variants,
+    d.updated_at AS brand_updated_at,
     COALESCE(mg.id, 0)::bigint AS model_group_id,
     COALESCE(mg.uuid, '00000000-0000-0000-0000-000000000000'::uuid)::uuid AS model_group_uuid,
     hb.uuid AS home_branch_uuid, hb.code AS home_branch_code, hb.name AS home_branch_name,
@@ -1700,34 +1710,37 @@ type ListVehiclesParams struct {
 }
 
 type ListVehiclesRow struct {
-	Vehicle             Vehicle        `json:"vehicle"`
-	TypeUuid            pgtype.UUID    `json:"type_uuid"`
-	TypeName            pgtype.Text    `json:"type_name"`
-	TypeCode            pgtype.Text    `json:"type_code"`
-	TypeYears           []int32        `json:"type_years"`
-	CatalogModelID      pgtype.Int8    `json:"catalog_model_id"`
-	ModelName           pgtype.Text    `json:"model_name"`
-	BrandUuid           pgtype.UUID    `json:"brand_uuid"`
-	BrandName           pgtype.Text    `json:"brand_name"`
-	ModelGroupID        int64          `json:"model_group_id"`
-	ModelGroupUuid      uuid.UUID      `json:"model_group_uuid"`
-	HomeBranchUuid      uuid.UUID      `json:"home_branch_uuid"`
-	HomeBranchCode      string         `json:"home_branch_code"`
-	HomeBranchName      string         `json:"home_branch_name"`
-	CurrentBranchUuid   uuid.UUID      `json:"current_branch_uuid"`
-	CurrentBranchCode   string         `json:"current_branch_code"`
-	CurrentBranchName   string         `json:"current_branch_name"`
-	SupplierUuid        pgtype.UUID    `json:"supplier_uuid"`
-	SupplierCode        pgtype.Text    `json:"supplier_code"`
-	SupplierTitle       pgtype.Text    `json:"supplier_title"`
-	KaskoValue          pgtype.Numeric `json:"kasko_value"`
-	KaskoPeriod         string         `json:"kasko_period"`
-	InspectionUntil     pgtype.Date    `json:"inspection_until"`
-	InsuranceUntil      pgtype.Date    `json:"insurance_until"`
-	KaskoUntil          pgtype.Date    `json:"kasko_until"`
-	DocumentExpiresAt   pgtype.Date    `json:"document_expires_at"`
-	NextMaintenanceDate pgtype.Date    `json:"next_maintenance_date"`
-	NextMaintenanceKm   int32          `json:"next_maintenance_km"`
+	Vehicle             Vehicle            `json:"vehicle"`
+	TypeUuid            pgtype.UUID        `json:"type_uuid"`
+	TypeName            pgtype.Text        `json:"type_name"`
+	TypeCode            pgtype.Text        `json:"type_code"`
+	TypeYears           []int32            `json:"type_years"`
+	CatalogModelID      pgtype.Int8        `json:"catalog_model_id"`
+	ModelName           pgtype.Text        `json:"model_name"`
+	BrandUuid           pgtype.UUID        `json:"brand_uuid"`
+	BrandName           pgtype.Text        `json:"brand_name"`
+	BrandLogoObjectKey  pgtype.Text        `json:"brand_logo_object_key"`
+	BrandLogoVariants   []string           `json:"brand_logo_variants"`
+	BrandUpdatedAt      pgtype.Timestamptz `json:"brand_updated_at"`
+	ModelGroupID        int64              `json:"model_group_id"`
+	ModelGroupUuid      uuid.UUID          `json:"model_group_uuid"`
+	HomeBranchUuid      uuid.UUID          `json:"home_branch_uuid"`
+	HomeBranchCode      string             `json:"home_branch_code"`
+	HomeBranchName      string             `json:"home_branch_name"`
+	CurrentBranchUuid   uuid.UUID          `json:"current_branch_uuid"`
+	CurrentBranchCode   string             `json:"current_branch_code"`
+	CurrentBranchName   string             `json:"current_branch_name"`
+	SupplierUuid        pgtype.UUID        `json:"supplier_uuid"`
+	SupplierCode        pgtype.Text        `json:"supplier_code"`
+	SupplierTitle       pgtype.Text        `json:"supplier_title"`
+	KaskoValue          pgtype.Numeric     `json:"kasko_value"`
+	KaskoPeriod         string             `json:"kasko_period"`
+	InspectionUntil     pgtype.Date        `json:"inspection_until"`
+	InsuranceUntil      pgtype.Date        `json:"insurance_until"`
+	KaskoUntil          pgtype.Date        `json:"kasko_until"`
+	DocumentExpiresAt   pgtype.Date        `json:"document_expires_at"`
+	NextMaintenanceDate pgtype.Date        `json:"next_maintenance_date"`
+	NextMaintenanceKm   int32              `json:"next_maintenance_km"`
 }
 
 func (q *Queries) ListVehicles(ctx context.Context, arg ListVehiclesParams) ([]ListVehiclesRow, error) {
@@ -1804,6 +1817,9 @@ func (q *Queries) ListVehicles(ctx context.Context, arg ListVehiclesParams) ([]L
 			&i.ModelName,
 			&i.BrandUuid,
 			&i.BrandName,
+			&i.BrandLogoObjectKey,
+			&i.BrandLogoVariants,
+			&i.BrandUpdatedAt,
 			&i.ModelGroupID,
 			&i.ModelGroupUuid,
 			&i.HomeBranchUuid,

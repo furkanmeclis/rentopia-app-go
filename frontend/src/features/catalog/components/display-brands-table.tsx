@@ -6,6 +6,7 @@ import {
   GitMerge,
   ImageIcon,
   Layers,
+  Link2,
   Pencil,
   Split,
   Tags,
@@ -13,6 +14,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
+import { BrandMark } from "@/components/common/brand-mark";
 import { StatusChip } from "@/components/common/status-chip";
 import {
   EntityRowActions,
@@ -21,7 +23,6 @@ import {
   useServerListState,
 } from "@/components/entity";
 import { createColumn } from "@/components/tables";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Toggle } from "@/components/ui/toggle";
 import { permissions } from "@/config/permissions";
@@ -32,6 +33,7 @@ import {
   DisplayBrandMergeDialog,
   DisplayBrandUnmergeDialog,
 } from "@/features/catalog/components/display-brand-dialogs";
+import { DisplayBrandMotomarksDialog } from "@/features/catalog/components/display-brand-motomarks-dialog";
 import { CATALOG_LIVE, firstFilterValue } from "@/features/catalog/constants";
 import {
   useCatalogDisplayBrands,
@@ -41,10 +43,9 @@ import type {
   CatalogDisplayBrand,
   ListDisplayBrandsParams,
 } from "@/features/catalog/services/catalog.service";
-import { resolveLogoSrc } from "@/lib/branding/logo-url";
 import { useLocale } from "@/providers/locale-provider";
 
-type Dialog = "edit" | "merge" | "unmerge" | "logo";
+type Dialog = "edit" | "merge" | "unmerge" | "logo" | "motomarks";
 
 /** "Görünen markalar": display brands with merge / unmerge / rename / logo. */
 export function DisplayBrandsTable() {
@@ -90,15 +91,13 @@ export function DisplayBrandsTable() {
           gridPrimary: true,
           size: 240,
           cell: ({ row }) => {
-            const src = resolveLogoSrc(row.original.logo_url);
             return (
               <div className="flex items-center gap-2">
-                <Avatar className="size-7 rounded-md">
-                  {src ? <AvatarImage src={src} alt="" /> : null}
-                  <AvatarFallback className="rounded-md text-[10px]">
-                    {row.original.name.slice(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
+                <BrandMark
+                  name={row.original.name}
+                  logoUrl={row.original.logo_badge_url ?? row.original.logo_url}
+                  size="md"
+                />
                 <div className="min-w-0">
                   <p className="truncate font-medium">{row.original.name}</p>
                   <p className="text-muted-foreground truncate font-mono text-xs">
@@ -159,12 +158,49 @@ export function DisplayBrandsTable() {
           ),
         }),
         createColumn<CatalogDisplayBrand>({
+          id: "logo_source",
+          accessorFn: (row) => row.motomarks?.match_source ?? "none",
+          labelKey: "catalog.columns.logo_source",
+          cell: ({ row }) => {
+            const mm = row.original.motomarks;
+            const source = mm?.match_source ?? "none";
+            return (
+              <div className="flex flex-wrap items-center gap-1">
+                {row.original.logo_uploaded ? (
+                  <Badge variant="secondary">
+                    {t("catalog.logos.uploaded")}
+                  </Badge>
+                ) : null}
+                <StatusChip
+                  label={
+                    t(`catalog.logos.match_source.${source}`) +
+                    (mm?.match_score != null && source === "auto"
+                      ? ` · ${Math.round(mm.match_score)}`
+                      : "")
+                  }
+                  tone={
+                    source === "auto" || source === "manual"
+                      ? "success"
+                      : source === "skip"
+                        ? "default"
+                        : "warning"
+                  }
+                />
+              </div>
+            );
+          },
+        }),
+        createColumn<CatalogDisplayBrand>({
           id: "is_active",
           accessorFn: (row) => String(row.is_active),
           labelKey: "catalog.columns.is_active",
           filterVariant: "faceted",
           filterOptions: [
-            { value: "true", label: "true", labelKey: "catalog.active.true" },
+            {
+              value: "true",
+              label: "true",
+              labelKey: "catalog.active.true",
+            },
             {
               value: "false",
               label: "false",
@@ -220,6 +256,13 @@ export function DisplayBrandsTable() {
                   onSelect: () => open("logo", row.original),
                 },
                 {
+                  id: "motomarks",
+                  label: t("catalog.logos.link_title"),
+                  icon: Link2,
+                  permission: permissions.catalog.write,
+                  onSelect: () => open("motomarks", row.original),
+                },
+                {
                   id: "merge",
                   label: t("catalog.display_brands.merge_action"),
                   icon: GitMerge,
@@ -258,7 +301,6 @@ export function DisplayBrandsTable() {
         columns={columns}
         data={listQuery.data?.items ?? []}
         getRowId={(row) => row.uuid}
-        realtime={listState.realtimeFor(listQuery.refetch)}
         onRowClick={(row) =>
           router.push(
             `${routes.platform.catalog.models}?display_brand=${row.uuid}`,
@@ -272,6 +314,7 @@ export function DisplayBrandsTable() {
         pageCount={pageCount}
         pageSizeOptions={[20, 50, 100]}
         state={listState.tableState}
+        realtime={listState.realtimeFor(listQuery.refetch)}
         features={{
           persistKey: "platform-catalog-display-brands-v1",
           rowSelection: false,
@@ -312,6 +355,26 @@ export function DisplayBrandsTable() {
       />
       <DisplayBrandLogoDialog
         brand={dialog?.kind === "logo" ? dialog.brand : null}
+        onOpenChange={close}
+      />
+      <DisplayBrandMotomarksDialog
+        brand={
+          dialog?.kind === "motomarks"
+            ? {
+                uuid: dialog.brand.uuid,
+                name: dialog.brand.name,
+                logo_url: dialog.brand.logo_url,
+                motomarks: dialog.brand.motomarks,
+                suggestion: dialog.brand.motomarks?.suggested_id
+                  ? {
+                      id: dialog.brand.motomarks.suggested_id,
+                      name: dialog.brand.motomarks.suggested_id,
+                      score: dialog.brand.motomarks.suggested_score,
+                    }
+                  : null,
+              }
+            : null
+        }
         onOpenChange={close}
       />
     </>

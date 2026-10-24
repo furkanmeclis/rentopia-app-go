@@ -127,6 +127,54 @@ type Branch struct {
 	ShowOnline        bool               `json:"show_online"`
 }
 
+type BrandLogoSource struct {
+	ID                int64              `json:"id"`
+	MotomarksID       string             `json:"motomarks_id"`
+	Name              string             `json:"name"`
+	Color             string             `json:"color"`
+	Colors            []byte             `json:"colors"`
+	VehicleTypes      []string           `json:"vehicle_types"`
+	Logos             []byte             `json:"logos"`
+	SourceHash        string             `json:"source_hash"`
+	BadgeObjectKey    pgtype.Text        `json:"badge_object_key"`
+	WordmarkObjectKey pgtype.Text        `json:"wordmark_object_key"`
+	FullObjectKey     pgtype.Text        `json:"full_object_key"`
+	SyncedAt          pgtype.Timestamptz `json:"synced_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type BrandLogoSyncRun struct {
+	ID          int64              `json:"id"`
+	Uuid        uuid.UUID          `json:"uuid"`
+	Status      string             `json:"status"`
+	TriggeredBy pgtype.Int8        `json:"triggered_by"`
+	StartedAt   pgtype.Timestamptz `json:"started_at"`
+	FinishedAt  pgtype.Timestamptz `json:"finished_at"`
+	NotModified bool               `json:"not_modified"`
+	Requests    int32              `json:"requests"`
+	BrandsSeen  int32              `json:"brands_seen"`
+	Downloaded  int32              `json:"downloaded"`
+	Matched     int32              `json:"matched"`
+	Unmatched   int32              `json:"unmatched"`
+	Error       pgtype.Text        `json:"error"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type BrandLogoSyncSetting struct {
+	ID                int16              `json:"id"`
+	BaseUrl           string             `json:"base_url"`
+	ApiTokenEnc       pgtype.Text        `json:"api_token_enc"`
+	Enabled           bool               `json:"enabled"`
+	AutoMatchMinScore int32              `json:"auto_match_min_score"`
+	LastRunAt         pgtype.Timestamptz `json:"last_run_at"`
+	LastEtag          pgtype.Text        `json:"last_etag"`
+	LastStatus        pgtype.Text        `json:"last_status"`
+	LastError         pgtype.Text        `json:"last_error"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
 type BulkChange struct {
 	ID           int64              `json:"id"`
 	Uuid         uuid.UUID          `json:"uuid"`
@@ -278,14 +326,21 @@ type CatalogBrand struct {
 }
 
 type CatalogDisplayBrand struct {
-	ID            int64              `json:"id"`
-	Uuid          uuid.UUID          `json:"uuid"`
-	Name          string             `json:"name"`
-	Slug          string             `json:"slug"`
-	LogoObjectKey pgtype.Text        `json:"logo_object_key"`
-	IsActive      bool               `json:"is_active"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	ID                      int64              `json:"id"`
+	Uuid                    uuid.UUID          `json:"uuid"`
+	Name                    string             `json:"name"`
+	Slug                    string             `json:"slug"`
+	LogoObjectKey           pgtype.Text        `json:"logo_object_key"`
+	IsActive                bool               `json:"is_active"`
+	CreatedAt               pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
+	MotomarksID             pgtype.Text        `json:"motomarks_id"`
+	MotomarksMatchScore     pgtype.Numeric     `json:"motomarks_match_score"`
+	MotomarksMatchSource    string             `json:"motomarks_match_source"`
+	MotomarksSuggestedID    pgtype.Text        `json:"motomarks_suggested_id"`
+	MotomarksSuggestedScore pgtype.Numeric     `json:"motomarks_suggested_score"`
+	BrandColor              pgtype.Text        `json:"brand_color"`
+	SyncedLogoVariants      []string           `json:"synced_logo_variants"`
 }
 
 type CatalogImport struct {

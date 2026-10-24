@@ -38,7 +38,7 @@ func TestImpersonationNeedsSupportGrant(t *testing.T) {
 	if err != nil {
 		t.Fatalf("with grant: %v", err)
 	}
-	if res.Session.ImpersonatorUUID == nil || *res.Session.ImpersonatorUUID != staff.UUID || res.Tokens.AccessToken == "" {
+	if res.Session.ImpersonatorUUID == nil || *res.Session.ImpersonatorUUID != staff.UUID || res.AccessToken == "" {
 		t.Fatalf("session = %+v", res.Session)
 	}
 

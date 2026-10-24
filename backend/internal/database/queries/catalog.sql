@@ -458,7 +458,7 @@ SELECT COALESCE(MAX(period), '')::text FROM catalog_valuations;
 -- models are grouped by (display brand, group key).
 
 -- name: TenantListCatalogBrands :many
-SELECT d.uuid, d.name, d.slug, d.logo_object_key, d.updated_at,
+SELECT d.uuid, d.name, d.slug, d.logo_object_key, d.updated_at, d.synced_logo_variants, d.brand_color,
     (SELECT b.category FROM catalog_brands b WHERE b.display_brand_id = d.id
         ORDER BY (SELECT COUNT(*) FROM catalog_types t WHERE t.brand_id = b.id) DESC, b.id LIMIT 1)::text AS category
 FROM catalog_display_brands d

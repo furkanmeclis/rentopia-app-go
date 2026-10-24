@@ -1,13 +1,11 @@
 package handler
 
 import (
-	"errors"
 	"io"
 	"net/http"
 	"strings"
 
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/model"
-	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/usecase"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/resourcemeta"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/storage"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/pkg/apiquery"
@@ -203,19 +201,8 @@ func (h *Handler) StreamDisplayBrandLogo(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
-	rc, mime, err := h.svc.OpenDisplayBrandLogo(r.Context(), id)
-	if err != nil {
-		if errors.Is(err, usecase.ErrNotFound) {
-			response.NotFound(w, r, "logo not set")
-			return
-		}
-		writeError(w, r, err)
-		return
-	}
-	defer func() { _ = rc.Close() }()
-	w.Header().Set("Content-Type", mime)
-	w.Header().Set("Cache-Control", "private, max-age=86400")
-	_, _ = io.Copy(w, rc)
+	rc, mime, err := h.svc.OpenDisplayBrandLogoVariant(r.Context(), id, logoVariant(r))
+	streamLogo(w, r, rc, mime, err, "private, max-age=86400")
 }
 
 func (h *Handler) BulkModelRules(w http.ResponseWriter, r *http.Request) {

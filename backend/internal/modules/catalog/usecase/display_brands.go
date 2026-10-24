@@ -28,15 +28,32 @@ func DisplayBrandLogoURL(id uuid.UUID, key pgtype.Text, updated pgtype.Timestamp
 }
 
 func mapDisplayBrand(d db.ListCatalogDisplayBrandsRow) model.DisplayBrand {
+	urls := DisplayBrandLogoURLs(d.Uuid, d.LogoObjectKey, d.SyncedLogoVariants, d.UpdatedAt)
 	out := model.DisplayBrand{
 		UUID: d.Uuid, Name: d.Name, Slug: d.Slug, IsActive: d.IsActive,
-		LogoURL:     DisplayBrandLogoURL(d.Uuid, d.LogoObjectKey, d.UpdatedAt),
-		BrandsCount: d.BrandsCount, TypesCount: d.TypesCount, ModelsCount: d.ModelsCount,
+		LogoURL: urls.LogoURL, LogoBadgeURL: urls.BadgeURL, LogoWordmarkURL: urls.WordmarkURL,
+		LogoUploaded: d.LogoObjectKey.Valid && strings.TrimSpace(d.LogoObjectKey.String) != "",
+		BrandColor:   optString(d.BrandColor),
+		BrandsCount:  d.BrandsCount, TypesCount: d.TypesCount, ModelsCount: d.ModelsCount,
 		TSBNames: d.TsbNames, CreatedAt: d.CreatedAt.Time, UpdatedAt: d.UpdatedAt.Time,
 	}
 	if out.TSBNames == nil {
 		out.TSBNames = []string{}
 	}
+	mm := &model.DisplayBrandMotomarks{
+		ID: optString(d.MotomarksID), MatchSource: d.MotomarksMatchSource,
+		SuggestedID: optString(d.MotomarksSuggestedID), SyncedVariants: d.SyncedLogoVariants,
+	}
+	if mm.SyncedVariants == nil {
+		mm.SyncedVariants = []string{}
+	}
+	if v, ok := repository.NumericToFloat(d.MotomarksMatchScore); ok {
+		mm.MatchScore = &v
+	}
+	if v, ok := repository.NumericToFloat(d.MotomarksSuggestedScore); ok {
+		mm.SuggestedScore = &v
+	}
+	out.Motomarks = mm
 	return out
 }
 

@@ -4345,6 +4345,156 @@ export interface paths {
         patch: operations["patchPlatformCatalogType"];
         trace?: never;
     };
+    "/v1/platform/catalog/brand-logos/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Brand logo sync settings (mirror endpoint, masked token, counters) */
+        get: operations["getPlatformCatalogBrandLogoSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update brand logo sync settings
+         * @description Requires `platform.catalog.write`. The mirror base URL and API
+         *     token are stored in the database (token encrypted, never returned);
+         *     an empty `api_token` clears it.
+         */
+        patch: operations["patchPlatformCatalogBrandLogoSettings"];
+        trace?: never;
+    };
+    "/v1/platform/catalog/brand-logos/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Test the brand logo mirror connection with the stored token */
+        post: operations["postPlatformCatalogBrandLogoTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/catalog/brand-logos/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a brand logo sync run (background)
+         * @description Asks the live mirror for its brand list (ETag aware), copies new or
+         *     changed badge / wordmark / full files into this app's storage and
+         *     matches display brands without a logo link. One run at a time (409).
+         */
+        post: operations["postPlatformCatalogBrandLogoSync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/catalog/brand-logos/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Brand logo sync run history (newest first) */
+        get: operations["getPlatformCatalogBrandLogoRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/catalog/brand-logos/unmatched": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Display brands without a mirror logo link */
+        get: operations["getPlatformCatalogBrandLogoUnmatched"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/catalog/brand-logos/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search synced mirror brands (manual link picker) */
+        get: operations["getPlatformCatalogBrandLogoSources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/catalog/brand-logos/sources/{id}/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Preview a synced mirror brand logo file */
+        get: operations["getPlatformCatalogBrandLogoSourceLogo"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/catalog/display-brands/{uuid}/motomarks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Link a display brand to a mirror brand by hand, skip it, or unlink
+         * @description Requires `platform.catalog.write`. A manual link or skip is never overwritten by a later sync run.
+         */
+        post: operations["postPlatformCatalogDisplayBrandMotomarks"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/platform/catalog/imports/meta": {
         parameters: {
             query?: never;
@@ -18199,6 +18349,12 @@ export interface components {
             brand_uuid: string | null;
             /** @example Fiat */
             brand_name: string;
+            /** @description API-owned brand logo stream */
+            brand_logo_url?: string | null;
+            /** @description Emblem variant for rows and cards */
+            brand_badge_url?: string | null;
+            /** @description Text-only variant for headers */
+            brand_wordmark_url?: string | null;
             /** @description Valid model years of the type */
             years: number[];
         };
@@ -21390,6 +21546,15 @@ export interface components {
             slug: string;
             /** @description API-owned logo stream (`/v1/...`); never build storage URLs in the browser */
             logo_url: string | null;
+            /** @description Emblem variant (synced), falls back to the upload */
+            logo_badge_url: string | null;
+            /** @description Text-only variant (synced only) */
+            logo_wordmark_url: string | null;
+            /** @description An admin upload exists (wins over synced files) */
+            logo_uploaded: boolean;
+            /** @example #9B1B30 */
+            brand_color: string | null;
+            motomarks: components["schemas"]["CatalogDisplayBrandMotomarks"];
             is_active: boolean;
             /**
              * Format: int64
@@ -21705,6 +21870,11 @@ export interface components {
             category: components["schemas"]["CatalogBrandCategory"];
             /** @description API-owned logo stream */
             logo_url: string | null;
+            /** @description Emblem variant for compact rows */
+            logo_badge_url: string | null;
+            /** @description Text-only variant for headers */
+            logo_wordmark_url: string | null;
+            brand_color: string | null;
         };
         /**
          * @description A grouped model: models with the same name under the TSB brands of one display brand are
@@ -31773,6 +31943,134 @@ export interface components {
             };
             meta: components["schemas"]["ResponseMeta"];
         };
+        /** @description Link between a display brand and the brand logo mirror. */
+        CatalogDisplayBrandMotomarks: {
+            /** @example fiat */
+            id: string | null;
+            /** @enum {string} */
+            match_source: "none" | "auto" | "manual" | "skip";
+            match_score: number | null;
+            /** @description Best candidate below the threshold */
+            suggested_id: string | null;
+            suggested_score: number | null;
+            synced_variants: ("badge" | "wordmark" | "full")[];
+        };
+        CatalogBrandLogoSettings: {
+            /** @example https://logos.example.com */
+            base_url: string;
+            token_configured: boolean;
+            enabled: boolean;
+            auto_match_min_score: number;
+            /** Format: date-time */
+            last_run_at: string | null;
+            /** @enum {string|null} */
+            last_status: "done" | "failed" | null;
+            last_error: string | null;
+            /**
+             * Format: int64
+             * @description Mirror brands stored
+             */
+            sources_count: number;
+            /** @description Display brands per match source */
+            match_counts: {
+                [key: string]: number;
+            };
+            active_run: components["schemas"]["CatalogBrandLogoSyncRun"] | null;
+        };
+        PatchCatalogBrandLogoSettingsRequest: {
+            base_url?: string;
+            /** @description New token; empty string clears it */
+            api_token?: string;
+            enabled?: boolean;
+            auto_match_min_score?: number;
+        };
+        EnvelopeCatalogBrandLogoSettings: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["CatalogBrandLogoSettings"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        CatalogBrandLogoSyncRun: {
+            /** Format: uuid */
+            uuid: string;
+            /** @enum {string} */
+            status: "queued" | "running" | "done" | "failed";
+            triggered_by: components["schemas"]["CatalogNamedRef"] | null;
+            /** Format: date-time */
+            started_at: string | null;
+            /** Format: date-time */
+            finished_at: string | null;
+            /** @description The mirror answered 304; only matching ran */
+            not_modified: boolean;
+            requests: number;
+            brands_seen: number;
+            /** @description Logo files copied */
+            downloaded: number;
+            matched: number;
+            unmatched: number;
+            error: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        EnvelopeCatalogBrandLogoSyncRun: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["CatalogBrandLogoSyncRun"];
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        EnvelopeCatalogBrandLogoSyncRunPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["CatalogBrandLogoSyncRun"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        CatalogUnmatchedDisplayBrand: {
+            /** Format: uuid */
+            uuid: string;
+            name: string;
+            slug: string;
+            is_active: boolean;
+            /** Format: int64 */
+            types_count: number;
+            logo_url: string | null;
+            suggestion: {
+                id: string;
+                name: string;
+                score: number | null;
+            } | null;
+        };
+        EnvelopeCatalogUnmatchedDisplayBrandPage: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                items: components["schemas"]["CatalogUnmatchedDisplayBrand"][];
+                /** Format: int64 */
+                total: number;
+                limit: number;
+                offset: number;
+            };
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        CatalogBrandLogoSource: {
+            /** @example fiat */
+            id: string;
+            /** @example Fiat */
+            name: string;
+            color: string | null;
+            vehicle_types: string[];
+            variants: ("badge" | "wordmark" | "full")[];
+            badge_url: string | null;
+            wordmark_url: string | null;
+            full_url: string | null;
+            /** Format: date-time */
+            synced_at: string | null;
+        };
     };
     responses: {
         /** @description WhatsApp session */
@@ -32208,6 +32506,8 @@ export interface components {
         CatalogDisplayBrandFilter: string;
         /** @description Model year */
         CatalogYear: number;
+        /** @description Logo variant. Default = full logo (upload first), `badge` = emblem, `wordmark` = text-only. */
+        CatalogLogoVariant: "badge" | "wordmark" | "full";
     };
     requestBodies: {
         SiteImageUpload: {
@@ -39447,7 +39747,10 @@ export interface operations {
     };
     getPlatformCatalogDisplayBrandLogo: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Logo variant. Default = full logo (upload first), `badge` = emblem, `wordmark` = text-only. */
+                variant?: components["parameters"]["CatalogLogoVariant"];
+            };
             header?: never;
             path: {
                 /** @description Resource UUID */
@@ -39869,6 +40172,252 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             500: components["responses"]["InternalError"];
+        };
+    };
+    getPlatformCatalogBrandLogoSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCatalogBrandLogoSettings"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    patchPlatformCatalogBrandLogoSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchCatalogBrandLogoSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description Settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCatalogBrandLogoSettings"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    postPlatformCatalogBrandLogoTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Connection ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    postPlatformCatalogBrandLogoSync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Run queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCatalogBrandLogoSyncRun"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getPlatformCatalogBrandLogoRuns: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Runs */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCatalogBrandLogoSyncRunPage"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getPlatformCatalogBrandLogoUnmatched: {
+        parameters: {
+            query?: {
+                q?: components["parameters"]["Q"];
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unmatched display brands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCatalogUnmatchedDisplayBrandPage"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getPlatformCatalogBrandLogoSources: {
+        parameters: {
+            query?: {
+                q?: components["parameters"]["Q"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Mirror brands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: {
+                            items: components["schemas"]["CatalogBrandLogoSource"][];
+                        };
+                        meta: components["schemas"]["ResponseMeta"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getPlatformCatalogBrandLogoSourceLogo: {
+        parameters: {
+            query?: {
+                /** @description Logo variant. Default = full logo (upload first), `badge` = emblem, `wordmark` = text-only. */
+                variant?: components["parameters"]["CatalogLogoVariant"];
+            };
+            header?: never;
+            path: {
+                /** @description Mirror brand id (slug) */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Logo image */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": string;
+                    "image/webp": string;
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postPlatformCatalogDisplayBrandMotomarks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource UUID */
+                uuid: components["parameters"]["ResourceUUID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    mode: "link" | "skip" | "unlink";
+                    /**
+                     * @description Required for link
+                     * @example fiat
+                     */
+                    motomarks_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated display brand */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvelopeCatalogDisplayBrand"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     getPlatformCatalogImportsMeta: {

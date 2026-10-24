@@ -58,6 +58,17 @@ func RegisterRoutes(
 	route("GET /v1/platform/catalog/types/{uuid}", h.GetType, read)
 	route("PATCH /v1/platform/catalog/types/{uuid}", h.PatchType, write)
 
+	// Brand logo sync (motomarks-mirror). /brand-logos/* before /{uuid} routes.
+	route("GET /v1/platform/catalog/brand-logos/settings", h.GetBrandLogoSettings, read)
+	route("PATCH /v1/platform/catalog/brand-logos/settings", h.PatchBrandLogoSettings, write)
+	route("POST /v1/platform/catalog/brand-logos/test", h.TestBrandLogoConnection, write)
+	route("POST /v1/platform/catalog/brand-logos/sync", h.RequestBrandLogoSync, write)
+	route("GET /v1/platform/catalog/brand-logos/runs", h.ListBrandLogoSyncRuns, read)
+	route("GET /v1/platform/catalog/brand-logos/unmatched", h.ListUnmatchedDisplayBrands, read)
+	route("GET /v1/platform/catalog/brand-logos/sources", h.SearchBrandLogoSources, read)
+	route("GET /v1/platform/catalog/brand-logos/sources/{id}/logo", h.StreamSourceLogo, read)
+	route("POST /v1/platform/catalog/display-brands/{uuid}/motomarks", h.SetDisplayBrandMotomarks, write)
+
 	route("GET /v1/platform/catalog/imports/meta", h.ImportsMeta, read)
 	route("GET /v1/platform/catalog/imports", h.ListImports, read)
 	route("POST /v1/platform/catalog/imports", h.UploadImport, write)

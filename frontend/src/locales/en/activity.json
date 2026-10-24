@@ -450,5 +450,8 @@
   "actions.site_articles.updated": "Article updated",
   "actions.site_articles.deleted": "Article deleted",
   "actions.site_articles.published": "Article published",
-  "actions.site_articles.unpublished": "Article unpublished"
+  "actions.site_articles.unpublished": "Article unpublished",
+  "actions.catalog.display_brand_logo_linked": "Display brand linked to a logo source",
+  "actions.catalog.brand_logos_settings_updated": "Logo sync settings updated",
+  "actions.catalog.brand_logos_sync_requested": "Logo sync started"
 }

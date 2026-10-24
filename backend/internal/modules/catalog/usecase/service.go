@@ -15,6 +15,7 @@ import (
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/model"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/repository"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/activity"
+	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/crypto"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/resourceevents"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/storage"
 	"github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/platform/tsbcatalog"
@@ -56,6 +57,8 @@ type Service struct {
 	activity *activity.Recorder
 	log      *slog.Logger
 	events   resourceevents.Publisher
+	box      *crypto.SecretBox
+	mirror   MirrorClientFactory
 }
 
 // New builds the service. A nil queue runs import jobs inline.

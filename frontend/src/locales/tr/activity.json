@@ -450,5 +450,8 @@
   "actions.site_articles.updated": "Yazı güncellendi",
   "actions.site_articles.deleted": "Yazı silindi",
   "actions.site_articles.published": "Yazı yayınlandı",
-  "actions.site_articles.unpublished": "Yazı yayından kaldırıldı"
+  "actions.site_articles.unpublished": "Yazı yayından kaldırıldı",
+  "actions.catalog.display_brand_logo_linked": "Görünen marka logo kaynağına bağlandı",
+  "actions.catalog.brand_logos_settings_updated": "Logo senkron ayarları güncellendi",
+  "actions.catalog.brand_logos_sync_requested": "Logo senkronu başlatıldı"
 }

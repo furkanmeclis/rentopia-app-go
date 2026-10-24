@@ -58,11 +58,17 @@ type DisplayBrandRef struct {
 
 // DisplayBrand is the brand users see; one or more TSB brands map to it.
 type DisplayBrand struct {
-	UUID        uuid.UUID            `json:"uuid"`
-	Name        string               `json:"name"`
-	Slug        string               `json:"slug"`
-	LogoURL     *string              `json:"logo_url"`
-	IsActive    bool                 `json:"is_active"`
+	UUID            uuid.UUID              `json:"uuid"`
+	Name            string                 `json:"name"`
+	Slug            string                 `json:"slug"`
+	LogoURL         *string                `json:"logo_url"`
+	LogoBadgeURL    *string                `json:"logo_badge_url"`
+	LogoWordmarkURL *string                `json:"logo_wordmark_url"`
+	LogoUploaded    bool                   `json:"logo_uploaded"`
+	BrandColor      *string                `json:"brand_color"`
+	Motomarks       *DisplayBrandMotomarks `json:"motomarks"`
+	IsActive        bool                   `json:"is_active"`
+
 	BrandsCount int64                `json:"brands_count"`
 	TypesCount  int64                `json:"types_count"`
 	ModelsCount int64                `json:"models_count"`
@@ -186,11 +192,14 @@ type Import struct {
 // TenantBrand / TenantModel / TenantType are the read-only shapes for
 // organization vehicle forms.
 type TenantBrand struct {
-	UUID        uuid.UUID `json:"uuid"`
-	DisplayName string    `json:"display_name"`
-	Slug        string    `json:"slug"`
-	Category    string    `json:"category"`
-	LogoURL     *string   `json:"logo_url"`
+	UUID            uuid.UUID `json:"uuid"`
+	DisplayName     string    `json:"display_name"`
+	Slug            string    `json:"slug"`
+	Category        string    `json:"category"`
+	LogoURL         *string   `json:"logo_url"`
+	LogoBadgeURL    *string   `json:"logo_badge_url"`
+	LogoWordmarkURL *string   `json:"logo_wordmark_url"`
+	BrandColor      *string   `json:"brand_color"`
 }
 
 type TenantModel struct {
@@ -480,4 +489,101 @@ type ApplyResult struct {
 	TypesDeactivated      int
 	ValuationsUpserted    int
 	UnresolvedByCategory  map[string]int
+}
+
+// ---------- brand logo sync (motomarks-mirror) ----------
+
+// BrandLogoURLs are the API-owned logo paths of a brand.
+type BrandLogoURLs struct {
+	LogoURL     *string
+	BadgeURL    *string
+	WordmarkURL *string
+}
+
+// DisplayBrandMotomarks is the mirror link of a display brand.
+type DisplayBrandMotomarks struct {
+	ID             *string  `json:"id"`
+	MatchSource    string   `json:"match_source"`
+	MatchScore     *float64 `json:"match_score"`
+	SuggestedID    *string  `json:"suggested_id"`
+	SuggestedScore *float64 `json:"suggested_score"`
+	SyncedVariants []string `json:"synced_variants"`
+}
+
+// BrandLogoSettings is the admin payload (token masked).
+type BrandLogoSettings struct {
+	BaseURL           string            `json:"base_url"`
+	TokenConfigured   bool              `json:"token_configured"`
+	Enabled           bool              `json:"enabled"`
+	AutoMatchMinScore int               `json:"auto_match_min_score"`
+	LastRunAt         *time.Time        `json:"last_run_at"`
+	LastStatus        *string           `json:"last_status"`
+	LastError         *string           `json:"last_error"`
+	SourcesCount      int64             `json:"sources_count"`
+	MatchCounts       map[string]int64  `json:"match_counts"`
+	ActiveRun         *BrandLogoSyncRun `json:"active_run"`
+}
+
+// PatchBrandLogoSettingsInput is a partial settings update. An empty
+// api_token clears the stored token.
+type PatchBrandLogoSettingsInput struct {
+	BaseURL           *string `json:"base_url"`
+	APIToken          *string `json:"api_token"`
+	Enabled           *bool   `json:"enabled"`
+	AutoMatchMinScore *int    `json:"auto_match_min_score"`
+}
+
+// BrandLogoSyncRun is one sync run.
+type BrandLogoSyncRun struct {
+	UUID        uuid.UUID  `json:"uuid"`
+	Status      string     `json:"status"`
+	TriggeredBy *NamedRef  `json:"triggered_by"`
+	StartedAt   *time.Time `json:"started_at"`
+	FinishedAt  *time.Time `json:"finished_at"`
+	NotModified bool       `json:"not_modified"`
+	Requests    int        `json:"requests"`
+	BrandsSeen  int        `json:"brands_seen"`
+	Downloaded  int        `json:"downloaded"`
+	Matched     int        `json:"matched"`
+	Unmatched   int        `json:"unmatched"`
+	Error       *string    `json:"error"`
+	CreatedAt   time.Time  `json:"created_at"`
+}
+
+// BrandLogoSourceRef names a mirror brand candidate.
+type BrandLogoSourceRef struct {
+	ID    string   `json:"id"`
+	Name  string   `json:"name"`
+	Score *float64 `json:"score"`
+}
+
+// UnmatchedDisplayBrand is a display brand waiting for a logo link.
+type UnmatchedDisplayBrand struct {
+	UUID       uuid.UUID           `json:"uuid"`
+	Name       string              `json:"name"`
+	Slug       string              `json:"slug"`
+	IsActive   bool                `json:"is_active"`
+	TypesCount int64               `json:"types_count"`
+	LogoURL    *string             `json:"logo_url"`
+	Suggestion *BrandLogoSourceRef `json:"suggestion"`
+}
+
+// BrandLogoSource is a synced mirror brand (picker row).
+type BrandLogoSource struct {
+	ID           string     `json:"id"`
+	Name         string     `json:"name"`
+	Color        *string    `json:"color"`
+	VehicleTypes []string   `json:"vehicle_types"`
+	Variants     []string   `json:"variants"`
+	BadgeURL     *string    `json:"badge_url"`
+	WordmarkURL  *string    `json:"wordmark_url"`
+	FullURL      *string    `json:"full_url"`
+	SyncedAt     *time.Time `json:"synced_at"`
+}
+
+// SetDisplayBrandMotomarksInput links (mode=link + motomarks_id), skips or
+// unlinks a display brand.
+type SetDisplayBrandMotomarksInput struct {
+	Mode        string `json:"mode"`
+	MotomarksID string `json:"motomarks_id"`
 }

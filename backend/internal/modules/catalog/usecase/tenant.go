@@ -32,9 +32,11 @@ func (s *Service) TenantBrands(ctx context.Context, f model.TenantFilter) ([]mod
 	}
 	out := make([]model.TenantBrand, 0, len(rows))
 	for _, r := range rows {
+		urls := DisplayBrandLogoURLs(r.Uuid, r.LogoObjectKey, r.SyncedLogoVariants, r.UpdatedAt)
 		out = append(out, model.TenantBrand{
 			UUID: r.Uuid, DisplayName: r.Name, Slug: r.Slug, Category: r.Category,
-			LogoURL: DisplayBrandLogoURL(r.Uuid, r.LogoObjectKey, r.UpdatedAt),
+			LogoURL: urls.LogoURL, LogoBadgeURL: urls.BadgeURL, LogoWordmarkURL: urls.WordmarkURL,
+			BrandColor: optString(r.BrandColor),
 		})
 	}
 	return out, total, nil

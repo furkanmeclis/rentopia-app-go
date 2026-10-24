@@ -29,6 +29,14 @@ export type PatchCatalogModelRequest = Schemas["PatchCatalogModelRequest"];
 export type PatchCatalogTypeRequest = Schemas["PatchCatalogTypeRequest"];
 export type CreateCatalogModelRequest = Schemas["CreateCatalogModelRequest"];
 export type ResourceMeta = Schemas["ResourceMeta"];
+export type BrandLogoSettings = Schemas["CatalogBrandLogoSettings"];
+export type PatchBrandLogoSettingsRequest =
+  Schemas["PatchCatalogBrandLogoSettingsRequest"];
+export type BrandLogoSyncRun = Schemas["CatalogBrandLogoSyncRun"];
+export type UnmatchedDisplayBrand = Schemas["CatalogUnmatchedDisplayBrand"];
+export type BrandLogoSource = Schemas["CatalogBrandLogoSource"];
+export type DisplayBrandMotomarks = Schemas["CatalogDisplayBrandMotomarks"];
+export type MotomarksLinkMode = "link" | "skip" | "unlink";
 
 export type Page<T> = {
   items: T[];
@@ -71,6 +79,18 @@ export type ListImportsParams = ServerListParams & {
 };
 
 const base = "/v1/platform/catalog";
+
+/**
+ * Sync runs and the unmatched queue have a fixed server-side order (newest
+ * run first, brand name A→Z) and the API rejects any `sort` with 400.
+ * `useServerListState` always emits one, so drop it here.
+ */
+function fixedOrderParams(
+  params: ServerListParams,
+): Omit<ServerListParams, "sort"> {
+  const { sort: _sort, ...rest } = params;
+  return rest;
+}
 
 export const catalogService = {
   brandsMeta() {
@@ -218,6 +238,62 @@ export const catalogService = {
     return platformRequest<CatalogImport>(
       "POST",
       `${base}/imports/${uuid}/apply`,
+    );
+  },
+
+  // Brand logo sync (motomarks-mirror)
+  brandLogoSettings() {
+    return platformRequest<BrandLogoSettings>(
+      "GET",
+      `${base}/brand-logos/settings`,
+    );
+  },
+  patchBrandLogoSettings(body: PatchBrandLogoSettingsRequest) {
+    return platformRequest<BrandLogoSettings>(
+      "PATCH",
+      `${base}/brand-logos/settings`,
+      { body },
+    );
+  },
+  testBrandLogoConnection() {
+    return platformRequest<{ ok: boolean }>("POST", `${base}/brand-logos/test`);
+  },
+  requestBrandLogoSync() {
+    return platformRequest<BrandLogoSyncRun>(
+      "POST",
+      `${base}/brand-logos/sync`,
+    );
+  },
+  listBrandLogoRuns(params: ServerListParams) {
+    return platformRequest<Page<BrandLogoSyncRun>>(
+      "GET",
+      `${base}/brand-logos/runs`,
+      { query: fixedOrderParams(params) },
+    );
+  },
+  listUnmatchedDisplayBrands(params: ServerListParams) {
+    return platformRequest<Page<UnmatchedDisplayBrand>>(
+      "GET",
+      `${base}/brand-logos/unmatched`,
+      { query: fixedOrderParams(params) },
+    );
+  },
+  searchBrandLogoSources(q: string, limit = 20) {
+    return platformRequest<{ items: BrandLogoSource[] }>(
+      "GET",
+      `${base}/brand-logos/sources`,
+      { query: { q, limit } },
+    );
+  },
+  setDisplayBrandMotomarks(
+    uuid: string,
+    mode: MotomarksLinkMode,
+    motomarksId?: string,
+  ) {
+    return platformRequest<CatalogDisplayBrand>(
+      "POST",
+      `${base}/display-brands/${uuid}/motomarks`,
+      { body: { mode, motomarks_id: motomarksId } },
     );
   },
 };
