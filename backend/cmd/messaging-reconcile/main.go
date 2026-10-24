@@ -47,10 +47,16 @@ type options struct {
 	yes    bool
 }
 
+// usageText is the usage block as an error message (staticcheck ST1005: no
+// trailing punctuation or newline).
+func usageText() string {
+	return strings.TrimRight(usage, ".\n ")
+}
+
 func parse(args []string) (options, error) {
 	var o options
 	if len(args) == 0 || (args[0] != "list" && args[0] != "mark") {
-		return o, errors.New(usage)
+		return o, errors.New(usageText())
 	}
 	o.cmd = args[0]
 	fs := flag.NewFlagSet("messaging-reconcile "+o.cmd, flag.ContinueOnError)
@@ -71,7 +77,7 @@ func parse(args []string) (options, error) {
 		return o, err
 	}
 	if o.filter.Before.IsZero() {
-		return o, errors.New("--before (the backup time) is required\n" + usage)
+		return o, fmt.Errorf("--before (the backup time) is required\n%s", usageText())
 	}
 	if o.filter.DueUntil, err = msgreconcile.ParseTime(*dueUntil); err != nil {
 		return o, err
