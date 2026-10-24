@@ -260,7 +260,7 @@ func (q *Queries) CountUnresolvedCatalogTypesByCategory(ctx context.Context) ([]
 const createCatalogDisplayBrand = `-- name: CreateCatalogDisplayBrand :one
 INSERT INTO catalog_display_brands (name, slug)
 VALUES ($1, $2)
-RETURNING id, uuid, name, slug, logo_object_key, is_active, created_at, updated_at
+RETURNING id, uuid, name, slug, logo_object_key, is_active, created_at, updated_at, motomarks_id, motomarks_match_score, motomarks_match_source, motomarks_suggested_id, motomarks_suggested_score, brand_color, synced_logo_variants
 `
 
 type CreateCatalogDisplayBrandParams struct {
@@ -280,6 +280,13 @@ func (q *Queries) CreateCatalogDisplayBrand(ctx context.Context, arg CreateCatal
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.MotomarksID,
+		&i.MotomarksMatchScore,
+		&i.MotomarksMatchSource,
+		&i.MotomarksSuggestedID,
+		&i.MotomarksSuggestedScore,
+		&i.BrandColor,
+		&i.SyncedLogoVariants,
 	)
 	return i, err
 }
@@ -446,7 +453,7 @@ func (q *Queries) GetCatalogBrandByUUID(ctx context.Context, argUuid uuid.UUID) 
 }
 
 const getCatalogDisplayBrandByName = `-- name: GetCatalogDisplayBrandByName :one
-SELECT id, uuid, name, slug, logo_object_key, is_active, created_at, updated_at FROM catalog_display_brands WHERE lower(name) = lower($1::text)
+SELECT id, uuid, name, slug, logo_object_key, is_active, created_at, updated_at, motomarks_id, motomarks_match_score, motomarks_match_source, motomarks_suggested_id, motomarks_suggested_score, brand_color, synced_logo_variants FROM catalog_display_brands WHERE lower(name) = lower($1::text)
 `
 
 func (q *Queries) GetCatalogDisplayBrandByName(ctx context.Context, name string) (CatalogDisplayBrand, error) {
@@ -461,12 +468,19 @@ func (q *Queries) GetCatalogDisplayBrandByName(ctx context.Context, name string)
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.MotomarksID,
+		&i.MotomarksMatchScore,
+		&i.MotomarksMatchSource,
+		&i.MotomarksSuggestedID,
+		&i.MotomarksSuggestedScore,
+		&i.BrandColor,
+		&i.SyncedLogoVariants,
 	)
 	return i, err
 }
 
 const getCatalogDisplayBrandByUUID = `-- name: GetCatalogDisplayBrandByUUID :one
-SELECT d.id, d.uuid, d.name, d.slug, d.logo_object_key, d.is_active, d.created_at, d.updated_at,
+SELECT d.id, d.uuid, d.name, d.slug, d.logo_object_key, d.is_active, d.created_at, d.updated_at, d.motomarks_id, d.motomarks_match_score, d.motomarks_match_source, d.motomarks_suggested_id, d.motomarks_suggested_score, d.brand_color, d.synced_logo_variants,
     (SELECT COUNT(*) FROM catalog_brands b WHERE b.display_brand_id = d.id)::bigint AS brands_count,
     (SELECT COUNT(*) FROM catalog_types t JOIN catalog_brands b ON b.id = t.brand_id
         WHERE b.display_brand_id = d.id AND t.is_active)::bigint AS types_count,
@@ -479,18 +493,25 @@ WHERE d.uuid = $1
 `
 
 type GetCatalogDisplayBrandByUUIDRow struct {
-	ID            int64              `json:"id"`
-	Uuid          uuid.UUID          `json:"uuid"`
-	Name          string             `json:"name"`
-	Slug          string             `json:"slug"`
-	LogoObjectKey pgtype.Text        `json:"logo_object_key"`
-	IsActive      bool               `json:"is_active"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
-	BrandsCount   int64              `json:"brands_count"`
-	TypesCount    int64              `json:"types_count"`
-	ModelsCount   int64              `json:"models_count"`
-	TsbNames      []string           `json:"tsb_names"`
+	ID                      int64              `json:"id"`
+	Uuid                    uuid.UUID          `json:"uuid"`
+	Name                    string             `json:"name"`
+	Slug                    string             `json:"slug"`
+	LogoObjectKey           pgtype.Text        `json:"logo_object_key"`
+	IsActive                bool               `json:"is_active"`
+	CreatedAt               pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
+	MotomarksID             pgtype.Text        `json:"motomarks_id"`
+	MotomarksMatchScore     pgtype.Numeric     `json:"motomarks_match_score"`
+	MotomarksMatchSource    string             `json:"motomarks_match_source"`
+	MotomarksSuggestedID    pgtype.Text        `json:"motomarks_suggested_id"`
+	MotomarksSuggestedScore pgtype.Numeric     `json:"motomarks_suggested_score"`
+	BrandColor              pgtype.Text        `json:"brand_color"`
+	SyncedLogoVariants      []string           `json:"synced_logo_variants"`
+	BrandsCount             int64              `json:"brands_count"`
+	TypesCount              int64              `json:"types_count"`
+	ModelsCount             int64              `json:"models_count"`
+	TsbNames                []string           `json:"tsb_names"`
 }
 
 func (q *Queries) GetCatalogDisplayBrandByUUID(ctx context.Context, argUuid uuid.UUID) (GetCatalogDisplayBrandByUUIDRow, error) {
@@ -505,6 +526,13 @@ func (q *Queries) GetCatalogDisplayBrandByUUID(ctx context.Context, argUuid uuid
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.MotomarksID,
+		&i.MotomarksMatchScore,
+		&i.MotomarksMatchSource,
+		&i.MotomarksSuggestedID,
+		&i.MotomarksSuggestedScore,
+		&i.BrandColor,
+		&i.SyncedLogoVariants,
 		&i.BrandsCount,
 		&i.TypesCount,
 		&i.ModelsCount,
@@ -965,7 +993,7 @@ func (q *Queries) ListCatalogBrandsByDisplayBrand(ctx context.Context, displayBr
 
 const listCatalogDisplayBrands = `-- name: ListCatalogDisplayBrands :many
 
-SELECT d.id, d.uuid, d.name, d.slug, d.logo_object_key, d.is_active, d.created_at, d.updated_at,
+SELECT d.id, d.uuid, d.name, d.slug, d.logo_object_key, d.is_active, d.created_at, d.updated_at, d.motomarks_id, d.motomarks_match_score, d.motomarks_match_source, d.motomarks_suggested_id, d.motomarks_suggested_score, d.brand_color, d.synced_logo_variants,
     (SELECT COUNT(*) FROM catalog_brands b WHERE b.display_brand_id = d.id)::bigint AS brands_count,
     (SELECT COUNT(*) FROM catalog_types t JOIN catalog_brands b ON b.id = t.brand_id
         WHERE b.display_brand_id = d.id AND t.is_active)::bigint AS types_count,
@@ -1006,18 +1034,25 @@ type ListCatalogDisplayBrandsParams struct {
 }
 
 type ListCatalogDisplayBrandsRow struct {
-	ID            int64              `json:"id"`
-	Uuid          uuid.UUID          `json:"uuid"`
-	Name          string             `json:"name"`
-	Slug          string             `json:"slug"`
-	LogoObjectKey pgtype.Text        `json:"logo_object_key"`
-	IsActive      bool               `json:"is_active"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
-	BrandsCount   int64              `json:"brands_count"`
-	TypesCount    int64              `json:"types_count"`
-	ModelsCount   int64              `json:"models_count"`
-	TsbNames      []string           `json:"tsb_names"`
+	ID                      int64              `json:"id"`
+	Uuid                    uuid.UUID          `json:"uuid"`
+	Name                    string             `json:"name"`
+	Slug                    string             `json:"slug"`
+	LogoObjectKey           pgtype.Text        `json:"logo_object_key"`
+	IsActive                bool               `json:"is_active"`
+	CreatedAt               pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
+	MotomarksID             pgtype.Text        `json:"motomarks_id"`
+	MotomarksMatchScore     pgtype.Numeric     `json:"motomarks_match_score"`
+	MotomarksMatchSource    string             `json:"motomarks_match_source"`
+	MotomarksSuggestedID    pgtype.Text        `json:"motomarks_suggested_id"`
+	MotomarksSuggestedScore pgtype.Numeric     `json:"motomarks_suggested_score"`
+	BrandColor              pgtype.Text        `json:"brand_color"`
+	SyncedLogoVariants      []string           `json:"synced_logo_variants"`
+	BrandsCount             int64              `json:"brands_count"`
+	TypesCount              int64              `json:"types_count"`
+	ModelsCount             int64              `json:"models_count"`
+	TsbNames                []string           `json:"tsb_names"`
 }
 
 // ---------- display brands ----------
@@ -1047,6 +1082,13 @@ func (q *Queries) ListCatalogDisplayBrands(ctx context.Context, arg ListCatalogD
 			&i.IsActive,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.MotomarksID,
+			&i.MotomarksMatchScore,
+			&i.MotomarksMatchSource,
+			&i.MotomarksSuggestedID,
+			&i.MotomarksSuggestedScore,
+			&i.BrandColor,
+			&i.SyncedLogoVariants,
 			&i.BrandsCount,
 			&i.TypesCount,
 			&i.ModelsCount,
@@ -1063,7 +1105,7 @@ func (q *Queries) ListCatalogDisplayBrands(ctx context.Context, arg ListCatalogD
 }
 
 const listCatalogDisplayBrandsAll = `-- name: ListCatalogDisplayBrandsAll :many
-SELECT id, uuid, name, slug, logo_object_key, is_active, created_at, updated_at FROM catalog_display_brands ORDER BY id
+SELECT id, uuid, name, slug, logo_object_key, is_active, created_at, updated_at, motomarks_id, motomarks_match_score, motomarks_match_source, motomarks_suggested_id, motomarks_suggested_score, brand_color, synced_logo_variants FROM catalog_display_brands ORDER BY id
 `
 
 func (q *Queries) ListCatalogDisplayBrandsAll(ctx context.Context) ([]CatalogDisplayBrand, error) {
@@ -1084,6 +1126,13 @@ func (q *Queries) ListCatalogDisplayBrandsAll(ctx context.Context) ([]CatalogDis
 			&i.IsActive,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.MotomarksID,
+			&i.MotomarksMatchScore,
+			&i.MotomarksMatchSource,
+			&i.MotomarksSuggestedID,
+			&i.MotomarksSuggestedScore,
+			&i.BrandColor,
+			&i.SyncedLogoVariants,
 		); err != nil {
 			return nil, err
 		}
@@ -1776,7 +1825,7 @@ func (q *Queries) SetCatalogBrandDisplayBrand(ctx context.Context, arg SetCatalo
 const setCatalogDisplayBrandLogo = `-- name: SetCatalogDisplayBrandLogo :one
 UPDATE catalog_display_brands SET logo_object_key = $1
 WHERE id = $2
-RETURNING id, uuid, name, slug, logo_object_key, is_active, created_at, updated_at
+RETURNING id, uuid, name, slug, logo_object_key, is_active, created_at, updated_at, motomarks_id, motomarks_match_score, motomarks_match_source, motomarks_suggested_id, motomarks_suggested_score, brand_color, synced_logo_variants
 `
 
 type SetCatalogDisplayBrandLogoParams struct {
@@ -1796,6 +1845,13 @@ func (q *Queries) SetCatalogDisplayBrandLogo(ctx context.Context, arg SetCatalog
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.MotomarksID,
+		&i.MotomarksMatchScore,
+		&i.MotomarksMatchSource,
+		&i.MotomarksSuggestedID,
+		&i.MotomarksSuggestedScore,
+		&i.BrandColor,
+		&i.SyncedLogoVariants,
 	)
 	return i, err
 }
@@ -1948,7 +2004,7 @@ func (q *Queries) TenantCountCatalogTypes(ctx context.Context, arg TenantCountCa
 
 const tenantListCatalogBrands = `-- name: TenantListCatalogBrands :many
 
-SELECT d.uuid, d.name, d.slug, d.logo_object_key, d.updated_at,
+SELECT d.uuid, d.name, d.slug, d.logo_object_key, d.updated_at, d.synced_logo_variants, d.brand_color,
     (SELECT b.category FROM catalog_brands b WHERE b.display_brand_id = d.id
         ORDER BY (SELECT COUNT(*) FROM catalog_types t WHERE t.brand_id = b.id) DESC, b.id LIMIT 1)::text AS category
 FROM catalog_display_brands d
@@ -1974,12 +2030,14 @@ type TenantListCatalogBrandsParams struct {
 }
 
 type TenantListCatalogBrandsRow struct {
-	Uuid          uuid.UUID          `json:"uuid"`
-	Name          string             `json:"name"`
-	Slug          string             `json:"slug"`
-	LogoObjectKey pgtype.Text        `json:"logo_object_key"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
-	Category      string             `json:"category"`
+	Uuid               uuid.UUID          `json:"uuid"`
+	Name               string             `json:"name"`
+	Slug               string             `json:"slug"`
+	LogoObjectKey      pgtype.Text        `json:"logo_object_key"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	SyncedLogoVariants []string           `json:"synced_logo_variants"`
+	BrandColor         pgtype.Text        `json:"brand_color"`
+	Category           string             `json:"category"`
 }
 
 // Tenant read-only search (vehicle forms). Brands are display brands;
@@ -2005,6 +2063,8 @@ func (q *Queries) TenantListCatalogBrands(ctx context.Context, arg TenantListCat
 			&i.Slug,
 			&i.LogoObjectKey,
 			&i.UpdatedAt,
+			&i.SyncedLogoVariants,
+			&i.BrandColor,
 			&i.Category,
 		); err != nil {
 			return nil, err
@@ -2205,7 +2265,7 @@ SET name = COALESCE($1, name),
     slug = COALESCE($2, slug),
     is_active = COALESCE($3, is_active)
 WHERE id = $4
-RETURNING id, uuid, name, slug, logo_object_key, is_active, created_at, updated_at
+RETURNING id, uuid, name, slug, logo_object_key, is_active, created_at, updated_at, motomarks_id, motomarks_match_score, motomarks_match_source, motomarks_suggested_id, motomarks_suggested_score, brand_color, synced_logo_variants
 `
 
 type UpdateCatalogDisplayBrandParams struct {
@@ -2232,6 +2292,13 @@ func (q *Queries) UpdateCatalogDisplayBrand(ctx context.Context, arg UpdateCatal
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.MotomarksID,
+		&i.MotomarksMatchScore,
+		&i.MotomarksMatchSource,
+		&i.MotomarksSuggestedID,
+		&i.MotomarksSuggestedScore,
+		&i.BrandColor,
+		&i.SyncedLogoVariants,
 	)
 	return i, err
 }

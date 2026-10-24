@@ -91,6 +91,10 @@ type CatalogRef struct {
 	ModelName string     `json:"model_name"`
 	BrandUUID *uuid.UUID `json:"brand_uuid"`
 	BrandName string     `json:"brand_name"`
+	// Brand logo streams (API-owned): default, badge (emblem) and wordmark.
+	BrandLogoURL     *string `json:"brand_logo_url"`
+	BrandBadgeURL    *string `json:"brand_badge_url"`
+	BrandWordmarkURL *string `json:"brand_wordmark_url"`
 	// Years are the valid model years of the type.
 	Years []int32 `json:"years"`
 }

@@ -365,6 +365,7 @@ export const routes = {
       unresolved: "/platform/catalog/unresolved",
       imports: "/platform/catalog/imports",
       importDetail: (uuid: string) => `/platform/catalog/imports/${uuid}`,
+      logos: "/platform/catalog/logos",
     },
     imports: {
       root: "/platform/settings/imports",

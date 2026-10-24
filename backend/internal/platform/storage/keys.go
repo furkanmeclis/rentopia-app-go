@@ -160,3 +160,9 @@ func trimExt(ext string) string {
 func SiteMediaObjectKey(orgUUID, mediaUUID, ext string) string {
 	return fmt.Sprintf("%ssite/media/%s.%s", OrganizationPrefix(orgUUID), mediaUUID, trimExt(ext))
 }
+
+// BrandLogoObjectKey builds brand-logos/{motomarksID}/{variant}-md.{ext} for
+// a logo variant (badge, wordmark, full) copied from the brand logo mirror.
+func BrandLogoObjectKey(motomarksID, variant, ext string) string {
+	return fmt.Sprintf("brand-logos/%s/%s-md.%s", motomarksID, variant, trimExt(ext))
+}

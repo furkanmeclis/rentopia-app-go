@@ -7,7 +7,7 @@ import { routes } from "@/config/routes";
 import { useLocale } from "@/providers/locale-provider";
 
 export type CatalogTab =
-  "brands" | "models" | "types" | "unresolved" | "imports";
+  "brands" | "models" | "types" | "unresolved" | "imports" | "logos";
 
 const TABS: { id: CatalogTab; href: string; labelKey: string }[] = [
   {
@@ -35,6 +35,11 @@ const TABS: { id: CatalogTab; href: string; labelKey: string }[] = [
     href: routes.platform.catalog.imports,
     labelKey: "catalog.tabs.imports",
   },
+  {
+    id: "logos",
+    href: routes.platform.catalog.logos,
+    labelKey: "catalog.tabs.logos",
+  },
 ];
 
 /** Route-backed tabs shared by the catalog list pages. */
@@ -57,7 +62,10 @@ export function useCatalogBreadcrumbs(current: string) {
   const { t } = useLocale();
   return [
     { label: t("layout.breadcrumb_home"), href: routes.platform.home },
-    { label: t("catalog.title"), href: routes.platform.catalog.root },
+    {
+      label: t("catalog.title"),
+      href: routes.platform.catalog.root,
+    },
     { label: current },
   ];
 }

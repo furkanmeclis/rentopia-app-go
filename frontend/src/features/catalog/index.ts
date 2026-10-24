@@ -5,3 +5,4 @@ export { CatalogTypeDetailPage } from "./components/type-detail-page";
 export { CatalogImportsPage } from "./components/imports-page";
 export { CatalogImportDetailPage } from "./components/import-detail-page";
 export { CatalogUnresolvedQueuePage } from "./components/unresolved-queue-page";
+export { CatalogBrandLogosPage } from "./components/brand-logos-page";

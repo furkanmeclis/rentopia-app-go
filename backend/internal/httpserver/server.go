@@ -812,6 +812,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 	}
 	catalogSvc := catalogusecase.New(catalogrepository.NewPostgres(deps.DB, deps.Queries), deps.Storage, catalogQueue, activityRec, log)
 	catalogSvc.SetResourceEvents(resourceEvents)
+	catalogSvc.SetSecretBox(secretBox)
 	catalogmodule.RegisterRoutes(mux, cataloghandler.New(catalogSvc, activityRec), tokens, loader, tenantResolver)
 	realtime.RegisterRoutes(mux, realtime.NewHandler(rtIssuer, uc), tokens, loader)
 
@@ -925,6 +926,7 @@ func New(cfg config.Config, log *slog.Logger, deps Deps) (*Server, error) {
 			WithLogPurge(logsSvc.ApplyDueRules).
 			WithMobilePush(notifSvc.SendMobilePush, notifSvc.ProcessPushReceipts).
 			WithCatalogImport(catalogSvc.ProcessImport).
+			WithBrandLogoSync(catalogSvc.ProcessBrandLogoSync).
 			WithVehicleReminders(vehicleRecordsSvc.RunReminders)
 		if searchIndexer != nil {
 			s.worker.WithSearch(

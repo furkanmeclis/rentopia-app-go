@@ -531,6 +531,11 @@ func main() {
 	// Tenant jobs carry only the organization id: scope their events.
 	resourceEvents.AddResolver(tenantmodule.ChannelResolver(tenantmodule.QueriesLookup(queries)))
 	catalogSvc.SetResourceEvents(resourceEvents)
+	if box, err := crypto.NewSecretBox(cfg.Encryption.Key); err == nil {
+		catalogSvc.SetSecretBox(box)
+	} else {
+		log.Warn("brand_logo_sync_encryption_unavailable", "error", err)
+	}
 	importSvc.SetResourceEvents(resourceEvents)
 	bulkSvc.SetResourceEvents(resourceEvents)
 	reservationSvc.SetResourceEvents(resourceEvents)
@@ -579,6 +584,7 @@ func main() {
 		WithLogPurge(logsSvc.ApplyDueRules).
 		WithMobilePush(notifSvc.SendMobilePush, notifSvc.ProcessPushReceipts).
 		WithCatalogImport(catalogSvc.ProcessImport).
+		WithBrandLogoSync(catalogSvc.ProcessBrandLogoSync).
 		WithVehicleReminders(vehicleRecordsSvc.RunReminders).
 		WithExpireHolds(func(ctx context.Context) (int, error) {
 			// Reservations whose review / payment window elapsed first

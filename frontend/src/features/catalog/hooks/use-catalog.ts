@@ -18,7 +18,10 @@ import {
   type UnmergeCatalogDisplayBrandRequest,
   type PatchCatalogModelRequest,
   type PatchCatalogTypeRequest,
+  type MotomarksLinkMode,
+  type PatchBrandLogoSettingsRequest,
 } from "@/features/catalog/services/catalog.service";
+import type { ServerListParams } from "@/components/entity";
 import { useAppMutation } from "@/lib/query/mutation";
 import { useLocale } from "@/providers/locale-provider";
 import { appToast } from "@/providers/toast-provider";
@@ -47,6 +50,11 @@ export const catalogKeys = {
   importList: (params: Record<string, unknown>) =>
     ["catalog", "imports", "list", params] as const,
   import: (uuid: string) => ["catalog", "imports", "detail", uuid] as const,
+  logoSettings: () => ["catalog", "brand-logos", "settings"] as const,
+  logoRuns: (params: Record<string, unknown>) =>
+    ["catalog", "brand-logos", "runs", params] as const,
+  logoUnmatched: (params: Record<string, unknown>) =>
+    ["catalog", "brand-logos", "unmatched", params] as const,
 };
 
 export function useCatalogMeta(
@@ -390,4 +398,111 @@ export function useInvalidateCatalog() {
     void queryClient.invalidateQueries({ queryKey: catalogKeys.models() });
     void queryClient.invalidateQueries({ queryKey: catalogKeys.types() });
   };
+}
+
+// ---------- brand logo sync (motomarks-mirror) ----------
+
+export function useBrandLogoSettings(options?: { refetchInterval?: number }) {
+  return useQuery({
+    queryKey: catalogKeys.logoSettings(),
+    queryFn: () => catalogService.brandLogoSettings(),
+    refetchInterval: options?.refetchInterval,
+  });
+}
+
+function useInvalidateBrandLogos() {
+  const queryClient = useQueryClient();
+  return () => {
+    void queryClient.invalidateQueries({
+      queryKey: catalogKeys.logoSettings(),
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ["catalog", "brand-logos", "runs"],
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ["catalog", "brand-logos", "unmatched"],
+    });
+    void queryClient.invalidateQueries({ queryKey: catalogKeys.brands() });
+    void queryClient.invalidateQueries({
+      queryKey: catalogKeys.displayBrands(),
+    });
+  };
+}
+
+export function usePatchBrandLogoSettings() {
+  const invalidate = useInvalidateBrandLogos();
+  const { t } = useLocale();
+  return useAppMutation({
+    mutationFn: (body: PatchBrandLogoSettingsRequest) =>
+      catalogService.patchBrandLogoSettings(body),
+    onSuccess: () => {
+      invalidate();
+      appToast.success(t("catalog.toast.logo_settings_saved"));
+    },
+  });
+}
+
+export function useTestBrandLogoConnection() {
+  const { t } = useLocale();
+  return useAppMutation({
+    mutationFn: () => catalogService.testBrandLogoConnection(),
+    onSuccess: () => appToast.success(t("catalog.logos.test_ok")),
+  });
+}
+
+export function useRequestBrandLogoSync() {
+  const invalidate = useInvalidateBrandLogos();
+  const { t } = useLocale();
+  return useAppMutation({
+    mutationFn: () => catalogService.requestBrandLogoSync(),
+    onSuccess: () => {
+      invalidate();
+      appToast.success(t("catalog.toast.logo_sync_requested"));
+    },
+  });
+}
+
+export function useBrandLogoRuns(
+  params: ServerListParams,
+  options?: { refetchInterval?: number },
+) {
+  return useQuery({
+    queryKey: catalogKeys.logoRuns(params),
+    queryFn: () => catalogService.listBrandLogoRuns(params),
+    placeholderData: (prev) => prev,
+    refetchInterval: options?.refetchInterval,
+  });
+}
+
+export function useUnmatchedDisplayBrands(params: ServerListParams) {
+  return useQuery({
+    queryKey: catalogKeys.logoUnmatched(params),
+    queryFn: () => catalogService.listUnmatchedDisplayBrands(params),
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useSetDisplayBrandMotomarks() {
+  const invalidate = useInvalidateBrandLogos();
+  const { t } = useLocale();
+  return useAppMutation({
+    mutationFn: (v: {
+      uuid: string;
+      mode: MotomarksLinkMode;
+      motomarksId?: string;
+    }) =>
+      catalogService.setDisplayBrandMotomarks(v.uuid, v.mode, v.motomarksId),
+    onSuccess: (_res, v) => {
+      invalidate();
+      appToast.success(
+        t(
+          v.mode === "link"
+            ? "catalog.toast.logo_linked"
+            : v.mode === "skip"
+              ? "catalog.toast.logo_skipped"
+              : "catalog.toast.logo_unlinked",
+        ),
+      );
+    },
+  });
 }

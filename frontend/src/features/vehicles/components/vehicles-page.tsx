@@ -1,5 +1,7 @@
 "use client";
 
+import { BrandMark } from "@/components/common/brand-mark";
+
 import type { ColumnDef } from "@tanstack/react-table";
 import {
   Activity,
@@ -188,14 +190,22 @@ export function VehiclesPage() {
           enableSorting: false,
           gridSecondary: true,
           cell: ({ row }) => (
-            <div className="min-w-0">
-              <p className="truncate font-medium">
-                {row.original.brand} {row.original.model}
-              </p>
-              <p className="text-muted-foreground truncate text-xs">
-                {row.original.type_name ||
-                  (row.original.manual_entry ? t("vehicles.manual_badge") : "")}
-              </p>
+            <div className="flex min-w-0 items-center gap-2">
+              <BrandMark
+                name={row.original.brand}
+                logoUrl={row.original.catalog?.brand_badge_url}
+              />
+              <div className="min-w-0">
+                <p className="truncate font-medium">
+                  {row.original.brand} {row.original.model}
+                </p>
+                <p className="text-muted-foreground truncate text-xs">
+                  {row.original.type_name ||
+                    (row.original.manual_entry
+                      ? t("vehicles.manual_badge")
+                      : "")}
+                </p>
+              </div>
             </div>
           ),
         }),

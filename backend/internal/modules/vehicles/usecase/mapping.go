@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	catalogusecase "github.com/furkanmeclis/nextjs-go-boilerplate/backend/internal/modules/catalog/usecase"
 	"strings"
 	"time"
 
@@ -123,6 +124,8 @@ func catalogRef(row repository.VehicleRow) *model.CatalogRef {
 		ref.ModelUUID = &id
 	}
 	if row.BrandUuid.Valid {
+		urls := catalogusecase.DisplayBrandLogoURLs(row.BrandUuid.Bytes, row.BrandLogoObjectKey, row.BrandLogoVariants, row.BrandUpdatedAt)
+		ref.BrandLogoURL, ref.BrandBadgeURL, ref.BrandWordmarkURL = urls.LogoURL, urls.BadgeURL, urls.WordmarkURL
 		id := uuid.UUID(row.BrandUuid.Bytes)
 		ref.BrandUUID = &id
 	}
