@@ -80,6 +80,18 @@ export type ListImportsParams = ServerListParams & {
 
 const base = "/v1/platform/catalog";
 
+/**
+ * Sync runs and the unmatched queue have a fixed server-side order (newest
+ * run first, brand name A→Z) and the API rejects any `sort` with 400.
+ * `useServerListState` always emits one, so drop it here.
+ */
+function fixedOrderParams(
+  params: ServerListParams,
+): Omit<ServerListParams, "sort"> {
+  const { sort: _sort, ...rest } = params;
+  return rest;
+}
+
 export const catalogService = {
   brandsMeta() {
     return platformRequest<ResourceMeta>("GET", `${base}/brands/meta`);
@@ -256,14 +268,14 @@ export const catalogService = {
     return platformRequest<Page<BrandLogoSyncRun>>(
       "GET",
       `${base}/brand-logos/runs`,
-      { query: { ...params } },
+      { query: fixedOrderParams(params) },
     );
   },
   listUnmatchedDisplayBrands(params: ServerListParams) {
     return platformRequest<Page<UnmatchedDisplayBrand>>(
       "GET",
       `${base}/brand-logos/unmatched`,
-      { query: { ...params } },
+      { query: fixedOrderParams(params) },
     );
   },
   searchBrandLogoSources(q: string, limit = 20) {
